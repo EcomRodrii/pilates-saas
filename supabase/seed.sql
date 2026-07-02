@@ -3,6 +3,15 @@
 -- Semana actual: lun 2026-06-29 … sáb 2026-07-04
 -- ═══════════════════════════════════════════════════════════════════
 
+-- Limpia datos previos (cascade borra todo lo relacionado)
+truncate table
+  notas_progreso, notas_internas, posts_comunidad, videos_on_demand,
+  notificaciones, actividad_reciente, codigos_descuento, automation_logs,
+  automation_rules, automatizaciones, campanas, ventas_pos, productos_pos,
+  citas, facturas, recibos, reservas, sesiones, spots, salas,
+  suscripciones, socios, planes_tarifa, tipos_clase, instructores, studios
+cascade;
+
 -- ─── Studio ──────────────────────────────────────────────────────────────────
 insert into studios (id,nombre,nif,razon_social,direccion,ciudad,codigo_postal,email,telefono,color_primario,plan,creado_en) values
 ('studio-1','Pilates Boutique','B12345678','Pilates Boutique SL','Calle Larios 12, 2º','Málaga','29005','hola@pilatesboutique.es','+34 951 000 000','#6366f1','ESTUDIO','2024-01-15T10:00:00Z');

@@ -410,6 +410,7 @@ declare
   ];
 begin
   foreach t in array tables loop
+    execute format('drop policy if exists "allow_all_%s" on %s', t, t);
     execute format('create policy "allow_all_%s" on %s for all to anon using (true) with check (true)', t, t);
   end loop;
 end $$;
