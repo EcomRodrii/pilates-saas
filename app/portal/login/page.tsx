@@ -1,43 +1,39 @@
 'use client';
 
 import { useState } from 'react';
-import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
+import { supabase } from '@/lib/supabase';
 import { Mail, Dumbbell, AlertCircle } from 'lucide-react';
 
 export default function PortalLogin() {
-  const { socios, dataLoaded } = useStudio();
   const { login } = usePortalAuth();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      const socio = socios.find(s => s.email.toLowerCase() === email.toLowerCase().trim());
-      if (socio) {
-        login({
-          socioId: socio.id,
-          nombre: `${socio.nombre} ${socio.apellidos}`,
-          email: socio.email,
-        });
-      } else {
-        setError('No encontramos ninguna cuenta con ese email. Contacta con tu instructor.');
-        setLoading(false);
-      }
-    }, 600);
-  }
+    const { data, error: dbError } = await supabase
+      .from('socios')
+      .select('id, nombre, apellidos, email')
+      .ilike('email', email.trim())
+      .eq('studio_id', 'studio-1')
+      .maybeSingle();
 
-  if (!dataLoaded) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#4F46E5]/20 border-t-[#4F46E5] rounded-full animate-spin" />
-      </div>
-    );
+    if (dbError || !data) {
+      setError('No encontramos ninguna cuenta con ese email. Contacta con tu instructor.');
+      setLoading(false);
+      return;
+    }
+
+    login({
+      socioId: data.id,
+      nombre: `${data.nombre} ${data.apellidos}`,
+      email: data.email,
+    });
   }
 
   return (
@@ -87,11 +83,6 @@ export default function PortalLogin() {
       <p className="mt-8 text-xs text-[#9CA3AF] text-center max-w-xs">
         ¿Eres nuevo? Habla con tu instructor para que te añada como miembro y puedas acceder.
       </p>
-
-      {/* Demo hint */}
-      <div className="mt-6 bg-[#EEF2FF] rounded-xl p-3 text-xs text-[#4F46E5] text-center max-w-sm">
-        <strong>Demo:</strong> usa el email de cualquier miembro registrado en el estudio
-      </div>
     </div>
   );
 }
