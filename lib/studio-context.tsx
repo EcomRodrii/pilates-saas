@@ -326,6 +326,7 @@ interface StudioContextValue {
 
   // Studio management
   resetDatosPilates: () => void;
+  dataLoaded: boolean;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -1433,6 +1434,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     runAutomation,
     addNotaProgreso,
     dismissLog,
+    dataLoaded,
   };
 
   function resetDatosPilates() {

@@ -6,7 +6,7 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { Mail, Dumbbell, AlertCircle } from 'lucide-react';
 
 export default function PortalLogin() {
-  const { socios } = useStudio();
+  const { socios, dataLoaded } = useStudio();
   const { login } = usePortalAuth();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -30,6 +30,14 @@ export default function PortalLogin() {
         setLoading(false);
       }
     }, 600);
+  }
+
+  if (!dataLoaded) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#4F46E5]/20 border-t-[#4F46E5] rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (
