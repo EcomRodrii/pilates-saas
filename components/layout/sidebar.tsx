@@ -115,7 +115,7 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
 
 // ─── Mobile: "Más" full-screen drawer ────────────────────────────────────────
 
-function MasDrawer({ onClose }: { onClose: () => void }) {
+function MasDrawer({ onClose, userInitials, userEmail, handleSignOut }: { onClose: () => void; userInitials: string; userEmail: string; handleSignOut: () => void }) {
   const pathname = usePathname();
 
   return (
@@ -227,7 +227,7 @@ export function Sidebar() {
       </nav>
 
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
-      {masOpen && <MasDrawer onClose={() => setMasOpen(false)} />}
+      {masOpen && <MasDrawer onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} />}
 
       {/* ── Desktop sidebar ────────────────────────────────────────────────── */}
       <aside
