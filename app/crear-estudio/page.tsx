@@ -1,0 +1,259 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { Building2, User, CheckCircle2 } from 'lucide-react';
+
+type StudioTipo = 'Pilates' | 'Yoga' | 'Fitness' | 'CrossFit' | 'Danza' | 'Otro';
+
+interface StudioForm {
+  nombre: string;
+  tipo: StudioTipo;
+  ciudad: string;
+  telefono: string;
+}
+
+interface OwnerForm {
+  nombreCompleto: string;
+  email: string;
+  contrasena: string;
+}
+
+const TIPOS: StudioTipo[] = ['Pilates', 'Yoga', 'Fitness', 'CrossFit', 'Danza', 'Otro'];
+
+export default function CrearEstudioPage() {
+  const [step, setStep] = useState(1);
+  const [studio, setStudio] = useState<StudioForm>({ nombre: '', tipo: 'Pilates', ciudad: '', telefono: '' });
+  const [owner, setOwner] = useState<OwnerForm>({ nombreCompleto: '', email: '', contrasena: '' });
+
+  function handleStudioSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStep(2);
+  }
+
+  function handleOwnerSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStep(3);
+  }
+
+  const portalSlug = studio.nombre
+    ? studio.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    : 'tu-estudio';
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center gap-1.5 mb-4">
+            {[1, 2, 3].map(n => (
+              <div
+                key={n}
+                className="transition-all duration-300"
+              >
+                <div
+                  className={`rounded-full ${
+                    n === step
+                      ? 'w-6 h-2.5 bg-[#4F46E5]'
+                      : n < step
+                      ? 'w-2.5 h-2.5 bg-[#4F46E5]/60'
+                      : 'w-2.5 h-2.5 bg-[#E5E7EB]'
+                  }`}
+                />
+              </div>
+            ))}
+          </div>
+          {step < 3 && (
+            <p className="text-[13px] text-[#6B7280]">Paso {step} de 2</p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-lg border border-[#E8EAED] overflow-hidden">
+          {step === 1 && (
+            <form onSubmit={handleStudioSubmit} className="p-6 space-y-5">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-[#4F46E5]/10 flex items-center justify-center">
+                  <Building2 size={20} className="text-[#4F46E5]" />
+                </div>
+                <div>
+                  <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Tu estudio</h1>
+                  <p className="text-[13px] text-[#6B7280]">Cuéntanos sobre tu negocio</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Nombre del estudio</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="Ej. Pilates Boutique"
+                    value={studio.nombre}
+                    onChange={e => setStudio(s => ({ ...s, nombre: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Tipo de estudio</label>
+                  <select
+                    value={studio.tipo}
+                    onChange={e => setStudio(s => ({ ...s, tipo: e.target.value as StudioTipo }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition bg-white"
+                  >
+                    {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Ciudad</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="Ej. Madrid"
+                    value={studio.ciudad}
+                    onChange={e => setStudio(s => ({ ...s, ciudad: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Teléfono</label>
+                  <input
+                    required
+                    type="tel"
+                    placeholder="+34 600 000 000"
+                    value={studio.telefono}
+                    onChange={e => setStudio(s => ({ ...s, telefono: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-[#4F46E5] text-white font-semibold text-[15px] hover:bg-[#4338CA] transition-colors"
+              >
+                Continuar →
+              </button>
+            </form>
+          )}
+
+          {step === 2 && (
+            <form onSubmit={handleOwnerSubmit} className="p-6 space-y-5">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-[#4F46E5]/10 flex items-center justify-center">
+                  <User size={20} className="text-[#4F46E5]" />
+                </div>
+                <div>
+                  <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Tu cuenta</h1>
+                  <p className="text-[13px] text-[#6B7280]">Datos del propietario</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Nombre completo</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="Ej. María García"
+                    value={owner.nombreCompleto}
+                    onChange={e => setOwner(o => ({ ...o, nombreCompleto: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Email</label>
+                  <input
+                    required
+                    type="email"
+                    placeholder="maria@miestudio.com"
+                    value={owner.email}
+                    onChange={e => setOwner(o => ({ ...o, email: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Contraseña</label>
+                  <input
+                    required
+                    type="password"
+                    placeholder="Mínimo 8 caracteres"
+                    value={owner.contrasena}
+                    onChange={e => setOwner(o => ({ ...o, contrasena: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="flex-1 py-3 rounded-xl border border-[#E5E7EB] text-[#374151] font-medium text-[15px] hover:bg-[#F9FAFB] transition-colors"
+                >
+                  ← Atrás
+                </button>
+                <button
+                  type="submit"
+                  className="flex-[2] py-3 rounded-xl bg-[#4F46E5] text-white font-semibold text-[15px] hover:bg-[#4338CA] transition-colors"
+                >
+                  Crear estudio →
+                </button>
+              </div>
+            </form>
+          )}
+
+          {step === 3 && (
+            <div className="p-6 space-y-5 text-center">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-[#4F46E5]/10 flex items-center justify-center">
+                  <CheckCircle2 size={32} className="text-[#4F46E5]" />
+                </div>
+              </div>
+
+              <div>
+                <h1 className="text-[20px] font-bold text-[#111827]">¡Tu estudio está listo!</h1>
+                <p className="text-[14px] text-[#6B7280] mt-1">
+                  <strong className="text-[#111827]">{studio.nombre}</strong> ya está configurado.
+                  Ahora puedes acceder a tu dashboard o compartir el portal con tus socios.
+                </p>
+              </div>
+
+              <div className="bg-[#F8F9FA] rounded-xl px-4 py-3 text-left space-y-1">
+                <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#9CA3AF]">URL del portal</p>
+                <p className="text-[13px] font-medium text-[#4F46E5] break-all">
+                  https://{portalSlug}.miapp.com/portal
+                </p>
+              </div>
+
+              <div className="space-y-2.5">
+                <Link
+                  href="/dashboard"
+                  className="flex items-center justify-center w-full py-3.5 rounded-xl bg-[#4F46E5] text-white font-semibold text-[15px] hover:bg-[#4338CA] transition-colors"
+                >
+                  Ir al dashboard →
+                </Link>
+                <Link
+                  href="/portal/login"
+                  className="flex items-center justify-center w-full py-3.5 rounded-xl border border-[#4F46E5]/30 text-[#4F46E5] font-semibold text-[15px] hover:bg-[#4F46E5]/5 transition-colors"
+                >
+                  Ver portal de miembros →
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <p className="text-center text-[12px] text-[#9CA3AF] mt-4">
+          ¿Ya tienes cuenta?{' '}
+          <Link href="/dashboard" className="text-[#4F46E5] hover:underline">
+            Iniciar sesión
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
