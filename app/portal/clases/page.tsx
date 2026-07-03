@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
+import { Clock, MapPin, User, CheckCircle, AlertCircle } from 'lucide-react';
 
 type Tab = 'proximas' | 'mis-reservas';
 
@@ -10,196 +11,179 @@ export default function ClasesPage() {
   const { session } = usePortalAuth();
   const { sesiones, reservas, tiposClase, salas, instructores, addReserva, cancelarReserva } = useStudio();
   const [tab, setTab] = useState<Tab>('proximas');
-
   const now = new Date();
 
-  const sesionesActivas = useMemo(
-    () =>
-      sesiones
-        .filter(s => !s.cancelada && new Date(s.inicio) > now)
-        .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime()),
-    [sesiones]
-  );
+  const sesionesActivas = useMemo(() =>
+    sesiones
+      .filter(s => !s.cancelada && new Date(s.inicio) > now)
+      .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime()),
+  [sesiones]);
 
-  const misReservas = useMemo(
-    () => reservas.filter(r => r.socioId === session?.socioId),
-    [reservas, session?.socioId]
-  );
+  const misReservas = useMemo(() =>
+    reservas.filter(r => r.socioId === session?.socioId), [reservas, session?.socioId]);
 
   const sesionesFiltradas = useMemo(() => {
     if (tab === 'mis-reservas') {
-      const misSesionIds = new Set(
-        misReservas
-          .filter(r => r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')
-          .map(r => r.sesionId)
-      );
-      return sesionesActivas.filter(s => misSesionIds.has(s.id));
+      const ids = new Set(misReservas.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA').map(r => r.sesionId));
+      return sesionesActivas.filter(s => ids.has(s.id));
     }
     return sesionesActivas;
   }, [tab, sesionesActivas, misReservas]);
 
   const groupedByDay = useMemo(() => {
     const groups: { dayKey: string; label: string; items: typeof sesionesFiltradas }[] = [];
-    for (const sesion of sesionesFiltradas) {
-      const d = new Date(sesion.inicio);
+    for (const ses of sesionesFiltradas) {
+      const d = new Date(ses.inicio);
       const dayKey = d.toISOString().slice(0, 10);
-      const label = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
+      const isToday = dayKey === now.toISOString().slice(0, 10);
+      const isTomorrow = dayKey === new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+      const label = isToday ? 'Hoy'
+        : isTomorrow ? 'Mañana'
+        : d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
       const last = groups[groups.length - 1];
-      if (last && last.dayKey === dayKey) {
-        last.items.push(sesion);
-      } else {
-        groups.push({ dayKey, label, items: [sesion] });
-      }
+      if (last?.dayKey === dayKey) last.items.push(ses);
+      else groups.push({ dayKey, label: label.charAt(0).toUpperCase() + label.slice(1), items: [ses] });
     }
     return groups;
   }, [sesionesFiltradas]);
 
-  function getMiReserva(sesionId: string) {
-    return misReservas.find(
-      r =>
-        r.sesionId === sesionId &&
-        (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')
-    ) ?? null;
-  }
+  const getMiReserva = (sesionId: string) =>
+    misReservas.find(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')) ?? null;
 
-  function getConfirmadasCount(sesionId: string) {
-    return reservas.filter(r => r.sesionId === sesionId && r.estado === 'CONFIRMADA').length;
-  }
-
-  function handleReservar(sesionId: string) {
-    if (!session?.socioId) return;
-    addReserva(sesionId, session.socioId);
-  }
-
-  function handleCancelar(reservaId: string) {
-    cancelarReserva(reservaId);
-  }
+  const getLibres = (sesionId: string, aforo: number) =>
+    aforo - reservas.filter(r => r.sesionId === sesionId && r.estado === 'CONFIRMADA').length;
 
   const formatTime = (iso: string) =>
     new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-  const capitalizeFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const totalReservas = misReservas.filter(r => r.estado === 'CONFIRMADA').length;
 
   return (
-    <div className="px-4 pt-5 pb-6 space-y-4">
-      <h1 className="text-xl font-extrabold text-[#111827]">Clases</h1>
+    <div className="bg-white min-h-full">
 
-      <div className="flex gap-2 overflow-x-auto no-scrollbar">
-        {(
-          [
-            { key: 'proximas', label: 'Próximas' },
-            { key: 'mis-reservas', label: 'Mis reservas' },
-          ] as { key: Tab; label: string }[]
-        ).map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-              tab === t.key
-                ? 'bg-[#4F46E5] text-white'
-                : 'bg-white border border-[#E8EAED] text-[#6B7280]'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Header */}
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)' }}>
+        <h1 className="text-white text-[28px] font-extrabold tracking-tight leading-tight">Clases</h1>
+        <p className="text-indigo-300 text-[13px] mt-0.5">{totalReservas} reservas activas</p>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mt-5">
+          {([['proximas', 'Todas las clases'], ['mis-reservas', 'Mis reservas']] as [Tab, string][]).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className="px-4 py-2 rounded-2xl text-[13px] font-bold transition-all"
+              style={{
+                backgroundColor: tab === key ? 'white' : 'rgba(255,255,255,0.12)',
+                color: tab === key ? '#4F46E5' : 'rgba(255,255,255,0.7)',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {groupedByDay.length === 0 ? (
-        <div className="bg-white border border-dashed border-[#D1D5DB] rounded-2xl p-8 text-center mt-6">
-          <p className="text-sm text-[#6B7280]">
-            {tab === 'mis-reservas'
-              ? 'No tienes reservas próximas'
-              : 'No hay sesiones disponibles próximamente'}
-          </p>
-        </div>
-      ) : (
-        groupedByDay.map(group => (
-          <div key={group.dayKey} className="space-y-3">
-            <p className="text-xs font-extrabold uppercase tracking-widest text-[#9CA3AF]">
-              {capitalizeFirst(group.label)}
+      {/* Content */}
+      <div className="px-4 pt-4 pb-4 space-y-6">
+        {groupedByDay.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-16 h-16 rounded-3xl bg-[#EEF2FF] flex items-center justify-center mb-4">
+              <Clock size={28} className="text-[#4F46E5]" />
+            </div>
+            <p className="font-bold text-[#111827] text-[16px]">
+              {tab === 'mis-reservas' ? 'Sin reservas activas' : 'Sin clases disponibles'}
             </p>
-            {group.items.map(sesion => {
-              const tipo = tiposClase.find(t => t.id === sesion.tipoClaseId);
-              const sala = salas.find(s => s.id === sesion.salaId);
-              const instructor = instructores.find(i => i.id === sesion.instructorId);
-              const confirmadas = getConfirmadasCount(sesion.id);
-              const libres = sesion.aforoMaximo - confirmadas;
-              const miReserva = getMiReserva(sesion.id);
-              const llena = libres <= 0;
-
-              return (
-                <div
-                  key={sesion.id}
-                  className="bg-white border border-[#E8EAED] rounded-2xl p-4 space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {tipo?.color && (
-                        <span
-                          className="shrink-0 w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: tipo.color }}
-                        />
-                      )}
-                      <p className="font-bold text-[#111827] truncate">
-                        {tipo?.nombre ?? 'Clase'}
-                      </p>
-                    </div>
-                    {miReserva?.estado === 'CONFIRMADA' && (
-                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#D1FAE5] text-[#065F46] text-xs font-semibold">
-                        Reservada
-                      </span>
-                    )}
-                    {miReserva?.estado === 'LISTA_ESPERA' && (
-                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] text-xs font-semibold">
-                        Lista de espera
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-1 text-xs text-[#6B7280]">
-                    <p>
-                      {formatTime(sesion.inicio)} – {formatTime(sesion.fin)}
-                      {sala && <span> · {sala.nombre}</span>}
-                    </p>
-                    {instructor && (
-                      <p>
-                        con {instructor.nombre}
-                      </p>
-                    )}
-                    <p className={libres === 0 ? 'text-[#EF4444] font-semibold' : ''}>
-                      {libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''} libre${libres !== 1 ? 's' : ''}` : 'Aforo completo'}
-                    </p>
-                  </div>
-
-                  <div className="flex justify-end">
-                    {miReserva?.estado === 'CONFIRMADA' ? (
-                      <button
-                        onClick={() => handleCancelar(miReserva.id)}
-                        className="rounded-xl px-3 py-1.5 text-xs font-semibold border border-[#E8EAED] text-[#EF4444] bg-white active:opacity-70 transition-opacity"
-                      >
-                        Cancelar
-                      </button>
-                    ) : miReserva?.estado === 'LISTA_ESPERA' ? null : (
-                      <button
-                        onClick={() => handleReservar(sesion.id)}
-                        disabled={llena}
-                        className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-opacity ${
-                          llena
-                            ? 'bg-[#F3F4F6] text-[#9CA3AF] cursor-not-allowed'
-                            : 'bg-[#4F46E5] text-white active:opacity-70'
-                        }`}
-                      >
-                        Reservar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            <p className="text-[13px] text-[#8E8E93] mt-1">
+              {tab === 'mis-reservas' ? 'Reserva una clase en la pestaña anterior' : 'Próximamente habrá nuevas clases'}
+            </p>
           </div>
-        ))
-      )}
+        ) : (
+          groupedByDay.map(group => (
+            <div key={group.dayKey}>
+              <p className="text-[13px] font-bold text-[#8E8E93] mb-3">{group.label}</p>
+              <div className="space-y-3">
+                {group.items.map(ses => {
+                  const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
+                  const sala = salas.find(s => s.id === ses.salaId);
+                  const instr = instructores.find(i => i.id === ses.instructorId);
+                  const libres = getLibres(ses.id, ses.aforoMaximo);
+                  const miReserva = getMiReserva(ses.id);
+                  const color = tipo?.color ?? '#4F46E5';
+
+                  return (
+                    <div key={ses.id} className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.08)' }}>
+                      {/* Color stripe */}
+                      <div className="h-1" style={{ backgroundColor: color }} />
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-extrabold text-[#111827] text-[16px] leading-tight">{tipo?.nombre ?? 'Clase'}</p>
+                            {instr && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <User size={11} className="text-[#8E8E93]" />
+                                <p className="text-[12px] text-[#6B7280]">{instr.nombre}</p>
+                              </div>
+                            )}
+                          </div>
+                          {miReserva?.estado === 'CONFIRMADA' && (
+                            <div className="flex items-center gap-1 bg-green-50 px-2.5 py-1 rounded-full shrink-0">
+                              <CheckCircle size={11} className="text-green-600" />
+                              <span className="text-[11px] font-bold text-green-700">Reservada</span>
+                            </div>
+                          )}
+                          {miReserva?.estado === 'LISTA_ESPERA' && (
+                            <div className="flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-full shrink-0">
+                              <AlertCircle size={11} className="text-amber-600" />
+                              <span className="text-[11px] font-bold text-amber-700">En espera</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1.5">
+                            <Clock size={12} className="text-[#8E8E93]" />
+                            <span className="text-[13px] font-semibold text-[#374151]">{formatTime(ses.inicio)} – {formatTime(ses.fin)}</span>
+                          </div>
+                          {sala && (
+                            <div className="flex items-center gap-1">
+                              <MapPin size={11} className="text-[#8E8E93]" />
+                              <span className="text-[12px] text-[#6B7280]">{sala.nombre}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#F5F5F5]">
+                          <p className="text-[12px] font-medium" style={{ color: libres <= 2 && libres > 0 ? '#D97706' : libres === 0 ? '#EF4444' : '#8E8E93' }}>
+                            {libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''} libre${libres !== 1 ? 's' : ''}` : 'Aforo completo'}
+                          </p>
+                          {miReserva?.estado === 'CONFIRMADA' ? (
+                            <button
+                              onClick={() => cancelarReserva(miReserva.id)}
+                              className="text-[13px] font-bold text-red-500 px-4 py-1.5 rounded-xl border border-red-100 active:opacity-70"
+                            >
+                              Cancelar
+                            </button>
+                          ) : !miReserva && (
+                            <button
+                              onClick={() => session?.socioId && addReserva(ses.id, session.socioId)}
+                              disabled={libres <= 0}
+                              className="text-[13px] font-bold px-4 py-1.5 rounded-xl text-white transition-opacity active:opacity-70 disabled:opacity-40"
+                              style={{ backgroundColor: libres > 0 ? color : '#C7C7CC' }}
+                            >
+                              {libres > 0 ? 'Reservar' : 'Lista espera'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

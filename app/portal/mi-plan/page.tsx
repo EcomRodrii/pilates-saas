@@ -3,36 +3,30 @@
 import { useMemo, useState } from 'react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { CreditCard, FileText, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, FileText, CreditCard } from 'lucide-react';
 
-type FiltroRecibo = 'TODOS' | 'COBRADO' | 'PENDIENTE';
+type Filtro = 'TODOS' | 'COBRADO' | 'PENDIENTE';
 
 export default function MiPlanPage() {
   const { session } = usePortalAuth();
   const { suscripciones, planesTarifa, recibos, facturas } = useStudio();
-  const [filtro, setFiltro] = useState<FiltroRecibo>('TODOS');
-
+  const [filtro, setFiltro] = useState<Filtro>('TODOS');
   const socioId = session?.socioId;
 
-  const suscripcion = useMemo(
-    () => suscripciones.find(s => s.socioId === socioId && s.estado === 'ACTIVA') ??
-          suscripciones.filter(s => s.socioId === socioId).sort((a, b) =>
-            new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime()
-          )[0] ?? null,
-    [suscripciones, socioId]
-  );
+  const suscripcion = useMemo(() =>
+    suscripciones.find(s => s.socioId === socioId && s.estado === 'ACTIVA') ??
+    suscripciones.filter(s => s.socioId === socioId).sort((a, b) =>
+      new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime())[0] ?? null,
+  [suscripciones, socioId]);
 
-  const plan = useMemo(
-    () => suscripcion ? planesTarifa.find(p => p.id === suscripcion.planId) ?? null : null,
-    [planesTarifa, suscripcion]
-  );
+  const plan = useMemo(() =>
+    suscripcion ? planesTarifa.find(p => p.id === suscripcion.planId) ?? null : null,
+  [planesTarifa, suscripcion]);
 
-  const misRecibos = useMemo(
-    () => recibos
-      .filter(r => r.socioId === socioId)
+  const misRecibos = useMemo(() =>
+    recibos.filter(r => r.socioId === socioId)
       .sort((a, b) => new Date(b.fechaVencimiento).getTime() - new Date(a.fechaVencimiento).getTime()),
-    [recibos, socioId]
-  );
+  [recibos, socioId]);
 
   const recibosFiltrados = useMemo(() => {
     if (filtro === 'COBRADO') return misRecibos.filter(r => r.estado === 'COBRADO');
@@ -40,187 +34,143 @@ export default function MiPlanPage() {
     return misRecibos;
   }, [misRecibos, filtro]);
 
-  const estadoBadge = (estado: string) => {
-    if (estado === 'ACTIVA') return { label: 'Activa', bg: '#DCFCE7', color: '#059669' };
-    if (estado === 'PAUSADA') return { label: 'Pausada', bg: '#FEF3C7', color: '#D97706' };
-    if (estado === 'CANCELADA') return { label: 'Cancelada', bg: '#FEE2E2', color: '#DC2626' };
-    return { label: estado, bg: '#F3F4F6', color: '#6B7280' };
-  };
-
-  const reciboBadge = (estado: string) => {
-    if (estado === 'COBRADO') return { label: 'Cobrado', bg: '#DCFCE7', color: '#059669' };
-    if (estado === 'DEVUELTO') return { label: 'Devuelto', bg: '#FEE2E2', color: '#DC2626' };
-    return { label: 'Pendiente', bg: '#FEF3C7', color: '#D97706' };
-  };
-
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-
-  const formatImporte = (n: number) =>
+  const formatEur = (n: number) =>
     n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
-  const tipoPlanLabel = (tipo: string) => {
-    if (tipo === 'MENSUAL') return 'Suscripción mensual';
-    if (tipo === 'BONO') return 'Bono de sesiones';
-    return 'Pago puntual';
-  };
-
-  const precioLabel = (tipo: string, precio: number, sesiones: number | null) => {
-    if (tipo === 'MENSUAL') return `${formatImporte(precio)}/mes`;
-    if (tipo === 'BONO' && sesiones) return `${formatImporte(precio)} · ${sesiones} sesiones`;
-    return formatImporte(precio);
-  };
-
-  const badge = suscripcion ? estadoBadge(suscripcion.estado) : null;
-
-  const sesionesProgress = plan && plan.tipo === 'BONO' && plan.sesiones != null && suscripcion?.sesionesRestantes != null
+  const sesionesProgress = plan?.tipo === 'BONO' && plan.sesiones && suscripcion?.sesionesRestantes != null
     ? Math.min(100, Math.round((suscripcion.sesionesRestantes / plan.sesiones) * 100))
     : null;
 
+  const totalPagado = misRecibos.filter(r => r.estado === 'COBRADO').reduce((s, r) => s + r.importe, 0);
+
   return (
-    <div className="space-y-6 px-4 pt-5 pb-8">
-      <div>
-        <h1 className="text-2xl font-extrabold text-[#111827]">Mi plan</h1>
-        <p className="text-sm text-[#9CA3AF] mt-0.5">Suscripción e historial de pagos</p>
+    <div className="bg-white min-h-full">
+
+      {/* Header */}
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)' }}>
+        <h1 className="text-white text-[28px] font-extrabold tracking-tight">Mi plan</h1>
+        <p className="text-indigo-300 text-[13px] mt-0.5">{formatEur(totalPagado)} pagado en total</p>
       </div>
 
-      {plan && suscripcion && badge ? (
-        <div className="bg-white border border-[#E8EAED] rounded-2xl p-5 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-lg font-extrabold text-[#111827]">{plan.nombre}</p>
-                <span
-                  className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: badge.bg, color: badge.color }}
-                >
-                  {badge.label}
-                </span>
-              </div>
-              <p className="text-sm text-[#6B7280]">{tipoPlanLabel(plan.tipo)}</p>
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-lg font-extrabold text-[#4F46E5]">{precioLabel(plan.tipo, plan.precio, plan.sesiones)}</p>
-            </div>
-          </div>
+      <div className="px-4 pt-4 pb-6 space-y-5">
 
-          {plan.tipo === 'BONO' && sesionesProgress !== null && suscripcion.sesionesRestantes != null && plan.sesiones != null && (
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="font-bold text-[#111827]">{suscripcion.sesionesRestantes} sesiones restantes</span>
-                <span className="text-[#9CA3AF]">de {plan.sesiones}</span>
-              </div>
-              <div className="h-2.5 bg-[#F3F4F6] rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${sesionesProgress}%`,
-                    backgroundColor: suscripcion.sesionesRestantes > 3 ? '#4F46E5' : '#EF4444',
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {plan.tipo === 'MENSUAL' && (
-            <div className="flex gap-4 text-sm">
-              <div>
-                <p className="text-[#9CA3AF] text-xs">Inicio</p>
-                <p className="font-semibold text-[#111827]">{formatDate(suscripcion.fechaInicio)}</p>
-              </div>
-              {suscripcion.fechaFin && (
+        {/* Plan card */}
+        {plan && suscripcion ? (
+          <div className="rounded-3xl overflow-hidden shadow-md" style={{ boxShadow: '0 4px 20px rgba(79,70,229,0.2)' }}>
+            <div className="p-5" style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)' }}>
+              <div className="flex items-start justify-between mb-4">
                 <div>
-                  <p className="text-[#9CA3AF] text-xs">Vencimiento</p>
-                  <p className="font-semibold text-[#111827]">{formatDate(suscripcion.fechaFin)}</p>
+                  <p className="text-indigo-200 text-[11px] font-bold uppercase tracking-widest mb-1">
+                    {plan.tipo === 'MENSUAL' ? 'Suscripción mensual' : 'Bono de sesiones'}
+                  </p>
+                  <p className="text-white text-[22px] font-extrabold leading-tight">{plan.nombre}</p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center">
+                  <CreditCard size={18} className="text-white" />
+                </div>
+              </div>
+
+              {sesionesProgress !== null && suscripcion.sesionesRestantes != null && plan.sesiones ? (
+                <div className="bg-white/10 rounded-2xl p-4">
+                  <div className="flex justify-between items-baseline mb-2">
+                    <span className="text-white text-[24px] font-extrabold">{suscripcion.sesionesRestantes}</span>
+                    <span className="text-white/60 text-[13px]">de {plan.sesiones} sesiones</span>
+                  </div>
+                  <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{
+                      width: `${sesionesProgress}%`,
+                      backgroundColor: suscripcion.sesionesRestantes > 3 ? '#A5F3FC' : '#FCA5A5',
+                    }} />
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white/10 rounded-2xl px-4 py-3 flex justify-between items-center">
+                  <div>
+                    <p className="text-white/60 text-[11px]">Inicio</p>
+                    <p className="text-white font-bold text-[14px]">{formatDate(suscripcion.fechaInicio)}</p>
+                  </div>
+                  {suscripcion.fechaFin && (
+                    <div className="text-right">
+                      <p className="text-white/60 text-[11px]">Vence</p>
+                      <p className="text-white font-bold text-[14px]">{formatDate(suscripcion.fechaFin)}</p>
+                    </div>
+                  )}
+                  <div className="text-right">
+                    <p className="text-white/60 text-[11px]">Precio</p>
+                    <p className="text-white font-extrabold text-[16px]">{formatEur(plan.precio)}/mes</p>
+                  </div>
                 </div>
               )}
             </div>
-          )}
-
-          {plan.descripcion && (
-            <p className="text-xs text-[#6B7280] border-t border-[#F3F4F6] pt-3">{plan.descripcion}</p>
-          )}
-        </div>
-      ) : (
-        <div className="bg-[#F9FAFB] border border-dashed border-[#D1D5DB] rounded-2xl p-8 text-center space-y-2">
-          <div className="w-12 h-12 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mx-auto">
-            <CreditCard size={22} className="text-[#4F46E5]" />
-          </div>
-          <p className="font-bold text-[#111827]">Sin plan activo</p>
-          <p className="text-sm text-[#6B7280]">Habla con tu instructor para contratar un plan</p>
-        </div>
-      )}
-
-      <div className="space-y-3">
-        <p className="text-xs font-extrabold uppercase tracking-widest text-[#9CA3AF]">Historial de pagos</p>
-
-        <div className="flex gap-2">
-          {(['TODOS', 'COBRADO', 'PENDIENTE'] as FiltroRecibo[]).map(f => (
-            <button
-              key={f}
-              onClick={() => setFiltro(f)}
-              className="text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors"
-              style={{
-                backgroundColor: filtro === f ? '#4F46E5' : '#fff',
-                color: filtro === f ? '#fff' : '#6B7280',
-                borderColor: filtro === f ? '#4F46E5' : '#E8EAED',
-              }}
-            >
-              {f === 'TODOS' ? 'Todos' : f === 'COBRADO' ? 'Cobrados' : 'Pendientes'}
-            </button>
-          ))}
-        </div>
-
-        {recibosFiltrados.length > 0 ? (
-          <div className="bg-white border border-[#E8EAED] rounded-2xl divide-y divide-[#F3F4F6]">
-            {recibosFiltrados.map(recibo => {
-              const rb = reciboBadge(recibo.estado);
-              const factura = facturas.find(f => f.reciboId === recibo.id);
-              const fecha = recibo.fechaCobro ?? recibo.fechaVencimiento;
-              return (
-                <div key={recibo.id} className="flex items-center gap-3 px-4 py-3.5">
-                  <div className="shrink-0">
-                    {recibo.estado === 'COBRADO' ? (
-                      <CheckCircle2 size={18} className="text-[#059669]" />
-                    ) : recibo.estado === 'DEVUELTO' ? (
-                      <XCircle size={18} className="text-[#DC2626]" />
-                    ) : (
-                      <Clock size={18} className="text-[#D97706]" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#111827] truncate">{recibo.concepto}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <p className="text-xs text-[#9CA3AF]">{formatDate(fecha)}</p>
-                      <span
-                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                        style={{ backgroundColor: rb.bg, color: rb.color }}
-                      >
-                        {rb.label}
-                      </span>
-                      {factura && (
-                        <span className="text-[10px] font-semibold text-[#4F46E5] flex items-center gap-0.5">
-                          <FileText size={9} />
-                          Factura
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <p
-                    className="text-sm font-extrabold shrink-0"
-                    style={{ color: recibo.estado === 'COBRADO' ? '#059669' : '#9CA3AF' }}
-                  >
-                    {formatImporte(recibo.importe)}
-                  </p>
-                </div>
-              );
-            })}
           </div>
         ) : (
-          <div className="bg-white border border-dashed border-[#D1D5DB] rounded-2xl p-8 text-center">
-            <p className="text-sm text-[#6B7280]">No hay recibos {filtro !== 'TODOS' ? 'en esta categoría' : 'todavía'}</p>
+          <div className="bg-[#F9FAFB] rounded-3xl p-8 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-[#EEF2FF] flex items-center justify-center mx-auto mb-3">
+              <CreditCard size={24} className="text-[#4F46E5]" />
+            </div>
+            <p className="font-bold text-[#111827] text-[16px]">Sin plan activo</p>
+            <p className="text-[13px] text-[#8E8E93] mt-1">Habla con tu instructor para contratar un plan</p>
           </div>
         )}
+
+        {/* Historial */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest">Historial de pagos</p>
+          </div>
+
+          {/* Filtros */}
+          <div className="flex gap-2 mb-4">
+            {(['TODOS', 'COBRADO', 'PENDIENTE'] as Filtro[]).map(f => (
+              <button
+                key={f}
+                onClick={() => setFiltro(f)}
+                className="px-3.5 py-1.5 rounded-2xl text-[12px] font-bold transition-all"
+                style={{
+                  backgroundColor: filtro === f ? '#111827' : '#F2F2F7',
+                  color: filtro === f ? 'white' : '#6B7280',
+                }}
+              >
+                {f === 'TODOS' ? 'Todos' : f === 'COBRADO' ? 'Pagados' : 'Pendientes'}
+              </button>
+            ))}
+          </div>
+
+          {recibosFiltrados.length === 0 ? (
+            <div className="rounded-2xl bg-[#F9FAFB] p-8 text-center">
+              <p className="text-[14px] text-[#8E8E93]">Sin recibos en esta categoría</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {recibosFiltrados.map(rec => {
+                const factura = facturas.find(f => f.reciboId === rec.id);
+                const cobrado = rec.estado === 'COBRADO';
+                const devuelto = rec.estado === 'DEVUELTO';
+                return (
+                  <div key={rec.id} className="bg-white rounded-2xl px-4 py-3.5 flex items-center gap-3" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${cobrado ? 'bg-green-50' : devuelto ? 'bg-red-50' : 'bg-amber-50'}`}>
+                      {cobrado ? <CheckCircle2 size={18} className="text-green-600" />
+                        : devuelto ? <XCircle size={18} className="text-red-500" />
+                        : <Clock size={18} className="text-amber-500" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-semibold text-[#111827] truncate">{rec.concepto}</p>
+                      <p className="text-[11px] text-[#8E8E93] mt-0.5">
+                        {formatDate(rec.fechaCobro ?? rec.fechaVencimiento)}
+                        {factura && <span className="text-[#4F46E5] ml-2 font-semibold">· Factura</span>}
+                      </p>
+                    </div>
+                    <p className="text-[15px] font-extrabold shrink-0" style={{ color: cobrado ? '#059669' : '#8E8E93' }}>
+                      {formatEur(rec.importe)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
