@@ -64,19 +64,19 @@ function makeGoogleCalUrl(s: SesionRich): string {
     text: s.tipo?.nombre ?? 'Clase Pilates',
     dates: `${toCalDate(s.inicio)}/${toCalDate(s.fin)}`,
     details: `Instructora: ${s.instructor?.nombre ?? ''} · Sala: ${s.sala?.nombre ?? ''}`,
-    location: 'Pilates Boutique · Calle Larios 12, Málaga',
+    location: 'Tentare · Calle Larios 12, Málaga',
   });
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
 function downloadICS(s: SesionRich) {
   const lines = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Pilates Boutique//ES', 'CALSCALE:GREGORIAN',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tentare//ES', 'CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
     `DTSTART:${toCalDate(s.inicio)}`,
     `DTEND:${toCalDate(s.fin)}`,
     `SUMMARY:${s.tipo?.nombre ?? 'Clase Pilates'}`,
-    'LOCATION:Pilates Boutique · Calle Larios 12\\, Málaga',
+    'LOCATION:Tentare · Calle Larios 12\\, Málaga',
     `DESCRIPTION:Instructora: ${s.instructor?.nombre ?? ''} · Sala: ${s.sala?.nombre ?? ''}`,
     'STATUS:CONFIRMED',
     'END:VEVENT',
@@ -392,9 +392,9 @@ export default function ReservarPage() {
           <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-[11px] font-black shrink-0"
-                style={{ backgroundColor: PRIMARY }}>PB</div>
+                style={{ backgroundColor: PRIMARY }}>T</div>
               <div>
-                <p className="font-bold text-gray-900 text-sm leading-tight">Pilates Boutique</p>
+                <p className="font-bold text-gray-900 text-sm leading-tight">Tentare</p>
                 <p className="text-gray-400 text-[11px]">Málaga · Calle Larios 12</p>
               </div>
             </div>
@@ -672,14 +672,14 @@ export default function ReservarPage() {
             {/* Studio info */}
             <div className="bg-white rounded-2xl shadow-sm p-6 text-center" style={{ border: '1px solid #F1F3F5' }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-lg font-black"
-                style={{ backgroundColor: PRIMARY }}>PB</div>
-              <h2 className="text-gray-900 text-xl font-extrabold">Pilates Boutique</h2>
+                style={{ backgroundColor: PRIMARY }}>T</div>
+              <h2 className="text-gray-900 text-xl font-extrabold">Tentare</h2>
               <p className="text-gray-500 text-sm mt-1">Málaga · Calle Larios 12, 2º</p>
               <p className="text-gray-500 text-sm mt-3 max-w-sm mx-auto leading-relaxed">
                 Estudio boutique especializado en pilates reformer. Grupos reducidos para atención personalizada.
               </p>
               <div className="flex items-center justify-center gap-3 mt-4 text-sm">
-                <span className="font-semibold" style={{ color: PRIMARY }}>hola@pilatesboutique.es</span>
+                <span className="font-semibold" style={{ color: PRIMARY }}>hola@tentare.es</span>
                 <span className="text-gray-300">·</span>
                 <span className="text-gray-500">+34 951 000 000</span>
               </div>

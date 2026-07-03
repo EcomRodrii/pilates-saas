@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   } else if (body.tipo === 'bienvenida') {
     const d = body.data as { planNombre?: string; estudioNombre?: string };
     html = await render(BienvenidaEmail({ socioNombre: body.toName, ...d }));
-    subject = `¡Bienvenida a ${d.estudioNombre ?? 'Pilates Boutique'}!`;
+    subject = `¡Bienvenida a ${d.estudioNombre ?? 'Tentare'}!`;
   } else if (body.tipo === 'reserva') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = await resend.emails.send({
-    from: 'Pilates Boutique <no-reply@pilatesboutique.es>',
+    from: 'Tentare <no-reply@tentare.es>',
     to: [body.to],
     subject,
     html,

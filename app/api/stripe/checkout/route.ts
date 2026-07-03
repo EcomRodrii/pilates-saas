@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
           currency: 'eur',
           product_data: {
             name: body.concepto,
-            description: `Pilates Boutique · ${body.socioNombre}`,
+            description: `Tentare · ${body.socioNombre}`,
           },
           unit_amount: Math.round(body.importe * 100),
         },

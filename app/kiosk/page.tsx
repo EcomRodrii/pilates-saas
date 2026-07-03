@@ -128,7 +128,7 @@ export default function KioskPage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 text-sm text-white/40">
             <Wifi size={14} />
-            <span>Pilates Boutique</span>
+            <span>Tentare</span>
           </div>
           <a href="/dashboard" className="text-xs font-bold px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-white/70">
             Admin →

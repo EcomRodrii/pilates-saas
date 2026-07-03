@@ -12,7 +12,7 @@ interface Props {
 export function BienvenidaEmail({
   socioNombre,
   planNombre,
-  estudioNombre = 'Pilates Boutique',
+  estudioNombre = 'Tentare',
 }: Props) {
   return (
     <Html lang="es">

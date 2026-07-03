@@ -175,7 +175,7 @@ export default function Facturas() {
     <div class="numero">${f.numeroCompleto}</div>
   </div>
   <div style="text-align:right">
-    <div style="font-weight:700">Pilates Boutique Málaga</div>
+    <div style="font-weight:700">Tentare</div>
     <div style="color:#6B7280">B-12345678</div>
     <div style="color:#6B7280">Calle Larios 12, Málaga</div>
   </div>
@@ -183,7 +183,7 @@ export default function Facturas() {
 <div class="parties">
   <div>
     <div class="party-label">Emisor</div>
-    <div class="party-name">Pilates Boutique Málaga</div>
+    <div class="party-name">Tentare</div>
     <div class="party-detail">B-12345678</div>
     <div class="party-detail">Calle Larios 12, 29001 Málaga</div>
   </div>
@@ -213,7 +213,7 @@ export default function Facturas() {
     <tr class="total-row"><td>TOTAL</td><td>${fmt(f.total)} €</td></tr>
   </tfoot>
 </table>
-<div class="footer">Documento generado el ${new Date().toLocaleDateString('es-ES')} · Pilates Boutique Málaga · B-12345678</div>
+<div class="footer">Documento generado el ${new Date().toLocaleDateString('es-ES')} · Tentare · B-12345678</div>
 <script>window.onload = function(){ window.print(); }<\/script>
 </body></html>`;
     const w = window.open('', '_blank');
@@ -450,7 +450,7 @@ export default function Facturas() {
               <div className="grid grid-cols-2 gap-6 mb-8 text-sm">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-[#6B7280] mb-2">Emisor</p>
-                  <p className="font-bold text-[#111827]">Pilates Boutique Studio</p>
+                  <p className="font-bold text-[#111827]">Tentare</p>
                   <p className="text-[#6B7280]">B-12345678</p>
                   <p className="text-[#6B7280]">Calle Ejemplo 1, Málaga</p>
                 </div>

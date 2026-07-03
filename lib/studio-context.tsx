@@ -1169,7 +1169,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       id: `post-${uid()}`,
       studioId: 'studio-1',
       autorId: null,
-      autorNombre: 'Pilates Boutique',
+      autorNombre: 'Tentare',
       autorInicial: 'PB',
       texto,
       likes: 0,

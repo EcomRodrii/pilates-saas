@@ -1247,12 +1247,12 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
-            { label: 'Nombre del estudio', value: 'Pilates Boutique Málaga' },
+            { label: 'Nombre del estudio', value: 'Tentare' },
             { label: 'Dirección', value: 'Calle Larios, 12 - 2ºA' },
             { label: 'Ciudad', value: 'Málaga' },
             { label: 'Código postal', value: '29005' },
             { label: 'Teléfono', value: '+34 952 000 000' },
-            { label: 'Email de contacto', value: 'hola@pilatesboutique.es' },
+            { label: 'Email de contacto', value: 'hola@tentare.es' },
           ].map(({ label, value }) => (
             <div key={label}>
               <p className={labelCls}>{label}</p>

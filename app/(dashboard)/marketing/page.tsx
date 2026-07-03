@@ -66,17 +66,17 @@ const TEMPLATES = {
   bienvenida: {
     label: 'Bienvenida',
     emoji: '👋',
-    text: 'Hola {nombre},\n\n¡Bienvenida a Pilates Boutique! 🌟\n\nEstamos encantadas de tenerte con nosotras. Tu próxima clase es el {fecha}.\n\nSi tienes cualquier pregunta, no dudes en escribirnos.\n\nUn abrazo,\nEl equipo de Pilates Boutique',
+    text: 'Hola {nombre},\n\n¡Bienvenida a Tentare! 🌟\n\nEstamos encantadas de tenerte con nosotras. Tu próxima clase es el {fecha}.\n\nSi tienes cualquier pregunta, no dudes en escribirnos.\n\nUn abrazo,\nEl equipo de Tentare',
   },
   oferta: {
     label: 'Oferta',
     emoji: '🎁',
-    text: 'Hola {nombre},\n\n¡Tenemos una oferta especial para ti! 🎁\n\nEste mes puedes disfrutar de un 20% de descuento en tu renovación de bono.\n\nUsa el código PILATES20 al hacer tu próxima reserva.\n\n¡No dejes que caduque!\n\nUn abrazo,\nEl equipo de Pilates Boutique',
+    text: 'Hola {nombre},\n\n¡Tenemos una oferta especial para ti! 🎁\n\nEste mes puedes disfrutar de un 20% de descuento en tu renovación de bono.\n\nUsa el código PILATES20 al hacer tu próxima reserva.\n\n¡No dejes que caduque!\n\nUn abrazo,\nEl equipo de Tentare',
   },
   recordatorio: {
     label: 'Recordatorio',
     emoji: '⏰',
-    text: 'Hola {nombre},\n\nTe recordamos que tu bono está a punto de agotarse. 📅\n\nTe quedan pocas sesiones. ¡Renueva hoy y sigue disfrutando de tus clases sin interrupciones!\n\nUn abrazo,\nEl equipo de Pilates Boutique',
+    text: 'Hola {nombre},\n\nTe recordamos que tu bono está a punto de agotarse. 📅\n\nTe quedan pocas sesiones. ¡Renueva hoy y sigue disfrutando de tus clases sin interrupciones!\n\nUn abrazo,\nEl equipo de Tentare',
   },
 } as const
 

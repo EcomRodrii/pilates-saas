@@ -18,7 +18,7 @@ export function ReciboEmail({
   importe,
   fechaCobro,
   numeroFactura,
-  estudioNombre = 'Pilates Boutique',
+  estudioNombre = 'Tentare',
 }: Props) {
   const fecha = new Date(fechaCobro).toLocaleDateString('es-ES', {
     day: 'numeric', month: 'long', year: 'numeric',

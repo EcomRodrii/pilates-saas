@@ -6,13 +6,13 @@ import type {
 
 export const studio: Studio = {
   id: 'studio-1',
-  nombre: 'Pilates Boutique',
+  nombre: 'Tentare',
   nif: 'B12345678',
-  razonSocial: 'Pilates Boutique SL',
+  razonSocial: 'Tentare SL',
   direccion: 'Calle Larios 12, 2º',
   ciudad: 'Málaga',
   codigoPostal: '29005',
-  email: 'hola@pilatesboutique.es',
+  email: 'hola@tentare.es',
   telefono: '+34 951 000 000',
   colorPrimario: '#6366f1',
   plan: 'ESTUDIO',
@@ -72,8 +72,8 @@ export const tiposClase: TipoClase[] = [
 ];
 
 export const instructores: Instructor[] = [
-  { id: 'ins-1', studioId: 'studio-1', nombre: 'María Soler', email: 'maria@pilatesboutique.es', telefono: '+34 611 000 001', color: '#f59e0b', activo: true },
-  { id: 'ins-2', studioId: 'studio-1', nombre: 'Julia Ramos', email: 'julia@pilatesboutique.es', telefono: '+34 611 000 002', color: '#ec4899', activo: true },
+  { id: 'ins-1', studioId: 'studio-1', nombre: 'María Soler', email: 'maria@tentare.es', telefono: '+34 611 000 001', color: '#f59e0b', activo: true },
+  { id: 'ins-2', studioId: 'studio-1', nombre: 'Julia Ramos', email: 'julia@tentare.es', telefono: '+34 611 000 002', color: '#ec4899', activo: true },
 ];
 
 // Genera sesiones para esta semana
@@ -301,7 +301,7 @@ export const automationRules: AutomationRule[] = [
     trigger: 'AUSENCIA_DIAS',
     condicion: { dias: 7 },
     pasos: [
-      { accion: 'ENVIAR_WHATSAPP', parametros: { mensaje: 'Hola {nombre}, te echamos de menos en Pilates Boutique 💙 ¿Cómo estás? ¿Te apetece volver esta semana?' }, esperarHoras: 48, condicion: 'SIN_RESPUESTA' },
+      { accion: 'ENVIAR_WHATSAPP', parametros: { mensaje: 'Hola {nombre}, te echamos de menos en Tentare 💙 ¿Cómo estás? ¿Te apetece volver esta semana?' }, esperarHoras: 48, condicion: 'SIN_RESPUESTA' },
       { accion: 'OFRECER_CLASE_GRATIS', parametros: { mensaje: 'Hola {nombre}, llevamos tiempo sin verte. Te regalamos una clase de vuelta 🎁 ¿La agendamos?' }, esperarHoras: 72, condicion: 'SIN_RESPUESTA' },
       { accion: 'NOTIFICAR_ADMIN', parametros: { mensaje: '{nombre} lleva {dias} días sin venir y no ha respondido. ¿Quieres hacer seguimiento manual?' } },
     ],
@@ -372,8 +372,8 @@ export const automationRules: AutomationRule[] = [
     trigger: 'NUEVA_SOCIA',
     condicion: { horasDesdeAlta: 1 },
     pasos: [
-      { accion: 'ENVIAR_EMAIL', parametros: { asunto: '¡Bienvenida a Pilates Boutique!', mensaje: 'Hola {nombre}, estamos encantadas de tenerte con nosotras. Aquí tienes toda la info que necesitas...' } },
-      { accion: 'ENVIAR_WHATSAPP', parametros: { mensaje: 'Hola {nombre} 🌸 Bienvenida a Pilates Boutique. Soy María, tu instructora. Cualquier duda, aquí estoy.' } },
+      { accion: 'ENVIAR_EMAIL', parametros: { asunto: '¡Bienvenida a Tentare!', mensaje: 'Hola {nombre}, estamos encantadas de tenerte con nosotras. Aquí tienes toda la info que necesitas...' } },
+      { accion: 'ENVIAR_WHATSAPP', parametros: { mensaje: 'Hola {nombre} 🌸 Bienvenida a Tentare. Soy María, tu instructora. Cualquier duda, aquí estoy.' } },
     ],
     activa: true,
     ejecutadaVeces: 8,

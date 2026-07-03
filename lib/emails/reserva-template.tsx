@@ -20,7 +20,7 @@ export function ReservaEmail({
   hora,
   sala,
   instructor,
-  estudioNombre = 'Pilates Boutique',
+  estudioNombre = 'Tentare',
 }: Props) {
   return (
     <Html lang="es">

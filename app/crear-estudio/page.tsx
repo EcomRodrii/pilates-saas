@@ -86,7 +86,7 @@ export default function CrearEstudioPage() {
                   <input
                     required
                     type="text"
-                    placeholder="Ej. Pilates Boutique"
+                    placeholder="Ej. Tentare"
                     value={studio.nombre}
                     onChange={e => setStudio(s => ({ ...s, nombre: e.target.value }))}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
