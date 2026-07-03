@@ -94,3 +94,7 @@
     font-family: var(--font-jakarta), system-ui, sans-serif;
   }
 }
+
+/* Portal PWA — ocultar badge de Next.js dev */
+nextjs-portal { display: none !important; }
+#__next-build-watcher { display: none !important; }
