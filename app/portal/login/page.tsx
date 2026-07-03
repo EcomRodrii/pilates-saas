@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { supabase } from '@/lib/supabase';
-import { Mail, Dumbbell, AlertCircle } from 'lucide-react';
+import { Mail, AlertCircle } from 'lucide-react';
 
 export default function PortalLogin() {
   const { login } = usePortalAuth();
@@ -40,9 +41,7 @@ export default function PortalLogin() {
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col items-center justify-center p-6">
       {/* Logo */}
       <div className="mb-10 flex flex-col items-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-[#4F46E5] flex items-center justify-center shadow-lg">
-          <Dumbbell size={28} className="text-white" />
-        </div>
+        <Image src="/logo-transparent.png" alt="Tentare" width={160} height={70} className="h-20 w-auto object-contain" />
         <div className="text-center">
           <h1 className="text-2xl font-extrabold text-[#111827]">Portal de miembros</h1>
           <p className="text-sm text-[#6B7280] mt-1">Accede con tu email</p>

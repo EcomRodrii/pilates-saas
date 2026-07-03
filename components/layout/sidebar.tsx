@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Calendar, Users, CreditCard,
@@ -203,7 +204,7 @@ export function Sidebar() {
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
         style={{ backgroundColor: '#ffffff', borderColor: '#E8EAED' }}
       >
-        <span className="font-bold text-[#111827] text-[15px] tracking-tight">Pilates Boutique</span>
+        <Image src="/logo-light.png" alt="Tentare" width={100} height={36} className="h-7 w-auto object-contain" />
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
@@ -239,15 +240,7 @@ export function Sidebar() {
           className="flex items-center gap-2.5 px-4 h-14 shrink-0 border-b"
           style={{ borderColor: 'rgba(255,255,255,0.07)' }}
         >
-          <div
-            className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold text-white"
-            style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}
-          >
-            PB
-          </div>
-          <p className="font-semibold text-white text-[13px] tracking-tight truncate">
-            Pilates Boutique
-          </p>
+          <Image src="/logo-transparent.png" alt="Tentare" width={90} height={40} className="h-8 w-auto object-contain" />
         </div>
 
         {/* Search */}

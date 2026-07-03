@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 
@@ -36,10 +37,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: '#111111' }}>
-            <span className="text-white font-bold text-[14px]">PB</span>
-          </div>
-          <h1 className="text-[22px] font-bold text-[#111827] tracking-tight">Pilates Boutique</h1>
+          <Image src="/logo-transparent.png" alt="Tentare" width={140} height={60} className="h-16 w-auto object-contain mb-2" />
           <p className="text-[14px] text-[#6B7280] mt-1">Panel de gestión</p>
         </div>
 
