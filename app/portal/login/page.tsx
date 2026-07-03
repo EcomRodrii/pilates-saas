@@ -24,7 +24,7 @@ export default function PortalLogin() {
       .maybeSingle();
 
     if (dbError || !data) {
-      setError('No encontramos ninguna cuenta con ese email. Contacta con tu instructor.');
+      setError(dbError ? `Error DB: ${dbError.message}` : 'Email no encontrado en la base de datos.');
       setLoading(false);
       return;
     }
