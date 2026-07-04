@@ -645,6 +645,72 @@ function notaInternaToDb(nota: any) {
   };
 }
 
+function campanaToDb(c: any) {
+  return {
+    id: c.id,
+    studio_id: c.studioId ?? STUDIO_ID,
+    nombre: c.nombre,
+    tipo: c.tipo,
+    asunto: c.asunto,
+    contenido: c.contenido,
+    estado: c.estado,
+    destinatarios: c.destinatarios,
+    enviados: c.enviados,
+    abiertos: c.abiertos,
+    clics: c.clics,
+    creada_en: c.creadaEn,
+    enviada_en: c.enviadaEn ?? null,
+    programada_en: c.programadaEn ?? null,
+  };
+}
+
+function automatizacionToDb(a: any) {
+  return {
+    id: a.id,
+    studio_id: a.studioId ?? STUDIO_ID,
+    nombre: a.nombre,
+    trigger: a.trigger,
+    accion: a.accion,
+    asunto: a.asunto ?? null,
+    mensaje: a.mensaje,
+    activa: a.activa,
+    ejecutadas: a.ejecutadas,
+    creada_en: a.creadaEn,
+  };
+}
+
+function videoOnDemandToDb(v: any) {
+  return {
+    id: v.id,
+    studio_id: v.studioId ?? STUDIO_ID,
+    titulo: v.titulo,
+    descripcion: v.descripcion ?? null,
+    categoria: v.categoria,
+    duracion_minutos: v.duracionMinutos,
+    nivel: v.nivel,
+    instructor_id: v.instructorId,
+    vistas: v.vistas,
+    likes: v.likes,
+    activo: v.activo,
+    creado_en: v.creadoEn,
+  };
+}
+
+function postComunidadToDb(p: any) {
+  return {
+    id: p.id,
+    studio_id: p.studioId ?? STUDIO_ID,
+    autor_id: p.autorId ?? null,
+    autor_nombre: p.autorNombre,
+    autor_inicial: p.autorInicial,
+    texto: p.texto,
+    likes: p.likes,
+    comentarios_count: p.comentariosCount,
+    fijado: p.fijado,
+    creado_en: p.creadoEn,
+  };
+}
+
 // ─── Write functions (fire-and-forget, errors logged to console) ──────────────
 
 export async function dbInsertSocio(socio: any) {
@@ -805,4 +871,99 @@ export async function dbInsertNotaInterna(nota: any) {
 export async function dbDeleteNotaInterna(id: string) {
   const { error } = await supabase.from('notas_internas').delete().eq('id', id);
   if (error) console.error('[dbDeleteNotaInterna]', error);
+}
+
+export async function dbInsertCampana(c: any) {
+  const { error } = await supabase.from('campanas').insert(campanaToDb(c));
+  if (error) console.error('[dbInsertCampana]', error);
+}
+
+export async function dbUpdateCampana(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('tipo' in changes) db.tipo = changes.tipo;
+  if ('asunto' in changes) db.asunto = changes.asunto;
+  if ('contenido' in changes) db.contenido = changes.contenido;
+  if ('estado' in changes) db.estado = changes.estado;
+  if ('destinatarios' in changes) db.destinatarios = changes.destinatarios;
+  if ('enviados' in changes) db.enviados = changes.enviados;
+  if ('abiertos' in changes) db.abiertos = changes.abiertos;
+  if ('clics' in changes) db.clics = changes.clics;
+  if ('enviadaEn' in changes) db.enviada_en = changes.enviadaEn;
+  if ('programadaEn' in changes) db.programada_en = changes.programadaEn;
+  const { error } = await supabase.from('campanas').update(db).eq('id', id);
+  if (error) console.error('[dbUpdateCampana]', error);
+}
+
+export async function dbDeleteCampana(id: string) {
+  const { error } = await supabase.from('campanas').delete().eq('id', id);
+  if (error) console.error('[dbDeleteCampana]', error);
+}
+
+export async function dbInsertAutomatizacion(a: any) {
+  const { error } = await supabase.from('automatizaciones').insert(automatizacionToDb(a));
+  if (error) console.error('[dbInsertAutomatizacion]', error);
+}
+
+export async function dbUpdateAutomatizacion(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('trigger' in changes) db.trigger = changes.trigger;
+  if ('accion' in changes) db.accion = changes.accion;
+  if ('asunto' in changes) db.asunto = changes.asunto;
+  if ('mensaje' in changes) db.mensaje = changes.mensaje;
+  if ('activa' in changes) db.activa = changes.activa;
+  if ('ejecutadas' in changes) db.ejecutadas = changes.ejecutadas;
+  const { error } = await supabase.from('automatizaciones').update(db).eq('id', id);
+  if (error) console.error('[dbUpdateAutomatizacion]', error);
+}
+
+export async function dbDeleteAutomatizacion(id: string) {
+  const { error } = await supabase.from('automatizaciones').delete().eq('id', id);
+  if (error) console.error('[dbDeleteAutomatizacion]', error);
+}
+
+export async function dbInsertVideoOnDemand(v: any) {
+  const { error } = await supabase.from('videos_on_demand').insert(videoOnDemandToDb(v));
+  if (error) console.error('[dbInsertVideoOnDemand]', error);
+}
+
+export async function dbUpdateVideoOnDemand(id: string, changes: any) {
+  const db: any = {};
+  if ('titulo' in changes) db.titulo = changes.titulo;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('categoria' in changes) db.categoria = changes.categoria;
+  if ('duracionMinutos' in changes) db.duracion_minutos = changes.duracionMinutos;
+  if ('nivel' in changes) db.nivel = changes.nivel;
+  if ('instructorId' in changes) db.instructor_id = changes.instructorId;
+  if ('vistas' in changes) db.vistas = changes.vistas;
+  if ('likes' in changes) db.likes = changes.likes;
+  if ('activo' in changes) db.activo = changes.activo;
+  const { error } = await supabase.from('videos_on_demand').update(db).eq('id', id);
+  if (error) console.error('[dbUpdateVideoOnDemand]', error);
+}
+
+export async function dbDeleteVideoOnDemand(id: string) {
+  const { error } = await supabase.from('videos_on_demand').delete().eq('id', id);
+  if (error) console.error('[dbDeleteVideoOnDemand]', error);
+}
+
+export async function dbInsertPostComunidad(p: any) {
+  const { error } = await supabase.from('posts_comunidad').insert(postComunidadToDb(p));
+  if (error) console.error('[dbInsertPostComunidad]', error);
+}
+
+export async function dbUpdatePostComunidad(id: string, changes: any) {
+  const db: any = {};
+  if ('texto' in changes) db.texto = changes.texto;
+  if ('likes' in changes) db.likes = changes.likes;
+  if ('comentariosCount' in changes) db.comentarios_count = changes.comentariosCount;
+  if ('fijado' in changes) db.fijado = changes.fijado;
+  const { error } = await supabase.from('posts_comunidad').update(db).eq('id', id);
+  if (error) console.error('[dbUpdatePostComunidad]', error);
+}
+
+export async function dbDeletePostComunidad(id: string) {
+  const { error } = await supabase.from('posts_comunidad').delete().eq('id', id);
+  if (error) console.error('[dbDeletePostComunidad]', error);
 }

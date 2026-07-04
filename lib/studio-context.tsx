@@ -13,6 +13,10 @@ import {
   dbInsertVentaPOS,
   dbInsertActividadReciente,
   dbInsertNotaInterna, dbDeleteNotaInterna,
+  dbInsertCampana, dbDeleteCampana,
+  dbInsertAutomatizacion, dbUpdateAutomatizacion,
+  dbInsertVideoOnDemand, dbUpdateVideoOnDemand,
+  dbInsertPostComunidad, dbUpdatePostComunidad,
 } from '@/lib/supabase-data';
 import type {
   Socio,
@@ -989,10 +993,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       ...fields,
     };
     setCampanas(prev => [nueva, ...prev]);
+    dbInsertCampana(nueva);
   }
 
   function deleteCampana(id: string) {
     setCampanas(prev => prev.filter(c => c.id !== id));
+    dbDeleteCampana(id);
   }
 
   function duplicateCampana(campana: Campana) {
@@ -1009,6 +1015,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       creadaEn: new Date().toISOString(),
     };
     setCampanas(prev => [copy, ...prev]);
+    dbInsertCampana(copy);
   }
 
   // ── Automatizaciones ─────────────────────────────────────────────────────────
@@ -1022,12 +1029,15 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       ...fields,
     };
     setAutomatizaciones(prev => [nueva, ...prev]);
+    dbInsertAutomatizacion(nueva);
   }
 
   function toggleAutomatizacion(autoId: string) {
+    const actual = automatizaciones.find(a => a.id === autoId);
     setAutomatizaciones(prev => prev.map(a =>
       a.id === autoId ? { ...a, activa: !a.activa } : a
     ));
+    if (actual) dbUpdateAutomatizacion(autoId, { activa: !actual.activa });
   }
 
   // ── Códigos de descuento ──────────────────────────────────────────────────────
@@ -1093,12 +1103,15 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       ...fields,
     };
     setVideosOnDemand(prev => [nuevo, ...prev]);
+    dbInsertVideoOnDemand(nuevo);
   }
 
   function toggleVideo(videoId: string) {
+    const actual = videosOnDemand.find(v => v.id === videoId);
     setVideosOnDemand(prev => prev.map(v =>
       v.id === videoId ? { ...v, activo: !v.activo } : v
     ));
+    if (actual) dbUpdateVideoOnDemand(videoId, { activo: !actual.activo });
   }
 
   // ── Comunidad ─────────────────────────────────────────────────────────────────
@@ -1109,7 +1122,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       studioId: 'studio-1',
       autorId: null,
       autorNombre: 'Tentare',
-      autorInicial: 'PB',
+      autorInicial: 'TE',
       texto,
       likes: 0,
       comentariosCount: 0,
@@ -1117,12 +1130,15 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       creadoEn: new Date().toISOString(),
     };
     setPostsComunidad(prev => [nuevo, ...prev]);
+    dbInsertPostComunidad(nuevo);
   }
 
   function toggleLikePost(postId: string) {
+    const actual = postsComunidad.find(p => p.id === postId);
     setPostsComunidad(prev => prev.map(p =>
       p.id === postId ? { ...p, likes: p.likes + 1 } : p
     ));
+    if (actual) dbUpdatePostComunidad(postId, { likes: actual.likes + 1 });
   }
 
   // ── Motor de automatización avanzado ─────────────────────────────────────────
