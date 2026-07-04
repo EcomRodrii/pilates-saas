@@ -191,11 +191,12 @@ export function Sidebar() {
 
   async function handleSignOut() {
     await signOut();
-    router.replace('/login');
+    // Auth gate is disabled for the audit; stay in the app instead of the login page.
+    router.replace('/dashboard');
   }
 
-  const userInitials = user?.email?.slice(0, 2).toUpperCase() ?? '?';
-  const userEmail = user?.email ?? '';
+  const userInitials = user?.email?.slice(0, 2).toUpperCase() ?? 'TE';
+  const userEmail = user?.email ?? 'Modo auditoría';
 
   return (
     <>
