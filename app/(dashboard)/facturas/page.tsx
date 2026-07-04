@@ -348,7 +348,37 @@ export default function Facturas() {
 
               {/* Rows */}
               {isOpen && (
-                <div className="overflow-x-auto">
+                <>
+                <div className="lg:hidden divide-y divide-[#F3F4F6] border-t border-[#F3F4F6]">
+                  {grupo.items.map(f => {
+                    const socio = socioParaFactura(f.reciboId);
+                    return (
+                      <div key={f.id} className="px-4 py-3.5 flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-[12px] font-bold text-[#2563EB]">{f.numeroCompleto}</p>
+                          <p className="text-[14px] font-semibold text-[#111827] truncate mt-0.5">{f.receptorNombre}</p>
+                          <p className="text-[12px] text-[#6B7280] mt-0.5">{fecha(f.fechaEmision)} · IVA {f.tipoIVA}%</p>
+                          <div className="flex items-center gap-4 mt-1.5">
+                            <button onClick={() => setPreview(f.id)} className="text-[12px] font-semibold text-[#6B7280]">Ver</button>
+                            <button onClick={() => descargarPDF(f, socio)} className="text-[12px] font-semibold text-[#4F46E5] inline-flex items-center gap-1">
+                              <Download size={11} /> PDF
+                            </button>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-[15px] font-extrabold text-[#111827] whitespace-nowrap">{kpi(f.total)} €</p>
+                          <p className="text-[11px] text-[#9CA3AF] whitespace-nowrap">base {kpi(f.baseImponible)} €</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="px-4 py-3 flex items-center justify-between bg-[#F9FAFB]">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">Subtotal ({grupo.items.length})</span>
+                    <span className="text-[15px] font-extrabold text-[#111827]">{kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €</span>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto hidden lg:block">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-t border-[#F3F4F6] bg-[#F9FAFB]">
@@ -410,6 +440,7 @@ export default function Facturas() {
                     </tfoot>
                   </table>
                 </div>
+                </>
               )}
             </div>
           );
@@ -417,9 +448,9 @@ export default function Facturas() {
 
         {/* Total footer */}
         {filtradas.length > 0 && (
-          <div className="border-t-2 border-[#E8EAED] bg-[#F9FAFB] flex items-center justify-between px-5 py-3.5">
+          <div className="border-t-2 border-[#E8EAED] bg-[#F9FAFB] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-5 py-3.5">
             <span className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">TOTAL ({filtradas.length} facturas)</span>
-            <div className="flex items-center gap-8 text-sm">
+            <div className="flex items-center gap-4 sm:gap-8 text-sm flex-wrap">
               <span className="text-[#6B7280] font-medium">Base: <strong className="text-[#111827]">{kpi(baseTotal)} €</strong></span>
               <span className="text-[#6B7280] font-medium">IVA: <strong className="text-[#111827]">{kpi(ivaTotal)} €</strong></span>
               <span className="text-[#6B7280] font-bold">Total: <strong className="text-[#111827] text-base">{kpi(totalGeneral)} €</strong></span>

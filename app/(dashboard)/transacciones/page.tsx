@@ -171,8 +171,51 @@ export default function Transacciones() {
           <span className="text-xs text-[#9CA3AF] ml-auto">{filtrados.length} movimientos</span>
         </div>
 
-        {/* Tabla */}
-        <div className="overflow-x-auto">
+        {/* Tarjetas (móvil) */}
+        <div className="lg:hidden divide-y divide-[#F3F4F6]">
+          {filtrados.length === 0 ? (
+            <div className="px-4 py-12 text-center text-sm text-[#9CA3AF]">
+              No hay movimientos para los filtros seleccionados
+            </div>
+          ) : filtrados.map(m => {
+            const badge = TIPO_BADGE[m.tipo];
+            return (
+              <div key={m.id} className="px-4 py-3.5 flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0"
+                      style={{ color: badge.color, backgroundColor: badge.bg }}>
+                      {badge.label}
+                    </span>
+                    <span className="text-[11px] text-[#9CA3AF] whitespace-nowrap">{fechaCorta(m.fecha)}</span>
+                  </div>
+                  <p className="text-[14px] font-semibold text-[#111827] truncate">{m.concepto}</p>
+                  <p className="text-[12px] text-[#6B7280] truncate mt-0.5">
+                    {m.miembro}{m.metodo ? ` · ${m.metodo}` : ''}
+                  </p>
+                  {m.facturaId && (
+                    <Link href="/facturas" className="text-[11px] text-[#4F46E5] hover:underline inline-flex items-center gap-1 mt-1">
+                      <FileText size={10} /> Ver factura
+                    </Link>
+                  )}
+                </div>
+                <p className="text-[15px] font-extrabold whitespace-nowrap shrink-0"
+                  style={{ color: m.importe < 0 ? '#B91C1C' : '#111827' }}>
+                  {m.importe < 0 ? '-' : ''}{fmt(Math.abs(m.importe))} €
+                </p>
+              </div>
+            );
+          })}
+          {filtrados.length > 0 && (
+            <div className="px-4 py-3.5 flex items-center justify-between bg-[#F9FAFB]">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">Total ({filtrados.length})</span>
+              <span className="text-[15px] font-extrabold text-[#111827]">{fmt(filtrados.reduce((s, m) => s + m.importe, 0))} €</span>
+            </div>
+          )}
+        </div>
+
+        {/* Tabla (escritorio) */}
+        <div className="overflow-x-auto hidden lg:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#F9FAFB] border-b border-[#E8EAED]">
