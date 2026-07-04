@@ -1188,6 +1188,117 @@ function ModalClasesRecurrentes({
   );
 }
 
+// ─── Agenda (list) view ──────────────────────────────────────────────────────
+
+function AgendaRow({ s, isSelected, onClick }: {
+  s: SesionEnr;
+  isSelected: boolean;
+  onClick: (id: string) => void;
+}) {
+  const dur = Math.round((new Date(s.fin).getTime() - new Date(s.inicio).getTime()) / 60000);
+  const libres = s.aforoMaximo - s.confirmadas;
+  const isFull = libres <= 0;
+  const ocupColor = isFull ? '#DC2626' : libres <= 2 ? '#D97706' : '#059669';
+  const cancelada = s.cancelada;
+
+  return (
+    <button
+      onClick={() => onClick(s.id)}
+      className={cn(
+        'w-full flex items-center gap-3 rounded-2xl border bg-white px-3.5 py-3 text-left transition-all',
+        isSelected ? 'border-[#4F46E5] ring-1 ring-[#4F46E5]' : 'border-[#EBECF0] hover:border-[#D1D5DB] hover:shadow-sm',
+        cancelada && 'opacity-55',
+      )}
+      style={{ boxShadow: isSelected ? undefined : '0 1px 2px rgba(15,23,42,0.04)' }}
+    >
+      {/* Time */}
+      <div className="text-center min-w-[52px] shrink-0">
+        <p className="text-[15px] font-extrabold text-[#0F172A] tabular-nums leading-none">{formatHora(s.inicio)}</p>
+        <p className="text-[11px] text-[#94A3B8] mt-1">{dur} min</p>
+      </div>
+      {/* Color stripe */}
+      <div className="w-1 h-11 rounded-full shrink-0" style={{ backgroundColor: s.tipoClase.color }} />
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-bold text-[#0F172A] truncate">
+          {s.tipoClase.nombre}
+          {cancelada && <span className="ml-2 text-[11px] font-bold text-[#DC2626] uppercase">Cancelada</span>}
+        </p>
+        <p className="text-[12px] text-[#64748B] truncate mt-0.5">
+          {s.instructor.nombre} · {s.sala.nombre}
+        </p>
+      </div>
+      {/* Occupancy */}
+      <div className="text-right shrink-0 flex items-center gap-2">
+        <div>
+          <p className="text-[13px] font-extrabold tabular-nums" style={{ color: ocupColor }}>{s.confirmadas}/{s.aforoMaximo}</p>
+          <p className="text-[10px] text-[#94A3B8]">{isFull ? 'completo' : `${libres} libre${libres !== 1 ? 's' : ''}`}</p>
+        </div>
+        <ChevronRight size={16} className="text-[#C7C7CC]" />
+      </div>
+    </button>
+  );
+}
+
+function AgendaView({ dias, sesiones, todayStr, selectedId, onSesionClick, onNueva }: {
+  dias: Date[];
+  sesiones: SesionEnr[];
+  todayStr: string;
+  selectedId: string | null;
+  onSesionClick: (id: string) => void;
+  onNueva: () => void;
+}) {
+  const grupos = dias
+    .map(d => {
+      const str = localDate(d);
+      const items = sesiones
+        .filter(s => localDate(s.inicio) === str)
+        .sort((a, b) => a.inicio.localeCompare(b.inicio));
+      return { d, str, items };
+    })
+    .filter(g => g.items.length > 0);
+
+  if (grupos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[#E2E4EB] bg-white">
+        <div className="w-14 h-14 rounded-2xl bg-[#EEF2FF] flex items-center justify-center mb-4">
+          <CalendarDays size={26} className="text-[#4F46E5]" />
+        </div>
+        <p className="text-[16px] font-bold text-[#0F172A]">No hay clases esta semana</p>
+        <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Crea la primera clase para empezar a llenar la agenda</p>
+        <button onClick={onNueva} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#111827] text-white text-[13px] font-bold">
+          <Plus size={15} /> Nueva clase
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 pb-8">
+      {grupos.map(({ d, str, items }) => {
+        const isToday = str === todayStr;
+        const label = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+        return (
+          <div key={str}>
+            <div className="flex items-center gap-2 mb-2.5">
+              <h3 className={cn('text-[15px] font-extrabold capitalize', isToday ? 'text-[#4F46E5]' : 'text-[#0F172A]')}>{label}</h3>
+              {isToday && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#4F46E5] text-white">Hoy</span>
+              )}
+              <span className="ml-auto text-[12px] font-medium text-[#94A3B8]">{items.length} clase{items.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="space-y-2">
+              {items.map(s => (
+                <AgendaRow key={s.id} s={s} isSelected={s.id === selectedId} onClick={onSesionClick} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main Calendar Page ───────────────────────────────────────────────────────
 
 export default function Calendario() {
@@ -1412,13 +1523,8 @@ export default function Calendario() {
   // ── Label ────────────────────────────────────────────────────────────────────
   const mesLabel = `${semana.toLocaleDateString('es-ES', { day: 'numeric' })} – ${addDays(semana, 6).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
 
-  const diaStr = localDate(diaActivo);
-  const sesionesDelDia = sesionesFiltered.filter(s => !s.cancelada && localDate(s.inicio) === diaStr);
-
-  // Visible hour window hugs the actual classes (no dead space at the top).
-  const rango = vistaEfectiva === 'semana'
-    ? computeHourRange(sesionesFiltered.filter(s => dias.some(d => localDate(d) === localDate(s.inicio))))
-    : computeHourRange(sesionesDelDia);
+  // Sessions of the current week (agenda groups them by day)
+  const sesionesSemana = sesionesFiltered.filter(s => dias.some(d => localDate(d) === localDate(s.inicio)));
 
   if (!mounted) return null;
 
@@ -1428,33 +1534,13 @@ export default function Calendario() {
       <div className="flex items-center justify-between gap-3 flex-wrap shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-[#111827] tracking-tight">Calendario</h1>
-          <p className="text-sm font-medium mt-0.5 capitalize text-[#6B7280]">
-            {vistaEfectiva === 'dia'
-              ? diaActivo.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-              : mesLabel}
-          </p>
+          <p className="text-sm font-medium mt-0.5 capitalize text-[#6B7280]">{mesLabel}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* View toggle — hidden on mobile (day view is forced) */}
-          <div className="hidden lg:flex bg-white border border-[#E8EAED] p-1 rounded-xl gap-1">
-            <button
-              onClick={() => setVista('semana')}
-              className={cn('px-3 py-1.5 text-xs font-bold rounded-lg transition-all', vista === 'semana' ? 'bg-[#111827] text-white' : 'text-[#6B7280] hover:text-[#111827]')}
-            >
-              Semana
-            </button>
-            <button
-              onClick={() => setVista('dia')}
-              className={cn('px-3 py-1.5 text-xs font-bold rounded-lg transition-all', vista === 'dia' ? 'bg-[#111827] text-white' : 'text-[#6B7280] hover:text-[#111827]')}
-            >
-              Día
-            </button>
-          </div>
-
-          {/* Navigation */}
+          {/* Week navigation */}
           <div className="flex items-center gap-1 bg-white border border-[#E8EAED] rounded-xl p-1">
             <button
-              onClick={() => vistaEfectiva === 'semana' ? cambiarSemana(-1) : setDiaActivo(addDays(diaActivo, -1))}
+              onClick={() => cambiarSemana(-1)}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] transition-colors"
             >
               <ChevronLeft size={16} />
@@ -1466,7 +1552,7 @@ export default function Calendario() {
               Hoy
             </button>
             <button
-              onClick={() => vistaEfectiva === 'semana' ? cambiarSemana(1) : setDiaActivo(addDays(diaActivo, 1))}
+              onClick={() => cambiarSemana(1)}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] transition-colors"
             >
               <ChevronRight size={16} />
@@ -1527,61 +1613,18 @@ export default function Calendario() {
         onBusqueda={setBusqueda}
       />
 
-      {/* ── Day strip (día view only) ──────────────────────────────────────────── */}
-      {vistaEfectiva === 'dia' && (
-        <div className="grid grid-cols-7 gap-1 shrink-0">
-          {dias.map((d, i) => {
-            const str = localDate(d);
-            const isToday = str === todayStr;
-            const activo = str === diaStr;
-            const tieneClases = sesionesFiltered.some(s => !s.cancelada && localDate(s.inicio) === str);
-            return (
-              <button
-                key={i}
-                onClick={() => setDiaActivo(d)}
-                className={cn(
-                  'flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all',
-                  activo ? 'bg-[#111827] shadow-sm' : isToday ? 'bg-white shadow-sm' : 'hover:bg-white/70'
-                )}
-              >
-                <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: activo ? 'rgba(255,255,255,0.5)' : '#9CA3AF' }}>{DAY_LABELS[i]}</span>
-                <span className="text-sm font-bold leading-none" style={{ color: activo ? '#fff' : isToday ? '#111827' : '#6B7280' }}>{d.getDate()}</span>
-                {tieneClases && <span className="w-1 h-1 rounded-full" style={{ backgroundColor: activo ? 'rgba(255,255,255,0.5)' : '#C8C2E8' }} />}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── Main content: calendar + optional sidebar ──────────────────────────── */}
+      {/* ── Main content: agenda list + optional detail sidebar ────────────────── */}
       <div className="flex gap-0 flex-1 min-h-0 relative">
-        {/* Grid or day column */}
-        <div className="flex-1 min-w-0 flex flex-col">
-          {vistaEfectiva === 'semana' ? (
-            <WeekGrid
-              sesiones={sesionesFiltered}
-              dias={dias}
-              todayStr={todayStr}
-              now={now}
-              selectedId={sesionId}
-              onSesionClick={id => setSesionId(prev => prev === id ? null : id)}
-              onSlotClick={handleSlotClick}
-              startHour={rango.startHour}
-              endHour={rango.endHour}
-            />
-          ) : (
-            <DayColumn
-              sesiones={sesionesDelDia}
-              fecha={diaStr}
-              todayStr={todayStr}
-              now={now}
-              selectedId={sesionId}
-              onSesionClick={id => setSesionId(prev => prev === id ? null : id)}
-              onSlotClick={handleSlotClick}
-              startHour={rango.startHour}
-              endHour={rango.endHour}
-            />
-          )}
+        {/* Agenda */}
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          <AgendaView
+            dias={dias}
+            sesiones={sesionesSemana}
+            todayStr={todayStr}
+            selectedId={sesionId}
+            onSesionClick={id => setSesionId(prev => prev === id ? null : id)}
+            onNueva={() => openNueva()}
+          />
         </div>
 
         {/* Session detail — inline panel on desktop, full-screen overlay on mobile */}
