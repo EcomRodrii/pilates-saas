@@ -59,11 +59,27 @@ function minutesSinceMidnight(iso: string): number {
 // ─── Calendar constants ───────────────────────────────────────────────────────
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const START_HOUR = 7;
-const END_HOUR = 22;
-const PX_PER_HOUR = 72;
-const TOTAL_HEIGHT = (END_HOUR - START_HOUR) * PX_PER_HOUR;
-const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+const PX_PER_HOUR = 76;
+const HOUR_CAP_END = 23;
+
+// Derive the visible hour window from the actual sessions so the grid hugs the
+// classes instead of showing hours of dead space. Falls back to a sane default.
+function computeHourRange(sesiones: { inicio: string; fin: string; cancelada: boolean }[]) {
+  const activos = sesiones.filter(s => !s.cancelada);
+  if (activos.length === 0) return { startHour: 8, endHour: 21 };
+  let min = 24, max = 0;
+  for (const s of activos) {
+    const di = new Date(s.inicio), df = new Date(s.fin);
+    min = Math.min(min, di.getHours());
+    max = Math.max(max, df.getHours() + (df.getMinutes() > 0 ? 1 : 0));
+  }
+  const startHour = Math.max(6, min - 1);
+  const endHour = Math.min(HOUR_CAP_END, Math.max(max + 1, startHour + 4));
+  return { startHour, endHour };
+}
+function hoursArray(startHour: number, endHour: number) {
+  return Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
+}
 
 // ─── Shared input styles ──────────────────────────────────────────────────────
 
@@ -172,10 +188,10 @@ const DIA_PILLS: { label: string; day: number }[] = [
 
 // ─── CurrentTimeLine ─────────────────────────────────────────────────────────
 
-function CurrentTimeLine({ now }: { now: Date }) {
+function CurrentTimeLine({ now, startHour, endHour }: { now: Date; startHour: number; endHour: number }) {
   const mins = now.getHours() * 60 + now.getMinutes();
-  const startMins = START_HOUR * 60;
-  const endMins = END_HOUR * 60;
+  const startMins = startHour * 60;
+  const endMins = endHour * 60;
   if (mins < startMins || mins > endMins) return null;
   const top = ((mins - startMins) / 60) * PX_PER_HOUR;
   return (
@@ -326,14 +342,16 @@ function SessionBlock({
   s,
   onClick,
   isSelected,
+  startHour,
 }: {
   s: LayoutedSesion;
   onClick: (id: string) => void;
   isSelected: boolean;
+  startHour: number;
 }) {
   const startMins = minutesSinceMidnight(s.inicio);
   const endMins = minutesSinceMidnight(s.fin);
-  const offsetMins = START_HOUR * 60;
+  const offsetMins = startHour * 60;
 
   const top = ((startMins - offsetMins) / 60) * PX_PER_HOUR + 1;
   const height = Math.max(((endMins - startMins) / 60) * PX_PER_HOUR - 3, 16);
@@ -377,7 +395,7 @@ function SessionBlock({
         <div className="flex items-start gap-1 min-w-0">
           <OccupancyDot confirmadas={s.confirmadas} aforoMaximo={s.aforoMaximo} />
           <p
-            className="text-[11px] font-bold leading-tight truncate flex-1"
+            className={cn('text-[11px] font-bold leading-tight flex-1', height > 44 ? 'line-clamp-2' : 'truncate')}
             style={{ color: textMain }}
           >
             {s.tipoClase.nombre}
@@ -423,6 +441,8 @@ function WeekGrid({
   selectedId,
   onSesionClick,
   onSlotClick,
+  startHour,
+  endHour,
 }: {
   sesiones: SesionEnr[];
   dias: Date[];
@@ -431,8 +451,13 @@ function WeekGrid({
   selectedId: string | null;
   onSesionClick: (id: string) => void;
   onSlotClick: (fecha: string, hora: string) => void;
+  startHour: number;
+  endHour: number;
 }) {
   const isCurrentWeek = dias.some(d => localDate(d) === todayStr);
+  const HOURS = hoursArray(startHour, endHour);
+  const TOTAL_HEIGHT = (endHour - startHour) * PX_PER_HOUR;
+  const START_HOUR = startHour;
 
   return (
     <div className="bg-white rounded-2xl border border-[#EBECF0] overflow-hidden flex-1 min-w-0 shadow-sm">
@@ -465,7 +490,7 @@ function WeekGrid({
       </div>
 
       {/* Scrollable time grid */}
-      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)', minHeight: 400 }}>
+      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
         <div
           className="relative grid"
           style={{ gridTemplateColumns: '52px repeat(7, 1fr)', height: TOTAL_HEIGHT }}
@@ -540,12 +565,13 @@ function WeekGrid({
                     s={s}
                     onClick={onSesionClick}
                     isSelected={s.id === selectedId}
+                    startHour={startHour}
                   />
                 ))}
 
                 {/* Current time line — only on today's column */}
                 {isToday && isCurrentWeek && (
-                  <CurrentTimeLine now={now} />
+                  <CurrentTimeLine now={now} startHour={startHour} endHour={endHour} />
                 )}
               </div>
             );
@@ -566,6 +592,8 @@ function DayColumn({
   selectedId,
   onSesionClick,
   onSlotClick,
+  startHour,
+  endHour,
 }: {
   sesiones: SesionEnr[];
   fecha: string;
@@ -574,13 +602,18 @@ function DayColumn({
   selectedId: string | null;
   onSesionClick: (id: string) => void;
   onSlotClick: (fecha: string, hora: string) => void;
+  startHour: number;
+  endHour: number;
 }) {
   const isToday = fecha === todayStr;
   const layouted = layoutSesiones(sesiones);
+  const HOURS = hoursArray(startHour, endHour);
+  const TOTAL_HEIGHT = (endHour - startHour) * PX_PER_HOUR;
+  const START_HOUR = startHour;
 
   return (
     <div className="bg-white rounded-2xl border border-[#E8EAED] overflow-hidden flex-1 min-w-0">
-      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)', minHeight: 400 }}>
+      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
         <div
           className="relative"
           style={{ height: TOTAL_HEIGHT, paddingLeft: 52 }}
@@ -639,9 +672,10 @@ function DayColumn({
                 s={s}
                 onClick={onSesionClick}
                 isSelected={s.id === selectedId}
+                startHour={startHour}
               />
             ))}
-            {isToday && <CurrentTimeLine now={now} />}
+            {isToday && <CurrentTimeLine now={now} startHour={startHour} endHour={endHour} />}
           </div>
         </div>
       </div>
@@ -1289,7 +1323,7 @@ export default function Calendario() {
   // ── Slot click → prefill form ────────────────────────────────────────────────
   function handleSlotClick(fecha: string, hora: string) {
     const [hh] = hora.split(':');
-    const finH = String(Math.min(parseInt(hh) + 1, END_HOUR)).padStart(2, '0');
+    const finH = String(Math.min(parseInt(hh) + 1, HOUR_CAP_END)).padStart(2, '0');
     setForm(prev => ({ ...emptyForm(), fecha, horaInicio: hora, horaFin: `${finH}:00` }));
     setShowForm('nueva');
   }
@@ -1380,6 +1414,11 @@ export default function Calendario() {
 
   const diaStr = localDate(diaActivo);
   const sesionesDelDia = sesionesFiltered.filter(s => !s.cancelada && localDate(s.inicio) === diaStr);
+
+  // Visible hour window hugs the actual classes (no dead space at the top).
+  const rango = vistaEfectiva === 'semana'
+    ? computeHourRange(sesionesFiltered.filter(s => dias.some(d => localDate(d) === localDate(s.inicio))))
+    : computeHourRange(sesionesDelDia);
 
   if (!mounted) return null;
 
@@ -1527,6 +1566,8 @@ export default function Calendario() {
               selectedId={sesionId}
               onSesionClick={id => setSesionId(prev => prev === id ? null : id)}
               onSlotClick={handleSlotClick}
+              startHour={rango.startHour}
+              endHour={rango.endHour}
             />
           ) : (
             <DayColumn
@@ -1537,6 +1578,8 @@ export default function Calendario() {
               selectedId={sesionId}
               onSesionClick={id => setSesionId(prev => prev === id ? null : id)}
               onSlotClick={handleSlotClick}
+              startHour={rango.startHour}
+              endHour={rango.endHour}
             />
           )}
         </div>
