@@ -38,6 +38,7 @@ export default function VideosPage() {
   const { videosOnDemand, instructores } = useStudio();
   const [cat, setCat] = useState<CategoriaVideo | 'TODOS'>('TODOS');
   const [selected, setSelected] = useState<VideoOnDemand | null>(null);
+  const [avisoPendiente, setAvisoPendiente] = useState(false);
 
   const filtrados = cat === 'TODOS'
     ? videosOnDemand.filter(v => v.activo)
@@ -88,7 +89,7 @@ export default function VideosPage() {
               return (
                 <button
                   key={v.id}
-                  onClick={() => setSelected(v)}
+                  onClick={() => { setAvisoPendiente(false); setSelected(v); }}
                   className="bg-white rounded-2xl overflow-hidden text-left active:scale-[0.97] transition-transform"
                   style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.09)' }}
                 >
@@ -166,14 +167,21 @@ export default function VideosPage() {
               {selected.descripcion && (
                 <p className="text-[14px] text-[#374151] leading-relaxed mt-3">{selected.descripcion}</p>
               )}
-              <button
-                className="w-full py-4 rounded-2xl text-white font-bold text-[16px] flex items-center justify-center gap-2 mt-5"
-                style={{ background: GRADIENTS[selected.categoria] }}
-                onClick={() => alert('¡Próximamente disponible!')}
-              >
-                <Play size={18} className="fill-white" />
-                Empezar video
-              </button>
+              {avisoPendiente ? (
+                <div className="w-full mt-5 rounded-2xl bg-[#F2F2F7] px-4 py-4 text-center">
+                  <p className="text-[14px] font-bold text-[#111827]">Reproducción en preparación</p>
+                  <p className="text-[12px] text-[#8E8E93] mt-1">Este contenido estará disponible muy pronto en tu portal.</p>
+                </div>
+              ) : (
+                <button
+                  className="w-full py-4 rounded-2xl text-white font-bold text-[16px] flex items-center justify-center gap-2 mt-5"
+                  style={{ background: GRADIENTS[selected.categoria] }}
+                  onClick={() => setAvisoPendiente(true)}
+                >
+                  <Play size={18} className="fill-white" />
+                  Empezar video
+                </button>
+              )}
             </div>
           </div>
         </div>
