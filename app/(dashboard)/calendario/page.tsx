@@ -51,36 +51,6 @@ function isDark(hex: string) {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.55;
 }
 
-function minutesSinceMidnight(iso: string): number {
-  const d = new Date(iso);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
-// ─── Calendar constants ───────────────────────────────────────────────────────
-
-const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const PX_PER_HOUR = 76;
-const HOUR_CAP_END = 23;
-
-// Derive the visible hour window from the actual sessions so the grid hugs the
-// classes instead of showing hours of dead space. Falls back to a sane default.
-function computeHourRange(sesiones: { inicio: string; fin: string; cancelada: boolean }[]) {
-  const activos = sesiones.filter(s => !s.cancelada);
-  if (activos.length === 0) return { startHour: 8, endHour: 21 };
-  let min = 24, max = 0;
-  for (const s of activos) {
-    const di = new Date(s.inicio), df = new Date(s.fin);
-    min = Math.min(min, di.getHours());
-    max = Math.max(max, df.getHours() + (df.getMinutes() > 0 ? 1 : 0));
-  }
-  const startHour = Math.max(6, min - 1);
-  const endHour = Math.min(HOUR_CAP_END, Math.max(max + 1, startHour + 4));
-  return { startHour, endHour };
-}
-function hoursArray(startHour: number, endHour: number) {
-  return Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
-}
-
 // ─── Shared input styles ──────────────────────────────────────────────────────
 
 const inputCls = 'w-full rounded-xl border border-[#E8EAED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#111827] focus:outline-none focus:border-[#9CA3AF] transition-colors';
@@ -136,23 +106,6 @@ type RecurringFormData = {
   aforoMaximo: number;
 };
 
-// ─── Occupancy color ──────────────────────────────────────────────────────────
-
-function occupancyColor(confirmadas: number, aforoMaximo: number): string {
-  if (aforoMaximo === 0) return '#6B7280';
-  const pct = (confirmadas / aforoMaximo) * 100;
-  if (pct >= 100) return '#EF4444';
-  if (pct >= 70) return '#F59E0B';
-  return '#10B981';
-}
-
-// ─── Occupancy dot ───────────────────────────────────────────────────────────
-
-function OccupancyDot({ confirmadas, aforoMaximo }: { confirmadas: number; aforoMaximo: number }) {
-  const color = occupancyColor(confirmadas, aforoMaximo);
-  return <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />;
-}
-
 // ─── FormField wrapper ────────────────────────────────────────────────────────
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
@@ -185,22 +138,6 @@ const DIA_PILLS: { label: string; day: number }[] = [
   { label: 'L', day: 1 }, { label: 'M', day: 2 }, { label: 'X', day: 3 },
   { label: 'J', day: 4 }, { label: 'V', day: 5 }, { label: 'S', day: 6 }, { label: 'D', day: 0 },
 ];
-
-// ─── CurrentTimeLine ─────────────────────────────────────────────────────────
-
-function CurrentTimeLine({ now, startHour, endHour }: { now: Date; startHour: number; endHour: number }) {
-  const mins = now.getHours() * 60 + now.getMinutes();
-  const startMins = startHour * 60;
-  const endMins = endHour * 60;
-  if (mins < startMins || mins > endMins) return null;
-  const top = ((mins - startMins) / 60) * PX_PER_HOUR;
-  return (
-    <div className="absolute left-0 right-0 z-20 pointer-events-none flex items-center" style={{ top }}>
-      <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 -ml-1 shadow" />
-      <div className="flex-1 h-px bg-red-500 shadow-sm" />
-    </div>
-  );
-}
 
 // ─── StatsBar ────────────────────────────────────────────────────────────────
 
@@ -289,396 +226,6 @@ function FilterBar({ instructores, salas, filtroInstructor, filtroSala, onInstru
           <X size={12} />Limpiar
         </button>
       )}
-    </div>
-  );
-}
-
-// ─── Overlap layout: assign columns to overlapping sessions ──────────────────
-
-interface LayoutedSesion extends SesionEnr {
-  col: number;
-  totalCols: number;
-}
-
-function layoutSesiones(sesiones: SesionEnr[]): LayoutedSesion[] {
-  if (sesiones.length === 0) return [];
-
-  // Sort by start time
-  const sorted = [...sesiones].sort((a, b) => a.inicio.localeCompare(b.inicio));
-  const result: LayoutedSesion[] = [];
-
-  // Track columns: array of end times
-  const colEnds: string[] = [];
-
-  // First pass: assign columns greedily
-  const cols: number[] = [];
-  for (const s of sorted) {
-    let col = 0;
-    while (col < colEnds.length && colEnds[col] > s.inicio) col++;
-    cols.push(col);
-    colEnds[col] = s.fin;
-  }
-
-  // Second pass: determine total columns for each overlapping group
-  // For each session, find max col of sessions that overlap with it
-  for (let i = 0; i < sorted.length; i++) {
-    let maxCol = cols[i];
-    for (let j = 0; j < sorted.length; j++) {
-      if (i === j) continue;
-      // Do they overlap?
-      if (sorted[j].inicio < sorted[i].fin && sorted[j].fin > sorted[i].inicio) {
-        if (cols[j] > maxCol) maxCol = cols[j];
-      }
-    }
-    result.push({ ...sorted[i], col: cols[i], totalCols: maxCol + 1 });
-  }
-
-  return result;
-}
-
-// ─── SessionBlock ─────────────────────────────────────────────────────────────
-
-function SessionBlock({
-  s,
-  onClick,
-  isSelected,
-  startHour,
-}: {
-  s: LayoutedSesion;
-  onClick: (id: string) => void;
-  isSelected: boolean;
-  startHour: number;
-}) {
-  const startMins = minutesSinceMidnight(s.inicio);
-  const endMins = minutesSinceMidnight(s.fin);
-  const offsetMins = startHour * 60;
-
-  const top = ((startMins - offsetMins) / 60) * PX_PER_HOUR + 1;
-  const height = Math.max(((endMins - startMins) / 60) * PX_PER_HOUR - 3, 16);
-
-  const gutter = 2;
-  const colWidth = `calc((100% - ${gutter}px) / ${s.totalCols})`;
-  const left = `calc((100% - ${gutter}px) / ${s.totalCols} * ${s.col} + ${s.col > 0 ? gutter : 0}px)`;
-
-  const dark = isDark(s.tipoClase.color);
-  // Dark class colors → solid fill + white text. Light colors → soft tint + dark text.
-  const bg = dark ? s.tipoClase.color : `${s.tipoClase.color}26`;
-  const textMain = dark ? '#fff' : '#0F172A';
-  const textSub = dark ? 'rgba(255,255,255,0.7)' : '#64748B';
-
-  const isFull = s.confirmadas >= s.aforoMaximo;
-
-  return (
-    <button
-      onClick={() => onClick(s.id)}
-      className={cn(
-        'absolute rounded-xl text-left overflow-hidden transition-all',
-        isSelected ? 'ring-2 ring-offset-1 ring-[#4F46E5] shadow-lg' : 'hover:-translate-y-px hover:shadow-md',
-      )}
-      style={{
-        top,
-        height,
-        left,
-        width: colWidth,
-        backgroundColor: bg,
-        boxShadow: isSelected ? undefined : '0 1px 2px rgba(15,23,42,0.06)',
-        zIndex: isSelected ? 10 : 1,
-      }}
-    >
-      {/* Left accent stripe */}
-      <div
-        className="absolute left-0 top-0 bottom-0 w-1"
-        style={{ backgroundColor: s.tipoClase.color }}
-      />
-      <div className="pl-2.5 pr-1.5 pt-1 pb-1 h-full flex flex-col">
-        {/* Occupancy dot + name */}
-        <div className="flex items-start gap-1 min-w-0">
-          <OccupancyDot confirmadas={s.confirmadas} aforoMaximo={s.aforoMaximo} />
-          <p
-            className={cn('text-[11px] font-bold leading-tight flex-1', height > 44 ? 'line-clamp-2' : 'truncate')}
-            style={{ color: textMain }}
-          >
-            {s.tipoClase.nombre}
-          </p>
-        </div>
-
-        {/* Time + spots — only if enough height */}
-        {height > 34 && (
-          <p className="text-[10px] leading-snug mt-0.5 truncate" style={{ color: textSub }}>
-            {formatHora(s.inicio)}
-            {height > 48 && ` · ${s.confirmadas}/${s.aforoMaximo}`}
-          </p>
-        )}
-
-        {/* Instructor — only if tall enough */}
-        {height > 60 && (
-          <p className="text-[10px] leading-snug truncate mt-0.5" style={{ color: textSub }}>
-            {s.instructor.nombre}
-          </p>
-        )}
-
-        {/* Full badge */}
-        {isFull && height > 52 && (
-          <span
-            className="mt-auto text-[9px] font-bold px-1 py-0.5 rounded self-start"
-            style={{ backgroundColor: dark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)', color: textMain }}
-          >
-            COMPLETO
-          </span>
-        )}
-      </div>
-    </button>
-  );
-}
-
-// ─── WeekGrid ────────────────────────────────────────────────────────────────
-
-function WeekGrid({
-  sesiones,
-  dias,
-  todayStr,
-  now,
-  selectedId,
-  onSesionClick,
-  onSlotClick,
-  startHour,
-  endHour,
-}: {
-  sesiones: SesionEnr[];
-  dias: Date[];
-  todayStr: string;
-  now: Date;
-  selectedId: string | null;
-  onSesionClick: (id: string) => void;
-  onSlotClick: (fecha: string, hora: string) => void;
-  startHour: number;
-  endHour: number;
-}) {
-  const isCurrentWeek = dias.some(d => localDate(d) === todayStr);
-  const HOURS = hoursArray(startHour, endHour);
-  const TOTAL_HEIGHT = (endHour - startHour) * PX_PER_HOUR;
-  const START_HOUR = startHour;
-
-  return (
-    <div className="bg-white rounded-2xl border border-[#EBECF0] overflow-hidden flex-1 min-w-0 shadow-sm">
-      {/* Day header row */}
-      <div className="grid border-b border-[#EBECF0] sticky top-0 bg-white/95 z-10" style={{ gridTemplateColumns: '52px repeat(7, 1fr)', backdropFilter: 'blur(8px)' }}>
-        <div className="border-r border-[#EBECF0]" />
-        {dias.map((d, i) => {
-          const str = localDate(d);
-          const isToday = str === todayStr;
-          const isWeekend = i >= 5;
-          const dayCount = sesiones.filter(s => !s.cancelada && localDate(s.inicio) === str).length;
-          return (
-            <div
-              key={i}
-              className={cn('py-2 flex flex-col items-center border-r border-[#EBECF0] last:border-r-0', isToday && 'bg-[#EEF2FF]')}
-            >
-              <p className={cn('text-[10px] uppercase tracking-widest font-bold', isToday ? 'text-[#4F46E5]' : isWeekend ? 'text-[#C4C4CC]' : 'text-[#9CA3AF]')}>{DAY_LABELS[i]}</p>
-              <div className={cn(
-                'mt-1 w-8 h-8 flex items-center justify-center rounded-full text-[15px] font-bold tabular-nums',
-                isToday ? 'bg-[#4F46E5] text-white shadow-sm' : 'text-[#0F172A]',
-              )}>
-                {d.getDate()}
-              </div>
-              <p className={cn('text-[9px] font-semibold mt-0.5 h-3', dayCount > 0 ? 'text-[#9CA3AF]' : 'text-transparent')}>
-                {dayCount > 0 ? `${dayCount} clase${dayCount > 1 ? 's' : ''}` : '·'}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Scrollable time grid */}
-      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
-        <div
-          className="relative grid"
-          style={{ gridTemplateColumns: '52px repeat(7, 1fr)', height: TOTAL_HEIGHT }}
-        >
-          {/* Hour labels column */}
-          <div className="relative border-r border-[#E8EAED] bg-white">
-            {HOURS.map(h => (
-              <div
-                key={h}
-                className="absolute w-full flex items-center justify-end pr-2"
-                style={{ top: (h - START_HOUR) * PX_PER_HOUR - 8 }}
-              >
-                <span className="text-[10px] font-semibold text-[#C4C4CC] tabular-nums">
-                  {String(h).padStart(2, '0')}:00
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Day columns */}
-          {dias.map((d, di) => {
-            const str = localDate(d);
-            const isToday = str === todayStr;
-            const daySesiones = sesiones.filter(s => !s.cancelada && localDate(s.inicio) === str);
-            const layouted = layoutSesiones(daySesiones);
-
-            return (
-              <div
-                key={di}
-                className={cn('relative border-r border-[#E8EAED] last:border-r-0', isToday && 'bg-[#F5F7FF]')}
-              >
-                {/* Hour gridlines */}
-                {HOURS.map(h => (
-                  <div
-                    key={h}
-                    className="absolute inset-x-0 border-t border-[#F0F0F5]"
-                    style={{ top: (h - START_HOUR) * PX_PER_HOUR }}
-                  />
-                ))}
-                {/* Half-hour dashed lines */}
-                {HOURS.slice(0, -1).map(h => (
-                  <div
-                    key={`${h}h`}
-                    className="absolute inset-x-0 border-t border-dashed border-[#F7F7FA]"
-                    style={{ top: (h - START_HOUR) * PX_PER_HOUR + PX_PER_HOUR / 2 }}
-                  />
-                ))}
-
-                {/* Clickable empty slot areas */}
-                {HOURS.slice(0, -1).map(h => {
-                  const slotHora = `${String(h).padStart(2, '0')}:00`;
-                  return (
-                    <div
-                      key={`slot-${h}`}
-                      className="absolute inset-x-0 cursor-pointer hover:bg-[#4F46E5]/5 transition-colors group"
-                      style={{ top: (h - START_HOUR) * PX_PER_HOUR, height: PX_PER_HOUR }}
-                      onClick={() => onSlotClick(str, slotHora)}
-                    >
-                      <div className="absolute inset-x-1 top-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-[#4F46E5] bg-white/90 px-1.5 py-0.5 rounded-md shadow-sm">
-                          + {slotHora}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Session blocks */}
-                {layouted.map(s => (
-                  <SessionBlock
-                    key={s.id}
-                    s={s}
-                    onClick={onSesionClick}
-                    isSelected={s.id === selectedId}
-                    startHour={startHour}
-                  />
-                ))}
-
-                {/* Current time line — only on today's column */}
-                {isToday && isCurrentWeek && (
-                  <CurrentTimeLine now={now} startHour={startHour} endHour={endHour} />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── DayColumn ────────────────────────────────────────────────────────────────
-
-function DayColumn({
-  sesiones,
-  fecha,
-  todayStr,
-  now,
-  selectedId,
-  onSesionClick,
-  onSlotClick,
-  startHour,
-  endHour,
-}: {
-  sesiones: SesionEnr[];
-  fecha: string;
-  todayStr: string;
-  now: Date;
-  selectedId: string | null;
-  onSesionClick: (id: string) => void;
-  onSlotClick: (fecha: string, hora: string) => void;
-  startHour: number;
-  endHour: number;
-}) {
-  const isToday = fecha === todayStr;
-  const layouted = layoutSesiones(sesiones);
-  const HOURS = hoursArray(startHour, endHour);
-  const TOTAL_HEIGHT = (endHour - startHour) * PX_PER_HOUR;
-  const START_HOUR = startHour;
-
-  return (
-    <div className="bg-white rounded-2xl border border-[#E8EAED] overflow-hidden flex-1 min-w-0">
-      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
-        <div
-          className="relative"
-          style={{ height: TOTAL_HEIGHT, paddingLeft: 52 }}
-        >
-          {/* Hour labels */}
-          <div className="absolute left-0 top-0 bottom-0 w-[52px] border-r border-[#E8EAED]">
-            {HOURS.map(h => (
-              <div
-                key={h}
-                className="absolute w-full flex items-center justify-end pr-2"
-                style={{ top: (h - START_HOUR) * PX_PER_HOUR - 8 }}
-              >
-                <span className="text-[10px] font-semibold text-[#C4C4CC] tabular-nums">
-                  {String(h).padStart(2, '0')}:00
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Day content */}
-          <div className={cn('relative h-full', isToday && 'bg-[#F5F7FF]')}>
-            {HOURS.map(h => (
-              <div
-                key={h}
-                className="absolute inset-x-0 border-t border-[#F0F0F5]"
-                style={{ top: (h - START_HOUR) * PX_PER_HOUR }}
-              />
-            ))}
-            {HOURS.slice(0, -1).map(h => (
-              <div
-                key={`${h}h`}
-                className="absolute inset-x-0 border-t border-dashed border-[#F7F7FA]"
-                style={{ top: (h - START_HOUR) * PX_PER_HOUR + PX_PER_HOUR / 2 }}
-              />
-            ))}
-            {HOURS.slice(0, -1).map(h => {
-              const slotHora = `${String(h).padStart(2, '0')}:00`;
-              return (
-                <div
-                  key={`slot-${h}`}
-                  className="absolute inset-x-0 cursor-pointer hover:bg-[#4F46E5]/5 transition-colors group"
-                  style={{ top: (h - START_HOUR) * PX_PER_HOUR, height: PX_PER_HOUR }}
-                  onClick={() => onSlotClick(fecha, slotHora)}
-                >
-                  <div className="absolute inset-x-2 top-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
-                    <span className="text-[10px] font-bold text-[#4F46E5] bg-white/90 px-1.5 py-0.5 rounded-md shadow-sm">
-                      + {slotHora}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-            {layouted.map(s => (
-              <SessionBlock
-                key={s.id}
-                s={s}
-                onClick={onSesionClick}
-                isSelected={s.id === selectedId}
-                startHour={startHour}
-              />
-            ))}
-            {isToday && <CurrentTimeLine now={now} startHour={startHour} endHour={endHour} />}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1311,27 +858,13 @@ export default function Calendario() {
   const [mounted, setMounted] = useState(false);
   const FALLBACK = new Date('2026-06-29');
 
-  // ── View state ──────────────────────────────────────────────────────────────
-  const [vista, setVista] = useState<'semana' | 'dia'>('semana');
+  // ── Week state ────────────────────────────────────────────────────────────────
   const [semana, setSemana] = useState(() => weekStart(FALLBACK));
-  const [diaActivo, setDiaActivo] = useState(() => FALLBACK);
-
-  // ── Responsive: the 7-column week grid is unusable on phones, force day view ──
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1023px)');
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
-  const vistaEfectiva: 'semana' | 'dia' = isMobile ? 'dia' : vista;
 
   useEffect(() => {
     const today = new Date();
     setMounted(true);
     setSemana(weekStart(today));
-    setDiaActivo(today);
   }, []);
 
   const now = mounted ? new Date() : FALLBACK;
@@ -1426,22 +959,12 @@ export default function Calendario() {
   }
 
   function irAHoy() {
-    const today = new Date();
-    setSemana(weekStart(today));
-    setDiaActivo(today);
-  }
-
-  // ── Slot click → prefill form ────────────────────────────────────────────────
-  function handleSlotClick(fecha: string, hora: string) {
-    const [hh] = hora.split(':');
-    const finH = String(Math.min(parseInt(hh) + 1, HOUR_CAP_END)).padStart(2, '0');
-    setForm(prev => ({ ...emptyForm(), fecha, horaInicio: hora, horaFin: `${finH}:00` }));
-    setShowForm('nueva');
+    setSemana(weekStart(new Date()));
   }
 
   // ── Session actions ──────────────────────────────────────────────────────────
   function openNueva(prefillFecha?: string) {
-    setForm({ ...emptyForm(), fecha: prefillFecha ?? localDate(diaActivo) });
+    setForm({ ...emptyForm(), fecha: prefillFecha ?? localDate(now) });
     setShowForm('nueva');
   }
 
