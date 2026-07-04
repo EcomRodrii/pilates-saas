@@ -14,10 +14,6 @@ import {
   dbInsertActividadReciente,
   dbInsertNotaInterna, dbDeleteNotaInterna,
 } from '@/lib/supabase-data';
-import {
-  recibos as recibosInit,
-  facturas as facturasInit,
-} from '@/lib/mock-data';
 import type {
   Socio,
   AceptacionContrato,
@@ -105,86 +101,6 @@ La firma de este documento supone la aceptación íntegra de las presentes condi
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function shiftMonths(isoDate: string, months: number): string {
-  const d = new Date(isoDate);
-  d.setMonth(d.getMonth() - months);
-  return d.toISOString();
-}
-
-function generateHistoricalFacturas(histRecibos: Recibo[], baseFacturas: Factura[]): Factura[] {
-  const scaleByMonth: Record<number, number> = { 1: 0.94, 2: 0.86, 3: 0.76, 4: 0.64, 5: 0.50 };
-  const receptorMap: Record<string, { nombre: string; nif: string | null }> = {
-    'rec-1': { nombre: 'Laura Martínez García', nif: '12345678A' },
-    'rec-2': { nombre: 'Carmen López Ruiz', nif: '23456789B' },
-    'rec-3': { nombre: 'Ana Fernández Torres', nif: null },
-    'rec-5': { nombre: 'Marta Sánchez Moreno', nif: null },
-  };
-  const result: Factura[] = [];
-  // months 5..1 = Jan..May, numbered sequentially from 0001
-  let seq = 1;
-  for (let m = 5; m >= 1; m--) {
-    const scale = scaleByMonth[m] ?? 1;
-    baseFacturas.forEach(f => {
-      const histReciboId = `hist-${m}-${baseFacturas.indexOf(f)}-${f.reciboId}`;
-      const matchedRecibo = histRecibos.find(r => r.id === histReciboId);
-      if (!matchedRecibo) return;
-      const total = matchedRecibo.importe;
-      const base = Math.round((total / 1.21) * 100) / 100;
-      const cuota = Math.round((total - base) * 100) / 100;
-      const receptor = receptorMap[f.reciboId] ?? { nombre: f.receptorNombre, nif: f.receptorNIF };
-      const fechaD = new Date(f.fechaEmision);
-      fechaD.setMonth(fechaD.getMonth() - m);
-      result.push({
-        id: `hist-fac-${m}-${f.id}`,
-        studioId: 'studio-1',
-        reciboId: histReciboId,
-        numeroCompleto: `A-2026-${String(seq).padStart(4, '0')}`,
-        fechaEmision: fechaD.toISOString(),
-        receptorNombre: receptor.nombre,
-        receptorNIF: receptor.nif,
-        baseImponible: base,
-        tipoIVA: 21,
-        cuotaIVA: cuota,
-        total,
-        verifactuHash: null,
-      });
-      seq++;
-    });
-  }
-  return result;
-}
-
-function generateHistoricalRecibos(base: Recibo[]): Recibo[] {
-  const extra: Recibo[] = [];
-  // Only expand recibos from the current month to avoid duplicates
-  const now2 = new Date();
-  const cobrados = base.filter(r => {
-    if (r.estado !== 'COBRADO') return false;
-    const d = new Date(r.fechaVencimiento);
-    return d.getMonth() === now2.getMonth() && d.getFullYear() === now2.getFullYear();
-  });
-  // Scale factors simulate studio growth: older months have lower revenue
-  const scaleByMonth: Record<number, number> = { 1: 0.94, 2: 0.86, 3: 0.76, 4: 0.64, 5: 0.50 };
-  for (let m = 1; m <= 5; m++) {
-    const scale = scaleByMonth[m] ?? 1;
-    cobrados.forEach((r, idx) => {
-      extra.push({
-        ...r,
-        id: `hist-${m}-${idx}-${r.id}`,
-        importe: Math.round(r.importe * scale),
-        fechaVencimiento: shiftMonths(r.fechaVencimiento, m),
-        fechaCobro: r.fechaCobro ? shiftMonths(r.fechaCobro, m) : null,
-        concepto: r.concepto.replace(/— \w+ \d{4}/, () => {
-          const d = new Date(r.fechaVencimiento);
-          d.setMonth(d.getMonth() - m);
-          return `— ${d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })}`;
-        }),
-      });
-    });
-  }
-  return extra;
 }
 
 // ─── Context shape ────────────────────────────────────────────────────────────
@@ -377,9 +293,6 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   // ── Fetch all data from Supabase on mount ────────────────────────────────────
   useEffect(() => {
     fetchAllStudioData().then(data => {
-      const histRecibos = generateHistoricalRecibos(data.recibos.length ? data.recibos : recibosInit);
-      const histFacturas = generateHistoricalFacturas(histRecibos, data.facturas.length ? data.facturas : facturasInit);
-
       setPlanesTarifa(data.planesTarifa);
       setSalas(data.salas);
       setTiposClase(data.tiposClase);
@@ -389,8 +302,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
       setReservas(data.reservas);
-      setRecibos([...data.recibos, ...histRecibos]);
-      setFacturas([...data.facturas, ...histFacturas]);
+      setRecibos(data.recibos);
+      setFacturas(data.facturas);
       setNotasInternas(data.notasInternas);
       setCitas(data.citas);
       setProductosPOS(data.productosPOS);
@@ -744,9 +657,11 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   }
 
   function checkin(reservaId: string) {
+    const checkInEn = new Date().toISOString();
     setReservas(prev => prev.map(r =>
-      r.id === reservaId ? { ...r, estado: 'ASISTIDA' as const, checkInEn: new Date().toISOString() } : r
+      r.id === reservaId ? { ...r, estado: 'ASISTIDA' as const, checkInEn } : r
     ));
+    dbUpdateReserva(reservaId, { estado: 'ASISTIDA', checkInEn });
     const reserva = reservas.find(r => r.id === reservaId);
     if (!reserva) return;
     const sus = suscripciones.find(s => s.socioId === reserva.socioId && s.estado === 'ACTIVA');
@@ -759,6 +674,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setSuscripciones(prev => prev.map(s =>
         s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
       ));
+      dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
 
       // Bono agotado → generar recibo de renovación + notificación
       if (nuevasRestantes === 0) {
@@ -779,6 +695,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
           intentosReintento: 0,
         };
         setRecibos(prev => [reciboRenovacion, ...prev]);
+        dbInsertRecibo(reciboRenovacion);
         setNotificaciones(prev => [{
           id: `notif-bono-${uid()}`,
           studioId: 'studio-1',
@@ -828,6 +745,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       };
       setRecibos(prev => {
         if (prev.some(r => r.id === reciboVencido.id)) return prev;
+        dbInsertRecibo(reciboVencido);
         return [reciboVencido, ...prev];
       });
       setNotificaciones(prev => [{
@@ -848,12 +766,15 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     setReservas(prev => prev.map(r =>
       r.id === reservaId ? { ...r, spotId: null } : r
     ));
+    dbUpdateReserva(reservaId, { spotId: null });
   }
 
   function asignarSpot(sesionId: string, socioId: string, spotId: string) {
+    const reserva = reservas.find(r => r.sesionId === sesionId && r.socioId === socioId);
     setReservas(prev => prev.map(r =>
       r.sesionId === sesionId && r.socioId === socioId ? { ...r, spotId } : r
     ));
+    if (reserva) dbUpdateReserva(reserva.id, { spotId });
   }
 
   // ── Recibos ──────────────────────────────────────────────────────────────────
@@ -899,12 +820,15 @@ export function StudioProvider({ children }: { children: ReactNode }) {
             setSuscripciones(prev => prev.map(s =>
               s.id === sus.id ? { ...s, sesionesRestantes: plan.sesiones, estado: 'ACTIVA' as const } : s
             ));
+            dbUpdateSuscripcion(sus.id, { sesionesRestantes: plan.sesiones, estado: 'ACTIVA' });
           } else if (plan.tipo === 'MENSUAL') {
             const nuevaFin = new Date();
             nuevaFin.setMonth(nuevaFin.getMonth() + 1);
+            const fechaFin = nuevaFin.toISOString().slice(0, 10);
             setSuscripciones(prev => prev.map(s =>
-              s.id === sus.id ? { ...s, fechaFin: nuevaFin.toISOString().slice(0, 10), estado: 'ACTIVA' as const } : s
+              s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const } : s
             ));
+            dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
           }
         }
       }
@@ -935,15 +859,22 @@ export function StudioProvider({ children }: { children: ReactNode }) {
 
   function cobrarTodosPendientes() {
     const pendientes = recibos.filter(r => r.estado === 'PENDIENTE');
+    const fechaCobro = new Date().toISOString();
     setRecibos(prev => prev.map(r =>
-      r.estado === 'PENDIENTE' ? { ...r, estado: 'COBRADO' as const, fechaCobro: new Date().toISOString() } : r
+      r.estado === 'PENDIENTE' ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
     ));
+    // Persist each recibo update to Supabase
+    for (const recibo of pendientes) {
+      dbUpdateRecibo(recibo.id, { estado: 'COBRADO', fechaCobro });
+    }
     setFacturas(prev => {
       let current = [...prev];
       for (const recibo of pendientes) {
         if (!current.some(f => f.reciboId === recibo.id)) {
-          const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro: new Date().toISOString() };
-          current = [...current, buildFactura(cobrado, current)];
+          const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
+          const fac = buildFactura(cobrado, current);
+          dbInsertFactura(fac);
+          current = [...current, fac];
         }
       }
       return current;
@@ -959,12 +890,15 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         setSuscripciones(prev => prev.map(s =>
           s.id === sus.id ? { ...s, sesionesRestantes: plan.sesiones, estado: 'ACTIVA' as const } : s
         ));
+        dbUpdateSuscripcion(sus.id, { sesionesRestantes: plan.sesiones, estado: 'ACTIVA' });
       } else if (plan.tipo === 'MENSUAL') {
         const nuevaFin = new Date();
         nuevaFin.setMonth(nuevaFin.getMonth() + 1);
+        const fechaFin = nuevaFin.toISOString().slice(0, 10);
         setSuscripciones(prev => prev.map(s =>
-          s.id === sus.id ? { ...s, fechaFin: nuevaFin.toISOString().slice(0, 10), estado: 'ACTIVA' as const } : s
+          s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const } : s
         ));
+        dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
       }
     }
   }
@@ -1033,7 +967,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         intentosReintento: 0,
       };
       setRecibos(prev => [nuevoRecibo, ...prev]);
-      setFacturas(prev => [...prev, buildFactura(nuevoRecibo, prev)]);
+      dbInsertRecibo(nuevoRecibo);
+      setFacturas(prev => {
+        const fac = buildFactura(nuevoRecibo, prev);
+        dbInsertFactura(fac);
+        return [...prev, fac];
+      });
     }
   }
 
@@ -1439,8 +1378,6 @@ export function StudioProvider({ children }: { children: ReactNode }) {
 
   function resetDatosPilates() {
     fetchAllStudioData().then(data => {
-      const histRecibos = generateHistoricalRecibos(data.recibos.length ? data.recibos : recibosInit);
-      const histFacturas = generateHistoricalFacturas(histRecibos, data.facturas.length ? data.facturas : facturasInit);
       setPlanesTarifa(data.planesTarifa);
       setSalas(data.salas);
       setTiposClase(data.tiposClase);
@@ -1450,8 +1387,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
       setReservas(data.reservas);
-      setRecibos([...data.recibos, ...histRecibos]);
-      setFacturas([...data.facturas, ...histFacturas]);
+      setRecibos(data.recibos);
+      setFacturas(data.facturas);
       setNotasInternas(data.notasInternas);
       setCitas(data.citas);
       setProductosPOS(data.productosPOS);

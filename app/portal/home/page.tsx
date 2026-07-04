@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { Calendar, CreditCard, Play, TrendingUp, Clock, ChevronRight, Zap } from 'lucide-react';
+import { Calendar, CreditCard, Play, TrendingUp, Clock, ChevronRight, Zap, AlertCircle } from 'lucide-react';
 
 export default function PortalHome() {
   const { session, logout } = usePortalAuth();
@@ -14,6 +14,7 @@ export default function PortalHome() {
   const activeSus = suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA');
   const plan = activeSus ? planesTarifa.find(p => p.id === activeSus.planId) : null;
   const now = new Date();
+  const bonoCaducado = !!(activeSus?.fechaFin && activeSus.fechaFin < now.toISOString().slice(0, 10));
 
   const misReservas = useMemo(() =>
     reservas.filter(r => r.socioId === session?.socioId), [reservas, session?.socioId]);
@@ -143,17 +144,24 @@ export default function PortalHome() {
       {/* ── Mi bono ──────────────────────────────────── */}
       {plan && activeSus && (
         <div className="px-4 mt-5">
-          <Link href="/portal/mi-plan" className="block bg-white rounded-3xl shadow-sm border border-black/[0.06] p-5 active:scale-[0.98] transition-transform">
+          <Link href="/portal/mi-plan" className={`block bg-white rounded-3xl shadow-sm border p-5 active:scale-[0.98] transition-transform ${bonoCaducado ? 'border-red-200' : 'border-black/[0.06]'}`}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-1">Mi bono</p>
                 <p className="text-[18px] font-extrabold text-[#111827] leading-tight">{plan.nombre}</p>
               </div>
-              <div className="w-10 h-10 rounded-2xl bg-[#EEF2FF] flex items-center justify-center">
-                <CreditCard size={18} className="text-[#4F46E5]" />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${bonoCaducado ? 'bg-red-50' : 'bg-[#EEF2FF]'}`}>
+                <CreditCard size={18} className={bonoCaducado ? 'text-red-500' : 'text-[#4F46E5]'} />
               </div>
             </div>
-            {activeSus.sesionesRestantes != null && plan.sesiones != null ? (
+            {bonoCaducado ? (
+              <div className="flex items-center gap-2 bg-red-50 rounded-2xl px-4 py-3">
+                <AlertCircle size={16} className="text-red-500 shrink-0" />
+                <p className="text-[13px] font-semibold text-red-700 leading-tight">
+                  Caducado el {new Date(activeSus.fechaFin!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} · renueva con tu instructor
+                </p>
+              </div>
+            ) : activeSus.sesionesRestantes != null && plan.sesiones != null ? (
               <>
                 <div className="flex justify-between items-baseline mb-2">
                   <span className="text-[22px] font-extrabold text-[#111827]">{activeSus.sesionesRestantes}</span>

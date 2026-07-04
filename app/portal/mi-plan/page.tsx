@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { CheckCircle2, Clock, XCircle, FileText, CreditCard } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, FileText, CreditCard, AlertCircle } from 'lucide-react';
 
 type Filtro = 'TODOS' | 'COBRADO' | 'PENDIENTE';
 
@@ -45,6 +45,9 @@ export default function MiPlanPage() {
 
   const totalPagado = misRecibos.filter(r => r.estado === 'COBRADO').reduce((s, r) => s + r.importe, 0);
 
+  const hoyStr = new Date().toISOString().slice(0, 10);
+  const caducada = !!(suscripcion?.fechaFin && suscripcion.fechaFin < hoyStr);
+
   return (
     <div className="bg-white min-h-full">
 
@@ -67,10 +70,22 @@ export default function MiPlanPage() {
                   </p>
                   <p className="text-white text-[22px] font-extrabold leading-tight">{plan.nombre}</p>
                 </div>
-                <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center">
-                  <CreditCard size={18} className="text-white" />
-                </div>
+                {caducada ? (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-red-500 text-white">Caducado</span>
+                ) : (
+                  <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center">
+                    <CreditCard size={18} className="text-white" />
+                  </div>
+                )}
               </div>
+              {caducada && (
+                <div className="flex items-center gap-2 bg-white/15 rounded-2xl px-4 py-2.5 mb-3">
+                  <AlertCircle size={15} className="text-white shrink-0" />
+                  <p className="text-white text-[12px] font-medium leading-tight">
+                    Venció el {formatDate(suscripcion.fechaFin!)}. Habla con tu instructor para renovar.
+                  </p>
+                </div>
+              )}
 
               {sesionesProgress !== null && suscripcion.sesionesRestantes != null && plan.sesiones ? (
                 <div className="bg-white/10 rounded-2xl p-4">
