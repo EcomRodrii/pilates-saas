@@ -199,23 +199,28 @@ function StatsBar({ sesiones, reservas, todayStr }: {
   const asistidas = hoy.reduce((acc, s) => acc + s.asistidas, 0);
   const checkinRate = ocupadas > 0 ? Math.round((asistidas / ocupadas) * 100) : 0;
 
+  const ocupPct = totalPlazas > 0 ? Math.round((ocupadas / totalPlazas) * 100) : 0;
+
   const stats = [
-    { icon: CalendarDays, label: 'Clases hoy', value: hoy.length, color: '#6B4FA8', bg: '#EDEAF8' },
-    { icon: Users, label: 'Plazas totales', value: totalPlazas, color: '#111827', bg: '#F5F5F7' },
-    { icon: TrendingUp, label: 'Ocupación hoy', value: `${ocupadas}/${totalPlazas}`, color: '#D97706', bg: '#FEF3C7' },
-    { icon: CheckCircle2, label: 'Tasa check-in', value: `${checkinRate}%`, color: '#059669', bg: '#D1FAE5' },
+    { icon: CalendarDays, label: 'Clases hoy', value: hoy.length, sub: hoy.length === 1 ? 'sesión' : 'sesiones', color: '#4F46E5', bg: '#EEF2FF' },
+    { icon: Users, label: 'Plazas totales', value: totalPlazas, sub: 'disponibles hoy', color: '#0F172A', bg: '#F1F5F9' },
+    { icon: TrendingUp, label: 'Ocupación', value: `${ocupPct}%`, sub: `${ocupadas} de ${totalPlazas} reservadas`, color: '#D97706', bg: '#FEF3C7' },
+    { icon: CheckCircle2, label: 'Check-in', value: `${checkinRate}%`, sub: `${asistidas} asistidas`, color: '#059669', bg: '#DCFCE7' },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      {stats.map(({ icon: Icon, label, value, color, bg }) => (
-        <div key={label} className="bg-white border border-[#E8EAED] rounded-xl px-4 py-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: bg }}>
-            <Icon size={17} color={color} />
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {stats.map(({ icon: Icon, label, value, sub, color, bg }) => (
+        <div key={label} className="bg-white border border-[#EBECF0] rounded-2xl p-4 flex flex-col gap-2.5 hover:shadow-sm transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#9CA3AF]">{label}</span>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: bg }}>
+              <Icon size={15} color={color} />
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-[#9CA3AF] leading-none truncate">{label}</p>
-            <p className="text-lg font-semibold text-[#111827] leading-tight mt-0.5">{value}</p>
+          <div>
+            <p className="text-[26px] font-extrabold text-[#0F172A] leading-none tracking-tight tabular-nums">{value}</p>
+            <p className="text-[11px] text-[#9CA3AF] mt-1 truncate">{sub}</p>
           </div>
         </div>
       ))}
@@ -338,34 +343,36 @@ function SessionBlock({
   const left = `calc((100% - ${gutter}px) / ${s.totalCols} * ${s.col} + ${s.col > 0 ? gutter : 0}px)`;
 
   const dark = isDark(s.tipoClase.color);
-  const textMain = dark ? '#fff' : '#111827';
-  const textSub = dark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.5)';
+  // Dark class colors → solid fill + white text. Light colors → soft tint + dark text.
+  const bg = dark ? s.tipoClase.color : `${s.tipoClase.color}26`;
+  const textMain = dark ? '#fff' : '#0F172A';
+  const textSub = dark ? 'rgba(255,255,255,0.7)' : '#64748B';
 
-  const pct = s.aforoMaximo > 0 ? Math.round((s.confirmadas / s.aforoMaximo) * 100) : 0;
   const isFull = s.confirmadas >= s.aforoMaximo;
 
   return (
     <button
       onClick={() => onClick(s.id)}
       className={cn(
-        'absolute rounded-lg text-left overflow-hidden transition-all',
-        isSelected ? 'ring-2 ring-offset-1 ring-white shadow-lg brightness-95' : 'hover:brightness-95 shadow-sm',
+        'absolute rounded-xl text-left overflow-hidden transition-all',
+        isSelected ? 'ring-2 ring-offset-1 ring-[#4F46E5] shadow-lg' : 'hover:-translate-y-px hover:shadow-md',
       )}
       style={{
         top,
         height,
         left,
         width: colWidth,
-        backgroundColor: s.tipoClase.color,
+        backgroundColor: bg,
+        boxShadow: isSelected ? undefined : '0 1px 2px rgba(15,23,42,0.06)',
         zIndex: isSelected ? 10 : 1,
       }}
     >
       {/* Left accent stripe */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-0.5"
-        style={{ backgroundColor: dark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }}
+        className="absolute left-0 top-0 bottom-0 w-1"
+        style={{ backgroundColor: s.tipoClase.color }}
       />
-      <div className="pl-2 pr-1.5 pt-1 pb-1 h-full flex flex-col">
+      <div className="pl-2.5 pr-1.5 pt-1 pb-1 h-full flex flex-col">
         {/* Occupancy dot + name */}
         <div className="flex items-start gap-1 min-w-0">
           <OccupancyDot confirmadas={s.confirmadas} aforoMaximo={s.aforoMaximo} />
@@ -428,26 +435,30 @@ function WeekGrid({
   const isCurrentWeek = dias.some(d => localDate(d) === todayStr);
 
   return (
-    <div className="bg-white rounded-2xl border border-[#E8EAED] overflow-hidden flex-1 min-w-0">
+    <div className="bg-white rounded-2xl border border-[#EBECF0] overflow-hidden flex-1 min-w-0 shadow-sm">
       {/* Day header row */}
-      <div className="grid border-b border-[#E8EAED] sticky top-0 bg-white z-10" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
-        <div className="border-r border-[#E8EAED]" />
+      <div className="grid border-b border-[#EBECF0] sticky top-0 bg-white/95 z-10" style={{ gridTemplateColumns: '52px repeat(7, 1fr)', backdropFilter: 'blur(8px)' }}>
+        <div className="border-r border-[#EBECF0]" />
         {dias.map((d, i) => {
           const str = localDate(d);
           const isToday = str === todayStr;
+          const isWeekend = i >= 5;
           const dayCount = sesiones.filter(s => !s.cancelada && localDate(s.inicio) === str).length;
           return (
             <div
               key={i}
-              className={cn('py-2.5 text-center border-r border-[#E8EAED] last:border-r-0', isToday && 'bg-[#FAFAFF]')}
+              className={cn('py-2 flex flex-col items-center border-r border-[#EBECF0] last:border-r-0', isToday && 'bg-[#EEF2FF]')}
             >
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-[#9CA3AF]">{DAY_LABELS[i]}</p>
-              <p className={cn('text-base font-bold mt-0.5', isToday ? 'text-[#6B4FA8]' : 'text-[#111827]')}>
+              <p className={cn('text-[10px] uppercase tracking-widest font-bold', isToday ? 'text-[#4F46E5]' : isWeekend ? 'text-[#C4C4CC]' : 'text-[#9CA3AF]')}>{DAY_LABELS[i]}</p>
+              <div className={cn(
+                'mt-1 w-8 h-8 flex items-center justify-center rounded-full text-[15px] font-bold tabular-nums',
+                isToday ? 'bg-[#4F46E5] text-white shadow-sm' : 'text-[#0F172A]',
+              )}>
                 {d.getDate()}
+              </div>
+              <p className={cn('text-[9px] font-semibold mt-0.5 h-3', dayCount > 0 ? 'text-[#9CA3AF]' : 'text-transparent')}>
+                {dayCount > 0 ? `${dayCount} clase${dayCount > 1 ? 's' : ''}` : '·'}
               </p>
-              {dayCount > 0 && (
-                <p className="text-[9px] font-semibold text-[#9CA3AF] mt-0.5">{dayCount} clase{dayCount > 1 ? 's' : ''}</p>
-              )}
             </div>
           );
         })}
@@ -484,7 +495,7 @@ function WeekGrid({
             return (
               <div
                 key={di}
-                className={cn('relative border-r border-[#E8EAED] last:border-r-0', isToday && 'bg-[#FAFAFF]')}
+                className={cn('relative border-r border-[#E8EAED] last:border-r-0', isToday && 'bg-[#F5F7FF]')}
               >
                 {/* Hour gridlines */}
                 {HOURS.map(h => (
@@ -509,12 +520,12 @@ function WeekGrid({
                   return (
                     <div
                       key={`slot-${h}`}
-                      className="absolute inset-x-0 cursor-pointer hover:bg-[#6B4FA8]/5 transition-colors group"
+                      className="absolute inset-x-0 cursor-pointer hover:bg-[#4F46E5]/5 transition-colors group"
                       style={{ top: (h - START_HOUR) * PX_PER_HOUR, height: PX_PER_HOUR }}
                       onClick={() => onSlotClick(str, slotHora)}
                     >
                       <div className="absolute inset-x-1 top-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-[#6B4FA8] bg-white/90 px-1.5 py-0.5 rounded-md shadow-sm">
+                        <span className="text-[10px] font-bold text-[#4F46E5] bg-white/90 px-1.5 py-0.5 rounded-md shadow-sm">
                           + {slotHora}
                         </span>
                       </div>
@@ -590,7 +601,7 @@ function DayColumn({
           </div>
 
           {/* Day content */}
-          <div className={cn('relative h-full', isToday && 'bg-[#FAFAFF]')}>
+          <div className={cn('relative h-full', isToday && 'bg-[#F5F7FF]')}>
             {HOURS.map(h => (
               <div
                 key={h}
@@ -610,12 +621,12 @@ function DayColumn({
               return (
                 <div
                   key={`slot-${h}`}
-                  className="absolute inset-x-0 cursor-pointer hover:bg-[#6B4FA8]/5 transition-colors group"
+                  className="absolute inset-x-0 cursor-pointer hover:bg-[#4F46E5]/5 transition-colors group"
                   style={{ top: (h - START_HOUR) * PX_PER_HOUR, height: PX_PER_HOUR }}
                   onClick={() => onSlotClick(fecha, slotHora)}
                 >
                   <div className="absolute inset-x-2 top-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
-                    <span className="text-[10px] font-bold text-[#6B4FA8] bg-white/90 px-1.5 py-0.5 rounded-md shadow-sm">
+                    <span className="text-[10px] font-bold text-[#4F46E5] bg-white/90 px-1.5 py-0.5 rounded-md shadow-sm">
                       + {slotHora}
                     </span>
                   </div>
@@ -851,7 +862,7 @@ function SessionSidebar({
                       onClick={() => { onAddReserva(sesion.id, s.id); setShowAnadir(false); setBuscarSocia(''); }}
                       className="w-full flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-[#F9FAFB] transition-colors text-left"
                     >
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ backgroundColor: '#EDEAF8', color: '#6B4FA8' }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ backgroundColor: '#EDEAF8', color: '#4F46E5' }}>
                         {s.nombre[0]}{s.apellidos[0]}
                       </div>
                       <div className="min-w-0">
@@ -893,7 +904,7 @@ function SessionSidebar({
                           ? { backgroundColor: '#D1FAE5', color: '#065F46' }
                           : r.estado === 'LISTA_ESPERA'
                           ? { backgroundColor: '#FEF3C7', color: '#92400E' }
-                          : { backgroundColor: '#EDEAF8', color: '#6B4FA8' }
+                          : { backgroundColor: '#EDEAF8', color: '#4F46E5' }
                       }
                     >
                       {r.socio?.nombre[0]}{r.socio?.apellidos[0]}
@@ -1594,10 +1605,10 @@ export default function Calendario() {
                     type="checkbox"
                     checked={form.repetir}
                     onChange={e => setForm(f => ({ ...f, repetir: e.target.checked }))}
-                    className="w-4 h-4 rounded accent-[#6B4FA8]"
+                    className="w-4 h-4 rounded accent-[#4F46E5]"
                   />
                   <span className="flex items-center gap-2 text-sm font-semibold text-[#111827]">
-                    <RefreshCw size={14} className="text-[#6B4FA8]" />
+                    <RefreshCw size={14} className="text-[#4F46E5]" />
                     Repetir semanalmente
                   </span>
                 </label>
