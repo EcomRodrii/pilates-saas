@@ -703,7 +703,7 @@ function SessionSidebar({
   const spotsActuales = spots.filter(sp => sp.salaId === sesion.salaId);
 
   return (
-    <div className="w-[380px] shrink-0 bg-white border-l border-[#E8EAED] flex flex-col h-full overflow-hidden">
+    <div className="w-full lg:w-[380px] shrink-0 bg-white lg:border-l border-[#E8EAED] flex flex-col h-full overflow-hidden">
       {/* Header with class color accent */}
       <div
         className="px-5 pt-4 pb-3 border-b border-[#E8EAED]"
@@ -1171,6 +1171,17 @@ export default function Calendario() {
   const [semana, setSemana] = useState(() => weekStart(FALLBACK));
   const [diaActivo, setDiaActivo] = useState(() => FALLBACK);
 
+  // ── Responsive: the 7-column week grid is unusable on phones, force day view ──
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  const vistaEfectiva: 'semana' | 'dia' = isMobile ? 'dia' : vista;
+
   useEffect(() => {
     const today = new Date();
     setMounted(true);
@@ -1379,14 +1390,14 @@ export default function Calendario() {
         <div>
           <h1 className="text-2xl font-bold text-[#111827] tracking-tight">Calendario</h1>
           <p className="text-sm font-medium mt-0.5 capitalize text-[#6B7280]">
-            {vista === 'dia'
+            {vistaEfectiva === 'dia'
               ? diaActivo.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
               : mesLabel}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* View toggle */}
-          <div className="flex bg-white border border-[#E8EAED] p-1 rounded-xl gap-1">
+          {/* View toggle — hidden on mobile (day view is forced) */}
+          <div className="hidden lg:flex bg-white border border-[#E8EAED] p-1 rounded-xl gap-1">
             <button
               onClick={() => setVista('semana')}
               className={cn('px-3 py-1.5 text-xs font-bold rounded-lg transition-all', vista === 'semana' ? 'bg-[#111827] text-white' : 'text-[#6B7280] hover:text-[#111827]')}
@@ -1404,7 +1415,7 @@ export default function Calendario() {
           {/* Navigation */}
           <div className="flex items-center gap-1 bg-white border border-[#E8EAED] rounded-xl p-1">
             <button
-              onClick={() => vista === 'semana' ? cambiarSemana(-1) : setDiaActivo(addDays(diaActivo, -1))}
+              onClick={() => vistaEfectiva === 'semana' ? cambiarSemana(-1) : setDiaActivo(addDays(diaActivo, -1))}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] transition-colors"
             >
               <ChevronLeft size={16} />
@@ -1416,7 +1427,7 @@ export default function Calendario() {
               Hoy
             </button>
             <button
-              onClick={() => vista === 'semana' ? cambiarSemana(1) : setDiaActivo(addDays(diaActivo, 1))}
+              onClick={() => vistaEfectiva === 'semana' ? cambiarSemana(1) : setDiaActivo(addDays(diaActivo, 1))}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] transition-colors"
             >
               <ChevronRight size={16} />
@@ -1478,7 +1489,7 @@ export default function Calendario() {
       />
 
       {/* ── Day strip (día view only) ──────────────────────────────────────────── */}
-      {vista === 'dia' && (
+      {vistaEfectiva === 'dia' && (
         <div className="grid grid-cols-7 gap-1 shrink-0">
           {dias.map((d, i) => {
             const str = localDate(d);
@@ -1507,7 +1518,7 @@ export default function Calendario() {
       <div className="flex gap-0 flex-1 min-h-0 relative">
         {/* Grid or day column */}
         <div className="flex-1 min-w-0 flex flex-col">
-          {vista === 'semana' ? (
+          {vistaEfectiva === 'semana' ? (
             <WeekGrid
               sesiones={sesionesFiltered}
               dias={dias}
@@ -1530,11 +1541,13 @@ export default function Calendario() {
           )}
         </div>
 
-        {/* Session detail sidebar — slides in when a session is selected */}
+        {/* Session detail — inline panel on desktop, full-screen overlay on mobile */}
         <div
           className={cn(
-            'transition-all duration-200 ease-out shrink-0 overflow-hidden relative',
-            sesionId && sesionActual ? 'w-[380px] ml-4' : 'w-0 ml-0'
+            'shrink-0 overflow-hidden',
+            sesionId && sesionActual
+              ? 'fixed inset-0 z-50 lg:static lg:z-auto lg:w-[380px] lg:ml-4 lg:h-full lg:transition-all lg:duration-200'
+              : 'hidden lg:block lg:w-0 lg:ml-0'
           )}
           style={{ minHeight: 0 }}
         >
