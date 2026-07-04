@@ -17,6 +17,7 @@ import {
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
   dbInsertVideoOnDemand, dbUpdateVideoOnDemand,
   dbInsertPostComunidad, dbUpdatePostComunidad,
+  dbUpsertIntegracion,
   setDbErrorListener,
 } from '@/lib/supabase-data';
 import type {
@@ -55,6 +56,8 @@ import type {
   NotaProgreso,
   AccionAutomatica,
   ResultadoLog,
+  Integracion,
+  TipoIntegracion,
 } from '@/lib/types';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
@@ -210,6 +213,8 @@ interface StudioContextValue {
   postsComunidad: PostComunidad[];
   addPost: (texto: string) => void;
   toggleLikePost: (postId: string) => void;
+  integraciones: Integracion[];
+  upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>) => void;
   marcarTodasLeidas: () => void;
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => void;
@@ -305,6 +310,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [videosOnDemand, setVideosOnDemand] = useState<VideoOnDemand[]>([]);
   const [postsComunidad, setPostsComunidad] = useState<PostComunidad[]>([]);
+  const [integraciones, setIntegraciones] = useState<Integracion[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
@@ -336,6 +342,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setNotificaciones(data.notificaciones);
       setVideosOnDemand(data.videosOnDemand);
       setPostsComunidad(data.postsComunidad);
+      setIntegraciones(data.integraciones ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
@@ -1158,6 +1165,26 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     if (actual) dbUpdatePostComunidad(postId, { likes: actual.likes + 1 });
   }
 
+  // ── Integraciones ─────────────────────────────────────────────────────────────
+
+  function upsertIntegracion(tipo: TipoIntegracion, activo: boolean, config: Record<string, string>) {
+    const existente = integraciones.find(i => i.tipo === tipo);
+    const actualizadoEn = new Date().toISOString();
+    const registro: Integracion = {
+      id: existente?.id ?? `intg-${tipo.toLowerCase()}-${uid()}`,
+      studioId: 'studio-1',
+      tipo,
+      activo,
+      config,
+      actualizadoEn,
+    };
+    setIntegraciones(prev => {
+      const otras = prev.filter(i => i.tipo !== tipo);
+      return [...otras, registro];
+    });
+    dbUpsertIntegracion(registro);
+  }
+
   // ── Motor de automatización avanzado ─────────────────────────────────────────
 
   function toggleAutomationRule(id: string) {
@@ -1395,6 +1422,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     postsComunidad,
     addPost,
     toggleLikePost,
+    integraciones,
+    upsertIntegracion,
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
@@ -1433,6 +1462,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setNotificaciones(data.notificaciones);
       setVideosOnDemand(data.videosOnDemand);
       setPostsComunidad(data.postsComunidad);
+      setIntegraciones(data.integraciones ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);

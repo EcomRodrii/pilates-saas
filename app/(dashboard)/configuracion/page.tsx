@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, CreditCard, Mail, FileSpreadsheet, Calendar as CalendarIcon, MessageCircle, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import type { PlanTarifa, Sala, TipoClase, Instructor } from '@/lib/types';
+import type { PlanTarifa, Sala, TipoClase, Instructor, TipoIntegracion } from '@/lib/types';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const inputCls =
@@ -202,13 +202,14 @@ function EstadoBadge({ activo }: { activo: boolean }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'instructores' | 'estudio';
+type TabId = 'planes' | 'clases' | 'salas' | 'instructores' | 'integraciones' | 'estudio';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
   { id: 'clases',      label: 'Clases' },
   { id: 'salas',       label: 'Salas' },
   { id: 'instructores', label: 'Instructores' },
+  { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
 ];
 
@@ -229,7 +230,7 @@ export default function ConfiguracionPage() {
       <div>
         <h1 className="text-[22px] font-bold text-[#111827]">Configuración</h1>
         <p className="text-[13px] text-[#6B7280] mt-0.5">
-          Gestiona los planes, clases, salas e instructores de tu estudio
+          Gestiona los planes, clases, salas, instructores e integraciones de tu estudio
         </p>
       </div>
 
@@ -256,6 +257,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'clases'      && <TabClases       showToast={showToast} />}
       {activeTab === 'salas'       && <TabSalas        showToast={showToast} />}
       {activeTab === 'instructores' && <TabInstructores showToast={showToast} />}
+      {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
@@ -1223,6 +1225,291 @@ function TabInstructores({ showToast }: { showToast: (m: string) => void }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // TAB 5: ESTUDIO
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB: INTEGRACIONES
+// ─────────────────────────────────────────────────────────────────────────────
+
+type CampoIntegracion = { key: string; label: string; placeholder: string; tipo?: 'text' | 'password' };
+
+type CatalogoIntegracion = {
+  tipo: TipoIntegracion;
+  nombre: string;
+  descripcion: string;
+  Icon: React.ElementType;
+  color: string;
+  bg: string;
+  campos: CampoIntegracion[];
+  secretoEnv?: string;
+  docsUrl?: string;
+  accion?: 'exportar';
+};
+
+const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
+  {
+    tipo: 'STRIPE',
+    nombre: 'Stripe',
+    descripcion: 'Cobra suscripciones y bonos con tarjeta o SEPA. Los pagos se concilian con las facturas.',
+    Icon: CreditCard,
+    color: '#635BFF',
+    bg: '#F1F0FF',
+    campos: [
+      { key: 'publishableKey', label: 'Clave publicable', placeholder: 'pk_live_…' },
+      { key: 'webhookUrl', label: 'URL de webhook (opcional)', placeholder: 'https://…' },
+    ],
+    secretoEnv: 'STRIPE_SECRET_KEY',
+    docsUrl: 'https://dashboard.stripe.com/apikeys',
+  },
+  {
+    tipo: 'RESEND',
+    nombre: 'Resend',
+    descripcion: 'Envía emails de bienvenida, recibos y campañas desde tu propio dominio.',
+    Icon: Mail,
+    color: '#0F172A',
+    bg: '#F1F5F9',
+    campos: [
+      { key: 'fromEmail', label: 'Email remitente', placeholder: 'hola@tentare.es' },
+      { key: 'fromName', label: 'Nombre remitente', placeholder: 'Tentare' },
+    ],
+    secretoEnv: 'RESEND_API_KEY',
+    docsUrl: 'https://resend.com/api-keys',
+  },
+  {
+    tipo: 'GOOGLE_CALENDAR',
+    nombre: 'Google Calendar',
+    descripcion: 'Sincroniza las clases y citas del estudio con un calendario de Google.',
+    Icon: CalendarIcon,
+    color: '#4285F4',
+    bg: '#EAF1FE',
+    campos: [
+      { key: 'calendarId', label: 'ID del calendario', placeholder: 'estudio@group.calendar.google.com' },
+    ],
+    secretoEnv: 'GOOGLE_SERVICE_ACCOUNT_JSON',
+    docsUrl: 'https://calendar.google.com/',
+  },
+  {
+    tipo: 'WHATSAPP',
+    nombre: 'WhatsApp Business',
+    descripcion: 'Envía recordatorios y automatizaciones por WhatsApp con la API de Meta.',
+    Icon: MessageCircle,
+    color: '#25D366',
+    bg: '#E7FBEF',
+    campos: [
+      { key: 'phoneNumberId', label: 'Phone Number ID', placeholder: '1234567890' },
+      { key: 'businessAccountId', label: 'Business Account ID', placeholder: '0987654321' },
+    ],
+    secretoEnv: 'WHATSAPP_TOKEN',
+    docsUrl: 'https://business.facebook.com/',
+  },
+  {
+    tipo: 'EXCEL',
+    nombre: 'Exportar a Excel',
+    descripcion: 'Descarga tus socias, suscripciones y recibos en un archivo compatible con Excel.',
+    Icon: FileSpreadsheet,
+    color: '#1D6F42',
+    bg: '#E7F4EC',
+    campos: [],
+    accion: 'exportar',
+  },
+];
+
+function toCsv(rows: (string | number | null)[][]): string {
+  const esc = (v: string | number | null) => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return rows.map(r => r.map(esc).join(';')).join('\r\n');
+}
+
+function descargarCsv(nombre: string, contenido: string) {
+  // BOM para que Excel reconozca UTF-8
+  const blob = new Blob(['﻿' + contenido], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
+  const { integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos } = useStudio();
+  const [editando, setEditando] = useState<TipoIntegracion | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({});
+
+  const getIntegracion = (tipo: TipoIntegracion) => integraciones.find(i => i.tipo === tipo) ?? null;
+
+  const abrirConfig = (cat: CatalogoIntegracion) => {
+    const actual = getIntegracion(cat.tipo);
+    setForm(actual?.config ?? {});
+    setEditando(cat.tipo);
+  };
+
+  const guardar = (cat: CatalogoIntegracion) => {
+    const rellenos = cat.campos.some(c => (form[c.key] ?? '').trim() !== '');
+    upsertIntegracion(cat.tipo, rellenos, form);
+    setEditando(null);
+    showToast(`${cat.nombre} ${rellenos ? 'conectado' : 'actualizado'}`);
+  };
+
+  const desconectar = (cat: CatalogoIntegracion) => {
+    upsertIntegracion(cat.tipo, false, {});
+    setEditando(null);
+    showToast(`${cat.nombre} desconectado`);
+  };
+
+  const exportarExcel = () => {
+    const fmtEur = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // Hoja socias con su plan y estado de suscripción
+    const rows: (string | number | null)[][] = [
+      ['Nombre', 'Apellidos', 'Email', 'Teléfono', 'NIF', 'Alta', 'Activa', 'Plan', 'Estado suscripción', 'Sesiones restantes'],
+    ];
+    for (const s of socios) {
+      const sus = suscripciones.find(x => x.socioId === s.id && x.estado === 'ACTIVA')
+        ?? suscripciones.filter(x => x.socioId === s.id).slice(-1)[0] ?? null;
+      const plan = sus ? planesTarifa.find(p => p.id === sus.planId) ?? null : null;
+      rows.push([
+        s.nombre, s.apellidos, s.email, s.telefono ?? '', s.nif ?? '',
+        s.fechaAlta?.slice(0, 10) ?? '', s.activo ? 'Sí' : 'No',
+        plan?.nombre ?? '', sus?.estado ?? '', sus?.sesionesRestantes ?? '',
+      ]);
+    }
+    descargarCsv(`tentare-socias-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows));
+
+    // Hoja recibos
+    const rRows: (string | number | null)[][] = [
+      ['Concepto', 'Socia', 'Importe (€)', 'Estado', 'Vencimiento', 'Cobro'],
+    ];
+    for (const r of recibos) {
+      const s = socios.find(x => x.id === r.socioId);
+      rRows.push([
+        r.concepto, s ? `${s.nombre} ${s.apellidos}` : '', fmtEur(r.importe),
+        r.estado, r.fechaVencimiento?.slice(0, 10) ?? '', r.fechaCobro?.slice(0, 10) ?? '',
+      ]);
+    }
+    descargarCsv(`tentare-recibos-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rRows));
+    showToast('Exportación descargada (socias y recibos)');
+  };
+
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <div>
+        <h3 className="text-[14px] font-semibold text-[#111827]">Integraciones del negocio</h3>
+        <p className="text-[12px] text-[#6B7280] mt-0.5">
+          Conecta Tentare con las herramientas que ya usas. Cada negocio configura las suyas.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {CATALOGO_INTEGRACIONES.map(cat => {
+          const intg = getIntegracion(cat.tipo);
+          const conectado = !!intg?.activo;
+          return (
+            <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: cat.bg }}>
+                  <cat.Icon size={20} style={{ color: cat.color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[14px] font-semibold text-[#111827]">{cat.nombre}</p>
+                    {cat.accion !== 'exportar' && (
+                      <span className={cn(
+                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
+                        conectado ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-[#F3F4F6] text-[#6B7280]',
+                      )}>
+                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-[#059669]' : 'bg-[#9CA3AF]')} />
+                        {conectado ? 'Conectado' : 'No conectado'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[12px] text-[#6B7280] mt-1 leading-snug">{cat.descripcion}</p>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-[#F1F1F4] flex items-center gap-2">
+                {cat.accion === 'exportar' ? (
+                  <button onClick={exportarExcel} className={btnPrimary}>
+                    <FileSpreadsheet size={14} /> Descargar Excel
+                  </button>
+                ) : (
+                  <>
+                    <button onClick={() => abrirConfig(cat)} className={conectado ? btnSecondary : btnPrimary}>
+                      {conectado ? 'Gestionar' : 'Conectar'}
+                    </button>
+                    {cat.docsUrl && (
+                      <a href={cat.docsUrl} target="_blank" rel="noopener noreferrer"
+                        className="text-[12px] text-[#6B7280] hover:text-[#111827] inline-flex items-center gap-1">
+                        Docs <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Config modal */}
+      {editando && (() => {
+        const cat = CATALOGO_INTEGRACIONES.find(c => c.tipo === editando)!;
+        const conectado = !!getIntegracion(cat.tipo)?.activo;
+        return (
+          <Dialog open onOpenChange={() => setEditando(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: cat.bg }}>
+                    <cat.Icon size={15} style={{ color: cat.color }} />
+                  </span>
+                  Configurar {cat.nombre}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {cat.campos.map(campo => (
+                  <div key={campo.key}>
+                    <label className={labelCls}>{campo.label}</label>
+                    <input
+                      className={inputCls}
+                      type={campo.tipo ?? 'text'}
+                      value={form[campo.key] ?? ''}
+                      placeholder={campo.placeholder}
+                      onChange={e => setForm(p => ({ ...p, [campo.key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+                {cat.secretoEnv && (
+                  <div className="flex items-start gap-2 bg-[#FFFBEB] border border-[#FDE68A] rounded-lg p-3">
+                    <AlertTriangle size={14} className="text-[#D97706] shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-[#92400E] leading-snug">
+                      Por seguridad, la clave secreta no se guarda aquí. Añádela como variable de entorno{' '}
+                      <code className="font-mono bg-[#FEF3C7] px-1 rounded">{cat.secretoEnv}</code> en tu proveedor de despliegue (Vercel).
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-1">
+                  {conectado ? (
+                    <button onClick={() => desconectar(cat)} className="text-[13px] font-medium text-[#DC2626] hover:underline">
+                      Desconectar
+                    </button>
+                  ) : <span />}
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditando(null)} className={btnSecondary}>Cancelar</button>
+                    <button onClick={() => guardar(cat)} className={btnPrimary}>
+                      <Check size={14} /> Guardar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
+    </div>
+  );
+}
 
 function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   const { resetDatosPilates, studioConfig, updateStudioConfig } = useStudio();

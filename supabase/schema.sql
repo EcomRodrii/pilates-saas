@@ -365,11 +365,27 @@ create table if not exists notas_progreso (
 );
 
 -- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════════════════
+-- Integraciones por negocio (Stripe, Resend, Google Calendar, WhatsApp…)
+-- Solo guarda ajustes NO secretos (claves públicas, emails, flags).
+-- Las claves SECRETAS viven en variables de entorno del servidor (Vercel).
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists integraciones (
+  id text primary key,
+  studio_id text not null references studios(id) on delete cascade,
+  tipo text not null,
+  activo boolean not null default false,
+  config jsonb not null default '{}'::jsonb,
+  actualizado_en timestamptz not null default now(),
+  unique (studio_id, tipo)
+);
+
 -- RLS (Row Level Security) — política abierta para desarrollo
 -- En producción real: añadir políticas por usuario autenticado
 -- ═══════════════════════════════════════════════════════════════════
 
 alter table studios enable row level security;
+alter table integraciones enable row level security;
 alter table socios enable row level security;
 alter table planes_tarifa enable row level security;
 alter table suscripciones enable row level security;
@@ -406,7 +422,7 @@ declare
     'citas','productos_pos','ventas_pos','campanas','automatizaciones',
     'automation_rules','automation_logs','codigos_descuento',
     'actividad_reciente','notificaciones','videos_on_demand',
-    'posts_comunidad','notas_internas','notas_progreso'
+    'posts_comunidad','notas_internas','notas_progreso','integraciones'
   ];
 begin
   foreach t in array tables loop

@@ -259,6 +259,17 @@ function mapVentaPOS(r: any) {
   };
 }
 
+function mapIntegracion(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    tipo: r.tipo,
+    activo: r.activo,
+    config: r.config ?? {},
+    actualizadoEn: r.actualizado_en,
+  };
+}
+
 function mapCampana(r: any) {
   return {
     id: r.id,
@@ -458,6 +469,7 @@ export async function fetchAllStudioData() {
     videosOnDemandRes,
     postsComunidadRes,
     notasInternasRes,
+    integracionesRes,
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
     supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
@@ -486,6 +498,7 @@ export async function fetchAllStudioData() {
     supabase.from('videos_on_demand').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('posts_comunidad').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('notas_internas').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('integraciones').select('*').eq('studio_id', STUDIO_ID),
   ]);
 
   return {
@@ -516,6 +529,7 @@ export async function fetchAllStudioData() {
     videosOnDemand: (videosOnDemandRes.data ?? []).map(mapVideoOnDemand),
     postsComunidad: (postsComunidadRes.data ?? []).map(mapPostComunidad),
     notasInternas: (notasInternasRes.data ?? []).map(mapNotaInterna),
+    integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
   };
 }
 
@@ -986,4 +1000,17 @@ export async function dbUpdatePostComunidad(id: string, changes: any) {
 export async function dbDeletePostComunidad(id: string) {
   const { error } = await supabase.from('posts_comunidad').delete().eq('id', id);
   if (error) reportDbError('[dbDeletePostComunidad]', error);
+}
+
+export async function dbUpsertIntegracion(intg: any) {
+  const row = {
+    id: intg.id,
+    studio_id: intg.studioId ?? STUDIO_ID,
+    tipo: intg.tipo,
+    activo: intg.activo,
+    config: intg.config ?? {},
+    actualizado_en: intg.actualizadoEn,
+  };
+  const { error } = await supabase.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
+  if (error) reportDbError('[dbUpsertIntegracion]', error);
 }

@@ -23,6 +23,18 @@ export interface Studio {
   creadoEn: string;
 }
 
+// ─── Integraciones por negocio ───────────────────────────────────────────────
+export type TipoIntegracion = 'STRIPE' | 'RESEND' | 'GOOGLE_CALENDAR' | 'WHATSAPP' | 'EXCEL';
+
+export interface Integracion {
+  id: string;
+  studioId: string;
+  tipo: TipoIntegracion;
+  activo: boolean;
+  config: Record<string, string>;
+  actualizadoEn: string;
+}
+
 export interface Usuario {
   id: string;
   studioId: string;
