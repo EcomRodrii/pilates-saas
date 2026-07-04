@@ -2,6 +2,26 @@ import { supabase } from '@/lib/supabase';
 
 const STUDIO_ID = 'studio-1';
 
+// ─── Global DB error reporting ───────────────────────────────────────────────
+// Write helpers are fire-and-forget; when a write fails we log to console AND
+// notify any registered listener (the UI) so the failure is visible to the user
+// instead of silently lost.
+type DbErrorListener = (tag: string, error: unknown) => void;
+let dbErrorListener: DbErrorListener | null = null;
+
+export function setDbErrorListener(fn: DbErrorListener | null) {
+  dbErrorListener = fn;
+}
+
+function reportDbError(tag: string, error: unknown) {
+  console.error(tag, error);
+  try {
+    dbErrorListener?.(tag, error);
+  } catch {
+    /* never let the listener break a write */
+  }
+}
+
 // ─── Mappers: DB (snake_case) → TS (camelCase) ───────────────────────────────
 
 function mapStudio(r: any) {
@@ -715,7 +735,7 @@ function postComunidadToDb(p: any) {
 
 export async function dbInsertSocio(socio: any) {
   const { error } = await supabase.from('socios').insert(socioToDb(socio));
-  if (error) console.error('[dbInsertSocio]', error);
+  if (error) reportDbError('[dbInsertSocio]', error);
 }
 
 export async function dbUpdateSocio(id: string, changes: any) {
@@ -736,17 +756,17 @@ export async function dbUpdateSocio(id: string, changes: any) {
     db.aceptacion_version = changes.aceptacionContrato?.versionTexto ?? null;
   }
   const { error } = await supabase.from('socios').update(db).eq('id', id);
-  if (error) console.error('[dbUpdateSocio]', error);
+  if (error) reportDbError('[dbUpdateSocio]', error);
 }
 
 export async function dbDeleteSocio(id: string) {
   const { error } = await supabase.from('socios').delete().eq('id', id);
-  if (error) console.error('[dbDeleteSocio]', error);
+  if (error) reportDbError('[dbDeleteSocio]', error);
 }
 
 export async function dbInsertSuscripcion(sus: any) {
   const { error } = await supabase.from('suscripciones').insert(suscripcionToDb(sus));
-  if (error) console.error('[dbInsertSuscripcion]', error);
+  if (error) reportDbError('[dbInsertSuscripcion]', error);
 }
 
 export async function dbUpdateSuscripcion(id: string, changes: any) {
@@ -759,12 +779,12 @@ export async function dbUpdateSuscripcion(id: string, changes: any) {
   if ('sesionesRestantes' in changes) db.sesiones_restantes = changes.sesionesRestantes;
   if ('stripeSubscriptionId' in changes) db.stripe_subscription_id = changes.stripeSubscriptionId;
   const { error } = await supabase.from('suscripciones').update(db).eq('id', id);
-  if (error) console.error('[dbUpdateSuscripcion]', error);
+  if (error) reportDbError('[dbUpdateSuscripcion]', error);
 }
 
 export async function dbInsertSesion(ses: any) {
   const { error } = await supabase.from('sesiones').insert(sesionToDb(ses));
-  if (error) console.error('[dbInsertSesion]', error);
+  if (error) reportDbError('[dbInsertSesion]', error);
 }
 
 export async function dbUpdateSesion(id: string, changes: any) {
@@ -779,17 +799,17 @@ export async function dbUpdateSesion(id: string, changes: any) {
   if ('notas' in changes) db.notas = changes.notas;
   if ('precioPuntual' in changes) db.precio_puntual = changes.precioPuntual;
   const { error } = await supabase.from('sesiones').update(db).eq('id', id);
-  if (error) console.error('[dbUpdateSesion]', error);
+  if (error) reportDbError('[dbUpdateSesion]', error);
 }
 
 export async function dbDeleteSesion(id: string) {
   const { error } = await supabase.from('sesiones').delete().eq('id', id);
-  if (error) console.error('[dbDeleteSesion]', error);
+  if (error) reportDbError('[dbDeleteSesion]', error);
 }
 
 export async function dbInsertReserva(res: any) {
   const { error } = await supabase.from('reservas').insert(reservaToDb(res));
-  if (error) console.error('[dbInsertReserva]', error);
+  if (error) reportDbError('[dbInsertReserva]', error);
 }
 
 export async function dbUpdateReserva(id: string, changes: any) {
@@ -801,12 +821,12 @@ export async function dbUpdateReserva(id: string, changes: any) {
   if ('posicionEspera' in changes) db.posicion_espera = changes.posicionEspera;
   if ('checkInEn' in changes) db.check_in_en = changes.checkInEn;
   const { error } = await supabase.from('reservas').update(db).eq('id', id);
-  if (error) console.error('[dbUpdateReserva]', error);
+  if (error) reportDbError('[dbUpdateReserva]', error);
 }
 
 export async function dbInsertRecibo(rec: any) {
   const { error } = await supabase.from('recibos').insert(reciboToDb(rec));
-  if (error) console.error('[dbInsertRecibo]', error);
+  if (error) reportDbError('[dbInsertRecibo]', error);
 }
 
 export async function dbUpdateRecibo(id: string, changes: any) {
@@ -821,22 +841,22 @@ export async function dbUpdateRecibo(id: string, changes: any) {
   if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
   const { error } = await supabase.from('recibos').update(db).eq('id', id);
-  if (error) console.error('[dbUpdateRecibo]', error);
+  if (error) reportDbError('[dbUpdateRecibo]', error);
 }
 
 export async function dbDeleteRecibo(id: string) {
   const { error } = await supabase.from('recibos').delete().eq('id', id);
-  if (error) console.error('[dbDeleteRecibo]', error);
+  if (error) reportDbError('[dbDeleteRecibo]', error);
 }
 
 export async function dbInsertFactura(fac: any) {
   const { error } = await supabase.from('facturas').insert(facturaToDb(fac));
-  if (error) console.error('[dbInsertFactura]', error);
+  if (error) reportDbError('[dbInsertFactura]', error);
 }
 
 export async function dbInsertCita(cita: any) {
   const { error } = await supabase.from('citas').insert(citaToDb(cita));
-  if (error) console.error('[dbInsertCita]', error);
+  if (error) reportDbError('[dbInsertCita]', error);
 }
 
 export async function dbUpdateCita(id: string, changes: any) {
@@ -850,32 +870,32 @@ export async function dbUpdateCita(id: string, changes: any) {
   if ('estado' in changes) db.estado = changes.estado;
   if ('precio' in changes) db.precio = changes.precio;
   const { error } = await supabase.from('citas').update(db).eq('id', id);
-  if (error) console.error('[dbUpdateCita]', error);
+  if (error) reportDbError('[dbUpdateCita]', error);
 }
 
 export async function dbInsertVentaPOS(venta: any) {
   const { error } = await supabase.from('ventas_pos').insert(ventaPOSToDb(venta));
-  if (error) console.error('[dbInsertVentaPOS]', error);
+  if (error) reportDbError('[dbInsertVentaPOS]', error);
 }
 
 export async function dbInsertActividadReciente(act: any) {
   const { error } = await supabase.from('actividad_reciente').insert(actividadRecienteToDb(act));
-  if (error) console.error('[dbInsertActividadReciente]', error);
+  if (error) reportDbError('[dbInsertActividadReciente]', error);
 }
 
 export async function dbInsertNotaInterna(nota: any) {
   const { error } = await supabase.from('notas_internas').insert(notaInternaToDb(nota));
-  if (error) console.error('[dbInsertNotaInterna]', error);
+  if (error) reportDbError('[dbInsertNotaInterna]', error);
 }
 
 export async function dbDeleteNotaInterna(id: string) {
   const { error } = await supabase.from('notas_internas').delete().eq('id', id);
-  if (error) console.error('[dbDeleteNotaInterna]', error);
+  if (error) reportDbError('[dbDeleteNotaInterna]', error);
 }
 
 export async function dbInsertCampana(c: any) {
   const { error } = await supabase.from('campanas').insert(campanaToDb(c));
-  if (error) console.error('[dbInsertCampana]', error);
+  if (error) reportDbError('[dbInsertCampana]', error);
 }
 
 export async function dbUpdateCampana(id: string, changes: any) {
@@ -892,17 +912,17 @@ export async function dbUpdateCampana(id: string, changes: any) {
   if ('enviadaEn' in changes) db.enviada_en = changes.enviadaEn;
   if ('programadaEn' in changes) db.programada_en = changes.programadaEn;
   const { error } = await supabase.from('campanas').update(db).eq('id', id);
-  if (error) console.error('[dbUpdateCampana]', error);
+  if (error) reportDbError('[dbUpdateCampana]', error);
 }
 
 export async function dbDeleteCampana(id: string) {
   const { error } = await supabase.from('campanas').delete().eq('id', id);
-  if (error) console.error('[dbDeleteCampana]', error);
+  if (error) reportDbError('[dbDeleteCampana]', error);
 }
 
 export async function dbInsertAutomatizacion(a: any) {
   const { error } = await supabase.from('automatizaciones').insert(automatizacionToDb(a));
-  if (error) console.error('[dbInsertAutomatizacion]', error);
+  if (error) reportDbError('[dbInsertAutomatizacion]', error);
 }
 
 export async function dbUpdateAutomatizacion(id: string, changes: any) {
@@ -915,17 +935,17 @@ export async function dbUpdateAutomatizacion(id: string, changes: any) {
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadas' in changes) db.ejecutadas = changes.ejecutadas;
   const { error } = await supabase.from('automatizaciones').update(db).eq('id', id);
-  if (error) console.error('[dbUpdateAutomatizacion]', error);
+  if (error) reportDbError('[dbUpdateAutomatizacion]', error);
 }
 
 export async function dbDeleteAutomatizacion(id: string) {
   const { error } = await supabase.from('automatizaciones').delete().eq('id', id);
-  if (error) console.error('[dbDeleteAutomatizacion]', error);
+  if (error) reportDbError('[dbDeleteAutomatizacion]', error);
 }
 
 export async function dbInsertVideoOnDemand(v: any) {
   const { error } = await supabase.from('videos_on_demand').insert(videoOnDemandToDb(v));
-  if (error) console.error('[dbInsertVideoOnDemand]', error);
+  if (error) reportDbError('[dbInsertVideoOnDemand]', error);
 }
 
 export async function dbUpdateVideoOnDemand(id: string, changes: any) {
@@ -940,17 +960,17 @@ export async function dbUpdateVideoOnDemand(id: string, changes: any) {
   if ('likes' in changes) db.likes = changes.likes;
   if ('activo' in changes) db.activo = changes.activo;
   const { error } = await supabase.from('videos_on_demand').update(db).eq('id', id);
-  if (error) console.error('[dbUpdateVideoOnDemand]', error);
+  if (error) reportDbError('[dbUpdateVideoOnDemand]', error);
 }
 
 export async function dbDeleteVideoOnDemand(id: string) {
   const { error } = await supabase.from('videos_on_demand').delete().eq('id', id);
-  if (error) console.error('[dbDeleteVideoOnDemand]', error);
+  if (error) reportDbError('[dbDeleteVideoOnDemand]', error);
 }
 
 export async function dbInsertPostComunidad(p: any) {
   const { error } = await supabase.from('posts_comunidad').insert(postComunidadToDb(p));
-  if (error) console.error('[dbInsertPostComunidad]', error);
+  if (error) reportDbError('[dbInsertPostComunidad]', error);
 }
 
 export async function dbUpdatePostComunidad(id: string, changes: any) {
@@ -960,10 +980,10 @@ export async function dbUpdatePostComunidad(id: string, changes: any) {
   if ('comentariosCount' in changes) db.comentarios_count = changes.comentariosCount;
   if ('fijado' in changes) db.fijado = changes.fijado;
   const { error } = await supabase.from('posts_comunidad').update(db).eq('id', id);
-  if (error) console.error('[dbUpdatePostComunidad]', error);
+  if (error) reportDbError('[dbUpdatePostComunidad]', error);
 }
 
 export async function dbDeletePostComunidad(id: string) {
   const { error } = await supabase.from('posts_comunidad').delete().eq('id', id);
-  if (error) console.error('[dbDeletePostComunidad]', error);
+  if (error) reportDbError('[dbDeletePostComunidad]', error);
 }

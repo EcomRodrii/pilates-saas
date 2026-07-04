@@ -17,6 +17,7 @@ import {
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
   dbInsertVideoOnDemand, dbUpdateVideoOnDemand,
   dbInsertPostComunidad, dbUpdatePostComunidad,
+  setDbErrorListener,
 } from '@/lib/supabase-data';
 import type {
   Socio,
@@ -263,6 +264,22 @@ export function useStudio(): StudioContextValue {
 
 export function StudioProvider({ children }: { children: ReactNode }) {
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [dbError, setDbError] = useState<{ msg: string; key: number } | null>(null);
+
+  // Surface fire-and-forget DB write failures to the user instead of losing them.
+  useEffect(() => {
+    setDbErrorListener(() => {
+      setDbError({ msg: 'No se pudo guardar el último cambio. Revisa tu conexión e inténtalo de nuevo.', key: Date.now() });
+    });
+    return () => setDbErrorListener(null);
+  }, []);
+
+  // Auto-dismiss the error toast.
+  useEffect(() => {
+    if (!dbError) return;
+    const t = setTimeout(() => setDbError(null), 6000);
+    return () => clearTimeout(t);
+  }, [dbError]);
 
   const [planesTarifa, setPlanesTarifa] = useState<PlanTarifa[]>([]);
   const [salas, setSalas] = useState<Sala[]>([]);
@@ -1425,6 +1442,25 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   return (
     <StudioContext.Provider value={value}>
       {children}
+      {dbError && (
+        <div
+          role="alert"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          className="fixed bottom-4 inset-x-0 z-[9999] flex justify-center px-4 pointer-events-none"
+        >
+          <div className="pointer-events-auto flex items-start gap-3 max-w-md w-full bg-[#1C1C1E] text-white rounded-2xl px-4 py-3 shadow-2xl">
+            <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shrink-0 mt-0.5 text-[12px] font-bold">!</div>
+            <p className="text-[13px] leading-snug flex-1">{dbError.msg}</p>
+            <button
+              onClick={() => setDbError(null)}
+              className="text-white/50 hover:text-white text-[13px] font-bold shrink-0"
+              aria-label="Cerrar"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </StudioContext.Provider>
   );
 }
