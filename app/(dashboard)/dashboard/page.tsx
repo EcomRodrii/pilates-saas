@@ -42,16 +42,16 @@ const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'S
 
 const actividadConfig: Record<TipoActividad, { color: string; bg: string; label: string }> = {
   NUEVA_SOCIA:        { color: '#059669', bg: '#ECFDF5', label: 'Alta' },
-  NUEVA_RESERVA:      { color: '#2563EB', bg: '#EFF6FF', label: 'Reserva' },
+  NUEVA_RESERVA:      { color: '#A05A6B', bg: '#F7EDEF', label: 'Reserva' },
   CANCELACION:        { color: '#DC2626', bg: '#FEF2F2', label: 'Cancelación' },
   PAGO_COBRADO:       { color: '#059669', bg: '#ECFDF5', label: 'Cobro' },
   PAGO_PENDIENTE:     { color: '#D97706', bg: '#FFFBEB', label: 'Pendiente' },
-  NUEVA_SUSCRIPCION:  { color: '#7C3AED', bg: '#F5F3FF', label: 'Plan' },
+  NUEVA_SUSCRIPCION:  { color: '#7C3AED', bg: '#F7EDEF', label: 'Plan' },
   SUSCRIPCION_PAUSADA:{ color: '#D97706', bg: '#FFFBEB', label: 'Pausa' },
   CITA_CREADA:        { color: '#0891B2', bg: '#ECFEFF', label: 'Cita' },
   CITA_COMPLETADA:    { color: '#059669', bg: '#ECFDF5', label: 'Cita ✓' },
   VENTA_POS:          { color: '#059669', bg: '#ECFDF5', label: 'Venta' },
-  MENSAJE_ENVIADO:    { color: '#6B7280', bg: '#F9FAFB', label: 'Email' },
+  MENSAJE_ENVIADO:    { color: '#8B7D82', bg: '#FAF6F4', label: 'Email' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────
@@ -97,8 +97,8 @@ function RevenueSparkline({
     >
       <defs>
         <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#111827" stopOpacity="0.12" />
-          <stop offset="100%" stopColor="#111827" stopOpacity="0" />
+          <stop offset="0%" stopColor="#2B2429" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#2B2429" stopOpacity="0" />
         </linearGradient>
       </defs>
 
@@ -106,7 +106,7 @@ function RevenueSparkline({
       <path d={areaD} fill="url(#spark-grad)" />
 
       {/* Line */}
-      <path d={pathD} fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} fill="none" stroke="#2B2429" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
       {/* Data points */}
       {pts.map((p, i) => (
@@ -115,8 +115,8 @@ function RevenueSparkline({
             cx={p.x}
             cy={p.y}
             r={i === currentIdx ? 5 : 3}
-            fill={i === currentIdx ? '#111827' : '#fff'}
-            stroke="#111827"
+            fill={i === currentIdx ? '#2B2429' : '#fff'}
+            stroke="#2B2429"
             strokeWidth="2"
           />
           <text
@@ -124,7 +124,7 @@ function RevenueSparkline({
             y={H - 6}
             textAnchor="middle"
             fontSize="11"
-            fill={i === currentIdx ? '#111827' : '#9CA3AF'}
+            fill={i === currentIdx ? '#2B2429' : '#B0A3A8'}
             fontWeight={i === currentIdx ? '700' : '400'}
           >
             {p.label}
@@ -135,7 +135,7 @@ function RevenueSparkline({
               y={p.y - 9}
               textAnchor="middle"
               fontSize="10"
-              fill={i === currentIdx ? '#111827' : '#6B7280'}
+              fill={i === currentIdx ? '#2B2429' : '#8B7D82'}
               fontWeight={i === currentIdx ? '700' : '400'}
             >
               {p.v >= 1000 ? `${(p.v / 1000).toFixed(1)}k` : p.v.toFixed(0)}
@@ -153,7 +153,7 @@ function OcupacionBar({ pct }: { pct: number }) {
   const color = pct >= 85 ? '#DC2626' : pct >= 60 ? '#D97706' : '#059669';
   return (
     <div className="flex items-center gap-2 flex-1">
-      <div className="flex-1 h-1.5 rounded-full bg-[#F3F4F6] overflow-hidden">
+      <div className="flex-1 h-1.5 rounded-full bg-[#F5EFEC] overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}
@@ -203,12 +203,12 @@ function ClaseHoyCard({
     <div
       className={cn(
         'rounded-xl border overflow-hidden bg-white',
-        isNow ? 'border-[#111827] shadow-sm' : 'border-[#E8EAED]'
+        isNow ? 'border-[#2B2429] shadow-sm' : 'border-[#F0E6E4]'
       )}
     >
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-[#F9FAFB] transition-colors"
+        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-[#FAF6F4] transition-colors"
       >
         {isNow && (
           <span className="shrink-0 w-2 h-2 rounded-full bg-[#059669] animate-pulse" />
@@ -219,14 +219,14 @@ function ClaseHoyCard({
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-[13px] font-semibold text-[#111827] truncate">{sesion.tipoNombre}</p>
+            <p className="text-[13px] font-semibold text-[#2B2429] truncate">{sesion.tipoNombre}</p>
             {isNow && (
               <span className="text-[10px] font-bold text-[#059669] bg-[#ECFDF5] px-1.5 py-0.5 rounded-full shrink-0">
                 AHORA
               </span>
             )}
           </div>
-          <p className="text-[11px] text-[#9CA3AF] truncate">
+          <p className="text-[11px] text-[#B0A3A8] truncate">
             {formatHora(sesion.inicio)}–{formatHora(sesion.fin)} · {sesion.salaNombre} ·{' '}
             {sesion.instructorNombre}
           </p>
@@ -235,29 +235,29 @@ function ClaseHoyCard({
           {asistidas > 0 && (
             <span className="text-[11px] font-bold text-[#059669]">{asistidas}✓</span>
           )}
-          <span className="text-[12px] font-semibold text-[#374151]">
+          <span className="text-[12px] font-semibold text-[#4A3F44]">
             {reservasSesion.length}/{sesion.aforoMaximo}
           </span>
-          <div className="w-16 h-1.5 rounded-full bg-[#F3F4F6] overflow-hidden">
+          <div className="w-16 h-1.5 rounded-full bg-[#F5EFEC] overflow-hidden">
             <div
               className="h-full rounded-full"
               style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: fillColor }}
             />
           </div>
           {expanded ? (
-            <ChevronUp size={14} className="text-[#9CA3AF]" />
+            <ChevronUp size={14} className="text-[#B0A3A8]" />
           ) : (
-            <ChevronDown size={14} className="text-[#9CA3AF]" />
+            <ChevronDown size={14} className="text-[#B0A3A8]" />
           )}
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-[#F3F4F6]">
+        <div className="border-t border-[#F5EFEC]">
           {reservasSesion.length === 0 ? (
-            <p className="text-[12px] text-[#9CA3AF] px-4 py-3">Sin reservas aún</p>
+            <p className="text-[12px] text-[#B0A3A8] px-4 py-3">Sin reservas aún</p>
           ) : (
-            <div className="divide-y divide-[#F9FAFB]">
+            <div className="divide-y divide-[#FAF6F4]">
               {reservasSesion.map(r => {
                 const asistida = r.estado === 'ASISTIDA';
                 return (
@@ -267,7 +267,7 @@ function ClaseHoyCard({
                         'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
                         asistida
                           ? 'bg-[#ECFDF5] text-[#059669]'
-                          : 'bg-[#F3F4F6] text-[#374151]'
+                          : 'bg-[#F5EFEC] text-[#4A3F44]'
                       )}
                     >
                       {r.socio!.nombre[0]}
@@ -277,7 +277,7 @@ function ClaseHoyCard({
                       href={`/socios/${r.socioId}`}
                       className="flex-1 min-w-0 hover:underline"
                     >
-                      <p className="text-[12px] font-medium text-[#111827] truncate">
+                      <p className="text-[12px] font-medium text-[#2B2429] truncate">
                         {r.socio!.nombre} {r.socio!.apellidos}
                       </p>
                     </Link>
@@ -289,13 +289,13 @@ function ClaseHoyCard({
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => checkin(r.id)}
-                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#111827] text-white hover:bg-[#1f2937] transition-colors"
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#2B2429] text-white hover:bg-[#3A2F35] transition-colors"
                         >
                           Check-in
                         </button>
                         <button
                           onClick={() => cancelarReserva(r.id)}
-                          className="text-[10px] font-medium px-2 py-1 rounded-lg text-[#9CA3AF] hover:bg-[#FEF2F2] hover:text-[#DC2626] transition-colors"
+                          className="text-[10px] font-medium px-2 py-1 rounded-lg text-[#B0A3A8] hover:bg-[#FEF2F2] hover:text-[#DC2626] transition-colors"
                         >
                           ✕
                         </button>
@@ -306,10 +306,10 @@ function ClaseHoyCard({
               })}
             </div>
           )}
-          <div className="px-4 py-2.5 border-t border-[#F9FAFB]">
+          <div className="px-4 py-2.5 border-t border-[#FAF6F4]">
             <Link
               href="/calendario"
-              className="text-[11px] font-medium text-[#2563EB] hover:underline"
+              className="text-[11px] font-medium text-[#A05A6B] hover:underline"
             >
               Gestionar clase →
             </Link>
@@ -458,7 +458,7 @@ export default function Dashboard() {
         .map(s => ({
           ...s,
           tipoNombre: tiposClase.find(t => t.id === s.tipoClaseId)?.nombre ?? 'Clase',
-          tipoColor: tiposClase.find(t => t.id === s.tipoClaseId)?.color ?? '#6B7280',
+          tipoColor: tiposClase.find(t => t.id === s.tipoClaseId)?.color ?? '#8B7D82',
           salaNombre: salas.find(x => x.id === s.salaId)?.nombre ?? '',
           instructorNombre: instructores.find(i => i.id === s.instructorId)?.nombre ?? '',
         })),
@@ -487,36 +487,36 @@ export default function Dashboard() {
   const TrendIcon =
     pctChange > 0 ? TrendingUp : pctChange < 0 ? TrendingDown : Minus;
   const trendColor =
-    pctChange > 0 ? '#059669' : pctChange < 0 ? '#DC2626' : '#6B7280';
+    pctChange > 0 ? '#059669' : pctChange < 0 ? '#DC2626' : '#8B7D82';
   const trendBg =
-    pctChange > 0 ? '#ECFDF5' : pctChange < 0 ? '#FEF2F2' : '#F9FAFB';
+    pctChange > 0 ? '#ECFDF5' : pctChange < 0 ? '#FEF2F2' : '#FAF6F4';
 
   if (!mounted) return null;
 
   return (
 
-    <div className="min-h-screen bg-[#F4F5F7]">
+    <div className="min-h-screen bg-[#FDFBFA]">
       <div className="max-w-[1200px] mx-auto px-4 py-6 space-y-5">
 
 
         {/* ── Header ─────────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <p className="text-[11px] font-medium text-[#9CA3AF] capitalize">{mesFecha}</p>
-            <h1 className="text-[20px] sm:text-[22px] font-bold text-[#111827] mt-0.5 tracking-tight">
+            <p className="text-[11px] font-medium text-[#B0A3A8] capitalize">{mesFecha}</p>
+            <h1 className="text-[20px] sm:text-[22px] font-bold text-[#2B2429] mt-0.5 tracking-tight">
               {saludo} 👋
             </h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Link
               href="/socios?nuevo=1"
-              className="flex items-center gap-1.5 text-[12px] font-medium px-3 py-2 rounded-lg border border-[#E8EAED] bg-white text-[#374151] hover:bg-[#F9FAFB] transition-colors"
+              className="flex items-center gap-1.5 text-[12px] font-medium px-3 py-2 rounded-lg border border-[#F0E6E4] bg-white text-[#4A3F44] hover:bg-[#FAF6F4] transition-colors"
             >
               <UserPlus size={13} /> Nuevo miembro
             </Link>
             <Link
               href="/pos"
-              className="flex items-center gap-1.5 text-[12px] font-medium px-3 py-2 rounded-lg bg-[#111827] text-white hover:bg-[#1f2937] transition-colors"
+              className="flex items-center gap-1.5 text-[12px] font-medium px-3 py-2 rounded-lg bg-[#2B2429] text-white hover:bg-[#3A2F35] transition-colors"
             >
               <ShoppingCart size={13} /> Abrir caja
             </Link>
@@ -531,7 +531,7 @@ export default function Dashboard() {
           const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
           return (
             <Link href="/automatizaciones" className="block">
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#111827] text-white hover:bg-[#1f2937] transition-colors cursor-pointer">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#2B2429] text-white hover:bg-[#3A2F35] transition-colors cursor-pointer">
                 <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
                   <Bot size={16} className="text-white/80" />
                 </div>
@@ -558,14 +558,14 @@ export default function Dashboard() {
         })()}
 
         {/* ── Revenue sparkline card (full width) ────────────────────────────── */}
-        <div className="bg-white rounded-xl border border-[#E8EAED] p-5">
+        <div className="bg-white rounded-xl border border-[#F0E6E4] p-5">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-[#B0A3A8]">
                 Ingresos cobrados
               </p>
               <div className="flex items-end gap-3 mt-1.5">
-                <p className="text-[32px] font-bold text-[#111827] leading-none tracking-tight">
+                <p className="text-[36px] font-display font-semibold text-[#2B2429] leading-none tracking-tight">
                   {ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
                 </p>
                 <span
@@ -577,16 +577,16 @@ export default function Dashboard() {
                   {pctChange}% vs mes ant.
                 </span>
               </div>
-              <p className="text-[12px] text-[#9CA3AF] mt-1">
+              <p className="text-[12px] text-[#B0A3A8] mt-1">
                 MRR estimado:{' '}
-                <span className="font-semibold text-[#374151]">{mrr.toFixed(0)} €</span>
+                <span className="font-semibold text-[#4A3F44]">{mrr.toFixed(0)} €</span>
                 {' '}· ARR:{' '}
                 <span className="font-semibold text-[#059669]">{(mrr * 12).toFixed(0)} €</span>
               </p>
             </div>
             <Link
               href="/informes"
-              className="flex items-center gap-1 text-[11px] font-medium text-[#6B7280] hover:text-[#111827] transition-colors"
+              className="flex items-center gap-1 text-[11px] font-medium text-[#8B7D82] hover:text-[#2B2429] transition-colors"
             >
               <BarChart3 size={13} /> Ver informe
               <ArrowUpRight size={11} />
@@ -604,26 +604,26 @@ export default function Dashboard() {
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Miembros activos */}
-          <div className="bg-white rounded-xl border border-[#E8EAED] p-4">
+          <div className="bg-white rounded-xl border border-[#F0E6E4] p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#B0A3A8]">
                 Miembros activos
               </p>
-              <div className="w-7 h-7 rounded-lg bg-[#EFF6FF] flex items-center justify-center">
-                <Users size={14} className="text-[#2563EB]" />
+              <div className="w-7 h-7 rounded-lg bg-[#F7EDEF] flex items-center justify-center">
+                <Users size={14} className="text-[#A05A6B]" />
               </div>
             </div>
-            <p className="text-[28px] font-bold text-[#111827] leading-none">{sociasActivas}</p>
-            <p className="text-[11px] text-[#9CA3AF] mt-2">
+            <p className="text-[30px] font-display font-semibold text-[#2B2429] leading-none">{sociasActivas}</p>
+            <p className="text-[11px] text-[#B0A3A8] mt-2">
               {pendientes.length} pago{pendientes.length !== 1 ? 's' : ''} pendiente
               {pendientes.length !== 1 ? 's' : ''}
             </p>
           </div>
 
           {/* Ocupación semanal */}
-          <div className="bg-white rounded-xl border border-[#E8EAED] p-4">
+          <div className="bg-white rounded-xl border border-[#F0E6E4] p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#B0A3A8]">
                 Ocupación semana
               </p>
               <div className="w-7 h-7 rounded-lg bg-[#FFFBEB] flex items-center justify-center">
@@ -631,7 +631,7 @@ export default function Dashboard() {
               </div>
             </div>
             <p
-              className="text-[28px] font-bold leading-none"
+              className="text-[30px] font-display font-semibold leading-none"
               style={{
                 color:
                   ocupacionMedia >= 85
@@ -647,17 +647,17 @@ export default function Dashboard() {
           </div>
 
           {/* Reservas hoy */}
-          <div className="bg-white rounded-xl border border-[#E8EAED] p-4">
+          <div className="bg-white rounded-xl border border-[#F0E6E4] p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#B0A3A8]">
                 Reservas hoy
               </p>
-              <div className="w-7 h-7 rounded-lg bg-[#F5F3FF] flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-[#F7EDEF] flex items-center justify-center">
                 <Calendar size={14} className="text-[#7C3AED]" />
               </div>
             </div>
-            <p className="text-[28px] font-bold text-[#111827] leading-none">{reservasHoy}</p>
-            <p className="text-[11px] text-[#9CA3AF] mt-2">
+            <p className="text-[30px] font-display font-semibold text-[#2B2429] leading-none">{reservasHoy}</p>
+            <p className="text-[11px] text-[#B0A3A8] mt-2">
               {clasesHoy.length} clase{clasesHoy.length !== 1 ? 's' : ''} programada
               {clasesHoy.length !== 1 ? 's' : ''}
               {clasesHoy.filter(isNowFn).length > 0 && (
@@ -667,19 +667,19 @@ export default function Dashboard() {
           </div>
 
           {/* Renovaciones próximas */}
-          <div className="bg-white rounded-xl border border-[#E8EAED] p-4">
+          <div className="bg-white rounded-xl border border-[#F0E6E4] p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#B0A3A8]">
                 Renovaciones 30d
               </p>
               <div className="w-7 h-7 rounded-lg bg-[#ECFDF5] flex items-center justify-center">
                 <RefreshCw size={14} className="text-[#059669]" />
               </div>
             </div>
-            <p className="text-[28px] font-bold text-[#111827] leading-none">
+            <p className="text-[30px] font-display font-semibold text-[#2B2429] leading-none">
               {renovacionesProximas.length}
             </p>
-            <p className="text-[11px] text-[#9CA3AF] mt-2">
+            <p className="text-[11px] text-[#B0A3A8] mt-2">
               {renovacionesProximas.length > 0
                 ? `Próxima: ${new Date(renovacionesProximas[0].fechaFin!).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`
                 : 'Sin vencimientos próximos'}
@@ -694,31 +694,31 @@ export default function Dashboard() {
           <div className="lg:col-span-2 space-y-5">
 
             {/* Clases de hoy */}
-            <div className="bg-white rounded-xl border border-[#E8EAED]">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#F3F4F6]">
+            <div className="bg-white rounded-xl border border-[#F0E6E4]">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#F5EFEC]">
                 <div className="flex items-center gap-2">
-                  <Clock size={14} className="text-[#6B7280]" />
-                  <h2 className="text-[13px] font-semibold text-[#111827]">
+                  <Clock size={14} className="text-[#8B7D82]" />
+                  <h2 className="text-[13px] font-semibold text-[#2B2429]">
                     Clases de hoy
                   </h2>
-                  <span className="text-[11px] font-medium text-[#9CA3AF]">
+                  <span className="text-[11px] font-medium text-[#B0A3A8]">
                     {clasesHoy.length} sesiones
                   </span>
                 </div>
                 <Link
                   href="/calendario"
-                  className="flex items-center gap-1 text-[11px] font-medium text-[#6B7280] hover:text-[#111827] transition-colors"
+                  className="flex items-center gap-1 text-[11px] font-medium text-[#8B7D82] hover:text-[#2B2429] transition-colors"
                 >
                   <CalendarPlus size={12} /> Ver calendario
                 </Link>
               </div>
               {clasesHoy.length === 0 ? (
                 <div className="py-12 flex flex-col items-center gap-2">
-                  <Calendar size={28} className="text-[#E5E7EB]" />
-                  <p className="text-[13px] text-[#9CA3AF]">Sin clases hoy</p>
+                  <Calendar size={28} className="text-[#F0E6E4]" />
+                  <p className="text-[13px] text-[#B0A3A8]">Sin clases hoy</p>
                   <Link
                     href="/calendario"
-                    className="text-[12px] font-medium text-[#2563EB] hover:underline"
+                    className="text-[12px] font-medium text-[#A05A6B] hover:underline"
                   >
                     + Programar clase
                   </Link>
@@ -734,11 +734,11 @@ export default function Dashboard() {
 
             {/* Pagos pendientes */}
             {pendientes.length > 0 && (
-              <div className="bg-white rounded-xl border border-[#E8EAED]">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-[#F3F4F6]">
+              <div className="bg-white rounded-xl border border-[#F0E6E4]">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-[#F5EFEC]">
                   <div className="flex items-center gap-2">
-                    <CreditCard size={14} className="text-[#6B7280]" />
-                    <h2 className="text-[13px] font-semibold text-[#111827]">
+                    <CreditCard size={14} className="text-[#8B7D82]" />
+                    <h2 className="text-[13px] font-semibold text-[#2B2429]">
                       Pagos pendientes
                     </h2>
                     <span className="text-[10px] font-bold text-[#DC2626] bg-[#FEF2F2] px-1.5 py-0.5 rounded-full">
@@ -754,29 +754,29 @@ export default function Dashboard() {
                     </button>
                   )}
                 </div>
-                <div className="divide-y divide-[#F9FAFB]">
+                <div className="divide-y divide-[#FAF6F4]">
                   {pendientes.map(r => (
                     <div key={r.id} className="flex items-center gap-3 px-5 py-3">
                       <Link
                         href={`/socios/${r.socioId}`}
-                        className="w-8 h-8 rounded-full bg-[#DBEAFE] text-[#2563EB] font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
+                        className="w-8 h-8 rounded-full bg-[#DBEAFE] text-[#A05A6B] font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
                       >
                         {r.socio!.nombre[0]}
                         {r.socio!.apellidos[0]}
                       </Link>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-semibold text-[#111827] truncate">
+                        <p className="text-[13px] font-semibold text-[#2B2429] truncate">
                           {r.socio!.nombre} {r.socio!.apellidos}
                         </p>
-                        <p className="text-[11px] text-[#9CA3AF] truncate">{r.concepto}</p>
+                        <p className="text-[11px] text-[#B0A3A8] truncate">{r.concepto}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[13px] font-bold text-[#111827]">
+                        <span className="text-[13px] font-bold text-[#2B2429]">
                           {r.importe} €
                         </span>
                         <button
                           onClick={() => marcarCobrado(r.id)}
-                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#111827] text-white hover:bg-[#1f2937] transition-colors"
+                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#2B2429] text-white hover:bg-[#3A2F35] transition-colors"
                         >
                           Cobrar
                         </button>
@@ -785,10 +785,10 @@ export default function Dashboard() {
                   ))}
                 </div>
                 {recibos.filter(r => r.estado === 'PENDIENTE').length > 5 && (
-                  <div className="px-5 py-3 border-t border-[#F9FAFB]">
+                  <div className="px-5 py-3 border-t border-[#FAF6F4]">
                     <Link
                       href="/pagos"
-                      className="text-[11px] font-medium text-[#2563EB] hover:underline"
+                      className="text-[11px] font-medium text-[#A05A6B] hover:underline"
                     >
                       Ver todos los pagos pendientes →
                     </Link>
@@ -802,32 +802,32 @@ export default function Dashboard() {
           <div className="space-y-5">
 
             {/* Quick actions */}
-            <div className="bg-white rounded-xl border border-[#E8EAED] p-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] mb-3">
+            <div className="bg-white rounded-xl border border-[#F0E6E4] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#B0A3A8] mb-3">
                 Acciones rápidas
               </p>
               <div className="space-y-2">
                 <Link
                   href="/socios?nuevo=1"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-[#111827] hover:bg-[#1F2937] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-[#2B2429] hover:bg-[#1F2937] transition-colors"
                 >
                   <UserPlus size={14} /> Nuevo miembro
                 </Link>
                 <Link
                   href="/calendario"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#374151] bg-[#F4F5F7] hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#4A3F44] bg-[#FDFBFA] hover:bg-[#E9EAEC] transition-colors"
                 >
                   <CalendarPlus size={14} /> Nueva reserva
                 </Link>
                 <Link
                   href="/pagos"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#374151] bg-[#F4F5F7] hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#4A3F44] bg-[#FDFBFA] hover:bg-[#E9EAEC] transition-colors"
                 >
                   <CreditCard size={14} /> Cobrar
                 </Link>
                 <Link
                   href="/pos"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#374151] bg-[#F4F5F7] hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#4A3F44] bg-[#FDFBFA] hover:bg-[#E9EAEC] transition-colors"
                 >
                   <ShoppingCart size={14} /> Punto de venta
                 </Link>
@@ -836,17 +836,17 @@ export default function Dashboard() {
 
             {/* Renovaciones próximas */}
             {renovacionesProximas.length > 0 && (
-              <div className="bg-white rounded-xl border border-[#E8EAED]">
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F3F4F6]">
+              <div className="bg-white rounded-xl border border-[#F0E6E4]">
+                <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F5EFEC]">
                   <div className="flex items-center gap-2">
                     <RefreshCw size={13} className="text-[#059669]" />
-                    <h2 className="text-[13px] font-semibold text-[#111827]">
+                    <h2 className="text-[13px] font-semibold text-[#2B2429]">
                       Renovaciones
                     </h2>
                   </div>
-                  <span className="text-[10px] font-bold text-[#6B7280]">30 días</span>
+                  <span className="text-[10px] font-bold text-[#8B7D82]">30 días</span>
                 </div>
-                <div className="divide-y divide-[#F9FAFB]">
+                <div className="divide-y divide-[#FAF6F4]">
                   {renovacionesProximas.map(r => {
                     const diasRestantes = Math.round(
                       (new Date(r.fechaFin!).getTime() - now.getTime()) / 86400000
@@ -856,27 +856,27 @@ export default function Dashboard() {
                       <Link
                         key={r.id}
                         href={`/socios/${r.socioId}`}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F9FAFB] transition-colors"
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#FAF6F4] transition-colors"
                       >
-                        <div className="w-7 h-7 rounded-full bg-[#DBEAFE] text-[#2563EB] text-[10px] font-bold flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-[#DBEAFE] text-[#A05A6B] text-[10px] font-bold flex items-center justify-center shrink-0">
                           {r.socio!.nombre[0]}
                           {r.socio!.apellidos[0]}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-semibold text-[#111827] truncate">
+                          <p className="text-[12px] font-semibold text-[#2B2429] truncate">
                             {r.socio!.nombre} {r.socio!.apellidos}
                           </p>
-                          <p className="text-[11px] text-[#9CA3AF] truncate">
+                          <p className="text-[11px] text-[#B0A3A8] truncate">
                             {r.plan!.nombre}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-[11px] font-bold text-[#111827]">
+                          <p className="text-[11px] font-bold text-[#2B2429]">
                             {r.plan!.precio} €
                           </p>
                           <p
                             className="text-[10px] font-semibold"
-                            style={{ color: isUrgent ? '#DC2626' : '#9CA3AF' }}
+                            style={{ color: isUrgent ? '#DC2626' : '#B0A3A8' }}
                           >
                             {diasRestantes}d
                           </p>
@@ -889,22 +889,22 @@ export default function Dashboard() {
             )}
 
             {/* Activity feed */}
-            <div className="bg-white rounded-xl border border-[#E8EAED]">
-              <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F3F4F6]">
+            <div className="bg-white rounded-xl border border-[#F0E6E4]">
+              <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F5EFEC]">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-[13px] font-semibold text-[#111827]">Actividad</h2>
+                  <h2 className="text-[13px] font-semibold text-[#2B2429]">Actividad</h2>
                   <span className="w-1.5 h-1.5 rounded-full bg-[#059669] animate-pulse" />
                 </div>
                 <Link
                   href="/notificaciones"
-                  className="flex items-center gap-1 text-[11px] font-medium text-[#6B7280] hover:text-[#111827] transition-colors"
+                  className="flex items-center gap-1 text-[11px] font-medium text-[#8B7D82] hover:text-[#2B2429] transition-colors"
                 >
                   <Bell size={11} /> Ver todo
                 </Link>
               </div>
-              <div className="divide-y divide-[#F9FAFB]">
+              <div className="divide-y divide-[#FAF6F4]">
                 {actividadReciente.length === 0 ? (
-                  <p className="text-[12px] text-[#9CA3AF] px-4 py-6 text-center">
+                  <p className="text-[12px] text-[#B0A3A8] px-4 py-6 text-center">
                     Sin actividad reciente
                   </p>
                 ) : (
@@ -918,10 +918,10 @@ export default function Dashboard() {
                         >
                           {cfg.label}
                         </span>
-                        <p className="flex-1 text-[12px] text-[#374151] min-w-0 truncate">
+                        <p className="flex-1 text-[12px] text-[#4A3F44] min-w-0 truncate">
                           {act.texto}
                         </p>
-                        <span className="text-[10px] text-[#9CA3AF] shrink-0">
+                        <span className="text-[10px] text-[#B0A3A8] shrink-0">
                           {timeAgo(act.creadoEn, now)}
                         </span>
                       </>
@@ -930,7 +930,7 @@ export default function Dashboard() {
                       <Link
                         key={act.id}
                         href={act.enlace}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F9FAFB] transition-colors"
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#FAF6F4] transition-colors"
                       >
                         {inner}
                       </Link>

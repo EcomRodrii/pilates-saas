@@ -11,14 +11,14 @@ import type { Campana, Automatizacion, CodigoDescuento, TipoCampana, TriggerAuto
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]">{label}</label>
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-[#8B7D82]">{label}</label>
       {children}
     </div>
   )
 }
 
-const inputCls = 'w-full rounded-lg border border-[#E8EAED] px-3 py-2 text-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#111827]/10'
-const selectCls = 'w-full rounded-lg border border-[#E8EAED] px-3 py-2 text-sm text-[#111827] bg-white focus:outline-none focus:ring-2 focus:ring-[#111827]/10'
+const inputCls = 'w-full rounded-lg border border-[#F0E6E4] px-3 py-2 text-sm text-[#2B2429] placeholder-[#B0A3A8] focus:outline-none focus:ring-2 focus:ring-[#2B2429]/10'
+const selectCls = 'w-full rounded-lg border border-[#F0E6E4] px-3 py-2 text-sm text-[#2B2429] bg-white focus:outline-none focus:ring-2 focus:ring-[#2B2429]/10'
 
 const destinatariosLabel: Record<string, string> = {
   TODAS: 'Todas las socias',
@@ -96,18 +96,18 @@ function EstadoBadge({ estado, programadaEn, enviadaEn }: { estado: string; prog
   const dotColor =
     estado === 'ENVIADA' ? 'bg-[#059669]' :
     estado === 'PROGRAMADA' ? 'bg-[#D97706]' :
-    estado === 'BORRADOR' ? 'bg-[#9CA3AF]' :
-    estado === 'ACTIVA' ? 'bg-[#2563EB]' :
+    estado === 'BORRADOR' ? 'bg-[#B0A3A8]' :
+    estado === 'ACTIVA' ? 'bg-[#A05A6B]' :
     estado === 'PAUSADA' ? 'bg-[#EA580C]' :
-    'bg-[#9CA3AF]'
+    'bg-[#B0A3A8]'
 
   const bgColor =
     estado === 'ENVIADA' ? 'bg-[#D1FAE5] text-[#065F46]' :
     estado === 'PROGRAMADA' ? 'bg-[#FEF3C7] text-[#92400E]' :
-    estado === 'BORRADOR' ? 'bg-[#F3F4F6] text-[#6B7280]' :
+    estado === 'BORRADOR' ? 'bg-[#F5EFEC] text-[#8B7D82]' :
     estado === 'ACTIVA' ? 'bg-[#DBEAFE] text-[#1D4ED8]' :
     estado === 'PAUSADA' ? 'bg-[#FFEDD5] text-[#C2410C]' :
-    'bg-[#F3F4F6] text-[#6B7280]'
+    'bg-[#F5EFEC] text-[#8B7D82]'
 
   const dateStr =
     estado === 'ENVIADA' && enviadaEn ? ` · ${formatDateEs(enviadaEn)}` :
@@ -147,7 +147,7 @@ function CopyButton({ text }: { text: string }) {
           'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors border',
           copied
             ? 'bg-[#D1FAE5] border-[#059669] text-[#065F46]'
-            : 'bg-white border-[#E8EAED] text-[#6B7280] hover:text-[#111827] hover:border-[#D1D5DB]'
+            : 'bg-white border-[#F0E6E4] text-[#8B7D82] hover:text-[#2B2429] hover:border-[#D1D5DB]'
         )}
         title="Copiar código"
       >
@@ -161,14 +161,14 @@ function CopyButton({ text }: { text: string }) {
 // Progress bar for discount code usage
 function UsageBar({ usos, usosMax }: { usos: number; usosMax: number | null }) {
   if (usosMax == null) {
-    return <span className="text-[#6B7280]">{usos} usos</span>
+    return <span className="text-[#8B7D82]">{usos} usos</span>
   }
   const pct = Math.min(100, Math.round((usos / usosMax) * 100))
   const barColor = pct >= 90 ? 'bg-[#DC2626]' : pct >= 60 ? 'bg-[#D97706]' : 'bg-[#059669]'
   return (
     <div className="flex flex-col gap-1 min-w-[80px]">
-      <span className="text-xs text-[#6B7280]">{usos} / {usosMax}</span>
-      <div className="w-full h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden">
+      <span className="text-xs text-[#8B7D82]">{usos} / {usosMax}</span>
+      <div className="w-full h-1.5 bg-[#F5EFEC] rounded-full overflow-hidden">
         <div className={cn('h-full rounded-full transition-all', barColor)} style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -311,7 +311,7 @@ export default function MarketingPage() {
   const accionBadge = (accion: string) => {
     if (accion === 'EMAIL') return 'bg-[#DBEAFE] text-[#1D4ED8]'
     if (accion === 'WHATSAPP') return 'bg-[#D1FAE5] text-[#065F46]'
-    return 'bg-[#F3F4F6] text-[#6B7280]'
+    return 'bg-[#F5EFEC] text-[#8B7D82]'
   }
 
   const accionIcon = (accion: string) => {
@@ -321,10 +321,10 @@ export default function MarketingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F5F7] p-6">
+    <div className="min-h-screen bg-[#FDFBFA] p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-[#111827]">Marketing</h1>
+        <h1 className="text-2xl font-bold text-[#2B2429]">Marketing</h1>
       </div>
 
       {/* Tabs */}
@@ -336,8 +336,8 @@ export default function MarketingPage() {
             className={cn(
               'px-4 py-2 text-sm rounded-lg transition-colors',
               tab === t
-                ? 'bg-white border border-[#E8EAED] text-[#111827] font-medium'
-                : 'text-[#6B7280] hover:text-[#111827]'
+                ? 'bg-white border border-[#F0E6E4] text-[#2B2429] font-medium'
+                : 'text-[#8B7D82] hover:text-[#2B2429]'
             )}
           >
             {t === 'campanas' ? 'Campañas' : t === 'automatizaciones' ? 'Automatizaciones' : 'Códigos de descuento'}
@@ -356,15 +356,15 @@ export default function MarketingPage() {
                 { label: 'Enviadas', value: enviadas.length },
                 { label: 'Tasa apertura media', value: `${tasaApertura}%` },
               ].map(s => (
-                <div key={s.label} className="bg-white border border-[#E8EAED] rounded-xl px-4 py-3 min-w-[110px]">
-                  <p className="text-xs text-[#6B7280] mb-1">{s.label}</p>
-                  <p className="text-xl font-bold text-[#111827]">{s.value}</p>
+                <div key={s.label} className="bg-white border border-[#F0E6E4] rounded-xl px-4 py-3 min-w-[110px]">
+                  <p className="text-xs text-[#8B7D82] mb-1">{s.label}</p>
+                  <p className="text-xl font-bold text-[#2B2429]">{s.value}</p>
                 </div>
               ))}
             </div>
             <button
               onClick={() => setShowCampanaModal(true)}
-              className="flex items-center gap-2 bg-[#111827] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#1f2937] transition-colors shrink-0"
+              className="flex items-center gap-2 bg-[#2B2429] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#3A2F35] transition-colors shrink-0"
             >
               <Plus className="w-4 h-4" />
               Nueva campaña
@@ -373,41 +373,41 @@ export default function MarketingPage() {
 
           {/* Campaign list */}
           {campanas.length === 0 ? (
-            <div className="flex items-center justify-center py-16 text-[#6B7280]">Sin campañas</div>
+            <div className="flex items-center justify-center py-16 text-[#8B7D82]">Sin campañas</div>
           ) : (
             <div className="space-y-3">
               {campanas.map(c => (
                 <div
                   key={c.id}
-                  className="bg-white border border-[#E8EAED] rounded-xl p-5 relative group"
+                  className="bg-white border border-[#F0E6E4] rounded-xl p-5 relative group"
                   onMouseEnter={() => setHoveredCampana(c.id)}
                   onMouseLeave={() => setHoveredCampana(null)}
                 >
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <span className="font-semibold text-[#111827]">{c.nombre}</span>
+                        <span className="font-semibold text-[#2B2429]">{c.nombre}</span>
                         <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', tipoBadge(c.tipo))}>{c.tipo}</span>
                         <EstadoBadge estado={c.estado} programadaEn={c.programadaEn} enviadaEn={c.enviadaEn} />
                       </div>
-                      <p className="text-xs text-[#6B7280] mb-2">{destinatariosLabel[c.destinatarios] ?? c.destinatarios}</p>
-                      <p className="text-xs text-[#6B7280]">
+                      <p className="text-xs text-[#8B7D82] mb-2">{destinatariosLabel[c.destinatarios] ?? c.destinatarios}</p>
+                      <p className="text-xs text-[#8B7D82]">
                         Enviados: {c.enviados} · Abiertos: {c.abiertos}{c.enviados > 0 ? ` (${Math.round((c.abiertos / c.enviados) * 100)}%)` : ''} · Clics: {c.clics}{c.enviados > 0 ? ` (${Math.round((c.clics / c.enviados) * 100)}%)` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-[#9CA3AF]">{formatDateEs(c.creadaEn)}</span>
+                      <span className="text-xs text-[#B0A3A8]">{formatDateEs(c.creadaEn)}</span>
                       <div className={cn('flex gap-1 transition-opacity', hoveredCampana === c.id ? 'opacity-100' : 'opacity-0')}>
                         <button
                           onClick={() => duplicateCampana(c)}
-                          className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] hover:text-[#111827] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-[#F5EFEC] text-[#8B7D82] hover:text-[#2B2429] transition-colors"
                           title="Duplicar"
                         >
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => deleteCampana(c.id)}
-                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#6B7280] hover:text-[#DC2626] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8B7D82] hover:text-[#DC2626] transition-colors"
                           title="Eliminar"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -431,15 +431,15 @@ export default function MarketingPage() {
                 { label: 'Activas', value: autoActivas },
                 { label: 'Ejecuciones este mes', value: totalEjecuciones },
               ].map(s => (
-                <div key={s.label} className="bg-white border border-[#E8EAED] rounded-xl px-5 py-3 min-w-[130px]">
-                  <p className="text-xs text-[#6B7280] mb-1">{s.label}</p>
-                  <p className="text-xl font-bold text-[#111827]">{s.value}</p>
+                <div key={s.label} className="bg-white border border-[#F0E6E4] rounded-xl px-5 py-3 min-w-[130px]">
+                  <p className="text-xs text-[#8B7D82] mb-1">{s.label}</p>
+                  <p className="text-xl font-bold text-[#2B2429]">{s.value}</p>
                 </div>
               ))}
             </div>
             <button
               onClick={() => setShowAutoModal(true)}
-              className="flex items-center gap-2 bg-[#111827] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#1f2937] transition-colors shrink-0"
+              className="flex items-center gap-2 bg-[#2B2429] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#3A2F35] transition-colors shrink-0"
             >
               <Plus className="w-4 h-4" />
               Nueva automatización
@@ -447,14 +447,14 @@ export default function MarketingPage() {
           </div>
 
           {automatizaciones.length === 0 ? (
-            <div className="flex items-center justify-center py-16 text-[#6B7280]">Sin automatizaciones</div>
+            <div className="flex items-center justify-center py-16 text-[#8B7D82]">Sin automatizaciones</div>
           ) : (
-            <div className="bg-white border border-[#E8EAED] rounded-xl overflow-hidden overflow-x-auto">
+            <div className="bg-white border border-[#F0E6E4] rounded-xl overflow-hidden overflow-x-auto">
               <table className="w-full text-sm min-w-[700px]">
                 <thead>
-                  <tr className="border-b border-[#E8EAED]">
+                  <tr className="border-b border-[#F0E6E4]">
                     {['Automatización', 'Cuándo se activa', 'Qué hace', 'Ejecuciones', 'Última ejecución', 'Estado'].map(col => (
-                      <th key={col} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
+                      <th key={col} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#8B7D82]">
                         {col}
                       </th>
                     ))}
@@ -462,16 +462,16 @@ export default function MarketingPage() {
                 </thead>
                 <tbody>
                   {automatizaciones.map((a, i) => (
-                    <tr key={a.id} className={cn('border-b border-[#E8EAED] last:border-0', i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAFB]')}>
+                    <tr key={a.id} className={cn('border-b border-[#F0E6E4] last:border-0', i % 2 === 0 ? 'bg-white' : 'bg-[#FAF6F4]')}>
                       <td className="px-4 py-4">
-                        <span className="font-semibold text-[#111827]">{a.nombre}</span>
+                        <span className="font-semibold text-[#2B2429]">{a.nombre}</span>
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-start gap-1.5">
-                          <Zap className="w-3.5 h-3.5 text-[#9CA3AF] mt-0.5 shrink-0" />
+                          <Zap className="w-3.5 h-3.5 text-[#B0A3A8] mt-0.5 shrink-0" />
                           <div>
-                            <p className="text-sm text-[#111827] font-medium leading-snug">{triggerLabel[a.trigger] ?? a.trigger}</p>
-                            <p className="text-xs text-[#9CA3AF] leading-snug mt-0.5">{triggerDesc[a.trigger] ?? ''}</p>
+                            <p className="text-sm text-[#2B2429] font-medium leading-snug">{triggerLabel[a.trigger] ?? a.trigger}</p>
+                            <p className="text-xs text-[#B0A3A8] leading-snug mt-0.5">{triggerDesc[a.trigger] ?? ''}</p>
                           </div>
                         </div>
                       </td>
@@ -482,13 +482,13 @@ export default function MarketingPage() {
                             {a.accion}
                           </span>
                         </div>
-                        <p className="text-xs text-[#9CA3AF] mt-1">{accionDesc[a.accion] ?? ''}</p>
+                        <p className="text-xs text-[#B0A3A8] mt-1">{accionDesc[a.accion] ?? ''}</p>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-[#111827] font-medium">{a.ejecutadas ?? 0}</span>
+                        <span className="text-[#2B2429] font-medium">{a.ejecutadas ?? 0}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className={cn('text-sm', (a.ejecutadas ?? 0) === 0 ? 'text-[#9CA3AF] italic' : 'text-[#6B7280]')}>
+                        <span className={cn('text-sm', (a.ejecutadas ?? 0) === 0 ? 'text-[#B0A3A8] italic' : 'text-[#8B7D82]')}>
                           {(a.ejecutadas ?? 0) === 0 ? 'Nunca' : 'Reciente'}
                         </span>
                       </td>
@@ -497,7 +497,7 @@ export default function MarketingPage() {
                           onClick={() => toggleAutomatizacion(a.id)}
                           className={cn(
                             'w-10 h-[22px] rounded-full transition-colors relative shrink-0',
-                            a.activa ? 'bg-[#111827]' : 'bg-[#D1D5DB]'
+                            a.activa ? 'bg-[#2B2429]' : 'bg-[#D1D5DB]'
                           )}
                           aria-label={a.activa ? 'Desactivar' : 'Activar'}
                         >
@@ -528,15 +528,15 @@ export default function MarketingPage() {
                 { label: 'Activos', value: codigosActivos },
                 { label: 'Usos totales', value: totalUsos },
               ].map(s => (
-                <div key={s.label} className="bg-white border border-[#E8EAED] rounded-xl px-5 py-3 min-w-[120px]">
-                  <p className="text-xs text-[#6B7280] mb-1">{s.label}</p>
-                  <p className="text-xl font-bold text-[#111827]">{s.value}</p>
+                <div key={s.label} className="bg-white border border-[#F0E6E4] rounded-xl px-5 py-3 min-w-[120px]">
+                  <p className="text-xs text-[#8B7D82] mb-1">{s.label}</p>
+                  <p className="text-xl font-bold text-[#2B2429]">{s.value}</p>
                 </div>
               ))}
             </div>
             <button
               onClick={() => setShowCodigoModal(true)}
-              className="flex items-center gap-2 bg-[#111827] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#1f2937] transition-colors shrink-0"
+              className="flex items-center gap-2 bg-[#2B2429] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#3A2F35] transition-colors shrink-0"
             >
               <Plus className="w-4 h-4" />
               Nuevo código
@@ -544,14 +544,14 @@ export default function MarketingPage() {
           </div>
 
           {codigos.length === 0 ? (
-            <div className="flex items-center justify-center py-16 text-[#6B7280]">Sin códigos</div>
+            <div className="flex items-center justify-center py-16 text-[#8B7D82]">Sin códigos</div>
           ) : (
-            <div className="bg-white border border-[#E8EAED] rounded-xl overflow-hidden overflow-x-auto">
+            <div className="bg-white border border-[#F0E6E4] rounded-xl overflow-hidden overflow-x-auto">
               <table className="w-full text-sm min-w-[650px]">
                 <thead>
-                  <tr className="border-b border-[#E8EAED]">
+                  <tr className="border-b border-[#F0E6E4]">
                     {['Código', 'Descripción', 'Descuento', 'Usos', 'Expira', 'Estado', 'Acciones'].map(col => (
-                      <th key={col} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
+                      <th key={col} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#8B7D82]">
                         {col}
                       </th>
                     ))}
@@ -559,23 +559,23 @@ export default function MarketingPage() {
                 </thead>
                 <tbody>
                   {codigos.map((cod, i) => (
-                    <tr key={cod.id} className={cn('border-b border-[#E8EAED] last:border-0', i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAFB]')}>
+                    <tr key={cod.id} className={cn('border-b border-[#F0E6E4] last:border-0', i % 2 === 0 ? 'bg-white' : 'bg-[#FAF6F4]')}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-[#111827] text-sm">{cod.codigo}</span>
+                          <span className="font-mono font-bold text-[#2B2429] text-sm">{cod.codigo}</span>
                           <CopyButton text={cod.codigo} />
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-[#6B7280]">{cod.descripcion || '—'}</td>
-                      <td className="px-4 py-3 text-[#111827] font-medium">
+                      <td className="px-4 py-3 text-[#8B7D82]">{cod.descripcion || '—'}</td>
+                      <td className="px-4 py-3 text-[#2B2429] font-medium">
                         {cod.tipo === 'PORCENTAJE' ? `${cod.valor}%` : `${cod.valor} €`}
                       </td>
                       <td className="px-4 py-3">
                         <UsageBar usos={cod.usos} usosMax={cod.usosMax} />
                       </td>
-                      <td className="px-4 py-3 text-[#6B7280]">{formatDateEs(cod.expira)}</td>
+                      <td className="px-4 py-3 text-[#8B7D82]">{formatDateEs(cod.expira)}</td>
                       <td className="px-4 py-3">
-                        <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', cod.activo ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#F3F4F6] text-[#6B7280]')}>
+                        <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', cod.activo ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#F5EFEC] text-[#8B7D82]')}>
                           {cod.activo ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
@@ -583,14 +583,14 @@ export default function MarketingPage() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => toggleCodigoDescuento(cod.id)}
-                            className="p-1.5 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] hover:text-[#111827] transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-[#F5EFEC] text-[#8B7D82] hover:text-[#2B2429] transition-colors"
                             title={cod.activo ? 'Desactivar' : 'Activar'}
                           >
                             {cod.activo ? <ToggleRight className="w-4 h-4 text-[#059669]" /> : <ToggleLeft className="w-4 h-4" />}
                           </button>
                           <button
                             onClick={() => deleteCodigoDescuento(cod.id)}
-                            className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#6B7280] hover:text-[#DC2626] transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8B7D82] hover:text-[#DC2626] transition-colors"
                             title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -658,7 +658,7 @@ export default function MarketingPage() {
                   <option value="BONO">Con bono</option>
                   <option value="VIP">VIP</option>
                 </select>
-                <span className="shrink-0 text-xs font-medium text-[#6B7280] bg-[#F3F4F6] px-2.5 py-1.5 rounded-lg whitespace-nowrap">
+                <span className="shrink-0 text-xs font-medium text-[#8B7D82] bg-[#F5EFEC] px-2.5 py-1.5 rounded-lg whitespace-nowrap">
                   ~{recipientCount[newCampana.destinatarios] ?? 0} destinatarias
                 </span>
               </div>
@@ -666,7 +666,7 @@ export default function MarketingPage() {
 
             {/* Content section */}
             <div className="space-y-3 pt-1">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]">Contenido</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-[#8B7D82]">Contenido</label>
 
               {/* Template picker */}
               <div className="grid grid-cols-3 gap-2">
@@ -677,24 +677,24 @@ export default function MarketingPage() {
                     className={cn(
                       'flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center',
                       selectedTemplate === key
-                        ? 'border-[#111827] bg-[#F9FAFB]'
-                        : 'border-[#E8EAED] hover:border-[#D1D5DB] bg-white'
+                        ? 'border-[#2B2429] bg-[#FAF6F4]'
+                        : 'border-[#F0E6E4] hover:border-[#D1D5DB] bg-white'
                     )}
                   >
                     <span className="text-2xl">{tpl.emoji}</span>
-                    <span className="text-xs font-semibold text-[#111827]">{tpl.label}</span>
-                    <span className="text-[10px] text-[#9CA3AF]">Plantilla</span>
+                    <span className="text-xs font-semibold text-[#2B2429]">{tpl.label}</span>
+                    <span className="text-[10px] text-[#B0A3A8]">Plantilla</span>
                   </button>
                 ))}
               </div>
 
               {/* Preview toggle */}
               <div className="flex items-center justify-between">
-                <p className="text-xs text-[#9CA3AF]">Variables: {'{nombre}'}, {'{fecha}'}, {'{plan}'}</p>
+                <p className="text-xs text-[#B0A3A8]">Variables: {'{nombre}'}, {'{fecha}'}, {'{plan}'}</p>
                 {newCampana.contenido && (
                   <button
                     onClick={() => setShowPreview(p => !p)}
-                    className="flex items-center gap-1 text-xs text-[#6B7280] hover:text-[#111827] transition-colors"
+                    className="flex items-center gap-1 text-xs text-[#8B7D82] hover:text-[#2B2429] transition-colors"
                   >
                     {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     {showPreview ? 'Editar' : 'Vista previa'}
@@ -704,14 +704,14 @@ export default function MarketingPage() {
 
               {showPreview ? (
                 /* Email preview card */
-                <div className="bg-white border border-[#E8EAED] rounded-xl p-5 shadow-sm">
-                  <div className="border-b border-[#F3F4F6] pb-3 mb-3">
-                    <p className="text-xs text-[#9CA3AF] uppercase tracking-wide">Vista previa</p>
+                <div className="bg-white border border-[#F0E6E4] rounded-xl p-5 shadow-sm">
+                  <div className="border-b border-[#F5EFEC] pb-3 mb-3">
+                    <p className="text-xs text-[#B0A3A8] uppercase tracking-wide">Vista previa</p>
                     {newCampana.asunto && (
-                      <p className="text-sm font-semibold text-[#111827] mt-1">{newCampana.asunto}</p>
+                      <p className="text-sm font-semibold text-[#2B2429] mt-1">{newCampana.asunto}</p>
                     )}
                   </div>
-                  <div className="text-sm text-[#374151] whitespace-pre-line leading-relaxed">
+                  <div className="text-sm text-[#4A3F44] whitespace-pre-line leading-relaxed">
                     {newCampana.contenido}
                   </div>
                 </div>
@@ -729,13 +729,13 @@ export default function MarketingPage() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => { setShowCampanaModal(false); setSelectedTemplate(null); setShowPreview(false) }}
-                className="px-4 py-2 text-sm rounded-lg bg-white border border-[#E8EAED] text-[#111827] hover:bg-[#F9FAFB] transition-colors"
+                className="px-4 py-2 text-sm rounded-lg bg-white border border-[#F0E6E4] text-[#2B2429] hover:bg-[#FAF6F4] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAddCampana}
-                className="px-4 py-2 text-sm rounded-lg bg-[#111827] text-white hover:bg-[#1f2937] transition-colors font-medium"
+                className="px-4 py-2 text-sm rounded-lg bg-[#2B2429] text-white hover:bg-[#3A2F35] transition-colors font-medium"
               >
                 Crear campaña
               </button>
@@ -800,13 +800,13 @@ export default function MarketingPage() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowAutoModal(false)}
-                className="px-4 py-2 text-sm rounded-lg bg-white border border-[#E8EAED] text-[#111827] hover:bg-[#F9FAFB] transition-colors"
+                className="px-4 py-2 text-sm rounded-lg bg-white border border-[#F0E6E4] text-[#2B2429] hover:bg-[#FAF6F4] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAddAuto}
-                className="px-4 py-2 text-sm rounded-lg bg-[#111827] text-white hover:bg-[#1f2937] transition-colors font-medium"
+                className="px-4 py-2 text-sm rounded-lg bg-[#2B2429] text-white hover:bg-[#3A2F35] transition-colors font-medium"
               >
                 Crear automatización
               </button>
@@ -883,13 +883,13 @@ export default function MarketingPage() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowCodigoModal(false)}
-                className="px-4 py-2 text-sm rounded-lg bg-white border border-[#E8EAED] text-[#111827] hover:bg-[#F9FAFB] transition-colors"
+                className="px-4 py-2 text-sm rounded-lg bg-white border border-[#F0E6E4] text-[#2B2429] hover:bg-[#FAF6F4] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAddCodigo}
-                className="px-4 py-2 text-sm rounded-lg bg-[#111827] text-white hover:bg-[#1f2937] transition-colors font-medium"
+                className="px-4 py-2 text-sm rounded-lg bg-[#2B2429] text-white hover:bg-[#3A2F35] transition-colors font-medium"
               >
                 Crear código
               </button>

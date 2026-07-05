@@ -60,7 +60,7 @@ function Avatar({
   const dims = size === 'sm' ? 'w-7 h-7 text-[11px]' : 'w-9 h-9 text-[12px]';
   if (studio) {
     return (
-      <div className={cn('rounded-full bg-[#111827] flex items-center justify-center shrink-0', dims)}>
+      <div className={cn('rounded-full bg-[#2B2429] flex items-center justify-center shrink-0', dims)}>
         <span className="font-bold text-white" style={{ fontSize: size === 'sm' ? 10 : 12 }}>TE</span>
       </div>
     );
@@ -93,10 +93,10 @@ function CommentThread({
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-[#E8EAED] space-y-3">
+    <div className="mt-3 pt-3 border-t border-[#F0E6E4] space-y-3">
       {/* Existing comments */}
       {comments.length === 0 && (
-        <p className="text-[12px] text-[#9CA3AF] pl-1">Sin comentarios aún. ¡Sé la primera!</p>
+        <p className="text-[12px] text-[#B0A3A8] pl-1">Sin comentarios aún. ¡Sé la primera!</p>
       )}
       {comments.map((c, i) => (
         <div key={c.id} className="flex items-start gap-2">
@@ -106,12 +106,12 @@ function CommentThread({
             colorClass={AVATAR_COLORS[i % AVATAR_COLORS.length]}
             size="sm"
           />
-          <div className="flex-1 min-w-0 bg-[#F9FAFB] rounded-lg px-3 py-2">
+          <div className="flex-1 min-w-0 bg-[#FAF6F4] rounded-lg px-3 py-2">
             <div className="flex items-baseline gap-2 mb-0.5">
-              <span className="text-[12px] font-semibold text-[#111827]">{c.autorNombre}</span>
-              <span className="text-[11px] text-[#9CA3AF]">{timeAgo(c.creadoEn)}</span>
+              <span className="text-[12px] font-semibold text-[#2B2429]">{c.autorNombre}</span>
+              <span className="text-[11px] text-[#B0A3A8]">{timeAgo(c.creadoEn)}</span>
             </div>
-            <p className="text-[13px] text-[#374151] leading-relaxed">{c.texto}</p>
+            <p className="text-[13px] text-[#4A3F44] leading-relaxed">{c.texto}</p>
           </div>
         </div>
       ))}
@@ -131,7 +131,7 @@ function CommentThread({
             }}
             placeholder="Escribe un comentario..."
             rows={1}
-            className="flex-1 px-3 py-2 rounded-lg border border-[#E8EAED] text-[12px] placeholder:text-[#9CA3AF] text-[#111827] outline-none focus:border-[#111827] transition-colors resize-none"
+            className="flex-1 px-3 py-2 rounded-lg border border-[#F0E6E4] text-[12px] placeholder:text-[#B0A3A8] text-[#2B2429] outline-none focus:border-[#2B2429] transition-colors resize-none"
           />
           <button
             onClick={handleSubmit}
@@ -139,8 +139,8 @@ function CommentThread({
             className={cn(
               'px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors shrink-0',
               draft.trim()
-                ? 'bg-[#111827] text-white hover:bg-[#1f2937]'
-                : 'bg-[#E8EAED] text-[#9CA3AF] cursor-not-allowed'
+                ? 'bg-[#2B2429] text-white hover:bg-[#3A2F35]'
+                : 'bg-[#F0E6E4] text-[#B0A3A8] cursor-not-allowed'
             )}
           >
             Comentar
@@ -175,7 +175,7 @@ function PostCard({
 
   return (
     <div className={cn(
-      'bg-white border border-[#E8EAED] rounded-xl p-4',
+      'bg-white border border-[#F0E6E4] rounded-xl p-4',
       post.fijado && 'border-[#D97706]/40 bg-amber-50/30'
     )}>
       {/* Pinned badge */}
@@ -194,21 +194,21 @@ function PostCard({
           colorClass={colorClass}
         />
         <div>
-          <p className="text-[13px] font-semibold text-[#111827]">{post.autorNombre}</p>
-          <p className="text-[12px] text-[#9CA3AF]">{timeAgo(post.creadoEn)}</p>
+          <p className="text-[13px] font-semibold text-[#2B2429]">{post.autorNombre}</p>
+          <p className="text-[12px] text-[#B0A3A8]">{timeAgo(post.creadoEn)}</p>
         </div>
       </div>
 
       {/* Text */}
-      <p className="text-[14px] text-[#374151] leading-relaxed mb-3">
+      <p className="text-[14px] text-[#4A3F44] leading-relaxed mb-3">
         {post.texto}
       </p>
 
       {/* Actions */}
-      <div className="flex items-center gap-4 pt-2 border-t border-[#E8EAED]">
+      <div className="flex items-center gap-4 pt-2 border-t border-[#F0E6E4]">
         <button
           onClick={() => onLike(post.id)}
-          className="flex items-center gap-1.5 text-[12px] text-[#6B7280] hover:text-[#DC2626] transition-colors group"
+          className="flex items-center gap-1.5 text-[12px] text-[#8B7D82] hover:text-[#DC2626] transition-colors group"
         >
           <Heart size={14} className="group-hover:fill-[#DC2626] group-hover:text-[#DC2626] transition-colors" />
           <span>{post.likes}</span>
@@ -217,10 +217,10 @@ function PostCard({
           onClick={() => onToggleComments(post.id)}
           className={cn(
             'flex items-center gap-1.5 text-[12px] transition-colors',
-            isExpanded ? 'text-[#111827] font-medium' : 'text-[#6B7280] hover:text-[#111827]'
+            isExpanded ? 'text-[#2B2429] font-medium' : 'text-[#8B7D82] hover:text-[#2B2429]'
           )}
         >
-          <MessageCircle size={14} className={isExpanded ? 'fill-[#111827]/10' : ''} />
+          <MessageCircle size={14} className={isExpanded ? 'fill-[#2B2429]/10' : ''} />
           <span>{totalComments}</span>
         </button>
       </div>
@@ -250,10 +250,10 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white rounded-xl border border-[#E8EAED] shadow-xl w-full max-w-lg">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#E8EAED]">
-          <h2 className="text-[16px] font-semibold text-[#111827]">Nueva publicación</h2>
-          <button onClick={onClose} className="text-[#9CA3AF] hover:text-[#111827] transition-colors">
+      <div className="bg-white rounded-xl border border-[#F0E6E4] shadow-xl w-full max-w-lg">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0E6E4]">
+          <h2 className="text-[16px] font-semibold text-[#2B2429]">Nueva publicación</h2>
+          <button onClick={onClose} className="text-[#B0A3A8] hover:text-[#2B2429] transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -265,7 +265,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
               onChange={e => setTexto(e.target.value)}
               placeholder="Comparte algo con la comunidad..."
               rows={5}
-              className="flex-1 px-3 py-2 rounded-lg border border-[#E8EAED] text-[13px] placeholder:text-[#9CA3AF] text-[#111827] outline-none focus:border-[#111827] transition-colors resize-none"
+              className="flex-1 px-3 py-2 rounded-lg border border-[#F0E6E4] text-[13px] placeholder:text-[#B0A3A8] text-[#2B2429] outline-none focus:border-[#2B2429] transition-colors resize-none"
               autoFocus
             />
           </div>
@@ -276,13 +276,13 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
               <button
                 onClick={() => showTooltip('foto')}
                 disabled
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E8EAED] text-[12px] text-[#9CA3AF] cursor-not-allowed select-none"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#F0E6E4] text-[12px] text-[#B0A3A8] cursor-not-allowed select-none"
               >
                 <Image size={13} />
                 Foto
               </button>
               {mediaTooltip === 'foto' && (
-                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap bg-[#111827] text-white text-[11px] px-2 py-1 rounded-md shadow">
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap bg-[#2B2429] text-white text-[11px] px-2 py-1 rounded-md shadow">
                   Próximamente disponible
                 </span>
               )}
@@ -291,23 +291,23 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
               <button
                 onClick={() => showTooltip('video')}
                 disabled
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E8EAED] text-[12px] text-[#9CA3AF] cursor-not-allowed select-none"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#F0E6E4] text-[12px] text-[#B0A3A8] cursor-not-allowed select-none"
               >
                 <Video size={13} />
                 Vídeo
               </button>
               {mediaTooltip === 'video' && (
-                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap bg-[#111827] text-white text-[11px] px-2 py-1 rounded-md shadow">
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap bg-[#2B2429] text-white text-[11px] px-2 py-1 rounded-md shadow">
                   Próximamente disponible
                 </span>
               )}
             </div>
           </div>
         </div>
-        <div className="flex gap-2 px-5 py-4 border-t border-[#E8EAED]">
+        <div className="flex gap-2 px-5 py-4 border-t border-[#F0E6E4]">
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-lg border border-[#E8EAED] bg-white text-[13px] font-medium text-[#6B7280] hover:text-[#111827] hover:border-[#111827] transition-colors"
+            className="flex-1 py-2 rounded-lg border border-[#F0E6E4] bg-white text-[13px] font-medium text-[#8B7D82] hover:text-[#2B2429] hover:border-[#2B2429] transition-colors"
           >
             Cancelar
           </button>
@@ -317,8 +317,8 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
             className={cn(
               'flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors',
               texto.trim()
-                ? 'bg-[#111827] text-white hover:bg-[#1f2937]'
-                : 'bg-[#E8EAED] text-[#9CA3AF] cursor-not-allowed'
+                ? 'bg-[#2B2429] text-white hover:bg-[#3A2F35]'
+                : 'bg-[#F0E6E4] text-[#B0A3A8] cursor-not-allowed'
             )}
           >
             Publicar
@@ -440,14 +440,14 @@ export default function ComunidadPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-[20px] font-semibold text-[#111827]">Comunidad</h1>
-          <span className="px-2 py-0.5 rounded-full bg-white border border-[#E8EAED] text-[12px] text-[#6B7280]">
+          <h1 className="text-[20px] font-semibold text-[#2B2429]">Comunidad</h1>
+          <span className="px-2 py-0.5 rounded-full bg-white border border-[#F0E6E4] text-[12px] text-[#8B7D82]">
             {memberCount} miembros
           </span>
         </div>
         <button
           onClick={() => setModalOpen(true)}
-          className="px-4 py-2 rounded-lg bg-[#111827] text-white text-[13px] font-medium hover:bg-[#1f2937] transition-colors"
+          className="px-4 py-2 rounded-lg bg-[#2B2429] text-white text-[13px] font-medium hover:bg-[#3A2F35] transition-colors"
         >
           Nueva publicación
         </button>
@@ -460,7 +460,7 @@ export default function ComunidadPage() {
         <div className="lg:w-[65%] space-y-4">
 
           {/* Compose box */}
-          <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
+          <div className="bg-white border border-[#F0E6E4] rounded-xl p-4">
             <div className="flex items-start gap-3">
               <Avatar initials="PB" studio />
               <div className="flex-1">
@@ -469,13 +469,13 @@ export default function ComunidadPage() {
                   onChange={e => setComposeText(e.target.value)}
                   placeholder="Comparte algo con la comunidad..."
                   rows={2}
-                  className="w-full px-3 py-2 rounded-lg border border-[#E8EAED] text-[13px] placeholder:text-[#9CA3AF] text-[#111827] outline-none focus:border-[#111827] transition-colors resize-none"
+                  className="w-full px-3 py-2 rounded-lg border border-[#F0E6E4] text-[13px] placeholder:text-[#B0A3A8] text-[#2B2429] outline-none focus:border-[#2B2429] transition-colors resize-none"
                 />
                 {composeText.trim() && (
                   <div className="flex justify-end mt-2">
                     <button
                       onClick={handleQuickPost}
-                      className="px-4 py-1.5 rounded-lg bg-[#111827] text-white text-[13px] font-medium hover:bg-[#1f2937] transition-colors"
+                      className="px-4 py-1.5 rounded-lg bg-[#2B2429] text-white text-[13px] font-medium hover:bg-[#3A2F35] transition-colors"
                     >
                       Publicar
                     </button>
@@ -504,21 +504,21 @@ export default function ComunidadPage() {
         <div className="lg:w-[35%] space-y-4">
 
           {/* Destacado este mes */}
-          <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
-            <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Destacadas este mes</h3>
+          <div className="bg-white border border-[#F0E6E4] rounded-xl p-4">
+            <h3 className="text-[14px] font-semibold text-[#2B2429] mb-3">Destacadas este mes</h3>
             <div className="space-y-3">
               {topMiembros.length === 0 && (
-                <p className="text-[13px] text-[#9CA3AF]">Sin actividad aún</p>
+                <p className="text-[13px] text-[#B0A3A8]">Sin actividad aún</p>
               )}
               {topMiembros.map((p, i) => (
                 <div key={p.id} className="flex items-center gap-3">
-                  <span className="text-[13px] font-bold text-[#9CA3AF] w-4">{i + 1}</span>
+                  <span className="text-[13px] font-bold text-[#B0A3A8] w-4">{i + 1}</span>
                   <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0', AVATAR_COLORS[i])}>
                     {getInitials(p.autorNombre)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-[#111827] truncate">{p.autorNombre}</p>
-                    <p className="text-[11px] text-[#9CA3AF]">{p.likes + p.comentariosCount} interacciones</p>
+                    <p className="text-[13px] font-medium text-[#2B2429] truncate">{p.autorNombre}</p>
+                    <p className="text-[11px] text-[#B0A3A8]">{p.likes + p.comentariosCount} interacciones</p>
                   </div>
                 </div>
               ))}
@@ -526,17 +526,17 @@ export default function ComunidadPage() {
           </div>
 
           {/* Próximos eventos */}
-          <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
-            <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Próximos eventos</h3>
+          <div className="bg-white border border-[#F0E6E4] rounded-xl p-4">
+            <h3 className="text-[14px] font-semibold text-[#2B2429] mb-3">Próximos eventos</h3>
             <div className="space-y-2">
               {proximosEventos.length === 0 ? (
-                <p className="text-[13px] text-[#9CA3AF]">No hay clases programadas próximamente</p>
+                <p className="text-[13px] text-[#B0A3A8]">No hay clases programadas próximamente</p>
               ) : proximosEventos.map((ev, i) => (
-                <div key={i} className="flex items-center gap-3 py-1.5 border-b border-[#E8EAED] last:border-0">
-                  <div className="w-2 h-2 rounded-full bg-[#2563EB] shrink-0" />
+                <div key={i} className="flex items-center gap-3 py-1.5 border-b border-[#F0E6E4] last:border-0">
+                  <div className="w-2 h-2 rounded-full bg-[#A05A6B] shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-[#111827] truncate">{ev.titulo}</p>
-                    <p className="text-[12px] text-[#9CA3AF] capitalize">{ev.cuando}</p>
+                    <p className="text-[13px] font-medium text-[#2B2429] truncate">{ev.titulo}</p>
+                    <p className="text-[12px] text-[#B0A3A8] capitalize">{ev.cuando}</p>
                   </div>
                 </div>
               ))}
@@ -544,8 +544,8 @@ export default function ComunidadPage() {
           </div>
 
           {/* Miembros activos */}
-          <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
-            <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Miembros activos</h3>
+          <div className="bg-white border border-[#F0E6E4] rounded-xl p-4">
+            <h3 className="text-[14px] font-semibold text-[#2B2429] mb-3">Miembros activos</h3>
             <div className="grid grid-cols-4 gap-2">
               {activeSocias.map((socio, i) => {
                 const ini = getInitials(socio.nombre);
@@ -554,28 +554,28 @@ export default function ComunidadPage() {
                     <div className={cn('w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold', AVATAR_COLORS[i % AVATAR_COLORS.length])}>
                       {ini}
                     </div>
-                    <span className="text-[10px] text-[#9CA3AF] truncate w-full text-center">{ini}</span>
+                    <span className="text-[10px] text-[#B0A3A8] truncate w-full text-center">{ini}</span>
                   </div>
                 );
               })}
               {activeSocias.length === 0 && (
-                <p className="col-span-4 text-[13px] text-[#9CA3AF]">Sin miembros activos</p>
+                <p className="col-span-4 text-[13px] text-[#B0A3A8]">Sin miembros activos</p>
               )}
             </div>
           </div>
 
           {/* Logros del mes */}
-          <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
-            <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Logros del mes</h3>
+          <div className="bg-white border border-[#F0E6E4] rounded-xl p-4">
+            <h3 className="text-[14px] font-semibold text-[#2B2429] mb-3">Logros del mes</h3>
             <div className="space-y-3">
               {logrosMes.length === 0 ? (
-                <p className="text-[13px] text-[#9CA3AF]">Aún no hay datos suficientes este mes</p>
+                <p className="text-[13px] text-[#B0A3A8]">Aún no hay datos suficientes este mes</p>
               ) : logrosMes.map((logro, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <span className="text-[20px] leading-none mt-0.5">{logro.emoji}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-[#111827]">{logro.titulo}</p>
-                    <p className="text-[12px] text-[#6B7280]">{logro.subtitulo}</p>
+                    <p className="text-[13px] font-medium text-[#2B2429]">{logro.titulo}</p>
+                    <p className="text-[12px] text-[#8B7D82]">{logro.subtitulo}</p>
                   </div>
                 </div>
               ))}

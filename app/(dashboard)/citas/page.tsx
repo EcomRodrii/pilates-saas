@@ -25,7 +25,7 @@ const ESTADO_BADGE: Record<EstadoCita, { label: string; cls: string }> = {
   PENDIENTE:   { label: 'Pendiente',    cls: 'bg-[#FEF3C7] text-[#92400E]' },
   CONFIRMADA:  { label: 'Confirmada',   cls: 'bg-[#DBEAFE] text-[#1D4ED8]' },
   COMPLETADA:  { label: 'Completada',   cls: 'bg-[#D1FAE5] text-[#065F46]' },
-  CANCELADA:   { label: 'Cancelada',    cls: 'bg-[#F3F4F6] text-[#6B7280]' },
+  CANCELADA:   { label: 'Cancelada',    cls: 'bg-[#F5EFEC] text-[#8B7D82]' },
   NO_ASISTIO:  { label: 'No asistió',   cls: 'bg-[#FEE2E2] text-[#B91C1C]' },
 };
 
@@ -61,14 +61,14 @@ function isSameMonth(iso: string, ref: Date): boolean {
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-[#111827]">{label}</label>
+      <label className="text-sm font-medium text-[#2B2429]">{label}</label>
       {children}
     </div>
   );
 }
 
 const inputCls =
-  'w-full rounded-lg border border-[#E8EAED] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#111827] focus:ring-1 focus:ring-[#111827] bg-white placeholder:text-[#9CA3AF]';
+  'w-full rounded-lg border border-[#F0E6E4] px-3 py-2 text-sm text-[#2B2429] outline-none focus:border-[#2B2429] focus:ring-1 focus:ring-[#2B2429] bg-white placeholder:text-[#B0A3A8]';
 
 // ─── Cita card ────────────────────────────────────────────────────────────────
 
@@ -99,7 +99,7 @@ function CitaCard({
 
   return (
     <div
-      className="bg-white border border-[#E8EAED] rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4 transition-shadow hover:shadow-sm"
+      className="bg-white border border-[#F0E6E4] rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4 transition-shadow hover:shadow-sm"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -115,34 +115,34 @@ function CitaCard({
 
       {/* Client */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="w-9 h-9 rounded-full bg-[#F3F4F6] flex items-center justify-center shrink-0">
-          <span className="text-xs font-semibold text-[#6B7280] uppercase">{socioInitials}</span>
+        <div className="w-9 h-9 rounded-full bg-[#F5EFEC] flex items-center justify-center shrink-0">
+          <span className="text-xs font-semibold text-[#8B7D82] uppercase">{socioInitials}</span>
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-[#111827] truncate">{socioNombre}</p>
-          <p className="text-xs text-[#6B7280] truncate">{socioEmail}</p>
+          <p className="text-sm font-medium text-[#2B2429] truncate">{socioNombre}</p>
+          <p className="text-xs text-[#8B7D82] truncate">{socioEmail}</p>
         </div>
       </div>
 
       {/* Instructor */}
-      <div className="flex items-center gap-1.5 text-sm text-[#6B7280] shrink-0">
+      <div className="flex items-center gap-1.5 text-sm text-[#8B7D82] shrink-0">
         <User size={13} className="shrink-0" />
         <span className="truncate max-w-[120px]">{instructorNombre}</span>
       </div>
 
       {/* Date & duration */}
-      <div className="flex items-center gap-1.5 text-sm text-[#6B7280] shrink-0">
+      <div className="flex items-center gap-1.5 text-sm text-[#8B7D82] shrink-0">
         <Calendar size={13} className="shrink-0" />
         <span>{formatFecha(cita.inicio)}</span>
       </div>
 
-      <div className="flex items-center gap-1 text-sm text-[#6B7280] shrink-0">
+      <div className="flex items-center gap-1 text-sm text-[#8B7D82] shrink-0">
         <Clock size={13} className="shrink-0" />
         <span>{mins} min</span>
       </div>
 
       {/* Price */}
-      <span className="text-sm font-medium text-[#111827] shrink-0 w-14 text-right">
+      <span className="text-sm font-medium text-[#2B2429] shrink-0 w-14 text-right">
         {cita.precio != null ? `${cita.precio} €` : '—'}
       </span>
 
@@ -277,14 +277,14 @@ export default function CitasPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-[#111827]">Citas</h1>
-          <p className="text-sm text-[#6B7280] mt-1">
+          <h1 className="text-xl font-semibold text-[#2B2429]">Citas</h1>
+          <p className="text-sm text-[#8B7D82] mt-1">
             {upcoming.length} próximas · {thisMonth.length} este mes
           </p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 bg-[#111827] text-white rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-[#1f2937] transition-colors shrink-0"
+          className="inline-flex items-center gap-2 bg-[#2B2429] text-white rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-[#3A2F35] transition-colors shrink-0"
         >
           <Plus size={16} />
           Nueva cita
@@ -292,16 +292,16 @@ export default function CitasPage() {
       </div>
 
       {/* Revenue banner */}
-      <div className="bg-white border border-[#E8EAED] rounded-xl px-5 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-[#6B7280]">
+      <div className="bg-white border border-[#F0E6E4] rounded-xl px-5 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-[#8B7D82]">
           <CheckCircle2 size={16} className="text-[#059669]" />
           <span>Ingresos completadas este mes</span>
         </div>
-        <span className="text-xl font-bold text-[#111827]">{ingresosMes} €</span>
+        <span className="text-xl font-bold text-[#2B2429]">{ingresosMes} €</span>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white border border-[#E8EAED] rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-white border border-[#F0E6E4] rounded-xl p-1 w-fit">
         {(['proximas', 'historial'] as const).map((t) => (
           <button
             key={t}
@@ -309,8 +309,8 @@ export default function CitasPage() {
             className={cn(
               'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
               tab === t
-                ? 'bg-[#111827] text-white'
-                : 'text-[#6B7280] hover:text-[#111827]'
+                ? 'bg-[#2B2429] text-white'
+                : 'text-[#8B7D82] hover:text-[#2B2429]'
             )}
           >
             {t === 'proximas' ? 'Próximas' : 'Historial'}
@@ -320,7 +320,7 @@ export default function CitasPage() {
 
       {/* Instructor filter */}
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-1.5 text-xs text-[#6B7280]">
+        <div className="flex items-center gap-1.5 text-xs text-[#8B7D82]">
           <Filter size={13} />
           <span>Instructor</span>
         </div>
@@ -329,8 +329,8 @@ export default function CitasPage() {
           className={cn(
             'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
             filterInstructor === 'all'
-              ? 'bg-[#111827] text-white border-[#111827]'
-              : 'bg-white border-[#E8EAED] text-[#6B7280] hover:text-[#111827]'
+              ? 'bg-[#2B2429] text-white border-[#2B2429]'
+              : 'bg-white border-[#F0E6E4] text-[#8B7D82] hover:text-[#2B2429]'
           )}
         >
           Todas
@@ -342,8 +342,8 @@ export default function CitasPage() {
             className={cn(
               'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
               filterInstructor === ins.id
-                ? 'bg-[#111827] text-white border-[#111827]'
-                : 'bg-white border-[#E8EAED] text-[#6B7280] hover:text-[#111827]'
+                ? 'bg-[#2B2429] text-white border-[#2B2429]'
+                : 'bg-white border-[#F0E6E4] text-[#8B7D82] hover:text-[#2B2429]'
             )}
           >
             {ins.nombre}
@@ -356,8 +356,8 @@ export default function CitasPage() {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Calendar size={40} className="text-[#D1D5DB] mb-3" />
-            <p className="text-[#6B7280] text-sm">No hay citas que mostrar</p>
-            <p className="text-[#9CA3AF] text-xs mt-1">
+            <p className="text-[#8B7D82] text-sm">No hay citas que mostrar</p>
+            <p className="text-[#B0A3A8] text-xs mt-1">
               Prueba a cambiar el filtro o crear una nueva cita
             </p>
           </div>
@@ -394,7 +394,7 @@ export default function CitasPage() {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-lg w-full">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-[#111827]">Nueva cita</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-[#2B2429]">Nueva cita</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
@@ -506,13 +506,13 @@ export default function CitasPage() {
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 rounded-lg border border-[#E8EAED] bg-white text-sm font-medium text-[#6B7280] hover:text-[#111827] transition-colors"
+                className="px-4 py-2 rounded-lg border border-[#F0E6E4] bg-white text-sm font-medium text-[#8B7D82] hover:text-[#2B2429] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-lg bg-[#111827] text-white text-sm font-medium hover:bg-[#1f2937] transition-colors"
+                className="px-4 py-2 rounded-lg bg-[#2B2429] text-white text-sm font-medium hover:bg-[#3A2F35] transition-colors"
               >
                 Guardar cita
               </button>

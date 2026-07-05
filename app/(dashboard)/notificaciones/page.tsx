@@ -37,7 +37,7 @@ function NotiIcon({ tipo, size = 16 }: { tipo: Notificacion['tipo']; size?: numb
   if (tipo === 'AVISO') return <AlertTriangle size={size} className="text-[#D97706]" />;
   if (tipo === 'ERROR') return <AlertCircle size={size} className="text-[#DC2626]" />;
   if (tipo === 'EXITO') return <CheckCircle size={size} className="text-[#059669]" />;
-  return <Info size={size} className="text-[#2563EB]" />;
+  return <Info size={size} className="text-[#A05A6B]" />;
 }
 
 function NotiIconBg({ tipo }: { tipo: Notificacion['tipo'] }) {
@@ -45,7 +45,7 @@ function NotiIconBg({ tipo }: { tipo: Notificacion['tipo'] }) {
   if (tipo === 'AVISO') return <div className={cn(base, 'bg-amber-50')}><AlertTriangle size={16} className="text-[#D97706]" /></div>;
   if (tipo === 'ERROR') return <div className={cn(base, 'bg-red-50')}><AlertCircle size={16} className="text-[#DC2626]" /></div>;
   if (tipo === 'EXITO') return <div className={cn(base, 'bg-emerald-50')}><CheckCircle size={16} className="text-[#059669]" /></div>;
-  return <div className={cn(base, 'bg-blue-50')}><Info size={16} className="text-[#2563EB]" /></div>;
+  return <div className={cn(base, 'bg-blue-50')}><Info size={16} className="text-[#A05A6B]" /></div>;
 }
 
 // ─── Activity icon ────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ function ActividadIcon({ tipo }: { tipo: ActividadReciente['tipo'] }) {
     case 'NUEVA_SOCIA':
       return <div className={cn(base, 'bg-emerald-50')}><UserPlus size={14} className="text-[#059669]" /></div>;
     case 'NUEVA_RESERVA':
-      return <div className={cn(base, 'bg-blue-50')}><Calendar size={14} className="text-[#2563EB]" /></div>;
+      return <div className={cn(base, 'bg-blue-50')}><Calendar size={14} className="text-[#A05A6B]" /></div>;
     case 'CANCELACION':
       return <div className={cn(base, 'bg-red-50')}><CalendarX size={14} className="text-[#DC2626]" /></div>;
     case 'PAGO_COBRADO':
@@ -64,15 +64,15 @@ function ActividadIcon({ tipo }: { tipo: ActividadReciente['tipo'] }) {
     case 'PAGO_PENDIENTE':
       return <div className={cn(base, 'bg-amber-50')}><Clock size={14} className="text-[#D97706]" /></div>;
     case 'NUEVA_SUSCRIPCION':
-      return <div className={cn(base, 'bg-blue-50')}><RefreshCw size={14} className="text-[#2563EB]" /></div>;
+      return <div className={cn(base, 'bg-blue-50')}><RefreshCw size={14} className="text-[#A05A6B]" /></div>;
     case 'CITA_CREADA':
       return <div className={cn(base, 'bg-purple-50')}><Clock size={14} className="text-purple-600" /></div>;
     case 'VENTA_POS':
       return <div className={cn(base, 'bg-emerald-50')}><ShoppingCart size={14} className="text-[#059669]" /></div>;
     case 'MENSAJE_ENVIADO':
-      return <div className={cn(base, 'bg-blue-50')}><Mail size={14} className="text-[#2563EB]" /></div>;
+      return <div className={cn(base, 'bg-blue-50')}><Mail size={14} className="text-[#A05A6B]" /></div>;
     default:
-      return <div className={cn(base, 'bg-gray-100')}><Info size={14} className="text-[#6B7280]" /></div>;
+      return <div className={cn(base, 'bg-gray-100')}><Info size={14} className="text-[#8B7D82]" /></div>;
   }
 }
 
@@ -95,9 +95,9 @@ export default function NotificacionesPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-[20px] font-semibold text-[#111827]">Bandeja de entrada</h1>
+            <h1 className="text-[20px] font-semibold text-[#2B2429]">Bandeja de entrada</h1>
             {unreadCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[12px] font-semibold bg-[#2563EB] text-white">
+              <span className="px-2 py-0.5 rounded-full text-[12px] font-semibold bg-[#A05A6B] text-white">
                 {unreadCount}
               </span>
             )}
@@ -105,7 +105,7 @@ export default function NotificacionesPage() {
           {unreadCount > 0 && (
             <button
               onClick={marcarTodasLeidas}
-              className="px-4 py-2 rounded-lg bg-white border border-[#E8EAED] text-[13px] font-medium text-[#6B7280] hover:text-[#111827] hover:border-[#111827] transition-colors"
+              className="px-4 py-2 rounded-lg bg-white border border-[#F0E6E4] text-[13px] font-medium text-[#8B7D82] hover:text-[#2B2429] hover:border-[#2B2429] transition-colors"
             >
               Marcar todas leídas
             </button>
@@ -124,14 +124,14 @@ export default function NotificacionesPage() {
                 className={cn(
                   'w-full text-left rounded-xl border transition-all p-3 flex items-start gap-3',
                   selected?.id === n.id
-                    ? 'border-[#111827] bg-white shadow-sm'
+                    ? 'border-[#2B2429] bg-white shadow-sm'
                     : n.leida
-                    ? 'border-[#E8EAED] bg-white hover:border-[#D1D5DB]'
-                    : 'border-[#E8EAED] bg-blue-50/40 hover:border-[#D1D5DB]'
+                    ? 'border-[#F0E6E4] bg-white hover:border-[#D1D5DB]'
+                    : 'border-[#F0E6E4] bg-blue-50/40 hover:border-[#D1D5DB]'
                 )}
               >
                 {/* Unread dot */}
-                <div className="mt-1 shrink-0 w-2 h-2 rounded-full transition-colors" style={{ background: n.leida ? 'transparent' : '#2563EB' }} />
+                <div className="mt-1 shrink-0 w-2 h-2 rounded-full transition-colors" style={{ background: n.leida ? 'transparent' : '#A05A6B' }} />
 
                 <NotiIconBg tipo={n.tipo} />
 
@@ -139,13 +139,13 @@ export default function NotificacionesPage() {
                   <div className="flex items-start justify-between gap-2">
                     <p className={cn(
                       'text-[13px] leading-snug truncate',
-                      n.leida ? 'font-medium text-[#111827]' : 'font-semibold text-[#111827]'
+                      n.leida ? 'font-medium text-[#2B2429]' : 'font-semibold text-[#2B2429]'
                     )}>
                       {n.titulo}
                     </p>
-                    <span className="shrink-0 text-[11px] text-[#9CA3AF]">{timeAgo(n.creadaEn)}</span>
+                    <span className="shrink-0 text-[11px] text-[#B0A3A8]">{timeAgo(n.creadaEn)}</span>
                   </div>
-                  <p className="text-[12px] text-[#6B7280] mt-0.5 line-clamp-2 leading-relaxed">
+                  <p className="text-[12px] text-[#8B7D82] mt-0.5 line-clamp-2 leading-relaxed">
                     {n.texto}
                   </p>
                 </div>
@@ -156,7 +156,7 @@ export default function NotificacionesPage() {
           {/* Right: detail view (60%) */}
           <div className="lg:w-[60%]">
             {selected ? (
-              <div className="bg-white border border-[#E8EAED] rounded-xl p-6">
+              <div className="bg-white border border-[#F0E6E4] rounded-xl p-6">
                 <div className="flex items-start gap-4 mb-4">
                   <div className={cn(
                     'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
@@ -168,21 +168,21 @@ export default function NotificacionesPage() {
                     <NotiIcon tipo={selected.tipo} size={22} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-[16px] font-semibold text-[#111827] leading-snug">
+                    <h2 className="text-[16px] font-semibold text-[#2B2429] leading-snug">
                       {selected.titulo}
                     </h2>
-                    <p className="text-[12px] text-[#9CA3AF] mt-1">{timeAgo(selected.creadaEn)}</p>
+                    <p className="text-[12px] text-[#B0A3A8] mt-1">{timeAgo(selected.creadaEn)}</p>
                   </div>
                 </div>
 
-                <p className="text-[14px] text-[#374151] leading-relaxed mb-5">
+                <p className="text-[14px] text-[#4A3F44] leading-relaxed mb-5">
                   {selected.texto}
                 </p>
 
                 {selected.enlace && (
                   <a
                     href={selected.enlace}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#111827] text-white text-[13px] font-medium hover:bg-[#1f2937] transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2B2429] text-white text-[13px] font-medium hover:bg-[#3A2F35] transition-colors"
                   >
                     Ver
                     <ExternalLink size={13} />
@@ -190,7 +190,7 @@ export default function NotificacionesPage() {
                 )}
               </div>
             ) : (
-              <div className="bg-white border border-[#E8EAED] rounded-xl h-64 flex flex-col items-center justify-center gap-3 text-[#9CA3AF]">
+              <div className="bg-white border border-[#F0E6E4] rounded-xl h-64 flex flex-col items-center justify-center gap-3 text-[#B0A3A8]">
                 <Mail size={32} strokeWidth={1.5} />
                 <p className="text-[14px]">Selecciona una notificación</p>
               </div>
@@ -200,27 +200,27 @@ export default function NotificacionesPage() {
 
         {/* Activity feed */}
         <div>
-          <h2 className="text-[16px] font-semibold text-[#111827] mb-4">Actividad reciente</h2>
-          <div className="bg-white border border-[#E8EAED] rounded-xl divide-y divide-[#E8EAED]">
+          <h2 className="text-[16px] font-semibold text-[#2B2429] mb-4">Actividad reciente</h2>
+          <div className="bg-white border border-[#F0E6E4] rounded-xl divide-y divide-[#F0E6E4]">
             {actividadReciente.map((act, i) => (
               <div key={act.id} className="flex items-start gap-3 px-4 py-3">
                 {/* Timeline line */}
                 <div className="relative flex flex-col items-center">
                   <ActividadIcon tipo={act.tipo} />
                   {i < actividadReciente.length - 1 && (
-                    <div className="w-px flex-1 bg-[#E8EAED] mt-1" style={{ minHeight: 12 }} />
+                    <div className="w-px flex-1 bg-[#F0E6E4] mt-1" style={{ minHeight: 12 }} />
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0 pt-1">
-                  <p className="text-[13px] text-[#111827]">{act.texto}</p>
-                  <p className="text-[12px] text-[#9CA3AF] mt-0.5">{timeAgo(act.creadoEn)}</p>
+                  <p className="text-[13px] text-[#2B2429]">{act.texto}</p>
+                  <p className="text-[12px] text-[#B0A3A8] mt-0.5">{timeAgo(act.creadoEn)}</p>
                 </div>
 
                 {act.enlace && (
                   <a
                     href={act.enlace}
-                    className="shrink-0 mt-1 text-[#9CA3AF] hover:text-[#2563EB] transition-colors"
+                    className="shrink-0 mt-1 text-[#B0A3A8] hover:text-[#A05A6B] transition-colors"
                     title="Ver"
                   >
                     <ExternalLink size={14} />

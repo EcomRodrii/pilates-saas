@@ -142,26 +142,26 @@ export default function Facturas() {
 <title>Factura ${f.numeroCompleto}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, Arial, sans-serif; font-size: 13px; color: #111827; padding: 40px; max-width: 680px; margin: 0 auto; }
+  body { font-family: -apple-system, Arial, sans-serif; font-size: 13px; color: #2B2429; padding: 40px; max-width: 680px; margin: 0 auto; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
   .title { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; }
-  .numero { font-size: 13px; font-family: monospace; font-weight: 700; color: #6B4FA8; margin-top: 4px; }
+  .numero { font-size: 13px; font-family: monospace; font-weight: 700; color: #A05A6B; margin-top: 4px; }
   .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 32px; }
-  .party-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7280; margin-bottom: 6px; }
+  .party-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8B7D82; margin-bottom: 6px; }
   .party-name { font-weight: 700; margin-bottom: 2px; }
-  .party-detail { color: #6B7280; margin-bottom: 2px; }
-  .meta { font-size: 12px; color: #6B7280; margin-bottom: 32px; }
-  .meta strong { color: #111827; }
-  table { width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; border: 1px solid #E8EAED; }
-  thead tr { background: #F9FAFB; }
-  th { text-align: left; padding: 10px 16px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #6B7280; }
+  .party-detail { color: #8B7D82; margin-bottom: 2px; }
+  .meta { font-size: 12px; color: #8B7D82; margin-bottom: 32px; }
+  .meta strong { color: #2B2429; }
+  table { width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; border: 1px solid #F0E6E4; }
+  thead tr { background: #FAF6F4; }
+  th { text-align: left; padding: 10px 16px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8B7D82; }
   th:last-child { text-align: right; }
-  td { padding: 14px 16px; border-top: 1px solid #E8EAED; }
+  td { padding: 14px 16px; border-top: 1px solid #F0E6E4; }
   td:last-child { text-align: right; font-weight: 600; }
-  .sub-row td { background: #F9FAFB; font-size: 12px; color: #6B7280; padding: 8px 16px; }
+  .sub-row td { background: #FAF6F4; font-size: 12px; color: #8B7D82; padding: 8px 16px; }
   .sub-row td:last-child { font-weight: 400; }
-  .total-row td { font-weight: 900; font-size: 15px; border-top: 2px solid #E8EAED; padding: 12px 16px; }
-  .footer { margin-top: 48px; font-size: 11px; color: #9CA3AF; border-top: 1px solid #F3F4F6; padding-top: 16px; }
+  .total-row td { font-weight: 900; font-size: 15px; border-top: 2px solid #F0E6E4; padding: 12px 16px; }
+  .footer { margin-top: 48px; font-size: 11px; color: #B0A3A8; border-top: 1px solid #F5EFEC; padding-top: 16px; }
   @media print {
     body { padding: 20px; }
     @page { size: A4; margin: 20mm; }
@@ -176,8 +176,8 @@ export default function Facturas() {
   </div>
   <div style="text-align:right">
     <div style="font-weight:700">Tentare</div>
-    <div style="color:#6B7280">B-12345678</div>
-    <div style="color:#6B7280">Calle Larios 12, Málaga</div>
+    <div style="color:#8B7D82">B-12345678</div>
+    <div style="color:#8B7D82">Calle Larios 12, Málaga</div>
   </div>
 </div>
 <div class="parties">
@@ -202,7 +202,7 @@ export default function Facturas() {
     <tr>
       <td>
         <div style="font-weight:600">Servicios de pilates</div>
-        <div style="font-size:11px;color:#6B7280;margin-top:2px">Cuota mensual / bono</div>
+        <div style="font-size:11px;color:#8B7D82;margin-top:2px">Cuota mensual / bono</div>
       </td>
       <td>${fmt(f.baseImponible)} €</td>
     </tr>
@@ -233,14 +233,14 @@ export default function Facturas() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-[#111827] tracking-tight">Facturas</h1>
-          <p className="text-sm font-medium mt-0.5 text-[#6B7280]">
+          <h1 className="text-2xl font-bold text-[#2B2429] tracking-tight">Facturas</h1>
+          <p className="text-sm font-medium mt-0.5 text-[#8B7D82]">
             {facturas.length} facturas · {kpi(totalGeneral)} € total
           </p>
         </div>
         <button
           onClick={() => exportarCSV()}
-          className="flex items-center gap-2 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors bg-[#111827] hover:bg-[#1f2937]"
+          className="flex items-center gap-2 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors bg-[#2B2429] hover:bg-[#3A2F35]"
         >
           <Download size={14} />
           Exportar CSV
@@ -249,40 +249,40 @@ export default function Facturas() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">Este mes</p>
-          <p className="text-2xl font-extrabold text-[#111827] mt-1">{kpi(totalMes)} €</p>
+        <div className="bg-white border border-[#F0E6E4] rounded-xl p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#8B7D82]">Este mes</p>
+          <p className="text-2xl font-extrabold text-[#2B2429] mt-1">{kpi(totalMes)} €</p>
           {totalMesAnterior > 0 && (
             <p className={cn('text-xs font-semibold mt-1', variacion >= 0 ? 'text-[#059669]' : 'text-[#DC2626]')}>
               {variacion >= 0 ? '+' : ''}{variacion.toFixed(1)}% vs mes anterior
             </p>
           )}
         </div>
-        <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">Base imponible</p>
-          <p className="text-2xl font-extrabold text-[#111827] mt-1">{kpi(baseTotal)} €</p>
-          <p className="text-xs font-medium text-[#6B7280] mt-1">sin IVA</p>
+        <div className="bg-white border border-[#F0E6E4] rounded-xl p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#8B7D82]">Base imponible</p>
+          <p className="text-2xl font-extrabold text-[#2B2429] mt-1">{kpi(baseTotal)} €</p>
+          <p className="text-xs font-medium text-[#8B7D82] mt-1">sin IVA</p>
         </div>
-        <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">IVA repercutido</p>
-          <p className="text-2xl font-extrabold text-[#111827] mt-1">{kpi(ivaTotal)} €</p>
-          <p className="text-xs font-medium text-[#6B7280] mt-1">21% tipo general</p>
+        <div className="bg-white border border-[#F0E6E4] rounded-xl p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#8B7D82]">IVA repercutido</p>
+          <p className="text-2xl font-extrabold text-[#2B2429] mt-1">{kpi(ivaTotal)} €</p>
+          <p className="text-xs font-medium text-[#8B7D82] mt-1">21% tipo general</p>
         </div>
-        <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">Total emitido</p>
-          <p className="text-2xl font-extrabold text-[#111827] mt-1">{kpi(totalGeneral)} €</p>
-          <p className="text-xs font-medium text-[#6B7280] mt-1">{filtradas.length} facturas</p>
+        <div className="bg-white border border-[#F0E6E4] rounded-xl p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#8B7D82]">Total emitido</p>
+          <p className="text-2xl font-extrabold text-[#2B2429] mt-1">{kpi(totalGeneral)} €</p>
+          <p className="text-xs font-medium text-[#8B7D82] mt-1">{filtradas.length} facturas</p>
         </div>
       </div>
 
       {/* Verifactu banner */}
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE]">
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-[#F7EDEF] border border-[#BFDBFE]">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-[#BFDBFE]">
-          <FileText size={15} className="text-[#2563EB]" />
+          <FileText size={15} className="text-[#A05A6B]" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold text-[#111827]">Verifactu — Próximamente</p>
-          <p className="text-xs font-medium mt-0.5 text-[#2563EB]">
+          <p className="text-sm font-bold text-[#2B2429]">Verifactu — Próximamente</p>
+          <p className="text-xs font-medium mt-0.5 text-[#A05A6B]">
             Integración con AEAT en desarrollo. Las facturas se generan automáticamente al cobrar un recibo.
           </p>
         </div>
@@ -291,23 +291,23 @@ export default function Facturas() {
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#6B7280]" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8B7D82]" />
           <input
             type="text"
             placeholder="Buscar por número, receptor o NIF..."
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-sm bg-white rounded-xl border border-[#E8EAED] focus:outline-none focus:border-[#111827] placeholder:text-[#9CA3AF] text-[#111827] transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 text-sm bg-white rounded-xl border border-[#F0E6E4] focus:outline-none focus:border-[#2B2429] placeholder:text-[#B0A3A8] text-[#2B2429] transition-colors"
           />
         </div>
-        <div className="flex bg-white border border-[#E8EAED] rounded-xl overflow-hidden">
+        <div className="flex bg-white border border-[#F0E6E4] rounded-xl overflow-hidden">
           {(['mes', 'cliente'] as const).map(opt => (
             <button
               key={opt}
               onClick={() => setAgrupador(opt)}
               className={cn(
                 'px-4 py-2.5 text-sm font-semibold transition-colors capitalize',
-                agrupador === opt ? 'bg-[#111827] text-white' : 'text-[#6B7280] hover:bg-gray-50'
+                agrupador === opt ? 'bg-[#2B2429] text-white' : 'text-[#8B7D82] hover:bg-gray-50'
               )}
             >
               Por {opt === 'mes' ? 'mes' : 'cliente'}
@@ -317,104 +317,104 @@ export default function Facturas() {
       </div>
 
       {/* Table grouped */}
-      <div className="bg-white rounded-xl border border-[#E8EAED] overflow-hidden">
+      <div className="bg-white rounded-xl border border-[#F0E6E4] overflow-hidden">
         {grupos.length === 0 ? (
-          <div className="text-center py-16 text-sm text-[#6B7280]">No se encontraron facturas.</div>
+          <div className="text-center py-16 text-sm text-[#8B7D82]">No se encontraron facturas.</div>
         ) : grupos.map(grupo => {
           const isOpen = expanded.has(grupo.key);
           return (
-            <div key={grupo.key} className="border-b border-[#E8EAED] last:border-b-0">
+            <div key={grupo.key} className="border-b border-[#F0E6E4] last:border-b-0">
               {/* Group header */}
               <div
                 onClick={() => toggleGrupo(grupo.key)}
                 className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  {isOpen ? <ChevronDown size={14} className="text-[#6B7280]" /> : <ChevronRight size={14} className="text-[#6B7280]" />}
-                  <span className="text-sm font-bold text-[#111827] capitalize">{grupo.label}</span>
-                  <span className="text-xs font-semibold text-[#6B7280]">{grupo.items.length} facturas</span>
+                  {isOpen ? <ChevronDown size={14} className="text-[#8B7D82]" /> : <ChevronRight size={14} className="text-[#8B7D82]" />}
+                  <span className="text-sm font-bold text-[#2B2429] capitalize">{grupo.label}</span>
+                  <span className="text-xs font-semibold text-[#8B7D82]">{grupo.items.length} facturas</span>
                 </div>
                 <div className="flex items-center gap-4" onClick={e => e.stopPropagation()}>
                   <button
                     onClick={() => exportarCSV(grupo.items)}
-                    className="text-xs font-semibold text-[#6B7280] hover:text-[#111827] flex items-center gap-1 transition-colors"
+                    className="text-xs font-semibold text-[#8B7D82] hover:text-[#2B2429] flex items-center gap-1 transition-colors"
                   >
                     <Download size={11} />
                     CSV
                   </button>
-                  <span className="text-sm font-extrabold text-[#111827]">{kpi(grupo.total)} €</span>
+                  <span className="text-sm font-extrabold text-[#2B2429]">{kpi(grupo.total)} €</span>
                 </div>
               </div>
 
               {/* Rows */}
               {isOpen && (
                 <>
-                <div className="lg:hidden divide-y divide-[#F3F4F6] border-t border-[#F3F4F6]">
+                <div className="lg:hidden divide-y divide-[#F5EFEC] border-t border-[#F5EFEC]">
                   {grupo.items.map(f => {
                     const socio = socioParaFactura(f.reciboId);
                     return (
                       <div key={f.id} className="px-4 py-3.5 flex items-start gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="font-mono text-[12px] font-bold text-[#2563EB]">{f.numeroCompleto}</p>
-                          <p className="text-[14px] font-semibold text-[#111827] truncate mt-0.5">{f.receptorNombre}</p>
-                          <p className="text-[12px] text-[#6B7280] mt-0.5">{fecha(f.fechaEmision)} · IVA {f.tipoIVA}%</p>
+                          <p className="font-mono text-[12px] font-bold text-[#A05A6B]">{f.numeroCompleto}</p>
+                          <p className="text-[14px] font-semibold text-[#2B2429] truncate mt-0.5">{f.receptorNombre}</p>
+                          <p className="text-[12px] text-[#8B7D82] mt-0.5">{fecha(f.fechaEmision)} · IVA {f.tipoIVA}%</p>
                           <div className="flex items-center gap-4 mt-1.5">
-                            <button onClick={() => setPreview(f.id)} className="text-[12px] font-semibold text-[#6B7280]">Ver</button>
-                            <button onClick={() => descargarPDF(f, socio)} className="text-[12px] font-semibold text-[#4F46E5] inline-flex items-center gap-1">
+                            <button onClick={() => setPreview(f.id)} className="text-[12px] font-semibold text-[#8B7D82]">Ver</button>
+                            <button onClick={() => descargarPDF(f, socio)} className="text-[12px] font-semibold text-[#C08497] inline-flex items-center gap-1">
                               <Download size={11} /> PDF
                             </button>
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-[15px] font-extrabold text-[#111827] whitespace-nowrap">{kpi(f.total)} €</p>
-                          <p className="text-[11px] text-[#9CA3AF] whitespace-nowrap">base {kpi(f.baseImponible)} €</p>
+                          <p className="text-[15px] font-extrabold text-[#2B2429] whitespace-nowrap">{kpi(f.total)} €</p>
+                          <p className="text-[11px] text-[#B0A3A8] whitespace-nowrap">base {kpi(f.baseImponible)} €</p>
                         </div>
                       </div>
                     );
                   })}
-                  <div className="px-4 py-3 flex items-center justify-between bg-[#F9FAFB]">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">Subtotal ({grupo.items.length})</span>
-                    <span className="text-[15px] font-extrabold text-[#111827]">{kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €</span>
+                  <div className="px-4 py-3 flex items-center justify-between bg-[#FAF6F4]">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#8B7D82]">Subtotal ({grupo.items.length})</span>
+                    <span className="text-[15px] font-extrabold text-[#2B2429]">{kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €</span>
                   </div>
                 </div>
 
                 <div className="overflow-x-auto hidden lg:block">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-t border-[#F3F4F6] bg-[#F9FAFB]">
+                      <tr className="border-t border-[#F5EFEC] bg-[#FAF6F4]">
                         {['Número', 'Fecha', 'Receptor', 'NIF', 'Base', 'IVA', 'Total', ''].map(h => (
-                          <th key={h} className="text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap text-[#6B7280]">{h}</th>
+                          <th key={h} className="text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap text-[#8B7D82]">{h}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#F3F4F6]">
+                    <tbody className="divide-y divide-[#F5EFEC]">
                       {grupo.items.map(f => {
                         const socio = socioParaFactura(f.reciboId);
                         return (
                           <tr key={f.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-3 font-mono text-xs font-bold text-[#2563EB]">{f.numeroCompleto}</td>
-                            <td className="px-4 py-3 whitespace-nowrap font-medium text-[#6B7280]">{fecha(f.fechaEmision)}</td>
-                            <td className="px-4 py-3 font-semibold text-[#111827]">
+                            <td className="px-4 py-3 font-mono text-xs font-bold text-[#A05A6B]">{f.numeroCompleto}</td>
+                            <td className="px-4 py-3 whitespace-nowrap font-medium text-[#8B7D82]">{fecha(f.fechaEmision)}</td>
+                            <td className="px-4 py-3 font-semibold text-[#2B2429]">
                               {socio
-                                ? <Link href={`/socios/${socio.id}`} className="hover:text-[#2563EB] hover:underline transition-colors">{f.receptorNombre}</Link>
+                                ? <Link href={`/socios/${socio.id}`} className="hover:text-[#A05A6B] hover:underline transition-colors">{f.receptorNombre}</Link>
                                 : f.receptorNombre
                               }
                             </td>
-                            <td className="px-4 py-3 font-mono text-xs text-[#6B7280]">{f.receptorNIF ?? '—'}</td>
-                            <td className="px-4 py-3 text-right font-medium text-[#111827]">{kpi(f.baseImponible)} €</td>
-                            <td className="px-4 py-3 text-right text-[#6B7280]">{f.tipoIVA}%</td>
-                            <td className="px-4 py-3 font-extrabold text-right text-[#111827]">{kpi(f.total)} €</td>
+                            <td className="px-4 py-3 font-mono text-xs text-[#8B7D82]">{f.receptorNIF ?? '—'}</td>
+                            <td className="px-4 py-3 text-right font-medium text-[#2B2429]">{kpi(f.baseImponible)} €</td>
+                            <td className="px-4 py-3 text-right text-[#8B7D82]">{f.tipoIVA}%</td>
+                            <td className="px-4 py-3 font-extrabold text-right text-[#2B2429]">{kpi(f.total)} €</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
                                 <button
                                   onClick={() => setPreview(f.id)}
-                                  className="text-xs font-semibold text-[#6B7280] hover:text-[#111827] transition-colors"
+                                  className="text-xs font-semibold text-[#8B7D82] hover:text-[#2B2429] transition-colors"
                                 >
                                   Ver
                                 </button>
                                 <button
                                   onClick={() => descargarPDF(f, socio)}
-                                  className="text-xs font-semibold text-[#4F46E5] hover:text-[#4338CA] transition-colors flex items-center gap-1"
+                                  className="text-xs font-semibold text-[#C08497] hover:text-[#A05A6B] transition-colors flex items-center gap-1"
                                 >
                                   <Download size={11} />
                                   PDF
@@ -426,13 +426,13 @@ export default function Facturas() {
                       })}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-[#E8EAED] bg-[#F9FAFB]">
-                        <td colSpan={4} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#6B7280]">Subtotal ({grupo.items.length})</td>
-                        <td className="px-4 py-3 text-right font-semibold text-[#111827]">
+                      <tr className="border-t-2 border-[#F0E6E4] bg-[#FAF6F4]">
+                        <td colSpan={4} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#8B7D82]">Subtotal ({grupo.items.length})</td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#2B2429]">
                           {kpi(grupo.items.reduce((s, f) => s + f.baseImponible, 0))} €
                         </td>
                         <td />
-                        <td className="px-4 py-3 text-right font-extrabold text-[#111827]">
+                        <td className="px-4 py-3 text-right font-extrabold text-[#2B2429]">
                           {kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €
                         </td>
                         <td />
@@ -448,12 +448,12 @@ export default function Facturas() {
 
         {/* Total footer */}
         {filtradas.length > 0 && (
-          <div className="border-t-2 border-[#E8EAED] bg-[#F9FAFB] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-5 py-3.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">TOTAL ({filtradas.length} facturas)</span>
+          <div className="border-t-2 border-[#F0E6E4] bg-[#FAF6F4] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-5 py-3.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#8B7D82]">TOTAL ({filtradas.length} facturas)</span>
             <div className="flex items-center gap-4 sm:gap-8 text-sm flex-wrap">
-              <span className="text-[#6B7280] font-medium">Base: <strong className="text-[#111827]">{kpi(baseTotal)} €</strong></span>
-              <span className="text-[#6B7280] font-medium">IVA: <strong className="text-[#111827]">{kpi(ivaTotal)} €</strong></span>
-              <span className="text-[#6B7280] font-bold">Total: <strong className="text-[#111827] text-base">{kpi(totalGeneral)} €</strong></span>
+              <span className="text-[#8B7D82] font-medium">Base: <strong className="text-[#2B2429]">{kpi(baseTotal)} €</strong></span>
+              <span className="text-[#8B7D82] font-medium">IVA: <strong className="text-[#2B2429]">{kpi(ivaTotal)} €</strong></span>
+              <span className="text-[#8B7D82] font-bold">Total: <strong className="text-[#2B2429] text-base">{kpi(totalGeneral)} €</strong></span>
             </div>
           </div>
         )}
@@ -467,12 +467,12 @@ export default function Facturas() {
             <div className="p-8">
               <div className="flex items-start justify-between mb-8">
                 <div>
-                  <p className="text-2xl font-extrabold text-[#111827]">FACTURA</p>
-                  <p className="text-sm font-mono font-bold text-[#6B4FA8] mt-1">{previewFactura.numeroCompleto}</p>
+                  <p className="text-2xl font-extrabold text-[#2B2429]">FACTURA</p>
+                  <p className="text-sm font-mono font-bold text-[#A05A6B] mt-1">{previewFactura.numeroCompleto}</p>
                 </div>
                 <button
                   onClick={() => setPreview(null)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#6B7280] transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#8B7D82] transition-colors"
                 >
                   <X size={16} />
                 </button>
@@ -480,52 +480,52 @@ export default function Facturas() {
 
               <div className="grid grid-cols-2 gap-6 mb-8 text-sm">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#6B7280] mb-2">Emisor</p>
-                  <p className="font-bold text-[#111827]">Tentare</p>
-                  <p className="text-[#6B7280]">B-12345678</p>
-                  <p className="text-[#6B7280]">Calle Ejemplo 1, Málaga</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#8B7D82] mb-2">Emisor</p>
+                  <p className="font-bold text-[#2B2429]">Tentare</p>
+                  <p className="text-[#8B7D82]">B-12345678</p>
+                  <p className="text-[#8B7D82]">Calle Ejemplo 1, Málaga</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#6B7280] mb-2">Receptor</p>
-                  <p className="font-bold text-[#111827]">{previewFactura.receptorNombre}</p>
-                  {previewFactura.receptorNIF && <p className="text-[#6B7280]">{previewFactura.receptorNIF}</p>}
-                  {previewSocio?.telefono && <p className="text-[#6B7280]">{previewSocio.telefono}</p>}
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#8B7D82] mb-2">Receptor</p>
+                  <p className="font-bold text-[#2B2429]">{previewFactura.receptorNombre}</p>
+                  {previewFactura.receptorNIF && <p className="text-[#8B7D82]">{previewFactura.receptorNIF}</p>}
+                  {previewSocio?.telefono && <p className="text-[#8B7D82]">{previewSocio.telefono}</p>}
                 </div>
               </div>
 
-              <div className="text-sm mb-1 text-[#6B7280]">
-                Fecha de emisión: <strong className="text-[#111827]">{fecha(previewFactura.fechaEmision)}</strong>
+              <div className="text-sm mb-1 text-[#8B7D82]">
+                Fecha de emisión: <strong className="text-[#2B2429]">{fecha(previewFactura.fechaEmision)}</strong>
               </div>
 
-              <div className="mt-6 border border-[#E8EAED] rounded-xl overflow-hidden">
+              <div className="mt-6 border border-[#F0E6E4] rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-[#F9FAFB] border-b border-[#E8EAED]">
-                      <th className="text-left px-4 py-3 text-xs font-bold uppercase text-[#6B7280]">Concepto</th>
-                      <th className="text-right px-4 py-3 text-xs font-bold uppercase text-[#6B7280]">Importe</th>
+                    <tr className="bg-[#FAF6F4] border-b border-[#F0E6E4]">
+                      <th className="text-left px-4 py-3 text-xs font-bold uppercase text-[#8B7D82]">Concepto</th>
+                      <th className="text-right px-4 py-3 text-xs font-bold uppercase text-[#8B7D82]">Importe</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-[#E8EAED]">
+                    <tr className="border-b border-[#F0E6E4]">
                       <td className="px-4 py-4">
-                        <p className="font-semibold text-[#111827]">Servicios de pilates</p>
-                        <p className="text-xs text-[#6B7280] mt-0.5">Cuota mensual / bono</p>
+                        <p className="font-semibold text-[#2B2429]">Servicios de pilates</p>
+                        <p className="text-xs text-[#8B7D82] mt-0.5">Cuota mensual / bono</p>
                       </td>
-                      <td className="px-4 py-4 text-right font-semibold text-[#111827]">{kpi(previewFactura.baseImponible)} €</td>
+                      <td className="px-4 py-4 text-right font-semibold text-[#2B2429]">{kpi(previewFactura.baseImponible)} €</td>
                     </tr>
                   </tbody>
-                  <tfoot className="bg-[#F9FAFB]">
-                    <tr className="border-t border-[#E8EAED]">
-                      <td className="px-4 py-2.5 text-[#6B7280] text-sm">Base imponible</td>
-                      <td className="px-4 py-2.5 text-right text-sm text-[#111827]">{kpi(previewFactura.baseImponible)} €</td>
+                  <tfoot className="bg-[#FAF6F4]">
+                    <tr className="border-t border-[#F0E6E4]">
+                      <td className="px-4 py-2.5 text-[#8B7D82] text-sm">Base imponible</td>
+                      <td className="px-4 py-2.5 text-right text-sm text-[#2B2429]">{kpi(previewFactura.baseImponible)} €</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2.5 text-[#6B7280] text-sm">IVA ({previewFactura.tipoIVA}%)</td>
-                      <td className="px-4 py-2.5 text-right text-sm text-[#111827]">{kpi(previewFactura.cuotaIVA)} €</td>
+                      <td className="px-4 py-2.5 text-[#8B7D82] text-sm">IVA ({previewFactura.tipoIVA}%)</td>
+                      <td className="px-4 py-2.5 text-right text-sm text-[#2B2429]">{kpi(previewFactura.cuotaIVA)} €</td>
                     </tr>
-                    <tr className="border-t-2 border-[#E8EAED]">
-                      <td className="px-4 py-3 font-extrabold text-[#111827]">TOTAL</td>
-                      <td className="px-4 py-3 text-right font-extrabold text-[#111827] text-base">{kpi(previewFactura.total)} €</td>
+                    <tr className="border-t-2 border-[#F0E6E4]">
+                      <td className="px-4 py-3 font-extrabold text-[#2B2429]">TOTAL</td>
+                      <td className="px-4 py-3 text-right font-extrabold text-[#2B2429] text-base">{kpi(previewFactura.total)} €</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -534,21 +534,21 @@ export default function Facturas() {
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => exportarCSV([previewFactura])}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#E8EAED] text-sm font-semibold text-[#6B7280] hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#F0E6E4] text-sm font-semibold text-[#8B7D82] hover:bg-gray-50 transition-colors"
                 >
                   <Download size={14} />
                   CSV
                 </button>
                 <button
                   onClick={() => descargarPDF(previewFactura, previewSocio)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4F46E5] text-white text-sm font-semibold hover:bg-[#4338CA] transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#C08497] text-white text-sm font-semibold hover:bg-[#A05A6B] transition-colors"
                 >
                   <Download size={14} />
                   Descargar PDF
                 </button>
                 <button
                   onClick={() => setPreview(null)}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#111827] text-white text-sm font-semibold hover:bg-[#1f2937] transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#2B2429] text-white text-sm font-semibold hover:bg-[#3A2F35] transition-colors"
                 >
                   Cerrar
                 </button>
