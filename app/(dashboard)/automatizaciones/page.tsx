@@ -30,21 +30,21 @@ function horasRestantes(iso: string) {
 }
 
 const accionConfig: Record<AccionAutomatica, { label: string; icon: React.ElementType; color: string }> = {
-  ENVIAR_EMAIL:      { label: 'Email', icon: Mail, color: '#2563EB' },
+  ENVIAR_EMAIL:      { label: 'Email', icon: Mail, color: '#7AA80E' },
   ENVIAR_WHATSAPP:   { label: 'WhatsApp', icon: MessageSquare, color: '#16A34A' },
   COBRAR_RECIBO:     { label: 'Cobro automático', icon: CreditCard, color: '#7C3AED' },
   CREAR_NOTA:        { label: 'Nota de progreso', icon: Eye, color: '#0891B2' },
   NOTIFICAR_ADMIN:   { label: 'Notificación admin', icon: Bell, color: '#D97706' },
   OFRECER_CLASE_GRATIS: { label: 'Clase gratis', icon: Gift, color: '#DB2777' },
   PROPONER_PLAN:     { label: 'Proponer plan', icon: TrendingUp, color: '#059669' },
-  ENVIAR_EJERCICIOS: { label: 'Ejercicios casa', icon: Send, color: '#6366F1' },
+  ENVIAR_EJERCICIOS: { label: 'Ejercicios casa', icon: Send, color: '#8FBF12' },
 };
 
 const resultadoConfig: Record<ResultadoLog, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   EJECUTADO:       { label: 'Ejecutado', color: '#16A34A', bg: '#DCFCE7', icon: CheckCircle2 },
   ESPERANDO:       { label: 'Esperando', color: '#D97706', bg: '#FEF3C7', icon: Clock },
   FALLIDO:         { label: 'Fallido', color: '#DC2626', bg: '#FEE2E2', icon: XCircle },
-  PENDIENTE_ADMIN: { label: 'Acción humana', color: '#7C3AED', bg: '#EDE9FE', icon: AlertTriangle },
+  PENDIENTE_ADMIN: { label: 'Acción humana', color: '#7C3AED', bg: '#EDF9C8', icon: AlertTriangle },
 };
 
 const triggerLabels: Record<string, string> = {
@@ -70,7 +70,7 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   const greeting = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-[#111827] to-[#1f2937] text-white p-6 mb-6">
+    <div className="rounded-2xl bg-gradient-to-br from-[#1A1A1A] to-[#2A2A24] text-white p-6 mb-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">

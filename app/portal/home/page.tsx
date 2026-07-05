@@ -55,7 +55,7 @@ export default function PortalHome() {
       {/* ── Header gradient ─────────────────────────── */}
       <div
         className="px-5 pt-6 pb-8"
-        style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)' }}
+        style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #A9DE20 100%)' }}
       >
         {/* Top row */}
         <div className="flex items-start justify-between mb-6">
@@ -132,7 +132,7 @@ export default function PortalHome() {
               <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-3">Próxima clase</p>
               <p className="text-white text-[20px] font-extrabold mb-1">Sin clases reservadas</p>
               <p className="text-white/60 text-[13px] mb-4">Reserva tu próxima sesión ahora</p>
-              <div className="inline-flex items-center gap-2 bg-white text-[#4F46E5] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
+              <div className="inline-flex items-center gap-2 bg-white text-[#6B8E00] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
                 <Calendar size={15} />
                 Ver clases disponibles
               </div>
@@ -148,10 +148,10 @@ export default function PortalHome() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-1">Mi bono</p>
-                <p className="text-[18px] font-extrabold text-[#111827] leading-tight">{plan.nombre}</p>
+                <p className="text-[18px] font-extrabold text-[#171717] leading-tight">{plan.nombre}</p>
               </div>
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${bonoCaducado ? 'bg-red-50' : 'bg-[#EEF2FF]'}`}>
-                <CreditCard size={18} className={bonoCaducado ? 'text-red-500' : 'text-[#4F46E5]'} />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${bonoCaducado ? 'bg-red-50' : 'bg-[#EDF9C8]'}`}>
+                <CreditCard size={18} className={bonoCaducado ? 'text-red-500' : 'text-[#6B8E00]'} />
               </div>
             </div>
             {bonoCaducado ? (
@@ -164,10 +164,10 @@ export default function PortalHome() {
             ) : activeSus.sesionesRestantes != null && plan.sesiones != null ? (
               <>
                 <div className="flex justify-between items-baseline mb-2">
-                  <span className="text-[22px] font-extrabold text-[#111827]">{activeSus.sesionesRestantes}</span>
+                  <span className="text-[22px] font-extrabold text-[#171717]">{activeSus.sesionesRestantes}</span>
                   <span className="text-[13px] text-[#8E8E93]">de {plan.sesiones} sesiones</span>
                 </div>
-                <div className="h-2.5 bg-[#F2F2F7] rounded-full overflow-hidden">
+                <div className="h-2.5 bg-[#F1F1EC] rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
@@ -179,7 +179,7 @@ export default function PortalHome() {
               </>
             ) : (
               <div className="flex items-center justify-between">
-                <p className="text-[14px] text-[#6B7280]">
+                <p className="text-[14px] text-[#8E8E86]">
                   {activeSus.fechaFin
                     ? `Válido hasta el ${new Date(activeSus.fechaFin).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}`
                     : 'Sesiones ilimitadas'}
@@ -196,10 +196,10 @@ export default function PortalHome() {
         <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">Acceso rápido</p>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { href: '/portal/clases', icon: Calendar, label: 'Reservar clase', color: '#4F46E5', bg: '#EEF2FF' },
+            { href: '/portal/clases', icon: Calendar, label: 'Reservar clase', color: '#4F46E5', bg: '#EDF9C8' },
             { href: '/portal/mi-plan', icon: CreditCard, label: 'Mis pagos', color: '#059669', bg: '#ECFDF5' },
             { href: '/portal/videos', icon: Play, label: 'Videos on-demand', color: '#D97706', bg: '#FFFBEB' },
-            { href: '/portal/progreso', icon: TrendingUp, label: 'Mi progreso', color: '#7C3AED', bg: '#F5F3FF' },
+            { href: '/portal/progreso', icon: TrendingUp, label: 'Mi progreso', color: '#7C3AED', bg: '#EDF9C8' },
           ].map(({ href, icon: Icon, label, color, bg }) => (
             <Link
               key={href}
@@ -209,7 +209,7 @@ export default function PortalHome() {
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: bg }}>
                 <Icon size={20} style={{ color }} />
               </div>
-              <p className="text-[14px] font-bold text-[#111827] leading-tight">{label}</p>
+              <p className="text-[14px] font-bold text-[#171717] leading-tight">{label}</p>
             </Link>
           ))}
         </div>

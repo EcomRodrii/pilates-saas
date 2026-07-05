@@ -52,7 +52,7 @@ export default function MiPlanPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #A9DE20 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight">Mi plan</h1>
         <p className="text-indigo-300 text-[13px] mt-0.5">{formatEur(totalPagado)} pagado en total</p>
       </div>
@@ -121,11 +121,11 @@ export default function MiPlanPage() {
             </div>
           </div>
         ) : (
-          <div className="bg-[#F9FAFB] rounded-3xl p-8 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-[#EEF2FF] flex items-center justify-center mx-auto mb-3">
-              <CreditCard size={24} className="text-[#4F46E5]" />
+          <div className="bg-[#F5F5F1] rounded-3xl p-8 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-[#EDF9C8] flex items-center justify-center mx-auto mb-3">
+              <CreditCard size={24} className="text-[#6B8E00]" />
             </div>
-            <p className="font-bold text-[#111827] text-[16px]">Sin plan activo</p>
+            <p className="font-bold text-[#171717] text-[16px]">Sin plan activo</p>
             <p className="text-[13px] text-[#8E8E93] mt-1">Habla con tu instructor para contratar un plan</p>
           </div>
         )}
@@ -144,8 +144,8 @@ export default function MiPlanPage() {
                 onClick={() => setFiltro(f)}
                 className="px-3.5 py-1.5 rounded-2xl text-[12px] font-bold transition-all"
                 style={{
-                  backgroundColor: filtro === f ? '#111827' : '#F2F2F7',
-                  color: filtro === f ? 'white' : '#6B7280',
+                  backgroundColor: filtro === f ? '#171717' : '#F1F1EC',
+                  color: filtro === f ? 'white' : '#8E8E86',
                 }}
               >
                 {f === 'TODOS' ? 'Todos' : f === 'COBRADO' ? 'Pagados' : 'Pendientes'}
@@ -154,7 +154,7 @@ export default function MiPlanPage() {
           </div>
 
           {recibosFiltrados.length === 0 ? (
-            <div className="rounded-2xl bg-[#F9FAFB] p-8 text-center">
+            <div className="rounded-2xl bg-[#F5F5F1] p-8 text-center">
               <p className="text-[14px] text-[#8E8E93]">Sin recibos en esta categoría</p>
             </div>
           ) : (
@@ -171,10 +171,10 @@ export default function MiPlanPage() {
                         : <Clock size={18} className="text-amber-500" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-semibold text-[#111827] truncate">{rec.concepto}</p>
+                      <p className="text-[14px] font-semibold text-[#171717] truncate">{rec.concepto}</p>
                       <p className="text-[11px] text-[#8E8E93] mt-0.5">
                         {formatDate(rec.fechaCobro ?? rec.fechaVencimiento)}
-                        {factura && <span className="text-[#4F46E5] ml-2 font-semibold">· Factura</span>}
+                        {factura && <span className="text-[#6B8E00] ml-2 font-semibold">· Factura</span>}
                       </p>
                     </div>
                     <p className="text-[15px] font-extrabold shrink-0" style={{ color: cobrado ? '#059669' : '#8E8E93' }}>

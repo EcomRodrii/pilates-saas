@@ -45,16 +45,16 @@ const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'S
 
 const actividadConfig: Record<TipoActividad, { color: string; bg: string; label: string }> = {
   NUEVA_SOCIA:        { color: '#059669', bg: '#ECFDF5', label: 'Alta' },
-  NUEVA_RESERVA:      { color: '#2563EB', bg: '#EFF6FF', label: 'Reserva' },
+  NUEVA_RESERVA:      { color: '#7AA80E', bg: '#EDF9C8', label: 'Reserva' },
   CANCELACION:        { color: '#DC2626', bg: '#FEF2F2', label: 'Cancelación' },
   PAGO_COBRADO:       { color: '#059669', bg: '#ECFDF5', label: 'Cobro' },
   PAGO_PENDIENTE:     { color: '#D97706', bg: '#FFFBEB', label: 'Pendiente' },
-  NUEVA_SUSCRIPCION:  { color: '#7C3AED', bg: '#F5F3FF', label: 'Plan' },
+  NUEVA_SUSCRIPCION:  { color: '#7C3AED', bg: '#EDF9C8', label: 'Plan' },
   SUSCRIPCION_PAUSADA:{ color: '#D97706', bg: '#FFFBEB', label: 'Pausa' },
   CITA_CREADA:        { color: '#0891B2', bg: '#ECFEFF', label: 'Cita' },
   CITA_COMPLETADA:    { color: '#059669', bg: '#ECFDF5', label: 'Cita ✓' },
   VENTA_POS:          { color: '#059669', bg: '#ECFDF5', label: 'Venta' },
-  MENSAJE_ENVIADO:    { color: '#6B7280', bg: '#F9FAFB', label: 'Email' },
+  MENSAJE_ENVIADO:    { color: '#8E8E86', bg: '#F5F5F1', label: 'Email' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────
@@ -126,7 +126,7 @@ function RevenueSparkline({
             y={H - 6}
             textAnchor="middle"
             fontSize="11"
-            fill={i === currentIdx ? '#111827' : '#9CA3AF'}
+            fill={i === currentIdx ? '#1A1A1A' : '#A8A89F'}
             fontWeight={i === currentIdx ? '700' : '400'}
           >
             {p.label}
@@ -137,7 +137,7 @@ function RevenueSparkline({
               y={p.y - 9}
               textAnchor="middle"
               fontSize="10"
-              fill={i === currentIdx ? '#111827' : '#6B7280'}
+              fill={i === currentIdx ? '#1A1A1A' : '#8E8E86'}
               fontWeight={i === currentIdx ? '700' : '400'}
             >
               {p.v >= 1000 ? `${(p.v / 1000).toFixed(1)}k` : p.v.toFixed(0)}
@@ -155,7 +155,7 @@ function OcupacionBar({ pct }: { pct: number }) {
   const color = pct >= 85 ? '#DC2626' : pct >= 60 ? '#D97706' : '#059669';
   return (
     <div className="flex items-center gap-2 flex-1">
-      <div className="flex-1 h-1.5 rounded-full bg-[#F3F4F6] overflow-hidden">
+      <div className="flex-1 h-1.5 rounded-full bg-[#F1F1EC] overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}
@@ -231,12 +231,12 @@ function ClaseHoyCard({
     <div
       className={cn(
         'rounded-xl border overflow-hidden bg-white',
-        isNow ? 'border-[#111827] shadow-sm' : 'border-[#E8EAED]'
+        isNow ? 'border-[#1A1A1A] shadow-sm' : 'border-[#E7E7E0]'
       )}
     >
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-[#F9FAFB] transition-colors"
+        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-[#F5F5F1] transition-colors"
       >
         {isNow && (
           <span className="shrink-0 w-2 h-2 rounded-full bg-[#059669] animate-pulse" />
@@ -247,14 +247,14 @@ function ClaseHoyCard({
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-[13px] font-semibold text-[#111827] truncate">{sesion.tipoNombre}</p>
+            <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">{sesion.tipoNombre}</p>
             {isNow && (
               <span className="text-[10px] font-bold text-[#059669] bg-[#ECFDF5] px-1.5 py-0.5 rounded-full shrink-0">
                 AHORA
               </span>
             )}
           </div>
-          <p className="text-[11px] text-[#9CA3AF] truncate">
+          <p className="text-[11px] text-[#A8A89F] truncate">
             {formatHora(sesion.inicio)}–{formatHora(sesion.fin)} · {sesion.salaNombre} ·{' '}
             {sesion.instructorNombre}
           </p>
@@ -263,29 +263,29 @@ function ClaseHoyCard({
           {asistidas > 0 && (
             <span className="text-[11px] font-bold text-[#059669]">{asistidas}✓</span>
           )}
-          <span className="text-[12px] font-semibold text-[#374151]">
+          <span className="text-[12px] font-semibold text-[#3A3A34]">
             {reservasSesion.length}/{sesion.aforoMaximo}
           </span>
-          <div className="w-16 h-1.5 rounded-full bg-[#F3F4F6] overflow-hidden">
+          <div className="w-16 h-1.5 rounded-full bg-[#F1F1EC] overflow-hidden">
             <div
               className="h-full rounded-full"
               style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: fillColor }}
             />
           </div>
           {expanded ? (
-            <ChevronUp size={14} className="text-[#9CA3AF]" />
+            <ChevronUp size={14} className="text-[#A8A89F]" />
           ) : (
-            <ChevronDown size={14} className="text-[#9CA3AF]" />
+            <ChevronDown size={14} className="text-[#A8A89F]" />
           )}
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-[#F3F4F6]">
+        <div className="border-t border-[#F1F1EC]">
           {reservasSesion.length === 0 ? (
-            <p className="text-[12px] text-[#9CA3AF] px-4 py-3">Sin reservas aún</p>
+            <p className="text-[12px] text-[#A8A89F] px-4 py-3">Sin reservas aún</p>
           ) : (
-            <div className="divide-y divide-[#F9FAFB]">
+            <div className="divide-y divide-[#F5F5F1]">
               {reservasSesion.map(r => {
                 const asistida = r.estado === 'ASISTIDA';
                 return (
@@ -295,7 +295,7 @@ function ClaseHoyCard({
                         'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
                         asistida
                           ? 'bg-[#ECFDF5] text-[#059669]'
-                          : 'bg-[#F3F4F6] text-[#374151]'
+                          : 'bg-[#F1F1EC] text-[#3A3A34]'
                       )}
                     >
                       {r.socio!.nombre[0]}
@@ -305,7 +305,7 @@ function ClaseHoyCard({
                       href={`/socios/${r.socioId}`}
                       className="flex-1 min-w-0 hover:underline"
                     >
-                      <p className="text-[12px] font-medium text-[#111827] truncate">
+                      <p className="text-[12px] font-medium text-[#1A1A1A] truncate">
                         {r.socio!.nombre} {r.socio!.apellidos}
                       </p>
                     </Link>
@@ -317,13 +317,13 @@ function ClaseHoyCard({
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => checkin(r.id)}
-                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#111827] text-white hover:bg-[#1f2937] transition-colors"
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F] transition-colors"
                         >
                           Check-in
                         </button>
                         <button
                           onClick={() => cancelarReserva(r.id)}
-                          className="text-[10px] font-medium px-2 py-1 rounded-lg text-[#9CA3AF] hover:bg-[#FEF2F2] hover:text-[#DC2626] transition-colors"
+                          className="text-[10px] font-medium px-2 py-1 rounded-lg text-[#A8A89F] hover:bg-[#FEF2F2] hover:text-[#DC2626] transition-colors"
                         >
                           ✕
                         </button>
@@ -334,10 +334,10 @@ function ClaseHoyCard({
               })}
             </div>
           )}
-          <div className="px-4 py-2.5 border-t border-[#F9FAFB]">
+          <div className="px-4 py-2.5 border-t border-[#F5F5F1]">
             <Link
               href="/calendario"
-              className="text-[11px] font-medium text-[#2563EB] hover:underline"
+              className="text-[11px] font-medium text-[#7AA80E] hover:underline"
             >
               Gestionar clase →
             </Link>
@@ -486,7 +486,7 @@ export default function Dashboard() {
         .map(s => ({
           ...s,
           tipoNombre: tiposClase.find(t => t.id === s.tipoClaseId)?.nombre ?? 'Clase',
-          tipoColor: tiposClase.find(t => t.id === s.tipoClaseId)?.color ?? '#6B7280',
+          tipoColor: tiposClase.find(t => t.id === s.tipoClaseId)?.color ?? '#8E8E86',
           salaNombre: salas.find(x => x.id === s.salaId)?.nombre ?? '',
           instructorNombre: instructores.find(i => i.id === s.instructorId)?.nombre ?? '',
         })),
@@ -515,9 +515,9 @@ export default function Dashboard() {
   const TrendIcon =
     pctChange > 0 ? TrendingUp : pctChange < 0 ? TrendingDown : Minus;
   const trendColor =
-    pctChange > 0 ? '#059669' : pctChange < 0 ? '#DC2626' : '#6B7280';
+    pctChange > 0 ? '#059669' : pctChange < 0 ? '#DC2626' : '#8E8E86';
   const trendBg =
-    pctChange > 0 ? '#ECFDF5' : pctChange < 0 ? '#FEF2F2' : '#F9FAFB';
+    pctChange > 0 ? '#ECFDF5' : pctChange < 0 ? '#FEF2F2' : '#F5F5F1';
 
   if (!mounted) return null;
 
@@ -638,31 +638,31 @@ export default function Dashboard() {
           <div className="lg:col-span-2 space-y-5">
 
             {/* Clases de hoy */}
-            <div className="bg-white rounded-xl border border-[#E8EAED]">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#F3F4F6]">
+            <div className="bg-white rounded-xl border border-[#E7E7E0]">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F1EC]">
                 <div className="flex items-center gap-2">
-                  <Clock size={14} className="text-[#6B7280]" />
-                  <h2 className="text-[13px] font-semibold text-[#111827]">
+                  <Clock size={14} className="text-[#8E8E86]" />
+                  <h2 className="text-[13px] font-semibold text-[#1A1A1A]">
                     Clases de hoy
                   </h2>
-                  <span className="text-[11px] font-medium text-[#9CA3AF]">
+                  <span className="text-[11px] font-medium text-[#A8A89F]">
                     {clasesHoy.length} sesiones
                   </span>
                 </div>
                 <Link
                   href="/calendario"
-                  className="flex items-center gap-1 text-[11px] font-medium text-[#6B7280] hover:text-[#111827] transition-colors"
+                  className="flex items-center gap-1 text-[11px] font-medium text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
                 >
                   <CalendarPlus size={12} /> Ver calendario
                 </Link>
               </div>
               {clasesHoy.length === 0 ? (
                 <div className="py-12 flex flex-col items-center gap-2">
-                  <Calendar size={28} className="text-[#E5E7EB]" />
-                  <p className="text-[13px] text-[#9CA3AF]">Sin clases hoy</p>
+                  <Calendar size={28} className="text-[#E7E7E0]" />
+                  <p className="text-[13px] text-[#A8A89F]">Sin clases hoy</p>
                   <Link
                     href="/calendario"
-                    className="text-[12px] font-medium text-[#2563EB] hover:underline"
+                    className="text-[12px] font-medium text-[#7AA80E] hover:underline"
                   >
                     + Programar clase
                   </Link>
@@ -678,11 +678,11 @@ export default function Dashboard() {
 
             {/* Pagos pendientes */}
             {pendientes.length > 0 && (
-              <div className="bg-white rounded-xl border border-[#E8EAED]">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-[#F3F4F6]">
+              <div className="bg-white rounded-xl border border-[#E7E7E0]">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F1EC]">
                   <div className="flex items-center gap-2">
-                    <CreditCard size={14} className="text-[#6B7280]" />
-                    <h2 className="text-[13px] font-semibold text-[#111827]">
+                    <CreditCard size={14} className="text-[#8E8E86]" />
+                    <h2 className="text-[13px] font-semibold text-[#1A1A1A]">
                       Pagos pendientes
                     </h2>
                     <span className="text-[10px] font-bold text-[#DC2626] bg-[#FEF2F2] px-1.5 py-0.5 rounded-full">
@@ -698,29 +698,29 @@ export default function Dashboard() {
                     </button>
                   )}
                 </div>
-                <div className="divide-y divide-[#F9FAFB]">
+                <div className="divide-y divide-[#F5F5F1]">
                   {pendientes.map(r => (
                     <div key={r.id} className="flex items-center gap-3 px-5 py-3">
                       <Link
                         href={`/socios/${r.socioId}`}
-                        className="w-8 h-8 rounded-full bg-[#DBEAFE] text-[#2563EB] font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
+                        className="w-8 h-8 rounded-full bg-[#DBEAFE] text-[#7AA80E] font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
                       >
                         {r.socio!.nombre[0]}
                         {r.socio!.apellidos[0]}
                       </Link>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-semibold text-[#111827] truncate">
+                        <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">
                           {r.socio!.nombre} {r.socio!.apellidos}
                         </p>
-                        <p className="text-[11px] text-[#9CA3AF] truncate">{r.concepto}</p>
+                        <p className="text-[11px] text-[#A8A89F] truncate">{r.concepto}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[13px] font-bold text-[#111827]">
+                        <span className="text-[13px] font-bold text-[#1A1A1A]">
                           {r.importe} €
                         </span>
                         <button
                           onClick={() => marcarCobrado(r.id)}
-                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#111827] text-white hover:bg-[#1f2937] transition-colors"
+                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F] transition-colors"
                         >
                           Cobrar
                         </button>
@@ -729,10 +729,10 @@ export default function Dashboard() {
                   ))}
                 </div>
                 {recibos.filter(r => r.estado === 'PENDIENTE').length > 5 && (
-                  <div className="px-5 py-3 border-t border-[#F9FAFB]">
+                  <div className="px-5 py-3 border-t border-[#F5F5F1]">
                     <Link
                       href="/pagos"
-                      className="text-[11px] font-medium text-[#2563EB] hover:underline"
+                      className="text-[11px] font-medium text-[#7AA80E] hover:underline"
                     >
                       Ver todos los pagos pendientes →
                     </Link>
@@ -746,32 +746,32 @@ export default function Dashboard() {
           <div className="space-y-5">
 
             {/* Quick actions */}
-            <div className="bg-white rounded-xl border border-[#E8EAED] p-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] mb-3">
+            <div className="bg-white rounded-xl border border-[#E7E7E0] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#A8A89F] mb-3">
                 Acciones rápidas
               </p>
               <div className="space-y-2">
                 <Link
                   href="/socios?nuevo=1"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-[#111827] hover:bg-[#1F2937] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
                 >
                   <UserPlus size={14} /> Nuevo miembro
                 </Link>
                 <Link
                   href="/calendario"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#374151] bg-[#F4F5F7] hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#3A3A34] bg-[#EEEEE8] hover:bg-[#E9EAEC] transition-colors"
                 >
                   <CalendarPlus size={14} /> Nueva reserva
                 </Link>
                 <Link
                   href="/pagos"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#374151] bg-[#F4F5F7] hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#3A3A34] bg-[#EEEEE8] hover:bg-[#E9EAEC] transition-colors"
                 >
                   <CreditCard size={14} /> Cobrar
                 </Link>
                 <Link
                   href="/pos"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#374151] bg-[#F4F5F7] hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#3A3A34] bg-[#EEEEE8] hover:bg-[#E9EAEC] transition-colors"
                 >
                   <ShoppingCart size={14} /> Punto de venta
                 </Link>
@@ -780,17 +780,17 @@ export default function Dashboard() {
 
             {/* Renovaciones próximas */}
             {renovacionesProximas.length > 0 && (
-              <div className="bg-white rounded-xl border border-[#E8EAED]">
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F3F4F6]">
+              <div className="bg-white rounded-xl border border-[#E7E7E0]">
+                <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F1F1EC]">
                   <div className="flex items-center gap-2">
                     <RefreshCw size={13} className="text-[#059669]" />
-                    <h2 className="text-[13px] font-semibold text-[#111827]">
+                    <h2 className="text-[13px] font-semibold text-[#1A1A1A]">
                       Renovaciones
                     </h2>
                   </div>
-                  <span className="text-[10px] font-bold text-[#6B7280]">30 días</span>
+                  <span className="text-[10px] font-bold text-[#8E8E86]">30 días</span>
                 </div>
-                <div className="divide-y divide-[#F9FAFB]">
+                <div className="divide-y divide-[#F5F5F1]">
                   {renovacionesProximas.map(r => {
                     const diasRestantes = Math.round(
                       (new Date(r.fechaFin!).getTime() - now.getTime()) / 86400000
@@ -800,27 +800,27 @@ export default function Dashboard() {
                       <Link
                         key={r.id}
                         href={`/socios/${r.socioId}`}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F9FAFB] transition-colors"
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F5F5F1] transition-colors"
                       >
-                        <div className="w-7 h-7 rounded-full bg-[#DBEAFE] text-[#2563EB] text-[10px] font-bold flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-[#DBEAFE] text-[#7AA80E] text-[10px] font-bold flex items-center justify-center shrink-0">
                           {r.socio!.nombre[0]}
                           {r.socio!.apellidos[0]}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-semibold text-[#111827] truncate">
+                          <p className="text-[12px] font-semibold text-[#1A1A1A] truncate">
                             {r.socio!.nombre} {r.socio!.apellidos}
                           </p>
-                          <p className="text-[11px] text-[#9CA3AF] truncate">
+                          <p className="text-[11px] text-[#A8A89F] truncate">
                             {r.plan!.nombre}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-[11px] font-bold text-[#111827]">
+                          <p className="text-[11px] font-bold text-[#1A1A1A]">
                             {r.plan!.precio} €
                           </p>
                           <p
                             className="text-[10px] font-semibold"
-                            style={{ color: isUrgent ? '#DC2626' : '#9CA3AF' }}
+                            style={{ color: isUrgent ? '#DC2626' : '#A8A89F' }}
                           >
                             {diasRestantes}d
                           </p>
@@ -833,22 +833,22 @@ export default function Dashboard() {
             )}
 
             {/* Activity feed */}
-            <div className="bg-white rounded-xl border border-[#E8EAED]">
-              <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F3F4F6]">
+            <div className="bg-white rounded-xl border border-[#E7E7E0]">
+              <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F1F1EC]">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-[13px] font-semibold text-[#111827]">Actividad</h2>
+                  <h2 className="text-[13px] font-semibold text-[#1A1A1A]">Actividad</h2>
                   <span className="w-1.5 h-1.5 rounded-full bg-[#059669] animate-pulse" />
                 </div>
                 <Link
                   href="/notificaciones"
-                  className="flex items-center gap-1 text-[11px] font-medium text-[#6B7280] hover:text-[#111827] transition-colors"
+                  className="flex items-center gap-1 text-[11px] font-medium text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
                 >
                   <Bell size={11} /> Ver todo
                 </Link>
               </div>
-              <div className="divide-y divide-[#F9FAFB]">
+              <div className="divide-y divide-[#F5F5F1]">
                 {actividadReciente.length === 0 ? (
-                  <p className="text-[12px] text-[#9CA3AF] px-4 py-6 text-center">
+                  <p className="text-[12px] text-[#A8A89F] px-4 py-6 text-center">
                     Sin actividad reciente
                   </p>
                 ) : (
@@ -862,10 +862,10 @@ export default function Dashboard() {
                         >
                           {cfg.label}
                         </span>
-                        <p className="flex-1 text-[12px] text-[#374151] min-w-0 truncate">
+                        <p className="flex-1 text-[12px] text-[#3A3A34] min-w-0 truncate">
                           {act.texto}
                         </p>
-                        <span className="text-[10px] text-[#9CA3AF] shrink-0">
+                        <span className="text-[10px] text-[#A8A89F] shrink-0">
                           {timeAgo(act.creadoEn, now)}
                         </span>
                       </>
@@ -874,7 +874,7 @@ export default function Dashboard() {
                       <Link
                         key={act.id}
                         href={act.enlace}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F9FAFB] transition-colors"
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F5F5F1] transition-colors"
                       >
                         {inner}
                       </Link>

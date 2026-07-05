@@ -96,17 +96,17 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
     >
       <div className={cn(
         'w-10 h-7 rounded-full flex items-center justify-center transition-colors',
-        active ? 'bg-[#111111]' : 'bg-transparent'
+        active ? 'bg-[#C6F94D]' : 'bg-transparent'
       )}>
         <Icon
           size={20}
           strokeWidth={active ? 2.5 : 1.8}
-          className={active ? 'text-white' : 'text-[#6B7280]'}
+          className={active ? 'text-[#131313]' : 'text-[#8E8E86]'}
         />
       </div>
       <span className={cn(
         'text-[10px] font-medium leading-none',
-        active ? 'text-[#111111] font-semibold' : 'text-[#9CA3AF]'
+        active ? 'text-[#1A1A1A] font-semibold' : 'text-[#A8A89F]'
       )}>
         {label}
       </span>
@@ -120,7 +120,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut }: { onClos
   const pathname = usePathname();
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: '#111111' }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: '#1A1A1A' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-12 pb-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <span className="text-white font-semibold text-[16px]">Menú</span>
@@ -150,13 +150,12 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut }: { onClos
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    'flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[15px] font-medium transition-all mb-1',
-                    active ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+                    'flex items-center gap-3.5 px-4 py-3.5 rounded-full text-[15px] font-medium transition-all mb-1',
+                    active ? 'bg-[#C6F94D] text-[#131313] font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
                   )}
                 >
                   <item.icon size={18} strokeWidth={active ? 2.5 : 2} />
                   {item.label}
-                  {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />}
                 </Link>
               );
             })}
@@ -203,7 +202,7 @@ export function Sidebar() {
       {/* ── Mobile top bar ─────────────────────────────────────────────────── */}
       <div
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
-        style={{ backgroundColor: '#ffffff', borderColor: '#E8EAED' }}
+        style={{ backgroundColor: '#ffffff', borderColor: '#E7E7E0' }}
       >
         <Image src="/logo-light.png" alt="Tentare" width={100} height={36} className="h-7 w-auto object-contain" />
       </div>
@@ -211,7 +210,7 @@ export function Sidebar() {
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
       <nav
         className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around px-2 border-t"
-        style={{ backgroundColor: '#ffffff', borderColor: '#E8EAED', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+        style={{ backgroundColor: '#ffffff', borderColor: '#E7E7E0', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
         {bottomNavItems.map(item => (
           <BottomNavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} />
@@ -222,9 +221,9 @@ export function Sidebar() {
           className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
         >
           <div className="w-10 h-7 rounded-full flex items-center justify-center">
-            <Menu size={20} strokeWidth={1.8} className="text-[#6B7280]" />
+            <Menu size={20} strokeWidth={1.8} className="text-[#8E8E86]" />
           </div>
-          <span className="text-[10px] font-medium text-[#9CA3AF] leading-none">Más</span>
+          <span className="text-[10px] font-medium text-[#A8A89F] leading-none">Más</span>
         </button>
       </nav>
 
@@ -288,7 +287,7 @@ export function Sidebar() {
           <Link
             href="/portal/login"
             target="_blank"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#4F46E5]"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#8FBF12]"
           >
             <ExternalLink size={12} className="shrink-0" />
             <span>Portal miembros</span>

@@ -28,10 +28,10 @@ const NIVEL_LABEL: Record<NivelClase, string> = {
   TODOS: 'Todos', PRINCIPIANTE: 'Inicio', MEDIO: 'Medio', AVANZADO: 'Avanzado',
 };
 const NIVEL_COLOR: Record<NivelClase, string> = {
-  TODOS: '#6B7280', PRINCIPIANTE: '#059669', MEDIO: '#D97706', AVANZADO: '#DC2626',
+  TODOS: '#8E8E86', PRINCIPIANTE: '#059669', MEDIO: '#D97706', AVANZADO: '#DC2626',
 };
 const NIVEL_BG: Record<NivelClase, string> = {
-  TODOS: '#F3F4F6', PRINCIPIANTE: '#DCFCE7', MEDIO: '#FEF3C7', AVANZADO: '#FEE2E2',
+  TODOS: '#F1F1EC', PRINCIPIANTE: '#DCFCE7', MEDIO: '#FEF3C7', AVANZADO: '#FEE2E2',
 };
 
 export default function VideosPage() {
@@ -50,7 +50,7 @@ export default function VideosPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-4" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)' }}>
+      <div className="px-5 pt-6 pb-4" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #A9DE20 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight">Videos</h1>
         <p className="text-indigo-300 text-[13px] mt-0.5">{videosOnDemand.filter(v => v.activo).length} videos · {totalVistas} visualizaciones</p>
 
@@ -78,7 +78,7 @@ export default function VideosPage() {
         {filtrados.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <span className="text-5xl mb-4">🎬</span>
-            <p className="font-bold text-[#111827] text-[16px]">Sin videos en esta categoría</p>
+            <p className="font-bold text-[#171717] text-[16px]">Sin videos en esta categoría</p>
             <p className="text-[13px] text-[#8E8E93] mt-1">Prueba con otra</p>
           </div>
         ) : (
@@ -105,7 +105,7 @@ export default function VideosPage() {
                   </div>
                   {/* Info */}
                   <div className="p-3">
-                    <p className="text-[13px] font-bold text-[#111827] leading-tight line-clamp-2 mb-2">{v.titulo}</p>
+                    <p className="text-[13px] font-bold text-[#171717] leading-tight line-clamp-2 mb-2">{v.titulo}</p>
                     <div className="flex items-center justify-between">
                       <span
                         className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -158,18 +158,18 @@ export default function VideosPage() {
             </div>
 
             <div className="p-5">
-              <p className="text-[20px] font-extrabold text-[#111827] leading-tight">{selected.titulo}</p>
+              <p className="text-[20px] font-extrabold text-[#171717] leading-tight">{selected.titulo}</p>
               {instructores.find(i => i.id === selected.instructorId) && (
-                <p className="text-[13px] text-[#6B7280] mt-1">
+                <p className="text-[13px] text-[#8E8E86] mt-1">
                   con {instructores.find(i => i.id === selected.instructorId)!.nombre}
                 </p>
               )}
               {selected.descripcion && (
-                <p className="text-[14px] text-[#374151] leading-relaxed mt-3">{selected.descripcion}</p>
+                <p className="text-[14px] text-[#3A3A32] leading-relaxed mt-3">{selected.descripcion}</p>
               )}
               {avisoPendiente ? (
-                <div className="w-full mt-5 rounded-2xl bg-[#F2F2F7] px-4 py-4 text-center">
-                  <p className="text-[14px] font-bold text-[#111827]">Reproducción en preparación</p>
+                <div className="w-full mt-5 rounded-2xl bg-[#F1F1EC] px-4 py-4 text-center">
+                  <p className="text-[14px] font-bold text-[#171717]">Reproducción en preparación</p>
                   <p className="text-[12px] text-[#8E8E93] mt-1">Este contenido estará disponible muy pronto en tu portal.</p>
                 </div>
               ) : (

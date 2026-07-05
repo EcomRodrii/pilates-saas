@@ -62,7 +62,7 @@ export default function ClasesPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #A9DE20 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight leading-tight">Clases</h1>
         <p className="text-indigo-300 text-[13px] mt-0.5">{totalReservas} reservas activas</p>
 
@@ -88,10 +88,10 @@ export default function ClasesPage() {
       <div className="px-4 pt-4 pb-4 space-y-6">
         {groupedByDay.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 rounded-3xl bg-[#EEF2FF] flex items-center justify-center mb-4">
-              <Clock size={28} className="text-[#4F46E5]" />
+            <div className="w-16 h-16 rounded-3xl bg-[#EDF9C8] flex items-center justify-center mb-4">
+              <Clock size={28} className="text-[#6B8E00]" />
             </div>
-            <p className="font-bold text-[#111827] text-[16px]">
+            <p className="font-bold text-[#171717] text-[16px]">
               {tab === 'mis-reservas' ? 'Sin reservas activas' : 'Sin clases disponibles'}
             </p>
             <p className="text-[13px] text-[#8E8E93] mt-1">
@@ -118,11 +118,11 @@ export default function ClasesPage() {
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="flex-1 min-w-0">
-                            <p className="font-extrabold text-[#111827] text-[16px] leading-tight">{tipo?.nombre ?? 'Clase'}</p>
+                            <p className="font-extrabold text-[#171717] text-[16px] leading-tight">{tipo?.nombre ?? 'Clase'}</p>
                             {instr && (
                               <div className="flex items-center gap-1 mt-1">
                                 <User size={11} className="text-[#8E8E93]" />
-                                <p className="text-[12px] text-[#6B7280]">{instr.nombre}</p>
+                                <p className="text-[12px] text-[#8E8E86]">{instr.nombre}</p>
                               </div>
                             )}
                           </div>
@@ -143,12 +143,12 @@ export default function ClasesPage() {
                         <div className="flex items-center gap-4">
                           <div className="flex items-center gap-1.5">
                             <Clock size={12} className="text-[#8E8E93]" />
-                            <span className="text-[13px] font-semibold text-[#374151]">{formatTime(ses.inicio)} – {formatTime(ses.fin)}</span>
+                            <span className="text-[13px] font-semibold text-[#3A3A32]">{formatTime(ses.inicio)} – {formatTime(ses.fin)}</span>
                           </div>
                           {sala && (
                             <div className="flex items-center gap-1">
                               <MapPin size={11} className="text-[#8E8E93]" />
-                              <span className="text-[12px] text-[#6B7280]">{sala.nombre}</span>
+                              <span className="text-[12px] text-[#8E8E86]">{sala.nombre}</span>
                             </div>
                           )}
                         </div>

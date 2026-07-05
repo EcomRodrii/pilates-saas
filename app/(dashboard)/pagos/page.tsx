@@ -35,7 +35,7 @@ import {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const inputCls =
-  'w-full rounded-xl border border-[#E8EAED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#111827] focus:outline-none focus:border-[#2563EB] transition-colors';
+  'w-full rounded-xl border border-[#E7E7E0] bg-white px-3.5 py-2.5 text-sm font-medium text-[#1A1A1A] focus:outline-none focus:border-[#7AA80E] transition-colors';
 const selectCls = inputCls + ' appearance-none cursor-pointer';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ const selectCls = inputCls + ' appearance-none cursor-pointer';
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">{label}</label>
+      <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">{label}</label>
       {children}
     </div>
   );
@@ -73,7 +73,7 @@ const BADGE: Record<string, { bg: string; text: string; label: string }> = {
   COBRADO:   { bg: '#D1FAE5', text: '#059669', label: 'Cobrado' },
   PENDIENTE: { bg: '#FEF3C7', text: '#D97706', label: 'Pendiente' },
   DEVUELTO:  { bg: '#FEE2E2', text: '#DC2626', label: 'Devuelto' },
-  EN_CURSO:  { bg: '#DBEAFE', text: '#2563EB', label: 'En curso' },
+  EN_CURSO:  { bg: '#DBEAFE', text: '#7AA80E', label: 'En curso' },
 };
 
 type SortKey = 'reciente' | 'antiguo' | 'mayor' | 'menor';
@@ -427,7 +427,7 @@ export default function Pagos() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#F4F5F7] space-y-6 pb-10">
+    <div className="min-h-screen bg-[#EEEEE8] space-y-6 pb-10">
 
       {/* ── Stripe toast ─────────────────────────────────────────────────────── */}
       {stripeToast && (
@@ -445,8 +445,8 @@ export default function Pagos() {
       {/* ── Header ───────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-[#111827] tracking-tight">Pagos</h1>
-          <p className="text-sm text-[#6B7280] mt-0.5">
+          <h1 className="text-2xl font-bold text-[#1A1A1A] tracking-tight">Pagos</h1>
+          <p className="text-sm text-[#8E8E86] mt-0.5">
             Gestiona cobros, suscripciones y facturación
           </p>
         </div>
@@ -456,7 +456,7 @@ export default function Pagos() {
               setFacturaForm({ socioId: socios[0]?.id ?? '', concepto: '', importe: '' });
               setShowFactura(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border border-[#E8EAED] bg-white text-[#111827] hover:bg-[#F4F5F7] transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] bg-white text-[#1A1A1A] hover:bg-[#EEEEE8] transition-colors"
           >
             <FileText size={15} />
             Nueva factura
@@ -471,7 +471,7 @@ export default function Pagos() {
               });
               setShowNuevoCobro(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#111827] hover:bg-[#1f2937] transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
           >
             <Plus size={15} />
             Nuevo cobro
@@ -482,9 +482,9 @@ export default function Pagos() {
       {/* ── KPI bar ──────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Cobrado este mes */}
-        <div className="bg-white border border-[#E8EAED] rounded-xl p-5">
+        <div className="bg-white border border-[#E7E7E0] rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+            <p className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wider">
               Cobrado este mes
             </p>
             <div className="w-8 h-8 rounded-lg bg-[#D1FAE5] flex items-center justify-center">
@@ -494,13 +494,13 @@ export default function Pagos() {
           <p className="text-2xl font-extrabold text-[#059669]">
             {kpis.cobradoMes.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
           </p>
-          <p className="text-xs text-[#9CA3AF] mt-1">{monthLabel(thisMonth)}</p>
+          <p className="text-xs text-[#A8A89F] mt-1">{monthLabel(thisMonth)}</p>
         </div>
 
         {/* Pendiente de cobro */}
-        <div className="bg-white border border-[#E8EAED] rounded-xl p-5">
+        <div className="bg-white border border-[#E7E7E0] rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+            <p className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wider">
               Pendiente cobro
             </p>
             <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] flex items-center justify-center">
@@ -510,13 +510,13 @@ export default function Pagos() {
           <p className="text-2xl font-extrabold text-[#D97706]">
             {kpis.pendienteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
           </p>
-          <p className="text-xs text-[#9CA3AF] mt-1">{pendientesCount} recibo{pendientesCount !== 1 ? 's' : ''} pendiente{pendientesCount !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-[#A8A89F] mt-1">{pendientesCount} recibo{pendientesCount !== 1 ? 's' : ''} pendiente{pendientesCount !== 1 ? 's' : ''}</p>
         </div>
 
         {/* Socias con deuda */}
-        <div className="bg-white border border-[#E8EAED] rounded-xl p-5">
+        <div className="bg-white border border-[#E7E7E0] rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+            <p className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wider">
               Miembros con deuda
             </p>
             <div className="w-8 h-8 rounded-lg bg-[#FEE2E2] flex items-center justify-center">
@@ -526,28 +526,28 @@ export default function Pagos() {
           <p className="text-2xl font-extrabold text-[#DC2626]">
             {kpis.sociosConDeuda}
           </p>
-          <p className="text-xs text-[#9CA3AF] mt-1">miembro{kpis.sociosConDeuda !== 1 ? 's' : ''} con recibos pendientes</p>
+          <p className="text-xs text-[#A8A89F] mt-1">miembro{kpis.sociosConDeuda !== 1 ? 's' : ''} con recibos pendientes</p>
         </div>
 
         {/* Media por socia */}
-        <div className="bg-white border border-[#E8EAED] rounded-xl p-5">
+        <div className="bg-white border border-[#E7E7E0] rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+            <p className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wider">
               Media por miembro
             </p>
-            <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center">
-              <BarChart3 size={15} className="text-[#2563EB]" />
+            <div className="w-8 h-8 rounded-lg bg-[#EDF9C8] flex items-center justify-center">
+              <BarChart3 size={15} className="text-[#7AA80E]" />
             </div>
           </div>
-          <p className="text-2xl font-extrabold text-[#111827]">
+          <p className="text-2xl font-extrabold text-[#1A1A1A]">
             {kpis.mediaXSocia.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
           </p>
-          <p className="text-xs text-[#9CA3AF] mt-1">sobre miembros activos este mes</p>
+          <p className="text-xs text-[#A8A89F] mt-1">sobre miembros activos este mes</p>
         </div>
       </div>
 
       {/* ── Main tabs ────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 border-b border-[#E8EAED] overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-[#E7E7E0] overflow-x-auto">
         {([
           { value: 'cobros',        label: 'Cobros' },
           { value: 'suscripciones', label: 'Suscripciones activas' },
@@ -559,8 +559,8 @@ export default function Pagos() {
             className={cn(
               'px-5 py-3 text-sm font-semibold border-b-2 transition-all',
               mainTab === t.value
-                ? 'border-[#111827] text-[#111827]'
-                : 'border-transparent text-[#6B7280] hover:text-[#111827] hover:border-[#E8EAED]'
+                ? 'border-[#1A1A1A] text-[#1A1A1A]'
+                : 'border-transparent text-[#8E8E86] hover:text-[#1A1A1A] hover:border-[#E7E7E0]'
             )}
           >
             {t.label}
@@ -598,14 +598,14 @@ export default function Pagos() {
                     className={cn(
                       'flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all',
                       active
-                        ? 'bg-[#111827] text-white'
-                        : 'text-[#6B7280] hover:text-[#111827] hover:bg-white',
+                        ? 'bg-[#C6F94D] text-[#171717]'
+                        : 'text-[#8E8E86] hover:text-[#1A1A1A] hover:bg-white',
                     )}
                   >
                     {label}
                     <span className={cn(
                       'text-xs px-1.5 py-0.5 rounded-full font-bold',
-                      active ? 'bg-white/20 text-white' : 'bg-[#F4F5F7] text-[#6B7280]',
+                      active ? 'bg-white/20 text-white' : 'bg-[#EEEEE8] text-[#8E8E86]',
                     )}>
                       {count}
                     </span>
@@ -630,34 +630,34 @@ export default function Pagos() {
           </div>
 
           {/* Filters */}
-          <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
+          <div className="bg-white border border-[#E7E7E0] rounded-xl p-4">
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-48">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8A89F]" />
                 <input
                   type="text"
                   placeholder="Buscar por concepto o miembro…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-[#E8EAED] bg-[#F4F5F7] pl-9 pr-3.5 py-2.5 text-sm text-[#111827] focus:outline-none focus:border-[#2563EB] transition-colors"
+                  className="w-full rounded-xl border border-[#E7E7E0] bg-[#EEEEE8] pl-9 pr-3.5 py-2.5 text-sm text-[#1A1A1A] focus:outline-none focus:border-[#7AA80E] transition-colors"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-[#6B7280] whitespace-nowrap">Desde</label>
+                <label className="text-xs font-semibold text-[#8E8E86] whitespace-nowrap">Desde</label>
                 <input type="month" value={desde} onChange={e => setDesde(e.target.value)}
-                  className="rounded-xl border border-[#E8EAED] bg-white px-3 py-2 text-sm text-[#111827] focus:outline-none focus:border-[#2563EB] transition-colors"
+                  className="rounded-xl border border-[#E7E7E0] bg-white px-3 py-2 text-sm text-[#1A1A1A] focus:outline-none focus:border-[#7AA80E] transition-colors"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-[#6B7280] whitespace-nowrap">Hasta</label>
+                <label className="text-xs font-semibold text-[#8E8E86] whitespace-nowrap">Hasta</label>
                 <input type="month" value={hasta} onChange={e => setHasta(e.target.value)}
-                  className="rounded-xl border border-[#E8EAED] bg-white px-3 py-2 text-sm text-[#111827] focus:outline-none focus:border-[#2563EB] transition-colors"
+                  className="rounded-xl border border-[#E7E7E0] bg-white px-3 py-2 text-sm text-[#1A1A1A] focus:outline-none focus:border-[#7AA80E] transition-colors"
                 />
               </div>
               <select
                 value={sort}
                 onChange={e => setSort(e.target.value as SortKey)}
-                className="rounded-xl border border-[#E8EAED] bg-white px-3 py-2 text-sm font-medium text-[#111827] focus:outline-none focus:border-[#2563EB] transition-colors appearance-none cursor-pointer"
+                className="rounded-xl border border-[#E7E7E0] bg-white px-3 py-2 text-sm font-medium text-[#1A1A1A] focus:outline-none focus:border-[#7AA80E] transition-colors appearance-none cursor-pointer"
               >
                 {SORT_OPTIONS.map(o => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -665,7 +665,7 @@ export default function Pagos() {
               </select>
               <button
                 onClick={exportCSV}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E8EAED] text-sm font-semibold text-[#6B7280] hover:bg-[#F4F5F7] hover:text-[#111827] transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-[#EEEEE8] hover:text-[#1A1A1A] transition-colors"
               >
                 <Download size={14} />
                 CSV
@@ -674,20 +674,20 @@ export default function Pagos() {
           </div>
 
           {/* List */}
-          <div className="bg-white border border-[#E8EAED] rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-[#E8EAED] flex items-center justify-between">
-              <p className="text-xs font-semibold text-[#6B7280]">
+          <div className="bg-white border border-[#E7E7E0] rounded-xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-[#E7E7E0] flex items-center justify-between">
+              <p className="text-xs font-semibold text-[#8E8E86]">
                 {filtradosCobros.length} resultado{filtradosCobros.length !== 1 ? 's' : ''}
               </p>
             </div>
 
             {filtradosCobros.length === 0 ? (
               <div className="py-16 text-center">
-                <CreditCard size={32} className="text-[#E8EAED] mx-auto mb-3" />
-                <p className="text-sm text-[#9CA3AF]">Sin recibos en esta categoría</p>
+                <CreditCard size={32} className="text-[#E7E7E0] mx-auto mb-3" />
+                <p className="text-sm text-[#A8A89F]">Sin recibos en esta categoría</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#F4F5F7]">
+              <div className="divide-y divide-[#EEEEE8]">
                 {filtradosCobros.map(r => {
                   const badge    = BADGE[r.estado] ?? BADGE.PENDIENTE;
                   const initials = socioInitials(r.socioId);
@@ -699,7 +699,7 @@ export default function Pagos() {
                   return (
                     <div key={r.id}>
                       <div
-                        className="flex items-center gap-4 px-5 py-4 hover:bg-[#F9FAFB] transition-colors group cursor-pointer"
+                        className="flex items-center gap-4 px-5 py-4 hover:bg-[#F5F5F1] transition-colors group cursor-pointer"
                         onClick={() => setExpandedId(expanded ? null : r.id)}
                       >
                         {/* Avatar */}
@@ -708,19 +708,19 @@ export default function Pagos() {
                           onClick={e => e.stopPropagation()}
                           className="shrink-0"
                         >
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold bg-[#DBEAFE] text-[#2563EB]">
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold bg-[#DBEAFE] text-[#7AA80E]">
                             {initials}
                           </div>
                         </Link>
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#111827] truncate">{r.concepto}</p>
-                          <p className="text-xs mt-0.5 text-[#9CA3AF] truncate">
+                          <p className="text-sm font-semibold text-[#1A1A1A] truncate">{r.concepto}</p>
+                          <p className="text-xs mt-0.5 text-[#A8A89F] truncate">
                             <Link
                               href={`/socios/${r.socioId}`}
                               onClick={e => e.stopPropagation()}
-                              className="hover:text-[#2563EB] hover:underline transition-colors"
+                              className="hover:text-[#7AA80E] hover:underline transition-colors"
                             >
                               {name}
                             </Link>
@@ -732,7 +732,7 @@ export default function Pagos() {
 
                         {/* Amount + badge */}
                         <div className="text-right shrink-0 mr-2">
-                          <p className="text-sm font-extrabold text-[#111827]">
+                          <p className="text-sm font-extrabold text-[#1A1A1A]">
                             {r.importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
                           </p>
                           <span
@@ -761,7 +761,7 @@ export default function Pagos() {
                               <button
                                 onClick={() => cobrarOnline(r.id)}
                                 disabled={stripeLoading === r.id}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#EFF6FF] text-[#2563EB] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#EDF9C8] text-[#7AA80E] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
                                 title="Enviar enlace de pago Stripe"
                               >
                                 {stripeLoading === r.id
@@ -783,7 +783,7 @@ export default function Pagos() {
                               {factura && (
                                 <button
                                   onClick={() => {/* TODO: abrir factura */}}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#F4F5F7] text-[#6B7280] hover:bg-[#E8EAED] transition-colors"
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#EEEEE8] text-[#8E8E86] hover:bg-[#E7E7E0] transition-colors"
                                   title="Ver factura"
                                 >
                                   <FileText size={12} />
@@ -802,7 +802,7 @@ export default function Pagos() {
                           {r.estado === 'DEVUELTO' && (
                             <button
                               onClick={() => reintentar(r.id)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#DBEAFE] text-[#2563EB] hover:bg-[#BFDBFE] transition-colors"
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#DBEAFE] text-[#7AA80E] hover:bg-[#BFDBFE] transition-colors"
                             >
                               <RefreshCw size={12} />
                               Reintentar
@@ -818,54 +818,54 @@ export default function Pagos() {
                         </div>
 
                         {/* Chevron */}
-                        <div className="shrink-0 text-[#9CA3AF]">
+                        <div className="shrink-0 text-[#A8A89F]">
                           {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                         </div>
                       </div>
 
                       {/* Expanded detail */}
                       {expanded && (
-                        <div className="px-5 pb-5 bg-[#F9FAFB] border-t border-[#E8EAED]">
+                        <div className="px-5 pb-5 bg-[#F5F5F1] border-t border-[#E7E7E0]">
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
                             <div>
-                              <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Estado</p>
+                              <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Estado</p>
                               <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
                                 style={{ backgroundColor: badge.bg, color: badge.text }}>
                                 {badge.label}
                               </span>
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Vencimiento</p>
-                              <p className="text-sm font-semibold text-[#111827]">{fecha(r.fechaVencimiento)}</p>
+                              <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Vencimiento</p>
+                              <p className="text-sm font-semibold text-[#1A1A1A]">{fecha(r.fechaVencimiento)}</p>
                             </div>
                             {r.fechaCobro && (
                               <div>
-                                <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Fecha cobro</p>
-                                <p className="text-sm font-semibold text-[#111827]">{fecha(r.fechaCobro)}</p>
+                                <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Fecha cobro</p>
+                                <p className="text-sm font-semibold text-[#1A1A1A]">{fecha(r.fechaCobro)}</p>
                               </div>
                             )}
                             {r.fechaDevolucion && (
                               <div>
-                                <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Devolución</p>
-                                <p className="text-sm font-semibold text-[#111827]">{fecha(r.fechaDevolucion)}</p>
+                                <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Devolución</p>
+                                <p className="text-sm font-semibold text-[#1A1A1A]">{fecha(r.fechaDevolucion)}</p>
                               </div>
                             )}
                             {typeof r.intentosReintento === 'number' && r.intentosReintento > 0 && (
                               <div>
-                                <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Reintentos</p>
-                                <p className="text-sm font-semibold text-[#111827]">{r.intentosReintento}</p>
+                                <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Reintentos</p>
+                                <p className="text-sm font-semibold text-[#1A1A1A]">{r.intentosReintento}</p>
                               </div>
                             )}
                             {sus && (
                               <div>
-                                <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Plan</p>
-                                <p className="text-sm font-semibold text-[#111827]">{planName(sus.planId)}</p>
+                                <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Plan</p>
+                                <p className="text-sm font-semibold text-[#1A1A1A]">{planName(sus.planId)}</p>
                               </div>
                             )}
                             {factura && (
                               <div>
-                                <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Factura</p>
-                                <p className="text-sm font-semibold text-[#2563EB]">{factura.numeroCompleto}</p>
+                                <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Factura</p>
+                                <p className="text-sm font-semibold text-[#7AA80E]">{factura.numeroCompleto}</p>
                               </div>
                             )}
                           </div>
@@ -884,28 +884,28 @@ export default function Pagos() {
       {/* TAB: SUSCRIPCIONES ACTIVAS                                             */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {mainTab === 'suscripciones' && (
-        <div className="bg-white border border-[#E8EAED] rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#E8EAED] flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#111827]">
+        <div className="bg-white border border-[#E7E7E0] rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#E7E7E0] flex items-center justify-between">
+            <p className="text-sm font-semibold text-[#1A1A1A]">
               {suscripciones.filter(s => s.estado === 'ACTIVA').length} suscripciones activas
             </p>
           </div>
 
           {suscripciones.filter(s => s.estado === 'ACTIVA').length === 0 ? (
             <div className="py-16 text-center">
-              <Users size={32} className="text-[#E8EAED] mx-auto mb-3" />
-              <p className="text-sm text-[#9CA3AF]">No hay suscripciones activas</p>
+              <Users size={32} className="text-[#E7E7E0] mx-auto mb-3" />
+              <p className="text-sm text-[#A8A89F]">No hay suscripciones activas</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               {/* Table header */}
-              <div className="grid grid-cols-6 gap-4 px-5 py-2 bg-[#F9FAFB] border-b border-[#E8EAED] min-w-[700px]">
+              <div className="grid grid-cols-6 gap-4 px-5 py-2 bg-[#F5F5F1] border-b border-[#E7E7E0] min-w-[700px]">
                 {['Miembro', 'Plan', 'Precio/mes', 'Próximo cobro', 'Sesiones rest.', 'Acciones'].map(h => (
-                  <p key={h} className="text-xs font-bold text-[#6B7280] uppercase tracking-wider">{h}</p>
+                  <p key={h} className="text-xs font-bold text-[#8E8E86] uppercase tracking-wider">{h}</p>
                 ))}
               </div>
 
-              <div className="divide-y divide-[#F4F5F7]">
+              <div className="divide-y divide-[#EEEEE8]">
                 {suscripciones
                   .filter(s => s.estado === 'ACTIVA')
                   .map(sus => {
@@ -918,30 +918,30 @@ export default function Pagos() {
                       : (() => { const d = new Date(sus.fechaInicio); d.setMonth(d.getMonth() + 1); return d; })();
 
                     return (
-                      <div key={sus.id} className="grid grid-cols-6 gap-4 px-5 py-4 items-center hover:bg-[#F9FAFB] transition-colors group min-w-[700px]">
+                      <div key={sus.id} className="grid grid-cols-6 gap-4 px-5 py-4 items-center hover:bg-[#F5F5F1] transition-colors group min-w-[700px]">
                         {/* Miembro */}
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-[#DBEAFE] text-[#2563EB] shrink-0">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-[#DBEAFE] text-[#7AA80E] shrink-0">
                             {initials}
                           </div>
                           <div className="min-w-0">
                             <Link href={`/socios/${sus.socioId}`}
-                              className="text-sm font-semibold text-[#111827] truncate hover:text-[#2563EB] hover:underline block">
+                              className="text-sm font-semibold text-[#1A1A1A] truncate hover:text-[#7AA80E] hover:underline block">
                               {socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia eliminada'}
                             </Link>
                           </div>
                         </div>
 
                         {/* Plan */}
-                        <p className="text-sm text-[#111827] font-medium truncate">{plan?.nombre ?? '—'}</p>
+                        <p className="text-sm text-[#1A1A1A] font-medium truncate">{plan?.nombre ?? '—'}</p>
 
                         {/* Precio */}
-                        <p className="text-sm font-bold text-[#111827]">
+                        <p className="text-sm font-bold text-[#1A1A1A]">
                           {plan ? `${plan.precio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €` : '—'}
                         </p>
 
                         {/* Próximo cobro */}
-                        <p className="text-sm text-[#6B7280]">{fecha(nextCobro.toISOString())}</p>
+                        <p className="text-sm text-[#8E8E86]">{fecha(nextCobro.toISOString())}</p>
 
                         {/* Sesiones restantes */}
                         <div>
@@ -955,13 +955,13 @@ export default function Pagos() {
                               {sus.sesionesRestantes} ses.
                             </span>
                           ) : (
-                            <span className="text-xs text-[#9CA3AF]">Ilimitadas</span>
+                            <span className="text-xs text-[#A8A89F]">Ilimitadas</span>
                           )}
                         </div>
 
                         {/* Acciones */}
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="text-xs px-2.5 py-1.5 rounded-lg font-bold border border-[#E8EAED] text-[#6B7280] hover:bg-[#F4F5F7] transition-colors">
+                          <button className="text-xs px-2.5 py-1.5 rounded-lg font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#EEEEE8] transition-colors">
                             Cambiar plan
                           </button>
                           <button className="text-xs px-2.5 py-1.5 rounded-lg font-bold text-[#DC2626] hover:bg-red-50 transition-colors">
@@ -983,28 +983,28 @@ export default function Pagos() {
       {mainTab === 'historial' && (
         <div className="space-y-4">
           {/* Historial filters */}
-          <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
+          <div className="bg-white border border-[#E7E7E0] rounded-xl p-4">
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-48">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8A89F]" />
                 <input
                   type="text"
                   placeholder="Buscar miembro o concepto…"
                   value={histSearch}
                   onChange={e => setHistSearch(e.target.value)}
-                  className="w-full rounded-xl border border-[#E8EAED] bg-[#F4F5F7] pl-9 pr-3.5 py-2.5 text-sm text-[#111827] focus:outline-none focus:border-[#2563EB] transition-colors"
+                  className="w-full rounded-xl border border-[#E7E7E0] bg-[#EEEEE8] pl-9 pr-3.5 py-2.5 text-sm text-[#1A1A1A] focus:outline-none focus:border-[#7AA80E] transition-colors"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-[#6B7280] whitespace-nowrap">Mes</label>
+                <label className="text-xs font-semibold text-[#8E8E86] whitespace-nowrap">Mes</label>
                 <input type="month" value={histMes} onChange={e => setHistMes(e.target.value)}
-                  className="rounded-xl border border-[#E8EAED] bg-white px-3 py-2 text-sm text-[#111827] focus:outline-none focus:border-[#2563EB] transition-colors"
+                  className="rounded-xl border border-[#E7E7E0] bg-white px-3 py-2 text-sm text-[#1A1A1A] focus:outline-none focus:border-[#7AA80E] transition-colors"
                 />
               </div>
               <select
                 value={histEstado}
                 onChange={e => setHistEstado(e.target.value as EstadoRecibo | 'TODOS')}
-                className="rounded-xl border border-[#E8EAED] bg-white px-3 py-2 text-sm font-medium text-[#111827] focus:outline-none focus:border-[#2563EB] transition-colors appearance-none cursor-pointer"
+                className="rounded-xl border border-[#E7E7E0] bg-white px-3 py-2 text-sm font-medium text-[#1A1A1A] focus:outline-none focus:border-[#7AA80E] transition-colors appearance-none cursor-pointer"
               >
                 <option value="TODOS">Todos los estados</option>
                 <option value="COBRADO">Cobrado</option>
@@ -1019,7 +1019,7 @@ export default function Pagos() {
                   'flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors',
                   exportState === 'done'
                     ? 'bg-[#D1FAE5] text-[#059669]'
-                    : 'border border-[#E8EAED] bg-white text-[#6B7280] hover:bg-[#F4F5F7] hover:text-[#111827]'
+                    : 'border border-[#E7E7E0] bg-white text-[#8E8E86] hover:bg-[#EEEEE8] hover:text-[#1A1A1A]'
                 )}
               >
                 {exportState === 'loading' && <Loader2 size={14} className="animate-spin" />}
@@ -1032,19 +1032,19 @@ export default function Pagos() {
 
           {/* Grouped by month */}
           {historialAgrupado.length === 0 ? (
-            <div className="bg-white border border-[#E8EAED] rounded-xl py-16 text-center">
-              <BarChart3 size={32} className="text-[#E8EAED] mx-auto mb-3" />
-              <p className="text-sm text-[#9CA3AF]">Sin resultados para los filtros seleccionados</p>
+            <div className="bg-white border border-[#E7E7E0] rounded-xl py-16 text-center">
+              <BarChart3 size={32} className="text-[#E7E7E0] mx-auto mb-3" />
+              <p className="text-sm text-[#A8A89F]">Sin resultados para los filtros seleccionados</p>
             </div>
           ) : (
             historialAgrupado.map(group => (
-              <div key={group.ym} className="bg-white border border-[#E8EAED] rounded-xl overflow-hidden">
+              <div key={group.ym} className="bg-white border border-[#E7E7E0] rounded-xl overflow-hidden">
                 {/* Month header */}
-                <div className="flex items-center justify-between px-5 py-3 bg-[#F9FAFB] border-b border-[#E8EAED]">
+                <div className="flex items-center justify-between px-5 py-3 bg-[#F5F5F1] border-b border-[#E7E7E0]">
                   <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-[#6B7280]" />
-                    <p className="text-sm font-bold text-[#111827] capitalize">{group.label}</p>
-                    <span className="text-xs text-[#9CA3AF] font-medium">
+                    <Calendar size={14} className="text-[#8E8E86]" />
+                    <p className="text-sm font-bold text-[#1A1A1A] capitalize">{group.label}</p>
+                    <span className="text-xs text-[#A8A89F] font-medium">
                       {group.items.length} recibo{group.items.length !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -1054,19 +1054,19 @@ export default function Pagos() {
                 </div>
 
                 {/* Items */}
-                <div className="divide-y divide-[#F4F5F7]">
+                <div className="divide-y divide-[#EEEEE8]">
                   {group.items.map(r => {
                     const badge = BADGE[r.estado] ?? BADGE.PENDIENTE;
                     return (
                       <div key={r.id} className="flex items-center gap-4 px-5 py-3.5">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-[#DBEAFE] text-[#2563EB] shrink-0">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-[#DBEAFE] text-[#7AA80E] shrink-0">
                           {socioInitials(r.socioId)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#111827] truncate">{r.concepto}</p>
-                          <p className="text-xs text-[#9CA3AF] truncate">{socioName(r.socioId)}</p>
+                          <p className="text-sm font-semibold text-[#1A1A1A] truncate">{r.concepto}</p>
+                          <p className="text-xs text-[#A8A89F] truncate">{socioName(r.socioId)}</p>
                         </div>
-                        <p className="text-sm font-bold text-[#111827] shrink-0">
+                        <p className="text-sm font-bold text-[#1A1A1A] shrink-0">
                           {r.importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
                         </p>
                         <span
@@ -1075,7 +1075,7 @@ export default function Pagos() {
                         >
                           {badge.label}
                         </span>
-                        <p className="text-xs text-[#9CA3AF] shrink-0 hidden sm:block">
+                        <p className="text-xs text-[#A8A89F] shrink-0 hidden sm:block">
                           {r.fechaCobro ? fecha(r.fechaCobro) : fecha(r.fechaVencimiento)}
                         </p>
                       </div>
@@ -1094,7 +1094,7 @@ export default function Pagos() {
       <Dialog open={showMasivo} onOpenChange={open => { if (!open && masivoProgress !== 'running') setShowMasivo(false); }}>
         <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-[#111827] flex items-center gap-2">
+            <DialogTitle className="text-lg font-bold text-[#1A1A1A] flex items-center gap-2">
               <Zap size={18} className="text-[#059669]" />
               Cobro masivo
             </DialogTitle>
@@ -1107,16 +1107,16 @@ export default function Pagos() {
                 <CheckCheck size={32} className="text-[#059669]" />
               </div>
               <div>
-                <p className="text-lg font-bold text-[#111827]">
+                <p className="text-lg font-bold text-[#1A1A1A]">
                   {masivoTotal} cobro{masivoTotal !== 1 ? 's' : ''} procesado{masivoTotal !== 1 ? 's' : ''}
                 </p>
-                <p className="text-sm text-[#6B7280] mt-1">
+                <p className="text-sm text-[#8E8E86] mt-1">
                   {masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € marcados como cobrados
                 </p>
               </div>
               <button
                 onClick={() => setShowMasivo(false)}
-                className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-[#111827] hover:bg-[#1f2937] transition-colors"
+                className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
               >
                 Cerrar
               </button>
@@ -1128,10 +1128,10 @@ export default function Pagos() {
                 <Loader2 size={32} className="text-[#D97706] animate-spin" />
               </div>
               <div>
-                <p className="text-lg font-bold text-[#111827]">
+                <p className="text-lg font-bold text-[#1A1A1A]">
                   Cobrando {masivoCobrando} / {masivoTotal}
                 </p>
-                <div className="w-48 h-2 bg-[#E8EAED] rounded-full mt-3 mx-auto overflow-hidden">
+                <div className="w-48 h-2 bg-[#E7E7E0] rounded-full mt-3 mx-auto overflow-hidden">
                   <div
                     className="h-full bg-[#059669] rounded-full transition-all duration-200"
                     style={{ width: `${(masivoCobrando / masivoTotal) * 100}%` }}
@@ -1144,7 +1144,7 @@ export default function Pagos() {
             <>
               <div className="flex-1 overflow-y-auto space-y-2 my-2 pr-1">
                 {masivoData.length === 0 ? (
-                  <p className="text-sm text-[#9CA3AF] text-center py-8">No hay suscripciones activas</p>
+                  <p className="text-sm text-[#A8A89F] text-center py-8">No hay suscripciones activas</p>
                 ) : (
                   masivoData.map(({ sus, socio, plan, pendientesRecibos }) => {
                     if (!socio) return null;
@@ -1161,7 +1161,7 @@ export default function Pagos() {
                             ? 'border-[#059669] bg-[#F0FDF4]'
                             : hasPending
                               ? 'border-[#FEF3C7] bg-[#FFFBEB] hover:border-[#D97706]'
-                              : 'border-[#E8EAED] bg-white hover:bg-[#F9FAFB] opacity-60'
+                              : 'border-[#E7E7E0] bg-white hover:bg-[#F5F5F1] opacity-60'
                         )}
                         onClick={() => {
                           if (!hasPending) return;
@@ -1186,16 +1186,16 @@ export default function Pagos() {
                         </div>
 
                         {/* Avatar */}
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-[#DBEAFE] text-[#2563EB] shrink-0">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-[#DBEAFE] text-[#7AA80E] shrink-0">
                           {initials}
                         </div>
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#111827] truncate">
+                          <p className="text-sm font-semibold text-[#1A1A1A] truncate">
                             {socio.nombre} {socio.apellidos}
                           </p>
-                          <p className="text-xs text-[#9CA3AF] truncate">{plan?.nombre ?? '—'}</p>
+                          <p className="text-xs text-[#A8A89F] truncate">{plan?.nombre ?? '—'}</p>
                         </div>
 
                         {/* Amount / status */}
@@ -1223,19 +1223,19 @@ export default function Pagos() {
               </div>
 
               {/* Footer */}
-              <div className="border-t border-[#E8EAED] pt-4 space-y-3">
+              <div className="border-t border-[#E7E7E0] pt-4 space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <p className="text-[#6B7280]">
+                  <p className="text-[#8E8E86]">
                     {masivoSelected.size} recibo{masivoSelected.size !== 1 ? 's' : ''} seleccionado{masivoSelected.size !== 1 ? 's' : ''}
                   </p>
-                  <p className="font-extrabold text-[#111827]">
+                  <p className="font-extrabold text-[#1A1A1A]">
                     Total: {masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
                   </p>
                 </div>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowMasivo(false)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E8EAED] text-[#6B7280] hover:bg-[#F4F5F7] transition-colors"
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#EEEEE8] transition-colors"
                   >
                     Cancelar
                   </button>
@@ -1260,7 +1260,7 @@ export default function Pagos() {
       <Dialog open={showFactura} onOpenChange={open => { if (!open) setShowFactura(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-[#111827] flex items-center gap-2">
+            <DialogTitle className="text-lg font-semibold text-[#1A1A1A] flex items-center gap-2">
               <FileText size={18} />
               Nueva factura
             </DialogTitle>
@@ -1298,18 +1298,18 @@ export default function Pagos() {
               />
             </FF>
             {facturaForm.importe && !isNaN(parseFloat(facturaForm.importe)) && (
-              <div className="bg-[#F9FAFB] border border-[#E8EAED] rounded-xl p-4 space-y-1.5">
+              <div className="bg-[#F5F5F1] border border-[#E7E7E0] rounded-xl p-4 space-y-1.5">
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#6B7280]">Base imponible</span>
-                  <span className="font-semibold text-[#111827]">{parseFloat(facturaForm.importe).toFixed(2)} €</span>
+                  <span className="text-[#8E8E86]">Base imponible</span>
+                  <span className="font-semibold text-[#1A1A1A]">{parseFloat(facturaForm.importe).toFixed(2)} €</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#6B7280]">IVA 21%</span>
-                  <span className="font-semibold text-[#111827]">{(parseFloat(facturaForm.importe) * 0.21).toFixed(2)} €</span>
+                  <span className="text-[#8E8E86]">IVA 21%</span>
+                  <span className="font-semibold text-[#1A1A1A]">{(parseFloat(facturaForm.importe) * 0.21).toFixed(2)} €</span>
                 </div>
-                <div className="flex justify-between text-sm font-bold border-t border-[#E8EAED] pt-1.5 mt-1.5">
-                  <span className="text-[#111827]">Total</span>
-                  <span className="text-[#111827]">{(parseFloat(facturaForm.importe) * 1.21).toFixed(2)} €</span>
+                <div className="flex justify-between text-sm font-bold border-t border-[#E7E7E0] pt-1.5 mt-1.5">
+                  <span className="text-[#1A1A1A]">Total</span>
+                  <span className="text-[#1A1A1A]">{(parseFloat(facturaForm.importe) * 1.21).toFixed(2)} €</span>
                 </div>
               </div>
             )}
@@ -1317,7 +1317,7 @@ export default function Pagos() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setShowFactura(false)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E8EAED] text-[#6B7280] hover:bg-[#F4F5F7] transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#EEEEE8] transition-colors"
             >
               Cancelar
             </button>
@@ -1327,7 +1327,7 @@ export default function Pagos() {
                 // generarFactura would be called here when available in context
                 setShowFactura(false);
               }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#111827] hover:bg-[#1f2937] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
               <FileText size={14} />
               Generar factura
@@ -1342,7 +1342,7 @@ export default function Pagos() {
       <Dialog open={showNuevoCobro} onOpenChange={open => { if (!open) setShowNuevoCobro(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-[#111827]">Nuevo cobro</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-[#1A1A1A]">Nuevo cobro</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <FF label="Miembro">
@@ -1387,14 +1387,14 @@ export default function Pagos() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setShowNuevoCobro(false)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E8EAED] text-[#6B7280] hover:bg-[#F4F5F7] transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#EEEEE8] transition-colors"
             >
               Cancelar
             </button>
             <button
               onClick={crearNuevoCobro}
               disabled={!nuevoForm.concepto.trim() || !nuevoForm.importe || !nuevoForm.socioId}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#111827] hover:bg-[#1f2937] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Crear cobro
             </button>
@@ -1412,13 +1412,13 @@ export default function Pagos() {
               <AlertTriangle size={24} className="text-[#DC2626]" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-[#111827] mb-1">Eliminar recibo</h3>
-              <p className="text-sm text-[#6B7280]">Esta accion no se puede deshacer.</p>
+              <h3 className="text-base font-semibold text-[#1A1A1A] mb-1">Eliminar recibo</h3>
+              <p className="text-sm text-[#8E8E86]">Esta accion no se puede deshacer.</p>
             </div>
             <div className="flex gap-3 w-full">
               <button
                 onClick={() => setConfirmEliminar(null)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E8EAED] text-[#6B7280] hover:bg-[#F4F5F7] transition-colors"
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#EEEEE8] transition-colors"
               >
                 Cancelar
               </button>

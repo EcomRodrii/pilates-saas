@@ -53,8 +53,8 @@ function isDark(hex: string) {
 
 // ─── Shared input styles ──────────────────────────────────────────────────────
 
-const inputCls = 'w-full rounded-xl border border-[#E8EAED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#111827] focus:outline-none focus:border-[#9CA3AF] transition-colors';
-const selectCls = 'w-full rounded-xl border border-[#E8EAED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#111827] focus:outline-none focus:border-[#9CA3AF] transition-colors appearance-none';
+const inputCls = 'w-full rounded-xl border border-[#E7E7E0] bg-white px-3.5 py-2.5 text-sm font-medium text-[#1A1A1A] focus:outline-none focus:border-[#A8A89F] transition-colors';
+const selectCls = 'w-full rounded-xl border border-[#E7E7E0] bg-white px-3.5 py-2.5 text-sm font-medium text-[#1A1A1A] focus:outline-none focus:border-[#A8A89F] transition-colors appearance-none';
 
 // ─── SesionEnriquecida local type ─────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ type RecurringFormData = {
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">{label}</label>
+      <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">{label}</label>
       {children}
     </div>
   );
@@ -126,7 +126,7 @@ function DiaPill({ label, active, onClick }: { label: string; active: boolean; o
       onClick={onClick}
       className={cn(
         'w-9 h-9 rounded-full text-[12px] font-bold transition-colors',
-        active ? 'bg-[#111827] text-white' : 'bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB]'
+        active ? 'bg-[#C6F94D] text-[#171717]' : 'bg-[#F1F1EC] text-[#8E8E86] hover:bg-[#E7E7E0]'
       )}
     >
       {label}
@@ -155,8 +155,8 @@ function StatsBar({ sesiones, reservas, todayStr }: {
   const ocupPct = totalPlazas > 0 ? Math.round((ocupadas / totalPlazas) * 100) : 0;
 
   const stats = [
-    { icon: CalendarDays, label: 'Clases hoy', value: hoy.length, sub: hoy.length === 1 ? 'sesión' : 'sesiones', color: '#4F46E5', bg: '#EEF2FF' },
-    { icon: Users, label: 'Plazas totales', value: totalPlazas, sub: 'disponibles hoy', color: '#0F172A', bg: '#F1F5F9' },
+    { icon: CalendarDays, label: 'Clases hoy', value: hoy.length, sub: hoy.length === 1 ? 'sesión' : 'sesiones', color: '#8FBF12', bg: '#EDF9C8' },
+    { icon: Users, label: 'Plazas totales', value: totalPlazas, sub: 'disponibles hoy', color: '#1A1A1A', bg: '#F1F5F9' },
     { icon: TrendingUp, label: 'Ocupación', value: `${ocupPct}%`, sub: `${ocupadas} de ${totalPlazas} reservadas`, color: '#D97706', bg: '#FEF3C7' },
     { icon: CheckCircle2, label: 'Check-in', value: `${checkinRate}%`, sub: `${asistidas} asistidas`, color: '#059669', bg: '#DCFCE7' },
   ];
@@ -164,16 +164,16 @@ function StatsBar({ sesiones, reservas, todayStr }: {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {stats.map(({ icon: Icon, label, value, sub, color, bg }) => (
-        <div key={label} className="bg-white border border-[#EBECF0] rounded-2xl p-4 flex flex-col gap-2.5 hover:shadow-sm transition-shadow">
+        <div key={label} className="bg-white border border-[#E7E7E0] rounded-2xl p-4 flex flex-col gap-2.5 hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#9CA3AF]">{label}</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#A8A89F]">{label}</span>
             <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: bg }}>
               <Icon size={15} color={color} />
             </div>
           </div>
           <div>
-            <p className="text-[26px] font-extrabold text-[#0F172A] leading-none tracking-tight tabular-nums">{value}</p>
-            <p className="text-[11px] text-[#9CA3AF] mt-1 truncate">{sub}</p>
+            <p className="text-[26px] font-extrabold text-[#1A1A1A] leading-none tracking-tight tabular-nums">{value}</p>
+            <p className="text-[11px] text-[#A8A89F] mt-1 truncate">{sub}</p>
           </div>
         </div>
       ))}
@@ -194,16 +194,16 @@ function FilterBar({ instructores, salas, filtroInstructor, filtroSala, onInstru
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <div className="relative flex-1 min-w-[160px] max-w-xs">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8A89F]" />
         <input
-          className="w-full rounded-xl border border-[#E8EAED] bg-white pl-8 pr-3 py-2 text-sm font-medium text-[#111827] focus:outline-none focus:border-[#9CA3AF] transition-colors placeholder:text-[#9CA3AF]"
+          className="w-full rounded-xl border border-[#E7E7E0] bg-white pl-8 pr-3 py-2 text-sm font-medium text-[#1A1A1A] focus:outline-none focus:border-[#A8A89F] transition-colors placeholder:text-[#A8A89F]"
           placeholder="Buscar clase..."
           value={busqueda}
           onChange={e => onBusqueda(e.target.value)}
         />
       </div>
       <select
-        className="rounded-xl border border-[#E8EAED] bg-white px-3 py-2 text-sm font-medium text-[#111827] focus:outline-none appearance-none cursor-pointer"
+        className="rounded-xl border border-[#E7E7E0] bg-white px-3 py-2 text-sm font-medium text-[#1A1A1A] focus:outline-none appearance-none cursor-pointer"
         value={filtroInstructor}
         onChange={e => onInstructor(e.target.value)}
       >
@@ -211,7 +211,7 @@ function FilterBar({ instructores, salas, filtroInstructor, filtroSala, onInstru
         {instructores.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
       </select>
       <select
-        className="rounded-xl border border-[#E8EAED] bg-white px-3 py-2 text-sm font-medium text-[#111827] focus:outline-none appearance-none cursor-pointer"
+        className="rounded-xl border border-[#E7E7E0] bg-white px-3 py-2 text-sm font-medium text-[#1A1A1A] focus:outline-none appearance-none cursor-pointer"
         value={filtroSala}
         onChange={e => onSala(e.target.value)}
       >
@@ -221,7 +221,7 @@ function FilterBar({ instructores, salas, filtroInstructor, filtroSala, onInstru
       {hayFiltros && (
         <button
           onClick={() => { onInstructor(''); onSala(''); onBusqueda(''); }}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-[#E8EAED] text-[#6B7280] hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors"
         >
           <X size={12} />Limpiar
         </button>
@@ -284,10 +284,10 @@ function SessionSidebar({
   const spotsActuales = spots.filter(sp => sp.salaId === sesion.salaId);
 
   return (
-    <div className="w-full lg:w-[380px] shrink-0 bg-white lg:border-l border-[#E8EAED] flex flex-col h-full overflow-hidden">
+    <div className="w-full lg:w-[380px] shrink-0 bg-white lg:border-l border-[#E7E7E0] flex flex-col h-full overflow-hidden">
       {/* Header with class color accent */}
       <div
-        className="px-5 pt-4 pb-3 border-b border-[#E8EAED]"
+        className="px-5 pt-4 pb-3 border-b border-[#E7E7E0]"
         style={{ borderTop: `3px solid ${sesion.tipoClase.color}` }}
       >
         <div className="flex items-start justify-between mb-2">
@@ -296,19 +296,19 @@ function SessionSidebar({
               className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5"
               style={{ backgroundColor: sesion.tipoClase.color }}
             />
-            <h2 className="text-base font-bold text-[#111827] leading-tight">{sesion.tipoClase.nombre}</h2>
+            <h2 className="text-base font-bold text-[#1A1A1A] leading-tight">{sesion.tipoClase.nombre}</h2>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] transition-colors ml-2 shrink-0"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] transition-colors ml-2 shrink-0"
           >
             <X size={15} />
           </button>
         </div>
 
-        <p className="text-xs font-semibold text-[#6B7280] capitalize mb-3">{fechaLabel}</p>
+        <p className="text-xs font-semibold text-[#8E8E86] capitalize mb-3">{fechaLabel}</p>
 
-        <div className="flex items-center gap-3 text-xs font-medium text-[#6B7280] flex-wrap">
+        <div className="flex items-center gap-3 text-xs font-medium text-[#8E8E86] flex-wrap">
           <span className="flex items-center gap-1.5">
             <Clock size={12} />
             {formatHora(sesion.inicio)} – {formatHora(sesion.fin)}
@@ -326,10 +326,10 @@ function SessionSidebar({
         {/* Occupancy bar */}
         <div className="mt-3 space-y-1">
           <div className="flex justify-between text-xs font-semibold">
-            <span className="text-[#6B7280]">Ocupación</span>
+            <span className="text-[#8E8E86]">Ocupación</span>
             <span style={{ color: barColor }}>{pct}% · {sesion.confirmadas}/{sesion.aforoMaximo}</span>
           </div>
-          <div className="h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
+          <div className="h-2 bg-[#F1F1EC] rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all"
               style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }}
@@ -339,16 +339,16 @@ function SessionSidebar({
       </div>
 
       {/* Action buttons */}
-      <div className="px-5 py-2.5 border-b border-[#E8EAED] flex items-center gap-2">
+      <div className="px-5 py-2.5 border-b border-[#E7E7E0] flex items-center gap-2">
         <button
           onClick={onOpenEdit}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E8EAED] text-[#111827] hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E7E7E0] text-[#1A1A1A] hover:bg-gray-50 transition-colors"
         >
           <Pencil size={12} />Editar
         </button>
         <button
           onClick={() => setShowConfirm('cancelar')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E8EAED] text-[#6B7280] hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors"
         >
           <X size={12} />Cancelar
         </button>
@@ -370,10 +370,10 @@ function SessionSidebar({
             <AlertTriangle size={24} color={showConfirm === 'eliminar' ? '#EF4444' : '#D97706'} />
           </div>
           <div>
-            <h3 className="text-base font-bold text-[#111827] mb-1">
+            <h3 className="text-base font-bold text-[#1A1A1A] mb-1">
               {showConfirm === 'eliminar' ? '¿Eliminar clase?' : '¿Cancelar clase?'}
             </h3>
-            <p className="text-sm text-[#6B7280]">
+            <p className="text-sm text-[#8E8E86]">
               {showConfirm === 'eliminar'
                 ? 'Se eliminará la clase y todas las reservas. Esta acción no se puede deshacer.'
                 : 'La clase quedará marcada como cancelada. Las socias serán notificadas.'}
@@ -382,7 +382,7 @@ function SessionSidebar({
           <div className="flex gap-3 w-full">
             <button
               onClick={() => setShowConfirm(null)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E8EAED] text-[#6B7280] hover:bg-gray-50"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50"
             >
               Volver
             </button>
@@ -398,7 +398,7 @@ function SessionSidebar({
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-[#E8EAED] px-5 pt-2">
+      <div className="flex border-b border-[#E7E7E0] px-5 pt-2">
         {(['asistentes', 'mapa'] as const).map(tab => (
           <button
             key={tab}
@@ -406,8 +406,8 @@ function SessionSidebar({
             className={cn(
               'pb-2 mr-5 text-xs font-bold border-b-2 transition-colors capitalize',
               activeTab === tab
-                ? 'border-[#111827] text-[#111827]'
-                : 'border-transparent text-[#9CA3AF] hover:text-[#6B7280]'
+                ? 'border-[#1A1A1A] text-[#1A1A1A]'
+                : 'border-transparent text-[#A8A89F] hover:text-[#8E8E86]'
             )}
           >
             {tab === 'asistentes' ? `Asistentes (${reservas.filter(r => r.estado !== 'LISTA_ESPERA' && r.estado !== 'CANCELADA').length})` : 'Mapa'}
@@ -423,14 +423,14 @@ function SessionSidebar({
             {!showAnadir ? (
               <button
                 onClick={() => setShowAnadir(true)}
-                className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-[#E8EAED] text-xs font-bold text-[#6B7280] hover:border-[#9CA3AF] hover:text-[#111827] transition-colors mb-3"
+                className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-[#E7E7E0] text-xs font-bold text-[#8E8E86] hover:border-[#A8A89F] hover:text-[#1A1A1A] transition-colors mb-3"
               >
                 <UserPlus size={13} />Añadir socia a la clase
               </button>
             ) : (
               <div className="mb-3 space-y-2">
                 <input
-                  className="w-full rounded-xl border border-[#E8EAED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#111827] focus:outline-none focus:border-[#9CA3AF]"
+                  className="w-full rounded-xl border border-[#E7E7E0] bg-white px-3.5 py-2.5 text-sm font-medium text-[#1A1A1A] focus:outline-none focus:border-[#A8A89F]"
                   placeholder="Buscar socia..."
                   value={buscarSocia}
                   onChange={e => setBuscarSocia(e.target.value)}
@@ -441,24 +441,24 @@ function SessionSidebar({
                     <button
                       key={s.id}
                       onClick={() => { onAddReserva(sesion.id, s.id); setShowAnadir(false); setBuscarSocia(''); }}
-                      className="w-full flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-[#F9FAFB] transition-colors text-left"
+                      className="w-full flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-[#F5F5F1] transition-colors text-left"
                     >
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ backgroundColor: '#EDEAF8', color: '#4F46E5' }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ backgroundColor: '#EDF9C8', color: '#8FBF12' }}>
                         {s.nombre[0]}{s.apellidos[0]}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-[#111827] truncate">{s.nombre} {s.apellidos}</p>
-                        <p className="text-[10px] text-[#9CA3AF] truncate">{s.email}</p>
+                        <p className="text-xs font-semibold text-[#1A1A1A] truncate">{s.nombre} {s.apellidos}</p>
+                        <p className="text-[10px] text-[#A8A89F] truncate">{s.email}</p>
                       </div>
                     </button>
                   ))}
                   {sociosDisponibles.length === 0 && (
-                    <p className="text-xs text-center py-3 text-[#9CA3AF]">No hay socias disponibles</p>
+                    <p className="text-xs text-center py-3 text-[#A8A89F]">No hay socias disponibles</p>
                   )}
                 </div>
                 <button
                   onClick={() => { setShowAnadir(false); setBuscarSocia(''); }}
-                  className="w-full py-1.5 rounded-lg text-xs font-semibold text-[#9CA3AF] hover:bg-gray-50"
+                  className="w-full py-1.5 rounded-lg text-xs font-semibold text-[#A8A89F] hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
@@ -468,7 +468,7 @@ function SessionSidebar({
             {/* Attendee list */}
             {reservas.length === 0 ? (
               <div className="py-8 text-center">
-                <p className="text-sm text-[#9CA3AF]">Sin asistentes aún</p>
+                <p className="text-sm text-[#A8A89F]">Sin asistentes aún</p>
               </div>
             ) : (
               reservas
@@ -476,7 +476,7 @@ function SessionSidebar({
                 .map(r => (
                   <div
                     key={r.id}
-                    className="flex items-center gap-2.5 py-2 px-2.5 rounded-xl hover:bg-[#F9FAFB] group transition-colors"
+                    className="flex items-center gap-2.5 py-2 px-2.5 rounded-xl hover:bg-[#F5F5F1] group transition-colors"
                   >
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
@@ -485,14 +485,14 @@ function SessionSidebar({
                           ? { backgroundColor: '#D1FAE5', color: '#065F46' }
                           : r.estado === 'LISTA_ESPERA'
                           ? { backgroundColor: '#FEF3C7', color: '#92400E' }
-                          : { backgroundColor: '#EDEAF8', color: '#4F46E5' }
+                          : { backgroundColor: '#EDF9C8', color: '#8FBF12' }
                       }
                     >
                       {r.socio?.nombre[0]}{r.socio?.apellidos[0]}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-[#111827] truncate">{r.socio?.nombre} {r.socio?.apellidos}</p>
-                      <p className="text-[10px] text-[#9CA3AF]">
+                      <p className="text-xs font-semibold text-[#1A1A1A] truncate">{r.socio?.nombre} {r.socio?.apellidos}</p>
+                      <p className="text-[10px] text-[#A8A89F]">
                         {r.estado === 'LISTA_ESPERA'
                           ? `Espera #${r.posicionEspera}`
                           : r.estado === 'ASISTIDA'
@@ -517,7 +517,7 @@ function SessionSidebar({
                       )}
                       <button
                         onClick={() => onCancelarReserva(r.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-[#C4C4CC] hover:bg-red-50 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        className="w-6 h-6 flex items-center justify-center rounded-lg text-[#C6C6BE] hover:bg-red-50 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                       >
                         <X size={12} />
                       </button>
@@ -538,7 +538,7 @@ function SessionSidebar({
                 onAsignarSpot={(spotId, socioId) => onAsignarSpot(sesion.id, socioId, spotId)}
               />
             ) : (
-              <div className="flex items-center justify-center h-32 rounded-2xl border-2 border-dashed border-[#E8EAED] text-sm text-[#9CA3AF]">
+              <div className="flex items-center justify-center h-32 rounded-2xl border-2 border-dashed border-[#E7E7E0] text-sm text-[#A8A89F]">
                 Sala sin mapa de spots
               </div>
             )}
@@ -547,10 +547,10 @@ function SessionSidebar({
       </div>
 
       {/* Footer: kiosk link */}
-      <div className="px-5 py-3 border-t border-[#E8EAED]">
+      <div className="px-5 py-3 border-t border-[#E7E7E0]">
         <a
           href={`/kiosk/${sesion.id}`}
-          className="flex items-center gap-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#111827] transition-colors"
+          className="flex items-center gap-1.5 text-xs font-semibold text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
         >
           <ArrowUpRight size={13} />Ver en modo kiosk
         </a>
@@ -647,42 +647,42 @@ function ModalClasesRecurrentes({
     onCrear(sesionesFields);
   }
 
-  const f2 = 'w-full border border-[#E8EAED] rounded-xl px-3.5 py-2.5 text-sm focus:border-[#111827] focus:outline-none text-[#111827]';
-  const s2 = 'w-full border border-[#E8EAED] rounded-xl px-3.5 py-2.5 text-sm focus:border-[#111827] focus:outline-none text-[#111827] bg-white appearance-none';
+  const f2 = 'w-full border border-[#E7E7E0] rounded-xl px-3.5 py-2.5 text-sm focus:border-[#1A1A1A] focus:outline-none text-[#1A1A1A]';
+  const s2 = 'w-full border border-[#E7E7E0] rounded-xl px-3.5 py-2.5 text-sm focus:border-[#1A1A1A] focus:outline-none text-[#1A1A1A] bg-white appearance-none';
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-[#111827]">Crear clases recurrentes</DialogTitle>
-          <p className="text-sm text-[#6B7280] mt-0.5">Genera múltiples sesiones de una vez</p>
+          <DialogTitle className="text-lg font-semibold text-[#1A1A1A]">Crear clases recurrentes</DialogTitle>
+          <p className="text-sm text-[#8E8E86] mt-0.5">Genera múltiples sesiones de una vez</p>
         </DialogHeader>
         <div className="space-y-4 mt-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">Tipo de clase</label>
+            <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Tipo de clase</label>
             <select className={s2} value={form.tipoClaseId} onChange={e => setForm(f => ({ ...f, tipoClaseId: e.target.value }))}>
               {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">Instructora</label>
+            <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Instructora</label>
             <select className={s2} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
               {instructores.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">Sala</label>
+            <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Sala</label>
             <select className={s2} value={form.salaId} onChange={e => setForm(f => ({ ...f, salaId: e.target.value }))}>
               {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">Hora inicio</label>
+              <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Hora inicio</label>
               <input type="time" className={f2} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">Duración</label>
+              <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Duración</label>
               <select className={s2} value={form.duracion} onChange={e => setForm(f => ({ ...f, duracion: Number(e.target.value) as 45 | 60 | 90 }))}>
                 <option value={45}>45 min</option>
                 <option value={60}>60 min</option>
@@ -691,7 +691,7 @@ function ModalClasesRecurrentes({
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">Días de la semana</label>
+            <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Días de la semana</label>
             <div className="flex items-center gap-2 flex-wrap">
               {DIA_PILLS.map(({ label, day }) => (
                 <DiaPill key={day} label={label} active={form.diasSemana.includes(day)} onClick={() => toggleDia(day)} />
@@ -701,31 +701,31 @@ function ModalClasesRecurrentes({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">Fecha inicio</label>
+              <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Fecha inicio</label>
               <input type="date" className={f2} value={form.fechaInicio} onChange={e => setForm(f => ({ ...f, fechaInicio: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">Fecha fin</label>
+              <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Fecha fin</label>
               <input type="date" className={f2} value={form.fechaFin} onChange={e => setForm(f => ({ ...f, fechaFin: e.target.value }))} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#111827] uppercase tracking-wider">Aforo máximo</label>
+            <label className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Aforo máximo</label>
             <input type="number" min={1} max={50} className={f2} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
           </div>
           {estimatedCount > 0 && (
-            <div className="rounded-xl bg-[#F3F4F6] px-4 py-3 flex items-center gap-2">
-              <CalendarDays size={15} className="text-[#6B7280] shrink-0" />
-              <p className="text-sm font-semibold text-[#111827]">Se crearán <span className="font-bold">{estimatedCount}</span> clases</p>
+            <div className="rounded-xl bg-[#F1F1EC] px-4 py-3 flex items-center gap-2">
+              <CalendarDays size={15} className="text-[#8E8E86] shrink-0" />
+              <p className="text-sm font-semibold text-[#1A1A1A]">Se crearán <span className="font-bold">{estimatedCount}</span> clases</p>
             </div>
           )}
         </div>
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E8EAED] text-[#6B7280] hover:bg-gray-50 transition-colors">Cancelar</button>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors">Cancelar</button>
           <button
             onClick={handleSubmit}
             disabled={form.diasSemana.length === 0 || estimatedCount === 0}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-[#111827] text-white hover:bg-[#1f2937] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {estimatedCount > 0 ? `Crear ${estimatedCount} clases` : 'Crear clases'}
           </button>
@@ -753,21 +753,21 @@ function AgendaRow({ s, isSelected, onClick }: {
       onClick={() => onClick(s.id)}
       className={cn(
         'w-full flex items-center gap-3 rounded-2xl border bg-white px-3.5 py-3 text-left transition-all',
-        isSelected ? 'border-[#4F46E5] ring-1 ring-[#4F46E5]' : 'border-[#EBECF0] hover:border-[#D1D5DB] hover:shadow-sm',
+        isSelected ? 'border-[#8FBF12] ring-1 ring-[#8FBF12]' : 'border-[#E7E7E0] hover:border-[#D1D5DB] hover:shadow-sm',
         cancelada && 'opacity-55',
       )}
       style={{ boxShadow: isSelected ? undefined : '0 1px 2px rgba(15,23,42,0.04)' }}
     >
       {/* Time */}
       <div className="text-center min-w-[52px] shrink-0">
-        <p className="text-[15px] font-extrabold text-[#0F172A] tabular-nums leading-none">{formatHora(s.inicio)}</p>
+        <p className="text-[15px] font-extrabold text-[#1A1A1A] tabular-nums leading-none">{formatHora(s.inicio)}</p>
         <p className="text-[11px] text-[#94A3B8] mt-1">{dur} min</p>
       </div>
       {/* Color stripe */}
       <div className="w-1 h-11 rounded-full shrink-0" style={{ backgroundColor: s.tipoClase.color }} />
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-bold text-[#0F172A] truncate">
+        <p className="text-[14px] font-bold text-[#1A1A1A] truncate">
           {s.tipoClase.nombre}
           {cancelada && <span className="ml-2 text-[11px] font-bold text-[#DC2626] uppercase">Cancelada</span>}
         </p>
@@ -781,7 +781,7 @@ function AgendaRow({ s, isSelected, onClick }: {
           <p className="text-[13px] font-extrabold tabular-nums" style={{ color: ocupColor }}>{s.confirmadas}/{s.aforoMaximo}</p>
           <p className="text-[10px] text-[#94A3B8]">{isFull ? 'completo' : `${libres} libre${libres !== 1 ? 's' : ''}`}</p>
         </div>
-        <ChevronRight size={16} className="text-[#C7C7CC]" />
+        <ChevronRight size={16} className="text-[#C6C6BE]" />
       </div>
     </button>
   );
@@ -808,12 +808,12 @@ function AgendaView({ dias, sesiones, todayStr, selectedId, onSesionClick, onNue
   if (grupos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[#E2E4EB] bg-white">
-        <div className="w-14 h-14 rounded-2xl bg-[#EEF2FF] flex items-center justify-center mb-4">
-          <CalendarDays size={26} className="text-[#4F46E5]" />
+        <div className="w-14 h-14 rounded-2xl bg-[#EDF9C8] flex items-center justify-center mb-4">
+          <CalendarDays size={26} className="text-[#8FBF12]" />
         </div>
-        <p className="text-[16px] font-bold text-[#0F172A]">No hay clases esta semana</p>
+        <p className="text-[16px] font-bold text-[#1A1A1A]">No hay clases esta semana</p>
         <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Crea la primera clase para empezar a llenar la agenda</p>
-        <button onClick={onNueva} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#111827] text-white text-[13px] font-bold">
+        <button onClick={onNueva} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C6F94D] text-[#171717] text-[13px] font-bold">
           <Plus size={15} /> Nueva clase
         </button>
       </div>
@@ -828,9 +828,9 @@ function AgendaView({ dias, sesiones, todayStr, selectedId, onSesionClick, onNue
         return (
           <div key={str}>
             <div className="flex items-center gap-2 mb-2.5">
-              <h3 className={cn('text-[15px] font-extrabold capitalize', isToday ? 'text-[#4F46E5]' : 'text-[#0F172A]')}>{label}</h3>
+              <h3 className={cn('text-[15px] font-extrabold capitalize', isToday ? 'text-[#8FBF12]' : 'text-[#1A1A1A]')}>{label}</h3>
               {isToday && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#4F46E5] text-white">Hoy</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#8FBF12] text-white">Hoy</span>
               )}
               <span className="ml-auto text-[12px] font-medium text-[#94A3B8]">{items.length} clase{items.length !== 1 ? 's' : ''}</span>
             </div>
@@ -913,7 +913,7 @@ export default function Calendario() {
   const sesionesEnriquecidas = useMemo<SesionEnr[]>(() =>
     sesiones.map(s => ({
       ...s,
-      tipoClase: tiposClase.find(t => t.id === s.tipoClaseId) ?? { nombre: '?', color: '#9CA3AF' },
+      tipoClase: tiposClase.find(t => t.id === s.tipoClaseId) ?? { nombre: '?', color: '#A8A89F' },
       sala: salas.find(x => x.id === s.salaId) ?? { nombre: '?' },
       instructor: instructores.find(i => i.id === s.instructorId) ?? { nombre: '?' },
       confirmadas: reservas.filter(r => r.sesionId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')).length,
@@ -1056,27 +1056,27 @@ export default function Calendario() {
       {/* ── Top header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3 flex-wrap shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-[#111827] tracking-tight">Calendario</h1>
-          <p className="text-sm font-medium mt-0.5 capitalize text-[#6B7280]">{mesLabel}</p>
+          <h1 className="text-2xl font-bold text-[#1A1A1A] tracking-tight">Calendario</h1>
+          <p className="text-sm font-medium mt-0.5 capitalize text-[#8E8E86]">{mesLabel}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Week navigation */}
-          <div className="flex items-center gap-1 bg-white border border-[#E8EAED] rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-white border border-[#E7E7E0] rounded-xl p-1">
             <button
               onClick={() => cambiarSemana(-1)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
             <button
               onClick={irAHoy}
-              className="px-3 py-1 text-xs font-bold text-[#6B7280] hover:text-[#111827] transition-colors"
+              className="px-3 py-1 text-xs font-bold text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
             >
               Hoy
             </button>
             <button
               onClick={() => cambiarSemana(1)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] transition-colors"
             >
               <ChevronRight size={16} />
             </button>
@@ -1084,7 +1084,7 @@ export default function Calendario() {
 
           {/* Nueva clase dropdown */}
           <div className="relative">
-            <div className="flex rounded-xl overflow-hidden bg-[#111827]">
+            <div className="flex rounded-xl overflow-hidden bg-[#1A1A1A]">
               <button
                 onClick={() => openNueva()}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white hover:bg-white/10 transition-colors"
@@ -1101,18 +1101,18 @@ export default function Calendario() {
             {showNuevaMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowNuevaMenu(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-20 bg-white border border-[#E8EAED] rounded-xl shadow-lg overflow-hidden min-w-[180px]">
+                <div className="absolute right-0 top-full mt-1.5 z-20 bg-white border border-[#E7E7E0] rounded-xl shadow-lg overflow-hidden min-w-[180px]">
                   <button
                     onClick={() => { setShowNuevaMenu(false); openNueva(); }}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-[#111827] hover:bg-[#F9FAFB] transition-colors text-left"
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-[#1A1A1A] hover:bg-[#F5F5F1] transition-colors text-left"
                   >
-                    <Plus size={14} className="text-[#6B7280]" />Clase única
+                    <Plus size={14} className="text-[#8E8E86]" />Clase única
                   </button>
                   <button
                     onClick={() => { setShowNuevaMenu(false); setShowRecurrentes(true); }}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-[#111827] hover:bg-[#F9FAFB] transition-colors text-left"
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-[#1A1A1A] hover:bg-[#F5F5F1] transition-colors text-left"
                   >
-                    <RefreshCw size={14} className="text-[#6B7280]" />Clases recurrentes
+                    <RefreshCw size={14} className="text-[#8E8E86]" />Clases recurrentes
                   </button>
                 </div>
               </>
@@ -1184,7 +1184,7 @@ export default function Calendario() {
       <Dialog open={showForm !== null} onOpenChange={open => !open && setShowForm(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-[#111827]">
+            <DialogTitle className="text-lg font-bold text-[#1A1A1A]">
               {showForm === 'nueva' ? 'Nueva clase' : 'Editar clase'}
             </DialogTitle>
           </DialogHeader>
@@ -1221,29 +1221,29 @@ export default function Calendario() {
               <input type="number" min={1} max={50} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
             </FormField>
             {showForm === 'nueva' && (
-              <div className="rounded-xl border border-[#E8EAED] p-4 space-y-3">
+              <div className="rounded-xl border border-[#E7E7E0] p-4 space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={form.repetir}
                     onChange={e => setForm(f => ({ ...f, repetir: e.target.checked }))}
-                    className="w-4 h-4 rounded accent-[#4F46E5]"
+                    className="w-4 h-4 rounded accent-[#8FBF12]"
                   />
-                  <span className="flex items-center gap-2 text-sm font-semibold text-[#111827]">
-                    <RefreshCw size={14} className="text-[#4F46E5]" />
+                  <span className="flex items-center gap-2 text-sm font-semibold text-[#1A1A1A]">
+                    <RefreshCw size={14} className="text-[#8FBF12]" />
                     Repetir semanalmente
                   </span>
                 </label>
                 {form.repetir && (
                   <div className="flex items-center gap-3 pl-7">
-                    <span className="text-sm text-[#6B7280]">durante</span>
+                    <span className="text-sm text-[#8E8E86]">durante</span>
                     <input
                       type="number" min={2} max={52}
-                      className="w-20 rounded-xl border border-[#E8EAED] bg-white px-3 py-2 text-sm font-medium text-[#111827] focus:outline-none focus:border-[#9CA3AF] text-center"
+                      className="w-20 rounded-xl border border-[#E7E7E0] bg-white px-3 py-2 text-sm font-medium text-[#1A1A1A] focus:outline-none focus:border-[#A8A89F] text-center"
                       value={form.repetirSemanas}
                       onChange={e => setForm(f => ({ ...f, repetirSemanas: Math.max(2, Number(e.target.value)) }))}
                     />
-                    <span className="text-sm text-[#6B7280]">semanas</span>
+                    <span className="text-sm text-[#8E8E86]">semanas</span>
                   </div>
                 )}
               </div>
@@ -1258,12 +1258,12 @@ export default function Calendario() {
             </FormField>
           </div>
           <div className="flex gap-3 mt-6">
-            <button onClick={() => setShowForm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E8EAED] text-[#6B7280] hover:bg-gray-50 transition-colors">
+            <button onClick={() => setShowForm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors">
               Cancelar
             </button>
             <button
               onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90 bg-[#111827]"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90 bg-[#1A1A1A]"
             >
               {showForm === 'nueva'
                 ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'
@@ -1285,7 +1285,7 @@ export default function Calendario() {
 
       {/* ── Toast ──────────────────────────────────────────────────────────────── */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[#111827] text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[#C6F94D] text-[#171717] px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
           <CheckCircle2 size={16} className="text-green-400 shrink-0" />
           {toast}
         </div>

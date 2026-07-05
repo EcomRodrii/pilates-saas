@@ -88,7 +88,7 @@ export default function ProgresoPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #A9DE20 100%)' }}>
         {/* Profile */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white font-extrabold text-[16px]">
@@ -127,13 +127,13 @@ export default function ProgresoPage() {
             <div className="flex items-end gap-3" style={{ height: 80 }}>
               {semanas.map((s, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[12px] font-bold text-[#111827]">{s.count}</span>
+                  <span className="text-[12px] font-bold text-[#171717]">{s.count}</span>
                   <div className="w-full flex items-end" style={{ height: 52 }}>
                     <div
                       className="w-full rounded-t-xl transition-all"
                       style={{
                         height: s.count === 0 ? 4 : Math.max(8, Math.round((s.count / maxSem) * 52)),
-                        backgroundColor: s.count === 0 ? '#F2F2F7' : '#4F46E5',
+                        backgroundColor: s.count === 0 ? '#F1F1EC' : '#4F46E5',
                       }}
                     />
                   </div>
@@ -148,7 +148,7 @@ export default function ProgresoPage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest">Logros</p>
-            <p className="text-[12px] font-bold text-[#4F46E5]">{earnedCount}/{BADGES.length}</p>
+            <p className="text-[12px] font-bold text-[#6B8E00]">{earnedCount}/{BADGES.length}</p>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
             {BADGES.map(b => {
@@ -158,14 +158,14 @@ export default function ProgresoPage() {
                   key={b.key}
                   className="rounded-2xl p-3.5 flex items-center gap-3 transition-all"
                   style={{
-                    backgroundColor: earned ? '#EEF2FF' : '#F9F9F9',
+                    backgroundColor: earned ? '#EDF9C8' : '#F5F5F1',
                     opacity: earned ? 1 : 0.45,
                   }}
                 >
                   <span className="text-[26px] leading-none shrink-0">{b.emoji}</span>
                   <div className="min-w-0">
-                    <p className="text-[13px] font-extrabold text-[#111827] leading-tight truncate">{b.nombre}</p>
-                    <p className="text-[11px] text-[#6B7280] mt-0.5">{b.sub}</p>
+                    <p className="text-[13px] font-extrabold text-[#171717] leading-tight truncate">{b.nombre}</p>
+                    <p className="text-[11px] text-[#8E8E86] mt-0.5">{b.sub}</p>
                   </div>
                 </div>
               );
