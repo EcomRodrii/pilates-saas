@@ -44,7 +44,7 @@ const resultadoConfig: Record<ResultadoLog, { label: string; color: string; bg: 
   EJECUTADO:       { label: 'Ejecutado', color: '#16A34A', bg: '#DCFCE7', icon: CheckCircle2 },
   ESPERANDO:       { label: 'Esperando', color: '#D97706', bg: '#FEF3C7', icon: Clock },
   FALLIDO:         { label: 'Fallido', color: '#DC2626', bg: '#FEE2E2', icon: XCircle },
-  PENDIENTE_ADMIN: { label: 'Acción humana', color: '#7C3AED', bg: '#EDF9C8', icon: AlertTriangle },
+  PENDIENTE_ADMIN: { label: 'Acción humana', color: '#6B8E00', bg: '#EDF9C8', icon: AlertTriangle },
 };
 
 const triggerLabels: Record<string, string> = {
@@ -132,40 +132,40 @@ function RuleCard({
   return (
     <div className={cn(
       'rounded-xl border bg-white transition-all',
-      rule.activa ? 'border-gray-200' : 'border-gray-100 opacity-60'
+      rule.activa ? 'border-[#E7E7E0]' : 'border-[#F1F1EC] opacity-60'
     )}>
       <div className="flex items-center gap-3 p-4">
         <div className="text-2xl">{rule.icono}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900 text-sm truncate">{rule.nombre}</span>
+            <span className="font-semibold text-[#1A1A1A] text-sm truncate">{rule.nombre}</span>
             {rule.ultimaEjecucion && (
-              <span className="text-[10px] text-gray-400 shrink-0">
+              <span className="text-[10px] text-[#A8A89F] shrink-0">
                 Última: {formatFecha(rule.ultimaEjecucion)}
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-0.5 truncate">{rule.descripcion}</p>
+          <p className="text-xs text-[#8E8E86] mt-0.5 truncate">{rule.descripcion}</p>
           <div className="flex items-center gap-3 mt-1">
-            <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full border">
+            <span className="text-[10px] text-[#A8A89F] bg-[#F5F5F1] px-2 py-0.5 rounded-full border">
               {triggerLabels[rule.trigger] ?? rule.trigger}
             </span>
-            <span className="text-[10px] text-gray-400">{rule.ejecutadaVeces} ejecuciones</span>
+            <span className="text-[10px] text-[#A8A89F]">{rule.ejecutadaVeces} ejecuciones</span>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setExpanded(p => !p)}
-            className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            className="p-1.5 text-[#A8A89F] hover:text-[#3A3A34] rounded-lg hover:bg-[#F5F5F1] transition-colors"
           >
             <ChevronRight size={14} className={cn('transition-transform', expanded && 'rotate-90')} />
           </button>
           <button
             onClick={onToggle}
-            className="text-gray-400 hover:text-gray-700 transition-colors"
+            className="text-[#A8A89F] hover:text-[#3A3A34] transition-colors"
           >
             {rule.activa
-              ? <ToggleRight size={28} className="text-gray-900" />
+              ? <ToggleRight size={28} className="text-[#1A1A1A]" />
               : <ToggleLeft size={28} />
             }
           </button>
@@ -173,8 +173,8 @@ function RuleCard({
       </div>
 
       {expanded && (
-        <div className="border-t border-gray-100 px-4 py-3">
-          <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Pasos del flujo</p>
+        <div className="border-t border-[#F1F1EC] px-4 py-3">
+          <p className="text-xs font-semibold text-[#8E8E86] mb-2 uppercase tracking-wide">Pasos del flujo</p>
           <div className="space-y-2">
             {rule.pasos.map((paso, i) => {
               const cfg = accionConfig[paso.accion];
@@ -188,15 +188,15 @@ function RuleCard({
                     <Icon size={12} style={{ color: cfg.color }} />
                   </div>
                   <div>
-                    <span className="text-xs font-medium text-gray-800">{cfg.label}</span>
+                    <span className="text-xs font-medium text-[#1A1A1A]">{cfg.label}</span>
                     {paso.esperarHoras && (
-                      <span className="text-[10px] text-gray-400 ml-1.5">
+                      <span className="text-[10px] text-[#A8A89F] ml-1.5">
                         → espera {paso.esperarHoras}h
                         {paso.condicion === 'SIN_RESPUESTA' ? ' si sin respuesta' : ''}
                       </span>
                     )}
                     {paso.parametros.mensaje && (
-                      <p className="text-[11px] text-gray-500 mt-0.5 italic">
+                      <p className="text-[11px] text-[#8E8E86] mt-0.5 italic">
                         &ldquo;{String(paso.parametros.mensaje)}&rdquo;
                       </p>
                     )}
@@ -222,8 +222,8 @@ function LogItem({ log, onDismiss }: { log: AutomationLog; onDismiss: () => void
   return (
     <div className={cn(
       'flex items-start gap-3 p-3 rounded-xl border',
-      log.resultado === 'PENDIENTE_ADMIN' && 'border-violet-200 bg-violet-50',
-      log.resultado === 'EJECUTADO' && 'border-gray-100 bg-white',
+      log.resultado === 'PENDIENTE_ADMIN' && 'border-[#E7E7E0] bg-[#F8FBEE]',
+      log.resultado === 'EJECUTADO' && 'border-[#F1F1EC] bg-white',
       log.resultado === 'ESPERANDO' && 'border-amber-100 bg-amber-50',
       log.resultado === 'FALLIDO' && 'border-red-100 bg-red-50',
     )}>
@@ -235,7 +235,7 @@ function LogItem({ log, onDismiss }: { log: AutomationLog; onDismiss: () => void
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-gray-900">{log.socioNombre ?? 'Sistema'}</span>
+          <span className="text-sm font-semibold text-[#1A1A1A]">{log.socioNombre ?? 'Sistema'}</span>
           <span
             className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
             style={{ color: cfg.color, background: cfg.bg }}
@@ -244,10 +244,10 @@ function LogItem({ log, onDismiss }: { log: AutomationLog; onDismiss: () => void
             {cfg.label}
           </span>
         </div>
-        <p className="text-xs text-gray-600 mt-0.5">{log.detalle}</p>
+        <p className="text-xs text-[#3A3A34] mt-0.5">{log.detalle}</p>
         <div className="flex items-center gap-3 mt-1">
-          <span className="text-[10px] text-gray-400">{log.ruleName}</span>
-          <span className="text-[10px] text-gray-400">{formatFecha(log.ejecutadoEn)}</span>
+          <span className="text-[10px] text-[#A8A89F]">{log.ruleName}</span>
+          <span className="text-[10px] text-[#A8A89F]">{formatFecha(log.ejecutadoEn)}</span>
           {log.proximaAccionEn && log.resultado === 'ESPERANDO' && (
             <span className="text-[10px] text-amber-600 font-medium">
               Próxima acción en {horasRestantes(log.proximaAccionEn)}
@@ -257,7 +257,7 @@ function LogItem({ log, onDismiss }: { log: AutomationLog; onDismiss: () => void
       </div>
       <button
         onClick={onDismiss}
-        className="text-gray-300 hover:text-gray-500 transition-colors shrink-0 mt-0.5"
+        className="text-[#C6C6BE] hover:text-[#8E8E86] transition-colors shrink-0 mt-0.5"
         title="Descartar"
       >
         <X size={14} />
@@ -302,16 +302,16 @@ export default function AutomatizacionesPage() {
   ];
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto">
+    <div className="max-w-4xl">
       <MorningBriefing logs={automationLogs} />
 
       {/* Pending admin actions */}
       {pendingAdmin.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-violet-200 bg-violet-50 p-4">
+        <div className="mb-6 rounded-2xl border border-[#E7E7E0] bg-[#F8FBEE] p-4">
           <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle size={16} className="text-violet-600" />
-            <h2 className="font-semibold text-violet-900 text-sm">Requiere tu intervención</h2>
-            <span className="ml-auto text-xs text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full font-medium">
+            <AlertTriangle size={16} className="text-[#6B8E00]" />
+            <h2 className="font-semibold text-[#3F5200] text-sm">Requiere tu intervención</h2>
+            <span className="ml-auto text-xs text-[#6B8E00] bg-[#EDF9C8] px-2 py-0.5 rounded-full font-medium">
               {pendingAdmin.length}
             </span>
           </div>
@@ -325,14 +325,14 @@ export default function AutomatizacionesPage() {
 
       {/* Run now button */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+        <div className="flex bg-[#F1F1EC] rounded-xl p-1 gap-1">
           {(['log', 'reglas'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={cn(
                 'px-4 py-1.5 rounded-lg text-sm font-medium transition-all',
-                tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                tab === t ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#8E8E86] hover:text-[#3A3A34]'
               )}
             >
               {t === 'log' ? 'Registro de acciones' : 'Reglas activas'}
@@ -342,7 +342,7 @@ export default function AutomatizacionesPage() {
         <button
           onClick={handleRunNow}
           disabled={running}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-white rounded-xl text-sm font-medium hover:bg-[#2A2A24] disabled:opacity-50 transition-colors"
         >
           {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
           {running ? 'Evaluando...' : 'Ejecutar ahora'}
@@ -371,8 +371,8 @@ export default function AutomatizacionesPage() {
                 className={cn(
                   'px-3 py-1 rounded-full text-xs font-medium border transition-all',
                   filterResultado === f.value
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                    ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
+                    : 'bg-white text-[#3A3A34] border-[#E7E7E0] hover:border-[#A8A89F]'
                 )}
               >
                 {f.label}
@@ -380,7 +380,7 @@ export default function AutomatizacionesPage() {
             ))}
           </div>
           {filteredLogs.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-[#A8A89F]">
               <Bot size={32} className="mx-auto mb-2 opacity-30" />
               <p className="text-sm">No hay registros para este filtro</p>
             </div>
