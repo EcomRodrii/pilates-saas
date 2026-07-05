@@ -1014,3 +1014,33 @@ export async function dbUpsertIntegracion(intg: any) {
   const { error } = await supabase.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
   if (error) reportDbError('[dbUpsertIntegracion]', error);
 }
+
+export async function dbInsertInstructor(i: any) {
+  const row = {
+    id: i.id,
+    studio_id: i.studioId ?? STUDIO_ID,
+    nombre: i.nombre,
+    email: i.email ?? null,
+    telefono: i.telefono ?? null,
+    color: i.color,
+    activo: i.activo,
+  };
+  const { error } = await supabase.from('instructores').insert(row);
+  if (error) reportDbError('[dbInsertInstructor]', error);
+}
+
+export async function dbUpdateInstructor(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('email' in changes) db.email = changes.email;
+  if ('telefono' in changes) db.telefono = changes.telefono;
+  if ('color' in changes) db.color = changes.color;
+  if ('activo' in changes) db.activo = changes.activo;
+  const { error } = await supabase.from('instructores').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateInstructor]', error);
+}
+
+export async function dbDeleteInstructor(id: string) {
+  const { error } = await supabase.from('instructores').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteInstructor]', error);
+}

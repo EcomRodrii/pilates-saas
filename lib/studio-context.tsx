@@ -18,6 +18,7 @@ import {
   dbInsertVideoOnDemand, dbUpdateVideoOnDemand,
   dbInsertPostComunidad, dbUpdatePostComunidad,
   dbUpsertIntegracion,
+  dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
   setDbErrorListener,
 } from '@/lib/supabase-data';
 import type {
@@ -427,13 +428,17 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   // ── Instructores ──────────────────────────────────────────────────────────────
 
   function addInstructor(fields: Omit<Instructor, 'id' | 'studioId'>) {
-    setInstructores(prev => [...prev, { ...fields, id: `ins-${uid()}`, studioId: 'studio-1' }]);
+    const nuevo: Instructor = { ...fields, id: `ins-${uid()}`, studioId: 'studio-1' };
+    setInstructores(prev => [...prev, nuevo]);
+    dbInsertInstructor(nuevo);
   }
   function updateInstructor(id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) {
     setInstructores(prev => prev.map(i => i.id === id ? { ...i, ...changes } : i));
+    dbUpdateInstructor(id, changes);
   }
   function deleteInstructor(id: string) {
     setInstructores(prev => prev.filter(i => i.id !== id));
+    dbDeleteInstructor(id);
   }
 
   // ── Socios ────────────────────────────────────────────────────────────────────

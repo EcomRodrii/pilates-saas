@@ -8,7 +8,7 @@ import {
   FileText, Settings, BarChart2, ChevronRight, X,
   Clock, ShoppingCart, MessageCircle, Megaphone, Play, Bell,
   Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
-  LogOut,
+  LogOut, UserCog,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -47,6 +47,7 @@ const navSections = [
   {
     label: 'Estudio',
     items: [
+      { href: '/equipo', label: 'Equipo', icon: UserCog },
       { href: '/marketing', label: 'Marketing', icon: Megaphone },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
