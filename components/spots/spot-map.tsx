@@ -31,19 +31,19 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
   return (
     <div className="space-y-4">
       {/* Leyenda */}
-      <div className="flex items-center gap-4 text-xs text-gray-400 font-medium">
+      <div className="flex items-center gap-4 text-xs text-[#A8A89F] font-medium">
         <div className="flex items-center gap-1.5">
-          <div className="w-3.5 h-3.5 rounded-lg border-2 border-gray-200 bg-white" />Libre
+          <div className="w-3.5 h-3.5 rounded-lg border-2 border-[#E7E7E0] bg-white" />Libre
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3.5 h-3.5 rounded-lg" style={{ backgroundColor: '#EDF9C8', border: '2px solid #BBAAE0' }} />Reservado
+          <div className="w-3.5 h-3.5 rounded-lg" style={{ backgroundColor: '#EDF9C8', border: '2px solid #8FBF12' }} />Reservado
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3.5 h-3.5 rounded-lg" style={{ backgroundColor: '#E3EFE6', border: '2px solid #9CC5A8' }} />Check-in
         </div>
       </div>
 
-      <div className="bg-gray-50 rounded-xl py-2 text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+      <div className="bg-[#F5F5F1] rounded-xl py-2 text-center text-[10px] text-[#A8A89F] font-bold uppercase tracking-widest">
         PARTE FRONTAL · INSTRUCTOR
       </div>
 
@@ -70,7 +70,7 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
                   asistida
                     ? { backgroundColor: '#E3EFE6', borderColor: '#9CC5A8' } as React.CSSProperties
                     : reserva
-                    ? { backgroundColor: '#EDF9C8', borderColor: '#BBAAE0' } as React.CSSProperties
+                    ? { backgroundColor: '#EDF9C8', borderColor: '#8FBF12' } as React.CSSProperties
                     : { backgroundColor: '#FFFFFF', borderColor: '#E5E5EA' } as React.CSSProperties
                 }
               >
@@ -81,16 +81,16 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
                       className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
                       style={asistida
                         ? { backgroundColor: '#C3D9B0', color: '#1A1A2E' }
-                        : { backgroundColor: '#BBAAE0', color: '#1A1A2E' }}
+                        : { backgroundColor: '#8FBF12', color: '#1A1A2E' }}
                     >
                       {asistida ? <Check size={13} /> : `${reserva.socio.nombre[0]}${reserva.socio.apellidos[0]}`}
                     </div>
-                    <span className="text-[10px] font-semibold leading-tight text-gray-700">
+                    <span className="text-[10px] font-semibold leading-tight text-[#3A3A34]">
                       {reserva.socio.nombre.split(' ')[0]}
                     </span>
                   </div>
                 ) : (
-                  <User size={18} className="text-gray-300" />
+                  <User size={18} className="text-[#C6C6BE]" />
                 )}
               </button>
             );
@@ -117,7 +117,7 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
               {onQuitarSpot && (
                 <button
                   onClick={() => { onQuitarSpot(selectedReserva.id); setSelected(null); }}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors"
+                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F1F1EC] transition-colors"
                 >
                   Liberar spot
                 </button>
@@ -125,13 +125,13 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
             </div>
           ) : onAsignarSpot ? (
             <div>
-              <p className="text-xs text-gray-400 mb-2 font-medium">Asignar socia a este reformer:</p>
+              <p className="text-xs text-[#A8A89F] mb-2 font-medium">Asignar socia a este reformer:</p>
               <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
                 {socios.filter(s => s.activo && !reservas.find(r => r.socioId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))).map(s => (
                   <button
                     key={s.id}
                     onClick={() => { onAsignarSpot(selectedSpot.id, s.id); setSelected(null); }}
-                    className="text-left px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-gray-200 text-gray-700 hover:border-[#BBAAE0] transition-colors"
+                    className="text-left px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-[#E7E7E0] text-[#3A3A34] hover:border-[#8FBF12] transition-colors"
                     style={{ ':hover': { backgroundColor: '#EDF9C8' } } as React.CSSProperties}
                   >
                     {s.nombre} {s.apellidos}

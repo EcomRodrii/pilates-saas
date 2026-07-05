@@ -409,7 +409,7 @@ export default function POSPage() {
           </span>
           <span className="hidden sm:inline text-[#E7E7E0]">/</span>
           <span className="hidden sm:inline">
-            <span className="font-medium text-blue-600">{tarjetaHoy.toFixed(2)} €</span>
+            <span className="font-medium text-[#1D4ED8]">{tarjetaHoy.toFixed(2)} €</span>
             {' '}tarjeta
           </span>
         </div>

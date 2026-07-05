@@ -39,15 +39,6 @@
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.4);
-
-  /* Custom design tokens matching the reference */
-  --color-lavender-bg: #EDEAF8;
-  --color-lavender-text: #6B4FA8;
-  --color-sage-bg: #E3EFE6;
-  --color-sage-text: #3D7A4D;
-  --color-sage-btn: #C3D9B0;
-  --color-app-bg: #F7F7F8;
-  --color-sidebar-dark: #111111;
 }
 
 :root {

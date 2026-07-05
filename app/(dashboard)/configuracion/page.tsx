@@ -15,7 +15,7 @@ const labelCls = 'text-[12px] font-medium text-[#3A3A34] block mb-1';
 const btnPrimary =
   'bg-[#C6F94D] text-[#171717] rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 hover:bg-[#BCEF3F] transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
 const btnSecondary =
-  'bg-white border border-[#E7E7E0] rounded-lg px-4 py-2 text-[13px] text-[#3A3A34] hover:bg-gray-50 transition-colors';
+  'bg-white border border-[#E7E7E0] rounded-lg px-4 py-2 text-[13px] text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors';
 const cardCls = 'bg-white border border-[#E7E7E0] rounded-xl';
 
 // ─── Shared micro-components ──────────────────────────────────────────────────

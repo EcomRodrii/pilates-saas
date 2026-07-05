@@ -145,7 +145,7 @@ export default function Facturas() {
   body { font-family: -apple-system, Arial, sans-serif; font-size: 13px; color: #1A1A1A; padding: 40px; max-width: 680px; margin: 0 auto; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
   .title { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; }
-  .numero { font-size: 13px; font-family: monospace; font-weight: 700; color: #6B4FA8; margin-top: 4px; }
+  .numero { font-size: 13px; font-family: monospace; font-weight: 700; color: #3F5200; margin-top: 4px; }
   .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 32px; }
   .party-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8E8E86; margin-bottom: 6px; }
   .party-name { font-weight: 700; margin-bottom: 2px; }
@@ -307,7 +307,7 @@ export default function Facturas() {
               onClick={() => setAgrupador(opt)}
               className={cn(
                 'px-4 py-2.5 text-sm font-semibold transition-colors capitalize',
-                agrupador === opt ? 'bg-[#C6F94D] text-[#171717]' : 'text-[#8E8E86] hover:bg-gray-50'
+                agrupador === opt ? 'bg-[#C6F94D] text-[#171717]' : 'text-[#8E8E86] hover:bg-[#F5F5F1]'
               )}
             >
               Por {opt === 'mes' ? 'mes' : 'cliente'}
@@ -327,7 +327,7 @@ export default function Facturas() {
               {/* Group header */}
               <div
                 onClick={() => toggleGrupo(grupo.key)}
-                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-[#F5F5F1] transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   {isOpen ? <ChevronDown size={14} className="text-[#8E8E86]" /> : <ChevronRight size={14} className="text-[#8E8E86]" />}
@@ -391,7 +391,7 @@ export default function Facturas() {
                       {grupo.items.map(f => {
                         const socio = socioParaFactura(f.reciboId);
                         return (
-                          <tr key={f.id} className="hover:bg-gray-50 transition-colors">
+                          <tr key={f.id} className="hover:bg-[#F5F5F1] transition-colors">
                             <td className="px-4 py-3 font-mono text-xs font-bold text-[#7AA80E]">{f.numeroCompleto}</td>
                             <td className="px-4 py-3 whitespace-nowrap font-medium text-[#8E8E86]">{fecha(f.fechaEmision)}</td>
                             <td className="px-4 py-3 font-semibold text-[#1A1A1A]">
@@ -468,11 +468,11 @@ export default function Facturas() {
               <div className="flex items-start justify-between mb-8">
                 <div>
                   <p className="text-2xl font-extrabold text-[#1A1A1A]">FACTURA</p>
-                  <p className="text-sm font-mono font-bold text-[#6B4FA8] mt-1">{previewFactura.numeroCompleto}</p>
+                  <p className="text-sm font-mono font-bold text-[#3F5200] mt-1">{previewFactura.numeroCompleto}</p>
                 </div>
                 <button
                   onClick={() => setPreview(null)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#8E8E86] transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] transition-colors"
                 >
                   <X size={16} />
                 </button>
@@ -534,7 +534,7 @@ export default function Facturas() {
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => exportarCSV([previewFactura])}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors"
                 >
                   <Download size={14} />
                   CSV

@@ -47,7 +47,7 @@ function PlanModal({ initial, onSave, onClose }: {
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E7E7E0]">
           <h2 className="font-bold text-[#1A1A1A]">{initial ? 'Editar plan' : 'Nuevo plan'}</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#8E8E86]"><X size={16} /></button>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86]"><X size={16} /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
@@ -98,7 +98,7 @@ function PlanModal({ initial, onSave, onClose }: {
           </label>
         </div>
         <div className="flex gap-3 px-6 pb-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-gray-50">Cancelar</button>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-[#F5F5F1]">Cancelar</button>
           <button onClick={() => valid && onSave(form)} disabled={!valid}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
             style={{ backgroundColor: '#8FBF12' }}>
@@ -133,7 +133,7 @@ function PosModal({ initial, onSave, onClose }: {
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E7E7E0]">
           <h2 className="font-bold text-[#1A1A1A]">{initial ? 'Editar producto' : 'Nuevo producto'}</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#8E8E86]"><X size={16} /></button>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86]"><X size={16} /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
@@ -171,7 +171,7 @@ function PosModal({ initial, onSave, onClose }: {
           </label>
         </div>
         <div className="flex gap-3 px-6 pb-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-gray-50">Cancelar</button>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-[#F5F5F1]">Cancelar</button>
           <button onClick={() => valid && onSave(form)} disabled={!valid}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
             style={{ backgroundColor: '#8FBF12' }}>
@@ -273,7 +273,7 @@ export default function Productos() {
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <button onClick={() => setPlanModal(plan)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#8E8E86] transition-colors">
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] transition-colors">
                       <Pencil size={13} />
                     </button>
                     <button onClick={() => deletePlan(plan.id)}
@@ -345,7 +345,7 @@ export default function Productos() {
               {productosPOS.map(p => {
                 const c = CAT_COLOR[p.categoria] ?? CAT_COLOR.OTRO;
                 return (
-                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={p.id} className="hover:bg-[#F5F5F1] transition-colors">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: c.bg }}>
@@ -370,7 +370,7 @@ export default function Productos() {
                     </td>
                     <td className="px-5 py-3.5">
                       <button onClick={() => setPosModal(p)}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#8E8E86] transition-colors">
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] transition-colors">
                         <Pencil size={13} />
                       </button>
                     </td>

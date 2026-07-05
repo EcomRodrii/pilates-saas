@@ -221,7 +221,7 @@ function FilterBar({ instructores, salas, filtroInstructor, filtroSala, onInstru
       {hayFiltros && (
         <button
           onClick={() => { onInstructor(''); onSala(''); onBusqueda(''); }}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors"
         >
           <X size={12} />Limpiar
         </button>
@@ -342,13 +342,13 @@ function SessionSidebar({
       <div className="px-5 py-2.5 border-b border-[#E7E7E0] flex items-center gap-2">
         <button
           onClick={onOpenEdit}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E7E7E0] text-[#1A1A1A] hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E7E7E0] text-[#1A1A1A] hover:bg-[#F5F5F1] transition-colors"
         >
           <Pencil size={12} />Editar
         </button>
         <button
           onClick={() => setShowConfirm('cancelar')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors"
         >
           <X size={12} />Cancelar
         </button>
@@ -382,7 +382,7 @@ function SessionSidebar({
           <div className="flex gap-3 w-full">
             <button
               onClick={() => setShowConfirm(null)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1]"
             >
               Volver
             </button>
@@ -458,7 +458,7 @@ function SessionSidebar({
                 </div>
                 <button
                   onClick={() => { setShowAnadir(false); setBuscarSocia(''); }}
-                  className="w-full py-1.5 rounded-lg text-xs font-semibold text-[#A8A89F] hover:bg-gray-50"
+                  className="w-full py-1.5 rounded-lg text-xs font-semibold text-[#A8A89F] hover:bg-[#F5F5F1]"
                 >
                   Cancelar
                 </button>
@@ -721,7 +721,7 @@ function ModalClasesRecurrentes({
           )}
         </div>
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors">Cancelar</button>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors">Cancelar</button>
           <button
             onClick={handleSubmit}
             disabled={form.diasSemana.length === 0 || estimatedCount === 0}
@@ -1409,7 +1409,7 @@ export default function Calendario() {
             </FormField>
           </div>
           <div className="flex gap-3 mt-6">
-            <button onClick={() => setShowForm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors">
+            <button onClick={() => setShowForm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors">
               Cancelar
             </button>
             <button

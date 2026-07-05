@@ -49,7 +49,7 @@ const nivelBadge: Record<NivelClase, string> = {
   PRINCIPIANTE: 'bg-green-100 text-green-700',
   MEDIO: 'bg-amber-100 text-amber-700',
   AVANZADO: 'bg-red-100 text-red-700',
-  TODOS: 'bg-gray-100 text-gray-600',
+  TODOS: 'bg-[#F1F1EC] text-[#3A3A34]',
 };
 
 const nivelLabel: Record<NivelClase, string> = {

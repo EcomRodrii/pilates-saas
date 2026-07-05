@@ -72,7 +72,7 @@ function ActividadIcon({ tipo }: { tipo: ActividadReciente['tipo'] }) {
     case 'MENSAJE_ENVIADO':
       return <div className={cn(base, 'bg-blue-50')}><Mail size={14} className="text-[#7AA80E]" /></div>;
     default:
-      return <div className={cn(base, 'bg-gray-100')}><Info size={14} className="text-[#8E8E86]" /></div>;
+      return <div className={cn(base, 'bg-[#F1F1EC]')}><Info size={14} className="text-[#8E8E86]" /></div>;
   }
 }
 

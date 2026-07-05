@@ -250,7 +250,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     return (
       <div className="text-center py-20">
         <p className="font-medium text-[#8E8E86]">Socia no encontrada.</p>
-        <Link href="/socios" className="text-sm mt-3 inline-block font-semibold text-blue-600">
+        <Link href="/socios" className="text-sm mt-3 inline-block font-semibold text-[#6B8E00]">
           ← Volver a socias
         </Link>
       </div>
@@ -563,7 +563,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                             {suscripcion.estado === 'ACTIVA' ? (
                               <button
                                 onClick={() => pausarSuscripcion(suscripcion.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E7E7E0] hover:bg-gray-50 transition-colors text-[#8E8E86]"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E7E7E0] hover:bg-[#F5F5F1] transition-colors text-[#8E8E86]"
                               >
                                 <Pause size={12} />Pausar
                               </button>
@@ -704,7 +704,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     <div className="flex items-center gap-2 mb-4">
                       <Bot size={15} className="text-[#8E8E86]" />
                       <SectionTitle>Nota de sesión IA</SectionTitle>
-                      <span className="ml-auto text-[10px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-semibold">Beta</span>
+                      <span className="ml-auto text-[10px] bg-[#EDF9C8] text-[#3F5200] px-2 py-0.5 rounded-full font-semibold">Beta</span>
                     </div>
                     <p className="text-xs text-[#8E8E86] mb-3">
                       Dicta o escribe lo que pasó en la sesión. La IA estructura automáticamente la nota de progreso.
@@ -729,42 +729,42 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       </button>
                     </div>
                     {aiResult && (
-                      <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 space-y-3">
-                        <p className="text-xs font-bold text-violet-800 uppercase tracking-wide mb-2">Nota estructurada</p>
+                      <div className="rounded-xl border border-[#E7E7E0] bg-[#F8FBEE] p-4 space-y-3">
+                        <p className="text-xs font-bold text-[#3F5200] uppercase tracking-wide mb-2">Nota estructurada</p>
                         {aiResult.progreso && (
                           <div>
-                            <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wide mb-0.5">Progreso</p>
-                            <p className="text-sm text-gray-800">{aiResult.progreso}</p>
+                            <p className="text-[10px] font-bold text-[#6B8E00] uppercase tracking-wide mb-0.5">Progreso</p>
+                            <p className="text-sm text-[#1A1A1A]">{aiResult.progreso}</p>
                           </div>
                         )}
                         {aiResult.alertas && (
                           <div>
                             <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide mb-0.5">Alertas / Limitaciones</p>
-                            <p className="text-sm text-gray-800">{aiResult.alertas}</p>
+                            <p className="text-sm text-[#1A1A1A]">{aiResult.alertas}</p>
                           </div>
                         )}
                         {aiResult.planProximaSesion && (
                           <div>
-                            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-0.5">Próxima sesión</p>
-                            <p className="text-sm text-gray-800">{aiResult.planProximaSesion}</p>
+                            <p className="text-[10px] font-bold text-[#6B8E00] uppercase tracking-wide mb-0.5">Próxima sesión</p>
+                            <p className="text-sm text-[#1A1A1A]">{aiResult.planProximaSesion}</p>
                           </div>
                         )}
                         {aiResult.ejerciciosCasa && (
                           <div>
                             <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-0.5">Ejercicios casa</p>
-                            <p className="text-sm text-gray-800">{aiResult.ejerciciosCasa}</p>
+                            <p className="text-sm text-[#1A1A1A]">{aiResult.ejerciciosCasa}</p>
                           </div>
                         )}
-                        <div className="flex gap-2 pt-2 border-t border-violet-200">
+                        <div className="flex gap-2 pt-2 border-t border-[#E7E7E0]">
                           <button
                             onClick={handleSaveAiNote}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 text-white rounded-lg text-xs font-bold hover:bg-violet-800 transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-lg text-xs font-bold hover:bg-[#2A2A24] transition-colors"
                           >
                             <CheckCircle2 size={12} /> Guardar nota
                           </button>
                           <button
                             onClick={() => setAiResult(null)}
-                            className="px-3 py-1.5 border border-violet-200 text-violet-700 rounded-lg text-xs font-bold hover:bg-violet-100 transition-colors"
+                            className="px-3 py-1.5 border border-[#E7E7E0] text-[#1A1A1A] rounded-lg text-xs font-bold hover:bg-[#F5F5F1] transition-colors"
                           >
                             Descartar
                           </button>
@@ -779,7 +779,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           {notasProgreso.filter(n => n.socioId === id).slice(0, 3).map(nota => (
                             <div key={nota.id} className="rounded-lg bg-[#F5F5F1] border border-[#E7E7E0] px-3 py-2.5">
                               <p className="text-[10px] text-[#A8A89F] mb-1">{fecha(nota.creadaEn)}</p>
-                              {nota.progreso && <p className="text-xs text-gray-700 line-clamp-2">{nota.progreso}</p>}
+                              {nota.progreso && <p className="text-xs text-[#3A3A34] line-clamp-2">{nota.progreso}</p>}
                             </div>
                           ))}
                         </div>
@@ -862,7 +862,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       {filteredReservas.length > reservasPage && (
                         <button
                           onClick={() => setReservasPage(p => p + 20)}
-                          className="mt-3 w-full py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors"
+                          className="mt-3 w-full py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors"
                         >
                           Ver más ({filteredReservas.length - reservasPage} restantes)
                         </button>
@@ -1094,7 +1094,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <div className="space-y-2 mt-4 pt-4 border-t border-[#F1F1EC]">
               <button
                 onClick={() => { setActiveTab('comunicaciones'); setShowSendMessage(true); }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#1A1A1A] hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#1A1A1A] hover:bg-[#F5F5F1] transition-colors"
               >
                 <Mail size={14} />Enviar email
               </button>
@@ -1106,7 +1106,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               </button>
               <button
                 onClick={() => updateSocio(id, { activo: !socio.activo })}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors"
               >
                 {socio.activo ? 'Desactivar' : 'Activar'}
               </button>
@@ -1162,7 +1162,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               )}
               <button
                 onClick={() => setShowChangePlan(true)}
-                className="mt-3 w-full text-xs font-bold py-2 rounded-lg border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50 transition-colors"
+                className="mt-3 w-full text-xs font-bold py-2 rounded-lg border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors"
               >
                 Cambiar plan
               </button>
@@ -1254,7 +1254,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             </div>
           </div>
           <div className="flex gap-3 mt-6">
-            <button onClick={() => setShowEdit(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50">
+            <button onClick={() => setShowEdit(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1]">
               Cancelar
             </button>
             <button
@@ -1277,7 +1277,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
           <div className="space-y-2 mt-3">
             <button
               onClick={() => { assignPlan(id, null); setShowChangePlan(false); }}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-gray-50"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-[#F5F5F1]"
               style={{ borderColor: '#E7E7E0', color: '#8E8E86' }}
             >
               <span>Sin plan</span>
@@ -1342,7 +1342,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             </div>
           </div>
           <div className="flex gap-3 mt-6">
-            <button onClick={() => setShowAddRecibo(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50">
+            <button onClick={() => setShowAddRecibo(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1]">
               Cancelar
             </button>
             <button
@@ -1383,7 +1383,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             </FF>
           </div>
           <div className="flex gap-3 mt-6">
-            <button onClick={() => setShowSendMessage(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50">
+            <button onClick={() => setShowSendMessage(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1]">
               Cancelar
             </button>
             <button
@@ -1411,7 +1411,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               </p>
             </div>
             <div className="flex gap-3 w-full">
-              <button onClick={() => setShowConfirmDelete(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-gray-50">
+              <button onClick={() => setShowConfirmDelete(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1]">
                 Cancelar
               </button>
               <button onClick={handleDelete} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors">

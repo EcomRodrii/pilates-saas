@@ -86,7 +86,7 @@ export function GlobalSearch() {
                 className="flex-1 text-sm font-medium text-[#1A1A2E] placeholder:text-[#9898A6] focus:outline-none bg-transparent"
               />
               {query ? (
-                <button onClick={() => setQuery('')} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+                <button onClick={() => setQuery('')} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] transition-colors">
                   <X size={13} style={{ color: '#9898A6' }} />
                 </button>
               ) : (
@@ -104,8 +104,8 @@ export function GlobalSearch() {
                   </p>
                   {sociosRes.map(s => (
                     <button key={s.id} onClick={() => go(`/socios/${s.id}`)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-left group">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: '#EDF9C8', color: '#6B4FA8' }}>
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F5F5F1] transition-colors text-left group">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: '#EDF9C8', color: '#3F5200' }}>
                         {s.nombre[0]}{s.apellidos[0]}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -113,7 +113,7 @@ export function GlobalSearch() {
                         <p className="text-xs truncate" style={{ color: '#9898A6' }}>{s.email}</p>
                       </div>
                       {(s.tags ?? []).length > 0 && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: '#EDF9C8', color: '#6B4FA8' }}>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: '#EDF9C8', color: '#3F5200' }}>
                           {s.tags![0]}
                         </span>
                       )}
@@ -132,7 +132,7 @@ export function GlobalSearch() {
                     const d = new Date(s.inicio);
                     return (
                       <button key={s.id} onClick={() => go('/calendario')}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-left group">
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F5F5F1] transition-colors text-left group">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: tipo?.color ?? '#C8C2E8', opacity: 0.85 }}>
                           <Calendar size={14} style={{ color: '#fff' }} />
                         </div>
@@ -157,7 +157,7 @@ export function GlobalSearch() {
                     const s = socios.find(x => x.id === r.socioId);
                     return (
                       <button key={r.id} onClick={() => go('/pagos')}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-left group">
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F5F5F1] transition-colors text-left group">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#FEF3C7' }}>
                           <CreditCard size={14} style={{ color: '#92400E' }} />
                         </div>

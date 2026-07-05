@@ -236,7 +236,7 @@ export default function Transacciones() {
               ) : filtrados.map(m => {
                 const badge = TIPO_BADGE[m.tipo];
                 return (
-                  <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={m.id} className="hover:bg-[#F5F5F1] transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap text-[#8E8E86] font-medium">
                       {fechaCorta(m.fecha)}
                     </td>

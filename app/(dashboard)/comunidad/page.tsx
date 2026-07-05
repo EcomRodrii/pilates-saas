@@ -66,7 +66,7 @@ function Avatar({
     );
   }
   return (
-    <div className={cn('rounded-full flex items-center justify-center shrink-0 font-bold', dims, colorClass ?? 'bg-gray-100 text-gray-600')}>
+    <div className={cn('rounded-full flex items-center justify-center shrink-0 font-bold', dims, colorClass ?? 'bg-[#F1F1EC] text-[#3A3A34]')}>
       {initials}
     </div>
   );

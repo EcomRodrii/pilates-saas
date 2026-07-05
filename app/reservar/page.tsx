@@ -383,10 +383,10 @@ export default function ReservarPage() {
   const PRIMARY = '#1A1A1A'; // Midbox ink — brand accent
 
   return (
-    <div className="min-h-screen bg-[#F4F6F9]">
+    <div className="min-h-screen bg-[#EEEEE8]">
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-white border-b border-gray-100" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      <header className="sticky top-0 z-30 bg-white border-b border-[#F1F1EC]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <div className="max-w-2xl mx-auto px-4">
           {/* Studio identity */}
           <div className="flex items-center justify-between py-3">
@@ -394,19 +394,19 @@ export default function ReservarPage() {
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-[11px] font-black shrink-0"
                 style={{ backgroundColor: PRIMARY }}>T</div>
               <div>
-                <p className="font-bold text-gray-900 text-sm leading-tight">Tentare</p>
-                <p className="text-gray-400 text-[11px]">Málaga · Calle Larios 12</p>
+                <p className="font-bold text-[#1A1A1A] text-sm leading-tight">Tentare</p>
+                <p className="text-[#A8A89F] text-[11px]">Málaga · Calle Larios 12</p>
               </div>
             </div>
             {socia ? (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F5F1] border border-[#E7E7E0]">
                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
                     style={{ backgroundColor: PRIMARY }}>
                     {socia.nombre[0]}
                   </div>
-                  <span className="text-gray-700 text-sm font-medium">{socia.nombre.split(' ')[0]}</span>
-                  <button onClick={logout} className="text-gray-400 hover:text-gray-600 ml-0.5"><X size={12} /></button>
+                  <span className="text-[#3A3A34] text-sm font-medium">{socia.nombre.split(' ')[0]}</span>
+                  <button onClick={logout} className="text-[#A8A89F] hover:text-[#3A3A34] ml-0.5"><X size={12} /></button>
                 </div>
               </div>
             ) : (
@@ -445,7 +445,7 @@ export default function ReservarPage() {
             <div className="bg-white rounded-2xl p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <button onClick={() => setWeekOffset(o => o - 1)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+                  className="p-1.5 rounded-lg text-[#A8A89F] hover:text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
                   <ChevronLeft size={18} />
                 </button>
                 <div className="flex-1 flex gap-1 overflow-x-auto">
@@ -468,7 +468,7 @@ export default function ReservarPage() {
                   })}
                 </div>
                 <button onClick={() => setWeekOffset(o => o + 1)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+                  className="p-1.5 rounded-lg text-[#A8A89F] hover:text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
                   <ChevronRight size={18} />
                 </button>
               </div>
@@ -494,15 +494,15 @@ export default function ReservarPage() {
 
             {/* Day heading */}
             {selectedDay && (
-              <p className="text-gray-900 font-bold text-base capitalize px-1">
+              <p className="text-[#1A1A1A] font-bold text-base capitalize px-1">
                 {fmtLong(new Date(selectedDay + 'T12:00:00'))}
               </p>
             )}
 
             {sesionesDelDia.length === 0 ? (
               <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-3 text-center shadow-sm">
-                <Calendar size={28} className="text-gray-300" />
-                <p className="text-gray-500 font-medium">No hay clases este día</p>
+                <Calendar size={28} className="text-[#C6C6BE]" />
+                <p className="text-[#8E8E86] font-medium">No hay clases este día</p>
                 <button onClick={() => setWeekOffset(o => o + 1)}
                   className="text-sm font-semibold" style={{ color: PRIMARY }}>
                   Ver semana siguiente →
@@ -522,15 +522,15 @@ export default function ReservarPage() {
                       <div className="p-4">
                         <div className="flex items-baseline justify-between mb-2">
                           <div className="flex items-baseline gap-1.5">
-                            <span className="text-gray-900 font-extrabold text-2xl leading-none">{fmtTime(s.inicio)}</span>
-                            <span className="text-gray-400 text-sm">→ {fmtTime(s.fin)}</span>
-                            <span className="text-gray-300 text-xs">{s.tipo?.duracionMinutos} min</span>
+                            <span className="text-[#1A1A1A] font-extrabold text-2xl leading-none">{fmtTime(s.inicio)}</span>
+                            <span className="text-[#A8A89F] text-sm">→ {fmtTime(s.fin)}</span>
+                            <span className="text-[#C6C6BE] text-xs">{s.tipo?.duracionMinutos} min</span>
                           </div>
                           <LevelBadge nivel={s.tipo?.nivel} />
                         </div>
-                        <h3 className="text-gray-900 font-bold text-lg leading-tight mb-1">{s.tipo?.nombre ?? 'Clase'}</h3>
+                        <h3 className="text-[#1A1A1A] font-bold text-lg leading-tight mb-1">{s.tipo?.nombre ?? 'Clase'}</h3>
                         {s.tipo?.descripcion && (
-                          <p className="text-gray-500 text-sm mb-3 leading-relaxed">{s.tipo.descripcion}</p>
+                          <p className="text-[#8E8E86] text-sm mb-3 leading-relaxed">{s.tipo.descripcion}</p>
                         )}
                         <div className="flex flex-wrap items-center gap-3 mb-4 mt-2">
                           {s.instructor && (
@@ -539,11 +539,11 @@ export default function ReservarPage() {
                                 style={{ backgroundColor: s.tipo?.color ?? PRIMARY }}>
                                 {s.instructor.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                               </div>
-                              <span className="text-gray-600 text-sm">{s.instructor.nombre}</span>
+                              <span className="text-[#3A3A34] text-sm">{s.instructor.nombre}</span>
                             </div>
                           )}
                           {s.sala && (
-                            <div className="flex items-center gap-1 text-gray-400 text-sm">
+                            <div className="flex items-center gap-1 text-[#A8A89F] text-sm">
                               <MapPin size={12} />{s.sala.nombre}
                             </div>
                           )}
@@ -552,14 +552,14 @@ export default function ReservarPage() {
                           </div>
                         </div>
                         {isPast ? (
-                          <div className="py-2.5 text-center text-sm text-gray-400 bg-gray-50 rounded-xl">Clase finalizada</div>
+                          <div className="py-2.5 text-center text-sm text-[#A8A89F] bg-[#F5F5F1] rounded-xl">Clase finalizada</div>
                         ) : reservado ? (
                           <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-100">
                             <CheckCircle2 size={15} />¡Ya estás apuntada!
                           </div>
                         ) : lleno ? (
                           <button onClick={() => openBooking(s.id)}
-                            className="w-full py-2.5 rounded-xl text-sm font-semibold text-gray-500 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors">
+                            className="w-full py-2.5 rounded-xl text-sm font-semibold text-[#8E8E86] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-colors">
                             Clase completa · Lista de espera →
                           </button>
                         ) : (
@@ -587,8 +587,8 @@ export default function ReservarPage() {
                   <Users size={24} style={{ color: PRIMARY }} />
                 </div>
                 <div>
-                  <h2 className="text-gray-900 font-bold text-lg">Identifícate para ver tus reservas</h2>
-                  <p className="text-gray-500 text-sm mt-1">Introduce tu nombre y email para acceder</p>
+                  <h2 className="text-[#1A1A1A] font-bold text-lg">Identifícate para ver tus reservas</h2>
+                  <p className="text-[#8E8E86] text-sm mt-1">Introduce tu nombre y email para acceder</p>
                 </div>
                 <button onClick={() => { setBookingSesionId(''); setLoginStep('login'); }}
                   className="px-6 py-3 rounded-xl font-bold text-white text-sm"
@@ -598,8 +598,8 @@ export default function ReservarPage() {
               </div>
             ) : misReservas.length === 0 ? (
               <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-3 text-center shadow-sm">
-                <Calendar size={28} className="text-gray-300" />
-                <p className="text-gray-500 font-medium">No tienes reservas todavía</p>
+                <Calendar size={28} className="text-[#C6C6BE]" />
+                <p className="text-[#8E8E86] font-medium">No tienes reservas todavía</p>
                 <button onClick={() => setTab('clases')} className="text-sm font-semibold" style={{ color: PRIMARY }}>
                   Explorar clases →
                 </button>
@@ -607,8 +607,8 @@ export default function ReservarPage() {
             ) : (
               <>
                 <div className="flex items-center justify-between px-1 mb-1">
-                  <h2 className="text-gray-900 font-bold text-base">Mis clases</h2>
-                  <span className="text-gray-400 text-sm">{misReservas.length} reserva{misReservas.length !== 1 ? 's' : ''}</span>
+                  <h2 className="text-[#1A1A1A] font-bold text-base">Mis clases</h2>
+                  <span className="text-[#A8A89F] text-sm">{misReservas.length} reserva{misReservas.length !== 1 ? 's' : ''}</span>
                 </div>
                 {misReservas.map(r => {
                   const s = r.sesion!;
@@ -622,8 +622,8 @@ export default function ReservarPage() {
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-3 mb-2">
                           <div>
-                            <p className="font-bold text-gray-900 text-base leading-tight">{s.tipo?.nombre}</p>
-                            <p className="text-gray-500 text-sm mt-0.5 capitalize">{fechaLarga}</p>
+                            <p className="font-bold text-[#1A1A1A] text-base leading-tight">{s.tipo?.nombre}</p>
+                            <p className="text-[#8E8E86] text-sm mt-0.5 capitalize">{fechaLarga}</p>
                           </div>
                           <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0"
                             style={r.estado === 'ASISTIDA'
@@ -635,20 +635,20 @@ export default function ReservarPage() {
                             {r.estado === 'ASISTIDA' ? '✓ Asistida' : r.estado === 'LISTA_ESPERA' ? '⏳ En espera' : isPast ? 'Finalizada' : '✅ Confirmada'}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                          <span className="font-bold text-gray-900 text-xl">{fmtTime(s.inicio)}<span className="text-gray-400 text-sm font-normal ml-1">→ {fmtTime(s.fin)}</span></span>
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-[#8E8E86]">
+                          <span className="font-bold text-[#1A1A1A] text-xl">{fmtTime(s.inicio)}<span className="text-[#A8A89F] text-sm font-normal ml-1">→ {fmtTime(s.fin)}</span></span>
                           {s.instructor && <span>{s.instructor.nombre}</span>}
                           {s.sala && <span>{s.sala.nombre}</span>}
                           <LevelBadge nivel={s.tipo?.nivel} />
                         </div>
                         {isFuture && (
-                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#F1F1EC]">
                             <a href={makeGoogleCalUrl(s)} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors">
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#3A3A34] bg-[#F5F5F1] hover:bg-[#F1F1EC] border border-[#E7E7E0] transition-colors">
                               <Calendar size={12} /> Añadir al calendario
                             </a>
                             <button onClick={() => downloadICS(s)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors">
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#3A3A34] bg-[#F5F5F1] hover:bg-[#F1F1EC] border border-[#E7E7E0] transition-colors">
                               <Download size={12} /> .ics
                             </button>
                             <button onClick={() => { if (confirm('¿Cancelar esta reserva?')) cancelarReserva(r.id); }}
@@ -673,15 +673,15 @@ export default function ReservarPage() {
             <div className="bg-white rounded-2xl shadow-sm p-6 text-center" style={{ border: '1px solid #F1F3F5' }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-lg font-black"
                 style={{ backgroundColor: PRIMARY }}>T</div>
-              <h2 className="text-gray-900 text-xl font-extrabold">Tentare</h2>
-              <p className="text-gray-500 text-sm mt-1">Málaga · Calle Larios 12, 2º</p>
-              <p className="text-gray-500 text-sm mt-3 max-w-sm mx-auto leading-relaxed">
+              <h2 className="text-[#1A1A1A] text-xl font-extrabold">Tentare</h2>
+              <p className="text-[#8E8E86] text-sm mt-1">Málaga · Calle Larios 12, 2º</p>
+              <p className="text-[#8E8E86] text-sm mt-3 max-w-sm mx-auto leading-relaxed">
                 Estudio boutique especializado en pilates reformer. Grupos reducidos para atención personalizada.
               </p>
               <div className="flex items-center justify-center gap-3 mt-4 text-sm">
                 <span className="font-semibold" style={{ color: PRIMARY }}>hola@tentare.es</span>
-                <span className="text-gray-300">·</span>
-                <span className="text-gray-500">+34 951 000 000</span>
+                <span className="text-[#C6C6BE]">·</span>
+                <span className="text-[#8E8E86]">+34 951 000 000</span>
               </div>
             </div>
 
@@ -689,7 +689,7 @@ export default function ReservarPage() {
             <div>
               <div className="flex items-center gap-2 mb-3 px-1">
                 <CreditCard size={16} style={{ color: PRIMARY }} />
-                <h3 className="text-gray-900 font-bold text-base">Nuestros planes</h3>
+                <h3 className="text-[#1A1A1A] font-bold text-base">Nuestros planes</h3>
               </div>
               {stripeError && (
                 <div className="mb-3 px-4 py-3 rounded-xl text-sm text-rose-600 bg-rose-50 border border-rose-200">
@@ -701,8 +701,8 @@ export default function ReservarPage() {
                   <div key={p.id} className="bg-white rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm"
                     style={{ border: '1px solid #F1F3F5' }}>
                     <div className="min-w-0">
-                      <p className="text-gray-900 font-bold text-sm">{p.nombre}</p>
-                      {p.descripcion && <p className="text-gray-500 text-xs mt-0.5">{p.descripcion}</p>}
+                      <p className="text-[#1A1A1A] font-bold text-sm">{p.nombre}</p>
+                      {p.descripcion && <p className="text-[#8E8E86] text-xs mt-0.5">{p.descripcion}</p>}
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                           style={{ backgroundColor: '#EDF9C8', color: PRIMARY }}>
@@ -712,8 +712,8 @@ export default function ReservarPage() {
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
-                        <p className="text-gray-900 font-extrabold text-xl leading-none">{p.precio}€</p>
-                        {p.tipo === 'MENSUAL' && <p className="text-gray-400 text-[10px]">/mes</p>}
+                        <p className="text-[#1A1A1A] font-extrabold text-xl leading-none">{p.precio}€</p>
+                        {p.tipo === 'MENSUAL' && <p className="text-[#A8A89F] text-[10px]">/mes</p>}
                       </div>
                       <button onClick={() => handleContratarPlan(p)}
                         disabled={stripeLoading === p.id}
@@ -727,23 +727,23 @@ export default function ReservarPage() {
                   </div>
                 ))}
               </div>
-              <p className="text-gray-400 text-xs mt-3 text-center">Pago seguro con Stripe · IVA incluido</p>
+              <p className="text-[#A8A89F] text-xs mt-3 text-center">Pago seguro con Stripe · IVA incluido</p>
             </div>
 
             {/* Class types */}
             <div>
-              <h3 className="text-gray-900 font-bold text-base mb-3 px-1">Tipos de clase</h3>
+              <h3 className="text-[#1A1A1A] font-bold text-base mb-3 px-1">Tipos de clase</h3>
               <div className="grid sm:grid-cols-2 gap-3">
                 {tiposClase.map(t => (
                   <div key={t.id} className="bg-white rounded-2xl p-4 shadow-sm"
                     style={{ border: `1.5px solid ${t.color}25` }}>
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                      <p className="text-gray-900 font-bold text-sm">{t.nombre}</p>
+                      <p className="text-[#1A1A1A] font-bold text-sm">{t.nombre}</p>
                     </div>
-                    <p className="text-gray-500 text-xs">{t.descripcion}</p>
+                    <p className="text-[#8E8E86] text-xs">{t.descripcion}</p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[10px] text-gray-400">{t.duracionMinutos} min</span>
+                      <span className="text-[10px] text-[#A8A89F]">{t.duracionMinutos} min</span>
                       <LevelBadge nivel={t.nivel} />
                     </div>
                   </div>
@@ -753,7 +753,7 @@ export default function ReservarPage() {
 
             {/* Instructors */}
             <div>
-              <h3 className="text-gray-900 font-bold text-base mb-3 px-1">Instructoras</h3>
+              <h3 className="text-[#1A1A1A] font-bold text-base mb-3 px-1">Instructoras</h3>
               <div className="grid sm:grid-cols-2 gap-3">
                 {instructores.filter(i => i.activo).map(i => (
                   <div key={i.id} className="bg-white flex items-center gap-3 rounded-2xl p-4 shadow-sm"
@@ -763,8 +763,8 @@ export default function ReservarPage() {
                       {i.nombre.split(' ').map(n => n[0]).join('')}
                     </div>
                     <div>
-                      <p className="text-gray-900 font-semibold text-sm">{i.nombre}</p>
-                      {i.email != null && <p className="text-gray-400 text-xs mt-0.5">{i.email}</p>}
+                      <p className="text-[#1A1A1A] font-semibold text-sm">{i.nombre}</p>
+                      {i.email != null && <p className="text-[#A8A89F] text-xs mt-0.5">{i.email}</p>}
                     </div>
                   </div>
                 ))}
@@ -782,7 +782,7 @@ export default function ReservarPage() {
                     const w = window.open('', '_blank');
                     if (w) { w.document.write(`<pre style="font-family:sans-serif;padding:2rem;max-width:700px;margin:auto;white-space:pre-wrap">${text}</pre>`); w.document.title = label; }
                   }}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                  className="flex items-center gap-1.5 text-xs text-[#A8A89F] hover:text-[#3A3A34] transition-colors">
                   <FileText size={12} />{label}
                 </button>
               ))}
@@ -798,7 +798,7 @@ export default function ReservarPage() {
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
             style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <button onClick={closeBooking}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+              className="absolute top-4 right-4 text-[#A8A89F] hover:text-[#3A3A34] transition-colors">
               <X size={18} />
             </button>
 
@@ -809,24 +809,24 @@ export default function ReservarPage() {
                   <CheckCircle2 size={30} style={{ color: '#059669' }} />
                 </div>
                 <div>
-                  <p className="text-gray-900 font-extrabold text-xl">¡Reserva confirmada!</p>
-                  <p className="text-gray-500 text-sm mt-1">
+                  <p className="text-[#1A1A1A] font-extrabold text-xl">¡Reserva confirmada!</p>
+                  <p className="text-[#8E8E86] text-sm mt-1">
                     {bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}
                   </p>
                 </div>
                 <div className="w-full space-y-2.5 mt-1">
-                  <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
+                  <p className="text-[#A8A89F] text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
                   <a href={makeGoogleCalUrl(bookingSesion)} target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-white transition-all"
                     style={{ backgroundColor: '#4285F4' }}>
                     <ExternalLink size={14} />Google Calendar
                   </a>
                   <button onClick={() => downloadICS(bookingSesion)}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-all">
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all">
                     <Download size={14} />Descargar .ics (Apple / Outlook)
                   </button>
                 </div>
-                <button onClick={closeBooking} className="text-gray-400 text-sm hover:text-gray-600 transition-colors mt-1">
+                <button onClick={closeBooking} className="text-[#A8A89F] text-sm hover:text-[#3A3A34] transition-colors mt-1">
                   Cerrar
                 </button>
               </div>
@@ -839,11 +839,11 @@ export default function ReservarPage() {
                   <CheckCircle2 size={30} style={{ color: '#D97706' }} />
                 </div>
                 <div>
-                  <p className="text-gray-900 font-extrabold text-xl">¡En lista de espera!</p>
-                  <p className="text-gray-500 text-sm mt-1">Te avisaremos si se libera una plaza.</p>
+                  <p className="text-[#1A1A1A] font-extrabold text-xl">¡En lista de espera!</p>
+                  <p className="text-[#8E8E86] text-sm mt-1">Te avisaremos si se libera una plaza.</p>
                 </div>
                 <button onClick={closeBooking}
-                  className="w-full py-3 rounded-2xl text-sm font-bold text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-all">
+                  className="w-full py-3 rounded-2xl text-sm font-bold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all">
                   Cerrar
                 </button>
               </div>
@@ -852,8 +852,8 @@ export default function ReservarPage() {
             {/* ── LOGIN ── */}
             {loginStep === 'login' && (
               <>
-                <h2 className="text-gray-900 font-bold text-lg mb-1">Identificarte</h2>
-                <p className="text-gray-500 text-sm mb-5">Introduce tu nombre y email para reservar.</p>
+                <h2 className="text-[#1A1A1A] font-bold text-lg mb-1">Identificarte</h2>
+                <p className="text-[#8E8E86] text-sm mb-5">Introduce tu nombre y email para reservar.</p>
                 <div className="space-y-2.5 mb-5">
                   {(['nombre', 'email'] as const).map(field => (
                     <input key={field} type={field === 'email' ? 'email' : 'text'}
@@ -861,7 +861,7 @@ export default function ReservarPage() {
                       value={loginForm[field]}
                       onChange={e => setLoginForm(f => ({ ...f, [field]: e.target.value }))}
                       onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                      className="w-full rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none border border-gray-200 focus:border-[#1A1A1A] transition-colors"
+                      className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors"
                       style={{ backgroundColor: '#F5F5F1' }} />
                   ))}
                 </div>
@@ -878,24 +878,24 @@ export default function ReservarPage() {
               <>
                 <div className="flex items-center gap-2 mb-1">
                   <Pen size={16} style={{ color: PRIMARY }} className="shrink-0" />
-                  <h2 className="text-gray-900 font-bold text-lg">Firma el contrato</h2>
+                  <h2 className="text-[#1A1A1A] font-bold text-lg">Firma el contrato</h2>
                 </div>
-                <p className="text-gray-500 text-sm mb-4">
+                <p className="text-[#8E8E86] text-sm mb-4">
                   Antes de tu primera reserva, lee y firma los términos de servicio.
                 </p>
-                <div className="rounded-xl p-3 mb-4 text-[11px] text-gray-500 leading-relaxed overflow-y-auto bg-gray-50 border border-gray-200"
+                <div className="rounded-xl p-3 mb-4 text-[11px] text-[#8E8E86] leading-relaxed overflow-y-auto bg-[#F5F5F1] border border-[#E7E7E0]"
                   style={{ maxHeight: '140px', whiteSpace: 'pre-wrap' }}>
                   {studioConfig.terminosServicio}
                 </div>
                 <div className="mb-4">
-                  <p className="text-gray-700 text-xs font-semibold mb-2">
-                    Firma aquí abajo <span className="text-gray-400 font-normal">(dibuja tu firma)</span>
+                  <p className="text-[#3A3A34] text-xs font-semibold mb-2">
+                    Firma aquí abajo <span className="text-[#A8A89F] font-normal">(dibuja tu firma)</span>
                   </p>
                   <CanvasSignature onHasDrawing={setCanvasSigned} />
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setLoginStep('login')}
-                    className="flex-1 py-3 rounded-2xl text-sm font-semibold text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-all">
+                    className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all">
                     Volver
                   </button>
                   <button onClick={handleSignContract} disabled={!canvasSigned}
@@ -910,14 +910,14 @@ export default function ReservarPage() {
             {/* ── CONFIRM ── */}
             {loginStep === 'confirm' && bookingSesion && (
               <>
-                <h2 className="text-gray-900 font-bold text-lg mb-4">Confirmar reserva</h2>
-                <div className="rounded-2xl p-4 mb-4 bg-gray-50 border border-gray-200">
+                <h2 className="text-[#1A1A1A] font-bold text-lg mb-4">Confirmar reserva</h2>
+                <div className="rounded-2xl p-4 mb-4 bg-[#F5F5F1] border border-[#E7E7E0]">
                   <div className="flex items-center gap-2 mb-1.5">
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: bookingSesion.tipo?.color ?? PRIMARY }} />
-                    <p className="text-gray-900 font-bold">{bookingSesion.tipo?.nombre}</p>
+                    <p className="text-[#1A1A1A] font-bold">{bookingSesion.tipo?.nombre}</p>
                   </div>
-                  <p className="text-gray-500 text-sm">{fmtLong(new Date(bookingSesion.inicio))}</p>
-                  <p className="text-gray-500 text-sm">{fmtTime(bookingSesion.inicio)} · {bookingSesion.instructor?.nombre}</p>
+                  <p className="text-[#8E8E86] text-sm">{fmtLong(new Date(bookingSesion.inicio))}</p>
+                  <p className="text-[#8E8E86] text-sm">{fmtTime(bookingSesion.inicio)} · {bookingSesion.instructor?.nombre}</p>
                   {bookingSesion.ocupadas >= bookingSesion.aforoMaximo && (
                     <p className="text-amber-600 text-xs font-medium mt-2">
                       Clase llena — te apuntaremos en lista de espera
@@ -929,8 +929,8 @@ export default function ReservarPage() {
                     style={{ backgroundColor: PRIMARY }}>
                     {socia?.nombre[0]}
                   </div>
-                  <p className="text-gray-500 text-sm">
-                    <span className="text-gray-900 font-semibold">{socia?.nombre}</span>
+                  <p className="text-[#8E8E86] text-sm">
+                    <span className="text-[#1A1A1A] font-semibold">{socia?.nombre}</span>
                     <span className="mx-1">·</span>{socia?.email}
                   </p>
                 </div>

@@ -159,7 +159,7 @@ export default function Mensajeria() {
           </p>
         </div>
         <Link href="/socios"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#3A3A34] hover:bg-gray-50 transition-colors">
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
           <Users size={14} />
           Ver miembros
         </Link>
@@ -196,7 +196,7 @@ export default function Mensajeria() {
             </div>
             {noLeidas > 0 && (
               <button onClick={() => setLeidas(new Set(notificaciones.map(n => n.id)))}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#8E8E86] hover:bg-gray-50 border border-[#E7E7E0] transition-colors shrink-0">
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#8E8E86] hover:bg-[#F5F5F1] border border-[#E7E7E0] transition-colors shrink-0">
                 <Check size={12} />
                 Marcar todas leídas
               </button>
@@ -212,7 +212,7 @@ export default function Mensajeria() {
                 return (
                   <li key={n.id}
                     onClick={() => setLeidas(prev => new Set([...prev, n.id]))}
-                    className="flex items-start gap-4 px-5 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                    className="flex items-start gap-4 px-5 py-4 hover:bg-[#F5F5F1] transition-colors cursor-pointer"
                     style={{ backgroundColor: isRead ? undefined : '#FAFBFF' }}>
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: bg }}>
                       <Icon size={14} style={{ color }} />

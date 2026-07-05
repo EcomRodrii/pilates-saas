@@ -149,7 +149,7 @@ export default function EquipoPage() {
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => openEditar(i)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#8E8E86] transition-colors">
+                    <button onClick={() => openEditar(i)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] transition-colors">
                       <Pencil size={14} />
                     </button>
                     <button onClick={() => setConfirmDel(i)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-[#8E8E86] hover:text-red-500 transition-colors">
@@ -241,7 +241,7 @@ export default function EquipoPage() {
               <span className="text-sm font-medium text-[#1A1A1A]">Miembro activo (puede recibir clases y citas)</span>
             </label>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-[#E7E7E0] text-[13px] font-medium text-[#3A3A34] hover:bg-gray-50">Cancelar</button>
+              <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-[#E7E7E0] text-[13px] font-medium text-[#3A3A34] hover:bg-[#F5F5F1]">Cancelar</button>
               <button onClick={guardar} disabled={!form.nombre.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C6F94D] text-[#171717] text-[13px] font-bold disabled:opacity-40">
                 <Check size={14} /> Guardar
               </button>
@@ -260,7 +260,7 @@ export default function EquipoPage() {
             ¿Seguro que quieres eliminar a <strong className="text-[#1A1A1A]">{confirmDel?.nombre}</strong> del equipo? Las clases y citas ya asignadas no se borran, pero quedarán sin instructor visible.
           </p>
           <div className="flex justify-end gap-2 pt-4">
-            <button onClick={() => setConfirmDel(null)} className="px-4 py-2 rounded-xl border border-[#E7E7E0] text-[13px] font-medium text-[#3A3A34] hover:bg-gray-50">Cancelar</button>
+            <button onClick={() => setConfirmDel(null)} className="px-4 py-2 rounded-xl border border-[#E7E7E0] text-[13px] font-medium text-[#3A3A34] hover:bg-[#F5F5F1]">Cancelar</button>
             <button onClick={() => { if (confirmDel) deleteInstructor(confirmDel.id); setConfirmDel(null); }} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600">
               <X size={14} /> Eliminar
             </button>
