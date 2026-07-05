@@ -1074,9 +1074,24 @@ export async function dbUpdateInstructor(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateInstructor]', error);
 }
 
+export async function dbUpdateStudio(changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('nif' in changes) db.nif = changes.nif;
+  if ('razonSocial' in changes) db.razon_social = changes.razonSocial;
+  if ('direccion' in changes) db.direccion = changes.direccion;
+  if ('ciudad' in changes) db.ciudad = changes.ciudad;
+  if ('codigoPostal' in changes) db.codigo_postal = changes.codigoPostal;
+  if ('email' in changes) db.email = changes.email;
+  if ('telefono' in changes) db.telefono = changes.telefono;
+  if ('colorPrimario' in changes) db.color_primario = changes.colorPrimario;
+  if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
+  const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
+  if (error) reportDbError('[dbUpdateStudio]', error);
+}
+
 export async function dbUpdateStudioAvatar(avatarId: string | null) {
-  const { error } = await supabase.from('studios').update({ avatar_admin: avatarId }).eq('id', STUDIO_ID);
-  if (error) reportDbError('[dbUpdateStudioAvatar]', error);
+  return dbUpdateStudio({ avatarAdmin: avatarId });
 }
 
 export async function dbDeleteInstructor(id: string) {

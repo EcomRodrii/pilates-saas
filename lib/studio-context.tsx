@@ -20,7 +20,7 @@ import {
   dbUpsertIntegracion,
   dbInsertAutomationLog, dbUpdateAutomationRule,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
-  dbUpdateStudioAvatar,
+  dbUpdateStudio,
   setDbErrorListener,
 } from '@/lib/supabase-data';
 import type {
@@ -261,6 +261,7 @@ interface StudioContextValue {
   // Studio record (propietario) + avatar del admin
   studio: Studio | null;
   updateAvatarAdmin: (avatarId: string | null) => void;
+  updateStudio: (changes: Partial<Studio>) => void;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -450,11 +451,16 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     dbDeleteInstructor(id);
   }
 
-  // ── Avatar del propietario ────────────────────────────────────────────────────
+  // ── Datos del estudio ──────────────────────────────────────────────────────────
 
   function updateAvatarAdmin(avatarId: string | null) {
     setStudio(prev => prev ? { ...prev, avatarAdmin: avatarId } : prev);
-    dbUpdateStudioAvatar(avatarId);
+    dbUpdateStudio({ avatarAdmin: avatarId });
+  }
+
+  function updateStudio(changes: Partial<Studio>) {
+    setStudio(prev => prev ? { ...prev, ...changes } : prev);
+    dbUpdateStudio(changes);
   }
 
   // ── Socios ────────────────────────────────────────────────────────────────────
@@ -1480,6 +1486,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     dataLoaded,
     studio,
     updateAvatarAdmin,
+    updateStudio,
   };
 
   function resetDatosPilates() {

@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, CreditCard, Mail, FileSpreadsheet, Calendar as CalendarIcon, MessageCircle, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import type { PlanTarifa, Sala, TipoClase, Instructor, TipoIntegracion } from '@/lib/types';
+import type { PlanTarifa, Sala, TipoClase, Instructor, TipoIntegracion, Studio } from '@/lib/types';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -1514,47 +1514,86 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
   );
 }
 
+type StudioForm = {
+  nombre: string; razonSocial: string; nif: string;
+  direccion: string; ciudad: string; codigoPostal: string;
+  telefono: string; email: string;
+};
+
+function studioToForm(s: Studio | null): StudioForm {
+  return {
+    nombre: s?.nombre ?? '',
+    razonSocial: s?.razonSocial ?? '',
+    nif: s?.nif ?? '',
+    direccion: s?.direccion ?? '',
+    ciudad: s?.ciudad ?? '',
+    codigoPostal: s?.codigoPostal ?? '',
+    telefono: s?.telefono ?? '',
+    email: s?.email ?? '',
+  };
+}
+
 function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
-  const { resetDatosPilates, studioConfig, updateStudioConfig } = useStudio();
+  const { resetDatosPilates, studioConfig, updateStudioConfig, studio, updateStudio } = useStudio();
   const [confirmReset, setConfirmReset] = useState(false);
   const [politica, setPolitica] = useState(studioConfig.politicaPrivacidad);
   const [terminos, setTerminos] = useState(studioConfig.terminosServicio);
+  const [form, setForm] = useState<StudioForm>(() => studioToForm(studio));
+
+  useEffect(() => { setForm(studioToForm(studio)); }, [studio]);
 
   const handleReset = useCallback(() => {
     resetDatosPilates();
     showToast('Datos restablecidos al estado de demo');
   }, [resetDatosPilates, showToast]);
 
+  function guardarEstudio() {
+    updateStudio(form);
+    showToast('Datos del estudio guardados');
+  }
+
   return (
     <div className="space-y-5 max-w-2xl">
-      {/* Studio info — read-only */}
+      {/* Studio info — editable */}
       <div className={cn(cardCls, 'p-6')}>
-        <div className="flex items-start justify-between mb-4">
-          <h3 className="text-[14px] font-semibold text-[#1A1A1A]">Información del estudio</h3>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]">
-            Próximamente
-          </span>
-        </div>
+        <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-4">Información del estudio</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[
-            { label: 'Nombre del estudio', value: 'Tentare' },
-            { label: 'Dirección', value: 'Calle Larios, 12 - 2ºA' },
-            { label: 'Ciudad', value: 'Málaga' },
-            { label: 'Código postal', value: '29005' },
-            { label: 'Teléfono', value: '+34 952 000 000' },
-            { label: 'Email de contacto', value: 'hola@tentare.es' },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <p className={labelCls}>{label}</p>
-              <p className="text-[13px] text-[#1A1A1A] bg-[#F5F5F1] border border-[#E7E7E0] rounded-lg px-3 py-2">
-                {value}
-              </p>
-            </div>
-          ))}
+          <div>
+            <p className={labelCls}>Nombre del estudio</p>
+            <input className={inputCls} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+          </div>
+          <div>
+            <p className={labelCls}>Razón social</p>
+            <input className={inputCls} value={form.razonSocial} onChange={e => setForm(f => ({ ...f, razonSocial: e.target.value }))} />
+          </div>
+          <div>
+            <p className={labelCls}>NIF / CIF</p>
+            <input className={inputCls} value={form.nif} onChange={e => setForm(f => ({ ...f, nif: e.target.value }))} />
+          </div>
+          <div>
+            <p className={labelCls}>Teléfono</p>
+            <input className={inputCls} value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+          </div>
+          <div>
+            <p className={labelCls}>Dirección</p>
+            <input className={inputCls} value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
+          </div>
+          <div>
+            <p className={labelCls}>Ciudad</p>
+            <input className={inputCls} value={form.ciudad} onChange={e => setForm(f => ({ ...f, ciudad: e.target.value }))} />
+          </div>
+          <div>
+            <p className={labelCls}>Código postal</p>
+            <input className={inputCls} value={form.codigoPostal} onChange={e => setForm(f => ({ ...f, codigoPostal: e.target.value }))} />
+          </div>
+          <div>
+            <p className={labelCls}>Email de contacto</p>
+            <input className={inputCls} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+          </div>
         </div>
-        <p className="text-[12px] text-[#A8A89F] mt-4">
-          La edición de los datos del estudio estará disponible próximamente.
-        </p>
+        <button onClick={guardarEstudio} className="mt-4 px-4 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-[12px] font-medium hover:bg-[#BCEF3F] transition-colors">
+          Guardar datos del estudio
+        </button>
       </div>
 
       {/* Privacy policy */}

@@ -21,7 +21,10 @@ function kpi(val: number) {
 type AgrupadorFact = 'mes' | 'cliente';
 
 export default function Facturas() {
-  const { facturas, recibos, socios } = useStudio();
+  const { facturas, recibos, socios, studio } = useStudio();
+  const emisorNombre = studio?.nombre ?? 'Tentare';
+  const emisorNif = studio?.nif ?? '—';
+  const emisorDireccion = [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || '—';
 
   const [busqueda, setBusqueda] = useState('');
   const [agrupador, setAgrupador] = useState<AgrupadorFact>('mes');
@@ -175,17 +178,17 @@ export default function Facturas() {
     <div class="numero">${f.numeroCompleto}</div>
   </div>
   <div style="text-align:right">
-    <div style="font-weight:700">Tentare</div>
-    <div style="color:#8E8E86">B-12345678</div>
-    <div style="color:#8E8E86">Calle Larios 12, Málaga</div>
+    <div style="font-weight:700">${emisorNombre}</div>
+    <div style="color:#8E8E86">${emisorNif}</div>
+    <div style="color:#8E8E86">${emisorDireccion}</div>
   </div>
 </div>
 <div class="parties">
   <div>
     <div class="party-label">Emisor</div>
-    <div class="party-name">Tentare</div>
-    <div class="party-detail">B-12345678</div>
-    <div class="party-detail">Calle Larios 12, 29001 Málaga</div>
+    <div class="party-name">${emisorNombre}</div>
+    <div class="party-detail">${emisorNif}</div>
+    <div class="party-detail">${emisorDireccion}</div>
   </div>
   <div>
     <div class="party-label">Receptor</div>
@@ -213,7 +216,7 @@ export default function Facturas() {
     <tr class="total-row"><td>TOTAL</td><td>${fmt(f.total)} €</td></tr>
   </tfoot>
 </table>
-<div class="footer">Documento generado el ${new Date().toLocaleDateString('es-ES')} · Tentare · B-12345678</div>
+<div class="footer">Documento generado el ${new Date().toLocaleDateString('es-ES')} · ${emisorNombre} · ${emisorNif}</div>
 <script>window.onload = function(){ window.print(); }<\/script>
 </body></html>`;
     const w = window.open('', '_blank');
@@ -481,9 +484,9 @@ export default function Facturas() {
               <div className="grid grid-cols-2 gap-6 mb-8 text-sm">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-[#8E8E86] mb-2">Emisor</p>
-                  <p className="font-bold text-[#1A1A1A]">Tentare</p>
-                  <p className="text-[#8E8E86]">B-12345678</p>
-                  <p className="text-[#8E8E86]">Calle Ejemplo 1, Málaga</p>
+                  <p className="font-bold text-[#1A1A1A]">{emisorNombre}</p>
+                  <p className="text-[#8E8E86]">{emisorNif}</p>
+                  <p className="text-[#8E8E86]">{emisorDireccion}</p>
                 </div>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-[#8E8E86] mb-2">Receptor</p>

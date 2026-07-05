@@ -58,25 +58,25 @@ type SesionRich = {
   ocupadas: number;
 };
 
-function makeGoogleCalUrl(s: SesionRich): string {
+function makeGoogleCalUrl(s: SesionRich, estudioNombre: string, estudioDireccion: string): string {
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: s.tipo?.nombre ?? 'Clase Pilates',
     dates: `${toCalDate(s.inicio)}/${toCalDate(s.fin)}`,
     details: `Instructora: ${s.instructor?.nombre ?? ''} · Sala: ${s.sala?.nombre ?? ''}`,
-    location: 'Tentare · Calle Larios 12, Málaga',
+    location: `${estudioNombre} · ${estudioDireccion}`,
   });
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-function downloadICS(s: SesionRich) {
+function downloadICS(s: SesionRich, estudioNombre: string, estudioDireccion: string) {
   const lines = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tentare//ES', 'CALSCALE:GREGORIAN',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${estudioNombre}//ES`, 'CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
     `DTSTART:${toCalDate(s.inicio)}`,
     `DTEND:${toCalDate(s.fin)}`,
     `SUMMARY:${s.tipo?.nombre ?? 'Clase Pilates'}`,
-    'LOCATION:Tentare · Calle Larios 12\\, Málaga',
+    `LOCATION:${estudioNombre}\\, ${estudioDireccion}`,
     `DESCRIPTION:Instructora: ${s.instructor?.nombre ?? ''} · Sala: ${s.sala?.nombre ?? ''}`,
     'STATUS:CONFIRMED',
     'END:VEVENT',
@@ -216,9 +216,13 @@ type Step = 'login' | 'contrato' | 'confirm' | 'done' | 'espera';
 export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores,
-    planesTarifa, studioConfig,
+    planesTarifa, studioConfig, studio,
     addReserva, updateSocio, cancelarReserva, addSocioFromPortal,
   } = useStudio();
+  const estudioNombre = studio?.nombre ?? 'Tentare';
+  const estudioDireccion = [studio?.ciudad, studio?.direccion].filter(Boolean).join(' · ') || 'Málaga · Calle Larios 12';
+  const estudioEmail = studio?.email ?? 'hola@tentare.es';
+  const estudioTelefono = studio?.telefono ?? '+34 951 000 000';
   const { socia, login, logout } = useLocalSocia();
 
   const [mounted, setMounted] = useState(false);
@@ -392,10 +396,10 @@ export default function ReservarPage() {
           <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-[11px] font-black shrink-0"
-                style={{ backgroundColor: PRIMARY }}>T</div>
+                style={{ backgroundColor: PRIMARY }}>{estudioNombre[0]}</div>
               <div>
-                <p className="font-bold text-[#1A1A1A] text-sm leading-tight">Tentare</p>
-                <p className="text-[#A8A89F] text-[11px]">Málaga · Calle Larios 12</p>
+                <p className="font-bold text-[#1A1A1A] text-sm leading-tight">{estudioNombre}</p>
+                <p className="text-[#A8A89F] text-[11px]">{estudioDireccion}</p>
               </div>
             </div>
             {socia ? (
@@ -643,11 +647,11 @@ export default function ReservarPage() {
                         </div>
                         {isFuture && (
                           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#F1F1EC]">
-                            <a href={makeGoogleCalUrl(s)} target="_blank" rel="noopener noreferrer"
+                            <a href={makeGoogleCalUrl(s, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#3A3A34] bg-[#F5F5F1] hover:bg-[#F1F1EC] border border-[#E7E7E0] transition-colors">
                               <Calendar size={12} /> Añadir al calendario
                             </a>
-                            <button onClick={() => downloadICS(s)}
+                            <button onClick={() => downloadICS(s, estudioNombre, estudioDireccion)}
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#3A3A34] bg-[#F5F5F1] hover:bg-[#F1F1EC] border border-[#E7E7E0] transition-colors">
                               <Download size={12} /> .ics
                             </button>
@@ -672,16 +676,16 @@ export default function ReservarPage() {
             {/* Studio info */}
             <div className="bg-white rounded-2xl shadow-sm p-6 text-center" style={{ border: '1px solid #F1F3F5' }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-lg font-black"
-                style={{ backgroundColor: PRIMARY }}>T</div>
-              <h2 className="text-[#1A1A1A] text-xl font-extrabold">Tentare</h2>
-              <p className="text-[#8E8E86] text-sm mt-1">Málaga · Calle Larios 12, 2º</p>
+                style={{ backgroundColor: PRIMARY }}>{estudioNombre[0]}</div>
+              <h2 className="text-[#1A1A1A] text-xl font-extrabold">{estudioNombre}</h2>
+              <p className="text-[#8E8E86] text-sm mt-1">{estudioDireccion}</p>
               <p className="text-[#8E8E86] text-sm mt-3 max-w-sm mx-auto leading-relaxed">
                 Estudio boutique especializado en pilates reformer. Grupos reducidos para atención personalizada.
               </p>
               <div className="flex items-center justify-center gap-3 mt-4 text-sm">
-                <span className="font-semibold" style={{ color: PRIMARY }}>hola@tentare.es</span>
+                <span className="font-semibold" style={{ color: PRIMARY }}>{estudioEmail}</span>
                 <span className="text-[#C6C6BE]">·</span>
-                <span className="text-[#8E8E86]">+34 951 000 000</span>
+                <span className="text-[#8E8E86]">{estudioTelefono}</span>
               </div>
             </div>
 
@@ -816,12 +820,12 @@ export default function ReservarPage() {
                 </div>
                 <div className="w-full space-y-2.5 mt-1">
                   <p className="text-[#A8A89F] text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
-                  <a href={makeGoogleCalUrl(bookingSesion)} target="_blank" rel="noopener noreferrer"
+                  <a href={makeGoogleCalUrl(bookingSesion, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-white transition-all"
                     style={{ backgroundColor: '#4285F4' }}>
                     <ExternalLink size={14} />Google Calendar
                   </a>
-                  <button onClick={() => downloadICS(bookingSesion)}
+                  <button onClick={() => downloadICS(bookingSesion, estudioNombre, estudioDireccion)}
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all">
                     <Download size={14} />Descargar .ics (Apple / Outlook)
                   </button>
