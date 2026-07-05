@@ -49,7 +49,7 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   CANCELACION:        { color: '#DC2626', bg: '#FEF2F2', label: 'Cancelación' },
   PAGO_COBRADO:       { color: '#059669', bg: '#ECFDF5', label: 'Cobro' },
   PAGO_PENDIENTE:     { color: '#D97706', bg: '#FFFBEB', label: 'Pendiente' },
-  NUEVA_SUSCRIPCION:  { color: '#7C3AED', bg: '#EDF9C8', label: 'Plan' },
+  NUEVA_SUSCRIPCION:  { color: '#7C3AED', bg: '#EDE9FE', label: 'Plan' },
   SUSCRIPCION_PAUSADA:{ color: '#D97706', bg: '#FFFBEB', label: 'Pausa' },
   CITA_CREADA:        { color: '#0891B2', bg: '#ECFEFF', label: 'Cita' },
   CITA_COMPLETADA:    { color: '#059669', bg: '#ECFDF5', label: 'Cita ✓' },

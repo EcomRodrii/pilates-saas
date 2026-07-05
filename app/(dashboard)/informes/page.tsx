@@ -437,7 +437,7 @@ export default function Informes() {
             className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
             style={{ backgroundColor: '#EDF9C8' }}
           >
-            <CreditCard size={17} style={{ color: '#7C3AED' }} />
+            <CreditCard size={17} style={{ color: '#6B8E00' }} />
           </div>
           <p className="text-xs font-semibold mb-1" style={{ color: '#8E8E86' }}>MRR</p>
           <p className="text-2xl font-extrabold leading-none" style={{ color: '#1A1A1A' }}>
@@ -783,7 +783,7 @@ export default function Informes() {
                     {/* Avatar */}
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: '#EDF9C8', color: '#7C3AED' }}
+                      style={{ backgroundColor: '#EDE9FE', color: '#7C3AED' }}
                     >
                       {s.nombre[0]}{s.apellidos?.[0] ?? ''}
                     </div>
@@ -795,14 +795,14 @@ export default function Informes() {
                       <div className="mt-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#F1F1EC' }}>
                         <div
                           className="h-full rounded-full"
-                          style={{ width: `${pct}%`, backgroundColor: i === 0 ? '#7C3AED' : '#818CF8' }}
+                          style={{ width: `${pct}%`, backgroundColor: i === 0 ? '#8FBF12' : '#C6C6BE' }}
                         />
                       </div>
                     </div>
 
                     <span
                       className="text-sm font-extrabold tabular-nums flex-shrink-0"
-                      style={{ color: i === 0 ? '#7C3AED' : '#1A1A1A' }}
+                      style={{ color: i === 0 ? '#6B8E00' : '#1A1A1A' }}
                     >
                       {s.clases}
                     </span>

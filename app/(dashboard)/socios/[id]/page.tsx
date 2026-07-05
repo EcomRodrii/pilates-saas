@@ -30,7 +30,7 @@ const AVATAR_COLORS = [
   { bg: '#D1FAE5', text: '#059669' },
   { bg: '#FEF3C7', text: '#92400E' },
   { bg: '#FCE7F3', text: '#9D174D' },
-  { bg: '#EDF9C8', text: '#5B21B6' },
+  { bg: '#EDE9FE', text: '#5B21B6' },
   { bg: '#FEE2E2', text: '#991B1B' },
 ];
 
