@@ -69,11 +69,11 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: #E7E7E0;
   --input: #E7E7E0;
-  --ring: #C6F53F;
+  --ring: #C6F94D;
   --radius: 1rem;
   --sidebar: #0F0F0F;
   --sidebar-foreground: #E8E8E4;
-  --sidebar-primary: #C6F53F;
+  --sidebar-primary: #C6F94D;
   --sidebar-primary-foreground: #131313;
   --sidebar-accent: rgba(255,255,255,0.06);
   --sidebar-accent-foreground: #ffffff;
@@ -81,7 +81,7 @@
   --sidebar-ring: rgba(198,245,63,0.4);
 
   /* Lime accent scale (Midbox) */
-  --lime: #C6F53F;
+  --lime: #C6F94D;
   --lime-dark: #A9DE20;
   --lime-bg: #EDF9C8;
 }

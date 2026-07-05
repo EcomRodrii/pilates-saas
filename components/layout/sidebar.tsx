@@ -75,7 +75,7 @@ function NavItem({ href, label, Icon, onClick }: { href: string; label: string; 
       onClick={onClick}
       className={cn(
         'flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] font-medium transition-all relative',
-        active ? 'bg-[#C6F53F] text-[#131313] font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-white/5'
+        active ? 'bg-[#C6F94D] text-[#131313] font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-white/5'
       )}
     >
       <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
@@ -231,10 +231,10 @@ export function Sidebar() {
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
       {masOpen && <MasDrawer onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} />}
 
-      {/* ── Desktop sidebar ────────────────────────────────────────────────── */}
+      {/* ── Desktop sidebar (floating black pill — Midbox) ─────────────────── */}
       <aside
-        className="hidden lg:flex fixed inset-y-0 left-0 z-20 flex-col w-56"
-        style={{ backgroundColor: '#111111' }}
+        className="hidden lg:flex fixed top-4 left-4 bottom-4 z-20 flex-col w-56 rounded-[28px] overflow-hidden"
+        style={{ backgroundColor: '#0A0A0A' }}
       >
         {/* Logo */}
         <div

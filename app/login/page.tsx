@@ -81,8 +81,8 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all disabled:opacity-60"
-              style={{ backgroundColor: '#111111' }}
+              className="w-full py-3 rounded-full text-[14px] font-bold text-[#171717] transition-all hover:brightness-95 disabled:opacity-60"
+              style={{ backgroundColor: '#C6F94D' }}
             >
               {submitting ? 'Entrando…' : 'Entrar'}
             </button>

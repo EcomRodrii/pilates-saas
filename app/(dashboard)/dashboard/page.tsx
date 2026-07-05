@@ -523,8 +523,8 @@ export default function Dashboard() {
 
   return (
 
-    <div className="min-h-screen bg-background">
-      <div className="max-w-[1240px] mx-auto px-4 sm:px-6 py-6 space-y-5">
+    <div>
+      <div className="space-y-5">
 
         {/* ── Header ─────────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
