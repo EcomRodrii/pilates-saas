@@ -61,8 +61,8 @@ export default function MiPlanPage() {
 
         {/* Plan card */}
         {plan && suscripcion ? (
-          <div className="rounded-3xl overflow-hidden shadow-md" style={{ boxShadow: '0 4px 20px rgba(79,70,229,0.2)' }}>
-            <div className="p-5" style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)' }}>
+          <div className="rounded-3xl overflow-hidden shadow-md" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
+            <div className="p-5" style={{ background: 'linear-gradient(135deg, #1A1A1A, #3F5200)' }}>
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <p className="text-indigo-200 text-[11px] font-bold uppercase tracking-widest mb-1">

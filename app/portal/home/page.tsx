@@ -100,7 +100,7 @@ export default function PortalHome() {
           const tipo = tiposClase.find(t => t.id === proxima.s!.tipoClaseId);
           const sala = salas.find(s => s.id === proxima.s!.salaId);
           const instr = instructores.find(i => i.id === proxima.s!.instructorId);
-          const color = tipo?.color ?? '#4F46E5';
+          const color = tipo?.color ?? '#8FBF12';
           return (
             <Link href="/portal/clases" className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
               <div className="p-5 text-white" style={{ background: `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
@@ -128,7 +128,7 @@ export default function PortalHome() {
           );
         })() : (
           <Link href="/portal/clases" className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
-            <div className="p-5 bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] text-white">
+            <div className="p-5 bg-gradient-to-br from-[#1A1A1A] to-[#3F5200] text-white">
               <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-3">Próxima clase</p>
               <p className="text-white text-[20px] font-extrabold mb-1">Sin clases reservadas</p>
               <p className="text-white/60 text-[13px] mb-4">Reserva tu próxima sesión ahora</p>
@@ -172,7 +172,7 @@ export default function PortalHome() {
                     className="h-full rounded-full transition-all"
                     style={{
                       width: `${Math.min(100, Math.round((activeSus.sesionesRestantes / plan.sesiones) * 100))}%`,
-                      backgroundColor: activeSus.sesionesRestantes > 3 ? '#4F46E5' : '#EF4444',
+                      backgroundColor: activeSus.sesionesRestantes > 3 ? '#8FBF12' : '#EF4444',
                     }}
                   />
                 </div>
@@ -196,10 +196,10 @@ export default function PortalHome() {
         <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">Acceso rápido</p>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { href: '/portal/clases', icon: Calendar, label: 'Reservar clase', color: '#4F46E5', bg: '#EDF9C8' },
+            { href: '/portal/clases', icon: Calendar, label: 'Reservar clase', color: '#6B8E00', bg: '#EDF9C8' },
             { href: '/portal/mi-plan', icon: CreditCard, label: 'Mis pagos', color: '#059669', bg: '#ECFDF5' },
             { href: '/portal/videos', icon: Play, label: 'Videos on-demand', color: '#D97706', bg: '#FFFBEB' },
-            { href: '/portal/progreso', icon: TrendingUp, label: 'Mi progreso', color: '#7C3AED', bg: '#EDF9C8' },
+            { href: '/portal/progreso', icon: TrendingUp, label: 'Mi progreso', color: '#8FBF12', bg: '#EDF9C8' },
           ].map(({ href, icon: Icon, label, color, bg }) => (
             <Link
               key={href}

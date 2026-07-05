@@ -73,7 +73,7 @@ export default function InstructoresPage() {
 
                 <Link
                   href="/portal/clases"
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-[#4F46E5]/30 text-[#6B8E00] text-[13px] font-medium hover:bg-[#C6F94D]/5 transition-colors"
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-[#8FBF12]/30 text-[#6B8E00] text-[13px] font-medium hover:bg-[#C6F94D]/5 transition-colors"
                 >
                   <span>Ver clases</span>
                   <ChevronRight size={15} />

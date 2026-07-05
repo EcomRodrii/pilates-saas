@@ -380,7 +380,7 @@ export default function ReservarPage() {
 
   const bookingSesion = bookingSesionId ? sesionesRich.find(s => s.id === bookingSesionId) : null;
 
-  const PRIMARY = '#4F46E5'; // indigo brand color
+  const PRIMARY = '#1A1A1A'; // Midbox ink — brand accent
 
   return (
     <div className="min-h-screen bg-[#F4F6F9]">

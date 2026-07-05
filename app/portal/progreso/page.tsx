@@ -133,7 +133,7 @@ export default function ProgresoPage() {
                       className="w-full rounded-t-xl transition-all"
                       style={{
                         height: s.count === 0 ? 4 : Math.max(8, Math.round((s.count / maxSem) * 52)),
-                        backgroundColor: s.count === 0 ? '#F1F1EC' : '#4F46E5',
+                        backgroundColor: s.count === 0 ? '#F1F1EC' : '#8FBF12',
                       }}
                     />
                   </div>

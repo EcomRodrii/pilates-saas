@@ -38,7 +38,7 @@ export default function PortalLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-[#EEEEE8] flex flex-col items-center justify-center p-6">
       {/* Logo */}
       <div className="mb-10 flex flex-col items-center gap-4">
         <Image src="/logo-transparent.png" alt="Tentare" width={160} height={70} className="h-20 w-auto object-contain" />
@@ -59,7 +59,7 @@ export default function PortalLogin() {
             placeholder="tu@email.com"
             required
             autoFocus
-            className="w-full pl-10 pr-4 py-3.5 bg-white border border-[#E7E7E0] rounded-2xl text-sm text-[#171717] placeholder:text-[#A8A89E] outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/20 transition-all"
+            className="w-full pl-10 pr-4 py-3.5 bg-white border border-[#E7E7E0] rounded-2xl text-sm text-[#171717] placeholder:text-[#A8A89E] outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition-all"
           />
         </div>
 
@@ -73,7 +73,7 @@ export default function PortalLogin() {
         <button
           type="submit"
           disabled={loading || !email}
-          className="w-full py-3.5 rounded-2xl bg-[#C6F94D] text-white font-bold text-sm transition-all disabled:opacity-50 hover:bg-[#A9DE20] active:scale-[0.98]"
+          className="w-full py-3.5 rounded-2xl bg-[#C6F94D] text-[#171717] font-bold text-sm transition-all disabled:opacity-50 hover:bg-[#BCEF3F] active:scale-[0.98]"
         >
           {loading ? 'Comprobando...' : 'Entrar'}
         </button>

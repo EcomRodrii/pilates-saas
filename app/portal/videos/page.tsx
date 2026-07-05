@@ -16,7 +16,7 @@ const CATEGORIAS: { value: CategoriaVideo | 'TODOS'; label: string; emoji: strin
 ];
 
 const GRADIENTS: Record<CategoriaVideo, string> = {
-  REFORMER: 'linear-gradient(135deg, #4F46E5, #7C3AED)',
+  REFORMER: 'linear-gradient(135deg, #1A1A1A, #3F5200)',
   MAT: 'linear-gradient(135deg, #059669, #10B981)',
   BARRE: 'linear-gradient(135deg, #EC4899, #F472B6)',
   CARDIO: 'linear-gradient(135deg, #EF4444, #F97316)',
@@ -63,7 +63,7 @@ export default function VideosPage() {
               className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-[12px] font-bold transition-all"
               style={{
                 backgroundColor: cat === c.value ? 'white' : 'rgba(255,255,255,0.12)',
-                color: cat === c.value ? '#4F46E5' : 'rgba(255,255,255,0.75)',
+                color: cat === c.value ? '#171717' : 'rgba(255,255,255,0.75)',
               }}
             >
               <span>{c.emoji}</span>

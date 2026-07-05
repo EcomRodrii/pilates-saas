@@ -6,6 +6,15 @@ import { CheckCircle2, ChevronLeft, ChevronRight, Clock, Users, Wifi, X } from '
 
 function pad2(n: number) { return String(n).padStart(2, '0'); }
 
+function isDark(hex: string) {
+  const clean = hex.replace('#', '');
+  if (clean.length < 6) return true;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.55;
+}
+
 function useNow() {
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -114,7 +123,7 @@ export default function KioskPage() {
   if (!now) return null;
 
   return (
-    <div className="fixed inset-0 bg-[#0F0F0F] text-white flex flex-col overflow-hidden select-none" style={{ fontFamily: 'var(--font-jakarta, system-ui)' }}>
+    <div className="fixed inset-0 bg-[#0A0A0A] text-white flex flex-col overflow-hidden select-none" style={{ fontFamily: 'var(--font-jakarta, system-ui)' }}>
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-8 pt-8 pb-4 shrink-0">
@@ -148,7 +157,7 @@ export default function KioskPage() {
                 onClick={() => setSelectedSesionId(s.id)}
                 className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
                 style={s.id === selectedSesionId
-                  ? { backgroundColor: s.tipo?.color ?? '#2563EB', color: '#fff' }
+                  ? { backgroundColor: s.tipo?.color ?? '#C6F94D', color: isDark(s.tipo?.color ?? '#C6F94D') ? '#fff' : '#171717' }
                   : { backgroundColor: 'rgba(255,255,255,0.07)', color: s.isPast ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)' }
                 }
               >
@@ -169,7 +178,7 @@ export default function KioskPage() {
             {/* Session info bar */}
             <div className="flex items-center gap-4 shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedSesion.tipo?.color ?? '#2563EB' }} />
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedSesion.tipo?.color ?? '#C6F94D' }} />
                 <span className="text-xl font-bold">{selectedSesion.tipo?.nombre ?? 'Clase'}</span>
               </div>
               <span className="text-white/40">·</span>

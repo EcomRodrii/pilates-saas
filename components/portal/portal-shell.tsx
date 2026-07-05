@@ -30,7 +30,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-[3px] border-[#4F46E5]/20 border-t-[#4F46E5] rounded-full animate-spin" />
+        <div className="w-8 h-8 border-[3px] border-[#1A1A1A]/15 border-t-[#1A1A1A] rounded-full animate-spin" />
       </div>
     );
   }
@@ -68,16 +68,18 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={href}
                 href={href}
-                className="flex-1 flex flex-col items-center justify-center gap-[2px]"
+                className="flex-1 flex flex-col items-center justify-center gap-[3px]"
               >
-                <Icon
-                  size={22}
-                  strokeWidth={active ? 2.5 : 1.8}
-                  className={active ? 'text-[#4F46E5]' : 'text-[#C7C7CC]'}
-                />
+                <span className={active ? 'flex items-center justify-center w-8 h-6 rounded-full bg-[#C6F94D]' : 'flex items-center justify-center w-8 h-6'}>
+                  <Icon
+                    size={19}
+                    strokeWidth={active ? 2.5 : 1.8}
+                    className={active ? 'text-[#171717]' : 'text-[#C7C7CC]'}
+                  />
+                </span>
                 <span
                   className="text-[9px] font-semibold tracking-wide"
-                  style={{ color: active ? '#4F46E5' : '#C7C7CC' }}
+                  style={{ color: active ? '#1A1A1A' : '#C7C7CC' }}
                 >
                   {label.toUpperCase()}
                 </span>

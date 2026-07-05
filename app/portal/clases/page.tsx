@@ -75,7 +75,7 @@ export default function ClasesPage() {
               className="px-4 py-2 rounded-2xl text-[13px] font-bold transition-all"
               style={{
                 backgroundColor: tab === key ? 'white' : 'rgba(255,255,255,0.12)',
-                color: tab === key ? '#4F46E5' : 'rgba(255,255,255,0.7)',
+                color: tab === key ? '#171717' : 'rgba(255,255,255,0.7)',
               }}
             >
               {label}
@@ -109,7 +109,7 @@ export default function ClasesPage() {
                   const instr = instructores.find(i => i.id === ses.instructorId);
                   const libres = getLibres(ses.id, ses.aforoMaximo);
                   const miReserva = getMiReserva(ses.id);
-                  const color = tipo?.color ?? '#4F46E5';
+                  const color = tipo?.color ?? '#8FBF12';
 
                   return (
                     <div key={ses.id} className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.08)' }}>

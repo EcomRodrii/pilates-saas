@@ -53,9 +53,9 @@ export default function CrearEstudioPage() {
                 <div
                   className={`rounded-full ${
                     n === step
-                      ? 'w-6 h-2.5 bg-[#4F46E5]'
+                      ? 'w-6 h-2.5 bg-[#1A1A1A]'
                       : n < step
-                      ? 'w-2.5 h-2.5 bg-[#4F46E5]/60'
+                      ? 'w-2.5 h-2.5 bg-[#1A1A1A]/50'
                       : 'w-2.5 h-2.5 bg-[#E5E7EB]'
                   }`}
                 />
@@ -71,8 +71,8 @@ export default function CrearEstudioPage() {
           {step === 1 && (
             <form onSubmit={handleStudioSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-[#4F46E5]/10 flex items-center justify-center">
-                  <Building2 size={20} className="text-[#4F46E5]" />
+                <div className="w-10 h-10 rounded-xl bg-[#EDF9C8] flex items-center justify-center">
+                  <Building2 size={20} className="text-[#3F5200]" />
                 </div>
                 <div>
                   <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Tu estudio</h1>
@@ -89,7 +89,7 @@ export default function CrearEstudioPage() {
                     placeholder="Ej. Tentare"
                     value={studio.nombre}
                     onChange={e => setStudio(s => ({ ...s, nombre: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
                   />
                 </div>
 
@@ -98,7 +98,7 @@ export default function CrearEstudioPage() {
                   <select
                     value={studio.tipo}
                     onChange={e => setStudio(s => ({ ...s, tipo: e.target.value as StudioTipo }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition bg-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition bg-white"
                   >
                     {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -112,7 +112,7 @@ export default function CrearEstudioPage() {
                     placeholder="Ej. Madrid"
                     value={studio.ciudad}
                     onChange={e => setStudio(s => ({ ...s, ciudad: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
                   />
                 </div>
 
@@ -124,14 +124,14 @@ export default function CrearEstudioPage() {
                     placeholder="+34 600 000 000"
                     value={studio.telefono}
                     onChange={e => setStudio(s => ({ ...s, telefono: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-[#4F46E5] text-white font-semibold text-[15px] hover:bg-[#4338CA] transition-colors"
+                className="w-full py-3 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors"
               >
                 Continuar →
               </button>
@@ -141,8 +141,8 @@ export default function CrearEstudioPage() {
           {step === 2 && (
             <form onSubmit={handleOwnerSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-[#4F46E5]/10 flex items-center justify-center">
-                  <User size={20} className="text-[#4F46E5]" />
+                <div className="w-10 h-10 rounded-xl bg-[#EDF9C8] flex items-center justify-center">
+                  <User size={20} className="text-[#3F5200]" />
                 </div>
                 <div>
                   <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Tu cuenta</h1>
@@ -159,7 +159,7 @@ export default function CrearEstudioPage() {
                     placeholder="Ej. María García"
                     value={owner.nombreCompleto}
                     onChange={e => setOwner(o => ({ ...o, nombreCompleto: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
                   />
                 </div>
 
@@ -171,7 +171,7 @@ export default function CrearEstudioPage() {
                     placeholder="maria@miestudio.com"
                     value={owner.email}
                     onChange={e => setOwner(o => ({ ...o, email: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
                   />
                 </div>
 
@@ -183,7 +183,7 @@ export default function CrearEstudioPage() {
                     placeholder="Mínimo 8 caracteres"
                     value={owner.contrasena}
                     onChange={e => setOwner(o => ({ ...o, contrasena: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
                   />
                 </div>
               </div>
@@ -198,7 +198,7 @@ export default function CrearEstudioPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-[2] py-3 rounded-xl bg-[#4F46E5] text-white font-semibold text-[15px] hover:bg-[#4338CA] transition-colors"
+                  className="flex-[2] py-3 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors"
                 >
                   Crear estudio →
                 </button>
@@ -209,8 +209,8 @@ export default function CrearEstudioPage() {
           {step === 3 && (
             <div className="p-6 space-y-5 text-center">
               <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#4F46E5]/10 flex items-center justify-center">
-                  <CheckCircle2 size={32} className="text-[#4F46E5]" />
+                <div className="w-16 h-16 rounded-2xl bg-[#EDF9C8] flex items-center justify-center">
+                  <CheckCircle2 size={32} className="text-[#3F5200]" />
                 </div>
               </div>
 
@@ -224,7 +224,7 @@ export default function CrearEstudioPage() {
 
               <div className="bg-[#F8F9FA] rounded-xl px-4 py-3 text-left space-y-1">
                 <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#9CA3AF]">URL del portal</p>
-                <p className="text-[13px] font-medium text-[#4F46E5] break-all">
+                <p className="text-[13px] font-medium text-[#3F5200] break-all">
                   https://{portalSlug}.miapp.com/portal
                 </p>
               </div>
@@ -232,13 +232,13 @@ export default function CrearEstudioPage() {
               <div className="space-y-2.5">
                 <Link
                   href="/dashboard"
-                  className="flex items-center justify-center w-full py-3.5 rounded-xl bg-[#4F46E5] text-white font-semibold text-[15px] hover:bg-[#4338CA] transition-colors"
+                  className="flex items-center justify-center w-full py-3.5 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors"
                 >
                   Ir al dashboard →
                 </Link>
                 <Link
                   href="/portal/login"
-                  className="flex items-center justify-center w-full py-3.5 rounded-xl border border-[#4F46E5]/30 text-[#4F46E5] font-semibold text-[15px] hover:bg-[#4F46E5]/5 transition-colors"
+                  className="flex items-center justify-center w-full py-3.5 rounded-xl border border-[#E7E7E0] text-[#1A1A1A] font-semibold text-[15px] hover:bg-[#F5F5F1] transition-colors"
                 >
                   Ver portal de miembros →
                 </Link>
@@ -249,7 +249,7 @@ export default function CrearEstudioPage() {
 
         <p className="text-center text-[12px] text-[#9CA3AF] mt-4">
           ¿Ya tienes cuenta?{' '}
-          <Link href="/dashboard" className="text-[#4F46E5] hover:underline">
+          <Link href="/dashboard" className="text-[#3F5200] hover:underline">
             Iniciar sesión
           </Link>
         </p>

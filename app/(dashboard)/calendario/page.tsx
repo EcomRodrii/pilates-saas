@@ -735,113 +735,226 @@ function ModalClasesRecurrentes({
   );
 }
 
-// ─── Agenda (list) view ──────────────────────────────────────────────────────
+// ─── Week time-grid view ──────────────────────────────────────────────────────
 
-function AgendaRow({ s, isSelected, onClick }: {
-  s: SesionEnr;
-  isSelected: boolean;
-  onClick: (id: string) => void;
+const HOUR_HEIGHT = 60; // px per hour
+const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+
+type LayoutedSesion = SesionEnr & { col: number; cols: number };
+
+function layoutDay(items: SesionEnr[]): LayoutedSesion[] {
+  const sorted = [...items].sort((a, b) => a.inicio.localeCompare(b.inicio));
+  const active: { end: string; col: number }[] = [];
+  const placed: (SesionEnr & { col: number })[] = [];
+  let maxCols = 1;
+  for (const s of sorted) {
+    for (let i = active.length - 1; i >= 0; i--) {
+      if (active[i].end <= s.inicio) active.splice(i, 1);
+    }
+    const usedCols = new Set(active.map(a => a.col));
+    let col = 0;
+    while (usedCols.has(col)) col++;
+    active.push({ end: s.fin, col });
+    placed.push({ ...s, col });
+    maxCols = Math.max(maxCols, active.length);
+  }
+  return placed.map(p => ({ ...p, cols: maxCols }));
+}
+
+function minutesFromRangeStart(iso: string, startHour: number) {
+  const d = new Date(iso);
+  return (d.getHours() * 60 + d.getMinutes()) - startHour * 60;
+}
+
+function SessionBlock({ s, isSelected, onClick, startHour }: {
+  s: LayoutedSesion; isSelected: boolean; onClick: (id: string) => void; startHour: number;
 }) {
-  const dur = Math.round((new Date(s.fin).getTime() - new Date(s.inicio).getTime()) / 60000);
+  const startMin = minutesFromRangeStart(s.inicio, startHour);
+  const durMin = Math.max(20, (new Date(s.fin).getTime() - new Date(s.inicio).getTime()) / 60000);
+  const dark = isDark(s.tipoClase.color);
   const libres = s.aforoMaximo - s.confirmadas;
   const isFull = libres <= 0;
-  const ocupColor = isFull ? '#DC2626' : libres <= 2 ? '#D97706' : '#059669';
-  const cancelada = s.cancelada;
 
   return (
     <button
       onClick={() => onClick(s.id)}
       className={cn(
-        'w-full flex items-center gap-3 rounded-2xl border bg-white px-3.5 py-3 text-left transition-all',
-        isSelected ? 'border-[#8FBF12] ring-1 ring-[#8FBF12]' : 'border-[#E7E7E0] hover:border-[#D1D5DB] hover:shadow-sm',
-        cancelada && 'opacity-55',
+        'absolute rounded-lg px-2 py-1 text-left overflow-hidden transition-shadow z-10',
+        isSelected ? 'ring-2 ring-[#1A1A1A] shadow-md' : 'hover:shadow-md',
+        s.cancelada && 'opacity-45 line-through',
       )}
-      style={{ boxShadow: isSelected ? undefined : '0 1px 2px rgba(15,23,42,0.04)' }}
+      style={{
+        top: `${(startMin / 60) * HOUR_HEIGHT + 1}px`,
+        height: `${Math.max(20, (durMin / 60) * HOUR_HEIGHT - 2)}px`,
+        left: `calc(${(s.col / s.cols) * 100}% + 2px)`,
+        width: `calc(${100 / s.cols}% - 4px)`,
+        backgroundColor: s.tipoClase.color,
+        color: dark ? '#fff' : '#171717',
+      }}
+      title={`${s.tipoClase.nombre} · ${formatHora(s.inicio)}–${formatHora(s.fin)} · ${s.instructor.nombre}`}
     >
-      {/* Time */}
-      <div className="text-center min-w-[52px] shrink-0">
-        <p className="text-[15px] font-extrabold text-[#1A1A1A] tabular-nums leading-none">{formatHora(s.inicio)}</p>
-        <p className="text-[11px] text-[#94A3B8] mt-1">{dur} min</p>
-      </div>
-      {/* Color stripe */}
-      <div className="w-1 h-11 rounded-full shrink-0" style={{ backgroundColor: s.tipoClase.color }} />
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-bold text-[#1A1A1A] truncate">
-          {s.tipoClase.nombre}
-          {cancelada && <span className="ml-2 text-[11px] font-bold text-[#DC2626] uppercase">Cancelada</span>}
+      <p className="text-[11px] font-bold leading-tight truncate">{s.tipoClase.nombre}</p>
+      <p className="text-[10px] opacity-80 leading-tight truncate">{formatHora(s.inicio)} · {s.instructor.nombre}</p>
+      {durMin >= 50 && (
+        <p className="text-[10px] opacity-70 leading-tight truncate mt-0.5">
+          {isFull ? 'Completo' : `${libres} libre${libres !== 1 ? 's' : ''}`} · {s.sala.nombre}
         </p>
-        <p className="text-[12px] text-[#64748B] truncate mt-0.5">
-          {s.instructor.nombre} · {s.sala.nombre}
-        </p>
-      </div>
-      {/* Occupancy */}
-      <div className="text-right shrink-0 flex items-center gap-2">
-        <div>
-          <p className="text-[13px] font-extrabold tabular-nums" style={{ color: ocupColor }}>{s.confirmadas}/{s.aforoMaximo}</p>
-          <p className="text-[10px] text-[#94A3B8]">{isFull ? 'completo' : `${libres} libre${libres !== 1 ? 's' : ''}`}</p>
-        </div>
-        <ChevronRight size={16} className="text-[#C6C6BE]" />
-      </div>
+      )}
     </button>
   );
 }
 
-function AgendaView({ dias, sesiones, todayStr, selectedId, onSesionClick, onNueva }: {
+function CurrentTimeLine({ startHour, endHour }: { startHour: number; endHour: number }) {
+  const [top, setTop] = useState<number | null>(null);
+  useEffect(() => {
+    function update() {
+      const now = new Date();
+      const mins = now.getHours() * 60 + now.getMinutes() - startHour * 60;
+      const total = (endHour - startHour) * 60;
+      if (mins < 0 || mins > total) { setTop(null); return; }
+      setTop((mins / 60) * HOUR_HEIGHT);
+    }
+    update();
+    const t = setInterval(update, 60000);
+    return () => clearInterval(t);
+  }, [startHour, endHour]);
+
+  if (top === null) return null;
+  return (
+    <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: `${top}px` }}>
+      <div className="flex items-center">
+        <span className="w-2 h-2 rounded-full bg-[#DC2626] -ml-1 shrink-0" />
+        <div className="flex-1 h-px bg-[#DC2626]" />
+      </div>
+    </div>
+  );
+}
+
+function WeekGrid({
+  dias, sesiones, todayStr, selectedId, onSesionClick, onSlotClick, mobileDia,
+}: {
   dias: Date[];
   sesiones: SesionEnr[];
   todayStr: string;
   selectedId: string | null;
   onSesionClick: (id: string) => void;
-  onNueva: () => void;
+  onSlotClick: (fecha: string, hora: string) => void;
+  mobileDia: string;
 }) {
-  const grupos = dias
-    .map(d => {
-      const str = localDate(d);
-      const items = sesiones
-        .filter(s => localDate(s.inicio) === str)
-        .sort((a, b) => a.inicio.localeCompare(b.inicio));
-      return { d, str, items };
-    })
-    .filter(g => g.items.length > 0);
+  const { startHour, endHour } = useMemo(() => {
+    let min = 9, max = 20;
+    sesiones.forEach(s => {
+      const ini = new Date(s.inicio);
+      const fin = new Date(s.fin);
+      const iniH = ini.getHours();
+      const finH = fin.getHours() + (fin.getMinutes() > 0 ? 1 : 0);
+      if (iniH < min) min = iniH;
+      if (finH > max) max = finH;
+    });
+    return { startHour: Math.max(0, min - 1), endHour: Math.min(24, max + 1) };
+  }, [sesiones]);
 
-  if (grupos.length === 0) {
+  const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
+  const totalHeight = (endHour - startHour) * HOUR_HEIGHT;
+
+  function handleColClick(e: React.MouseEvent<HTMLDivElement>, str: string) {
+    if ((e.target as HTMLElement).closest('button')) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const rawMinutes = (y / HOUR_HEIGHT) * 60 + startHour * 60;
+    const rounded = Math.round(rawMinutes / 30) * 30;
+    const h = Math.floor(rounded / 60);
+    const m = rounded % 60;
+    onSlotClick(str, `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  }
+
+  if (sesiones.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[#E2E4EB] bg-white">
         <div className="w-14 h-14 rounded-2xl bg-[#EDF9C8] flex items-center justify-center mb-4">
           <CalendarDays size={26} className="text-[#8FBF12]" />
         </div>
         <p className="text-[16px] font-bold text-[#1A1A1A]">No hay clases esta semana</p>
-        <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Crea la primera clase para empezar a llenar la agenda</p>
-        <button onClick={onNueva} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C6F94D] text-[#171717] text-[13px] font-bold">
-          <Plus size={15} /> Nueva clase
-        </button>
+        <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Crea la primera clase para empezar a llenar el calendario</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 pb-8">
-      {grupos.map(({ d, str, items }) => {
-        const isToday = str === todayStr;
-        const label = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-        return (
-          <div key={str}>
-            <div className="flex items-center gap-2 mb-2.5">
-              <h3 className={cn('text-[15px] font-extrabold capitalize', isToday ? 'text-[#8FBF12]' : 'text-[#1A1A1A]')}>{label}</h3>
-              {isToday && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#8FBF12] text-white">Hoy</span>
+    <div className="flex flex-col h-full rounded-2xl border border-[#E7E7E0] bg-white overflow-hidden">
+      {/* Day header row */}
+      <div className="flex border-b border-[#E7E7E0] shrink-0">
+        <div className="w-12 shrink-0 lg:w-14" />
+        {dias.map(d => {
+          const str = localDate(d);
+          const isToday = str === todayStr;
+          return (
+            <div
+              key={str}
+              className={cn(
+                'flex-1 min-w-0 py-2 text-center border-l border-[#F1F1EC]',
+                str === mobileDia ? 'block' : 'hidden lg:block',
               )}
-              <span className="ml-auto text-[12px] font-medium text-[#94A3B8]">{items.length} clase{items.length !== 1 ? 's' : ''}</span>
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#A8A89F]">{DIAS_CORTOS[d.getDay()]}</p>
+              <p className={cn(
+                'text-[15px] font-extrabold mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full',
+                isToday ? 'bg-[#C6F94D] text-[#171717]' : 'text-[#1A1A1A]',
+              )}>
+                {d.getDate()}
+              </p>
             </div>
-            <div className="space-y-2">
-              {items.map(s => (
-                <AgendaRow key={s.id} s={s} isSelected={s.id === selectedId} onClick={onSesionClick} />
-              ))}
-            </div>
+          );
+        })}
+      </div>
+
+      {/* Scrollable grid */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="flex" style={{ height: `${totalHeight}px` }}>
+          {/* Time axis */}
+          <div className="w-12 lg:w-14 shrink-0 relative">
+            {hours.map(h => (
+              <div
+                key={h}
+                className="absolute right-1.5 -translate-y-1/2 text-[10px] font-medium text-[#A8A89F]"
+                style={{ top: `${(h - startHour) * HOUR_HEIGHT}px` }}
+              >
+                {h}:00
+              </div>
+            ))}
           </div>
-        );
-      })}
+
+          {/* Day columns */}
+          {dias.map(d => {
+            const str = localDate(d);
+            const isToday = str === todayStr;
+            const items = layoutDay(sesiones.filter(s => localDate(s.inicio) === str));
+            return (
+              <div
+                key={str}
+                onClick={e => handleColClick(e, str)}
+                className={cn(
+                  'flex-1 min-w-0 relative border-l border-[#F1F1EC] cursor-pointer',
+                  isToday && 'bg-[#FBFDF3]',
+                  str === mobileDia ? 'block' : 'hidden lg:block',
+                )}
+              >
+                {hours.map(h => (
+                  <div
+                    key={h}
+                    className="absolute left-0 right-0 border-t border-[#F1F1EC]"
+                    style={{ top: `${(h - startHour) * HOUR_HEIGHT}px` }}
+                  />
+                ))}
+                {isToday && <CurrentTimeLine startHour={startHour} endHour={endHour} />}
+                {items.map(s => (
+                  <SessionBlock key={s.id} s={s} isSelected={s.id === selectedId} onClick={onSesionClick} startHour={startHour} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -909,6 +1022,14 @@ export default function Calendario() {
   // ── Derived data ─────────────────────────────────────────────────────────────
   const todayStr = localDate(now);
   const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(semana, i)), [semana]);
+
+  // ── Mobile: which day of the week is shown in the single-day grid ────────────
+  const [mobileDia, setMobileDia] = useState(() => localDate(FALLBACK));
+  useEffect(() => {
+    const diasStr = dias.map(localDate);
+    setMobileDia(diasStr.includes(todayStr) ? todayStr : diasStr[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semana]);
 
   const sesionesEnriquecidas = useMemo<SesionEnr[]>(() =>
     sesiones.map(s => ({
@@ -1136,17 +1257,47 @@ export default function Calendario() {
         onBusqueda={setBusqueda}
       />
 
-      {/* ── Main content: agenda list + optional detail sidebar ────────────────── */}
+      {/* ── Mobile day picker ──────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 shrink-0 lg:hidden">
+        {dias.map(d => {
+          const str = localDate(d);
+          const isToday = str === todayStr;
+          const isSelected = str === mobileDia;
+          return (
+            <button
+              key={str}
+              onClick={() => setMobileDia(str)}
+              className={cn(
+                'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl shrink-0 transition-colors',
+                isSelected ? 'bg-[#1A1A1A]' : 'bg-white border border-[#E7E7E0]',
+              )}
+            >
+              <span className={cn('text-[9px] font-bold uppercase tracking-wider', isSelected ? 'text-white/50' : 'text-[#A8A89F]')}>
+                {DIAS_CORTOS[d.getDay()]}
+              </span>
+              <span className={cn(
+                'text-[13px] font-extrabold w-5 h-5 flex items-center justify-center rounded-full',
+                isSelected ? (isToday ? 'bg-[#C6F94D] text-[#171717]' : 'text-white') : (isToday ? 'text-[#8FBF12]' : 'text-[#1A1A1A]'),
+              )}>
+                {d.getDate()}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Main content: week grid + optional detail sidebar ─────────────────── */}
       <div className="flex gap-0 flex-1 min-h-0 relative">
-        {/* Agenda */}
-        <div className="flex-1 min-w-0 overflow-y-auto">
-          <AgendaView
+        {/* Week grid */}
+        <div className="flex-1 min-w-0 min-h-0">
+          <WeekGrid
             dias={dias}
             sesiones={sesionesSemana}
             todayStr={todayStr}
             selectedId={sesionId}
             onSesionClick={id => setSesionId(prev => prev === id ? null : id)}
-            onNueva={() => openNueva()}
+            onSlotClick={(fecha, hora) => { setForm(f => ({ ...emptyForm(), fecha, horaInicio: hora, horaFin: hora })); setShowForm('nueva'); }}
+            mobileDia={mobileDia}
           />
         </div>
 
