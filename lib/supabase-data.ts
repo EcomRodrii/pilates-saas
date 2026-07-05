@@ -37,6 +37,7 @@ function mapStudio(r: any) {
     telefono: r.telefono,
     colorPrimario: r.color_primario,
     plan: r.plan,
+    avatarAdmin: r.avatar_admin ?? null,
     creadoEn: r.creado_en,
   };
 }
@@ -76,6 +77,7 @@ function mapSocio(r: any) {
     leadStage: r.lead_stage ?? undefined,
     tags: r.tags ?? undefined,
     aceptacionContrato,
+    avatar: r.avatar ?? null,
   };
 }
 
@@ -151,6 +153,7 @@ function mapInstructor(r: any) {
     telefono: r.telefono ?? null,
     color: r.color,
     activo: r.activo,
+    avatar: r.avatar ?? null,
   };
 }
 
@@ -764,6 +767,7 @@ export async function dbUpdateSocio(id: string, changes: any) {
   if ('activo' in changes) db.activo = changes.activo;
   if ('leadStage' in changes) db.lead_stage = changes.leadStage;
   if ('tags' in changes) db.tags = changes.tags;
+  if ('avatar' in changes) db.avatar = changes.avatar;
   if ('aceptacionContrato' in changes) {
     db.aceptacion_fecha = changes.aceptacionContrato?.fecha ?? null;
     db.aceptacion_firma = changes.aceptacionContrato?.firma ?? null;
@@ -1024,6 +1028,7 @@ export async function dbInsertInstructor(i: any) {
     telefono: i.telefono ?? null,
     color: i.color,
     activo: i.activo,
+    avatar: i.avatar ?? null,
   };
   const { error } = await supabase.from('instructores').insert(row);
   if (error) reportDbError('[dbInsertInstructor]', error);
@@ -1036,8 +1041,14 @@ export async function dbUpdateInstructor(id: string, changes: any) {
   if ('telefono' in changes) db.telefono = changes.telefono;
   if ('color' in changes) db.color = changes.color;
   if ('activo' in changes) db.activo = changes.activo;
+  if ('avatar' in changes) db.avatar = changes.avatar;
   const { error } = await supabase.from('instructores').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateInstructor]', error);
+}
+
+export async function dbUpdateStudioAvatar(avatarId: string | null) {
+  const { error } = await supabase.from('studios').update({ avatar_admin: avatarId }).eq('id', STUDIO_ID);
+  if (error) reportDbError('[dbUpdateStudioAvatar]', error);
 }
 
 export async function dbDeleteInstructor(id: string) {

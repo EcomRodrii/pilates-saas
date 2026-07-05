@@ -20,6 +20,7 @@ export interface Studio {
   telefono: string;
   colorPrimario: string;
   plan: 'BASE' | 'ESTUDIO' | 'CADENA';
+  avatarAdmin: string | null;
   creadoEn: string;
 }
 
@@ -64,6 +65,7 @@ export interface Socio {
   leadStage?: LeadStage;
   tags?: string[];
   aceptacionContrato?: AceptacionContrato;
+  avatar?: string | null;
 }
 
 export interface NotaInterna {
@@ -136,6 +138,7 @@ export interface Instructor {
   telefono: string | null;
   color: string;
   activo: boolean;
+  avatar?: string | null;
 }
 
 export interface Sesion {

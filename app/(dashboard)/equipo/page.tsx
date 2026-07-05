@@ -5,18 +5,15 @@ import { useStudio } from '@/lib/studio-context';
 import type { Instructor } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, AlertTriangle } from 'lucide-react';
+import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
 const COLORES = ['#8FBF12', '#8FBF12', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
 
 const inputCls = 'w-full rounded-xl border border-[#E7E7E0] bg-white px-3.5 py-2.5 text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:border-[#8FBF12] focus:ring-2 focus:ring-[#8FBF12]/15 transition-all';
 const labelCls = 'text-[12px] font-semibold text-[#3A3A34] block mb-1.5';
 
-function initials(nombre: string) {
-  return nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
-}
-
-type Form = { nombre: string; email: string; telefono: string; color: string; activo: boolean };
-const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#8FBF12', activo: true });
+type Form = { nombre: string; email: string; telefono: string; color: string; avatar: string | null; activo: boolean };
+const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#8FBF12', avatar: null, activo: true });
 
 export default function EquipoPage() {
   const { instructores, sesiones, citas, addInstructor, updateInstructor, deleteInstructor } = useStudio();
@@ -66,7 +63,7 @@ export default function EquipoPage() {
 
   function openNuevo() { setForm(emptyForm()); setEditId(null); setModal('nuevo'); }
   function openEditar(i: Instructor) {
-    setForm({ nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, activo: i.activo });
+    setForm({ nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, activo: i.activo });
     setEditId(i.id);
     setModal('editar');
   }
@@ -77,6 +74,7 @@ export default function EquipoPage() {
       email: form.email.trim() || null,
       telefono: form.telefono.trim() || null,
       color: form.color,
+      avatar: form.avatar,
       activo: form.activo,
     };
     if (modal === 'nuevo') addInstructor(fields);
@@ -141,9 +139,7 @@ export default function EquipoPage() {
               <div key={i.id} className="bg-white border border-[#E7E7E0] rounded-2xl p-5 flex flex-col gap-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-[15px] font-bold shrink-0" style={{ backgroundColor: i.color }}>
-                      {initials(i.nombre)}
-                    </div>
+                    <ProfileAvatar avatarId={i.avatar} nombre={i.nombre} color={i.color} size="md" />
                     <div className="min-w-0">
                       <p className="font-bold text-[#1A1A1A] text-[15px] leading-tight truncate">{i.nombre}</p>
                       <span className={`inline-flex items-center gap-1 text-[11px] font-bold mt-1 px-2 py-0.5 rounded-full ${i.activo ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-[#F1F1EC] text-[#A8A89F]'}`}>
@@ -207,9 +203,16 @@ export default function EquipoPage() {
             <DialogTitle>{modal === 'nuevo' ? 'Nuevo miembro del equipo' : 'Editar miembro'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <ProfileAvatar avatarId={form.avatar} nombre={form.nombre || '?'} color={form.color} size="lg" />
+              <div className="min-w-0">
+                <label className={labelCls + ' mb-1'}>Nombre</label>
+                <input className={inputCls} value={form.nombre} placeholder="Ej. María Soler" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+              </div>
+            </div>
             <div>
-              <label className={labelCls}>Nombre</label>
-              <input className={inputCls} value={form.nombre} placeholder="Ej. María Soler" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+              <label className={labelCls}>Avatar</label>
+              <AvatarPicker value={form.avatar} onChange={id => setForm(f => ({ ...f, avatar: id }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

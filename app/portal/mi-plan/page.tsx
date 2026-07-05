@@ -52,9 +52,9 @@ export default function MiPlanPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #A9DE20 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #8FBF12 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight">Mi plan</h1>
-        <p className="text-indigo-300 text-[13px] mt-0.5">{formatEur(totalPagado)} pagado en total</p>
+        <p className="text-white/50 text-[13px] mt-0.5">{formatEur(totalPagado)} pagado en total</p>
       </div>
 
       <div className="px-4 pt-4 pb-6 space-y-5">
@@ -65,7 +65,7 @@ export default function MiPlanPage() {
             <div className="p-5" style={{ background: 'linear-gradient(135deg, #1A1A1A, #3F5200)' }}>
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <p className="text-indigo-200 text-[11px] font-bold uppercase tracking-widest mb-1">
+                  <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-1">
                     {plan.tipo === 'MENSUAL' ? 'Suscripción mensual' : 'Bono de sesiones'}
                   </p>
                   <p className="text-white text-[22px] font-extrabold leading-tight">{plan.nombre}</p>

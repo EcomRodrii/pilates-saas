@@ -13,6 +13,7 @@ import {
   Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ProfileAvatar } from '@/components/ui/profile-avatar';
 
 // ─── Shared style tokens ────────────────────────────────────────────────────
 const inputCls =
@@ -606,7 +607,7 @@ export default function Socios() {
                 const lastVisit = getLastVisit(s.id);
                 const sesRest = sus?.sesionesRestantes;
                 const isSelected = selected.has(s.id);
-                const [avatarBg, avatarText] = avatarColor(`${s.nombre}${s.apellidos}`);
+                const [, avatarText] = avatarColor(`${s.nombre}${s.apellidos}`);
 
                 // Sesiones badge color
                 let sesColor = '#059669';
@@ -670,12 +671,7 @@ export default function Socios() {
                     {/* Avatar + nombre */}
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold"
-                          style={{ backgroundColor: avatarBg, color: avatarText }}
-                        >
-                          {initials(s.nombre, s.apellidos)}
-                        </div>
+                        <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarText} size="sm" />
                         <div className="min-w-0">
                           <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">
                             {s.nombre} {s.apellidos}

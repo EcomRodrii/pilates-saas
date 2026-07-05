@@ -50,9 +50,9 @@ export default function VideosPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-4" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #A9DE20 100%)' }}>
+      <div className="px-5 pt-6 pb-4" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #8FBF12 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight">Videos</h1>
-        <p className="text-indigo-300 text-[13px] mt-0.5">{videosOnDemand.filter(v => v.activo).length} videos · {totalVistas} visualizaciones</p>
+        <p className="text-white/50 text-[13px] mt-0.5">{videosOnDemand.filter(v => v.activo).length} videos · {totalVistas} visualizaciones</p>
 
         {/* Category pills */}
         <div className="flex gap-2 mt-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>

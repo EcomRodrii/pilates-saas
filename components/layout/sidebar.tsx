@@ -14,6 +14,8 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { GlobalSearch } from '@/components/search/global-search';
 import { useAuth } from '@/lib/auth-context';
+import { useStudio } from '@/lib/studio-context';
+import { ProfileAvatar } from '@/components/ui/profile-avatar';
 
 // ─── Nav config ──────────────────────────────────────────────────────────────
 
@@ -186,6 +188,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut }: { onClos
 export function Sidebar() {
   const [masOpen, setMasOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const { studio } = useStudio();
   const router = useRouter();
 
   async function handleSignOut() {
@@ -297,12 +300,9 @@ export function Sidebar() {
         {/* User */}
         <div className="px-3 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
           <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg">
-            <div
-              className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white"
-              style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}
-            >
-              {userInitials}
-            </div>
+            <Link href="/configuracion" title="Editar mi perfil" className="shrink-0">
+              <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={userInitials} size="xs" />
+            </Link>
             <div className="flex-1 min-w-0">
               <p className="text-[12px] font-medium text-white/75 truncate leading-tight">{userEmail}</p>
             </div>

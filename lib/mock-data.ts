@@ -16,6 +16,7 @@ export const studio: Studio = {
   telefono: '+34 951 000 000',
   colorPrimario: '#6366f1',
   plan: 'ESTUDIO',
+  avatarAdmin: null,
   creadoEn: '2024-01-15T10:00:00Z',
 };
 

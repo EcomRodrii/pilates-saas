@@ -861,7 +861,7 @@ export default function ReservarPage() {
                       value={loginForm[field]}
                       onChange={e => setLoginForm(f => ({ ...f, [field]: e.target.value }))}
                       onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                      className="w-full rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none border border-gray-200 focus:border-indigo-400 transition-colors"
+                      className="w-full rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none border border-gray-200 focus:border-[#1A1A1A] transition-colors"
                       style={{ backgroundColor: '#F5F5F1' }} />
                   ))}
                 </div>

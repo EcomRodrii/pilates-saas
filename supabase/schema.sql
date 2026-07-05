@@ -19,6 +19,7 @@ create table if not exists studios (
   telefono text,
   color_primario text default '#4F46E5',
   plan text default 'BASE',
+  avatar_admin text,
   creado_en timestamptz default now()
 );
 
@@ -37,7 +38,8 @@ create table if not exists socios (
   tags text[] default '{}',
   aceptacion_fecha timestamptz,
   aceptacion_firma text,
-  aceptacion_version text
+  aceptacion_version text,
+  avatar text
 );
 
 -- ─── Planes de tarifa ─────────────────────────────────────────────────────────
@@ -106,7 +108,8 @@ create table if not exists instructores (
   email text,
   telefono text,
   color text default '#4F46E5',
-  activo boolean default true
+  activo boolean default true,
+  avatar text
 );
 
 -- ─── Sesiones ─────────────────────────────────────────────────────────────────
@@ -411,6 +414,11 @@ alter table videos_on_demand enable row level security;
 alter table posts_comunidad enable row level security;
 alter table notas_internas enable row level security;
 alter table notas_progreso enable row level security;
+
+-- Migración: avatares predefinidos (mujer/hombre) para socios, instructores y el propietario
+alter table socios add column if not exists avatar text;
+alter table instructores add column if not exists avatar text;
+alter table studios add column if not exists avatar_admin text;
 
 -- Políticas abiertas para desarrollo (anon puede leer y escribir)
 do $$

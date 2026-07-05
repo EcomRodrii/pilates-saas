@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, CreditCard, Mail
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { PlanTarifa, Sala, TipoClase, Instructor, TipoIntegracion } from '@/lib/types';
+import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const inputCls =
@@ -202,7 +203,7 @@ function EstadoBadge({ activo }: { activo: boolean }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'instructores' | 'integraciones' | 'estudio';
+type TabId = 'planes' | 'clases' | 'salas' | 'instructores' | 'integraciones' | 'estudio' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
@@ -211,6 +212,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'instructores', label: 'Instructores' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
+  { id: 'perfil',      label: 'Mi perfil' },
 ];
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -259,6 +261,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'instructores' && <TabInstructores showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
+      {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
@@ -1650,6 +1653,32 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB: MI PERFIL
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
+  const { studio, updateAvatarAdmin } = useStudio();
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">Tu avatar</h3>
+        <p className="text-[12px] text-[#8E8E86] mb-4">
+          Elige el avatar que te representa en el panel de administración.
+        </p>
+        <div className="flex items-center gap-4 mb-5">
+          <ProfileAvatar avatarId={studio?.avatarAdmin} nombre="Admin" size="xl" />
+        </div>
+        <AvatarPicker
+          value={studio?.avatarAdmin ?? null}
+          onChange={id => { updateAvatarAdmin(id); showToast('Avatar actualizado'); }}
+        />
+      </div>
     </div>
   );
 }

@@ -88,7 +88,7 @@ export default function ProgresoPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #A9DE20 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #8FBF12 100%)' }}>
         {/* Profile */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white font-extrabold text-[16px]">
@@ -96,7 +96,7 @@ export default function ProgresoPage() {
           </div>
           <div>
             <p className="text-white font-extrabold text-[16px] leading-tight">{socio.nombre} {socio.apellidos}</p>
-            <p className="text-indigo-300 text-[12px]">
+            <p className="text-white/50 text-[12px]">
               Socia desde {new Date(socio.fechaAlta).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
             </p>
           </div>
@@ -112,7 +112,7 @@ export default function ProgresoPage() {
           ].map(({ v, l }) => (
             <div key={l} className="bg-white/10 rounded-2xl px-2 py-3 text-center">
               <p className="text-white text-[20px] font-extrabold leading-none">{v}</p>
-              <p className="text-indigo-300 text-[9px] font-bold mt-1 uppercase tracking-wider">{l}</p>
+              <p className="text-white/50 text-[9px] font-bold mt-1 uppercase tracking-wider">{l}</p>
             </div>
           ))}
         </div>

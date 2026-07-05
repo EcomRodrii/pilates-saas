@@ -11,6 +11,7 @@ import {
   Bot, Loader2, Mic,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -223,6 +224,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [reservaFilter, setReservaFilter] = useState<'todas' | 'confirmadas' | 'asistidas' | 'canceladas'>('todas');
   const [reservasPage, setReservasPage] = useState(20);
   const [toast, setToast] = useState<string | null>(null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   // ── AI instructor notes ────────────────────────────────────────────────────
   const [aiNoteText, setAiNoteText] = useState('');
@@ -308,8 +310,6 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   });
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  const avColor = avatarColor(id);
-  const initials = `${socio.nombre[0] ?? ''}${socio.apellidos[0] ?? ''}`.toUpperCase();
   const tagsDisponibles = TAGS_OPTIONS.filter(t => !tags.includes(t.label));
 
   function getReservaInfo(r: typeof misReservas[0]) {
@@ -1022,12 +1022,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
           <Card>
             {/* Avatar */}
             <div className="flex flex-col items-center text-center mb-5">
-              <div
-                className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-extrabold mb-3"
-                style={{ backgroundColor: avColor.bg, color: avColor.text }}
-              >
-                {initials}
-              </div>
+              <button onClick={() => setShowAvatarPicker(v => !v)} className="mb-3">
+                <ProfileAvatar avatarId={socio.avatar} nombre={socio.nombre} apellidos={socio.apellidos} size="xl" />
+              </button>
+              {showAvatarPicker && (
+                <div className="w-full text-left mb-3 p-3 rounded-xl border border-[#E7E7E0] bg-[#F8F9FB]">
+                  <AvatarPicker value={socio.avatar ?? null} onChange={id => updateSocio(socio.id, { avatar: id })} />
+                </div>
+              )}
               <h2 className="text-base font-bold text-[#1A1A1A] leading-tight">
                 {socio.nombre} {socio.apellidos}
               </h2>

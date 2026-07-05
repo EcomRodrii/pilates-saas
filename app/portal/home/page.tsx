@@ -1,14 +1,17 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { Calendar, CreditCard, Play, TrendingUp, Clock, ChevronRight, Zap, AlertCircle } from 'lucide-react';
+import { ProfileAvatar } from '@/components/ui/profile-avatar';
+import { ProfileSheet } from '@/components/portal/profile-sheet';
 
 export default function PortalHome() {
   const { session, logout } = usePortalAuth();
-  const { socios, suscripciones, planesTarifa, sesiones, reservas, tiposClase, salas, instructores } = useStudio();
+  const { socios, suscripciones, planesTarifa, sesiones, reservas, tiposClase, salas, instructores, updateSocio } = useStudio();
+  const [showProfile, setShowProfile] = useState(false);
 
   const socio = socios.find(s => s.id === session?.socioId);
   const activeSus = suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA');
@@ -42,7 +45,6 @@ export default function PortalHome() {
   const h = now.getHours();
   const greeting = h < 12 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
   const nombre = socio?.nombre ?? session?.nombre.split(' ')[0] ?? '';
-  const initials = (session?.nombre ?? '').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
   const formatTime = (iso: string) =>
     new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -55,21 +57,21 @@ export default function PortalHome() {
       {/* ── Header gradient ─────────────────────────── */}
       <div
         className="px-5 pt-6 pb-8"
-        style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #A9DE20 100%)' }}
+        style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #8FBF12 100%)' }}
       >
         {/* Top row */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <p className="text-indigo-300 text-[13px] font-medium">{greeting}</p>
+            <p className="text-white/50 text-[13px] font-medium">{greeting}</p>
             <h1 className="text-white text-[28px] font-extrabold leading-tight tracking-tight mt-0.5">
               {nombre} 👋
             </h1>
           </div>
           <button
-            onClick={logout}
-            className="w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white text-[14px] font-bold mt-1 active:bg-white/20 transition-colors"
+            onClick={() => setShowProfile(true)}
+            className="mt-1 rounded-full ring-2 ring-white/20 active:opacity-80 transition-opacity"
           >
-            {initials}
+            <ProfileAvatar avatarId={socio?.avatar} nombre={session?.nombre ?? ''} size="md" />
           </button>
         </div>
 
@@ -88,7 +90,7 @@ export default function PortalHome() {
               <p className={`text-[26px] font-extrabold leading-none ${highlight ? 'text-red-400' : 'text-white'}`}>
                 {value}
               </p>
-              <p className="text-indigo-300 text-[10px] font-semibold mt-1.5 uppercase tracking-wider">{label}</p>
+              <p className="text-white/50 text-[10px] font-semibold mt-1.5 uppercase tracking-wider">{label}</p>
             </div>
           ))}
         </div>
@@ -215,6 +217,15 @@ export default function PortalHome() {
         </div>
       </div>
 
+      {showProfile && (
+        <ProfileSheet
+          avatarId={socio?.avatar ?? null}
+          nombre={session?.nombre ?? ''}
+          onChangeAvatar={id => socio && updateSocio(socio.id, { avatar: id })}
+          onLogout={logout}
+          onClose={() => setShowProfile(false)}
+        />
+      )}
     </div>
   );
 }

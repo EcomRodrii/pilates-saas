@@ -19,9 +19,11 @@ import {
   dbInsertPostComunidad, dbUpdatePostComunidad,
   dbUpsertIntegracion,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
+  dbUpdateStudioAvatar,
   setDbErrorListener,
 } from '@/lib/supabase-data';
 import type {
+  Studio,
   Socio,
   AceptacionContrato,
   Suscripcion,
@@ -254,6 +256,10 @@ interface StudioContextValue {
   // Studio management
   resetDatosPilates: () => void;
   dataLoaded: boolean;
+
+  // Studio record (propietario) + avatar del admin
+  studio: Studio | null;
+  updateAvatarAdmin: (avatarId: string | null) => void;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -317,6 +323,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
   const [automationLogs, setAutomationLogs] = useState<AutomationLog[]>([]);
   const [notasProgreso, setNotasProgreso] = useState<NotaProgreso[]>([]);
+  const [studio, setStudio] = useState<Studio | null>(null);
 
   // ── Fetch all data from Supabase on mount ────────────────────────────────────
   useEffect(() => {
@@ -347,6 +354,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
+      setStudio(data.studio);
       setDataLoaded(true);
     }).catch(err => {
       console.error('Error fetching Supabase data:', err);
@@ -439,6 +447,13 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function deleteInstructor(id: string) {
     setInstructores(prev => prev.filter(i => i.id !== id));
     dbDeleteInstructor(id);
+  }
+
+  // ── Avatar del propietario ────────────────────────────────────────────────────
+
+  function updateAvatarAdmin(avatarId: string | null) {
+    setStudio(prev => prev ? { ...prev, avatarAdmin: avatarId } : prev);
+    dbUpdateStudioAvatar(avatarId);
   }
 
   // ── Socios ────────────────────────────────────────────────────────────────────
@@ -1441,6 +1456,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     addNotaProgreso,
     dismissLog,
     dataLoaded,
+    studio,
+    updateAvatarAdmin,
   };
 
   function resetDatosPilates() {
@@ -1471,6 +1488,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
+      setStudio(data.studio);
     }).catch(console.error);
   }
 
