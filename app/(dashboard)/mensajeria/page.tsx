@@ -53,8 +53,8 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
         <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: '#DCFCE7' }}>
           <CheckCheck size={24} style={{ color: '#15803D' }} />
         </div>
-        <p className="font-bold text-[#15161B]">Mensaje enviado</p>
-        <p className="text-sm text-[#71727A]">
+        <p className="font-bold text-[#111827]">Mensaje enviado</p>
+        <p className="text-sm text-[#6B7280]">
           {destinatario === 'todos'
             ? `Enviado a todos los miembros (${socios.length})`
             : `Enviado a ${socios.find(s => s.id === destinatario)?.nombre ?? '—'}`
@@ -67,11 +67,11 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
   return (
     <div className="space-y-5 max-w-2xl">
       <div>
-        <label className="text-xs font-bold uppercase tracking-wide text-[#71727A] mb-1.5 block">Destinatario</label>
+        <label className="text-xs font-bold uppercase tracking-wide text-[#6B7280] mb-1.5 block">Destinatario</label>
         <select
           value={destinatario}
           onChange={e => setDestinatario(e.target.value)}
-          className="w-full border border-[#ECECF1] rounded-xl px-3 py-2.5 text-sm text-[#15161B] bg-white outline-none focus:border-[#6355FF]"
+          className="w-full border border-[#E8EAED] rounded-xl px-3 py-2.5 text-sm text-[#111827] bg-white outline-none focus:border-[#4F46E5]"
         >
           <option value="todos">Todos los miembros ({socios.length})</option>
           {socios.map(s => (
@@ -80,27 +80,27 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
         </select>
       </div>
       <div>
-        <label className="text-xs font-bold uppercase tracking-wide text-[#71727A] mb-1.5 block">Asunto</label>
+        <label className="text-xs font-bold uppercase tracking-wide text-[#6B7280] mb-1.5 block">Asunto</label>
         <input
           value={asunto}
           onChange={e => setAsunto(e.target.value)}
           placeholder="Ej. Nuevo horario de verano"
-          className="w-full border border-[#ECECF1] rounded-xl px-3 py-2.5 text-sm text-[#15161B] outline-none focus:border-[#6355FF]"
+          className="w-full border border-[#E8EAED] rounded-xl px-3 py-2.5 text-sm text-[#111827] outline-none focus:border-[#4F46E5]"
         />
       </div>
       <div>
-        <label className="text-xs font-bold uppercase tracking-wide text-[#71727A] mb-1.5 block">Mensaje</label>
+        <label className="text-xs font-bold uppercase tracking-wide text-[#6B7280] mb-1.5 block">Mensaje</label>
         <textarea
           value={mensaje}
           onChange={e => setMensaje(e.target.value)}
           rows={6}
           placeholder="Escribe el mensaje que recibirán tus miembros..."
-          className="w-full border border-[#ECECF1] rounded-xl px-3 py-2.5 text-sm text-[#15161B] outline-none focus:border-[#6355FF] resize-none"
+          className="w-full border border-[#E8EAED] rounded-xl px-3 py-2.5 text-sm text-[#111827] outline-none focus:border-[#4F46E5] resize-none"
         />
       </div>
 
       <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-2 text-xs text-[#A2A3AC]">
+        <div className="flex items-center gap-2 text-xs text-[#9CA3AF]">
           <Info size={12} />
           <span>El envío real requiere integración Resend (P6)</span>
         </div>
@@ -108,7 +108,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
           onClick={enviar}
           disabled={!asunto.trim() || !mensaje.trim()}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-bold transition-all disabled:opacity-40"
-          style={{ backgroundColor: '#6355FF' }}
+          style={{ backgroundColor: '#4F46E5' }}
         >
           <Send size={14} />
           Enviar mensaje
@@ -153,26 +153,26 @@ export default function Mensajeria() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-[#15161B] tracking-tight">Mensajería</h1>
-          <p className="text-sm font-medium mt-0.5 text-[#71727A]">
+          <h1 className="text-2xl font-bold text-[#111827] tracking-tight">Mensajería</h1>
+          <p className="text-sm font-medium mt-0.5 text-[#6B7280]">
             Notificaciones, comunidad y comunicación con miembros
           </p>
         </div>
         <Link href="/socios"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#ECECF1] text-sm font-semibold text-[#3A3B44] hover:bg-gray-50 transition-colors">
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#E8EAED] text-sm font-semibold text-[#374151] hover:bg-gray-50 transition-colors">
           <Users size={14} />
           Ver miembros
         </Link>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#F1F1F6] p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-[#F3F4F6] p-1 rounded-xl w-fit">
         {TABS.map(t => (
           <button key={t.id} onClick={() => { setTab(t.id); setBusqueda(''); }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
             style={tab === t.id
-              ? { backgroundColor: '#fff', color: '#15161B', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
-              : { color: '#71727A' }}>
+              ? { backgroundColor: '#fff', color: '#111827', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+              : { color: '#6B7280' }}>
             <t.icon size={14} />
             {t.label}
             {t.count > 0 && (
@@ -186,26 +186,26 @@ export default function Mensajeria() {
 
       {/* ── NOTIFICACIONES ── */}
       {tab === 'notificaciones' && (
-        <div className="bg-white rounded-2xl border border-[#ECECF1] overflow-hidden">
-          <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#ECECF1]">
-            <div className="flex items-center gap-2 bg-[#F4F4F8] border border-[#ECECF1] rounded-xl px-3 py-2 flex-1">
-              <Search size={13} className="text-[#A2A3AC] shrink-0" />
+        <div className="bg-white rounded-2xl border border-[#E8EAED] overflow-hidden">
+          <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#E8EAED]">
+            <div className="flex items-center gap-2 bg-[#F9FAFB] border border-[#E8EAED] rounded-xl px-3 py-2 flex-1">
+              <Search size={13} className="text-[#9CA3AF] shrink-0" />
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar notificaciones..."
-                className="bg-transparent text-sm text-[#15161B] placeholder:text-[#A2A3AC] outline-none flex-1" />
+                className="bg-transparent text-sm text-[#111827] placeholder:text-[#9CA3AF] outline-none flex-1" />
             </div>
             {noLeidas > 0 && (
               <button onClick={() => setLeidas(new Set(notificaciones.map(n => n.id)))}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#71727A] hover:bg-gray-50 border border-[#ECECF1] transition-colors shrink-0">
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#6B7280] hover:bg-gray-50 border border-[#E8EAED] transition-colors shrink-0">
                 <Check size={12} />
                 Marcar todas leídas
               </button>
             )}
           </div>
           {notifFiltradas.length === 0 ? (
-            <div className="py-16 text-center text-sm text-[#A2A3AC]">No hay notificaciones</div>
+            <div className="py-16 text-center text-sm text-[#9CA3AF]">No hay notificaciones</div>
           ) : (
-            <ul className="divide-y divide-[#F1F1F6]">
+            <ul className="divide-y divide-[#F3F4F6]">
               {notifFiltradas.map(n => {
                 const isRead = n.leida || leidas.has(n.id);
                 const { Icon, color, bg } = TIPO_ICON[n.tipo] ?? TIPO_ICON.INFO;
@@ -219,15 +219,15 @@ export default function Mensajeria() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-[#6355FF] shrink-0" />}
-                        <p className={`text-sm leading-tight ${isRead ? 'font-medium text-[#3A3B44]' : 'font-bold text-[#15161B]'}`}>
+                        {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-[#4F46E5] shrink-0" />}
+                        <p className={`text-sm leading-tight ${isRead ? 'font-medium text-[#374151]' : 'font-bold text-[#111827]'}`}>
                           {n.titulo}
                         </p>
-                        <span className="ml-auto text-[11px] text-[#A2A3AC] shrink-0">{timeAgo(n.creadaEn)}</span>
+                        <span className="ml-auto text-[11px] text-[#9CA3AF] shrink-0">{timeAgo(n.creadaEn)}</span>
                       </div>
-                      <p className="text-xs text-[#71727A] mt-1 leading-relaxed">{n.texto}</p>
+                      <p className="text-xs text-[#6B7280] mt-1 leading-relaxed">{n.texto}</p>
                       {n.enlace && (
-                        <Link href={n.enlace} className="inline-flex items-center gap-1 text-xs text-[#6355FF] mt-1.5 hover:underline">
+                        <Link href={n.enlace} className="inline-flex items-center gap-1 text-xs text-[#4F46E5] mt-1.5 hover:underline">
                           Ver más <ChevronRight size={10} />
                         </Link>
                       )}
@@ -244,39 +244,39 @@ export default function Mensajeria() {
       {tab === 'comunidad' && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white border border-[#ECECF1] rounded-xl px-3 py-2 flex-1">
-              <Search size={13} className="text-[#A2A3AC] shrink-0" />
+            <div className="flex items-center gap-2 bg-white border border-[#E8EAED] rounded-xl px-3 py-2 flex-1">
+              <Search size={13} className="text-[#9CA3AF] shrink-0" />
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar en comunidad..."
-                className="bg-transparent text-sm text-[#15161B] placeholder:text-[#A2A3AC] outline-none flex-1" />
+                className="bg-transparent text-sm text-[#111827] placeholder:text-[#9CA3AF] outline-none flex-1" />
             </div>
-            <span className="text-xs text-[#A2A3AC]">{postsFiltrados.length} posts</span>
+            <span className="text-xs text-[#9CA3AF]">{postsFiltrados.length} posts</span>
           </div>
 
           {postsFiltrados.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#ECECF1] py-16 text-center text-sm text-[#A2A3AC]">
+            <div className="bg-white rounded-2xl border border-[#E8EAED] py-16 text-center text-sm text-[#9CA3AF]">
               No hay posts en la comunidad
             </div>
           ) : (
             postsFiltrados.map(post => (
-              <div key={post.id} className="bg-white rounded-2xl border border-[#ECECF1] p-5">
+              <div key={post.id} className="bg-white rounded-2xl border border-[#E8EAED] p-5">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
-                    style={{ backgroundColor: '#6355FF' }}>
+                    style={{ backgroundColor: '#4F46E5' }}>
                     {post.autorInicial}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-[#15161B]">{post.autorNombre}</p>
-                    <p className="text-[11px] text-[#A2A3AC]">{timeAgo(post.creadoEn)}</p>
+                    <p className="text-sm font-bold text-[#111827]">{post.autorNombre}</p>
+                    <p className="text-[11px] text-[#9CA3AF]">{timeAgo(post.creadoEn)}</p>
                   </div>
                 </div>
-                <p className="text-sm text-[#3A3B44] leading-relaxed">{post.texto}</p>
-                <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#F1F1F6]">
-                  <button className="flex items-center gap-1.5 text-xs text-[#71727A] hover:text-red-500 transition-colors">
+                <p className="text-sm text-[#374151] leading-relaxed">{post.texto}</p>
+                <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#F3F4F6]">
+                  <button className="flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-red-500 transition-colors">
                     <Heart size={13} />
                     <span>{post.likes}</span>
                   </button>
-                  <button className="flex items-center gap-1.5 text-xs text-[#71727A] hover:text-[#6355FF] transition-colors">
+                  <button className="flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#4F46E5] transition-colors">
                     <MessageCircle size={13} />
                     <span>{post.comentariosCount} comentarios</span>
                   </button>
@@ -289,7 +289,7 @@ export default function Mensajeria() {
 
       {/* ── ENVIAR MENSAJE ── */}
       {tab === 'enviar' && (
-        <div className="bg-white rounded-2xl border border-[#ECECF1] p-6">
+        <div className="bg-white rounded-2xl border border-[#E8EAED] p-6">
           <Compositor socios={socios} />
         </div>
       )}

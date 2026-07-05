@@ -62,9 +62,9 @@ export default function ClasesPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(155deg, #15161B 0%, #3A2E9E 55%, #4B3FD6 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight leading-tight">Clases</h1>
-        <p className="text-[#C9C2FF] text-[13px] mt-0.5">{totalReservas} reservas activas</p>
+        <p className="text-indigo-300 text-[13px] mt-0.5">{totalReservas} reservas activas</p>
 
         {/* Tabs */}
         <div className="flex gap-2 mt-5">
@@ -75,7 +75,7 @@ export default function ClasesPage() {
               className="px-4 py-2 rounded-2xl text-[13px] font-bold transition-all"
               style={{
                 backgroundColor: tab === key ? 'white' : 'rgba(255,255,255,0.12)',
-                color: tab === key ? '#6355FF' : 'rgba(255,255,255,0.7)',
+                color: tab === key ? '#4F46E5' : 'rgba(255,255,255,0.7)',
               }}
             >
               {label}
@@ -88,20 +88,20 @@ export default function ClasesPage() {
       <div className="px-4 pt-4 pb-4 space-y-6">
         {groupedByDay.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 rounded-3xl bg-[#EEEBFF] flex items-center justify-center mb-4">
-              <Clock size={28} className="text-[#6355FF]" />
+            <div className="w-16 h-16 rounded-3xl bg-[#EEF2FF] flex items-center justify-center mb-4">
+              <Clock size={28} className="text-[#4F46E5]" />
             </div>
-            <p className="font-bold text-[#15161B] text-[16px]">
+            <p className="font-bold text-[#111827] text-[16px]">
               {tab === 'mis-reservas' ? 'Sin reservas activas' : 'Sin clases disponibles'}
             </p>
-            <p className="text-[13px] text-[#8A8B94] mt-1">
+            <p className="text-[13px] text-[#8E8E93] mt-1">
               {tab === 'mis-reservas' ? 'Reserva una clase en la pestaña anterior' : 'Próximamente habrá nuevas clases'}
             </p>
           </div>
         ) : (
           groupedByDay.map(group => (
             <div key={group.dayKey}>
-              <p className="text-[13px] font-bold text-[#8A8B94] mb-3">{group.label}</p>
+              <p className="text-[13px] font-bold text-[#8E8E93] mb-3">{group.label}</p>
               <div className="space-y-3">
                 {group.items.map(ses => {
                   const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
@@ -109,7 +109,7 @@ export default function ClasesPage() {
                   const instr = instructores.find(i => i.id === ses.instructorId);
                   const libres = getLibres(ses.id, ses.aforoMaximo);
                   const miReserva = getMiReserva(ses.id);
-                  const color = tipo?.color ?? '#6355FF';
+                  const color = tipo?.color ?? '#4F46E5';
 
                   return (
                     <div key={ses.id} className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.08)' }}>
@@ -118,11 +118,11 @@ export default function ClasesPage() {
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="flex-1 min-w-0">
-                            <p className="font-extrabold text-[#15161B] text-[16px] leading-tight">{tipo?.nombre ?? 'Clase'}</p>
+                            <p className="font-extrabold text-[#111827] text-[16px] leading-tight">{tipo?.nombre ?? 'Clase'}</p>
                             {instr && (
                               <div className="flex items-center gap-1 mt-1">
-                                <User size={11} className="text-[#8A8B94]" />
-                                <p className="text-[12px] text-[#71727A]">{instr.nombre}</p>
+                                <User size={11} className="text-[#8E8E93]" />
+                                <p className="text-[12px] text-[#6B7280]">{instr.nombre}</p>
                               </div>
                             )}
                           </div>
@@ -142,19 +142,19 @@ export default function ClasesPage() {
 
                         <div className="flex items-center gap-4">
                           <div className="flex items-center gap-1.5">
-                            <Clock size={12} className="text-[#8A8B94]" />
-                            <span className="text-[13px] font-semibold text-[#3A3B44]">{formatTime(ses.inicio)} – {formatTime(ses.fin)}</span>
+                            <Clock size={12} className="text-[#8E8E93]" />
+                            <span className="text-[13px] font-semibold text-[#374151]">{formatTime(ses.inicio)} – {formatTime(ses.fin)}</span>
                           </div>
                           {sala && (
                             <div className="flex items-center gap-1">
-                              <MapPin size={11} className="text-[#8A8B94]" />
-                              <span className="text-[12px] text-[#71727A]">{sala.nombre}</span>
+                              <MapPin size={11} className="text-[#8E8E93]" />
+                              <span className="text-[12px] text-[#6B7280]">{sala.nombre}</span>
                             </div>
                           )}
                         </div>
 
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#F1F1F6]">
-                          <p className="text-[12px] font-medium" style={{ color: libres <= 2 && libres > 0 ? '#D97706' : libres === 0 ? '#EF4444' : '#8A8B94' }}>
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#F5F5F5]">
+                          <p className="text-[12px] font-medium" style={{ color: libres <= 2 && libres > 0 ? '#D97706' : libres === 0 ? '#EF4444' : '#8E8E93' }}>
                             {libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''} libre${libres !== 1 ? 's' : ''}` : 'Aforo completo'}
                           </p>
                           {miReserva?.estado === 'CONFIRMADA' ? (
@@ -169,7 +169,7 @@ export default function ClasesPage() {
                               onClick={() => session?.socioId && addReserva(ses.id, session.socioId)}
                               disabled={libres <= 0}
                               className="text-[13px] font-bold px-4 py-1.5 rounded-xl text-white transition-opacity active:opacity-70 disabled:opacity-40"
-                              style={{ backgroundColor: libres > 0 ? color : '#C7C8D0' }}
+                              style={{ backgroundColor: libres > 0 ? color : '#C7C7CC' }}
                             >
                               {libres > 0 ? 'Reservar' : 'Lista espera'}
                             </button>

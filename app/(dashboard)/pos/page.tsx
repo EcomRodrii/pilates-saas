@@ -99,15 +99,15 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         {/* Modal header */}
-        <div className="px-6 py-5 border-b border-[#ECECF1]">
+        <div className="px-6 py-5 border-b border-[#E8EAED]">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-[16px] font-semibold text-[#15161B]">Resumen de caja</h2>
-              <p className="text-[12px] text-[#71727A] mt-0.5 capitalize">{fechaLabel}</p>
+              <h2 className="text-[16px] font-semibold text-[#111827]">Resumen de caja</h2>
+              <p className="text-[12px] text-[#6B7280] mt-0.5 capitalize">{fechaLabel}</p>
             </div>
             <button
               onClick={onClose}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#A2A3AC] hover:text-[#15161B] hover:bg-[#F7F7FB] transition-colors"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3AF] hover:text-[#111827] hover:bg-[#F4F5F7] transition-colors"
             >
               <X size={14} />
             </button>
@@ -115,14 +115,14 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
         </div>
 
         {/* Summary stats */}
-        <div className="px-6 py-4 bg-[#F7F7FB] border-b border-[#ECECF1]">
+        <div className="px-6 py-4 bg-[#F4F5F7] border-b border-[#E8EAED]">
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white rounded-xl px-4 py-3 border border-[#ECECF1]">
-              <p className="text-[11px] text-[#A2A3AC] uppercase tracking-wide mb-1">Transacciones</p>
-              <p className="text-[22px] font-bold text-[#15161B]">{ventasHoy.length}</p>
+            <div className="bg-white rounded-xl px-4 py-3 border border-[#E8EAED]">
+              <p className="text-[11px] text-[#9CA3AF] uppercase tracking-wide mb-1">Transacciones</p>
+              <p className="text-[22px] font-bold text-[#111827]">{ventasHoy.length}</p>
             </div>
-            <div className="bg-white rounded-xl px-4 py-3 border border-[#ECECF1]">
-              <p className="text-[11px] text-[#A2A3AC] uppercase tracking-wide mb-1">Total recaudado</p>
+            <div className="bg-white rounded-xl px-4 py-3 border border-[#E8EAED]">
+              <p className="text-[11px] text-[#9CA3AF] uppercase tracking-wide mb-1">Total recaudado</p>
               <p className="text-[22px] font-bold text-[#059669]">{grandTotal.toFixed(2)} €</p>
             </div>
           </div>
@@ -132,7 +132,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
         <div className="px-6 py-4">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="text-[#A2A3AC] border-b border-[#ECECF1]">
+              <tr className="text-[#9CA3AF] border-b border-[#E8EAED]">
                 <th className="text-left pb-2 font-medium">Método de pago</th>
                 <th className="text-center pb-2 font-medium">Operaciones</th>
                 <th className="text-right pb-2 font-medium">Total</th>
@@ -140,18 +140,18 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
             </thead>
             <tbody>
               {breakdown.map(row => (
-                <tr key={row.value} className={cn('border-b border-[#ECECF1] last:border-0', row.count === 0 && 'opacity-40')}>
-                  <td className="py-2.5 text-[#15161B] font-medium">{row.label}</td>
-                  <td className="py-2.5 text-center text-[#71727A]">{row.count}</td>
-                  <td className="py-2.5 text-right font-semibold text-[#15161B]">
+                <tr key={row.value} className={cn('border-b border-[#E8EAED] last:border-0', row.count === 0 && 'opacity-40')}>
+                  <td className="py-2.5 text-[#111827] font-medium">{row.label}</td>
+                  <td className="py-2.5 text-center text-[#6B7280]">{row.count}</td>
+                  <td className="py-2.5 text-right font-semibold text-[#111827]">
                     {row.total.toFixed(2)} €
                   </td>
                 </tr>
               ))}
               {/* Grand total */}
-              <tr className="border-t-2 border-[#15161B]">
-                <td className="pt-3 pb-1 font-bold text-[#15161B]">Total caja</td>
-                <td className="pt-3 pb-1 text-center font-bold text-[#15161B]">{ventasHoy.length}</td>
+              <tr className="border-t-2 border-[#111827]">
+                <td className="pt-3 pb-1 font-bold text-[#111827]">Total caja</td>
+                <td className="pt-3 pb-1 text-center font-bold text-[#111827]">{ventasHoy.length}</td>
                 <td className="pt-3 pb-1 text-right font-bold text-[16px] text-[#059669]">
                   {grandTotal.toFixed(2)} €
                 </td>
@@ -161,26 +161,26 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
         </div>
 
         {/* Footer actions */}
-        <div className="px-6 py-4 border-t border-[#ECECF1] flex gap-2">
+        <div className="px-6 py-4 border-t border-[#E8EAED] flex gap-2">
           <div className="relative">
             <button
               disabled
               onMouseEnter={() => setShowPrintTooltip(true)}
               onMouseLeave={() => setShowPrintTooltip(false)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#ECECF1] text-[13px] font-medium text-[#A2A3AC] cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E8EAED] text-[13px] font-medium text-[#9CA3AF] cursor-not-allowed"
             >
               <Printer size={14} />
               Imprimir
             </button>
             {showPrintTooltip && (
-              <div className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 bg-[#15161B] text-white text-[11px] rounded-lg whitespace-nowrap">
+              <div className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 bg-[#111827] text-white text-[11px] rounded-lg whitespace-nowrap">
                 Próximamente
               </div>
             )}
           </div>
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-lg bg-[#15161B] text-white text-[13px] font-semibold hover:bg-[#2A2B34] transition-colors"
+            className="flex-1 py-2 rounded-lg bg-[#111827] text-white text-[13px] font-semibold hover:bg-[#1f2937] transition-colors"
           >
             Cerrar
           </button>
@@ -203,8 +203,8 @@ function SuccessOverlay({ total, metodoPago }: SuccessOverlayProps) {
       <div className="w-16 h-16 rounded-full bg-[#ECFDF5] flex items-center justify-center animate-in zoom-in-50 duration-300">
         <CheckCircle2 size={36} className="text-[#059669]" />
       </div>
-      <p className="text-[16px] font-semibold text-[#15161B]">¡Cobrado!</p>
-      <p className="text-[13px] text-[#71727A]">
+      <p className="text-[16px] font-semibold text-[#111827]">¡Cobrado!</p>
+      <p className="text-[13px] text-[#6B7280]">
         {total.toFixed(2)} € · {METODO_LABEL[metodoPago] ?? metodoPago}
       </p>
     </div>
@@ -377,37 +377,37 @@ export default function POSPage() {
   const todayTotal = todayGroup ? todayGroup.ventas.reduce((s, v) => s + v.total, 0) : 0;
 
   return (
-    <div className="fixed inset-0 lg:left-56 top-14 lg:top-0 flex flex-col overflow-hidden" style={{ backgroundColor: '#F7F7FB', zIndex: 10 }}>
+    <div className="fixed inset-0 lg:left-56 top-14 lg:top-0 flex flex-col overflow-hidden" style={{ backgroundColor: '#F4F5F7', zIndex: 10 }}>
       {/* Header */}
-      <div className="shrink-0 px-6 py-4 border-b border-[#ECECF1] bg-[#F7F7FB]">
+      <div className="shrink-0 px-6 py-4 border-b border-[#E8EAED] bg-[#F4F5F7]">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[18px] font-semibold text-[#15161B]">Punto de Venta</h1>
-            <p className="text-[13px] text-[#71727A] mt-0.5">Terminal de cobro rápido</p>
+            <h1 className="text-[18px] font-semibold text-[#111827]">Punto de Venta</h1>
+            <p className="text-[13px] text-[#6B7280] mt-0.5">Terminal de cobro rápido</p>
           </div>
-          <p className="text-[12px] text-[#A2A3AC] hidden sm:block">↵ Enter para cobrar cuando el carrito está listo</p>
+          <p className="text-[12px] text-[#9CA3AF] hidden sm:block">↵ Enter para cobrar cuando el carrito está listo</p>
         </div>
       </div>
 
       {/* Daily cash summary bar */}
-      <div className="shrink-0 px-6 py-2 border-b border-[#ECECF1] bg-white flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 text-[12px] text-[#71727A]">
+      <div className="shrink-0 px-6 py-2 border-b border-[#E8EAED] bg-white flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 text-[12px] text-[#6B7280]">
           <span>
-            <span className="font-semibold text-[#15161B]">Hoy:</span>{' '}
-            <span className="font-semibold text-[#15161B]">{ventasHoy.length}</span>{' '}
+            <span className="font-semibold text-[#111827]">Hoy:</span>{' '}
+            <span className="font-semibold text-[#111827]">{ventasHoy.length}</span>{' '}
             {ventasHoy.length === 1 ? 'venta' : 'ventas'}
           </span>
-          <span className="text-[#ECECF1]">·</span>
+          <span className="text-[#E8EAED]">·</span>
           <span>
             <span className="font-semibold text-[#059669]">{totalHoy.toFixed(2)} €</span>{' '}
             total
           </span>
-          <span className="text-[#ECECF1]">·</span>
+          <span className="text-[#E8EAED]">·</span>
           <span className="hidden sm:inline">
             <span className="font-medium text-[#059669]">{efectivoHoy.toFixed(2)} €</span>
             {' '}efectivo
           </span>
-          <span className="hidden sm:inline text-[#ECECF1]">/</span>
+          <span className="hidden sm:inline text-[#E8EAED]">/</span>
           <span className="hidden sm:inline">
             <span className="font-medium text-blue-600">{tarjetaHoy.toFixed(2)} €</span>
             {' '}tarjeta
@@ -415,23 +415,23 @@ export default function POSPage() {
         </div>
         <button
           onClick={() => setShowCerrarCaja(true)}
-          className="shrink-0 px-3 py-1.5 rounded-lg border border-[#ECECF1] text-[12px] font-medium text-[#71727A] hover:border-[#15161B] hover:text-[#15161B] transition-colors"
+          className="shrink-0 px-3 py-1.5 rounded-lg border border-[#E8EAED] text-[12px] font-medium text-[#6B7280] hover:border-[#111827] hover:text-[#111827] transition-colors"
         >
           Cerrar caja
         </button>
       </div>
 
       {/* Mobile tab switcher - hidden on desktop */}
-      <div className="lg:hidden shrink-0 flex items-center gap-1 px-4 py-2 bg-white border-b border-[#ECECF1]">
+      <div className="lg:hidden shrink-0 flex items-center gap-1 px-4 py-2 bg-white border-b border-[#E8EAED]">
         <button
           onClick={() => setPosView('catalog')}
-          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors ${posView === 'catalog' ? 'bg-[#15161B] text-white' : 'text-[#71727A]'}`}
+          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors ${posView === 'catalog' ? 'bg-[#111827] text-white' : 'text-[#6B7280]'}`}
         >
           Catálogo
         </button>
         <button
           onClick={() => setPosView('cart')}
-          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors relative ${posView === 'cart' ? 'bg-[#15161B] text-white' : 'text-[#71727A]'}`}
+          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors relative ${posView === 'cart' ? 'bg-[#111827] text-white' : 'text-[#6B7280]'}`}
         >
           Carrito
           {carrito.length > 0 && (
@@ -446,17 +446,17 @@ export default function POSPage() {
       <div className="flex-1 flex overflow-hidden">
 
         {/* ── Left: Catalog (60%) ────────────────────────────────────────── */}
-        <div className={`${posView === 'cart' ? 'hidden' : 'flex'} lg:flex w-full lg:w-[60%] flex-col border-r border-[#ECECF1] overflow-hidden bg-[#F7F7FB]`}>
+        <div className={`${posView === 'cart' ? 'hidden' : 'flex'} lg:flex w-full lg:w-[60%] flex-col border-r border-[#E8EAED] overflow-hidden bg-[#F4F5F7]`}>
           {/* Search */}
           <div className="shrink-0 px-4 pt-4 pb-3">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A2A3AC]" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
               <input
                 type="text"
                 placeholder="Buscar producto..."
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 rounded-lg border border-[#ECECF1] text-[13px] bg-white placeholder:text-[#A2A3AC] text-[#15161B] outline-none focus:border-[#15161B] transition-colors"
+                className="w-full pl-8 pr-3 py-2 rounded-lg border border-[#E8EAED] text-[13px] bg-white placeholder:text-[#9CA3AF] text-[#111827] outline-none focus:border-[#111827] transition-colors"
               />
             </div>
           </div>
@@ -470,8 +470,8 @@ export default function POSPage() {
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors',
                   tab === t.value
-                    ? 'bg-[#15161B] text-white'
-                    : 'bg-white border border-[#ECECF1] text-[#71727A] hover:text-[#15161B]'
+                    ? 'bg-[#111827] text-white'
+                    : 'bg-white border border-[#E8EAED] text-[#6B7280] hover:text-[#111827]'
                 )}
               >
                 {t.label}
@@ -486,24 +486,24 @@ export default function POSPage() {
                 <button
                   key={p.id}
                   onClick={() => addToCart(p)}
-                  className="bg-white border border-[#ECECF1] rounded-xl p-3 text-left hover:border-[#15161B] hover:shadow-sm transition-all group"
+                  className="bg-white border border-[#E8EAED] rounded-xl p-3 text-left hover:border-[#111827] hover:shadow-sm transition-all group"
                 >
-                  <p className="text-[13px] font-medium text-[#15161B] leading-snug mb-2 line-clamp-2">
+                  <p className="text-[13px] font-medium text-[#111827] leading-snug mb-2 line-clamp-2">
                     {p.nombre}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-semibold text-[#15161B]">
+                    <span className="text-[13px] font-semibold text-[#111827]">
                       {p.precio.toFixed(2)} €
                     </span>
-                    <span className="w-6 h-6 rounded-full bg-[#F7F7FB] group-hover:bg-[#15161B] group-hover:text-white flex items-center justify-center transition-colors">
+                    <span className="w-6 h-6 rounded-full bg-[#F4F5F7] group-hover:bg-[#111827] group-hover:text-white flex items-center justify-center transition-colors">
                       <Plus size={12} />
                     </span>
                   </div>
-                  <span className="mt-1.5 inline-block text-[10px] text-[#A2A3AC]">{p.categoria}</span>
+                  <span className="mt-1.5 inline-block text-[10px] text-[#9CA3AF]">{p.categoria}</span>
                 </button>
               ))}
               {productosFiltrados.length === 0 && (
-                <div className="col-span-3 py-12 text-center text-[13px] text-[#A2A3AC]">
+                <div className="col-span-3 py-12 text-center text-[13px] text-[#9CA3AF]">
                   Sin resultados
                 </div>
               )}
@@ -513,11 +513,11 @@ export default function POSPage() {
 
         {/* ── Right: Cart (40%) ──────────────────────────────────────────── */}
         <div className={`${posView === 'catalog' ? 'hidden' : 'flex'} lg:flex w-full lg:w-[40%] flex-col bg-white overflow-hidden relative`}>
-          <div className="shrink-0 px-4 py-3 border-b border-[#ECECF1] flex items-center gap-2">
-            <ShoppingCart size={15} className="text-[#71727A]" />
-            <h2 className="text-[14px] font-semibold text-[#15161B]">Ticket actual</h2>
+          <div className="shrink-0 px-4 py-3 border-b border-[#E8EAED] flex items-center gap-2">
+            <ShoppingCart size={15} className="text-[#6B7280]" />
+            <h2 className="text-[14px] font-semibold text-[#111827]">Ticket actual</h2>
             {carrito.length > 0 && (
-              <span className="ml-auto text-[11px] bg-[#15161B] text-white rounded-full px-2 py-0.5">
+              <span className="ml-auto text-[11px] bg-[#111827] text-white rounded-full px-2 py-0.5">
                 {carrito.reduce((s, i) => s + i.cantidad, 0)}
               </span>
             )}
@@ -530,38 +530,38 @@ export default function POSPage() {
             )}
 
             {carrito.length === 0 && !showSuccess ? (
-              <div className="flex flex-col items-center justify-center h-full text-center gap-2 text-[#A2A3AC]">
+              <div className="flex flex-col items-center justify-center h-full text-center gap-2 text-[#9CA3AF]">
                 <ShoppingCart size={28} strokeWidth={1.5} />
                 <p className="text-[13px]">Añade productos del catálogo</p>
               </div>
             ) : (
               carrito.map(item => (
-                <div key={item.producto.id} className="flex items-center gap-2 py-2 border-b border-[#ECECF1] last:border-0">
+                <div key={item.producto.id} className="flex items-center gap-2 py-2 border-b border-[#E8EAED] last:border-0">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-[#15161B] truncate">{item.producto.nombre}</p>
-                    <p className="text-[12px] text-[#71727A]">{item.producto.precio.toFixed(2)} € c/u</p>
+                    <p className="text-[13px] font-medium text-[#111827] truncate">{item.producto.nombre}</p>
+                    <p className="text-[12px] text-[#6B7280]">{item.producto.precio.toFixed(2)} € c/u</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => changeQty(item.producto.id, -1)}
-                      className="w-6 h-6 rounded-md border border-[#ECECF1] flex items-center justify-center hover:bg-[#F7F7FB] transition-colors"
+                      className="w-6 h-6 rounded-md border border-[#E8EAED] flex items-center justify-center hover:bg-[#F4F5F7] transition-colors"
                     >
                       <Minus size={10} />
                     </button>
-                    <span className="w-6 text-center text-[13px] font-medium text-[#15161B]">{item.cantidad}</span>
+                    <span className="w-6 text-center text-[13px] font-medium text-[#111827]">{item.cantidad}</span>
                     <button
                       onClick={() => changeQty(item.producto.id, 1)}
-                      className="w-6 h-6 rounded-md border border-[#ECECF1] flex items-center justify-center hover:bg-[#F7F7FB] transition-colors"
+                      className="w-6 h-6 rounded-md border border-[#E8EAED] flex items-center justify-center hover:bg-[#F4F5F7] transition-colors"
                     >
                       <Plus size={10} />
                     </button>
                   </div>
-                  <span className="w-14 text-right text-[13px] font-semibold text-[#15161B] shrink-0">
+                  <span className="w-14 text-right text-[13px] font-semibold text-[#111827] shrink-0">
                     {(item.producto.precio * item.cantidad).toFixed(2)} €
                   </span>
                   <button
                     onClick={() => removeFromCart(item.producto.id)}
-                    className="w-5 h-5 rounded flex items-center justify-center text-[#A2A3AC] hover:text-[#DC2626] hover:bg-red-50 transition-colors shrink-0"
+                    className="w-5 h-5 rounded flex items-center justify-center text-[#9CA3AF] hover:text-[#DC2626] hover:bg-red-50 transition-colors shrink-0"
                   >
                     <X size={12} />
                   </button>
@@ -572,17 +572,17 @@ export default function POSPage() {
 
           {/* Bottom panel */}
           {!showSuccess && (
-            <div className="shrink-0 border-t border-[#ECECF1] px-4 py-3 space-y-3">
+            <div className="shrink-0 border-t border-[#E8EAED] px-4 py-3 space-y-3">
               {/* Client selector */}
               <div className="relative">
                 {clienteSeleccionado ? (
-                  <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-[#ECECF1] bg-[#F7F7FB]">
-                    <span className="text-[13px] text-[#15161B]">
+                  <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-[#E8EAED] bg-[#F4F5F7]">
+                    <span className="text-[13px] text-[#111827]">
                       {clienteSeleccionado.nombre} {clienteSeleccionado.apellidos}
                     </span>
                     <button
                       onClick={() => { setClienteId(''); setBusquedaCliente(''); }}
-                      className="text-[#A2A3AC] hover:text-[#DC2626] transition-colors"
+                      className="text-[#9CA3AF] hover:text-[#DC2626] transition-colors"
                     >
                       <X size={12} />
                     </button>
@@ -594,15 +594,15 @@ export default function POSPage() {
                       placeholder="Buscar socia... (opcional)"
                       value={busquedaCliente}
                       onChange={e => setBusquedaCliente(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-[#ECECF1] text-[13px] placeholder:text-[#A2A3AC] text-[#15161B] outline-none focus:border-[#15161B] transition-colors"
+                      className="w-full px-3 py-2 rounded-lg border border-[#E8EAED] text-[13px] placeholder:text-[#9CA3AF] text-[#111827] outline-none focus:border-[#111827] transition-colors"
                     />
                     {sociosFiltrados.length > 0 && (
-                      <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-[#ECECF1] rounded-lg shadow-md overflow-hidden z-10">
+                      <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-[#E8EAED] rounded-lg shadow-md overflow-hidden z-10">
                         {sociosFiltrados.map(s => (
                           <button
                             key={s.id}
                             onClick={() => { setClienteId(s.id); setBusquedaCliente(''); }}
-                            className="w-full text-left px-3 py-2 text-[13px] text-[#15161B] hover:bg-[#F7F7FB] transition-colors"
+                            className="w-full text-left px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F4F5F7] transition-colors"
                           >
                             {s.nombre} {s.apellidos}
                           </button>
@@ -621,11 +621,11 @@ export default function POSPage() {
                   value={descuento}
                   onChange={e => setDescuento(e.target.value)}
                   min={0}
-                  className="flex-1 px-3 py-2 rounded-lg border border-[#ECECF1] text-[13px] placeholder:text-[#A2A3AC] text-[#15161B] outline-none focus:border-[#15161B] transition-colors"
+                  className="flex-1 px-3 py-2 rounded-lg border border-[#E8EAED] text-[13px] placeholder:text-[#9CA3AF] text-[#111827] outline-none focus:border-[#111827] transition-colors"
                 />
                 <button
                   onClick={() => setDescuentoTipo(t => t === '€' ? '%' : '€')}
-                  className="px-3 py-2 rounded-lg border border-[#ECECF1] text-[13px] font-medium text-[#71727A] hover:border-[#15161B] hover:text-[#15161B] transition-colors w-12"
+                  className="px-3 py-2 rounded-lg border border-[#E8EAED] text-[13px] font-medium text-[#6B7280] hover:border-[#111827] hover:text-[#111827] transition-colors w-12"
                 >
                   {descuentoTipo}
                 </button>
@@ -633,7 +633,7 @@ export default function POSPage() {
 
               {/* Totals */}
               <div className="space-y-1 text-[13px]">
-                <div className="flex justify-between text-[#71727A]">
+                <div className="flex justify-between text-[#6B7280]">
                   <span>Subtotal</span>
                   <span>{subtotal.toFixed(2)} €</span>
                 </div>
@@ -643,7 +643,7 @@ export default function POSPage() {
                     <span>−{descuentoAmt.toFixed(2)} €</span>
                   </div>
                 )}
-                <div className="flex justify-between font-semibold text-[#15161B] text-[15px] pt-1 border-t border-[#ECECF1]">
+                <div className="flex justify-between font-semibold text-[#111827] text-[15px] pt-1 border-t border-[#E8EAED]">
                   <span>Total</span>
                   <span>{total.toFixed(2)} €</span>
                 </div>
@@ -658,8 +658,8 @@ export default function POSPage() {
                     className={cn(
                       'py-1.5 rounded-lg text-[12px] font-medium border transition-colors',
                       metodoPago === m.value
-                        ? 'bg-[#15161B] text-white border-[#15161B]'
-                        : 'bg-white border-[#ECECF1] text-[#71727A] hover:border-[#15161B] hover:text-[#15161B]'
+                        ? 'bg-[#111827] text-white border-[#111827]'
+                        : 'bg-white border-[#E8EAED] text-[#6B7280] hover:border-[#111827] hover:text-[#111827]'
                     )}
                   >
                     {m.label}
@@ -671,7 +671,7 @@ export default function POSPage() {
               <div className="flex gap-2">
                 <button
                   onClick={clearCart}
-                  className="flex-1 py-2 rounded-lg border border-[#ECECF1] bg-white text-[13px] font-medium text-[#71727A] hover:text-[#15161B] hover:border-[#15161B] transition-colors"
+                  className="flex-1 py-2 rounded-lg border border-[#E8EAED] bg-white text-[13px] font-medium text-[#6B7280] hover:text-[#111827] hover:border-[#111827] transition-colors"
                 >
                   Cancelar
                 </button>
@@ -681,8 +681,8 @@ export default function POSPage() {
                   className={cn(
                     'flex-[2] py-2 rounded-lg text-[13px] font-semibold transition-colors',
                     carrito.length > 0
-                      ? 'bg-[#15161B] text-white hover:bg-[#2A2B34]'
-                      : 'bg-[#ECECF1] text-[#A2A3AC] cursor-not-allowed'
+                      ? 'bg-[#111827] text-white hover:bg-[#1f2937]'
+                      : 'bg-[#E8EAED] text-[#9CA3AF] cursor-not-allowed'
                   )}
                 >
                   Cobrar {carrito.length > 0 ? `${total.toFixed(2)} €` : ''}
@@ -694,12 +694,12 @@ export default function POSPage() {
       </div>
 
       {/* ── Recent sales ─────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-[#ECECF1] bg-white max-h-[220px] flex flex-col">
-        <div className="px-6 py-3 border-b border-[#ECECF1] flex items-center justify-between shrink-0">
-          <h3 className="text-[13px] font-semibold text-[#15161B]">Ventas recientes</h3>
+      <div className="shrink-0 border-t border-[#E8EAED] bg-white max-h-[220px] flex flex-col">
+        <div className="px-6 py-3 border-b border-[#E8EAED] flex items-center justify-between shrink-0">
+          <h3 className="text-[13px] font-semibold text-[#111827]">Ventas recientes</h3>
           <Link
             href="/pagos"
-            className="flex items-center gap-1 text-[12px] text-[#71727A] hover:text-[#15161B] transition-colors"
+            className="flex items-center gap-1 text-[12px] text-[#6B7280] hover:text-[#111827] transition-colors"
           >
             Ver todas las ventas
             <ChevronRight size={12} />
@@ -708,7 +708,7 @@ export default function POSPage() {
         <div className="overflow-auto flex-1">
           <table className="w-full text-[12px]">
             <thead className="sticky top-0 bg-white z-10">
-              <tr className="text-[#A2A3AC] border-b border-[#ECECF1]">
+              <tr className="text-[#9CA3AF] border-b border-[#E8EAED]">
                 <th className="text-left px-6 py-2 font-medium">Fecha / Hora</th>
                 <th className="text-left px-3 py-2 font-medium">Cliente</th>
                 <th className="text-left px-3 py-2 font-medium">Artículos</th>
@@ -720,7 +720,7 @@ export default function POSPage() {
             <tbody>
               {dateGroups.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-6 text-center text-[#A2A3AC]">
+                  <td colSpan={6} className="px-6 py-6 text-center text-[#9CA3AF]">
                     Sin ventas todavía
                   </td>
                 </tr>
@@ -728,11 +728,11 @@ export default function POSPage() {
               {dateGroups.map(group => (
                 <React.Fragment key={group.dateKey}>
                   {/* Date separator */}
-                  <tr className="bg-[#F7F7FB]">
-                    <td colSpan={4} className="px-6 py-1.5 text-[11px] font-semibold text-[#71727A] uppercase tracking-wide">
+                  <tr className="bg-[#F4F5F7]">
+                    <td colSpan={4} className="px-6 py-1.5 text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide">
                       {group.label}
                     </td>
-                    <td colSpan={2} className="px-6 py-1.5 text-right text-[11px] text-[#A2A3AC]">
+                    <td colSpan={2} className="px-6 py-1.5 text-right text-[11px] text-[#9CA3AF]">
                       {group.ventas.length} {group.ventas.length === 1 ? 'venta' : 'ventas'}
                     </td>
                   </tr>
@@ -744,13 +744,13 @@ export default function POSPage() {
                       : 'Cliente sin registrar';
                     const fechaHora = formatTimeOrDate(new Date(v.realizadaEn), today);
                     return (
-                      <tr key={v.id} className="border-b border-[#ECECF1] last:border-0 hover:bg-[#F7F7FB] transition-colors">
-                        <td className="px-6 py-2.5 text-[#71727A] font-mono">{fechaHora}</td>
-                        <td className="px-3 py-2.5 text-[#15161B] font-medium">{clienteNombre}</td>
-                        <td className="px-3 py-2.5 text-[#71727A]">
+                      <tr key={v.id} className="border-b border-[#E8EAED] last:border-0 hover:bg-[#F4F5F7] transition-colors">
+                        <td className="px-6 py-2.5 text-[#6B7280] font-mono">{fechaHora}</td>
+                        <td className="px-3 py-2.5 text-[#111827] font-medium">{clienteNombre}</td>
+                        <td className="px-3 py-2.5 text-[#6B7280]">
                           {v.items.map(i => `${i.cantidad}× ${i.nombre}`).join(', ')}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-semibold text-[#15161B]">
+                        <td className="px-3 py-2.5 text-right font-semibold text-[#111827]">
                           {v.total.toFixed(2)} €
                         </td>
                         <td className="px-3 py-2.5">
@@ -765,7 +765,7 @@ export default function POSPage() {
                           </span>
                         </td>
                         <td className="px-6 py-2.5 text-center">
-                          <button className="text-[#A2A3AC] hover:text-[#15161B] transition-colors">
+                          <button className="text-[#9CA3AF] hover:text-[#111827] transition-colors">
                             <Receipt size={14} />
                           </button>
                         </td>

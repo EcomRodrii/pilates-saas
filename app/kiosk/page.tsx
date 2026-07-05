@@ -32,7 +32,7 @@ function avatarColor(id: string) {
     { bg: '#EFF6FF', text: '#2563EB' },
     { bg: '#F0FDF4', text: '#059669' },
     { bg: '#FEF3C7', text: '#D97706' },
-    { bg: '#EEEBFF', text: '#4B3FD6' },
+    { bg: '#F5F3FF', text: '#7C3AED' },
     { bg: '#FEE2E2', text: '#DC2626' },
     { bg: '#E0F2FE', text: '#0369A1' },
   ];

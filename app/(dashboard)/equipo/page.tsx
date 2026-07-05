@@ -6,17 +6,17 @@ import type { Instructor } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, AlertTriangle } from 'lucide-react';
 
-const COLORES = ['#6355FF', '#6355FF', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
+const COLORES = ['#6366F1', '#4F46E5', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
 
-const inputCls = 'w-full rounded-xl border border-[#ECECF1] bg-white px-3.5 py-2.5 text-sm text-[#15161B] placeholder:text-[#A2A3AC] focus:outline-none focus:border-[#6355FF] focus:ring-2 focus:ring-[#6355FF]/15 transition-all';
-const labelCls = 'text-[12px] font-semibold text-[#3A3B44] block mb-1.5';
+const inputCls = 'w-full rounded-xl border border-[#E8EAED] bg-white px-3.5 py-2.5 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/15 transition-all';
+const labelCls = 'text-[12px] font-semibold text-[#374151] block mb-1.5';
 
 function initials(nombre: string) {
   return nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 }
 
 type Form = { nombre: string; email: string; telefono: string; color: string; activo: boolean };
-const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#6355FF', activo: true });
+const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#6366F1', activo: true });
 
 export default function EquipoPage() {
   const { instructores, sesiones, citas, addInstructor, updateInstructor, deleteInstructor } = useStudio();
@@ -89,10 +89,10 @@ export default function EquipoPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-[#15161B] tracking-tight">Equipo</h1>
-          <p className="text-sm text-[#71727A] mt-0.5">Instructoras y personal del estudio</p>
+          <h1 className="text-2xl font-bold text-[#111827] tracking-tight">Equipo</h1>
+          <p className="text-sm text-[#6B7280] mt-0.5">Instructoras y personal del estudio</p>
         </div>
-        <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#15161B] text-white text-sm font-bold hover:bg-[#2A2B34] transition-colors">
+        <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#111827] text-white text-sm font-bold hover:bg-[#1f2937] transition-colors">
           <Plus size={16} /> Nuevo miembro
         </button>
       </div>
@@ -100,20 +100,20 @@ export default function EquipoPage() {
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Miembros', value: instructores.length, sub: `${activos} activos`, color: '#6355FF', bg: '#EEEBFF', Icon: Users },
+          { label: 'Miembros', value: instructores.length, sub: `${activos} activos`, color: '#4F46E5', bg: '#EEF2FF', Icon: Users },
           { label: 'Clases 7 días', value: totalClasesSemana, sub: 'programadas', color: '#059669', bg: '#DCFCE7', Icon: Calendar },
           { label: 'Media / persona', value: activos ? Math.round(totalClasesSemana / activos) : 0, sub: 'clases por activo', color: '#D97706', bg: '#FEF3C7', Icon: Calendar },
         ].map(({ label, value, sub, color, bg, Icon }) => (
-          <div key={label} className="bg-white border border-[#ECECF1] rounded-2xl p-4 flex flex-col gap-2.5">
+          <div key={label} className="bg-white border border-[#EBECF0] rounded-2xl p-4 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#A2A3AC]">{label}</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#9CA3AF]">{label}</span>
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: bg }}>
                 <Icon size={15} color={color} />
               </div>
             </div>
             <div>
-              <p className="text-[26px] font-extrabold text-[#15161B] leading-none tabular-nums">{value}</p>
-              <p className="text-[11px] text-[#A2A3AC] mt-1">{sub}</p>
+              <p className="text-[26px] font-extrabold text-[#0F172A] leading-none tabular-nums">{value}</p>
+              <p className="text-[11px] text-[#9CA3AF] mt-1">{sub}</p>
             </div>
           </div>
         ))}
@@ -122,12 +122,12 @@ export default function EquipoPage() {
       {/* Grid */}
       {instructores.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[#E2E4EB] bg-white">
-          <div className="w-14 h-14 rounded-2xl bg-[#EEEBFF] flex items-center justify-center mb-4">
-            <Users size={26} className="text-[#6355FF]" />
+          <div className="w-14 h-14 rounded-2xl bg-[#EEF2FF] flex items-center justify-center mb-4">
+            <Users size={26} className="text-[#4F46E5]" />
           </div>
-          <p className="text-[16px] font-bold text-[#15161B]">Aún no hay nadie en el equipo</p>
+          <p className="text-[16px] font-bold text-[#0F172A]">Aún no hay nadie en el equipo</p>
           <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Añade a tus instructoras para asignarles clases y citas</p>
-          <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#15161B] text-white text-[13px] font-bold">
+          <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#111827] text-white text-[13px] font-bold">
             <Plus size={15} /> Nuevo miembro
           </button>
         </div>
@@ -138,25 +138,25 @@ export default function EquipoPage() {
             const nCitas = citasPorInstructor.get(i.id) ?? 0;
             const prox = proximaClase.get(i.id) ?? null;
             return (
-              <div key={i.id} className="bg-white border border-[#ECECF1] rounded-2xl p-5 flex flex-col gap-4">
+              <div key={i.id} className="bg-white border border-[#EBECF0] rounded-2xl p-5 flex flex-col gap-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-[15px] font-bold shrink-0" style={{ backgroundColor: i.color }}>
                       {initials(i.nombre)}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-[#15161B] text-[15px] leading-tight truncate">{i.nombre}</p>
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-bold mt-1 px-2 py-0.5 rounded-full ${i.activo ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-[#F1F1F6] text-[#A2A3AC]'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-[#059669]' : 'bg-[#A2A3AC]'}`} />
+                      <p className="font-bold text-[#111827] text-[15px] leading-tight truncate">{i.nombre}</p>
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-bold mt-1 px-2 py-0.5 rounded-full ${i.activo ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-[#F3F4F6] text-[#9CA3AF]'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-[#059669]' : 'bg-[#9CA3AF]'}`} />
                         {i.activo ? 'Activa' : 'Inactiva'}
                       </span>
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => openEditar(i)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#71727A] transition-colors">
+                    <button onClick={() => openEditar(i)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-[#6B7280] transition-colors">
                       <Pencil size={14} />
                     </button>
-                    <button onClick={() => setConfirmDel(i)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-[#71727A] hover:text-red-500 transition-colors">
+                    <button onClick={() => setConfirmDel(i)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-[#6B7280] hover:text-red-500 transition-colors">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -164,25 +164,25 @@ export default function EquipoPage() {
 
                 <div className="space-y-1.5">
                   {i.email && (
-                    <p className="flex items-center gap-2 text-[13px] text-[#71727A] truncate"><Mail size={13} className="text-[#A2A3AC] shrink-0" />{i.email}</p>
+                    <p className="flex items-center gap-2 text-[13px] text-[#6B7280] truncate"><Mail size={13} className="text-[#9CA3AF] shrink-0" />{i.email}</p>
                   )}
                   {i.telefono && (
-                    <p className="flex items-center gap-2 text-[13px] text-[#71727A]"><Phone size={13} className="text-[#A2A3AC] shrink-0" />{i.telefono}</p>
+                    <p className="flex items-center gap-2 text-[13px] text-[#6B7280]"><Phone size={13} className="text-[#9CA3AF] shrink-0" />{i.telefono}</p>
                   )}
                   {!i.email && !i.telefono && (
-                    <p className="text-[12px] text-[#C7C8D0] italic">Sin datos de contacto</p>
+                    <p className="text-[12px] text-[#C4C4CC] italic">Sin datos de contacto</p>
                   )}
                 </div>
 
                 <div className="flex items-center justify-between pt-3 border-t border-[#F1F1F4]">
                   <div>
-                    <p className="text-[18px] font-extrabold text-[#15161B] leading-none tabular-nums">{carga}<span className="text-[12px] font-medium text-[#A2A3AC]"> clases</span></p>
-                    <p className="text-[11px] text-[#A2A3AC] mt-1">próximos 7 días{nCitas > 0 ? ` · ${nCitas} citas` : ''}</p>
+                    <p className="text-[18px] font-extrabold text-[#111827] leading-none tabular-nums">{carga}<span className="text-[12px] font-medium text-[#9CA3AF]"> clases</span></p>
+                    <p className="text-[11px] text-[#9CA3AF] mt-1">próximos 7 días{nCitas > 0 ? ` · ${nCitas} citas` : ''}</p>
                   </div>
                   {prox && (
                     <div className="text-right">
-                      <p className="text-[11px] text-[#A2A3AC]">Próxima</p>
-                      <p className="text-[12px] font-semibold text-[#3A3B44] capitalize">
+                      <p className="text-[11px] text-[#9CA3AF]">Próxima</p>
+                      <p className="text-[12px] font-semibold text-[#374151] capitalize">
                         {prox.toLocaleDateString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
@@ -195,8 +195,8 @@ export default function EquipoPage() {
       )}
 
       {/* Roles note */}
-      <div className="flex items-start gap-2 bg-[#F8F9FB] border border-[#ECECF1] rounded-xl p-3.5 text-[12px] text-[#71727A]">
-        <AlertTriangle size={14} className="text-[#A2A3AC] shrink-0 mt-0.5" />
+      <div className="flex items-start gap-2 bg-[#F8F9FB] border border-[#EBECF0] rounded-xl p-3.5 text-[12px] text-[#6B7280]">
+        <AlertTriangle size={14} className="text-[#9CA3AF] shrink-0 mt-0.5" />
         <p>Los roles y permisos por persona (propietaria / recepción / instructora) se activarán junto con el inicio de sesión de usuarios. De momento, todo el equipo comparte acceso.</p>
       </div>
 
@@ -227,19 +227,19 @@ export default function EquipoPage() {
                 {COLORES.map(c => (
                   <button key={c} onClick={() => setForm(f => ({ ...f, color: c }))}
                     className="w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-110"
-                    style={{ backgroundColor: c, outline: form.color === c ? '2px solid #15161B' : 'none', outlineOffset: 2 }}>
+                    style={{ backgroundColor: c, outline: form.color === c ? '2px solid #111827' : 'none', outlineOffset: 2 }}>
                     {form.color === c && <Check size={14} className="text-white" />}
                   </button>
                 ))}
               </div>
             </div>
             <label className="flex items-center gap-3 cursor-pointer pt-1">
-              <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} className="w-4 h-4 rounded accent-[#6355FF]" />
-              <span className="text-sm font-medium text-[#15161B]">Miembro activo (puede recibir clases y citas)</span>
+              <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} className="w-4 h-4 rounded accent-[#4F46E5]" />
+              <span className="text-sm font-medium text-[#111827]">Miembro activo (puede recibir clases y citas)</span>
             </label>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-[#ECECF1] text-[13px] font-medium text-[#3A3B44] hover:bg-gray-50">Cancelar</button>
-              <button onClick={guardar} disabled={!form.nombre.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#15161B] text-white text-[13px] font-bold disabled:opacity-40">
+              <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-[#E8EAED] text-[13px] font-medium text-[#374151] hover:bg-gray-50">Cancelar</button>
+              <button onClick={guardar} disabled={!form.nombre.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#111827] text-white text-[13px] font-bold disabled:opacity-40">
                 <Check size={14} /> Guardar
               </button>
             </div>
@@ -253,11 +253,11 @@ export default function EquipoPage() {
           <DialogHeader>
             <DialogTitle>Eliminar miembro</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-[#71727A]">
-            ¿Seguro que quieres eliminar a <strong className="text-[#15161B]">{confirmDel?.nombre}</strong> del equipo? Las clases y citas ya asignadas no se borran, pero quedarán sin instructor visible.
+          <p className="text-sm text-[#6B7280]">
+            ¿Seguro que quieres eliminar a <strong className="text-[#111827]">{confirmDel?.nombre}</strong> del equipo? Las clases y citas ya asignadas no se borran, pero quedarán sin instructor visible.
           </p>
           <div className="flex justify-end gap-2 pt-4">
-            <button onClick={() => setConfirmDel(null)} className="px-4 py-2 rounded-xl border border-[#ECECF1] text-[13px] font-medium text-[#3A3B44] hover:bg-gray-50">Cancelar</button>
+            <button onClick={() => setConfirmDel(null)} className="px-4 py-2 rounded-xl border border-[#E8EAED] text-[13px] font-medium text-[#374151] hover:bg-gray-50">Cancelar</button>
             <button onClick={() => { if (confirmDel) deleteInstructor(confirmDel.id); setConfirmDel(null); }} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600">
               <X size={14} /> Eliminar
             </button>

@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 // ─── Shared style tokens ────────────────────────────────────────────────────
 const inputCls =
-  'w-full rounded-lg border border-[#ECECF1] bg-white px-3 py-2 text-[13px] font-medium text-[#15161B] focus:outline-none focus:border-[#A2A3AC] transition-colors placeholder:text-[#A2A3AC]';
+  'w-full rounded-lg border border-[#E8EAED] bg-white px-3 py-2 text-[13px] font-medium text-[#111827] focus:outline-none focus:border-[#9CA3AF] transition-colors placeholder:text-[#9CA3AF]';
 const selectCls = inputCls + ' appearance-none';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ function initials(nombre: string, apellidos: string) {
 
 function avatarColor(str: string) {
   const colors = [
-    ['#E0E7FF', '#4B3FD6'],
+    ['#E0E7FF', '#4338CA'],
     ['#D1FAE5', '#065F46'],
     ['#FEF3C7', '#92400E'],
     ['#FCE7F3', '#9D174D'],
@@ -85,7 +85,7 @@ function formatDate(iso: string) {
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wide text-[#71727A]">
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]">
         {label}
       </label>
       {children}
@@ -105,13 +105,13 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="bg-white border border-[#ECECF1] rounded-xl px-4 py-3 flex items-center gap-3 min-w-0">
+    <div className="bg-white border border-[#E8EAED] rounded-xl px-4 py-3 flex items-center gap-3 min-w-0">
       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: color + '1A' }}>
         <Icon size={16} style={{ color }} />
       </div>
       <div className="min-w-0">
-        <p className="text-[22px] font-bold text-[#15161B] leading-tight">{value}</p>
-        <p className="text-[11px] text-[#71727A] truncate">{label}</p>
+        <p className="text-[22px] font-bold text-[#111827] leading-tight">{value}</p>
+        <p className="text-[11px] text-[#6B7280] truncate">{label}</p>
       </div>
     </div>
   );
@@ -120,8 +120,8 @@ function StatCard({
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <ChevronsUpDown size={11} className="text-[#D1D5DB] ml-1 inline" />;
   return dir === 'asc'
-    ? <ChevronUp size={11} className="text-[#15161B] ml-1 inline" />
-    : <ChevronDown size={11} className="text-[#15161B] ml-1 inline" />;
+    ? <ChevronUp size={11} className="text-[#111827] ml-1 inline" />
+    : <ChevronDown size={11} className="text-[#111827] ml-1 inline" />;
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -381,18 +381,18 @@ export default function Socios() {
   ];
 
   return (
-    <div className="space-y-5 min-h-screen" style={{ backgroundColor: '#F7F7FB' }}>
+    <div className="space-y-5 min-h-screen" style={{ backgroundColor: '#F4F5F7' }}>
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-[#15161B] tracking-tight">Miembros</h1>
-          <p className="text-[12px] text-[#A2A3AC] mt-0.5">
+          <h1 className="text-xl font-bold text-[#111827] tracking-tight">Miembros</h1>
+          <p className="text-[12px] text-[#9CA3AF] mt-0.5">
             Gestiona y haz seguimiento de todos tus miembros
           </p>
         </div>
         <button
           onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#15161B] hover:bg-[#1F2937] transition-colors shrink-0 shadow-sm"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#111827] hover:bg-[#1F2937] transition-colors shrink-0 shadow-sm"
         >
           <Plus size={14} />
           Nuevo miembro
@@ -401,9 +401,9 @@ export default function Socios() {
 
       {/* ── Stats row ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={Users} label="Total miembros" value={stats.total} color="#71727A" />
+        <StatCard icon={Users} label="Total miembros" value={stats.total} color="#6B7280" />
         <StatCard icon={UserCheck} label="Activas" value={stats.activas} color="#059669" />
-        <StatCard icon={Bookmark} label="Con bono vigente" value={stats.conBono} color="#4B3FD6" />
+        <StatCard icon={Bookmark} label="Con bono vigente" value={stats.conBono} color="#4338CA" />
         <StatCard icon={Clock} label="Inactivas 30d" value={stats.inactivas30d} color="#D97706" />
       </div>
 
@@ -411,18 +411,18 @@ export default function Socios() {
       <div className="space-y-3">
         {/* Search bar */}
         <div className="relative">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A2A3AC]" />
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
           <input
             type="text"
             placeholder="Buscar por nombre, email o teléfono…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-10 pr-10 py-2.5 text-[13px] bg-white rounded-xl border border-[#ECECF1] focus:outline-none focus:border-[#A2A3AC] transition-colors placeholder:text-[#A2A3AC] shadow-sm"
+            className="w-full pl-10 pr-10 py-2.5 text-[13px] bg-white rounded-xl border border-[#E8EAED] focus:outline-none focus:border-[#9CA3AF] transition-colors placeholder:text-[#9CA3AF] shadow-sm"
           />
           {busqueda && (
             <button
               onClick={() => setBusqueda('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A2A3AC] hover:text-[#71727A]"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
             >
               <X size={13} />
             </button>
@@ -439,8 +439,8 @@ export default function Socios() {
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border',
                   smartFilter === f.id
-                    ? 'bg-[#15161B] text-white border-[#15161B] shadow-sm'
-                    : 'bg-white text-[#71727A] border-[#ECECF1] hover:border-[#A2A3AC] hover:text-[#3A3B44]',
+                    ? 'bg-[#111827] text-white border-[#111827] shadow-sm'
+                    : 'bg-white text-[#6B7280] border-[#E8EAED] hover:border-[#9CA3AF] hover:text-[#374151]',
                 )}
               >
                 {f.label}
@@ -450,11 +450,11 @@ export default function Socios() {
 
           {/* Sort select */}
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[11px] font-medium text-[#A2A3AC] hidden sm:inline">Ordenar:</span>
+            <span className="text-[11px] font-medium text-[#9CA3AF] hidden sm:inline">Ordenar:</span>
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="rounded-lg border border-[#ECECF1] bg-white px-3 py-1.5 text-[12px] font-medium text-[#3A3B44] focus:outline-none appearance-none cursor-pointer"
+              className="rounded-lg border border-[#E8EAED] bg-white px-3 py-1.5 text-[12px] font-medium text-[#374151] focus:outline-none appearance-none cursor-pointer"
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.key} value={o.key}>{o.label}</option>
@@ -462,12 +462,12 @@ export default function Socios() {
             </select>
             <button
               onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
-              className="p-1.5 rounded-lg border border-[#ECECF1] bg-white hover:bg-[#F4F4F8] transition-colors"
+              className="p-1.5 rounded-lg border border-[#E8EAED] bg-white hover:bg-[#F9FAFB] transition-colors"
               title={sortDir === 'asc' ? 'Ascendente' : 'Descendente'}
             >
               {sortDir === 'asc'
-                ? <ChevronUp size={13} className="text-[#71727A]" />
-                : <ChevronDown size={13} className="text-[#71727A]" />}
+                ? <ChevronUp size={13} className="text-[#6B7280]" />
+                : <ChevronDown size={13} className="text-[#6B7280]" />}
             </button>
           </div>
         </div>
@@ -475,8 +475,8 @@ export default function Socios() {
 
       {/* ── Bulk action bar ─────────────────────────────────────────────────── */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 px-4 py-3 bg-[#15161B] text-white rounded-xl shadow-lg">
-          <span className="text-[12px] font-medium text-[#A2A3AC] mr-1">
+        <div className="flex items-center gap-2 px-4 py-3 bg-[#111827] text-white rounded-xl shadow-lg">
+          <span className="text-[12px] font-medium text-[#9CA3AF] mr-1">
             {selected.size} seleccionada{selected.size !== 1 ? 's' : ''}
           </span>
           <div className="flex-1" />
@@ -496,7 +496,7 @@ export default function Socios() {
           </button>
           <button
             onClick={() => setSelected(new Set())}
-            className="ml-1 text-[#A2A3AC] hover:text-white transition-colors p-1"
+            className="ml-1 text-[#9CA3AF] hover:text-white transition-colors p-1"
           >
             <X size={14} />
           </button>
@@ -504,19 +504,19 @@ export default function Socios() {
       )}
 
       {/* ── Table ──────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-[#ECECF1] overflow-x-auto shadow-sm">
+      <div className="bg-white rounded-xl border border-[#E8EAED] overflow-x-auto shadow-sm">
         {lista.length === 0 ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#F1F1F6] flex items-center justify-center mb-4">
-              <Users size={28} className="text-[#A2A3AC]" />
+            <div className="w-16 h-16 rounded-2xl bg-[#F3F4F6] flex items-center justify-center mb-4">
+              <Users size={28} className="text-[#9CA3AF]" />
             </div>
-            <h3 className="text-[15px] font-semibold text-[#15161B] mb-1">
+            <h3 className="text-[15px] font-semibold text-[#111827] mb-1">
               {busqueda || smartFilter !== 'todas'
                 ? 'No hay resultados'
                 : 'Aún no hay miembros'}
             </h3>
-            <p className="text-[13px] text-[#71727A] mb-5 max-w-xs">
+            <p className="text-[13px] text-[#6B7280] mb-5 max-w-xs">
               {busqueda || smartFilter !== 'todas'
                 ? 'Prueba con otros filtros o términos de búsqueda.'
                 : 'Añade tu primer miembro para empezar a gestionar el estudio.'}
@@ -524,7 +524,7 @@ export default function Socios() {
             {!busqueda && smartFilter === 'todas' && (
               <button
                 onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#15161B] hover:bg-[#1F2937] transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#111827] hover:bg-[#1F2937] transition-colors"
               >
                 <Plus size={14} />
                 Añadir primer miembro
@@ -533,7 +533,7 @@ export default function Socios() {
             {(busqueda || smartFilter !== 'todas') && (
               <button
                 onClick={() => { setBusqueda(''); setSmartFilter('todas'); }}
-                className="text-[12px] font-medium text-[#71727A] underline underline-offset-2 hover:text-[#3A3B44] transition-colors"
+                className="text-[12px] font-medium text-[#6B7280] underline underline-offset-2 hover:text-[#374151] transition-colors"
               >
                 Limpiar filtros
               </button>
@@ -542,21 +542,21 @@ export default function Socios() {
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[#F1F1F6] bg-[#FAFAFA]">
+              <tr className="border-b border-[#F3F4F6] bg-[#FAFAFA]">
                 {/* Checkbox */}
                 <th className="pl-4 pr-2 py-3 w-9">
                   <input
                     type="checkbox"
                     checked={allSelected}
                     onChange={toggleSelectAll}
-                    className="rounded border-[#D1D5DB] accent-[#15161B] cursor-pointer"
+                    className="rounded border-[#D1D5DB] accent-[#111827] cursor-pointer"
                   />
                 </th>
                 {/* Socia */}
                 <th className="text-left px-4 py-3">
                   <button
                     onClick={() => toggleSort('nombre')}
-                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#A2A3AC] hover:text-[#15161B] transition-colors"
+                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF] hover:text-[#111827] transition-colors"
                   >
                     Miembro
                     <SortIcon active={sortKey === 'nombre'} dir={sortDir} />
@@ -564,7 +564,7 @@ export default function Socios() {
                 </th>
                 {/* Plan */}
                 <th className="text-left px-4 py-3 hidden sm:table-cell">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#A2A3AC]">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF]">
                     Plan actual
                   </span>
                 </th>
@@ -572,7 +572,7 @@ export default function Socios() {
                 <th className="text-left px-4 py-3 hidden md:table-cell">
                   <button
                     onClick={() => toggleSort('sesiones_restantes')}
-                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#A2A3AC] hover:text-[#15161B] transition-colors"
+                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF] hover:text-[#111827] transition-colors"
                   >
                     Ses. rest.
                     <SortIcon active={sortKey === 'sesiones_restantes'} dir={sortDir} />
@@ -582,7 +582,7 @@ export default function Socios() {
                 <th className="text-left px-4 py-3 hidden lg:table-cell">
                   <button
                     onClick={() => toggleSort('ultima_visita')}
-                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#A2A3AC] hover:text-[#15161B] transition-colors"
+                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF] hover:text-[#111827] transition-colors"
                   >
                     Última asistencia
                     <SortIcon active={sortKey === 'ultima_visita'} dir={sortDir} />
@@ -590,7 +590,7 @@ export default function Socios() {
                 </th>
                 {/* Estado */}
                 <th className="text-left px-4 py-3 hidden md:table-cell">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#A2A3AC]">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF]">
                     Estado
                   </span>
                 </th>
@@ -599,7 +599,7 @@ export default function Socios() {
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-[#F4F4F8]">
+            <tbody className="divide-y divide-[#F9FAFB]">
               {lista.map((s) => {
                 const sus = getActiveSus(s.id);
                 const plan = getPlan(sus?.planId);
@@ -627,8 +627,8 @@ export default function Socios() {
                 );
                 if (!s.activo) {
                   estadoBadge = (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#F1F1F6] text-[#71727A]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#A2A3AC]" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#F3F4F6] text-[#6B7280]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#9CA3AF]" />
                       Inactiva
                     </span>
                   );
@@ -653,8 +653,8 @@ export default function Socios() {
                     key={s.id}
                     onClick={() => router.push(`/socios/${s.id}`)}
                     className={cn(
-                      'hover:bg-[#F4F4F8] transition-colors group cursor-pointer',
-                      isSelected && 'bg-[#EEEBFF]',
+                      'hover:bg-[#F9FAFB] transition-colors group cursor-pointer',
+                      isSelected && 'bg-[#EEF2FF]',
                     )}
                   >
                     {/* Checkbox */}
@@ -663,7 +663,7 @@ export default function Socios() {
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(s.id)}
-                        className="rounded border-[#D1D5DB] accent-[#15161B] cursor-pointer"
+                        className="rounded border-[#D1D5DB] accent-[#111827] cursor-pointer"
                       />
                     </td>
 
@@ -677,10 +677,10 @@ export default function Socios() {
                           {initials(s.nombre, s.apellidos)}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-[#15161B] truncate">
+                          <p className="text-[13px] font-semibold text-[#111827] truncate">
                             {s.nombre} {s.apellidos}
                           </p>
-                          <p className="text-[11px] text-[#A2A3AC] truncate">{s.email}</p>
+                          <p className="text-[11px] text-[#9CA3AF] truncate">{s.email}</p>
                         </div>
                       </div>
                     </td>
@@ -689,7 +689,7 @@ export default function Socios() {
                     <td className="px-4 py-3.5 hidden sm:table-cell">
                       {plan ? (
                         <div>
-                          <p className="text-[12px] font-medium text-[#3A3B44]">{plan.nombre}</p>
+                          <p className="text-[12px] font-medium text-[#374151]">{plan.nombre}</p>
                           {sus?.estado === 'PAUSADA' && (
                             <p className="text-[10px] font-medium text-[#D97706]">Pausada</p>
                           )}
@@ -714,7 +714,7 @@ export default function Socios() {
                     </td>
 
                     {/* Última asistencia */}
-                    <td className="px-4 py-3.5 text-[12px] text-[#71727A] hidden lg:table-cell">
+                    <td className="px-4 py-3.5 text-[12px] text-[#6B7280] hidden lg:table-cell">
                       {relativeTime(lastVisit)}
                     </td>
 
@@ -726,18 +726,18 @@ export default function Socios() {
                       <div className="flex items-center justify-end gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={(e) => openEdit(s, e)}
-                          className="p-1.5 rounded-md hover:bg-[#F1F1F6] transition-colors"
+                          className="p-1.5 rounded-md hover:bg-[#F3F4F6] transition-colors"
                           title="Editar"
                         >
-                          <Pencil size={13} className="text-[#71727A]" />
+                          <Pencil size={13} className="text-[#6B7280]" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); updateSocio(s.id, { activo: !s.activo }); }}
-                          className="p-1.5 rounded-md hover:bg-[#F1F1F6] transition-colors"
+                          className="p-1.5 rounded-md hover:bg-[#F3F4F6] transition-colors"
                           title={s.activo ? 'Desactivar' : 'Activar'}
                         >
                           {s.activo
-                            ? <UserX size={13} className="text-[#71727A]" />
+                            ? <UserX size={13} className="text-[#6B7280]" />
                             : <UserCheck size={13} className="text-[#059669]" />}
                         </button>
                         <button
@@ -758,8 +758,8 @@ export default function Socios() {
 
         {/* Table footer */}
         {lista.length > 0 && (
-          <div className="px-5 py-3 border-t border-[#F1F1F6] bg-[#FAFAFA]">
-            <p className="text-[11px] text-[#A2A3AC]">
+          <div className="px-5 py-3 border-t border-[#F3F4F6] bg-[#FAFAFA]">
+            <p className="text-[11px] text-[#9CA3AF]">
               Mostrando {lista.length} de {socios.length} miembros
             </p>
           </div>
@@ -773,10 +773,10 @@ export default function Socios() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold text-[#15161B] flex items-center gap-2">
+            <DialogTitle className="text-base font-semibold text-[#111827] flex items-center gap-2">
               {showForm === 'nueva' && formStep === 2 && (
-                <button onClick={() => setFormStep(1)} className="p-0.5 rounded hover:bg-[#F1F1F6]">
-                  <ArrowLeft size={15} className="text-[#71727A]" />
+                <button onClick={() => setFormStep(1)} className="p-0.5 rounded hover:bg-[#F3F4F6]">
+                  <ArrowLeft size={15} className="text-[#6B7280]" />
                 </button>
               )}
               {showForm === 'nueva'
@@ -792,15 +792,15 @@ export default function Socios() {
                 <div key={n} className="flex items-center gap-1.5">
                   <div className={cn(
                     'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors',
-                    formStep >= n ? 'bg-[#15161B] text-white' : 'bg-[#ECECF1] text-[#A2A3AC]',
+                    formStep >= n ? 'bg-[#111827] text-white' : 'bg-[#E8EAED] text-[#9CA3AF]',
                   )}>
                     {formStep > n ? <CheckCircle2 size={11} /> : n}
                   </div>
                   <span className={cn(
                     'text-[11px] font-medium',
-                    formStep >= n ? 'text-[#15161B]' : 'text-[#A2A3AC]',
+                    formStep >= n ? 'text-[#111827]' : 'text-[#9CA3AF]',
                   )}>{label}</span>
-                  {n < 2 && <div className="w-6 h-px bg-[#ECECF1] mx-0.5" />}
+                  {n < 2 && <div className="w-6 h-px bg-[#E8EAED] mx-0.5" />}
                 </div>
               ))}
             </div>
@@ -885,12 +885,12 @@ export default function Socios() {
               {/* Scrollable policy + terms */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-[#71727A] flex items-center gap-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280] flex items-center gap-1.5">
                     <FileText size={11} />
                     Política de privacidad y condiciones
                   </label>
                   {!scrolledToBottom && (
-                    <span className="text-[10px] text-[#A2A3AC]">Desplaza hasta el final ↓</span>
+                    <span className="text-[10px] text-[#9CA3AF]">Desplaza hasta el final ↓</span>
                   )}
                   {scrolledToBottom && (
                     <span className="text-[10px] text-[#059669] font-medium flex items-center gap-1">
@@ -905,7 +905,7 @@ export default function Socios() {
                     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
                     if (nearBottom) setScrolledToBottom(true);
                   }}
-                  className="h-52 overflow-y-auto rounded-lg border border-[#ECECF1] bg-[#F4F4F8] p-3 text-[11px] text-[#3A3B44] leading-relaxed whitespace-pre-wrap font-mono"
+                  className="h-52 overflow-y-auto rounded-lg border border-[#E8EAED] bg-[#F9FAFB] p-3 text-[11px] text-[#374151] leading-relaxed whitespace-pre-wrap font-mono"
                 >
                   {studioConfig.politicaPrivacidad}
                   {'\n\n─────────────────────────────────────\n\n'}
@@ -916,7 +916,7 @@ export default function Socios() {
               {/* Acceptance checkbox */}
               <label className={cn(
                 'flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors',
-                aceptado ? 'border-[#059669] bg-[#F0FDF4]' : 'border-[#ECECF1] bg-white hover:border-[#A2A3AC]',
+                aceptado ? 'border-[#059669] bg-[#F0FDF4]' : 'border-[#E8EAED] bg-white hover:border-[#9CA3AF]',
               )}>
                 <input
                   type="checkbox"
@@ -924,7 +924,7 @@ export default function Socios() {
                   onChange={(e) => setAceptado(e.target.checked)}
                   className="mt-0.5 accent-[#059669]"
                 />
-                <span className="text-[12px] text-[#3A3B44] leading-snug">
+                <span className="text-[12px] text-[#374151] leading-snug">
                   He leído y acepto la política de privacidad y las condiciones del servicio del estudio
                 </span>
               </label>
@@ -932,7 +932,7 @@ export default function Socios() {
               {/* Digital signature */}
               <FF label="Firma (nombre completo como firma digital)">
                 <div className="relative">
-                  <PenLine size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A2A3AC]" />
+                  <PenLine size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
                   <input
                     className={inputCls + ' pl-8 font-medium italic'}
                     placeholder="Escribe tu nombre completo como firma…"
@@ -948,8 +948,8 @@ export default function Socios() {
                   <ShieldCheck size={14} className="text-[#059669] shrink-0 mt-0.5" />
                   <div>
                     <p className="text-[12px] font-semibold text-[#065F46]">Contrato listo para firmar</p>
-                    <p className="text-[11px] text-[#71727A] mt-0.5">
-                      Firmado digitalmente por <span className="font-medium text-[#3A3B44]">{firma.trim()}</span> —{' '}
+                    <p className="text-[11px] text-[#6B7280] mt-0.5">
+                      Firmado digitalmente por <span className="font-medium text-[#374151]">{firma.trim()}</span> —{' '}
                       {new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
                   </div>
@@ -962,7 +962,7 @@ export default function Socios() {
           <div className="flex gap-2 mt-5">
             <button
               onClick={resetModal}
-              className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-[#ECECF1] text-[#71727A] hover:bg-[#F4F4F8] transition-colors"
+              className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-[#E8EAED] text-[#6B7280] hover:bg-[#F9FAFB] transition-colors"
             >
               Cancelar
             </button>
@@ -970,7 +970,7 @@ export default function Socios() {
               <button
                 onClick={() => { setScrolledToBottom(false); setFormStep(2); }}
                 disabled={!form.nombre || !form.apellidos || !form.email}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#15161B] disabled:opacity-40 hover:bg-[#1F2937] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#111827] disabled:opacity-40 hover:bg-[#1F2937] transition-colors"
               >
                 Siguiente — Contrato
               </button>
@@ -982,7 +982,7 @@ export default function Socios() {
                     ? !aceptado || !firma.trim()
                     : !form.nombre || !form.apellidos || !form.email
                 }
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#15161B] disabled:opacity-40 hover:bg-[#1F2937] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#111827] disabled:opacity-40 hover:bg-[#1F2937] transition-colors"
               >
                 {showForm === 'nueva' ? 'Crear miembro y firmar' : 'Guardar cambios'}
               </button>
@@ -998,7 +998,7 @@ export default function Socios() {
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold text-[#15161B]">
+            <DialogTitle className="text-base font-semibold text-[#111827]">
               Cambiar plan — {selected.size} miembro{selected.size !== 1 ? 's' : ''}
             </DialogTitle>
           </DialogHeader>
@@ -1018,14 +1018,14 @@ export default function Socios() {
             <div className="flex gap-2">
               <button
                 onClick={() => { setShowAsignarPlan(false); setAsignarPlanId(''); }}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-[#ECECF1] text-[#71727A] hover:bg-[#F4F4F8] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-[#E8EAED] text-[#6B7280] hover:bg-[#F9FAFB] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAsignarPlan}
                 disabled={!asignarPlanId}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#15161B] disabled:opacity-40 hover:bg-[#1F2937] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#111827] disabled:opacity-40 hover:bg-[#1F2937] transition-colors"
               >
                 Asignar plan
               </button>
@@ -1045,17 +1045,17 @@ export default function Socios() {
               <AlertTriangle size={22} className="text-[#DC2626]" />
             </div>
             <div>
-              <h3 className="text-[14px] font-semibold text-[#15161B] mb-1">
+              <h3 className="text-[14px] font-semibold text-[#111827] mb-1">
                 ¿Eliminar miembro?
               </h3>
-              <p className="text-[13px] text-[#71727A]">
+              <p className="text-[13px] text-[#6B7280]">
                 Se eliminarán todos sus datos. Esta acción no se puede deshacer.
               </p>
             </div>
             <div className="flex gap-2 w-full">
               <button
                 onClick={() => setConfirmEliminar(null)}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-[#ECECF1] text-[#71727A] hover:bg-[#F4F4F8] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-[#E8EAED] text-[#6B7280] hover:bg-[#F9FAFB] transition-colors"
               >
                 Cancelar
               </button>

@@ -40,50 +40,44 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.4);
 
-  /* Custom design tokens — bsport-style */
-  --color-lavender-bg: #EEEBFF;
-  --color-lavender-text: #5B4BE0;
-  --color-sage-bg: #E7F3EC;
-  --color-sage-text: #2E7D4F;
-  --color-sage-btn: #C3E4CE;
-  --color-app-bg: #F7F7FB;
-  --color-sidebar-dark: #16171D;
+  /* Custom design tokens matching the reference */
+  --color-lavender-bg: #EDEAF8;
+  --color-lavender-text: #6B4FA8;
+  --color-sage-bg: #E3EFE6;
+  --color-sage-text: #3D7A4D;
+  --color-sage-btn: #C3D9B0;
+  --color-app-bg: #F7F7F8;
+  --color-sidebar-dark: #111111;
 }
 
 :root {
-  /* bsport-style palette — clean cool white, near-black ink, vivid violet accent */
-  --background: #F7F7FB;
-  --foreground: #15161B;
+  --background: #F4F5F7;
+  --foreground: #111827;
   --card: #ffffff;
-  --card-foreground: #15161B;
+  --card-foreground: #111827;
   --popover: #ffffff;
-  --popover-foreground: #15161B;
-  --primary: #15161B;
+  --popover-foreground: #111827;
+  --primary: #111827;
   --primary-foreground: #ffffff;
-  --secondary: #F1F1F6;
-  --secondary-foreground: #15161B;
-  --muted: #F4F4F8;
-  --muted-foreground: #71727A;
-  --accent: #EEEBFF;
-  --accent-foreground: #5B4BE0;
+  --secondary: #F3F4F6;
+  --secondary-foreground: #111827;
+  --muted: #F9FAFB;
+  --muted-foreground: #6B7280;
+  --accent: #EFF6FF;
+  --accent-foreground: #2563EB;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #ECECF1;
-  --input: #ECECF1;
-  --ring: #DAD5FB;
+  --border: #E8EAED;
+  --input: #E8EAED;
+  --ring: #D1FAE5;
   --radius: 0.75rem;
-  --sidebar: #16171D;
-  --sidebar-foreground: #E7E7EC;
+  --sidebar: #111111;
+  --sidebar-foreground: #ffffff;
   --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #16171D;
-  --sidebar-accent: rgba(255,255,255,0.08);
+  --sidebar-primary-foreground: #111111;
+  --sidebar-accent: rgba(255,255,255,0.1);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255,255,255,0.07);
-  --sidebar-ring: rgba(99,85,255,0.4);
-
-  /* Violet accent scale (bsport) */
-  --violet: #6355FF;
-  --violet-deep: #4B3FD6;
-  --violet-bg: #EEEBFF;
+  --sidebar-border: rgba(255,255,255,0.08);
+  --sidebar-ring: rgba(255,255,255,0.2);
 }
 
 @layer base {
@@ -99,14 +93,6 @@
   html {
     font-family: var(--font-jakarta), system-ui, sans-serif;
   }
-  h1 {
-    letter-spacing: -0.02em;
-  }
-}
-
-/* Legacy utility kept as sans (serif display removed) */
-.font-display {
-  font-family: var(--font-jakarta), system-ui, sans-serif;
 }
 
 /* Portal PWA — ocultar badge de Next.js dev */

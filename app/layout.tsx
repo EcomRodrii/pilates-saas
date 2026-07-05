@@ -11,14 +11,14 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Tentare · Gestión del estudio',
-  description: 'Software de gestión para el estudio de pilates Tentare',
+  title: 'Pilates Studio',
+  description: 'Software de gestión para estudios de pilates',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${jakarta.variable} antialiased`}>
-      <body className="bg-[#F7F7FB]">
+      <body className="bg-[#F7F7F8]">
         <AuthProvider>
           <StudioProvider>{children}</StudioProvider>
         </AuthProvider>
