@@ -52,9 +52,9 @@ export default function MiPlanPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(155deg, #2B2429 0%, #6E3F4C 55%, #A05A6B 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(155deg, #15161B 0%, #3A2E9E 55%, #4B3FD6 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight">Mi plan</h1>
-        <p className="text-[#E7C9CF] text-[13px] mt-0.5">{formatEur(totalPagado)} pagado en total</p>
+        <p className="text-[#C9C2FF] text-[13px] mt-0.5">{formatEur(totalPagado)} pagado en total</p>
       </div>
 
       <div className="px-4 pt-4 pb-6 space-y-5">
@@ -62,10 +62,10 @@ export default function MiPlanPage() {
         {/* Plan card */}
         {plan && suscripcion ? (
           <div className="rounded-3xl overflow-hidden shadow-md" style={{ boxShadow: '0 4px 20px rgba(79,70,229,0.2)' }}>
-            <div className="p-5" style={{ background: 'linear-gradient(135deg, #C08497, #A05A6B)' }}>
+            <div className="p-5" style={{ background: 'linear-gradient(135deg, #6355FF, #4B3FD6)' }}>
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <p className="text-[#EFD8DC] text-[11px] font-bold uppercase tracking-widest mb-1">
+                  <p className="text-[#D8D2FF] text-[11px] font-bold uppercase tracking-widest mb-1">
                     {plan.tipo === 'MENSUAL' ? 'Suscripción mensual' : 'Bono de sesiones'}
                   </p>
                   <p className="text-white text-[22px] font-extrabold leading-tight">{plan.nombre}</p>
@@ -122,18 +122,18 @@ export default function MiPlanPage() {
           </div>
         ) : (
           <div className="bg-[#F9FAFB] rounded-3xl p-8 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-[#F7EDEF] flex items-center justify-center mx-auto mb-3">
-              <CreditCard size={24} className="text-[#C08497]" />
+            <div className="w-14 h-14 rounded-2xl bg-[#EEEBFF] flex items-center justify-center mx-auto mb-3">
+              <CreditCard size={24} className="text-[#6355FF]" />
             </div>
-            <p className="font-bold text-[#2B2429] text-[16px]">Sin plan activo</p>
-            <p className="text-[13px] text-[#A6989D] mt-1">Habla con tu instructor para contratar un plan</p>
+            <p className="font-bold text-[#15161B] text-[16px]">Sin plan activo</p>
+            <p className="text-[13px] text-[#8A8B94] mt-1">Habla con tu instructor para contratar un plan</p>
           </div>
         )}
 
         {/* Historial */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] font-bold text-[#A6989D] uppercase tracking-widest">Historial de pagos</p>
+            <p className="text-[11px] font-bold text-[#8A8B94] uppercase tracking-widest">Historial de pagos</p>
           </div>
 
           {/* Filtros */}
@@ -144,8 +144,8 @@ export default function MiPlanPage() {
                 onClick={() => setFiltro(f)}
                 className="px-3.5 py-1.5 rounded-2xl text-[12px] font-bold transition-all"
                 style={{
-                  backgroundColor: filtro === f ? '#2B2429' : '#F5EFEC',
-                  color: filtro === f ? 'white' : '#8B7D82',
+                  backgroundColor: filtro === f ? '#15161B' : '#F1F1F6',
+                  color: filtro === f ? 'white' : '#71727A',
                 }}
               >
                 {f === 'TODOS' ? 'Todos' : f === 'COBRADO' ? 'Pagados' : 'Pendientes'}
@@ -155,7 +155,7 @@ export default function MiPlanPage() {
 
           {recibosFiltrados.length === 0 ? (
             <div className="rounded-2xl bg-[#F9FAFB] p-8 text-center">
-              <p className="text-[14px] text-[#A6989D]">Sin recibos en esta categoría</p>
+              <p className="text-[14px] text-[#8A8B94]">Sin recibos en esta categoría</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -171,13 +171,13 @@ export default function MiPlanPage() {
                         : <Clock size={18} className="text-amber-500" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-semibold text-[#2B2429] truncate">{rec.concepto}</p>
-                      <p className="text-[11px] text-[#A6989D] mt-0.5">
+                      <p className="text-[14px] font-semibold text-[#15161B] truncate">{rec.concepto}</p>
+                      <p className="text-[11px] text-[#8A8B94] mt-0.5">
                         {formatDate(rec.fechaCobro ?? rec.fechaVencimiento)}
-                        {factura && <span className="text-[#C08497] ml-2 font-semibold">· Factura</span>}
+                        {factura && <span className="text-[#6355FF] ml-2 font-semibold">· Factura</span>}
                       </p>
                     </div>
-                    <p className="text-[15px] font-extrabold shrink-0" style={{ color: cobrado ? '#059669' : '#A6989D' }}>
+                    <p className="text-[15px] font-extrabold shrink-0" style={{ color: cobrado ? '#059669' : '#8A8B94' }}>
                       {formatEur(rec.importe)}
                     </p>
                   </div>

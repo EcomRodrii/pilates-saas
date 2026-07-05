@@ -9,13 +9,13 @@ import type { PlanTarifa, Sala, TipoClase, Instructor, TipoIntegracion } from '@
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const inputCls =
-  'rounded-lg border border-[#F0E6E4] px-3 py-2 text-[13px] w-full focus:outline-none focus:ring-2 focus:ring-black/10';
-const labelCls = 'text-[12px] font-medium text-[#4A3F44] block mb-1';
+  'rounded-lg border border-[#ECECF1] px-3 py-2 text-[13px] w-full focus:outline-none focus:ring-2 focus:ring-black/10';
+const labelCls = 'text-[12px] font-medium text-[#3A3B44] block mb-1';
 const btnPrimary =
-  'bg-[#2B2429] text-white rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 hover:bg-[#3A2F35] transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
+  'bg-[#15161B] text-white rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 hover:bg-[#2A2B34] transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
 const btnSecondary =
-  'bg-white border border-[#F0E6E4] rounded-lg px-4 py-2 text-[13px] text-[#4A3F44] hover:bg-gray-50 transition-colors';
-const cardCls = 'bg-white border border-[#F0E6E4] rounded-xl';
+  'bg-white border border-[#ECECF1] rounded-lg px-4 py-2 text-[13px] text-[#3A3B44] hover:bg-gray-50 transition-colors';
+const cardCls = 'bg-white border border-[#ECECF1] rounded-xl';
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
       aria-pressed={on}
       className={cn(
         'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
-        on ? 'bg-[#2B2429]' : 'bg-[#D1D5DB]'
+        on ? 'bg-[#15161B]' : 'bg-[#D1D5DB]'
       )}
     >
       <span
@@ -62,13 +62,13 @@ function ColorInput({
         type="color"
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-9 h-9 rounded-lg border border-[#F0E6E4] cursor-pointer p-0.5 shrink-0"
+        className="w-9 h-9 rounded-lg border border-[#ECECF1] cursor-pointer p-0.5 shrink-0"
       />
       <input
         className={cn(inputCls, 'flex-1')}
         value={value}
         onChange={e => onChange(e.target.value)}
-        placeholder="#2B2429"
+        placeholder="#15161B"
         maxLength={7}
       />
     </div>
@@ -106,8 +106,8 @@ function ConfirmDialog({
             <AlertTriangle size={20} className="text-[#DC2626]" />
           </div>
           <div>
-            <h3 className="text-[14px] font-semibold text-[#2B2429] mb-1">{title}</h3>
-            <p className="text-[13px] text-[#8B7D82]">{description}</p>
+            <h3 className="text-[14px] font-semibold text-[#15161B] mb-1">{title}</h3>
+            <p className="text-[13px] text-[#71727A]">{description}</p>
           </div>
           <div className="flex gap-2 w-full">
             <button
@@ -138,7 +138,7 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
   }, [onDismiss]);
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-[#2B2429] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-lg pointer-events-none">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-[#15161B] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-lg pointer-events-none">
       <Check size={14} className="text-[#34D399]" />
       {message}
     </div>
@@ -158,7 +158,7 @@ function TipoPlanBadge({ tipo }: { tipo: PlanTarifa['tipo'] }) {
   const map: Record<string, string> = {
     MENSUAL: 'bg-purple-50 text-purple-700',
     BONO: 'bg-blue-50 text-blue-700',
-    PUNTUAL: 'bg-[#FDFBFA] text-[#8B7D82]',
+    PUNTUAL: 'bg-[#F7F7FB] text-[#71727A]',
   };
   return (
     <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium', map[tipo])}>
@@ -169,7 +169,7 @@ function TipoPlanBadge({ tipo }: { tipo: PlanTarifa['tipo'] }) {
 
 function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
   const map: Record<string, string> = {
-    TODOS: 'bg-[#FDFBFA] text-[#8B7D82]',
+    TODOS: 'bg-[#F7F7FB] text-[#71727A]',
     PRINCIPIANTE: 'bg-green-50 text-green-700',
     MEDIO: 'bg-amber-50 text-amber-700',
     AVANZADO: 'bg-red-50 text-red-600',
@@ -192,7 +192,7 @@ function EstadoBadge({ activo }: { activo: boolean }) {
     <span
       className={cn(
         'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium',
-        activo ? 'bg-[#D1FAE5] text-[#059669]' : 'bg-[#FDFBFA] text-[#8B7D82]'
+        activo ? 'bg-[#D1FAE5] text-[#059669]' : 'bg-[#F7F7FB] text-[#71727A]'
       )}
     >
       {activo ? 'Activo' : 'Inactivo'}
@@ -228,14 +228,14 @@ export default function ConfiguracionPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-[22px] font-bold text-[#2B2429]">Configuración</h1>
-        <p className="text-[13px] text-[#8B7D82] mt-0.5">
+        <h1 className="text-[22px] font-bold text-[#15161B]">Configuración</h1>
+        <p className="text-[13px] text-[#71727A] mt-0.5">
           Gestiona los planes, clases, salas, instructores e integraciones de tu estudio
         </p>
       </div>
 
       {/* Tab nav */}
-      <div className="flex gap-1 p-1 bg-white border border-[#F0E6E4] rounded-xl overflow-x-auto">
+      <div className="flex gap-1 p-1 bg-white border border-[#ECECF1] rounded-xl overflow-x-auto">
         {TABS.map(tab => (
           <button
             key={tab.id}
@@ -243,8 +243,8 @@ export default function ConfiguracionPage() {
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all whitespace-nowrap',
               activeTab === tab.id
-                ? 'bg-[#2B2429] text-white'
-                : 'text-[#8B7D82] hover:text-[#2B2429] hover:bg-[#FDFBFA]'
+                ? 'bg-[#15161B] text-white'
+                : 'text-[#71727A] hover:text-[#15161B] hover:bg-[#F7F7FB]'
             )}
           >
             {tab.label}
@@ -363,7 +363,7 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8B7D82]">{planesTarifa.length} planes configurados</p>
+        <p className="text-[13px] text-[#71727A]">{planesTarifa.length} planes configurados</p>
         <button className={btnPrimary} onClick={openNuevo}>
           <Plus size={13} />
           Nuevo plan
@@ -373,11 +373,11 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         <table className="w-full text-[13px]">
           <thead>
-            <tr className="border-b border-[#F0E6E4]">
+            <tr className="border-b border-[#ECECF1]">
               {['Nombre', 'Tipo', 'Precio', 'Sesiones', 'Estado', 'Acciones'].map(h => (
                 <th
                   key={h}
-                  className="text-left px-5 py-3 text-[11px] font-semibold text-[#8B7D82] uppercase tracking-wide"
+                  className="text-left px-5 py-3 text-[11px] font-semibold text-[#71727A] uppercase tracking-wide"
                 >
                   {h}
                 </th>
@@ -387,7 +387,7 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
           <tbody>
             {planesTarifa.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-[13px] text-[#8B7D82]">
+                <td colSpan={6} className="px-5 py-10 text-center text-[13px] text-[#71727A]">
                   No hay planes creados. Haz clic en &quot;Nuevo plan&quot; para empezar.
                 </td>
               </tr>
@@ -396,16 +396,16 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
               <tr
                 key={plan.id}
                 className={cn(
-                  'border-b border-[#FDFBFA] last:border-0 hover:bg-[#FAF6F4] transition-colors',
+                  'border-b border-[#F7F7FB] last:border-0 hover:bg-[#F4F4F8] transition-colors',
                   !plan.activo && 'opacity-50'
                 )}
               >
-                <td className="px-5 py-3 font-medium text-[#2B2429]">{plan.nombre}</td>
+                <td className="px-5 py-3 font-medium text-[#15161B]">{plan.nombre}</td>
                 <td className="px-5 py-3">
                   <TipoPlanBadge tipo={plan.tipo} />
                 </td>
-                <td className="px-5 py-3 font-semibold text-[#2B2429]">{plan.precio} €</td>
-                <td className="px-5 py-3 text-[#8B7D82]">
+                <td className="px-5 py-3 font-semibold text-[#15161B]">{plan.precio} €</td>
+                <td className="px-5 py-3 text-[#71727A]">
                   {plan.sesiones !== null ? plan.sesiones : '—'}
                 </td>
                 <td className="px-5 py-3">
@@ -418,14 +418,14 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEditar(plan)}
-                      className="p-1.5 rounded-lg hover:bg-[#FDFBFA] text-[#8B7D82] hover:text-[#2B2429] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-[#F7F7FB] text-[#71727A] hover:text-[#15161B] transition-colors"
                       aria-label="Editar plan"
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => setConfirmDel(plan.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8B7D82] hover:text-[#DC2626] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#71727A] hover:text-[#DC2626] transition-colors"
                       aria-label="Eliminar plan"
                     >
                       <Trash2 size={13} />
@@ -442,7 +442,7 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
       <Dialog open={modal !== null} onOpenChange={open => !open && closeModal()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[15px] font-semibold text-[#2B2429]">
+            <DialogTitle className="text-[15px] font-semibold text-[#15161B]">
               {modal === 'nuevo' ? 'Nuevo plan' : 'Editar plan'}
             </DialogTitle>
           </DialogHeader>
@@ -550,7 +550,7 @@ type ClaseForm = {
 
 const emptyClaseForm = (): ClaseForm => ({
   nombre: '',
-  color: '#C08497',
+  color: '#6355FF',
   duracionMinutos: '60',
   nivel: 'TODOS',
   descripcion: '',
@@ -625,7 +625,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8B7D82]">{tiposClase.length} tipos de clase configurados</p>
+        <p className="text-[13px] text-[#71727A]">{tiposClase.length} tipos de clase configurados</p>
         <button className={btnPrimary} onClick={openNueva}>
           <Plus size={13} />
           Nueva clase
@@ -633,7 +633,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
       </div>
 
       {tiposClase.length === 0 && (
-        <div className={cn(cardCls, 'p-10 text-center text-[13px] text-[#8B7D82]')}>
+        <div className={cn(cardCls, 'p-10 text-center text-[13px] text-[#71727A]')}>
           No hay tipos de clase creados. Haz clic en &quot;Nueva clase&quot; para empezar.
         </div>
       )}
@@ -645,30 +645,30 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
             <div className="flex items-center gap-3">
               <ColorSwatch color={tc.color} size="md" />
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-[#2B2429] truncate">{tc.nombre}</p>
-                <p className="text-[11px] text-[#8B7D82]">{tc.duracionMinutos} min</p>
+                <p className="text-[13px] font-semibold text-[#15161B] truncate">{tc.nombre}</p>
+                <p className="text-[11px] text-[#71727A]">{tc.duracionMinutos} min</p>
               </div>
             </div>
             <div className="flex items-center justify-between">
               <NivelBadge nivel={tc.nivel} />
               {tc.descripcion && (
-                <p className="text-[11px] text-[#B0A3A8] truncate ml-2 flex-1 text-right">
+                <p className="text-[11px] text-[#A2A3AC] truncate ml-2 flex-1 text-right">
                   {tc.descripcion}
                 </p>
               )}
             </div>
             {/* Actions */}
-            <div className="flex items-center gap-1 pt-1 border-t border-[#FDFBFA]">
+            <div className="flex items-center gap-1 pt-1 border-t border-[#F7F7FB]">
               <button
                 onClick={() => openEditar(tc)}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-[#8B7D82] hover:bg-[#FDFBFA] hover:text-[#2B2429] transition-colors"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-[#71727A] hover:bg-[#F7F7FB] hover:text-[#15161B] transition-colors"
               >
                 <Pencil size={11} />
                 Editar
               </button>
               <button
                 onClick={() => setConfirmDel(tc.id)}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-[#8B7D82] hover:bg-[#FEE2E2] hover:text-[#DC2626] transition-colors ml-auto"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-[#71727A] hover:bg-[#FEE2E2] hover:text-[#DC2626] transition-colors ml-auto"
               >
                 <Trash2 size={11} />
                 Eliminar
@@ -682,7 +682,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
       <Dialog open={modal !== null} onOpenChange={open => !open && closeModal()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[15px] font-semibold text-[#2B2429]">
+            <DialogTitle className="text-[15px] font-semibold text-[#15161B]">
               {modal === 'nueva' ? 'Nueva clase' : 'Editar clase'}
             </DialogTitle>
           </DialogHeader>
@@ -772,7 +772,7 @@ type SalaForm = {
 const emptySalaForm = (): SalaForm => ({
   nombre: '',
   capacidad: '10',
-  color: '#C08497',
+  color: '#6355FF',
 });
 
 function salaToForm(s: Sala): SalaForm {
@@ -833,7 +833,7 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8B7D82]">{salas.length} salas configuradas</p>
+        <p className="text-[13px] text-[#71727A]">{salas.length} salas configuradas</p>
         <button className={btnPrimary} onClick={openNueva}>
           <Plus size={13} />
           Nueva sala
@@ -843,11 +843,11 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         <table className="w-full text-[13px]">
           <thead>
-            <tr className="border-b border-[#F0E6E4]">
+            <tr className="border-b border-[#ECECF1]">
               {['Nombre', 'Capacidad', 'Color', 'Acciones'].map(h => (
                 <th
                   key={h}
-                  className="text-left px-5 py-3 text-[11px] font-semibold text-[#8B7D82] uppercase tracking-wide"
+                  className="text-left px-5 py-3 text-[11px] font-semibold text-[#71727A] uppercase tracking-wide"
                 >
                   {h}
                 </th>
@@ -857,7 +857,7 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
           <tbody>
             {salas.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-10 text-center text-[13px] text-[#8B7D82]">
+                <td colSpan={4} className="px-5 py-10 text-center text-[13px] text-[#71727A]">
                   No hay salas creadas. Haz clic en &quot;Nueva sala&quot; para empezar.
                 </td>
               </tr>
@@ -865,28 +865,28 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
             {salas.map(sala => (
               <tr
                 key={sala.id}
-                className="border-b border-[#FDFBFA] last:border-0 hover:bg-[#FAF6F4] transition-colors"
+                className="border-b border-[#F7F7FB] last:border-0 hover:bg-[#F4F4F8] transition-colors"
               >
-                <td className="px-5 py-3 font-medium text-[#2B2429]">{sala.nombre}</td>
-                <td className="px-5 py-3 text-[#8B7D82]">{sala.capacidad} personas</td>
+                <td className="px-5 py-3 font-medium text-[#15161B]">{sala.nombre}</td>
+                <td className="px-5 py-3 text-[#71727A]">{sala.capacidad} personas</td>
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2">
                     <ColorSwatch color={sala.color} size="sm" />
-                    <span className="text-[12px] text-[#8B7D82] font-mono">{sala.color}</span>
+                    <span className="text-[12px] text-[#71727A] font-mono">{sala.color}</span>
                   </div>
                 </td>
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEditar(sala)}
-                      className="p-1.5 rounded-lg hover:bg-[#FDFBFA] text-[#8B7D82] hover:text-[#2B2429] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-[#F7F7FB] text-[#71727A] hover:text-[#15161B] transition-colors"
                       aria-label="Editar sala"
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => setConfirmDel(sala.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8B7D82] hover:text-[#DC2626] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#71727A] hover:text-[#DC2626] transition-colors"
                       aria-label="Eliminar sala"
                     >
                       <Trash2 size={13} />
@@ -903,7 +903,7 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       <Dialog open={modal !== null} onOpenChange={open => !open && closeModal()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[15px] font-semibold text-[#2B2429]">
+            <DialogTitle className="text-[15px] font-semibold text-[#15161B]">
               {modal === 'nueva' ? 'Nueva sala' : 'Editar sala'}
             </DialogTitle>
           </DialogHeader>
@@ -972,7 +972,7 @@ const emptyInstructorForm = (): InstructorForm => ({
   nombre: '',
   email: '',
   telefono: '',
-  color: '#C08497',
+  color: '#6355FF',
   activo: true,
 });
 
@@ -1073,7 +1073,7 @@ function TabInstructores({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8B7D82]">{instructores.length} instructores configurados</p>
+        <p className="text-[13px] text-[#71727A]">{instructores.length} instructores configurados</p>
         <button className={btnPrimary} onClick={openNuevo}>
           <Plus size={13} />
           Nuevo instructor
@@ -1083,11 +1083,11 @@ function TabInstructores({ showToast }: { showToast: (m: string) => void }) {
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         <table className="w-full text-[13px]">
           <thead>
-            <tr className="border-b border-[#F0E6E4]">
+            <tr className="border-b border-[#ECECF1]">
               {['Instructor', 'Email', 'Teléfono', 'Estado', 'Acciones'].map(h => (
                 <th
                   key={h}
-                  className="text-left px-5 py-3 text-[11px] font-semibold text-[#8B7D82] uppercase tracking-wide"
+                  className="text-left px-5 py-3 text-[11px] font-semibold text-[#71727A] uppercase tracking-wide"
                 >
                   {h}
                 </th>
@@ -1097,7 +1097,7 @@ function TabInstructores({ showToast }: { showToast: (m: string) => void }) {
           <tbody>
             {instructores.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-[13px] text-[#8B7D82]">
+                <td colSpan={5} className="px-5 py-10 text-center text-[13px] text-[#71727A]">
                   No hay instructores creados. Haz clic en &quot;Nuevo instructor&quot; para empezar.
                 </td>
               </tr>
@@ -1106,18 +1106,18 @@ function TabInstructores({ showToast }: { showToast: (m: string) => void }) {
               <tr
                 key={inst.id}
                 className={cn(
-                  'border-b border-[#FDFBFA] last:border-0 hover:bg-[#FAF6F4] transition-colors',
+                  'border-b border-[#F7F7FB] last:border-0 hover:bg-[#F4F4F8] transition-colors',
                   !inst.activo && 'opacity-50'
                 )}
               >
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2.5">
                     <InstructorAvatar nombre={inst.nombre} color={inst.color} />
-                    <span className="font-medium text-[#2B2429]">{inst.nombre}</span>
+                    <span className="font-medium text-[#15161B]">{inst.nombre}</span>
                   </div>
                 </td>
-                <td className="px-5 py-3 text-[#8B7D82]">{inst.email ?? '—'}</td>
-                <td className="px-5 py-3 text-[#8B7D82]">{inst.telefono ?? '—'}</td>
+                <td className="px-5 py-3 text-[#71727A]">{inst.email ?? '—'}</td>
+                <td className="px-5 py-3 text-[#71727A]">{inst.telefono ?? '—'}</td>
                 <td className="px-5 py-3">
                   <Toggle
                     on={inst.activo}
@@ -1128,14 +1128,14 @@ function TabInstructores({ showToast }: { showToast: (m: string) => void }) {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEditar(inst)}
-                      className="p-1.5 rounded-lg hover:bg-[#FDFBFA] text-[#8B7D82] hover:text-[#2B2429] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-[#F7F7FB] text-[#71727A] hover:text-[#15161B] transition-colors"
                       aria-label="Editar instructor"
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => setConfirmDel(inst.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8B7D82] hover:text-[#DC2626] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#71727A] hover:text-[#DC2626] transition-colors"
                       aria-label="Eliminar instructor"
                     >
                       <Trash2 size={13} />
@@ -1152,7 +1152,7 @@ function TabInstructores({ showToast }: { showToast: (m: string) => void }) {
       <Dialog open={modal !== null} onOpenChange={open => !open && closeModal()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[15px] font-semibold text-[#2B2429]">
+            <DialogTitle className="text-[15px] font-semibold text-[#15161B]">
               {modal === 'nuevo' ? 'Nuevo instructor' : 'Editar instructor'}
             </DialogTitle>
           </DialogHeader>
@@ -1265,7 +1265,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     nombre: 'Resend',
     descripcion: 'Envía emails de bienvenida, recibos y campañas desde tu propio dominio.',
     Icon: Mail,
-    color: '#2B2429',
+    color: '#15161B',
     bg: '#F1F5F9',
     campos: [
       { key: 'fromEmail', label: 'Email remitente', placeholder: 'hola@tentare.es' },
@@ -1396,8 +1396,8 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-3xl">
       <div>
-        <h3 className="text-[14px] font-semibold text-[#2B2429]">Integraciones del negocio</h3>
-        <p className="text-[12px] text-[#8B7D82] mt-0.5">
+        <h3 className="text-[14px] font-semibold text-[#15161B]">Integraciones del negocio</h3>
+        <p className="text-[12px] text-[#71727A] mt-0.5">
           Conecta Tentare con las herramientas que ya usas. Cada negocio configura las suyas.
         </p>
       </div>
@@ -1414,18 +1414,18 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-[14px] font-semibold text-[#2B2429]">{cat.nombre}</p>
+                    <p className="text-[14px] font-semibold text-[#15161B]">{cat.nombre}</p>
                     {cat.accion !== 'exportar' && (
                       <span className={cn(
                         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
-                        conectado ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-[#F5EFEC] text-[#8B7D82]',
+                        conectado ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-[#F1F1F6] text-[#71727A]',
                       )}>
-                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-[#059669]' : 'bg-[#B0A3A8]')} />
+                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-[#059669]' : 'bg-[#A2A3AC]')} />
                         {conectado ? 'Conectado' : 'No conectado'}
                       </span>
                     )}
                   </div>
-                  <p className="text-[12px] text-[#8B7D82] mt-1 leading-snug">{cat.descripcion}</p>
+                  <p className="text-[12px] text-[#71727A] mt-1 leading-snug">{cat.descripcion}</p>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-[#F1F1F4] flex items-center gap-2">
@@ -1440,7 +1440,7 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                     </button>
                     {cat.docsUrl && (
                       <a href={cat.docsUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-[12px] text-[#8B7D82] hover:text-[#2B2429] inline-flex items-center gap-1">
+                        className="text-[12px] text-[#71727A] hover:text-[#15161B] inline-flex items-center gap-1">
                         Docs <ExternalLink size={11} />
                       </a>
                     )}
@@ -1527,7 +1527,7 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
       {/* Studio info — read-only */}
       <div className={cn(cardCls, 'p-6')}>
         <div className="flex items-start justify-between mb-4">
-          <h3 className="text-[14px] font-semibold text-[#2B2429]">Información del estudio</h3>
+          <h3 className="text-[14px] font-semibold text-[#15161B]">Información del estudio</h3>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]">
             Próximamente
           </span>
@@ -1543,32 +1543,32 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           ].map(({ label, value }) => (
             <div key={label}>
               <p className={labelCls}>{label}</p>
-              <p className="text-[13px] text-[#2B2429] bg-[#FAF6F4] border border-[#F0E6E4] rounded-lg px-3 py-2">
+              <p className="text-[13px] text-[#15161B] bg-[#F4F4F8] border border-[#ECECF1] rounded-lg px-3 py-2">
                 {value}
               </p>
             </div>
           ))}
         </div>
-        <p className="text-[12px] text-[#B0A3A8] mt-4">
+        <p className="text-[12px] text-[#A2A3AC] mt-4">
           La edición de los datos del estudio estará disponible próximamente.
         </p>
       </div>
 
       {/* Privacy policy */}
       <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-[#2B2429] mb-1">Política de privacidad</h3>
-        <p className="text-[12px] text-[#8B7D82] mb-3">
+        <h3 className="text-[14px] font-semibold text-[#15161B] mb-1">Política de privacidad</h3>
+        <p className="text-[12px] text-[#71727A] mb-3">
           Este texto se muestra a las socias al registrarse y deben aceptarlo antes de completar la inscripción.
         </p>
         <textarea
           rows={8}
-          className="w-full rounded-lg border border-[#F0E6E4] bg-white px-3 py-2 text-[12px] font-mono text-[#4A3F44] focus:outline-none focus:border-[#B0A3A8] transition-colors resize-y"
+          className="w-full rounded-lg border border-[#ECECF1] bg-white px-3 py-2 text-[12px] font-mono text-[#3A3B44] focus:outline-none focus:border-[#A2A3AC] transition-colors resize-y"
           value={politica}
           onChange={(e) => setPolitica(e.target.value)}
         />
         <button
           onClick={() => { updateStudioConfig({ politicaPrivacidad: politica }); showToast('Política de privacidad guardada'); }}
-          className="mt-3 px-4 py-2 rounded-lg bg-[#2B2429] text-white text-[12px] font-medium hover:bg-[#1F2937] transition-colors"
+          className="mt-3 px-4 py-2 rounded-lg bg-[#15161B] text-white text-[12px] font-medium hover:bg-[#1F2937] transition-colors"
         >
           Guardar política
         </button>
@@ -1576,19 +1576,19 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
 
       {/* Terms of service */}
       <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-[#2B2429] mb-1">Términos y condiciones</h3>
-        <p className="text-[12px] text-[#8B7D82] mb-3">
+        <h3 className="text-[14px] font-semibold text-[#15161B] mb-1">Términos y condiciones</h3>
+        <p className="text-[12px] text-[#71727A] mb-3">
           Contrato que acepta cada socia al inscribirse. Queda registrado con su firma digital.
         </p>
         <textarea
           rows={8}
-          className="w-full rounded-lg border border-[#F0E6E4] bg-white px-3 py-2 text-[12px] font-mono text-[#4A3F44] focus:outline-none focus:border-[#B0A3A8] transition-colors resize-y"
+          className="w-full rounded-lg border border-[#ECECF1] bg-white px-3 py-2 text-[12px] font-mono text-[#3A3B44] focus:outline-none focus:border-[#A2A3AC] transition-colors resize-y"
           value={terminos}
           onChange={(e) => setTerminos(e.target.value)}
         />
         <button
           onClick={() => { updateStudioConfig({ terminosServicio: terminos }); showToast('Términos y condiciones guardados'); }}
-          className="mt-3 px-4 py-2 rounded-lg bg-[#2B2429] text-white text-[12px] font-medium hover:bg-[#1F2937] transition-colors"
+          className="mt-3 px-4 py-2 rounded-lg bg-[#15161B] text-white text-[12px] font-medium hover:bg-[#1F2937] transition-colors"
         >
           Guardar términos
         </button>
@@ -1597,13 +1597,13 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
       {/* Danger zone */}
       <div className={cn(cardCls, 'p-6 border-[#FCA5A5]')}>
         <h3 className="text-[14px] font-semibold text-[#DC2626] mb-1">Zona de riesgo</h3>
-        <p className="text-[13px] text-[#8B7D82] mb-4">
+        <p className="text-[13px] text-[#71727A] mb-4">
           Las acciones de esta sección son irreversibles. Procede con precaución.
         </p>
         <div className="flex items-center justify-between p-4 bg-[#FEF2F2] border border-[#FCA5A5] rounded-xl">
           <div>
-            <p className="text-[13px] font-semibold text-[#2B2429]">Restablecer datos de demo</p>
-            <p className="text-[12px] text-[#8B7D82] mt-0.5">
+            <p className="text-[13px] font-semibold text-[#15161B]">Restablecer datos de demo</p>
+            <p className="text-[12px] text-[#71727A] mt-0.5">
               Borra todos los cambios y vuelve al estado inicial de demostración.
             </p>
           </div>
@@ -1625,10 +1625,10 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
               <AlertTriangle size={20} className="text-[#D97706]" />
             </div>
             <div>
-              <h3 className="text-[14px] font-semibold text-[#2B2429] mb-1">
+              <h3 className="text-[14px] font-semibold text-[#15161B] mb-1">
                 ¿Restablecer datos de demo?
               </h3>
-              <p className="text-[13px] text-[#8B7D82]">
+              <p className="text-[13px] text-[#71727A]">
                 Todos los socios, sesiones, pagos y configuraciones que hayas creado se perderán.
                 Esta acción no se puede deshacer.
               </p>

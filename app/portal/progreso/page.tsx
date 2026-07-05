@@ -88,7 +88,7 @@ export default function ProgresoPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(155deg, #2B2429 0%, #6E3F4C 55%, #A05A6B 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(155deg, #15161B 0%, #3A2E9E 55%, #4B3FD6 100%)' }}>
         {/* Profile */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white font-extrabold text-[16px]">
@@ -96,7 +96,7 @@ export default function ProgresoPage() {
           </div>
           <div>
             <p className="text-white font-extrabold text-[16px] leading-tight">{socio.nombre} {socio.apellidos}</p>
-            <p className="text-[#E7C9CF] text-[12px]">
+            <p className="text-[#C9C2FF] text-[12px]">
               Socia desde {new Date(socio.fechaAlta).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
             </p>
           </div>
@@ -112,7 +112,7 @@ export default function ProgresoPage() {
           ].map(({ v, l }) => (
             <div key={l} className="bg-white/10 rounded-2xl px-2 py-3 text-center">
               <p className="text-white text-[20px] font-extrabold leading-none">{v}</p>
-              <p className="text-[#E7C9CF] text-[9px] font-bold mt-1 uppercase tracking-wider">{l}</p>
+              <p className="text-[#C9C2FF] text-[9px] font-bold mt-1 uppercase tracking-wider">{l}</p>
             </div>
           ))}
         </div>
@@ -122,22 +122,22 @@ export default function ProgresoPage() {
 
         {/* Bar chart */}
         <div>
-          <p className="text-[11px] font-bold text-[#A6989D] uppercase tracking-widest mb-3">Últimas 4 semanas</p>
+          <p className="text-[11px] font-bold text-[#8A8B94] uppercase tracking-widest mb-3">Últimas 4 semanas</p>
           <div className="bg-white rounded-2xl p-4" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div className="flex items-end gap-3" style={{ height: 80 }}>
               {semanas.map((s, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[12px] font-bold text-[#2B2429]">{s.count}</span>
+                  <span className="text-[12px] font-bold text-[#15161B]">{s.count}</span>
                   <div className="w-full flex items-end" style={{ height: 52 }}>
                     <div
                       className="w-full rounded-t-xl transition-all"
                       style={{
                         height: s.count === 0 ? 4 : Math.max(8, Math.round((s.count / maxSem) * 52)),
-                        backgroundColor: s.count === 0 ? '#F5EFEC' : '#C08497',
+                        backgroundColor: s.count === 0 ? '#F1F1F6' : '#6355FF',
                       }}
                     />
                   </div>
-                  <span className="text-[10px] text-[#A6989D] text-center leading-tight">{s.label}</span>
+                  <span className="text-[10px] text-[#8A8B94] text-center leading-tight">{s.label}</span>
                 </div>
               ))}
             </div>
@@ -147,8 +147,8 @@ export default function ProgresoPage() {
         {/* Badges */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] font-bold text-[#A6989D] uppercase tracking-widest">Logros</p>
-            <p className="text-[12px] font-bold text-[#C08497]">{earnedCount}/{BADGES.length}</p>
+            <p className="text-[11px] font-bold text-[#8A8B94] uppercase tracking-widest">Logros</p>
+            <p className="text-[12px] font-bold text-[#6355FF]">{earnedCount}/{BADGES.length}</p>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
             {BADGES.map(b => {
@@ -158,14 +158,14 @@ export default function ProgresoPage() {
                   key={b.key}
                   className="rounded-2xl p-3.5 flex items-center gap-3 transition-all"
                   style={{
-                    backgroundColor: earned ? '#F7EDEF' : '#F9F9F9',
+                    backgroundColor: earned ? '#EEEBFF' : '#F9F9F9',
                     opacity: earned ? 1 : 0.45,
                   }}
                 >
                   <span className="text-[26px] leading-none shrink-0">{b.emoji}</span>
                   <div className="min-w-0">
-                    <p className="text-[13px] font-extrabold text-[#2B2429] leading-tight truncate">{b.nombre}</p>
-                    <p className="text-[11px] text-[#8B7D82] mt-0.5">{b.sub}</p>
+                    <p className="text-[13px] font-extrabold text-[#15161B] leading-tight truncate">{b.nombre}</p>
+                    <p className="text-[11px] text-[#71727A] mt-0.5">{b.sub}</p>
                   </div>
                 </div>
               );

@@ -16,11 +16,11 @@ const CATEGORIAS: { value: CategoriaVideo | 'TODOS'; label: string; emoji: strin
 ];
 
 const GRADIENTS: Record<CategoriaVideo, string> = {
-  REFORMER: 'linear-gradient(135deg, #C08497, #A05A6B)',
+  REFORMER: 'linear-gradient(135deg, #6355FF, #4B3FD6)',
   MAT: 'linear-gradient(135deg, #059669, #10B981)',
   BARRE: 'linear-gradient(135deg, #EC4899, #F472B6)',
   CARDIO: 'linear-gradient(135deg, #EF4444, #F97316)',
-  MEDITACION: 'linear-gradient(135deg, #C08497, #8B5CF6)',
+  MEDITACION: 'linear-gradient(135deg, #6355FF, #8B5CF6)',
   ESTIRAMIENTO: 'linear-gradient(135deg, #0EA5E9, #38BDF8)',
 };
 
@@ -28,7 +28,7 @@ const NIVEL_LABEL: Record<NivelClase, string> = {
   TODOS: 'Todos', PRINCIPIANTE: 'Inicio', MEDIO: 'Medio', AVANZADO: 'Avanzado',
 };
 const NIVEL_COLOR: Record<NivelClase, string> = {
-  TODOS: '#8B7D82', PRINCIPIANTE: '#059669', MEDIO: '#D97706', AVANZADO: '#DC2626',
+  TODOS: '#71727A', PRINCIPIANTE: '#059669', MEDIO: '#D97706', AVANZADO: '#DC2626',
 };
 const NIVEL_BG: Record<NivelClase, string> = {
   TODOS: '#F3F4F6', PRINCIPIANTE: '#DCFCE7', MEDIO: '#FEF3C7', AVANZADO: '#FEE2E2',
@@ -50,9 +50,9 @@ export default function VideosPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-4" style={{ background: 'linear-gradient(155deg, #2B2429 0%, #6E3F4C 55%, #A05A6B 100%)' }}>
+      <div className="px-5 pt-6 pb-4" style={{ background: 'linear-gradient(155deg, #15161B 0%, #3A2E9E 55%, #4B3FD6 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight">Videos</h1>
-        <p className="text-[#E7C9CF] text-[13px] mt-0.5">{videosOnDemand.filter(v => v.activo).length} videos · {totalVistas} visualizaciones</p>
+        <p className="text-[#C9C2FF] text-[13px] mt-0.5">{videosOnDemand.filter(v => v.activo).length} videos · {totalVistas} visualizaciones</p>
 
         {/* Category pills */}
         <div className="flex gap-2 mt-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
@@ -63,7 +63,7 @@ export default function VideosPage() {
               className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-[12px] font-bold transition-all"
               style={{
                 backgroundColor: cat === c.value ? 'white' : 'rgba(255,255,255,0.12)',
-                color: cat === c.value ? '#C08497' : 'rgba(255,255,255,0.75)',
+                color: cat === c.value ? '#6355FF' : 'rgba(255,255,255,0.75)',
               }}
             >
               <span>{c.emoji}</span>
@@ -78,8 +78,8 @@ export default function VideosPage() {
         {filtrados.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <span className="text-5xl mb-4">🎬</span>
-            <p className="font-bold text-[#2B2429] text-[16px]">Sin videos en esta categoría</p>
-            <p className="text-[13px] text-[#A6989D] mt-1">Prueba con otra</p>
+            <p className="font-bold text-[#15161B] text-[16px]">Sin videos en esta categoría</p>
+            <p className="text-[13px] text-[#8A8B94] mt-1">Prueba con otra</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
@@ -105,7 +105,7 @@ export default function VideosPage() {
                   </div>
                   {/* Info */}
                   <div className="p-3">
-                    <p className="text-[13px] font-bold text-[#2B2429] leading-tight line-clamp-2 mb-2">{v.titulo}</p>
+                    <p className="text-[13px] font-bold text-[#15161B] leading-tight line-clamp-2 mb-2">{v.titulo}</p>
                     <div className="flex items-center justify-between">
                       <span
                         className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -114,11 +114,11 @@ export default function VideosPage() {
                         {NIVEL_LABEL[v.nivel]}
                       </span>
                       <div className="flex items-center gap-1">
-                        <Eye size={10} className="text-[#A6989D]" />
-                        <span className="text-[10px] text-[#A6989D]">{v.vistas}</span>
+                        <Eye size={10} className="text-[#8A8B94]" />
+                        <span className="text-[10px] text-[#8A8B94]">{v.vistas}</span>
                       </div>
                     </div>
-                    {instr && <p className="text-[11px] text-[#A6989D] mt-1.5 truncate">{instr.nombre}</p>}
+                    {instr && <p className="text-[11px] text-[#8A8B94] mt-1.5 truncate">{instr.nombre}</p>}
                   </div>
                 </button>
               );
@@ -158,19 +158,19 @@ export default function VideosPage() {
             </div>
 
             <div className="p-5">
-              <p className="text-[20px] font-extrabold text-[#2B2429] leading-tight">{selected.titulo}</p>
+              <p className="text-[20px] font-extrabold text-[#15161B] leading-tight">{selected.titulo}</p>
               {instructores.find(i => i.id === selected.instructorId) && (
-                <p className="text-[13px] text-[#8B7D82] mt-1">
+                <p className="text-[13px] text-[#71727A] mt-1">
                   con {instructores.find(i => i.id === selected.instructorId)!.nombre}
                 </p>
               )}
               {selected.descripcion && (
-                <p className="text-[14px] text-[#4A3F44] leading-relaxed mt-3">{selected.descripcion}</p>
+                <p className="text-[14px] text-[#3A3B44] leading-relaxed mt-3">{selected.descripcion}</p>
               )}
               {avisoPendiente ? (
-                <div className="w-full mt-5 rounded-2xl bg-[#F5EFEC] px-4 py-4 text-center">
-                  <p className="text-[14px] font-bold text-[#2B2429]">Reproducción en preparación</p>
-                  <p className="text-[12px] text-[#A6989D] mt-1">Este contenido estará disponible muy pronto en tu portal.</p>
+                <div className="w-full mt-5 rounded-2xl bg-[#F1F1F6] px-4 py-4 text-center">
+                  <p className="text-[14px] font-bold text-[#15161B]">Reproducción en preparación</p>
+                  <p className="text-[12px] text-[#8A8B94] mt-1">Este contenido estará disponible muy pronto en tu portal.</p>
                 </div>
               ) : (
                 <button

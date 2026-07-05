@@ -97,17 +97,17 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
     >
       <div className={cn(
         'w-10 h-7 rounded-full flex items-center justify-center transition-colors',
-        active ? 'bg-[#2B2429]' : 'bg-transparent'
+        active ? 'bg-[#15161B]' : 'bg-transparent'
       )}>
         <Icon
           size={20}
           strokeWidth={active ? 2.5 : 1.8}
-          className={active ? 'text-white' : 'text-[#8B7D82]'}
+          className={active ? 'text-white' : 'text-[#71727A]'}
         />
       </div>
       <span className={cn(
         'text-[10px] font-medium leading-none',
-        active ? 'text-[#2B2429] font-semibold' : 'text-[#B0A3A8]'
+        active ? 'text-[#15161B] font-semibold' : 'text-[#A2A3AC]'
       )}>
         {label}
       </span>
@@ -121,7 +121,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut }: { onClos
   const pathname = usePathname();
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: '#2B2429' }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: '#15161B' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-12 pb-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <span className="text-white font-semibold text-[16px]">Menú</span>
@@ -204,7 +204,7 @@ export function Sidebar() {
       {/* ── Mobile top bar ─────────────────────────────────────────────────── */}
       <div
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
-        style={{ backgroundColor: '#ffffff', borderColor: '#F0E6E4' }}
+        style={{ backgroundColor: '#ffffff', borderColor: '#ECECF1' }}
       >
         <Image src="/logo-light.png" alt="Tentare" width={100} height={36} className="h-7 w-auto object-contain" />
       </div>
@@ -212,7 +212,7 @@ export function Sidebar() {
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
       <nav
         className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around px-2 border-t"
-        style={{ backgroundColor: '#ffffff', borderColor: '#F0E6E4', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+        style={{ backgroundColor: '#ffffff', borderColor: '#ECECF1', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
         {bottomNavItems.map(item => (
           <BottomNavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} />
@@ -223,9 +223,9 @@ export function Sidebar() {
           className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
         >
           <div className="w-10 h-7 rounded-full flex items-center justify-center">
-            <Menu size={20} strokeWidth={1.8} className="text-[#8B7D82]" />
+            <Menu size={20} strokeWidth={1.8} className="text-[#71727A]" />
           </div>
-          <span className="text-[10px] font-medium text-[#B0A3A8] leading-none">Más</span>
+          <span className="text-[10px] font-medium text-[#A2A3AC] leading-none">Más</span>
         </button>
       </nav>
 
@@ -235,7 +235,7 @@ export function Sidebar() {
       {/* ── Desktop sidebar ────────────────────────────────────────────────── */}
       <aside
         className="hidden lg:flex fixed inset-y-0 left-0 z-20 flex-col w-56"
-        style={{ backgroundColor: '#2B2429' }}
+        style={{ backgroundColor: '#15161B' }}
       >
         {/* Logo */}
         <div
@@ -289,7 +289,7 @@ export function Sidebar() {
           <Link
             href="/portal/login"
             target="_blank"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#C08497]"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#6355FF]"
           >
             <ExternalLink size={12} className="shrink-0" />
             <span>Portal miembros</span>

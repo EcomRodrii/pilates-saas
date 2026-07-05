@@ -5,7 +5,7 @@ export const metadata = {
   title: 'Mi Estudio · Portal',
   description: 'Tu espacio de miembro',
   manifest: '/manifest.json',
-  themeColor: '#C08497',
+  themeColor: '#6355FF',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
   appleWebApp: {
     capable: true,

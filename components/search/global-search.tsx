@@ -105,7 +105,7 @@ export function GlobalSearch() {
                   {sociosRes.map(s => (
                     <button key={s.id} onClick={() => go(`/socios/${s.id}`)}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-left group">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: '#F7EDEF', color: '#A05A6B' }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: '#EEEBFF', color: '#4B3FD6' }}>
                         {s.nombre[0]}{s.apellidos[0]}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -113,7 +113,7 @@ export function GlobalSearch() {
                         <p className="text-xs truncate" style={{ color: '#9898A6' }}>{s.email}</p>
                       </div>
                       {(s.tags ?? []).length > 0 && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: '#F7EDEF', color: '#A05A6B' }}>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: '#EEEBFF', color: '#4B3FD6' }}>
                           {s.tags![0]}
                         </span>
                       )}
@@ -183,10 +183,10 @@ export function GlobalSearch() {
 
             {/* Footer */}
             <div className="border-t border-[#EBEBF0] px-4 py-2 flex items-center gap-4">
-              <span className="text-[10px] font-medium" style={{ color: '#C9BCC0' }}>
+              <span className="text-[10px] font-medium" style={{ color: '#C7C8D0' }}>
                 <kbd className="border border-[#EBEBF0] rounded px-1 mr-1 font-mono">↵</kbd>abrir
               </span>
-              <span className="text-[10px] font-medium" style={{ color: '#C9BCC0' }}>
+              <span className="text-[10px] font-medium" style={{ color: '#C7C8D0' }}>
                 <kbd className="border border-[#EBEBF0] rounded px-1 mr-1 font-mono">Esc</kbd>cerrar
               </span>
             </div>

@@ -40,50 +40,50 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.4);
 
-  /* Custom design tokens — Tentare boutique */
-  --color-lavender-bg: #F7EDEF;
-  --color-lavender-text: #A05A6B;
-  --color-sage-bg: #E9EFE8;
-  --color-sage-text: #4A7355;
-  --color-sage-btn: #C9D8C0;
-  --color-app-bg: #FDFBFA;
-  --color-sidebar-dark: #2B2429;
+  /* Custom design tokens — bsport-style */
+  --color-lavender-bg: #EEEBFF;
+  --color-lavender-text: #5B4BE0;
+  --color-sage-bg: #E7F3EC;
+  --color-sage-text: #2E7D4F;
+  --color-sage-btn: #C3E4CE;
+  --color-app-bg: #F7F7FB;
+  --color-sidebar-dark: #16171D;
 }
 
 :root {
-  /* Tentare boutique palette — warm white, plum ink, dusty-rose accent */
-  --background: #FDFBFA;
-  --foreground: #2B2429;
+  /* bsport-style palette — clean cool white, near-black ink, vivid violet accent */
+  --background: #F7F7FB;
+  --foreground: #15161B;
   --card: #ffffff;
-  --card-foreground: #2B2429;
+  --card-foreground: #15161B;
   --popover: #ffffff;
-  --popover-foreground: #2B2429;
-  --primary: #2B2429;
+  --popover-foreground: #15161B;
+  --primary: #15161B;
   --primary-foreground: #ffffff;
-  --secondary: #F5EFEC;
-  --secondary-foreground: #2B2429;
-  --muted: #FAF6F4;
-  --muted-foreground: #8B7D82;
-  --accent: #F7EDEF;
-  --accent-foreground: #A05A6B;
+  --secondary: #F1F1F6;
+  --secondary-foreground: #15161B;
+  --muted: #F4F4F8;
+  --muted-foreground: #71727A;
+  --accent: #EEEBFF;
+  --accent-foreground: #5B4BE0;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #F0E6E4;
-  --input: #F0E6E4;
-  --ring: #E7D4D8;
+  --border: #ECECF1;
+  --input: #ECECF1;
+  --ring: #DAD5FB;
   --radius: 0.75rem;
-  --sidebar: #2B2429;
-  --sidebar-foreground: #F3EBE9;
+  --sidebar: #16171D;
+  --sidebar-foreground: #E7E7EC;
   --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #2B2429;
+  --sidebar-primary-foreground: #16171D;
   --sidebar-accent: rgba(255,255,255,0.08);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255,255,255,0.07);
-  --sidebar-ring: rgba(192,132,151,0.4);
+  --sidebar-ring: rgba(99,85,255,0.4);
 
-  /* Rose accent scale */
-  --rose: #C08497;
-  --rose-deep: #A05A6B;
-  --rose-bg: #F7EDEF;
+  /* Violet accent scale (bsport) */
+  --violet: #6355FF;
+  --violet-deep: #4B3FD6;
+  --violet-bg: #EEEBFF;
 }
 
 @layer base {
@@ -99,16 +99,14 @@
   html {
     font-family: var(--font-jakarta), system-ui, sans-serif;
   }
-  /* Elegant serif for page titles — the Tentare boutique voice */
   h1 {
-    font-family: var(--font-display), Georgia, serif;
-    letter-spacing: 0.005em;
+    letter-spacing: -0.02em;
   }
 }
 
-/* Opt-in elegant display serif (big numbers, hero figures) */
+/* Legacy utility kept as sans (serif display removed) */
 .font-display {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: var(--font-jakarta), system-ui, sans-serif;
 }
 
 /* Portal PWA — ocultar badge de Next.js dev */

@@ -33,21 +33,21 @@ export default function LoginPage() {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FDFBFA] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#F7F7FB] px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <Image src="/logo-transparent.png" alt="Tentare" width={140} height={60} className="h-16 w-auto object-contain mb-2" />
-          <p className="text-[14px] text-[#8B7D82] mt-1">Panel de gestión</p>
+          <p className="text-[14px] text-[#71727A] mt-1">Panel de gestión</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-[#F0E6E4] p-6">
-          <h2 className="text-[16px] font-semibold text-[#2B2429] mb-5">Iniciar sesión</h2>
+        <div className="bg-white rounded-2xl shadow-sm border border-[#ECECF1] p-6">
+          <h2 className="text-[16px] font-semibold text-[#15161B] mb-5">Iniciar sesión</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[13px] font-medium text-[#4A3F44] mb-1.5">
+              <label className="block text-[13px] font-medium text-[#3A3B44] mb-1.5">
                 Email
               </label>
               <input
@@ -56,12 +56,12 @@ export default function LoginPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="tu@email.com"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#F0E6E4] text-[14px] text-[#2B2429] placeholder:text-[#B0A3A8] focus:outline-none focus:ring-2 focus:ring-[#2B2429]/20 focus:border-[#2B2429] transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#ECECF1] text-[14px] text-[#15161B] placeholder:text-[#A2A3AC] focus:outline-none focus:ring-2 focus:ring-[#15161B]/20 focus:border-[#15161B] transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-[13px] font-medium text-[#4A3F44] mb-1.5">
+              <label className="block text-[13px] font-medium text-[#3A3B44] mb-1.5">
                 Contraseña
               </label>
               <input
@@ -70,7 +70,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#F0E6E4] text-[14px] text-[#2B2429] placeholder:text-[#B0A3A8] focus:outline-none focus:ring-2 focus:ring-[#2B2429]/20 focus:border-[#2B2429] transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#ECECF1] text-[14px] text-[#15161B] placeholder:text-[#A2A3AC] focus:outline-none focus:ring-2 focus:ring-[#15161B]/20 focus:border-[#15161B] transition-all"
               />
             </div>
 
@@ -82,14 +82,14 @@ export default function LoginPage() {
               type="submit"
               disabled={submitting}
               className="w-full py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all disabled:opacity-60"
-              style={{ backgroundColor: '#2B2429' }}
+              style={{ backgroundColor: '#15161B' }}
             >
               {submitting ? 'Entrando…' : 'Entrar'}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-[12px] text-[#B0A3A8] mt-5">
+        <p className="text-center text-[12px] text-[#A2A3AC] mt-5">
           ¿Problemas para acceder? Contacta con el administrador.
         </p>
       </div>

@@ -30,7 +30,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-[3px] border-[#C08497]/20 border-t-[#C08497] rounded-full animate-spin" />
+        <div className="w-8 h-8 border-[3px] border-[#6355FF]/20 border-t-[#6355FF] rounded-full animate-spin" />
       </div>
     );
   }
@@ -73,11 +73,11 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                 <Icon
                   size={22}
                   strokeWidth={active ? 2.5 : 1.8}
-                  className={active ? 'text-[#C08497]' : 'text-[#C9BCC0]'}
+                  className={active ? 'text-[#6355FF]' : 'text-[#C7C8D0]'}
                 />
                 <span
                   className="text-[9px] font-semibold tracking-wide"
-                  style={{ color: active ? '#C08497' : '#C9BCC0' }}
+                  style={{ color: active ? '#6355FF' : '#C7C8D0' }}
                 >
                   {label.toUpperCase()}
                 </span>
