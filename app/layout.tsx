@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${jakarta.variable} antialiased`}>
-      <body className="bg-[#F7F7F8]">
+      <body className="bg-background">
         <AuthProvider>
           <StudioProvider>{children}</StudioProvider>
         </AuthProvider>

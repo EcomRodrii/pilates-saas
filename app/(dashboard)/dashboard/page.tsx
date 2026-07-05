@@ -100,8 +100,8 @@ function RevenueSparkline({
     >
       <defs>
         <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#111827" stopOpacity="0.12" />
-          <stop offset="100%" stopColor="#111827" stopOpacity="0" />
+          <stop offset="0%" stopColor="#A9DE20" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#A9DE20" stopOpacity="0" />
         </linearGradient>
       </defs>
 
@@ -109,7 +109,7 @@ function RevenueSparkline({
       <path d={areaD} fill="url(#spark-grad)" />
 
       {/* Line */}
-      <path d={pathD} fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} fill="none" stroke="#8FBF12" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
       {/* Data points */}
       {pts.map((p, i) => (
@@ -118,8 +118,7 @@ function RevenueSparkline({
             cx={p.x}
             cy={p.y}
             r={i === currentIdx ? 5 : 3}
-            fill={i === currentIdx ? '#111827' : '#fff'}
-            stroke="#111827"
+            fill={i === currentIdx ? "#8FBF12" : "#fff"} stroke="#8FBF12"
             strokeWidth="2"
           />
           <text
@@ -525,7 +524,7 @@ export default function Dashboard() {
   return (
 
     <div className="min-h-screen bg-background">
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className="max-w-[1240px] mx-auto px-4 sm:px-6 py-6 space-y-5">
 
         {/* ── Header ─────────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -610,18 +609,18 @@ export default function Dashboard() {
 
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard label="Miembros activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-sky-600" tintBg="bg-sky-50" />
+          <KpiCard label="Miembros activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-[#6B8E00]" tintBg="bg-[#EDF9C8]" />
           <Card size="sm" className="gap-2.5">
             <CardContent className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
-              <span className="flex size-7 items-center justify-center rounded-lg bg-amber-50"><Activity className="size-3.5 text-amber-600" /></span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-[#EDF9C8]"><Activity className="size-3.5 text-[#6B8E00]" /></span>
             </CardContent>
             <CardContent>
               <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? '#DC2626' : ocupacionMedia >= 60 ? '#D97706' : '#059669' }}>{ocupacionMedia}%</p>
               <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
             </CardContent>
           </Card>
-          <KpiCard label="Reservas hoy" value={reservasHoy} sub={`${clasesHoy.length} clase${clasesHoy.length !== 1 ? 's' : ''} programada${clasesHoy.length !== 1 ? 's' : ''}`} Icon={Calendar} tint="text-violet-600" tintBg="bg-violet-50" />
+          <KpiCard label="Reservas hoy" value={reservasHoy} sub={`${clasesHoy.length} clase${clasesHoy.length !== 1 ? 's' : ''} programada${clasesHoy.length !== 1 ? 's' : ''}`} Icon={Calendar} tint="text-[#6B8E00]" tintBg="bg-[#EDF9C8]" />
           <KpiCard
             label="Renovaciones 30d"
             value={renovacionesProximas.length}
