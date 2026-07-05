@@ -13,6 +13,9 @@ import {
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -163,6 +166,32 @@ function OcupacionBar({ pct }: { pct: number }) {
         {pct}%
       </span>
     </div>
+  );
+}
+
+// ─── KPI card (shadcn) ────────────────────────────────────────────────────────
+
+function KpiCard({ label, value, sub, Icon, tint, tintBg }: {
+  label: string;
+  value: React.ReactNode;
+  sub: string;
+  Icon: React.ElementType;
+  tint: string;
+  tintBg: string;
+}) {
+  return (
+    <Card size="sm" className="gap-2.5">
+      <CardContent className="flex items-center justify-between">
+        <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+        <span className={cn('flex size-7 items-center justify-center rounded-lg', tintBg)}>
+          <Icon className={cn('size-3.5', tint)} />
+        </span>
+      </CardContent>
+      <CardContent>
+        <p className="text-3xl font-semibold leading-none tracking-tight text-foreground">{value}</p>
+        <p className="mt-2 text-xs text-muted-foreground">{sub}</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -495,30 +524,23 @@ export default function Dashboard() {
 
   return (
 
-    <div className="min-h-screen bg-[#F4F5F7]">
-      <div className="max-w-[1200px] mx-auto px-4 py-6 space-y-5">
-
+    <div className="min-h-screen bg-background">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 space-y-6">
 
         {/* ── Header ─────────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <p className="text-[11px] font-medium text-[#9CA3AF] capitalize">{mesFecha}</p>
-            <h1 className="text-[20px] sm:text-[22px] font-bold text-[#111827] mt-0.5 tracking-tight">
+            <p className="text-xs font-medium text-muted-foreground capitalize">{mesFecha}</p>
+            <h1 className="text-[26px] font-semibold text-foreground mt-0.5 tracking-tight">
               {saludo} 👋
             </h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href="/socios?nuevo=1"
-              className="flex items-center gap-1.5 text-[12px] font-medium px-3 py-2 rounded-lg border border-[#E8EAED] bg-white text-[#374151] hover:bg-[#F9FAFB] transition-colors"
-            >
-              <UserPlus size={13} /> Nuevo miembro
+            <Link href="/socios?nuevo=1" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
+              <UserPlus /> Nuevo miembro
             </Link>
-            <Link
-              href="/pos"
-              className="flex items-center gap-1.5 text-[12px] font-medium px-3 py-2 rounded-lg bg-[#111827] text-white hover:bg-[#1f2937] transition-colors"
-            >
-              <ShoppingCart size={13} /> Abrir caja
+            <Link href="/pos" className={cn(buttonVariants({ size: 'lg' }))}>
+              <ShoppingCart /> Abrir caja
             </Link>
           </div>
         </div>
@@ -530,161 +552,84 @@ export default function Dashboard() {
           const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
           const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
           return (
-            <Link href="/automatizaciones" className="block">
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#111827] text-white hover:bg-[#1f2937] transition-colors cursor-pointer">
-                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                  <Bot size={16} className="text-white/80" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  {pendingAdmin.length === 0 ? (
-                    <p className="text-[13px] font-medium text-white">
-                      Sistema autónomo — hoy no tienes nada pendiente
-                    </p>
-                  ) : (
-                    <p className="text-[13px] font-medium text-white">
-                      Sistema autónomo —{' '}
-                      <span className="text-amber-300">{pendingAdmin.length} caso{pendingAdmin.length > 1 ? 's' : ''} requiere tu atención</span>
-                    </p>
-                  )}
-                  <p className="text-[11px] text-white/50 mt-0.5">
-                    {ejecutadas} acciones ejecutadas hoy ·{' '}
-                    {automationLogs.filter(l => l.resultado === 'ESPERANDO').length} esperando respuesta
-                  </p>
-                </div>
-                <ArrowUpRight size={14} className="text-white/40 shrink-0" />
+            <Link
+              href="/automatizaciones"
+              className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                <Bot className="size-4 text-primary-foreground/80" />
               </div>
+              <div className="min-w-0 flex-1">
+                {pendingAdmin.length === 0 ? (
+                  <p className="text-[13px] font-medium">Sistema autónomo — hoy no tienes nada pendiente</p>
+                ) : (
+                  <p className="text-[13px] font-medium">
+                    Sistema autónomo —{' '}
+                    <span className="text-amber-300">{pendingAdmin.length} caso{pendingAdmin.length > 1 ? 's' : ''} requiere tu atención</span>
+                  </p>
+                )}
+                <p className="mt-0.5 text-[11px] text-primary-foreground/50">
+                  {ejecutadas} acciones ejecutadas hoy · {automationLogs.filter(l => l.resultado === 'ESPERANDO').length} esperando respuesta
+                </p>
+              </div>
+              <ArrowUpRight className="size-4 shrink-0 text-primary-foreground/40" />
             </Link>
           );
         })()}
 
-        {/* ── Revenue sparkline card (full width) ────────────────────────────── */}
-        <div className="bg-white rounded-xl border border-[#E8EAED] p-5">
-          <div className="flex items-start justify-between gap-4 mb-4">
+        {/* ── Revenue card (full width) ──────────────────────────────────────── */}
+        <Card>
+          <CardContent className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-[#9CA3AF]">
-                Ingresos cobrados
-              </p>
-              <div className="flex items-end gap-3 mt-1.5">
-                <p className="text-[32px] font-bold text-[#111827] leading-none tracking-tight">
+              <p className="text-xs font-medium text-muted-foreground">Ingresos cobrados este mes</p>
+              <div className="mt-1.5 flex items-end gap-2.5">
+                <p className="text-4xl font-semibold leading-none tracking-tight text-foreground">
                   {ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
                 </p>
-                <span
-                  className="flex items-center gap-1 text-[12px] font-bold px-2 py-0.5 rounded-full mb-0.5"
+                <Badge
+                  variant="secondary"
+                  className="mb-1"
                   style={{ backgroundColor: trendBg, color: trendColor }}
                 >
-                  <TrendIcon size={11} />
-                  {pctChange > 0 ? '+' : ''}
-                  {pctChange}% vs mes ant.
-                </span>
+                  <TrendIcon /> {pctChange > 0 ? '+' : ''}{pctChange}%
+                </Badge>
               </div>
-              <p className="text-[12px] text-[#9CA3AF] mt-1">
-                MRR estimado:{' '}
-                <span className="font-semibold text-[#374151]">{mrr.toFixed(0)} €</span>
-                {' '}· ARR:{' '}
-                <span className="font-semibold text-[#059669]">{(mrr * 12).toFixed(0)} €</span>
+              <p className="mt-2 text-xs text-muted-foreground">
+                MRR estimado <span className="font-semibold text-foreground">{mrr.toFixed(0)} €</span>
+                {' · '}ARR <span className="font-semibold text-emerald-600">{(mrr * 12).toFixed(0)} €</span>
               </p>
             </div>
-            <Link
-              href="/informes"
-              className="flex items-center gap-1 text-[11px] font-medium text-[#6B7280] hover:text-[#111827] transition-colors"
-            >
-              <BarChart3 size={13} /> Ver informe
-              <ArrowUpRight size={11} />
+            <Link href="/informes" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+              <BarChart3 /> Ver informe
             </Link>
-          </div>
-          <div className="h-[120px]">
-            <RevenueSparkline
-              data={sparkData}
-              labels={sparkLabels}
-              currentIdx={sparkCurrentIdx}
-            />
-          </div>
-        </div>
+          </CardContent>
+          <CardContent className="h-[120px]">
+            <RevenueSparkline data={sparkData} labels={sparkLabels} currentIdx={sparkCurrentIdx} />
+          </CardContent>
+        </Card>
 
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Miembros activos */}
-          <div className="bg-white rounded-xl border border-[#E8EAED] p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
-                Miembros activos
-              </p>
-              <div className="w-7 h-7 rounded-lg bg-[#EFF6FF] flex items-center justify-center">
-                <Users size={14} className="text-[#2563EB]" />
-              </div>
-            </div>
-            <p className="text-[28px] font-bold text-[#111827] leading-none">{sociasActivas}</p>
-            <p className="text-[11px] text-[#9CA3AF] mt-2">
-              {pendientes.length} pago{pendientes.length !== 1 ? 's' : ''} pendiente
-              {pendientes.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-
-          {/* Ocupación semanal */}
-          <div className="bg-white rounded-xl border border-[#E8EAED] p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
-                Ocupación semana
-              </p>
-              <div className="w-7 h-7 rounded-lg bg-[#FFFBEB] flex items-center justify-center">
-                <Activity size={14} className="text-[#D97706]" />
-              </div>
-            </div>
-            <p
-              className="text-[28px] font-bold leading-none"
-              style={{
-                color:
-                  ocupacionMedia >= 85
-                    ? '#DC2626'
-                    : ocupacionMedia >= 60
-                    ? '#D97706'
-                    : '#059669',
-              }}
-            >
-              {ocupacionMedia}%
-            </p>
-            <OcupacionBar pct={ocupacionMedia} />
-          </div>
-
-          {/* Reservas hoy */}
-          <div className="bg-white rounded-xl border border-[#E8EAED] p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
-                Reservas hoy
-              </p>
-              <div className="w-7 h-7 rounded-lg bg-[#F5F3FF] flex items-center justify-center">
-                <Calendar size={14} className="text-[#7C3AED]" />
-              </div>
-            </div>
-            <p className="text-[28px] font-bold text-[#111827] leading-none">{reservasHoy}</p>
-            <p className="text-[11px] text-[#9CA3AF] mt-2">
-              {clasesHoy.length} clase{clasesHoy.length !== 1 ? 's' : ''} programada
-              {clasesHoy.length !== 1 ? 's' : ''}
-              {clasesHoy.filter(isNowFn).length > 0 && (
-                <span className="ml-1 font-semibold text-[#059669]">· 1 ahora</span>
-              )}
-            </p>
-          </div>
-
-          {/* Renovaciones próximas */}
-          <div className="bg-white rounded-xl border border-[#E8EAED] p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">
-                Renovaciones 30d
-              </p>
-              <div className="w-7 h-7 rounded-lg bg-[#ECFDF5] flex items-center justify-center">
-                <RefreshCw size={14} className="text-[#059669]" />
-              </div>
-            </div>
-            <p className="text-[28px] font-bold text-[#111827] leading-none">
-              {renovacionesProximas.length}
-            </p>
-            <p className="text-[11px] text-[#9CA3AF] mt-2">
-              {renovacionesProximas.length > 0
-                ? `Próxima: ${new Date(renovacionesProximas[0].fechaFin!).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`
-                : 'Sin vencimientos próximos'}
-            </p>
-          </div>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <KpiCard label="Miembros activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-sky-600" tintBg="bg-sky-50" />
+          <Card size="sm" className="gap-2.5">
+            <CardContent className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-amber-50"><Activity className="size-3.5 text-amber-600" /></span>
+            </CardContent>
+            <CardContent>
+              <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? '#DC2626' : ocupacionMedia >= 60 ? '#D97706' : '#059669' }}>{ocupacionMedia}%</p>
+              <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
+            </CardContent>
+          </Card>
+          <KpiCard label="Reservas hoy" value={reservasHoy} sub={`${clasesHoy.length} clase${clasesHoy.length !== 1 ? 's' : ''} programada${clasesHoy.length !== 1 ? 's' : ''}`} Icon={Calendar} tint="text-violet-600" tintBg="bg-violet-50" />
+          <KpiCard
+            label="Renovaciones 30d"
+            value={renovacionesProximas.length}
+            sub={renovacionesProximas.length > 0 ? `Próxima ${new Date(renovacionesProximas[0].fechaFin!).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}` : 'Sin vencimientos'}
+            Icon={RefreshCw}
+            tint="text-emerald-600"
+            tintBg="bg-emerald-50"
+          />
         </div>
 
         {/* ── Main content grid ──────────────────────────────────────────────── */}
