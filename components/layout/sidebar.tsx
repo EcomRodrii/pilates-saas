@@ -75,10 +75,9 @@ function NavItem({ href, label, Icon, onClick }: { href: string; label: string; 
       onClick={onClick}
       className={cn(
         'flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all relative',
-        active ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+        active ? 'bg-[#6355FF] text-white shadow-[0_2px_10px_rgba(99,85,255,0.35)]' : 'text-white/45 hover:text-white/80 hover:bg-white/5'
       )}
     >
-      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full bg-white/70" />}
       <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
       {label}
     </Link>

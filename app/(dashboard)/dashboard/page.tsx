@@ -97,8 +97,8 @@ function RevenueSparkline({
     >
       <defs>
         <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#15161B" stopOpacity="0.12" />
-          <stop offset="100%" stopColor="#15161B" stopOpacity="0" />
+          <stop offset="0%" stopColor="#6355FF" stopOpacity="0.14" />
+          <stop offset="100%" stopColor="#6355FF" stopOpacity="0" />
         </linearGradient>
       </defs>
 
@@ -106,7 +106,7 @@ function RevenueSparkline({
       <path d={areaD} fill="url(#spark-grad)" />
 
       {/* Line */}
-      <path d={pathD} fill="none" stroke="#15161B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} fill="none" stroke="#6355FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
       {/* Data points */}
       {pts.map((p, i) => (
@@ -115,8 +115,7 @@ function RevenueSparkline({
             cx={p.x}
             cy={p.y}
             r={i === currentIdx ? 5 : 3}
-            fill={i === currentIdx ? '#15161B' : '#fff'}
-            stroke="#15161B"
+            fill={i === currentIdx ? "#6355FF" : "#fff"} stroke="#6355FF"
             strokeWidth="2"
           />
           <text
@@ -516,7 +515,7 @@ export default function Dashboard() {
             </Link>
             <Link
               href="/pos"
-              className="flex items-center gap-1.5 text-[12px] font-medium px-3 py-2 rounded-lg bg-[#15161B] text-white hover:bg-[#2A2B34] transition-colors"
+              className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg bg-[#6355FF] text-white hover:bg-[#4B3FD6] shadow-[0_2px_10px_rgba(99,85,255,0.3)] transition-colors"
             >
               <ShoppingCart size={13} /> Abrir caja
             </Link>
@@ -558,7 +557,7 @@ export default function Dashboard() {
         })()}
 
         {/* ── Revenue sparkline card (full width) ────────────────────────────── */}
-        <div className="bg-white rounded-xl border border-[#ECECF1] p-5">
+        <div className="bg-white rounded-2xl border border-[#F1F1F5] shadow-[0_1px_3px_rgba(20,22,27,0.04)] p-5">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-widest text-[#A2A3AC]">
@@ -604,7 +603,7 @@ export default function Dashboard() {
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Miembros activos */}
-          <div className="bg-white rounded-xl border border-[#ECECF1] p-4">
+          <div className="bg-white rounded-2xl border border-[#F1F1F5] shadow-[0_1px_3px_rgba(20,22,27,0.04)] p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-[#A2A3AC]">
                 Miembros activos
@@ -621,7 +620,7 @@ export default function Dashboard() {
           </div>
 
           {/* Ocupación semanal */}
-          <div className="bg-white rounded-xl border border-[#ECECF1] p-4">
+          <div className="bg-white rounded-2xl border border-[#F1F1F5] shadow-[0_1px_3px_rgba(20,22,27,0.04)] p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-[#A2A3AC]">
                 Ocupación semana
@@ -647,7 +646,7 @@ export default function Dashboard() {
           </div>
 
           {/* Reservas hoy */}
-          <div className="bg-white rounded-xl border border-[#ECECF1] p-4">
+          <div className="bg-white rounded-2xl border border-[#F1F1F5] shadow-[0_1px_3px_rgba(20,22,27,0.04)] p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-[#A2A3AC]">
                 Reservas hoy
@@ -667,7 +666,7 @@ export default function Dashboard() {
           </div>
 
           {/* Renovaciones próximas */}
-          <div className="bg-white rounded-xl border border-[#ECECF1] p-4">
+          <div className="bg-white rounded-2xl border border-[#F1F1F5] shadow-[0_1px_3px_rgba(20,22,27,0.04)] p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-[#A2A3AC]">
                 Renovaciones 30d
@@ -694,7 +693,7 @@ export default function Dashboard() {
           <div className="lg:col-span-2 space-y-5">
 
             {/* Clases de hoy */}
-            <div className="bg-white rounded-xl border border-[#ECECF1]">
+            <div className="bg-white rounded-2xl border border-[#F1F1F5] shadow-[0_1px_3px_rgba(20,22,27,0.04)]">
               <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F1F6]">
                 <div className="flex items-center gap-2">
                   <Clock size={14} className="text-[#71727A]" />
@@ -734,7 +733,7 @@ export default function Dashboard() {
 
             {/* Pagos pendientes */}
             {pendientes.length > 0 && (
-              <div className="bg-white rounded-xl border border-[#ECECF1]">
+              <div className="bg-white rounded-2xl border border-[#F1F1F5] shadow-[0_1px_3px_rgba(20,22,27,0.04)]">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F1F6]">
                   <div className="flex items-center gap-2">
                     <CreditCard size={14} className="text-[#71727A]" />
@@ -776,7 +775,7 @@ export default function Dashboard() {
                         </span>
                         <button
                           onClick={() => marcarCobrado(r.id)}
-                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#15161B] text-white hover:bg-[#2A2B34] transition-colors"
+                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#6355FF] text-white hover:bg-[#4B3FD6] transition-colors"
                         >
                           Cobrar
                         </button>
@@ -802,14 +801,14 @@ export default function Dashboard() {
           <div className="space-y-5">
 
             {/* Quick actions */}
-            <div className="bg-white rounded-xl border border-[#ECECF1] p-4">
+            <div className="bg-white rounded-2xl border border-[#F1F1F5] shadow-[0_1px_3px_rgba(20,22,27,0.04)] p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-[#A2A3AC] mb-3">
                 Acciones rápidas
               </p>
               <div className="space-y-2">
                 <Link
                   href="/socios?nuevo=1"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-[#15161B] hover:bg-[#1F2937] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-[#6355FF] hover:bg-[#4B3FD6] shadow-[0_2px_10px_rgba(99,85,255,0.3)] transition-colors"
                 >
                   <UserPlus size={14} /> Nuevo miembro
                 </Link>
@@ -836,7 +835,7 @@ export default function Dashboard() {
 
             {/* Renovaciones próximas */}
             {renovacionesProximas.length > 0 && (
-              <div className="bg-white rounded-xl border border-[#ECECF1]">
+              <div className="bg-white rounded-2xl border border-[#F1F1F5] shadow-[0_1px_3px_rgba(20,22,27,0.04)]">
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F1F1F6]">
                   <div className="flex items-center gap-2">
                     <RefreshCw size={13} className="text-[#059669]" />
@@ -889,7 +888,7 @@ export default function Dashboard() {
             )}
 
             {/* Activity feed */}
-            <div className="bg-white rounded-xl border border-[#ECECF1]">
+            <div className="bg-white rounded-2xl border border-[#F1F1F5] shadow-[0_1px_3px_rgba(20,22,27,0.04)]">
               <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F1F1F6]">
                 <div className="flex items-center gap-2">
                   <h2 className="text-[13px] font-semibold text-[#15161B]">Actividad</h2>
