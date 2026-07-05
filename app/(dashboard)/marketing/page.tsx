@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check } from 'lucide-react'
+import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
-import type { Campana, Automatizacion, CodigoDescuento, TipoCampana, TriggerAutomatizacion } from '@/lib/types'
+import type { Campana, Automatizacion, CodigoDescuento, TipoCampana, TriggerAutomatizacion, LeadStage } from '@/lib/types'
 
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
@@ -158,6 +158,274 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+// ─── Resumen tab: card chrome shared by every widget ───────────────────────────
+
+function WidgetCard({ icon: Icon, title, action, children, className }: {
+  icon: React.ElementType; title: string; action?: React.ReactNode; children: React.ReactNode; className?: string
+}) {
+  return (
+    <div className={cn('bg-white border border-[#E7E7E0] rounded-3xl p-5', className)}>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-full border border-[#E7E7E0] flex items-center justify-center shrink-0">
+            <Icon size={14} className="text-[#1A1A1A]" />
+          </span>
+          <h3 className="text-[15px] font-bold text-[#1A1A1A]">{title}</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          {action}
+          <span className="w-7 h-7 rounded-full flex items-center justify-center text-[#A8A89F]">
+            <MoreVertical size={14} />
+          </span>
+        </div>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+// ─── Mini sparkline used by the KPI cards ──────────────────────────────────────
+
+function MiniSparkline({ points, color }: { points: number[]; color: string }) {
+  if (points.length < 2) return null
+  const w = 200, h = 56
+  const max = Math.max(...points, 1)
+  const min = Math.min(...points, 0)
+  const range = max - min || 1
+  const step = w / (points.length - 1)
+  const coords = points.map((p, i) => [i * step, h - ((p - min) / range) * (h - 8) - 4] as const)
+  const line = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  const area = `${line} L${w},${h} L0,${h} Z`
+  const gid = `spark-${color.replace('#', '')}`
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-14" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gid})`} />
+      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function KpiTrendCard({ title, value, deltaPct, points, color, axisLabels }: {
+  title: string; value: string; deltaPct: number | null; points: number[]; color: string; axisLabels: string[]
+}) {
+  const positive = (deltaPct ?? 0) >= 0
+  return (
+    <div className="bg-white border border-[#E7E7E0] rounded-3xl p-5 flex flex-col">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-[26px] font-extrabold text-[#1A1A1A] leading-none tabular-nums">{value}</span>
+        {deltaPct !== null && (
+          <span className={cn(
+            'text-[11px] font-bold px-2 py-0.5 rounded-full',
+            positive ? 'bg-[#EDF9C8] text-[#3F5200]' : 'bg-[#FEF3C7] text-[#92400E]'
+          )}>
+            {positive ? '+' : ''}{deltaPct.toFixed(1)}%
+          </span>
+        )}
+      </div>
+      <p className="text-[12px] text-[#8E8E86] mb-2">{title}</p>
+      <MiniSparkline points={points} color={color} />
+      <div className="flex justify-between mt-1">
+        {axisLabels.map((l, i) => <span key={i} className="text-[10px] text-[#C6C6BE]">{l}</span>)}
+      </div>
+    </div>
+  )
+}
+
+function ConversionRatioCard({ activas, total }: { activas: number; total: number }) {
+  const pct = total > 0 ? Math.round((activas / total) * 100) : 0
+  return (
+    <div className="bg-white border border-[#E7E7E0] rounded-3xl p-5 flex flex-col">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-[26px] font-extrabold text-[#1A1A1A] leading-none tabular-nums">{pct}%</span>
+      </div>
+      <p className="text-[12px] text-[#8E8E86] mb-3">Tasa de conversión</p>
+      <div className="h-2.5 bg-[#F1F1EC] rounded-full overflow-hidden mt-auto">
+        <div className="h-full rounded-full bg-[#8FBF12]" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="text-[11px] text-[#A8A89F] mt-2">{activas} activas de {total} con etapa asignada</p>
+    </div>
+  )
+}
+
+// ─── Embudo de captación (real funnel from Socio.leadStage) ───────────────────
+
+const FUNNEL_STAGES: { stage: LeadStage[]; label: string }[] = [
+  { stage: ['LEAD', 'INTERESADA', 'PRUEBA', 'ACTIVA', 'EN_RIESGO', 'PERDIDA'], label: 'Leads captados' },
+  { stage: ['INTERESADA', 'PRUEBA', 'ACTIVA', 'EN_RIESGO', 'PERDIDA'], label: 'Interesadas' },
+  { stage: ['PRUEBA', 'ACTIVA', 'EN_RIESGO'], label: 'En prueba' },
+  { stage: ['ACTIVA'], label: 'Convertidas' },
+]
+
+function ConversionFunnelCard({ socios }: { socios: { leadStage?: LeadStage }[] }) {
+  const counts = FUNNEL_STAGES.map(({ stage, label }) => ({
+    label,
+    value: socios.filter(s => s.leadStage && stage.includes(s.leadStage)).length,
+  }))
+  const total = counts[0]?.value ?? 0
+
+  if (total === 0) {
+    return (
+      <WidgetCard icon={Filter} title="Embudo de captación" className="lg:col-span-2">
+        <div className="flex flex-col items-center justify-center text-center py-10">
+          <p className="text-[14px] font-semibold text-[#1A1A1A]">Aún no hay leads en el embudo</p>
+          <p className="text-[12px] text-[#A8A89F] mt-1">Asigna una etapa (lead, interesada, prueba…) a tus socias en su ficha para ver la conversión real aquí.</p>
+        </div>
+      </WidgetCard>
+    )
+  }
+
+  return (
+    <WidgetCard icon={Filter} title="Embudo de captación" action={<span className="text-[11px] font-semibold text-[#A8A89F] px-2">Todo el histórico</span>} className="lg:col-span-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {counts.map((c, i) => {
+          const widthPct = total > 0 ? Math.max(8, (c.value / total) * 100) : 0
+          const pctOfPrev = i === 0 ? 100 : counts[i - 1].value > 0 ? Math.round((c.value / counts[i - 1].value) * 100) : 0
+          return (
+            <div key={c.label}>
+              <p className="text-[22px] font-extrabold text-[#1A1A1A] leading-none tabular-nums">{c.value}</p>
+              <p className="text-[11px] text-[#8E8E86] mt-1 mb-3">{c.label}</p>
+              <div className="h-16 flex items-end">
+                <div
+                  className={cn('w-full rounded-t-md', i === counts.length - 1 ? 'bg-[#8FBF12]' : 'bg-[#E7E7E0]')}
+                  style={{ height: `${widthPct}%` }}
+                />
+              </div>
+              <p className="text-[11px] font-semibold text-[#A8A89F] mt-1.5">{i === 0 ? '100%' : `${pctOfPrev}%`}</p>
+            </div>
+          )
+        })}
+      </div>
+    </WidgetCard>
+  )
+}
+
+// ─── Clases más demandadas (reemplaza el mapa — un estudio de un solo local no
+// tiene "top ubicaciones", pero sí clases con más reservas reales) ────────────
+
+function TopClasesCard({ sesiones, reservas, tiposClase }: {
+  sesiones: { id: string; tipoClaseId: string }[]
+  reservas: { sesionId: string; estado: string }[]
+  tiposClase: { id: string; nombre: string; color: string }[]
+}) {
+  const conteos = new Map<string, number>()
+  for (const r of reservas) {
+    if (r.estado === 'CANCELADA') continue
+    const s = sesiones.find(x => x.id === r.sesionId)
+    if (!s) continue
+    conteos.set(s.tipoClaseId, (conteos.get(s.tipoClaseId) ?? 0) + 1)
+  }
+  const ranking = tiposClase
+    .map(t => ({ ...t, reservas: conteos.get(t.id) ?? 0 }))
+    .sort((a, b) => b.reservas - a.reservas)
+    .slice(0, 5)
+  const max = Math.max(...ranking.map(r => r.reservas), 1)
+  const total = ranking.reduce((a, r) => a + r.reservas, 0)
+
+  return (
+    <WidgetCard icon={BarChart3} title="Clases más demandadas" action={<span className="text-[11px] font-semibold text-[#A8A89F] px-2">Todo el histórico</span>} className="lg:col-span-2">
+      {total === 0 ? (
+        <div className="flex flex-col items-center justify-center text-center py-10">
+          <p className="text-[14px] font-semibold text-[#1A1A1A]">Aún no hay reservas</p>
+          <p className="text-[12px] text-[#A8A89F] mt-1">Cuando tus socias empiecen a reservar clases, verás aquí el ranking real de demanda.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {ranking.map(r => (
+            <div key={r.id} className="flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
+              <span className="text-[13px] font-semibold text-[#1A1A1A] w-36 truncate shrink-0">{r.nombre}</span>
+              <div className="flex-1 h-2.5 bg-[#F1F1EC] rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${(r.reservas / max) * 100}%`, backgroundColor: r.color }} />
+              </div>
+              <span className="text-[12px] font-bold text-[#1A1A1A] tabular-nums w-8 text-right shrink-0">{r.reservas}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </WidgetCard>
+  )
+}
+
+// ─── Desglose de ingresos por tipo de plan (donut, importes reales cobrados) ──
+
+const PLAN_TIPO_COLOR: Record<string, string> = { MENSUAL: '#8FBF12', BONO: '#F5D97A', PUNTUAL: '#A6D8F0' }
+const PLAN_TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bonos', PUNTUAL: 'Clase suelta' }
+
+function RevenueDonutCard({ recibos, suscripciones, planesTarifa }: {
+  recibos: { suscripcionId: string | null; importe: number; estado: string }[]
+  suscripciones: { id: string; planId: string }[]
+  planesTarifa: { id: string; tipo: string }[]
+}) {
+  const totals: Record<string, number> = { MENSUAL: 0, BONO: 0, PUNTUAL: 0 }
+  for (const r of recibos) {
+    if (r.estado !== 'COBRADO') continue
+    const sus = suscripciones.find(s => s.id === r.suscripcionId)
+    const plan = sus ? planesTarifa.find(p => p.id === sus.planId) : null
+    const tipo = plan?.tipo ?? 'PUNTUAL'
+    totals[tipo] = (totals[tipo] ?? 0) + r.importe
+  }
+  const total = Object.values(totals).reduce((a, b) => a + b, 0)
+  const R = 70, C = 2 * Math.PI * R
+  let offset = 0
+
+  return (
+    <WidgetCard icon={PieChart} title="Ingresos por tipo de plan" className="lg:col-span-2">
+      {total === 0 ? (
+        <div className="flex flex-col items-center justify-center text-center py-10">
+          <p className="text-[14px] font-semibold text-[#1A1A1A]">Aún no hay cobros registrados</p>
+          <p className="text-[12px] text-[#A8A89F] mt-1">El desglose aparecerá en cuanto se cobren recibos.</p>
+        </div>
+      ) : (
+        <>
+          <div className="relative w-full flex items-center justify-center py-4">
+            <svg viewBox="0 0 180 180" className="w-44 h-44 -rotate-90">
+              <circle cx="90" cy="90" r={R} fill="none" stroke="#F1F1EC" strokeWidth="16" />
+              {Object.entries(totals).filter(([, v]) => v > 0).map(([tipo, v]) => {
+                const frac = v / total
+                const dash = frac * C
+                const el = (
+                  <circle
+                    key={tipo}
+                    cx="90" cy="90" r={R} fill="none"
+                    stroke={PLAN_TIPO_COLOR[tipo]}
+                    strokeWidth="16"
+                    strokeDasharray={`${dash} ${C - dash}`}
+                    strokeDashoffset={-offset}
+                    strokeLinecap="round"
+                  />
+                )
+                offset += dash
+                return el
+              })}
+            </svg>
+            <div className="absolute flex flex-col items-center">
+              <p className="text-[24px] font-extrabold text-[#1A1A1A] leading-none">{total.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €</p>
+              <p className="text-[11px] text-[#8E8E86] mt-1">Ingresos cobrados</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-2">
+            {Object.entries(totals).filter(([, v]) => v > 0).map(([tipo, v]) => (
+              <div key={tipo} className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: PLAN_TIPO_COLOR[tipo] }} />
+                <div>
+                  <p className="text-[12px] font-bold text-[#1A1A1A] leading-tight">{v.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €</p>
+                  <p className="text-[10px] text-[#A8A89F] leading-tight">{PLAN_TIPO_LABEL[tipo]}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </WidgetCard>
+  )
+}
+
 // Progress bar for discount code usage
 function UsageBar({ usos, usosMax }: { usos: number; usosMax: number | null }) {
   if (usosMax == null) {
@@ -182,8 +450,33 @@ export default function MarketingPage() {
     codigosDescuento: codigos, addCodigoDescuento, toggleCodigoDescuento, deleteCodigoDescuento,
     socios,
     suscripciones,
+    recibos, planesTarifa, sesiones, reservas, tiposClase,
   } = useStudio()
-  const [tab, setTab] = useState<'campanas' | 'automatizaciones' | 'codigos'>('campanas')
+  const [tab, setTab] = useState<'resumen' | 'campanas' | 'automatizaciones' | 'codigos'>('resumen')
+
+  // ── Resumen: leads captados por mes (últimos 6 meses, para el sparkline) ────
+  const leadsPorMes = (() => {
+    const now = new Date()
+    const meses: { key: string; label: string }[] = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+      return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString('es-ES', { month: 'short' }) }
+    })
+    return meses.map(({ key, label }) => {
+      const [y, m] = key.split('-').map(Number)
+      const count = socios.filter(s => {
+        const d = new Date(s.fechaAlta)
+        return d.getFullYear() === y && d.getMonth() === m
+      }).length
+      return { label, count }
+    })
+  })()
+  const totalLeadsActual = leadsPorMes[leadsPorMes.length - 1]?.count ?? 0
+  const totalLeadsPrev = leadsPorMes[leadsPorMes.length - 2]?.count ?? 0
+  const leadsDeltaPct = totalLeadsPrev > 0 ? ((totalLeadsActual - totalLeadsPrev) / totalLeadsPrev) * 100 : null
+
+  const totalConLeadStage = socios.filter(s => s.leadStage).length
+  const activas = socios.filter(s => s.leadStage === 'ACTIVA').length
+  const tasaConversion = totalConLeadStage > 0 ? (activas / totalConLeadStage) * 100 : 0
 
   // Campañas modal
   const [showCampanaModal, setShowCampanaModal] = useState(false)
@@ -329,7 +622,7 @@ export default function MarketingPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1 flex-nowrap">
-        {(['campanas', 'automatizaciones', 'codigos'] as const).map(t => (
+        {(['resumen', 'campanas', 'automatizaciones', 'codigos'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -340,10 +633,28 @@ export default function MarketingPage() {
                 : 'text-[#8E8E86] hover:text-[#1A1A1A]'
             )}
           >
-            {t === 'campanas' ? 'Campañas' : t === 'automatizaciones' ? 'Automatizaciones' : 'Códigos de descuento'}
+            {t === 'resumen' ? 'Resumen' : t === 'campanas' ? 'Campañas' : t === 'automatizaciones' ? 'Automatizaciones' : 'Códigos de descuento'}
           </button>
         ))}
       </div>
+
+      {/* ==================== TAB 0: RESUMEN ==================== */}
+      {tab === 'resumen' && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <ConversionFunnelCard socios={socios} />
+          <KpiTrendCard
+            title="Leads captados (este mes)"
+            value={String(totalLeadsActual)}
+            deltaPct={leadsDeltaPct}
+            points={leadsPorMes.map(m => m.count)}
+            color="#8FBF12"
+            axisLabels={leadsPorMes.map(m => m.label)}
+          />
+          <ConversionRatioCard activas={activas} total={totalConLeadStage} />
+          <TopClasesCard sesiones={sesiones} reservas={reservas} tiposClase={tiposClase} />
+          <RevenueDonutCard recibos={recibos} suscripciones={suscripciones} planesTarifa={planesTarifa} />
+        </div>
+      )}
 
       {/* ==================== TAB 1: CAMPAÑAS ==================== */}
       {tab === 'campanas' && (
