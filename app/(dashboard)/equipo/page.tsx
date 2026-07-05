@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import type { Instructor } from '@/lib/types';
+import type { Instructor, Rol } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, AlertTriangle, ShieldCheck, KeyRound } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
 const COLORES = ['#8FBF12', '#8FBF12', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
@@ -12,8 +12,19 @@ const COLORES = ['#8FBF12', '#8FBF12', '#7C3AED', '#EC4899', '#059669', '#0EA5E9
 const inputCls = 'w-full rounded-xl border border-[#E7E7E0] bg-white px-3.5 py-2.5 text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:border-[#8FBF12] focus:ring-2 focus:ring-[#8FBF12]/15 transition-all';
 const labelCls = 'text-[12px] font-semibold text-[#3A3A34] block mb-1.5';
 
-type Form = { nombre: string; email: string; telefono: string; color: string; avatar: string | null; activo: boolean };
-const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#8FBF12', avatar: null, activo: true });
+const ROL_LABEL: Record<Rol, string> = {
+  PROPIETARIO: 'Propietaria',
+  RECEPCION: 'Recepción',
+  INSTRUCTOR: 'Instructora',
+};
+const ROL_DESC: Record<Rol, string> = {
+  PROPIETARIO: 'Acceso total: negocio, marketing, automatizaciones y equipo.',
+  RECEPCION: 'Reservas, socias, cobros y POS — sin acceso a marketing, informes ni ajustes del negocio.',
+  INSTRUCTOR: 'Solo su calendario y sus citas.',
+};
+
+type Form = { nombre: string; email: string; telefono: string; color: string; avatar: string | null; activo: boolean; rol: Rol };
+const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#8FBF12', avatar: null, activo: true, rol: 'INSTRUCTOR' });
 
 export default function EquipoPage() {
   const { instructores, sesiones, citas, addInstructor, updateInstructor, deleteInstructor } = useStudio();
@@ -63,7 +74,7 @@ export default function EquipoPage() {
 
   function openNuevo() { setForm(emptyForm()); setEditId(null); setModal('nuevo'); }
   function openEditar(i: Instructor) {
-    setForm({ nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, activo: i.activo });
+    setForm({ nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, activo: i.activo, rol: i.rol });
     setEditId(i.id);
     setModal('editar');
   }
@@ -76,8 +87,9 @@ export default function EquipoPage() {
       color: form.color,
       avatar: form.avatar,
       activo: form.activo,
+      rol: form.rol,
     };
-    if (modal === 'nuevo') addInstructor(fields);
+    if (modal === 'nuevo') addInstructor({ ...fields, authUserId: null });
     else if (editId) updateInstructor(editId, fields);
     setModal(null);
   }
@@ -142,10 +154,20 @@ export default function EquipoPage() {
                     <ProfileAvatar avatarId={i.avatar} nombre={i.nombre} color={i.color} size="md" />
                     <div className="min-w-0">
                       <p className="font-bold text-[#1A1A1A] text-[15px] leading-tight truncate">{i.nombre}</p>
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-bold mt-1 px-2 py-0.5 rounded-full ${i.activo ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-[#F1F1EC] text-[#A8A89F]'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-[#059669]' : 'bg-[#A8A89F]'}`} />
-                        {i.activo ? 'Activa' : 'Inactiva'}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${i.activo ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-[#F1F1EC] text-[#A8A89F]'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-[#059669]' : 'bg-[#A8A89F]'}`} />
+                          {i.activo ? 'Activa' : 'Inactiva'}
+                        </span>
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#F1F1EC] text-[#3A3A34]">{ROL_LABEL[i.rol]}</span>
+                        {i.authUserId ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EDF9C8] text-[#3F5200]">
+                            <ShieldCheck size={10} />Con acceso
+                          </span>
+                        ) : i.email ? (
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">Sin cuenta aún</span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
@@ -223,6 +245,31 @@ export default function EquipoPage() {
                 <label className={labelCls}>Teléfono</label>
                 <input className={inputCls} value={form.telefono} placeholder="+34 600 000 000" onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
               </div>
+            </div>
+            <div>
+              <label className={labelCls}>Rol y acceso al panel</label>
+              <div className="space-y-1.5">
+                {(['PROPIETARIO', 'RECEPCION', 'INSTRUCTOR'] as Rol[]).map(r => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, rol: r }))}
+                    className={`w-full flex items-start gap-2.5 text-left px-3.5 py-2.5 rounded-xl border transition-colors ${form.rol === r ? 'border-[#8FBF12] bg-[#F8FBEE]' : 'border-[#E7E7E0] hover:bg-[#F5F5F1]'}`}
+                  >
+                    <ShieldCheck size={15} className={form.rol === r ? 'text-[#6B8E00] mt-0.5 shrink-0' : 'text-[#A8A89F] mt-0.5 shrink-0'} />
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold text-[#1A1A1A]">{ROL_LABEL[r]}</p>
+                      <p className="text-[11px] text-[#8E8E86] mt-0.5">{ROL_DESC[r]}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {form.email.trim() && (
+                <p className="text-[11px] text-[#A8A89F] mt-2 flex items-start gap-1.5">
+                  <KeyRound size={12} className="shrink-0 mt-0.5" />
+                  Para acceder al panel, esta persona debe entrar en /login y crear una cuenta con el email <strong className="text-[#3A3A34]">{form.email.trim()}</strong> — quedará vinculada automáticamente a este rol.
+                </p>
+              )}
             </div>
             <div>
               <label className={labelCls}>Color</label>

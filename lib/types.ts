@@ -139,6 +139,8 @@ export interface Instructor {
   color: string;
   activo: boolean;
   avatar?: string | null;
+  rol: Rol;
+  authUserId: string | null;
 }
 
 export interface Sesion {

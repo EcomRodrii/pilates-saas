@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, CreditCard, Mail, FileSpreadsheet, Calendar as CalendarIcon, MessageCircle, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import type { PlanTarifa, Sala, TipoClase, Instructor, TipoIntegracion, Studio } from '@/lib/types';
+import type { PlanTarifa, Sala, TipoClase, TipoIntegracion, Studio } from '@/lib/types';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -203,13 +203,12 @@ function EstadoBadge({ activo }: { activo: boolean }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'instructores' | 'integraciones' | 'estudio' | 'perfil';
+type TabId = 'planes' | 'clases' | 'salas' | 'integraciones' | 'estudio' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
   { id: 'clases',      label: 'Clases' },
   { id: 'salas',       label: 'Salas' },
-  { id: 'instructores', label: 'Instructores' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
   { id: 'perfil',      label: 'Mi perfil' },
@@ -258,7 +257,6 @@ export default function ConfiguracionPage() {
       {activeTab === 'planes'      && <TabPlanes      showToast={showToast} />}
       {activeTab === 'clases'      && <TabClases       showToast={showToast} />}
       {activeTab === 'salas'       && <TabSalas        showToast={showToast} />}
-      {activeTab === 'instructores' && <TabInstructores showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
       {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}
@@ -958,276 +956,6 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
     </div>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TAB 4: INSTRUCTORES
-// ─────────────────────────────────────────────────────────────────────────────
-
-type InstructorForm = {
-  nombre: string;
-  email: string;
-  telefono: string;
-  color: string;
-  activo: boolean;
-};
-
-const emptyInstructorForm = (): InstructorForm => ({
-  nombre: '',
-  email: '',
-  telefono: '',
-  color: '#8FBF12',
-  activo: true,
-});
-
-function instructorToForm(i: Instructor): InstructorForm {
-  return {
-    nombre: i.nombre,
-    email: i.email ?? '',
-    telefono: i.telefono ?? '',
-    color: i.color,
-    activo: i.activo,
-  };
-}
-
-function InstructorAvatar({
-  nombre,
-  color,
-  size = 'md',
-}: {
-  nombre: string;
-  color: string;
-  size?: 'sm' | 'md';
-}) {
-  const initial = nombre.charAt(0).toUpperCase();
-  const cls =
-    size === 'sm'
-      ? 'w-7 h-7 text-[11px]'
-      : 'w-8 h-8 text-[13px]';
-  return (
-    <span
-      className={cn(
-        cls,
-        'inline-flex items-center justify-center rounded-full font-semibold text-white shrink-0'
-      )}
-      style={{ backgroundColor: color }}
-    >
-      {initial}
-    </span>
-  );
-}
-
-function TabInstructores({ showToast }: { showToast: (m: string) => void }) {
-  const { instructores, addInstructor, updateInstructor, deleteInstructor } = useStudio();
-
-  const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<InstructorForm>(emptyInstructorForm());
-  const [confirmDel, setConfirmDel] = useState<string | null>(null);
-
-  const openNuevo = useCallback(() => {
-    setForm(emptyInstructorForm());
-    setEditId(null);
-    setModal('nuevo');
-  }, []);
-
-  const openEditar = useCallback((i: Instructor) => {
-    setForm(instructorToForm(i));
-    setEditId(i.id);
-    setModal('editar');
-  }, []);
-
-  const closeModal = useCallback(() => setModal(null), []);
-
-  const guardar = useCallback(() => {
-    const fields = {
-      nombre: form.nombre.trim(),
-      email: form.email.trim() || null,
-      telefono: form.telefono.trim() || null,
-      color: form.color,
-      activo: form.activo,
-    };
-    if (modal === 'nuevo') {
-      addInstructor(fields);
-      showToast('Instructor creado correctamente');
-    } else if (editId) {
-      updateInstructor(editId, fields);
-      showToast('Instructor actualizado');
-    }
-    setModal(null);
-  }, [modal, editId, form, addInstructor, updateInstructor, showToast]);
-
-  const toggleActivo = useCallback(
-    (id: string, current: boolean) => {
-      updateInstructor(id, { activo: !current });
-      showToast(!current ? 'Instructor activado' : 'Instructor desactivado');
-    },
-    [updateInstructor, showToast]
-  );
-
-  const handleDelete = useCallback(() => {
-    if (confirmDel) {
-      deleteInstructor(confirmDel);
-      showToast('Instructor eliminado');
-    }
-  }, [confirmDel, deleteInstructor, showToast]);
-
-  const canGuardar = form.nombre.trim();
-
-  return (
-    <div className="space-y-4 max-w-4xl">
-      <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8E8E86]">{instructores.length} instructores configurados</p>
-        <button className={btnPrimary} onClick={openNuevo}>
-          <Plus size={13} />
-          Nuevo instructor
-        </button>
-      </div>
-
-      <div className={cn(cardCls, 'p-0 overflow-hidden')}>
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr className="border-b border-[#E7E7E0]">
-              {['Instructor', 'Email', 'Teléfono', 'Estado', 'Acciones'].map(h => (
-                <th
-                  key={h}
-                  className="text-left px-5 py-3 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {instructores.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-[13px] text-[#8E8E86]">
-                  No hay instructores creados. Haz clic en &quot;Nuevo instructor&quot; para empezar.
-                </td>
-              </tr>
-            )}
-            {instructores.map(inst => (
-              <tr
-                key={inst.id}
-                className={cn(
-                  'border-b border-[#EEEEE8] last:border-0 hover:bg-[#F5F5F1] transition-colors',
-                  !inst.activo && 'opacity-50'
-                )}
-              >
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <InstructorAvatar nombre={inst.nombre} color={inst.color} />
-                    <span className="font-medium text-[#1A1A1A]">{inst.nombre}</span>
-                  </div>
-                </td>
-                <td className="px-5 py-3 text-[#8E8E86]">{inst.email ?? '—'}</td>
-                <td className="px-5 py-3 text-[#8E8E86]">{inst.telefono ?? '—'}</td>
-                <td className="px-5 py-3">
-                  <Toggle
-                    on={inst.activo}
-                    onChange={() => toggleActivo(inst.id, inst.activo)}
-                  />
-                </td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => openEditar(inst)}
-                      className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
-                      aria-label="Editar instructor"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={() => setConfirmDel(inst.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86] hover:text-[#DC2626] transition-colors"
-                      aria-label="Eliminar instructor"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Modal */}
-      <Dialog open={modal !== null} onOpenChange={open => !open && closeModal()}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-[15px] font-semibold text-[#1A1A1A]">
-              {modal === 'nuevo' ? 'Nuevo instructor' : 'Editar instructor'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 mt-2">
-            <Field label="Nombre completo">
-              <input
-                className={inputCls}
-                value={form.nombre}
-                onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-                placeholder="Ej: María García"
-              />
-            </Field>
-            <Field label="Email (opcional)">
-              <input
-                className={inputCls}
-                type="email"
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                placeholder="instructor@estudio.es"
-              />
-            </Field>
-            <Field label="Teléfono (opcional)">
-              <input
-                className={inputCls}
-                type="tel"
-                value={form.telefono}
-                onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))}
-                placeholder="+34 600 000 000"
-              />
-            </Field>
-            <Field label="Color identificador">
-              <div className="flex items-center gap-3">
-                <ColorInput value={form.color} onChange={v => setForm(f => ({ ...f, color: v }))} />
-                {form.nombre && (
-                  <InstructorAvatar nombre={form.nombre} color={form.color} size="md" />
-                )}
-              </div>
-            </Field>
-            <div className="flex items-center justify-between py-1">
-              <span className={labelCls}>Instructor activo</span>
-              <Toggle on={form.activo} onChange={v => setForm(f => ({ ...f, activo: v }))} />
-            </div>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button className={cn(btnSecondary, 'flex-1 justify-center')} onClick={closeModal}>
-              Cancelar
-            </button>
-            <button
-              className={cn(btnPrimary, 'flex-1 justify-center')}
-              onClick={guardar}
-              disabled={!canGuardar}
-            >
-              {modal === 'nuevo' ? 'Crear instructor' : 'Guardar cambios'}
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <ConfirmDialog
-        open={!!confirmDel}
-        onOpenChange={open => !open && setConfirmDel(null)}
-        title="¿Eliminar instructor?"
-        description="Se eliminará este instructor del sistema. Las sesiones ya creadas no se verán afectadas."
-        onConfirm={handleDelete}
-      />
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TAB 5: ESTUDIO
-// ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TAB: INTEGRACIONES

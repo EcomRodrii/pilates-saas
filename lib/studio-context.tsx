@@ -19,7 +19,7 @@ import {
   dbInsertPostComunidad, dbUpdatePostComunidad,
   dbUpsertIntegracion,
   dbInsertAutomationLog, dbUpdateAutomationRule,
-  dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
+  dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
   dbUpdateStudio,
   setDbErrorListener,
 } from '@/lib/supabase-data';
@@ -63,6 +63,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
+import { useAuth } from '@/lib/auth-context';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -239,6 +240,7 @@ interface StudioContextValue {
   addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>) => void;
   updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => void;
   deleteInstructor: (id: string) => void;
+  claimInstructorAccount: (email: string, authUserId: string) => Promise<Instructor | null>;
 
   // Studio config (policy, terms)
   studioConfig: StudioConfig;
@@ -327,7 +329,14 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [notasProgreso, setNotasProgreso] = useState<NotaProgreso[]>([]);
   const [studio, setStudio] = useState<Studio | null>(null);
 
-  // ── Fetch all data from Supabase on mount ────────────────────────────────────
+  // ── Fetch all data from Supabase whenever the auth session changes ──────────
+  // (mount, login, logout) — RLS now returns different rows to anon vs.
+  // authenticated requests, so a stale pre-login fetch would leave every
+  // authenticated-only table (instructores, integraciones, notas...) empty
+  // after signing in without a full page reload.
+  const { user } = useAuth();
+  const authUserId = user?.id ?? null;
+
   useEffect(() => {
     fetchAllStudioData().then(data => {
       setPlanesTarifa(data.planesTarifa);
@@ -363,7 +372,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setDataLoaded(true);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authUserId]);
 
   // ── Auto-increment factura counter ──────────────────────────────────────────
   function nextFacturaNumero(existingFacturas: Factura[]): string {
@@ -449,6 +458,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function deleteInstructor(id: string) {
     setInstructores(prev => prev.filter(i => i.id !== id));
     dbDeleteInstructor(id);
+  }
+
+  async function claimInstructorAccount(email: string, authUserId: string) {
+    const claimed = await dbClaimInstructorAccount(email, authUserId);
+    if (claimed) setInstructores(prev => prev.map(i => i.id === claimed.id ? claimed : i));
+    return claimed;
   }
 
   // ── Datos del estudio ──────────────────────────────────────────────────────────
@@ -1408,6 +1423,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     addInstructor,
     updateInstructor,
     deleteInstructor,
+    claimInstructorAccount,
     socios,
     suscripciones,
     sesiones,

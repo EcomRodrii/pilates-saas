@@ -1,19 +1,36 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { useAuth } from '@/lib/auth-context';
+import { usePermisos } from '@/lib/permisos';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
+  const { puedeVer } = usePermisos();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading && !session) router.replace('/login');
   }, [loading, session, router]);
 
+  const autorizado = puedeVer(pathname);
+  useEffect(() => {
+    if (!loading && session && !autorizado) router.replace('/dashboard');
+  }, [loading, session, autorizado, router]);
+
   if (loading || !session) return null;
+
+  if (!autorizado) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Sidebar />
+        <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

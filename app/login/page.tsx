@@ -4,29 +4,48 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useStudio } from '@/lib/studio-context';
 
 export default function LoginPage() {
-  const { signIn, session, loading } = useAuth();
+  const { signIn, signUp, session, user, loading } = useAuth();
+  const { claimInstructorAccount } = useStudio();
   const router = useRouter();
+  const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && session) router.replace('/dashboard');
-  }, [session, loading, router]);
+    if (loading || !session || !user) return;
+    claimInstructorAccount(user.email ?? '', user.id).finally(() => router.replace('/dashboard'));
+  }, [session, user, loading, router, claimInstructorAccount]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setInfo('');
     setSubmitting(true);
-    const { error } = await signIn(email, password);
-    if (error) {
-      setError('Email o contraseña incorrectos');
-      setSubmitting(false);
+
+    if (modo === 'entrar') {
+      const { error } = await signIn(email, password);
+      if (error) {
+        setError('Email o contraseña incorrectos');
+        setSubmitting(false);
+      }
+      // El redirect + reclamo de cuenta lo hace el useEffect al detectar sesión.
     } else {
-      router.replace('/dashboard');
+      const { error, needsConfirmation } = await signUp(email, password);
+      if (error) {
+        setError(error);
+        setSubmitting(false);
+      } else if (needsConfirmation) {
+        setInfo('Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.');
+        setModo('entrar');
+        setSubmitting(false);
+      }
+      // Si no requiere confirmación, ya hay sesión y el useEffect se encarga.
     }
   }
 
@@ -43,7 +62,15 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-[#E7E7E0] p-6">
-          <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-5">Iniciar sesión</h2>
+          <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-5">
+            {modo === 'entrar' ? 'Iniciar sesión' : 'Crear cuenta de equipo'}
+          </h2>
+
+          {modo === 'crear' && (
+            <p className="text-[13px] text-[#8E8E86] mb-4 -mt-2">
+              Usa el email exacto que te haya dado tu propietaria en Equipo — tu rol quedará vinculado automáticamente al iniciar sesión.
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -67,6 +94,7 @@ export default function LoginPage() {
               <input
                 type="password"
                 required
+                minLength={6}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -77,6 +105,9 @@ export default function LoginPage() {
             {error && (
               <p className="text-[13px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
             )}
+            {info && (
+              <p className="text-[13px] text-[#3F5200] bg-[#EDF9C8] rounded-lg px-3 py-2">{info}</p>
+            )}
 
             <button
               type="submit"
@@ -84,13 +115,25 @@ export default function LoginPage() {
               className="w-full py-3 rounded-full text-[14px] font-bold text-[#171717] transition-all hover:brightness-95 disabled:opacity-60"
               style={{ backgroundColor: '#C6F94D' }}
             >
-              {submitting ? 'Entrando…' : 'Entrar'}
+              {submitting ? 'Un momento…' : modo === 'entrar' ? 'Entrar' : 'Crear cuenta'}
             </button>
           </form>
         </div>
 
         <p className="text-center text-[12px] text-[#A8A89F] mt-5">
-          ¿Problemas para acceder? Contacta con el administrador.
+          {modo === 'entrar' ? (
+            <>¿Eres del equipo y aún no tienes cuenta?{' '}
+              <button onClick={() => { setModo('crear'); setError(''); setInfo(''); }} className="font-semibold text-[#3A3A34] hover:underline">
+                Crear cuenta
+              </button>
+            </>
+          ) : (
+            <>¿Ya tienes cuenta?{' '}
+              <button onClick={() => { setModo('entrar'); setError(''); setInfo(''); }} className="font-semibold text-[#3A3A34] hover:underline">
+                Iniciar sesión
+              </button>
+            </>
+          )}
         </p>
       </div>
     </div>

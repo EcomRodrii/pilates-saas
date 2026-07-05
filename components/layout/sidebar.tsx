@@ -16,6 +16,7 @@ import { GlobalSearch } from '@/components/search/global-search';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
+import { usePermisos } from '@/lib/permisos';
 
 // ─── Nav config ──────────────────────────────────────────────────────────────
 
@@ -120,7 +121,10 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
 
 // ─── Mobile: "Más" full-screen drawer ────────────────────────────────────────
 
-function MasDrawer({ onClose, userInitials, userEmail, handleSignOut }: { onClose: () => void; userInitials: string; userEmail: string; handleSignOut: () => void }) {
+function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }: {
+  onClose: () => void; userInitials: string; userEmail: string; handleSignOut: () => void;
+  sections: typeof navSections;
+}) {
   const pathname = usePathname();
 
   return (
@@ -139,7 +143,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut }: { onClos
 
       {/* All sections */}
       <nav className="flex-1 overflow-y-auto px-4 py-3">
-        {navSections.map((section, si) => (
+        {sections.map((section, si) => (
           <div key={si} className="mb-2">
             {section.label && (
               <p className="px-3 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-white/25">
@@ -195,7 +199,13 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, signOut } = useAuth();
   const { studio } = useStudio();
+  const { puedeVer } = usePermisos();
   const router = useRouter();
+
+  const seccionesVisibles = navSections
+    .map(s => ({ ...s, items: s.items.filter(i => puedeVer(i.href)) }))
+    .filter(s => s.items.length > 0);
+  const bottomNavVisibles = bottomNavItems.filter(i => puedeVer(i.href));
 
   // Restore the collapsed preference and keep the shared --sidebar-w CSS var
   // (read by the dashboard layout's <main> padding) in sync with it.
@@ -237,7 +247,7 @@ export function Sidebar() {
         className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around px-2 border-t"
         style={{ backgroundColor: '#ffffff', borderColor: '#E7E7E0', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
-        {bottomNavItems.map(item => (
+        {bottomNavVisibles.map(item => (
           <BottomNavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} />
         ))}
         {/* Más button */}
@@ -253,7 +263,7 @@ export function Sidebar() {
       </nav>
 
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
-      {masOpen && <MasDrawer onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} />}
+      {masOpen && <MasDrawer onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />}
 
       {/* ── Desktop sidebar (floating black pill — Midbox) ─────────────────── */}
       <aside
@@ -282,7 +292,7 @@ export function Sidebar() {
 
         {/* Nav */}
         <nav className={cn('flex-1 py-2 overflow-y-auto space-y-1', collapsed ? 'px-2' : 'px-2')}>
-          {navSections.map((section, si) => (
+          {seccionesVisibles.map((section, si) => (
             <div key={si}>
               {section.label && !collapsed && (
                 <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/20">

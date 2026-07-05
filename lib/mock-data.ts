@@ -73,8 +73,8 @@ export const tiposClase: TipoClase[] = [
 ];
 
 export const instructores: Instructor[] = [
-  { id: 'ins-1', studioId: 'studio-1', nombre: 'María Soler', email: 'maria@tentare.es', telefono: '+34 611 000 001', color: '#f59e0b', activo: true },
-  { id: 'ins-2', studioId: 'studio-1', nombre: 'Julia Ramos', email: 'julia@tentare.es', telefono: '+34 611 000 002', color: '#ec4899', activo: true },
+  { id: 'ins-1', studioId: 'studio-1', nombre: 'María Soler', email: 'maria@tentare.es', telefono: '+34 611 000 001', color: '#f59e0b', activo: true, rol: 'INSTRUCTOR', authUserId: null },
+  { id: 'ins-2', studioId: 'studio-1', nombre: 'Julia Ramos', email: 'julia@tentare.es', telefono: '+34 611 000 002', color: '#ec4899', activo: true, rol: 'INSTRUCTOR', authUserId: null },
 ];
 
 // Genera sesiones para esta semana

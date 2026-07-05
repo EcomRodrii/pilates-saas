@@ -109,7 +109,9 @@ create table if not exists instructores (
   telefono text,
   color text default '#4F46E5',
   activo boolean default true,
-  avatar text
+  avatar text,
+  rol text default 'INSTRUCTOR',
+  auth_user_id uuid references auth.users(id) on delete set null
 );
 
 -- ─── Sesiones ─────────────────────────────────────────────────────────────────
@@ -420,6 +422,10 @@ alter table socios add column if not exists avatar text;
 alter table instructores add column if not exists avatar text;
 alter table studios add column if not exists avatar_admin text;
 
+-- Migración: roles y acceso al panel para el equipo
+alter table instructores add column if not exists rol text default 'INSTRUCTOR';
+alter table instructores add column if not exists auth_user_id uuid references auth.users(id) on delete set null;
+
 -- ═══════════════════════════════════════════════════════════════════
 -- Políticas de acceso
 --
@@ -433,17 +439,50 @@ alter table studios add column if not exists avatar_admin text;
 -- que esas páginas realmente necesitan (nunca DELETE, y nunca sobre
 -- tablas con datos sensibles como integraciones, notas internas o
 -- logs de automatización).
+--
+-- Roles: el equipo (tabla instructores) tiene un campo `rol`
+-- (PROPIETARIO / RECEPCION / INSTRUCTOR). current_rol() mira si el
+-- usuario autenticado tiene una fila en instructores vinculada por
+-- auth_user_id; si no la tiene (el login original del negocio, o
+-- cualquier cuenta que aún no se haya vinculado a un miembro del
+-- equipo) se trata como PROPIETARIO — mantiene el comportamiento
+-- actual de un solo admin sin romper nada.
 -- ═══════════════════════════════════════════════════════════════════
 
--- Acceso completo para el panel de administración (requiere sesión)
+create or replace function current_rol() returns text as $$
+  select coalesce(
+    (select rol from instructores where auth_user_id = auth.uid() limit 1),
+    'PROPIETARIO'
+  );
+$$ language sql stable security definer;
+
+-- Tablas solo para la propietaria: configuración del negocio, marketing,
+-- automatizaciones y sus registros — nada de esto debe verlo ni tocarlo
+-- recepción ni una instructora.
+do $$
+declare
+  t text;
+  owner_tables text[] := array[
+    'integraciones','automatizaciones','automation_rules','automation_logs',
+    'campanas','codigos_descuento','notas_internas','actividad_reciente'
+  ];
+begin
+  foreach t in array owner_tables loop
+    execute format('drop policy if exists "allow_all_%s" on %s', t, t);
+    execute format('drop policy if exists "admin_%s" on %s', t, t);
+    execute format('drop policy if exists "owner_%s" on %s', t, t);
+    execute format('create policy "owner_%s" on %s for all to authenticated using (current_rol() = ''PROPIETARIO'') with check (current_rol() = ''PROPIETARIO'')', t, t);
+  end loop;
+end $$;
+
+-- Tablas operativas: cualquier miembro del equipo con sesión (recepción,
+-- instructora o propietaria) las necesita para el día a día del panel.
 do $$
 declare
   t text;
   admin_tables text[] := array[
-    'instructores','citas','productos_pos','ventas_pos','campanas',
-    'automatizaciones','automation_rules','automation_logs',
-    'codigos_descuento','actividad_reciente','notificaciones',
-    'posts_comunidad','notas_internas','notas_progreso','integraciones'
+    'citas','productos_pos','ventas_pos','notificaciones',
+    'posts_comunidad','notas_progreso'
   ];
 begin
   foreach t in array admin_tables loop
@@ -459,7 +498,7 @@ do $$
 declare
   t text;
   business_tables text[] := array[
-    'studios','planes_tarifa','salas','spots','tipos_clase','sesiones','facturas','videos_on_demand'
+    'planes_tarifa','salas','spots','tipos_clase','sesiones','facturas','videos_on_demand'
   ];
 begin
   foreach t in array business_tables loop
@@ -470,6 +509,33 @@ begin
     execute format('create policy "public_read_%s" on %s for select to anon using (true)', t, t);
   end loop;
 end $$;
+
+-- Studios: solo la propietaria edita los datos del negocio; lectura
+-- pública para que /reservar y el portal muestren nombre/dirección/contacto
+drop policy if exists "allow_all_studios" on studios;
+drop policy if exists "admin_studios" on studios;
+drop policy if exists "owner_studios" on studios;
+drop policy if exists "public_read_studios" on studios;
+create policy "owner_studios" on studios for all to authenticated using (current_rol() = 'PROPIETARIO') with check (current_rol() = 'PROPIETARIO');
+create policy "public_read_studios" on studios for select to anon using (true);
+
+-- Instructores (el equipo): cualquier miembro autenticado puede ver la
+-- lista (para asignar clases, ver compañeras…), pero solo la propietaria
+-- da de alta/edita/da de baja. La excepción es "reclamar" el acceso al
+-- panel: alguien que se acaba de registrar puede vincular SU propia
+-- cuenta a la fila que la propietaria le creó, pero solo si el email
+-- coincide exactamente con el de su sesión, y solo mientras esa fila
+-- siga sin reclamar.
+drop policy if exists "allow_all_instructores" on instructores;
+drop policy if exists "admin_instructores" on instructores;
+drop policy if exists "read_instructores" on instructores;
+drop policy if exists "owner_write_instructores" on instructores;
+drop policy if exists "self_claim_instructores" on instructores;
+create policy "read_instructores" on instructores for select to authenticated using (true);
+create policy "owner_write_instructores" on instructores for all to authenticated using (current_rol() = 'PROPIETARIO') with check (current_rol() = 'PROPIETARIO');
+create policy "self_claim_instructores" on instructores for update to authenticated
+  using (auth_user_id is null and email = (auth.jwt() ->> 'email'))
+  with check (auth_user_id = auth.uid());
 
 -- Socios: lectura pública (login del portal por email) + edición pública
 -- limitada (una socia edita su propio avatar/perfil desde el portal)

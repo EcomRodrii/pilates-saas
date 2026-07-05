@@ -154,6 +154,8 @@ function mapInstructor(r: any) {
     color: r.color,
     activo: r.activo,
     avatar: r.avatar ?? null,
+    rol: r.rol ?? 'INSTRUCTOR',
+    authUserId: r.auth_user_id ?? null,
   };
 }
 
@@ -1057,6 +1059,8 @@ export async function dbInsertInstructor(i: any) {
     color: i.color,
     activo: i.activo,
     avatar: i.avatar ?? null,
+    rol: i.rol ?? 'INSTRUCTOR',
+    auth_user_id: i.authUserId ?? null,
   };
   const { error } = await supabase.from('instructores').insert(row);
   if (error) reportDbError('[dbInsertInstructor]', error);
@@ -1070,8 +1074,26 @@ export async function dbUpdateInstructor(id: string, changes: any) {
   if ('color' in changes) db.color = changes.color;
   if ('activo' in changes) db.activo = changes.activo;
   if ('avatar' in changes) db.avatar = changes.avatar;
+  if ('rol' in changes) db.rol = changes.rol;
+  if ('authUserId' in changes) db.auth_user_id = changes.authUserId;
   const { error } = await supabase.from('instructores').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateInstructor]', error);
+}
+
+// Vincula la fila de instructor sin reclamar (auth_user_id null) cuyo
+// email coincide con el de la sesión recién creada. La política RLS
+// "self_claim_instructores" es quien realmente impone que solo se
+// pueda reclamar la fila con el email correcto — esto es solo el cliente.
+export async function dbClaimInstructorAccount(email: string, authUserId: string) {
+  const { data, error } = await supabase
+    .from('instructores')
+    .update({ auth_user_id: authUserId })
+    .is('auth_user_id', null)
+    .eq('email', email)
+    .select()
+    .maybeSingle();
+  if (error) { reportDbError('[dbClaimInstructorAccount]', error); return null; }
+  return data ? mapInstructor(data) : null;
 }
 
 export async function dbUpdateStudio(changes: any) {
