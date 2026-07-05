@@ -55,12 +55,12 @@ export default function PortalHome() {
       {/* ── Header gradient ─────────────────────────── */}
       <div
         className="px-5 pt-6 pb-8"
-        style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)' }}
+        style={{ background: 'linear-gradient(155deg, #2B2429 0%, #6E3F4C 55%, #A05A6B 100%)' }}
       >
         {/* Top row */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <p className="text-indigo-300 text-[13px] font-medium">{greeting}</p>
+            <p className="text-[#E7C9CF] text-[13px] font-medium">{greeting}</p>
             <h1 className="text-white text-[28px] font-extrabold leading-tight tracking-tight mt-0.5">
               {nombre} 👋
             </h1>
@@ -88,7 +88,7 @@ export default function PortalHome() {
               <p className={`text-[26px] font-extrabold leading-none ${highlight ? 'text-red-400' : 'text-white'}`}>
                 {value}
               </p>
-              <p className="text-indigo-300 text-[10px] font-semibold mt-1.5 uppercase tracking-wider">{label}</p>
+              <p className="text-[#E7C9CF] text-[10px] font-semibold mt-1.5 uppercase tracking-wider">{label}</p>
             </div>
           ))}
         </div>
@@ -100,7 +100,7 @@ export default function PortalHome() {
           const tipo = tiposClase.find(t => t.id === proxima.s!.tipoClaseId);
           const sala = salas.find(s => s.id === proxima.s!.salaId);
           const instr = instructores.find(i => i.id === proxima.s!.instructorId);
-          const color = tipo?.color ?? '#4F46E5';
+          const color = tipo?.color ?? '#C08497';
           return (
             <Link href="/portal/clases" className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
               <div className="p-5 text-white" style={{ background: `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
@@ -128,11 +128,11 @@ export default function PortalHome() {
           );
         })() : (
           <Link href="/portal/clases" className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
-            <div className="p-5 bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] text-white">
+            <div className="p-5 bg-gradient-to-br from-[#C08497] to-[#A05A6B] text-white">
               <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-3">Próxima clase</p>
               <p className="text-white text-[20px] font-extrabold mb-1">Sin clases reservadas</p>
               <p className="text-white/60 text-[13px] mb-4">Reserva tu próxima sesión ahora</p>
-              <div className="inline-flex items-center gap-2 bg-white text-[#4F46E5] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
+              <div className="inline-flex items-center gap-2 bg-white text-[#C08497] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
                 <Calendar size={15} />
                 Ver clases disponibles
               </div>
@@ -147,11 +147,11 @@ export default function PortalHome() {
           <Link href="/portal/mi-plan" className={`block bg-white rounded-3xl shadow-sm border p-5 active:scale-[0.98] transition-transform ${bonoCaducado ? 'border-red-200' : 'border-black/[0.06]'}`}>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-1">Mi bono</p>
-                <p className="text-[18px] font-extrabold text-[#111827] leading-tight">{plan.nombre}</p>
+                <p className="text-[11px] font-bold text-[#A6989D] uppercase tracking-widest mb-1">Mi bono</p>
+                <p className="text-[18px] font-extrabold text-[#2B2429] leading-tight">{plan.nombre}</p>
               </div>
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${bonoCaducado ? 'bg-red-50' : 'bg-[#EEF2FF]'}`}>
-                <CreditCard size={18} className={bonoCaducado ? 'text-red-500' : 'text-[#4F46E5]'} />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${bonoCaducado ? 'bg-red-50' : 'bg-[#F7EDEF]'}`}>
+                <CreditCard size={18} className={bonoCaducado ? 'text-red-500' : 'text-[#C08497]'} />
               </div>
             </div>
             {bonoCaducado ? (
@@ -164,27 +164,27 @@ export default function PortalHome() {
             ) : activeSus.sesionesRestantes != null && plan.sesiones != null ? (
               <>
                 <div className="flex justify-between items-baseline mb-2">
-                  <span className="text-[22px] font-extrabold text-[#111827]">{activeSus.sesionesRestantes}</span>
-                  <span className="text-[13px] text-[#8E8E93]">de {plan.sesiones} sesiones</span>
+                  <span className="text-[22px] font-extrabold text-[#2B2429]">{activeSus.sesionesRestantes}</span>
+                  <span className="text-[13px] text-[#A6989D]">de {plan.sesiones} sesiones</span>
                 </div>
-                <div className="h-2.5 bg-[#F2F2F7] rounded-full overflow-hidden">
+                <div className="h-2.5 bg-[#F5EFEC] rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
                       width: `${Math.min(100, Math.round((activeSus.sesionesRestantes / plan.sesiones) * 100))}%`,
-                      backgroundColor: activeSus.sesionesRestantes > 3 ? '#4F46E5' : '#EF4444',
+                      backgroundColor: activeSus.sesionesRestantes > 3 ? '#C08497' : '#EF4444',
                     }}
                   />
                 </div>
               </>
             ) : (
               <div className="flex items-center justify-between">
-                <p className="text-[14px] text-[#6B7280]">
+                <p className="text-[14px] text-[#8B7D82]">
                   {activeSus.fechaFin
                     ? `Válido hasta el ${new Date(activeSus.fechaFin).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}`
                     : 'Sesiones ilimitadas'}
                 </p>
-                <ChevronRight size={16} className="text-[#C7C7CC]" />
+                <ChevronRight size={16} className="text-[#C9BCC0]" />
               </div>
             )}
           </Link>
@@ -193,13 +193,13 @@ export default function PortalHome() {
 
       {/* ── Acceso rápido ────────────────────────────── */}
       <div className="px-4 mt-5">
-        <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">Acceso rápido</p>
+        <p className="text-[11px] font-bold text-[#A6989D] uppercase tracking-widest mb-3">Acceso rápido</p>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { href: '/portal/clases', icon: Calendar, label: 'Reservar clase', color: '#4F46E5', bg: '#EEF2FF' },
+            { href: '/portal/clases', icon: Calendar, label: 'Reservar clase', color: '#C08497', bg: '#F7EDEF' },
             { href: '/portal/mi-plan', icon: CreditCard, label: 'Mis pagos', color: '#059669', bg: '#ECFDF5' },
             { href: '/portal/videos', icon: Play, label: 'Videos on-demand', color: '#D97706', bg: '#FFFBEB' },
-            { href: '/portal/progreso', icon: TrendingUp, label: 'Mi progreso', color: '#7C3AED', bg: '#F5F3FF' },
+            { href: '/portal/progreso', icon: TrendingUp, label: 'Mi progreso', color: '#A05A6B', bg: '#F7EDEF' },
           ].map(({ href, icon: Icon, label, color, bg }) => (
             <Link
               key={href}
@@ -209,7 +209,7 @@ export default function PortalHome() {
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: bg }}>
                 <Icon size={20} style={{ color }} />
               </div>
-              <p className="text-[14px] font-bold text-[#111827] leading-tight">{label}</p>
+              <p className="text-[14px] font-bold text-[#2B2429] leading-tight">{label}</p>
             </Link>
           ))}
         </div>

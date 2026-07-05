@@ -43,15 +43,15 @@ export default function PortalLogin() {
       <div className="mb-10 flex flex-col items-center gap-4">
         <Image src="/logo-transparent.png" alt="Tentare" width={160} height={70} className="h-20 w-auto object-contain" />
         <div className="text-center">
-          <h1 className="text-2xl font-extrabold text-[#111827]">Portal de miembros</h1>
-          <p className="text-sm text-[#6B7280] mt-1">Accede con tu email</p>
+          <h1 className="text-2xl font-extrabold text-[#2B2429]">Portal de miembros</h1>
+          <p className="text-sm text-[#8B7D82] mt-1">Accede con tu email</p>
         </div>
       </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
         <div className="relative">
-          <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+          <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B0A3A8]" />
           <input
             type="email"
             value={email}
@@ -59,7 +59,7 @@ export default function PortalLogin() {
             placeholder="tu@email.com"
             required
             autoFocus
-            className="w-full pl-10 pr-4 py-3.5 bg-white border border-[#E8EAED] rounded-2xl text-sm text-[#111827] placeholder:text-[#9CA3AF] outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/20 transition-all"
+            className="w-full pl-10 pr-4 py-3.5 bg-white border border-[#F0E6E4] rounded-2xl text-sm text-[#2B2429] placeholder:text-[#B0A3A8] outline-none focus:border-[#C08497] focus:ring-2 focus:ring-[#C08497]/20 transition-all"
           />
         </div>
 
@@ -73,13 +73,13 @@ export default function PortalLogin() {
         <button
           type="submit"
           disabled={loading || !email}
-          className="w-full py-3.5 rounded-2xl bg-[#4F46E5] text-white font-bold text-sm transition-all disabled:opacity-50 hover:bg-[#4338CA] active:scale-[0.98]"
+          className="w-full py-3.5 rounded-2xl bg-[#C08497] text-white font-bold text-sm transition-all disabled:opacity-50 hover:bg-[#A05A6B] active:scale-[0.98]"
         >
           {loading ? 'Comprobando...' : 'Entrar'}
         </button>
       </form>
 
-      <p className="mt-8 text-xs text-[#9CA3AF] text-center max-w-xs">
+      <p className="mt-8 text-xs text-[#B0A3A8] text-center max-w-xs">
         ¿Eres nuevo? Habla con tu instructor para que te añada como miembro y puedas acceder.
       </p>
     </div>

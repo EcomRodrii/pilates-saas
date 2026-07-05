@@ -124,7 +124,7 @@ function CanvasSignature({ onHasDrawing }: { onHasDrawing: (v: boolean) => void 
     const pos = getPos(e);
     if (lastPos.current) {
       ctx.beginPath();
-      ctx.strokeStyle = '#111827';
+      ctx.strokeStyle = '#2B2429';
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -182,7 +182,7 @@ function LevelBadge({ nivel }: { nivel?: string }) {
       Todos los niveles
     </span>
   );
-  const c = NIVEL_COLOR[nivel] ?? { bg: '#F3F4F6', text: '#6B7280' };
+  const c = NIVEL_COLOR[nivel] ?? { bg: '#F3F4F6', text: '#8B7D82' };
   const emoji = nivel === 'PRINCIPIANTE' ? '🟢' : nivel === 'MEDIO' ? '🟡' : '🔴';
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: c.bg, color: c.text }}>
@@ -192,7 +192,7 @@ function LevelBadge({ nivel }: { nivel?: string }) {
 }
 
 function PlazasDots({ taken, total }: { taken: number; total: number }) {
-  const left = total - taken;
+  const left = Math.max(0, total - taken);
   const color = left === 0 ? '#EF4444' : left <= 2 ? '#F59E0B' : '#10B981';
   const label = left === 0 ? 'Clase llena' : left === 1 ? '1 plaza libre' : `${left} plazas libres`;
   return (
@@ -380,7 +380,7 @@ export default function ReservarPage() {
 
   const bookingSesion = bookingSesionId ? sesionesRich.find(s => s.id === bookingSesionId) : null;
 
-  const PRIMARY = '#4F46E5'; // indigo brand color
+  const PRIMARY = '#C08497'; // Tentare rose
 
   return (
     <div className="min-h-screen bg-[#F4F6F9]">
@@ -426,7 +426,7 @@ export default function ReservarPage() {
                 className="px-4 py-2.5 text-sm font-semibold border-b-2 transition-all"
                 style={tab === t
                   ? { color: PRIMARY, borderColor: PRIMARY }
-                  : { color: '#9CA3AF', borderColor: 'transparent' }}>
+                  : { color: '#B0A3A8', borderColor: 'transparent' }}>
                 {label}
               </button>
             ))}
@@ -459,7 +459,7 @@ export default function ReservarPage() {
                         className="flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl transition-all shrink-0 min-w-[42px]"
                         style={isSel
                           ? { backgroundColor: PRIMARY, color: '#fff' }
-                          : { color: isToday ? '#111827' : '#9CA3AF' }}>
+                          : { color: isToday ? '#2B2429' : '#B0A3A8' }}>
                         <span className="text-[9px] font-semibold uppercase">{fmtShort(d).split(' ')[0]}</span>
                         <span className={`text-base font-bold leading-none ${isToday && !isSel ? 'underline decoration-dotted' : ''}`}>{d.getDate()}</span>
                         {hasSess && <div className="w-1 h-1 rounded-full mt-0.5" style={{ backgroundColor: isSel ? 'rgba(255,255,255,0.7)' : PRIMARY }} />}
@@ -484,7 +484,7 @@ export default function ReservarPage() {
                     className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border"
                     style={active
                       ? { backgroundColor: tipo?.color ?? PRIMARY, color: '#fff', borderColor: tipo?.color ?? PRIMARY }
-                      : { backgroundColor: 'white', color: '#6B7280', borderColor: '#E5E7EB' }}>
+                      : { backgroundColor: 'white', color: '#8B7D82', borderColor: '#E5E7EB' }}>
                     {tipo && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: active ? 'rgba(255,255,255,0.7)' : tipo.color }} />}
                     {tipo ? tipo.nombre : 'Todas las clases'}
                   </button>
@@ -583,7 +583,7 @@ export default function ReservarPage() {
           <div className="space-y-3">
             {!socia ? (
               <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-4 text-center shadow-sm">
-                <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: '#EEF2FF' }}>
+                <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F7EDEF' }}>
                   <Users size={24} style={{ color: PRIMARY }} />
                 </div>
                 <div>
@@ -630,8 +630,8 @@ export default function ReservarPage() {
                               ? { backgroundColor: '#D1FAE5', color: '#065F46' }
                               : r.estado === 'LISTA_ESPERA'
                               ? { backgroundColor: '#FEF3C7', color: '#92400E' }
-                              : isPast ? { backgroundColor: '#F3F4F6', color: '#9CA3AF' }
-                              : { backgroundColor: '#EEF2FF', color: PRIMARY }}>
+                              : isPast ? { backgroundColor: '#F3F4F6', color: '#B0A3A8' }
+                              : { backgroundColor: '#F7EDEF', color: PRIMARY }}>
                             {r.estado === 'ASISTIDA' ? '✓ Asistida' : r.estado === 'LISTA_ESPERA' ? '⏳ En espera' : isPast ? 'Finalizada' : '✅ Confirmada'}
                           </span>
                         </div>
@@ -705,7 +705,7 @@ export default function ReservarPage() {
                       {p.descripcion && <p className="text-gray-500 text-xs mt-0.5">{p.descripcion}</p>}
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: '#EEF2FF', color: PRIMARY }}>
+                          style={{ backgroundColor: '#F7EDEF', color: PRIMARY }}>
                           {p.tipo === 'MENSUAL' ? 'Mensual' : p.tipo === 'BONO' ? `Bono ${p.sesiones} clases` : 'Clase suelta'}
                         </span>
                       </div>
@@ -861,7 +861,7 @@ export default function ReservarPage() {
                       value={loginForm[field]}
                       onChange={e => setLoginForm(f => ({ ...f, [field]: e.target.value }))}
                       onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                      className="w-full rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none border border-gray-200 focus:border-indigo-400 transition-colors"
+                      className="w-full rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none border border-gray-200 focus:border-[#C08497] transition-colors"
                       style={{ backgroundColor: '#F9FAFB' }} />
                   ))}
                 </div>
