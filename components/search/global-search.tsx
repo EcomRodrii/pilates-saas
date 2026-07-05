@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { Search, ArrowRight, Calendar, CreditCard, X } from 'lucide-react';
 
-export function GlobalSearch() {
+export function GlobalSearch({ collapsed }: { collapsed?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const router = useRouter();
@@ -62,12 +62,17 @@ export function GlobalSearch() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:bg-white/10"
+        title="Buscar (⌘K)"
+        className={collapsed
+          ? 'flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all hover:bg-white/10'
+          : 'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:bg-white/10'}
         style={{ color: 'rgba(255,255,255,0.45)' }}
       >
-        <Search size={15} />
-        <span className="hidden md:inline text-xs">Buscar</span>
-        <kbd className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded font-mono leading-none" style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }}>⌘K</kbd>
+        <Search size={15} className="shrink-0" />
+        {!collapsed && <span className="hidden md:inline text-xs">Buscar</span>}
+        {!collapsed && (
+          <kbd className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded font-mono leading-none" style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }}>⌘K</kbd>
+        )}
       </button>
 
       {open && (

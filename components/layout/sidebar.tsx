@@ -5,12 +5,12 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Calendar, Users, CreditCard,
-  FileText, Settings, BarChart2, ChevronRight, X,
+  FileText, Settings, BarChart2, ChevronRight, ChevronLeft, X,
   Clock, ShoppingCart, MessageCircle, Megaphone, Play, Bell,
   Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
-  LogOut, UserCog,
+  LogOut, UserCog, Monitor,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { GlobalSearch } from '@/components/search/global-search';
 import { useAuth } from '@/lib/auth-context';
@@ -68,20 +68,22 @@ const bottomNavItems = [
 
 // ─── Desktop nav item ─────────────────────────────────────────────────────────
 
-function NavItem({ href, label, Icon, onClick }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void }) {
+function NavItem({ href, label, Icon, onClick, collapsed }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
   return (
     <Link
       href={href}
       onClick={onClick}
+      title={collapsed ? label : undefined}
       className={cn(
-        'flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] font-medium transition-all relative',
+        'flex items-center rounded-full text-[13px] font-medium transition-all relative',
+        collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
         active ? 'bg-[#C6F94D] text-[#131313] font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-white/5'
       )}
     >
       <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
-      {label}
+      {!collapsed && label}
     </Link>
   );
 }
@@ -185,11 +187,32 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut }: { onClos
 
 // ─── Sidebar (desktop) + bottom nav (mobile) ──────────────────────────────────
 
+const SIDEBAR_W_EXPANDED = '256px';
+const SIDEBAR_W_COLLAPSED = '96px';
+
 export function Sidebar() {
   const [masOpen, setMasOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const { user, signOut } = useAuth();
   const { studio } = useStudio();
   const router = useRouter();
+
+  // Restore the collapsed preference and keep the shared --sidebar-w CSS var
+  // (read by the dashboard layout's <main> padding) in sync with it.
+  useEffect(() => {
+    const stored = localStorage.getItem('sidebar-collapsed') === '1';
+    setCollapsed(stored);
+    document.documentElement.style.setProperty('--sidebar-w', stored ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED);
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebar-collapsed', next ? '1' : '0');
+      document.documentElement.style.setProperty('--sidebar-w', next ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED);
+      return next;
+    });
+  }
 
   async function handleSignOut() {
     await signOut();
@@ -235,86 +258,124 @@ export function Sidebar() {
 
       {/* ── Desktop sidebar (floating black pill — Midbox) ─────────────────── */}
       <aside
-        className="hidden lg:flex fixed top-4 left-4 bottom-4 z-20 flex-col w-56 rounded-[28px] overflow-hidden"
+        className={cn(
+          'hidden lg:flex fixed top-4 left-4 bottom-4 z-20 flex-col rounded-[28px] overflow-hidden transition-[width] duration-200',
+          collapsed ? 'w-16' : 'w-56',
+        )}
         style={{ backgroundColor: '#0A0A0A' }}
       >
         {/* Logo */}
         <div
-          className="flex items-center gap-2.5 px-4 h-14 shrink-0 border-b"
+          className={cn('flex items-center h-14 shrink-0 border-b', collapsed ? 'justify-center px-2' : 'gap-2.5 px-4')}
           style={{ borderColor: 'rgba(255,255,255,0.07)' }}
         >
-          <Image src="/logo-transparent.png" alt="Tentare" width={90} height={40} className="h-8 w-auto object-contain" />
+          {collapsed ? (
+            <div className="w-8 h-8 rounded-full bg-[#C6F94D] flex items-center justify-center text-[#131313] text-[13px] font-extrabold">T</div>
+          ) : (
+            <Image src="/logo-transparent.png" alt="Tentare" width={90} height={40} className="h-8 w-auto object-contain" />
+          )}
         </div>
 
         {/* Search */}
-        <div className="px-3 py-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-          <GlobalSearch />
+        <div className={cn('py-2 border-b', collapsed ? 'px-2' : 'px-3')} style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+          <GlobalSearch collapsed={collapsed} />
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-2 py-2 overflow-y-auto space-y-1">
+        <nav className={cn('flex-1 py-2 overflow-y-auto space-y-1', collapsed ? 'px-2' : 'px-2')}>
           {navSections.map((section, si) => (
             <div key={si}>
-              {section.label && (
+              {section.label && !collapsed && (
                 <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/20">
                   {section.label}
                 </p>
               )}
+              {section.label && collapsed && si > 0 && (
+                <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+              )}
               {section.items.map(item => (
-                <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} />
+                <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} collapsed={collapsed} />
               ))}
             </div>
           ))}
         </nav>
 
         {/* External links */}
-        <div className="px-3 pb-2 space-y-0.5">
-          <Link
-            href="/kiosk"
-            target="_blank"
-            className="flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5"
-            style={{ color: 'rgba(255,255,255,0.35)' }}
-          >
-            <span>Modo quiosco</span>
-            <span style={{ color: 'rgba(255,255,255,0.2)' }}>→</span>
-          </Link>
-          <Link
-            href="/reservar"
-            target="_blank"
-            className="flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5"
-            style={{ color: 'rgba(255,255,255,0.35)' }}
-          >
-            <span>Portal de reservas</span>
-            <span style={{ color: 'rgba(255,255,255,0.2)' }}>→</span>
-          </Link>
-          <Link
-            href="/portal/login"
-            target="_blank"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#8FBF12]"
-          >
-            <ExternalLink size={12} className="shrink-0" />
-            <span>Portal miembros</span>
-          </Link>
-        </div>
+        {collapsed ? (
+          <div className="px-2 pb-2 flex flex-col items-center gap-0.5">
+            <Link href="/kiosk" target="_blank" title="Modo quiosco" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              <Monitor size={15} />
+            </Link>
+            <Link href="/reservar" target="_blank" title="Portal de reservas" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              <Calendar size={15} />
+            </Link>
+            <Link href="/portal/login" target="_blank" title="Portal miembros" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5 text-[#8FBF12]">
+              <ExternalLink size={15} />
+            </Link>
+          </div>
+        ) : (
+          <div className="px-3 pb-2 space-y-0.5">
+            <Link
+              href="/kiosk"
+              target="_blank"
+              className="flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5"
+              style={{ color: 'rgba(255,255,255,0.35)' }}
+            >
+              <span>Modo quiosco</span>
+              <span style={{ color: 'rgba(255,255,255,0.2)' }}>→</span>
+            </Link>
+            <Link
+              href="/reservar"
+              target="_blank"
+              className="flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5"
+              style={{ color: 'rgba(255,255,255,0.35)' }}
+            >
+              <span>Portal de reservas</span>
+              <span style={{ color: 'rgba(255,255,255,0.2)' }}>→</span>
+            </Link>
+            <Link
+              href="/portal/login"
+              target="_blank"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#8FBF12]"
+            >
+              <ExternalLink size={12} className="shrink-0" />
+              <span>Portal miembros</span>
+            </Link>
+          </div>
+        )}
 
         {/* User */}
         <div className="px-3 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-          <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg">
+          <div className={cn('flex items-center gap-2.5 rounded-lg', collapsed ? 'justify-center px-0 py-2' : 'px-2 py-2')}>
             <Link href="/configuracion" title="Editar mi perfil" className="shrink-0">
               <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={userInitials} size="xs" />
             </Link>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-medium text-white/75 truncate leading-tight">{userEmail}</p>
-            </div>
-            <button
-              onClick={handleSignOut}
-              title="Cerrar sesión"
-              className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
-            >
-              <LogOut size={13} className="text-white/30 hover:text-white/60" />
-            </button>
+            {!collapsed && (
+              <>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-medium text-white/75 truncate leading-tight">{userEmail}</p>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  title="Cerrar sesión"
+                  className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+                >
+                  <LogOut size={13} className="text-white/30 hover:text-white/60" />
+                </button>
+              </>
+            )}
           </div>
         </div>
+
+        {/* Collapse / expand toggle */}
+        <button
+          onClick={toggleCollapsed}
+          title={collapsed ? 'Expandir menú' : 'Contraer menú'}
+          className="flex items-center justify-center h-9 shrink-0 border-t transition-colors hover:bg-white/5 text-white/30 hover:text-white/70"
+          style={{ borderColor: 'rgba(255,255,255,0.07)' }}
+        >
+          {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+        </button>
       </aside>
     </>
   );
