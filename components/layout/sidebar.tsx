@@ -216,8 +216,7 @@ export function Sidebar() {
 
   async function handleSignOut() {
     await signOut();
-    // Auth gate is disabled for the audit; stay in the app instead of the login page.
-    router.replace('/dashboard');
+    router.replace('/login');
   }
 
   const userInitials = user?.email?.slice(0, 2).toUpperCase() ?? 'TE';

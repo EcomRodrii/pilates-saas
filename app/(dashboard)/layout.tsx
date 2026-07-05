@@ -1,11 +1,20 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
+import { useAuth } from '@/lib/auth-context';
 
-// NOTE: Auth gate temporarily removed so external auditors can access the
-// dashboard without credentials. Restore the useAuth() redirect before
-// going to production.
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { session, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !session) router.replace('/login');
+  }, [loading, session, router]);
+
+  if (loading || !session) return null;
+
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />

@@ -420,21 +420,93 @@ alter table socios add column if not exists avatar text;
 alter table instructores add column if not exists avatar text;
 alter table studios add column if not exists avatar_admin text;
 
--- Políticas abiertas para desarrollo (anon puede leer y escribir)
+-- ═══════════════════════════════════════════════════════════════════
+-- Políticas de acceso
+--
+-- El panel de administración vive detrás del login de Supabase Auth
+-- (app/(dashboard)/layout.tsx), así que sus tablas solo se conceden a
+-- "authenticated". Un puñado de tablas SÍ necesitan acceso anónimo
+-- porque las usan páginas públicas sin sesión: /reservar (reservas de
+-- visitantes), /kiosk (check-in en tablet compartida) y /portal
+-- (portal de socias, con su propio login por email — no Supabase Auth).
+-- Ese acceso anon se concede tabla por tabla y solo con las operaciones
+-- que esas páginas realmente necesitan (nunca DELETE, y nunca sobre
+-- tablas con datos sensibles como integraciones, notas internas o
+-- logs de automatización).
+-- ═══════════════════════════════════════════════════════════════════
+
+-- Acceso completo para el panel de administración (requiere sesión)
 do $$
 declare
   t text;
-  tables text[] := array[
-    'studios','socios','planes_tarifa','suscripciones','salas','spots',
-    'tipos_clase','instructores','sesiones','reservas','recibos','facturas',
-    'citas','productos_pos','ventas_pos','campanas','automatizaciones',
-    'automation_rules','automation_logs','codigos_descuento',
-    'actividad_reciente','notificaciones','videos_on_demand',
+  admin_tables text[] := array[
+    'instructores','citas','productos_pos','ventas_pos','campanas',
+    'automatizaciones','automation_rules','automation_logs',
+    'codigos_descuento','actividad_reciente','notificaciones',
     'posts_comunidad','notas_internas','notas_progreso','integraciones'
   ];
 begin
-  foreach t in array tables loop
+  foreach t in array admin_tables loop
     execute format('drop policy if exists "allow_all_%s" on %s', t, t);
-    execute format('create policy "allow_all_%s" on %s for all to anon using (true) with check (true)', t, t);
+    execute format('drop policy if exists "admin_%s" on %s', t, t);
+    execute format('create policy "admin_%s" on %s for all to authenticated using (true) with check (true)', t, t);
   end loop;
 end $$;
+
+-- Tablas de negocio: acceso completo para el panel (autenticado) +
+-- lectura pública para reservar/kiosk/portal
+do $$
+declare
+  t text;
+  business_tables text[] := array[
+    'studios','planes_tarifa','salas','spots','tipos_clase','sesiones','facturas','videos_on_demand'
+  ];
+begin
+  foreach t in array business_tables loop
+    execute format('drop policy if exists "allow_all_%s" on %s', t, t);
+    execute format('drop policy if exists "admin_%s" on %s', t, t);
+    execute format('drop policy if exists "public_read_%s" on %s', t, t);
+    execute format('create policy "admin_%s" on %s for all to authenticated using (true) with check (true)', t, t);
+    execute format('create policy "public_read_%s" on %s for select to anon using (true)', t, t);
+  end loop;
+end $$;
+
+-- Socios: lectura pública (login del portal por email) + edición pública
+-- limitada (una socia edita su propio avatar/perfil desde el portal)
+drop policy if exists "allow_all_socios" on socios;
+drop policy if exists "admin_socios" on socios;
+drop policy if exists "public_read_socios" on socios;
+drop policy if exists "public_update_socios" on socios;
+create policy "admin_socios" on socios for all to authenticated using (true) with check (true);
+create policy "public_read_socios" on socios for select to anon using (true);
+create policy "public_update_socios" on socios for update to anon using (true) with check (true);
+
+-- Suscripciones: la app pública necesita ver el bono activo y descontar
+-- sesiones al hacer check-in en el kiosco
+drop policy if exists "allow_all_suscripciones" on suscripciones;
+drop policy if exists "admin_suscripciones" on suscripciones;
+drop policy if exists "public_read_suscripciones" on suscripciones;
+drop policy if exists "public_update_suscripciones" on suscripciones;
+create policy "admin_suscripciones" on suscripciones for all to authenticated using (true) with check (true);
+create policy "public_read_suscripciones" on suscripciones for select to anon using (true);
+create policy "public_update_suscripciones" on suscripciones for update to anon using (true) with check (true);
+
+-- Reservas: reservar (crear/cancelar) y kiosk (check-in) son públicos por diseño
+drop policy if exists "allow_all_reservas" on reservas;
+drop policy if exists "admin_reservas" on reservas;
+drop policy if exists "public_read_reservas" on reservas;
+drop policy if exists "public_write_reservas" on reservas;
+create policy "admin_reservas" on reservas for all to authenticated using (true) with check (true);
+create policy "public_read_reservas" on reservas for select to anon using (true);
+create policy "public_write_reservas" on reservas for insert to anon with check (true);
+create policy "public_update_reservas" on reservas for update to anon using (true) with check (true);
+
+-- Recibos: el check-in del kiosco genera un recibo de renovación cuando
+-- se agota un bono, y el portal muestra el historial de pagos
+drop policy if exists "allow_all_recibos" on recibos;
+drop policy if exists "admin_recibos" on recibos;
+drop policy if exists "public_read_recibos" on recibos;
+drop policy if exists "public_insert_recibos" on recibos;
+create policy "admin_recibos" on recibos for all to authenticated using (true) with check (true);
+create policy "public_read_recibos" on recibos for select to anon using (true);
+create policy "public_insert_recibos" on recibos for insert to anon with check (true);
