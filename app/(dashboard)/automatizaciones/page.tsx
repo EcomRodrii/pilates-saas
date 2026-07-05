@@ -288,8 +288,7 @@ export default function AutomatizacionesPage() {
 
   async function handleRunNow() {
     setRunning(true);
-    await new Promise(r => setTimeout(r, 1200));
-    runAutomation();
+    await runAutomation();
     setRunning(false);
   }
 

@@ -34,32 +34,53 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
   const [destinatario, setDestinatario] = useState<'todos' | string>('todos');
   const [asunto, setAsunto] = useState('');
   const [mensaje, setMensaje] = useState('');
-  const [enviado, setEnviado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState<{ ok: number; fallidos: number } | null>(null);
 
-  function enviar() {
+  async function enviar() {
     if (!asunto.trim() || !mensaje.trim()) return;
-    setEnviado(true);
-    setTimeout(() => {
-      setEnviado(false);
-      setAsunto('');
-      setMensaje('');
-      setDestinatario('todos');
-    }, 3000);
+    setEnviando(true);
+    const destinatarios = destinatario === 'todos' ? socios : socios.filter(s => s.id === destinatario);
+    const resultados = await Promise.all(destinatarios.map(async s => {
+      try {
+        const res = await fetch('/api/emails/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tipo: 'automatizacion', to: s.email, toName: s.nombre, data: { titulo: asunto, mensaje } }),
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    }));
+    setResultado({ ok: resultados.filter(Boolean).length, fallidos: resultados.filter(r => !r).length });
+    setEnviando(false);
   }
 
-  if (enviado) {
+  function reset() {
+    setResultado(null);
+    setAsunto('');
+    setMensaje('');
+    setDestinatario('todos');
+  }
+
+  if (resultado) {
+    const huboFallos = resultado.fallidos > 0;
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: '#DCFCE7' }}>
-          <CheckCheck size={24} style={{ color: '#15803D' }} />
+        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: huboFallos ? '#FEF3C7' : '#DCFCE7' }}>
+          <CheckCheck size={24} style={{ color: huboFallos ? '#D97706' : '#15803D' }} />
         </div>
-        <p className="font-bold text-[#1A1A1A]">Mensaje enviado</p>
-        <p className="text-sm text-[#8E8E86]">
-          {destinatario === 'todos'
-            ? `Enviado a todos los miembros (${socios.length})`
-            : `Enviado a ${socios.find(s => s.id === destinatario)?.nombre ?? '—'}`
-          }
+        <p className="font-bold text-[#1A1A1A]">
+          {resultado.ok > 0 ? `Enviado a ${resultado.ok} miembro${resultado.ok !== 1 ? 's' : ''}` : 'No se pudo enviar'}
         </p>
+        {huboFallos && (
+          <p className="text-sm text-[#D97706]">
+            {resultado.fallidos} envío{resultado.fallidos !== 1 ? 's' : ''} fallaron
+            {resultado.ok === 0 ? ' — revisa que Resend esté configurado (RESEND_API_KEY) en .env.local' : ''}
+          </p>
+        )}
+        <button onClick={reset} className="text-xs font-semibold text-[#8FBF12] hover:underline mt-2">Enviar otro mensaje</button>
       </div>
     );
   }
@@ -102,16 +123,16 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-2 text-xs text-[#A8A89F]">
           <Info size={12} />
-          <span>El envío real requiere integración Resend (P6)</span>
+          <span>Se envía por email a través de Resend</span>
         </div>
         <button
           onClick={enviar}
-          disabled={!asunto.trim() || !mensaje.trim()}
+          disabled={enviando || !asunto.trim() || !mensaje.trim()}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-bold transition-all disabled:opacity-40"
           style={{ backgroundColor: '#8FBF12' }}
         >
           <Send size={14} />
-          Enviar mensaje
+          {enviando ? 'Enviando…' : 'Enviar mensaje'}
         </button>
       </div>
     </div>

@@ -18,6 +18,7 @@ import {
   dbInsertVideoOnDemand, dbUpdateVideoOnDemand,
   dbInsertPostComunidad, dbUpdatePostComunidad,
   dbUpsertIntegracion,
+  dbInsertAutomationLog, dbUpdateAutomationRule,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
   dbUpdateStudioAvatar,
   setDbErrorListener,
@@ -249,7 +250,7 @@ interface StudioContextValue {
   notasProgreso: NotaProgreso[];
   toggleAutomationRule: (id: string) => void;
   addAutomationLog: (log: Omit<AutomationLog, 'id' | 'studioId'>) => void;
-  runAutomation: () => AutomationLog[];
+  runAutomation: () => Promise<AutomationLog[]>;
   addNotaProgreso: (nota: Omit<NotaProgreso, 'id' | 'studioId' | 'creadaEn'>) => void;
   dismissLog: (id: string) => void;
 
@@ -1208,9 +1209,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   // ── Motor de automatización avanzado ─────────────────────────────────────────
 
   function toggleAutomationRule(id: string) {
+    const rule = automationRules.find(r => r.id === id);
+    if (!rule) return;
     setAutomationRules(prev => prev.map(r =>
       r.id === id ? { ...r, activa: !r.activa } : r
     ));
+    dbUpdateAutomationRule(id, { activa: !rule.activa });
   }
 
   function addAutomationLog(log: Omit<AutomationLog, 'id' | 'studioId'>) {
@@ -1220,20 +1224,32 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       ...log,
     };
     setAutomationLogs(prev => [nuevo, ...prev]);
+    dbInsertAutomationLog(nuevo);
     setAutomationRules(prev => prev.map(r =>
       r.id === log.ruleId
         ? { ...r, ejecutadaVeces: r.ejecutadaVeces + 1, ultimaEjecucion: log.ejecutadoEn }
         : r
     ));
+    dbUpdateAutomationRule(log.ruleId, { ejecutadaVeces: (automationRules.find(r => r.id === log.ruleId)?.ejecutadaVeces ?? 0) + 1, ultimaEjecucion: log.ejecutadoEn });
   }
 
   function dismissLog(id: string) {
     setAutomationLogs(prev => prev.filter(l => l.id !== id));
   }
 
-  function runAutomation(): AutomationLog[] {
+  async function runAutomation(): Promise<AutomationLog[]> {
     const now = new Date();
-    const nuevosLogs: AutomationLog[] = [];
+
+    // Candidatos a notificar: solo canal real disponible hoy es email (Resend).
+    // No hay integración de WhatsApp Business, así que ya no fingimos enviarlo.
+    type Candidato = {
+      rule: AutomationRule;
+      socio: Socio;
+      titulo: string;
+      mensaje: string;
+      proximaAccionEn: string | null;
+    };
+    const candidatos: Candidato[] = [];
 
     automationRules.filter(r => r.activa).forEach(rule => {
       if (rule.trigger === 'AUSENCIA_DIAS') {
@@ -1244,28 +1260,17 @@ export function StudioProvider({ children }: { children: ReactNode }) {
             .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0];
           if (!ultimaReserva) return;
           const dias = Math.floor((now.getTime() - new Date(ultimaReserva.creadoEn).getTime()) / 86400000);
-          if (dias >= diasUmbral) {
-            const alreadyLogged = automationLogs.some(
-              l => l.ruleId === rule.id && l.socioId === socio.id && l.resultado === 'ESPERANDO'
-            );
-            if (!alreadyLogged) {
-              const log: AutomationLog = {
-                id: `log-${uid()}`,
-                studioId: 'studio-1',
-                ruleId: rule.id,
-                ruleName: rule.nombre,
-                socioId: socio.id,
-                socioNombre: `${socio.nombre} ${socio.apellidos}`,
-                pasoIndex: 0,
-                accion: 'ENVIAR_WHATSAPP' as AccionAutomatica,
-                resultado: 'EJECUTADO' as ResultadoLog,
-                detalle: `WhatsApp enviado: "${socio.nombre}, te echamos de menos. ¿Todo bien?"`,
-                ejecutadoEn: now.toISOString(),
-                proximaAccionEn: new Date(now.getTime() + 48 * 3600000).toISOString(),
-              };
-              nuevosLogs.push(log);
-            }
-          }
+          if (dias < diasUmbral) return;
+          const alreadyLogged = automationLogs.some(
+            l => l.ruleId === rule.id && l.socioId === socio.id && l.resultado === 'ESPERANDO'
+          );
+          if (alreadyLogged) return;
+          candidatos.push({
+            rule, socio,
+            titulo: 'Te echamos de menos',
+            mensaje: `${socio.nombre}, llevas ${dias} días sin venir a clase. ¿Todo bien? Te esperamos pronto por el estudio.`,
+            proximaAccionEn: new Date(now.getTime() + 48 * 3600000).toISOString(),
+          });
         });
       }
 
@@ -1273,29 +1278,19 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         const diasUmbral = (rule.condicion.dias as number) ?? 3;
         recibos.filter(r => r.estado === 'PENDIENTE').forEach(recibo => {
           const dias = Math.floor((now.getTime() - new Date(recibo.fechaVencimiento).getTime()) / 86400000);
-          if (dias >= diasUmbral) {
-            const socio = socios.find(s => s.id === recibo.socioId);
-            if (!socio) return;
-            const alreadyLogged = automationLogs.some(
-              l => l.ruleId === rule.id && l.socioId === socio.id && l.resultado !== 'FALLIDO'
-            );
-            if (!alreadyLogged) {
-              nuevosLogs.push({
-                id: `log-${uid()}`,
-                studioId: 'studio-1',
-                ruleId: rule.id,
-                ruleName: rule.nombre,
-                socioId: socio.id,
-                socioNombre: `${socio.nombre} ${socio.apellidos}`,
-                pasoIndex: 0,
-                accion: 'ENVIAR_EMAIL' as AccionAutomatica,
-                resultado: 'EJECUTADO' as ResultadoLog,
-                detalle: `Email de recordatorio enviado por recibo pendiente de ${recibo.importe}€`,
-                ejecutadoEn: now.toISOString(),
-                proximaAccionEn: new Date(now.getTime() + 72 * 3600000).toISOString(),
-              });
-            }
-          }
+          if (dias < diasUmbral) return;
+          const socio = socios.find(s => s.id === recibo.socioId);
+          if (!socio) return;
+          const alreadyLogged = automationLogs.some(
+            l => l.ruleId === rule.id && l.socioId === socio.id && l.resultado !== 'FALLIDO'
+          );
+          if (alreadyLogged) return;
+          candidatos.push({
+            rule, socio,
+            titulo: 'Tienes un pago pendiente',
+            mensaje: `${socio.nombre}, tienes un pago pendiente de ${recibo.importe}€ (${recibo.concepto}). Puedes regularizarlo cuando quieras desde el estudio.`,
+            proximaAccionEn: new Date(now.getTime() + 72 * 3600000).toISOString(),
+          });
         });
       }
 
@@ -1306,6 +1301,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         sesiones
           .filter(s => s.inicio.startsWith(mananaStr) && !s.cancelada)
           .forEach(sesion => {
+            const tipo = tiposClase.find(t => t.id === sesion.tipoClaseId);
+            const hora = new Date(sesion.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
             reservas
               .filter(r => r.sesionId === sesion.id && r.estado === 'CONFIRMADA')
               .forEach(reserva => {
@@ -1315,39 +1312,64 @@ export function StudioProvider({ children }: { children: ReactNode }) {
                   l => l.ruleId === rule.id && l.socioId === socio.id &&
                        l.ejecutadoEn.startsWith(now.toISOString().slice(0, 10))
                 );
-                if (!alreadyLogged) {
-                  nuevosLogs.push({
-                    id: `log-${uid()}`,
-                    studioId: 'studio-1',
-                    ruleId: rule.id,
-                    ruleName: rule.nombre,
-                    socioId: socio.id,
-                    socioNombre: `${socio.nombre} ${socio.apellidos}`,
-                    pasoIndex: 0,
-                    accion: 'ENVIAR_WHATSAPP' as AccionAutomatica,
-                    resultado: 'EJECUTADO' as ResultadoLog,
-                    detalle: `Recordatorio clase enviado para mañana`,
-                    ejecutadoEn: now.toISOString(),
-                    proximaAccionEn: null,
-                  });
-                }
+                if (alreadyLogged) return;
+                candidatos.push({
+                  rule, socio,
+                  titulo: 'Recordatorio: tu clase es mañana',
+                  mensaje: `${socio.nombre}, te recordamos tu clase de ${tipo?.nombre ?? 'pilates'} mañana a las ${hora}. ¡Te esperamos!`,
+                  proximaAccionEn: null,
+                });
               });
           });
       }
     });
 
-    if (nuevosLogs.length > 0) {
-      setAutomationLogs(prev => [...nuevosLogs, ...prev]);
-      setAutomationRules(prev => prev.map(r => {
-        const ruleNewLogs = nuevosLogs.filter(l => l.ruleId === r.id);
-        if (ruleNewLogs.length === 0) return r;
-        return {
-          ...r,
-          ejecutadaVeces: r.ejecutadaVeces + ruleNewLogs.length,
-          ultimaEjecucion: now.toISOString(),
-        };
-      }));
-    }
+    if (candidatos.length === 0) return [];
+
+    // Envío real vía Resend (a través de la ruta de servidor /api/emails/send).
+    const nuevosLogs: AutomationLog[] = await Promise.all(candidatos.map(async (c): Promise<AutomationLog> => {
+      const base = {
+        id: `log-${uid()}`,
+        studioId: 'studio-1',
+        ruleId: c.rule.id,
+        ruleName: c.rule.nombre,
+        socioId: c.socio.id,
+        socioNombre: `${c.socio.nombre} ${c.socio.apellidos}`,
+        pasoIndex: 0,
+        accion: 'ENVIAR_EMAIL' as AccionAutomatica,
+        ejecutadoEn: now.toISOString(),
+        proximaAccionEn: c.proximaAccionEn,
+      };
+      try {
+        const res = await fetch('/api/emails/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tipo: 'automatizacion',
+            to: c.socio.email,
+            toName: c.socio.nombre,
+            data: { titulo: c.titulo, mensaje: c.mensaje },
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          return { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: body.error ?? `No se pudo enviar el email (HTTP ${res.status})` };
+        }
+        return { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"` };
+      } catch (err) {
+        return { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: err instanceof Error ? err.message : 'Error de red al enviar el email' };
+      }
+    }));
+
+    setAutomationLogs(prev => [...nuevosLogs, ...prev]);
+    nuevosLogs.forEach(l => dbInsertAutomationLog(l));
+    setAutomationRules(prev => prev.map(r => {
+      const ruleNewLogs = nuevosLogs.filter(l => l.ruleId === r.id);
+      if (ruleNewLogs.length === 0) return r;
+      const nuevasVeces = r.ejecutadaVeces + ruleNewLogs.length;
+      dbUpdateAutomationRule(r.id, { ejecutadaVeces: nuevasVeces, ultimaEjecucion: now.toISOString() });
+      return { ...r, ejecutadaVeces: nuevasVeces, ultimaEjecucion: now.toISOString() };
+    }));
 
     return nuevosLogs;
   }

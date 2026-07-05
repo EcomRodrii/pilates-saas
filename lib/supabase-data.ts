@@ -901,6 +901,34 @@ export async function dbInsertActividadReciente(act: any) {
   if (error) reportDbError('[dbInsertActividadReciente]', error);
 }
 
+export async function dbInsertAutomationLog(log: any) {
+  const row = {
+    id: log.id,
+    studio_id: log.studioId ?? STUDIO_ID,
+    rule_id: log.ruleId,
+    rule_name: log.ruleName,
+    socio_id: log.socioId,
+    socio_nombre: log.socioNombre,
+    paso_index: log.pasoIndex,
+    accion: log.accion,
+    resultado: log.resultado,
+    detalle: log.detalle,
+    ejecutado_en: log.ejecutadoEn,
+    proxima_accion_en: log.proximaAccionEn,
+  };
+  const { error } = await supabase.from('automation_logs').insert(row);
+  if (error) reportDbError('[dbInsertAutomationLog]', error);
+}
+
+export async function dbUpdateAutomationRule(id: string, changes: any) {
+  const db: any = {};
+  if ('activa' in changes) db.activa = changes.activa;
+  if ('ejecutadaVeces' in changes) db.ejecutada_veces = changes.ejecutadaVeces;
+  if ('ultimaEjecucion' in changes) db.ultima_ejecucion = changes.ultimaEjecucion;
+  const { error } = await supabase.from('automation_rules').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateAutomationRule]', error);
+}
+
 export async function dbInsertNotaInterna(nota: any) {
   const { error } = await supabase.from('notas_internas').insert(notaInternaToDb(nota));
   if (error) reportDbError('[dbInsertNotaInterna]', error);

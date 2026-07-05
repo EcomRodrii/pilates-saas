@@ -4,6 +4,7 @@ import { render } from '@react-email/render';
 import { ReciboEmail } from '@/lib/emails/recibo-template';
 import { BienvenidaEmail } from '@/lib/emails/bienvenida-template';
 import { ReservaEmail } from '@/lib/emails/reserva-template';
+import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   const resend = new Resend(apiKey);
   const body = await req.json() as {
-    tipo: 'recibo' | 'bienvenida' | 'reserva';
+    tipo: 'recibo' | 'bienvenida' | 'reserva' | 'automatizacion';
     to: string;
     toName: string;
     data: Record<string, unknown>;
@@ -40,6 +41,10 @@ export async function POST(req: NextRequest) {
     };
     html = await render(ReservaEmail({ socioNombre: body.toName, ...d }));
     subject = `Reserva confirmada — ${d.claseNombre}`;
+  } else if (body.tipo === 'automatizacion') {
+    const d = body.data as { titulo: string; mensaje: string; estudioNombre?: string };
+    html = await render(AutomatizacionEmail({ socioNombre: body.toName, ...d }));
+    subject = d.titulo;
   } else {
     return NextResponse.json({ error: 'Tipo de email desconocido' }, { status: 400 });
   }
