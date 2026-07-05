@@ -334,6 +334,14 @@ export default function Productos() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F3F4F6]">
+              {productosPOS.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-12 text-center">
+                    <p className="text-sm font-semibold text-[#111827]">Aún no hay productos POS</p>
+                    <p className="text-[13px] text-[#9CA3AF] mt-1">Añade productos (agua, toallas, packs…) para venderlos en el terminal.</p>
+                  </td>
+                </tr>
+              )}
               {productosPOS.map(p => {
                 const c = CAT_COLOR[p.categoria] ?? CAT_COLOR.OTRO;
                 return (

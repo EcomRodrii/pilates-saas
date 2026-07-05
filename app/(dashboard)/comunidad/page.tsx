@@ -17,18 +17,6 @@ type Comment = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PROXIMOS_EVENTOS = [
-  { titulo: 'Reformer Avanzado', cuando: 'lun 10:00' },
-  { titulo: 'Mat Beginners', cuando: 'mar 09:00' },
-  { titulo: 'Barre', cuando: 'mié 19:00' },
-];
-
-const LOGROS_MES = [
-  { emoji: '🏆', titulo: 'Clase más popular', subtitulo: 'Reformer Avanzado · 28 asistentes' },
-  { emoji: '🎯', titulo: 'Mayor retención', subtitulo: 'Socias activas: 87%' },
-  { emoji: '⭐', titulo: 'Nueva socia VIP', subtitulo: 'Laura Martínez se unió al estudio' },
-];
-
 const AVATAR_COLORS = [
   'bg-purple-100 text-purple-700',
   'bg-blue-100 text-blue-700',
@@ -73,7 +61,7 @@ function Avatar({
   if (studio) {
     return (
       <div className={cn('rounded-full bg-[#111827] flex items-center justify-center shrink-0', dims)}>
-        <span className="font-bold text-white" style={{ fontSize: size === 'sm' ? 10 : 12 }}>PB</span>
+        <span className="font-bold text-white" style={{ fontSize: size === 'sm' ? 10 : 12 }}>TE</span>
       </div>
     );
   }
@@ -113,8 +101,8 @@ function CommentThread({
       {comments.map((c, i) => (
         <div key={c.id} className="flex items-start gap-2">
           <Avatar
-            initials={c.autorNombre === 'Pilates Studio' ? 'PB' : getInitials(c.autorNombre)}
-            studio={c.autorNombre === 'Pilates Studio'}
+            initials={c.autorNombre === 'Tentare' ? 'TE' : getInitials(c.autorNombre)}
+            studio={c.autorNombre === 'Tentare'}
             colorClass={AVATAR_COLORS[i % AVATAR_COLORS.length]}
             size="sm"
           />
@@ -130,7 +118,7 @@ function CommentThread({
 
       {/* New comment input */}
       <div className="flex items-start gap-2 pt-1">
-        <Avatar initials="PB" studio size="sm" />
+        <Avatar initials="TE" studio size="sm" />
         <div className="flex-1 flex gap-2 items-end">
           <textarea
             value={draft}
@@ -201,7 +189,7 @@ function PostCard({
       {/* Author row */}
       <div className="flex items-start gap-3 mb-3">
         <Avatar
-          initials={isStudio ? 'PB' : getInitials(post.autorNombre)}
+          initials={isStudio ? 'TE' : getInitials(post.autorNombre)}
           studio={isStudio}
           colorClass={colorClass}
         />
@@ -344,7 +332,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ComunidadPage() {
-  const { postsComunidad: posts, addPost, toggleLikePost, socios } = useStudio();
+  const { postsComunidad: posts, addPost, toggleLikePost, socios, sesiones, reservas, tiposClase } = useStudio();
   const [modalOpen, setModalOpen] = useState(false);
   const [composeText, setComposeText] = useState('');
 
@@ -356,6 +344,51 @@ export default function ComunidadPage() {
 
   // Active members from context (up to 8)
   const activeSocias = socios.filter(s => s.activo).slice(0, 8);
+
+  // ── Próximos eventos (derivados de sesiones reales) ─────────────────────────
+  const ahora = new Date();
+  const proximosEventos = sesiones
+    .filter(s => !s.cancelada && new Date(s.inicio) > ahora)
+    .sort((a, b) => a.inicio.localeCompare(b.inicio))
+    .slice(0, 4)
+    .map(s => {
+      const tipo = tiposClase.find(t => t.id === s.tipoClaseId);
+      return {
+        titulo: tipo?.nombre ?? 'Clase',
+        cuando: new Date(s.inicio).toLocaleDateString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' }),
+      };
+    });
+
+  // ── Logros del mes (derivados de datos reales; se ocultan si no hay dato) ────
+  const logrosMes: { emoji: string; titulo: string; subtitulo: string }[] = [];
+  {
+    const mes = ahora.getMonth(), anio = ahora.getFullYear();
+    // Clase más popular por asistencia este mes
+    const conteo = new Map<string, number>();
+    for (const r of reservas) {
+      if (r.estado !== 'ASISTIDA') continue;
+      const s = sesiones.find(x => x.id === r.sesionId);
+      if (!s) continue;
+      const d = new Date(s.inicio);
+      if (d.getMonth() !== mes || d.getFullYear() !== anio) continue;
+      conteo.set(s.tipoClaseId, (conteo.get(s.tipoClaseId) ?? 0) + 1);
+    }
+    const top = [...conteo.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (top) {
+      const tipo = tiposClase.find(t => t.id === top[0]);
+      logrosMes.push({ emoji: '🏆', titulo: 'Clase más popular', subtitulo: `${tipo?.nombre ?? 'Clase'} · ${top[1]} asistencia${top[1] !== 1 ? 's' : ''}` });
+    }
+    // Retención (activas / total)
+    if (socios.length > 0) {
+      const pct = Math.round((socios.filter(s => s.activo).length / socios.length) * 100);
+      logrosMes.push({ emoji: '🎯', titulo: 'Tasa de socias activas', subtitulo: `${pct}% (${socios.filter(s => s.activo).length} de ${socios.length})` });
+    }
+    // Nueva socia (alta más reciente)
+    const nueva = [...socios].sort((a, b) => (b.fechaAlta ?? '').localeCompare(a.fechaAlta ?? ''))[0];
+    if (nueva) {
+      logrosMes.push({ emoji: '⭐', titulo: 'Última alta', subtitulo: `${nueva.nombre} ${nueva.apellidos}` });
+    }
+  }
 
   // Sort: pinned first, then by date
   const sortedPosts = [...posts].sort((a, b) => {
@@ -391,7 +424,7 @@ export default function ComunidadPage() {
   function handleAddComment(postId: string, texto: string) {
     const newComment: Comment = {
       id: `${postId}-${Date.now()}`,
-      autorNombre: 'Pilates Studio',
+      autorNombre: 'Tentare',
       texto,
       creadoEn: new Date().toISOString(),
     };
@@ -496,12 +529,14 @@ export default function ComunidadPage() {
           <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
             <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Próximos eventos</h3>
             <div className="space-y-2">
-              {PROXIMOS_EVENTOS.map((ev, i) => (
+              {proximosEventos.length === 0 ? (
+                <p className="text-[13px] text-[#9CA3AF]">No hay clases programadas próximamente</p>
+              ) : proximosEventos.map((ev, i) => (
                 <div key={i} className="flex items-center gap-3 py-1.5 border-b border-[#E8EAED] last:border-0">
                   <div className="w-2 h-2 rounded-full bg-[#2563EB] shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-[#111827] truncate">{ev.titulo}</p>
-                    <p className="text-[12px] text-[#9CA3AF]">{ev.cuando}</p>
+                    <p className="text-[12px] text-[#9CA3AF] capitalize">{ev.cuando}</p>
                   </div>
                 </div>
               ))}
@@ -533,7 +568,9 @@ export default function ComunidadPage() {
           <div className="bg-white border border-[#E8EAED] rounded-xl p-4">
             <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Logros del mes</h3>
             <div className="space-y-3">
-              {LOGROS_MES.map((logro, i) => (
+              {logrosMes.length === 0 ? (
+                <p className="text-[13px] text-[#9CA3AF]">Aún no hay datos suficientes este mes</p>
+              ) : logrosMes.map((logro, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <span className="text-[20px] leading-none mt-0.5">{logro.emoji}</span>
                   <div className="flex-1 min-w-0">

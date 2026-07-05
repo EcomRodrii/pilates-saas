@@ -348,6 +348,7 @@ export default function Dashboard() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const hoyStr = localDate(now);
+  const saludo = now.getHours() < 13 ? 'Buenos días' : now.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches';
   const mesFecha = now.toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
@@ -503,7 +504,7 @@ export default function Dashboard() {
           <div>
             <p className="text-[11px] font-medium text-[#9CA3AF] capitalize">{mesFecha}</p>
             <h1 className="text-[20px] sm:text-[22px] font-bold text-[#111827] mt-0.5 tracking-tight">
-              Buenos días, María
+              {saludo} 👋
             </h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">

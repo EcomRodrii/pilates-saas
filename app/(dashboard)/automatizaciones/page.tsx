@@ -78,7 +78,7 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
             <span className="text-sm text-white/50 font-medium">Sistema autónomo</span>
           </div>
           <h1 className="text-2xl font-bold mb-1">
-            {greeting}, María
+            {greeting} 👋
           </h1>
           {pendingAdmin.length === 0 ? (
             <p className="text-white/70 text-sm">
