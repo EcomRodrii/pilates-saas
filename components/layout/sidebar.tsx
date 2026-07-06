@@ -280,12 +280,16 @@ export function Sidebar() {
           style={{ borderColor: 'rgba(255,255,255,0.07)' }}
         >
           {collapsed ? (
-            <div className="w-8 h-8 rounded-full bg-[#FFC8E2] flex items-center justify-center text-[#131313] text-[13px] font-extrabold">T</div>
+            <div className="w-8 h-8 rounded-full bg-[#FFC8E2] flex items-center justify-center p-1.5">
+              <Image src="/logo-icon.png" alt="Tentare" width={24} height={24} className="w-full h-full object-contain" />
+            </div>
           ) : (
             <>
-              {/* Los logos nuevos usan tinta oscura (ilegible sobre este fondo casi negro) —
-                  se mantiene el icono circular en vez de una imagen del logo aquí. */}
-              <div className="w-8 h-8 shrink-0 rounded-full bg-[#FFC8E2] flex items-center justify-center text-[#131313] text-[13px] font-extrabold">T</div>
+              {/* El icono del logo tiene tinta oscura (ilegible directamente sobre este fondo
+                  casi negro) — se apoya sobre el círculo rosa para mantener contraste. */}
+              <div className="w-8 h-8 shrink-0 rounded-full bg-[#FFC8E2] flex items-center justify-center p-1.5">
+                <Image src="/logo-icon.png" alt="Tentare" width={24} height={24} className="w-full h-full object-contain" />
+              </div>
               <span className="text-white text-[15px] font-bold tracking-tight">Tentare</span>
             </>
           )}
