@@ -11,8 +11,9 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Pilates Studio',
-  description: 'Software de gestión para estudios de pilates',
+  title: 'Tentare — Software para estudios de Pilates | Reservas, cobros y app de marca',
+  description:
+    'Reservas, membresías, pagos y agenda en una sola plataforma. Tentare gestiona tu estudio de Pilates con un sistema autónomo que cobra, recuerda y llena tus clases — sin tarjeta, migración gratuita.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

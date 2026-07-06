@@ -145,9 +145,8 @@ export default function CrearEstudioPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Ciudad</label>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Ciudad <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
                   <input
-                    required
                     type="text"
                     placeholder="Ej. Madrid"
                     value={studio.ciudad}
@@ -157,9 +156,8 @@ export default function CrearEstudioPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Teléfono</label>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Teléfono <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
                   <input
-                    required
                     type="tel"
                     placeholder="+34 600 000 000"
                     value={studio.telefono}

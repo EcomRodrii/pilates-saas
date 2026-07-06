@@ -195,8 +195,8 @@ export default function LandingPage() {
               }}
             >
               Reservas, membresías, pagos y agenda en una sola plataforma con un{' '}
-              <strong style={{ color: '#1A1A1A' }}>sistema autónomo</strong> que cobra, recuerda y llena tus clases mientras
-              duermes.
+              <strong style={{ color: '#1A1A1A' }}>sistema autónomo</strong> que decide, cobra y llena tus clases — tú
+              apruebas cada acción con un toque.
             </p>
             <div
               style={{
