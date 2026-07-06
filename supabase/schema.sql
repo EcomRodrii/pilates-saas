@@ -441,6 +441,12 @@ alter table socios add column if not exists stripe_customer_id text;
 alter table socios add column if not exists stripe_payment_method_id text;
 alter table automation_logs add column if not exists recibo_id text;
 
+-- Migración: Stripe Connect — cada estudio cobra en su propia cuenta de
+-- Stripe (no en la de la plataforma). Se conecta vía OAuth desde
+-- Configuración → Integraciones, sin que el estudio tenga que tocar
+-- ninguna API key.
+alter table studios add column if not exists stripe_account_id text;
+
 -- ═══════════════════════════════════════════════════════════════════
 -- Políticas de acceso
 --

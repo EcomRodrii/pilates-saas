@@ -288,7 +288,7 @@ function LogItem({
 
 export default function AutomatizacionesPage() {
   const {
-    automationRules, automationLogs,
+    studio, automationRules, automationLogs,
     toggleAutomationRule, runAutomation, dismissLog, marcarCobrado, actualizarLog,
   } = useStudio();
 
@@ -312,9 +312,9 @@ export default function AutomatizacionesPage() {
   }
 
   async function handleApproveCharge(log: AutomationLog) {
-    if (!log.reciboId || !log.socioId) return;
+    if (!log.reciboId || !log.socioId || !studio) return;
     setApprovingId(log.id);
-    const result = await aprobarCobroAutonomo({ logId: log.id, reciboId: log.reciboId, socioId: log.socioId });
+    const result = await aprobarCobroAutonomo({ logId: log.id, reciboId: log.reciboId, socioId: log.socioId, studioId: studio.id });
     if ('ok' in result) {
       marcarCobrado(log.reciboId);
       actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: 'Cobro aprobado y ejecutado con la tarjeta guardada.' });

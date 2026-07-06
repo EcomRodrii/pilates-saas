@@ -1043,16 +1043,11 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'STRIPE',
     nombre: 'Stripe',
-    descripcion: 'Cobra suscripciones y bonos con tarjeta o SEPA. Los pagos se concilian con las facturas.',
+    descripcion: 'Cobra suscripciones y bonos con tarjeta o SEPA. El dinero va directo a tu propia cuenta de Stripe — conéctala con un clic, sin claves.',
     Icon: CreditCard,
     color: '#635BFF',
     bg: '#F1F0FF',
-    campos: [
-      { key: 'publishableKey', label: 'Clave publicable', placeholder: 'pk_live_…' },
-      { key: 'webhookUrl', label: 'URL de webhook (opcional)', placeholder: 'https://…' },
-    ],
-    secretoEnv: 'STRIPE_SECRET_KEY',
-    docsUrl: 'https://dashboard.stripe.com/apikeys',
+    campos: [],
   },
   {
     tipo: 'RESEND',
@@ -1129,11 +1124,37 @@ function descargarCsv(nombre: string, contenido: string) {
 }
 
 function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
-  const { integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos } = useStudio();
+  const { studio, updateStudio, integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos } = useStudio();
   const [editando, setEditando] = useState<TipoIntegracion | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
 
   const getIntegracion = (tipo: TipoIntegracion) => integraciones.find(i => i.tipo === tipo) ?? null;
+
+  // Stripe no usa el modal genérico de API keys: se conecta vía OAuth (Stripe
+  // Connect) para que cada estudio cobre en su propia cuenta, sin tocar
+  // ninguna clave.
+  const stripeConectado = !!studio?.stripeAccountId;
+  const stripeClientId = process.env.NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '');
+  const stripeConnectUrl = stripeClientId && studio
+    ? `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${stripeClientId}&scope=read_write&redirect_uri=${encodeURIComponent(`${appUrl}/api/stripe/connect/callback`)}&state=${studio.id}`
+    : null;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('stripe_connected')) {
+      showToast('Stripe conectado — ya puedes cobrar en tu propia cuenta');
+      window.history.replaceState({}, '', '/configuracion');
+    } else if (params.get('stripe_connect_error')) {
+      showToast(`Error al conectar Stripe: ${params.get('stripe_connect_error')}`);
+      window.history.replaceState({}, '', '/configuracion');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const desconectarStripe = () => {
+    updateStudio({ stripeAccountId: null });
+    showToast('Stripe desconectado');
+  };
 
   const abrirConfig = (cat: CatalogoIntegracion) => {
     const actual = getIntegracion(cat.tipo);
@@ -1199,7 +1220,7 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CATALOGO_INTEGRACIONES.map(cat => {
           const intg = getIntegracion(cat.tipo);
-          const conectado = !!intg?.activo;
+          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : !!intg?.activo;
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
               <div className="flex items-start gap-3">
@@ -1227,6 +1248,16 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                   <button onClick={exportarExcel} className={btnPrimary}>
                     <FileSpreadsheet size={14} /> Descargar Excel
                   </button>
+                ) : cat.tipo === 'STRIPE' ? (
+                  stripeConectado ? (
+                    <button onClick={desconectarStripe} className={btnSecondary}>Desconectar</button>
+                  ) : stripeConnectUrl ? (
+                    <a href={stripeConnectUrl} className={cn(btnPrimary, 'no-underline')}>Conectar con Stripe</a>
+                  ) : (
+                    <p className="text-[11px] text-[#8E8E86]">
+                      Falta configurar <code className="font-mono bg-[#F1F1EC] px-1 rounded">NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID</code>
+                    </p>
+                  )
                 ) : (
                   <>
                     <button onClick={() => abrirConfig(cat)} className={conectado ? btnSecondary : btnPrimary}>

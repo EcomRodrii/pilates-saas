@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -12,14 +13,23 @@ export async function POST(req: NextRequest) {
   const body = await req.json() as {
     reciboId: string;
     socioId: string;
+    studioId: string;
     concepto: string;
     importe: number;
     socioEmail: string | null;
     socioNombre: string;
   };
 
+  const { data: studio } = await supabase.from('studios').select('stripe_account_id').eq('id', body.studioId).single();
+  if (!studio?.stripe_account_id) {
+    return NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Integraciones antes de cobrar.' }, { status: 409 });
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
 
+  // El cobro se procesa directamente en la cuenta de Stripe del estudio (no
+  // en la de la plataforma) — pasando { stripeAccount } se convierte en un
+  // "direct charge": el dinero y la comisión de Stripe van a su cuenta.
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
@@ -46,7 +56,7 @@ export async function POST(req: NextRequest) {
     success_url: `${appUrl}/pagos?stripe_success=1&recibo=${body.reciboId}`,
     cancel_url:  `${appUrl}/pagos?stripe_cancel=1`,
     locale: 'es',
-  });
+  }, { stripeAccount: studio.stripe_account_id });
 
   return NextResponse.json({ url: session.url });
 }

@@ -5,6 +5,11 @@ import { dbUpdateRecibo, dbUpdateSocio } from '@/lib/supabase-data';
 export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  // Los eventos de las cuentas conectadas (Stripe Connect) llegan a este mismo
+  // endpoint pero firmados con un secreto de webhook distinto — el que
+  // Stripe genera en el endpoint "Connect" del Dashboard, no el de la cuenta
+  // de la plataforma.
+  const connectWebhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
   if (!key || key.startsWith('sk_test_XXXX')) {
     return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
   }
@@ -17,7 +22,11 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret ?? '');
   } catch {
-    return NextResponse.json({ error: 'Webhook signature inválida' }, { status: 400 });
+    try {
+      event = stripe.webhooks.constructEvent(body, sig, connectWebhookSecret ?? '');
+    } catch {
+      return NextResponse.json({ error: 'Webhook signature inválida' }, { status: 400 });
+    }
   }
 
   // Esta es la fuente de verdad real del pago — el redirect al navegador
@@ -40,7 +49,14 @@ export async function POST(req: NextRequest) {
     // la próxima vez, si Stripe llegó a crear el Customer y el pago se
     // completó con setup_future_usage.
     if (socioId && typeof session.customer === 'string' && typeof session.payment_intent === 'string') {
-      const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
+      // Este PaymentIntent vive en la cuenta conectada del estudio (event.account),
+      // no en la de la plataforma — hay que targetearla explícitamente o Stripe
+      // devuelve "no such payment_intent".
+      const paymentIntent = await stripe.paymentIntents.retrieve(
+        session.payment_intent,
+        {},
+        event.account ? { stripeAccount: event.account } : undefined
+      );
       const paymentMethodId = typeof paymentIntent.payment_method === 'string'
         ? paymentIntent.payment_method
         : paymentIntent.payment_method?.id;

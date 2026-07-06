@@ -77,6 +77,7 @@ function mapStudio(r: any) {
     ownerAuthUserId: r.owner_auth_user_id ?? null,
     slug: r.slug ?? null,
     creadoEn: r.creado_en,
+    stripeAccountId: r.stripe_account_id ?? null,
   };
 }
 
@@ -1163,6 +1164,13 @@ export async function dbUpdateStudio(changes: any) {
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);
+}
+
+// Toma el id explícito (no el STUDIO_ID de la sesión del navegador) porque la
+// llama el callback de OAuth de Stripe Connect, un servidor sin sesión.
+export async function dbSetStripeAccountId(studioId: string, stripeAccountId: string | null) {
+  const { error } = await supabase.from('studios').update({ stripe_account_id: stripeAccountId }).eq('id', studioId);
+  if (error) reportDbError('[dbSetStripeAccountId]', error);
 }
 
 function slugify(nombre: string): string {

@@ -91,6 +91,7 @@ type MainTab = 'cobros' | 'suscripciones' | 'historial';
 export default function Pagos() {
   // ── Context ─────────────────────────────────────────────────────────────────
   const {
+    studio,
     recibos,
     socios,
     suscripciones,
@@ -336,12 +337,13 @@ export default function Pagos() {
 
   async function cobrarOnline(reciboId: string) {
     const r = recibos.find(x => x.id === reciboId);
-    if (!r) return;
+    if (!r || !studio) return;
     const socio = socios.find(s => s.id === r.socioId);
     setStripeLoading(reciboId);
     const result = await crearCheckoutStripe({
       reciboId,
       socioId: r.socioId,
+      studioId: studio.id,
       concepto: r.concepto,
       importe: r.importe,
       socioEmail: socio?.email ?? null,

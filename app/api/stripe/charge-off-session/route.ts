@@ -14,11 +14,12 @@ export async function POST(req: NextRequest) {
   }
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
 
-  const body = await req.json() as { logId: string; reciboId: string; socioId: string };
+  const body = await req.json() as { logId: string; reciboId: string; socioId: string; studioId: string };
 
-  const [{ data: recibo, error: reciboError }, { data: socio, error: socioError }] = await Promise.all([
+  const [{ data: recibo, error: reciboError }, { data: socio, error: socioError }, { data: studio, error: studioError }] = await Promise.all([
     supabase.from('recibos').select('*').eq('id', body.reciboId).single(),
     supabase.from('socios').select('*').eq('id', body.socioId).single(),
+    supabase.from('studios').select('stripe_account_id').eq('id', body.studioId).single(),
   ]);
 
   if (reciboError || !recibo) {
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
   if (socioError || !socio?.stripe_customer_id || !socio?.stripe_payment_method_id) {
     return NextResponse.json({ error: 'La socia no tiene tarjeta guardada' }, { status: 409 });
   }
+  if (studioError || !studio?.stripe_account_id) {
+    return NextResponse.json({ error: 'El estudio no tiene Stripe conectado' }, { status: 409 });
+  }
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({
@@ -40,7 +44,7 @@ export async function POST(req: NextRequest) {
       off_session: true,
       confirm: true,
       metadata: { reciboId: body.reciboId, socioId: body.socioId },
-    });
+    }, { stripeAccount: studio.stripe_account_id });
 
     if (paymentIntent.status === 'succeeded') {
       await dbUpdateRecibo(body.reciboId, { estado: 'COBRADO', fechaCobro: new Date().toISOString() });

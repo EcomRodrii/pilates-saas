@@ -24,6 +24,7 @@ export interface Studio {
   ownerAuthUserId: string | null;
   slug: string | null;
   creadoEn: string;
+  stripeAccountId: string | null;
 }
 
 // ─── Integraciones por negocio ───────────────────────────────────────────────

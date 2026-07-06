@@ -5,6 +5,7 @@
 export async function crearCheckoutStripe(params: {
   reciboId: string;
   socioId: string;
+  studioId: string;
   concepto: string;
   importe: number;
   socioEmail: string | null;
@@ -24,6 +25,7 @@ export async function aprobarCobroAutonomo(params: {
   logId: string;
   reciboId: string;
   socioId: string;
+  studioId: string;
 }): Promise<{ ok: true } | { error: string }> {
   const res = await fetch('/api/stripe/charge-off-session', {
     method: 'POST',
