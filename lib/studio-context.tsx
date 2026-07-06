@@ -20,7 +20,7 @@ import {
   dbUpsertIntegracion,
   dbInsertAutomationLog, dbUpdateAutomationRule,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
-  dbUpdateStudio,
+  dbUpdateStudio, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener,
 } from '@/lib/supabase-data';
 import type {
@@ -338,7 +338,16 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const authUserId = user?.id ?? null;
 
   useEffect(() => {
-    fetchAllStudioData().then(data => {
+    (async () => {
+      // Multi-tenancy: figure out which studio this session belongs to
+      // *before* fetching, so every query below is scoped correctly both
+      // by our own .eq('studio_id', ...) filters and by RLS.
+      if (authUserId) {
+        const resolved = await resolveStudioId(authUserId);
+        if (resolved) setCurrentStudioId(resolved);
+      }
+      return fetchAllStudioData();
+    })().then(data => {
       setPlanesTarifa(data.planesTarifa);
       setSalas(data.salas);
       setTiposClase(data.tiposClase);
@@ -392,7 +401,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     const cuotaIVA = Math.round((recibo.importe - baseImponible) * 100) / 100;
     return {
       id: `fac-auto-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       reciboId: recibo.id,
       numeroCompleto: nextFacturaNumero(currentFacturas),
       fechaEmision: new Date().toISOString(),
@@ -411,7 +420,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   // ── Planes ────────────────────────────────────────────────────────────────────
 
   function addPlan(fields: Omit<PlanTarifa, 'id' | 'studioId'>) {
-    setPlanesTarifa(prev => [...prev, { ...fields, id: `plan-${uid()}`, studioId: 'studio-1' }]);
+    setPlanesTarifa(prev => [...prev, { ...fields, id: `plan-${uid()}`, studioId: getCurrentStudioId() }]);
   }
   function updatePlan(id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) {
     setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
@@ -423,7 +432,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   // ── Salas ─────────────────────────────────────────────────────────────────────
 
   function addSala(fields: Omit<Sala, 'id' | 'studioId'>) {
-    setSalas(prev => [...prev, { ...fields, id: `sala-${uid()}`, studioId: 'studio-1' }]);
+    setSalas(prev => [...prev, { ...fields, id: `sala-${uid()}`, studioId: getCurrentStudioId() }]);
   }
   function updateSala(id: string, changes: Partial<Omit<Sala, 'id' | 'studioId'>>) {
     setSalas(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
@@ -435,7 +444,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   // ── Tipos de clase ────────────────────────────────────────────────────────────
 
   function addTipoClase(fields: Omit<TipoClase, 'id' | 'studioId'>) {
-    setTiposClase(prev => [...prev, { ...fields, id: `tc-${uid()}`, studioId: 'studio-1' }]);
+    setTiposClase(prev => [...prev, { ...fields, id: `tc-${uid()}`, studioId: getCurrentStudioId() }]);
   }
   function updateTipoClase(id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>) {
     setTiposClase(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
@@ -447,7 +456,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   // ── Instructores ──────────────────────────────────────────────────────────────
 
   function addInstructor(fields: Omit<Instructor, 'id' | 'studioId'>) {
-    const nuevo: Instructor = { ...fields, id: `ins-${uid()}`, studioId: 'studio-1' };
+    const nuevo: Instructor = { ...fields, id: `ins-${uid()}`, studioId: getCurrentStudioId() };
     setInstructores(prev => [...prev, nuevo]);
     dbInsertInstructor(nuevo);
   }
@@ -485,7 +494,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     const ahora = new Date().toISOString();
     const nuevaSocia: Socio = {
       id: `soc-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       fechaAlta: ahora,
       ...(aceptacionContrato ? { aceptacionContrato } : {}),
       ...socioFields,
@@ -498,7 +507,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         const susId = `sus-${uid()}`;
         const sus: Suscripcion = {
           id: susId,
-          studioId: 'studio-1',
+          studioId: getCurrentStudioId(),
           socioId: nuevaSocia.id,
           planId,
           estado: 'ACTIVA',
@@ -514,7 +523,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         const reciboId = `rec-${uid()}`;
         const reciboCobrado: Recibo = {
           id: reciboId,
-          studioId: 'studio-1',
+          studioId: getCurrentStudioId(),
           socioId: nuevaSocia.id,
           suscripcionId: susId,
           concepto: `Alta — ${plan.nombre}`,
@@ -539,7 +548,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addSocioFromPortal(fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato }) {
     const nuevaSocia: Socio = {
       id: fields.id,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       nombre: fields.nombre,
       apellidos: '',
       email: fields.email,
@@ -590,7 +599,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addNota(socioId: string, texto: string) {
     const nueva: NotaInterna = {
       id: `nota-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       socioId,
       texto: texto.trim(),
       tipo: 'NOTA',
@@ -619,7 +628,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       if (!plan) return deactivated;
       const nueva: Suscripcion = {
         id: `sus-${uid()}`,
-        studioId: 'studio-1',
+        studioId: getCurrentStudioId(),
         socioId,
         planId,
         estado: 'ACTIVA',
@@ -647,7 +656,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   // ── Sesiones ─────────────────────────────────────────────────────────────────
 
   function addSesion(fields: Omit<Sesion, 'id' | 'studioId'>) {
-    const nueva: Sesion = { id: `ses-${uid()}`, studioId: 'studio-1', ...fields };
+    const nueva: Sesion = { id: `ses-${uid()}`, studioId: getCurrentStudioId(), ...fields };
     setSesiones(prev => [...prev, nueva]);
     dbInsertSesion(nueva);
   }
@@ -668,7 +677,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addReserva(sesionId: string, socioId: string) {
     const nueva: Reserva = {
       id: `res-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       sesionId,
       socioId,
       estado: 'CONFIRMADA',
@@ -714,7 +723,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       const clase = tipo?.nombre ?? 'la clase';
       setNotificaciones(prev => [{
         id: `notif-promo-${uid()}`,
-        studioId: 'studio-1',
+        studioId: getCurrentStudioId(),
         tipo: 'EXITO' as const,
         titulo: 'Lista de espera promovida',
         texto: `${nombre} ha pasado de lista de espera a confirmada en ${clase}.`,
@@ -753,7 +762,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         const hoy = new Date().toISOString().slice(0, 10);
         const reciboRenovacion: Recibo = {
           id: `rec-renov-${uid()}`,
-          studioId: 'studio-1',
+          studioId: getCurrentStudioId(),
           socioId: reserva.socioId,
           suscripcionId: sus.id,
           concepto: `Renovación ${plan.nombre}`,
@@ -768,7 +777,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         dbInsertRecibo(reciboRenovacion);
         setNotificaciones(prev => [{
           id: `notif-bono-${uid()}`,
-          studioId: 'studio-1',
+          studioId: getCurrentStudioId(),
           titulo: 'Bono agotado',
           texto: `${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`,
           leida: false,
@@ -802,7 +811,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
       const reciboVencido: Recibo = {
         id: `rec-venc-${uid()}`,
-        studioId: 'studio-1',
+        studioId: getCurrentStudioId(),
         socioId: sus.socioId,
         suscripcionId: sus.id,
         concepto: `Renovación ${plan.nombre}`,
@@ -820,7 +829,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       });
       setNotificaciones(prev => [{
         id: `notif-venc-${uid()}`,
-        studioId: 'studio-1',
+        studioId: getCurrentStudioId(),
         titulo: 'Plan mensual caducado',
         texto: `${nombreSocio} — ${plan.nombre} venció el ${sus.fechaFin}. Se ha generado recibo de renovación.`,
         leida: false,
@@ -852,7 +861,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addRecibo(fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) {
     const nuevo: Recibo = {
       id: `rec-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       estado: 'PENDIENTE',
       fechaCobro: null,
       fechaDevolucion: null,
@@ -873,7 +882,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       // Avoid duplicate facturas for same recibo
       if (prev.some(f => f.reciboId === reciboId)) return prev;
       const recibo = recibos.find(r => r.id === reciboId) ??
-        { id: reciboId, importe: 0, socioId: '', studioId: 'studio-1', suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
+        { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
       const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro: new Date().toISOString() };
       const fac = buildFactura(updatedRecibo, prev);
       dbInsertFactura(fac);
@@ -978,7 +987,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addCita(fields: Omit<Cita, 'id' | 'studioId' | 'creadoEn'>) {
     const nueva: Cita = {
       id: `cita-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       creadoEn: new Date().toISOString(),
       ...fields,
     };
@@ -1010,7 +1019,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addVentaPOS(fields: Omit<VentaPOS, 'id' | 'studioId' | 'realizadaEn'>) {
     const nueva: VentaPOS = {
       id: `vpos-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       realizadaEn: new Date().toISOString(),
       ...fields,
     };
@@ -1025,7 +1034,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       const hoy = new Date().toISOString().slice(0, 10);
       const nuevoRecibo: Recibo = {
         id: `rec-pos-${uid()}`,
-        studioId: 'studio-1',
+        studioId: getCurrentStudioId(),
         socioId: fields.socioId,
         suscripcionId: null,
         concepto,
@@ -1051,7 +1060,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addCampana(fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>) {
     const nueva: Campana = {
       id: `camp-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       creadaEn: new Date().toISOString(),
       enviados: 0,
       abiertos: 0,
@@ -1089,7 +1098,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addAutomatizacion(fields: Omit<Automatizacion, 'id' | 'studioId' | 'ejecutadas' | 'creadaEn'>) {
     const nueva: Automatizacion = {
       id: `auto-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       ejecutadas: 0,
       creadaEn: new Date().toISOString(),
       ...fields,
@@ -1111,7 +1120,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addCodigoDescuento(fields: Omit<CodigoDescuento, 'id' | 'studioId' | 'usos' | 'creadoEn'>) {
     const nuevo: CodigoDescuento = {
       id: `disc-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       usos: 0,
       creadoEn: new Date().toISOString(),
       ...fields,
@@ -1134,7 +1143,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addActividadReciente(tipo: TipoActividad, texto: string, socioId?: string, enlace?: string) {
     const nueva: ActividadReciente = {
       id: `act-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       tipo,
       texto,
       socioId: socioId ?? null,
@@ -1162,7 +1171,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addVideo(fields: Omit<VideoOnDemand, 'id' | 'studioId' | 'vistas' | 'likes' | 'creadoEn'>) {
     const nuevo: VideoOnDemand = {
       id: `vid-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       vistas: 0,
       likes: 0,
       creadoEn: new Date().toISOString(),
@@ -1185,7 +1194,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addPost(texto: string) {
     const nuevo: PostComunidad = {
       id: `post-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       autorId: null,
       autorNombre: 'Tentare',
       autorInicial: 'TE',
@@ -1214,7 +1223,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     const actualizadoEn = new Date().toISOString();
     const registro: Integracion = {
       id: existente?.id ?? `intg-${tipo.toLowerCase()}-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       tipo,
       activo,
       config,
@@ -1241,7 +1250,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addAutomationLog(log: Omit<AutomationLog, 'id' | 'studioId'>) {
     const nuevo: AutomationLog = {
       id: `log-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       ...log,
     };
     setAutomationLogs(prev => [nuevo, ...prev]);
@@ -1351,7 +1360,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     const nuevosLogs: AutomationLog[] = await Promise.all(candidatos.map(async (c): Promise<AutomationLog> => {
       const base = {
         id: `log-${uid()}`,
-        studioId: 'studio-1',
+        studioId: getCurrentStudioId(),
         ruleId: c.rule.id,
         ruleName: c.rule.nombre,
         socioId: c.socio.id,
@@ -1398,7 +1407,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   function addNotaProgreso(nota: Omit<NotaProgreso, 'id' | 'studioId' | 'creadaEn'>) {
     const nueva: NotaProgreso = {
       id: `nota-prog-${uid()}`,
-      studioId: 'studio-1',
+      studioId: getCurrentStudioId(),
       creadaEn: new Date().toISOString(),
       ...nota,
     };

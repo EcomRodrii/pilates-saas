@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
+import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
+
+const PENDING_STUDIO_KEY = 'ps_pending_studio';
 
 export default function LoginPage() {
   const { signIn, signUp, session, user, loading } = useAuth();
   const { claimInstructorAccount } = useStudio();
-  const router = useRouter();
   const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,8 +20,31 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (loading || !session || !user) return;
-    claimInstructorAccount(user.email ?? '', user.id).finally(() => router.replace('/dashboard'));
-  }, [session, user, loading, router, claimInstructorAccount]);
+
+    (async () => {
+      // Alta pendiente de /crear-estudio (el proyecto exigía confirmar el
+      // email antes de tener sesión): crea el negocio real ahora que ya
+      // hay sesión, y no repitas si ya se creó.
+      const pending = localStorage.getItem(PENDING_STUDIO_KEY);
+      if (pending) {
+        localStorage.removeItem(PENDING_STUDIO_KEY);
+        try {
+          const fields = JSON.parse(pending) as { nombre: string; ciudad: string; telefono: string };
+          const newStudioId = await dbCreateStudio({ ...fields, ownerAuthUserId: user.id });
+          if (newStudioId) setCurrentStudioId(newStudioId);
+        } catch { /* datos corruptos, ignorar */ }
+      }
+      await claimInstructorAccount(user.email ?? '', user.id);
+    })().finally(() => {
+      // Hard navigation on purpose: StudioProvider (mounted once at the root
+      // layout) already resolved/fetched with whatever studio_id was current
+      // *before* the studio creation/claim above finished. A client-side
+      // router.replace wouldn't remount it, so the dashboard could briefly
+      // show the wrong tenant's data. A full reload guarantees a fresh
+      // resolution against the now-final state.
+      window.location.href = '/dashboard';
+    });
+  }, [session, user, loading, claimInstructorAccount]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { setCurrentStudioId } from './supabase-data';
 
 type AuthContextType = {
   session: Session | null;
@@ -46,6 +47,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut();
+    // Multi-tenancy: don't let the next session (anonymous browsing, or a
+    // different account signing in on this device) inherit this user's
+    // resolved studio id.
+    setCurrentStudioId('studio-1');
   }
 
   return (

@@ -20,6 +20,7 @@ create table if not exists studios (
   color_primario text default '#4F46E5',
   plan text default 'BASE',
   avatar_admin text,
+  owner_auth_user_id uuid references auth.users(id) on delete set null,
   creado_en timestamptz default now()
 );
 
@@ -426,6 +427,9 @@ alter table studios add column if not exists avatar_admin text;
 alter table instructores add column if not exists rol text default 'INSTRUCTOR';
 alter table instructores add column if not exists auth_user_id uuid references auth.users(id) on delete set null;
 
+-- Migración: multi-tenancy — cada negocio tiene su propia propietaria
+alter table studios add column if not exists owner_auth_user_id uuid references auth.users(id) on delete set null;
+
 -- ═══════════════════════════════════════════════════════════════════
 -- Políticas de acceso
 --
@@ -447,6 +451,21 @@ alter table instructores add column if not exists auth_user_id uuid references a
 -- cualquier cuenta que aún no se haya vinculado a un miembro del
 -- equipo) se trata como PROPIETARIO — mantiene el comportamiento
 -- actual de un solo admin sin romper nada.
+--
+-- Multi-tenancy: current_studio_id() resuelve a qué negocio pertenece
+-- el usuario autenticado (por su fila en instructores, o si es
+-- propietaria de un negocio por studios.owner_auth_user_id), cayendo
+-- a 'studio-1' solo como compatibilidad con el negocio único que ya
+-- existía antes de esta migración. A partir de aquí, TODAS las tablas
+-- del panel exigen studio_id = current_studio_id() además del rol —
+-- sin esto, cualquier cuenta autenticada de un negocio podía leer los
+-- datos de otro negocio con solo tener sesión iniciada.
+--
+-- Nota importante: las páginas públicas (/reservar, /kiosk, /portal)
+-- siguen sin aislar por negocio en este pase — todas ven el mismo
+-- negocio por defecto. Aislarlas requiere decidir cómo se referencia
+-- cada negocio en la URL pública (subdominio, /reservar/tu-estudio...)
+-- antes de tocar sus políticas anon.
 -- ═══════════════════════════════════════════════════════════════════
 
 create or replace function current_rol() returns text as $$
@@ -456,9 +475,17 @@ create or replace function current_rol() returns text as $$
   );
 $$ language sql stable security definer;
 
+create or replace function current_studio_id() returns text as $$
+  select coalesce(
+    (select studio_id from instructores where auth_user_id = auth.uid() limit 1),
+    (select id from studios where owner_auth_user_id = auth.uid() limit 1),
+    'studio-1'
+  );
+$$ language sql stable security definer;
+
 -- Tablas solo para la propietaria: configuración del negocio, marketing,
 -- automatizaciones y sus registros — nada de esto debe verlo ni tocarlo
--- recepción ni una instructora.
+-- recepción ni una instructora, y nunca de otro negocio.
 do $$
 declare
   t text;
@@ -471,12 +498,13 @@ begin
     execute format('drop policy if exists "allow_all_%s" on %s', t, t);
     execute format('drop policy if exists "admin_%s" on %s', t, t);
     execute format('drop policy if exists "owner_%s" on %s', t, t);
-    execute format('create policy "owner_%s" on %s for all to authenticated using (current_rol() = ''PROPIETARIO'') with check (current_rol() = ''PROPIETARIO'')', t, t);
+    execute format('create policy "owner_%s" on %s for all to authenticated using (current_rol() = ''PROPIETARIO'' and studio_id = current_studio_id()) with check (current_rol() = ''PROPIETARIO'' and studio_id = current_studio_id())', t, t);
   end loop;
 end $$;
 
 -- Tablas operativas: cualquier miembro del equipo con sesión (recepción,
--- instructora o propietaria) las necesita para el día a día del panel.
+-- instructora o propietaria) las necesita para el día a día del panel,
+-- pero solo las de su propio negocio.
 do $$
 declare
   t text;
@@ -488,12 +516,13 @@ begin
   foreach t in array admin_tables loop
     execute format('drop policy if exists "allow_all_%s" on %s', t, t);
     execute format('drop policy if exists "admin_%s" on %s', t, t);
-    execute format('create policy "admin_%s" on %s for all to authenticated using (true) with check (true)', t, t);
+    execute format('create policy "admin_%s" on %s for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id())', t, t);
   end loop;
 end $$;
 
--- Tablas de negocio: acceso completo para el panel (autenticado) +
--- lectura pública para reservar/kiosk/portal
+-- Tablas de negocio: acceso completo para el panel del propio negocio
+-- (autenticado) + lectura pública para reservar/kiosk/portal (todavía
+-- sin aislar por negocio, ver nota arriba).
 do $$
 declare
   t text;
@@ -505,74 +534,84 @@ begin
     execute format('drop policy if exists "allow_all_%s" on %s', t, t);
     execute format('drop policy if exists "admin_%s" on %s', t, t);
     execute format('drop policy if exists "public_read_%s" on %s', t, t);
-    execute format('create policy "admin_%s" on %s for all to authenticated using (true) with check (true)', t, t);
+    execute format('create policy "admin_%s" on %s for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id())', t, t);
     execute format('create policy "public_read_%s" on %s for select to anon using (true)', t, t);
   end loop;
 end $$;
 
--- Studios: solo la propietaria edita los datos del negocio; lectura
+-- Studios: solo la propietaria edita los datos de SU negocio; lectura
 -- pública para que /reservar y el portal muestren nombre/dirección/contacto
 drop policy if exists "allow_all_studios" on studios;
 drop policy if exists "admin_studios" on studios;
 drop policy if exists "owner_studios" on studios;
 drop policy if exists "public_read_studios" on studios;
-create policy "owner_studios" on studios for all to authenticated using (current_rol() = 'PROPIETARIO') with check (current_rol() = 'PROPIETARIO');
+create policy "owner_studios" on studios for all to authenticated using (current_rol() = 'PROPIETARIO' and id = current_studio_id()) with check (current_rol() = 'PROPIETARIO' and id = current_studio_id());
 create policy "public_read_studios" on studios for select to anon using (true);
+-- Cualquier persona autenticada puede CREAR un negocio nuevo (alta de
+-- una propietaria nueva vía /crear-estudio) — no exige studio_id porque
+-- todavía no existe.
+create policy "insert_studios" on studios for insert to authenticated with check (owner_auth_user_id = auth.uid());
 
--- Instructores (el equipo): cualquier miembro autenticado puede ver la
--- lista (para asignar clases, ver compañeras…), pero solo la propietaria
--- da de alta/edita/da de baja. La excepción es "reclamar" el acceso al
--- panel: alguien que se acaba de registrar puede vincular SU propia
--- cuenta a la fila que la propietaria le creó, pero solo si el email
--- coincide exactamente con el de su sesión, y solo mientras esa fila
--- siga sin reclamar.
+-- Instructores (el equipo): cualquier miembro autenticado ve la lista de
+-- SU propio negocio (para asignar clases, ver compañeras…), pero solo
+-- la propietaria da de alta/edita/da de baja. La excepción es "reclamar"
+-- el acceso al panel: alguien que se acaba de registrar puede vincular
+-- SU propia cuenta a la fila que la propietaria le creó, pero solo si
+-- el email coincide exactamente con el de su sesión, y solo mientras
+-- esa fila siga sin reclamar (esta política deliberadamente NO exige
+-- studio_id = current_studio_id(), porque antes de reclamar la fila la
+-- cuenta nueva todavía no pertenece a ningún negocio).
 drop policy if exists "allow_all_instructores" on instructores;
 drop policy if exists "admin_instructores" on instructores;
 drop policy if exists "read_instructores" on instructores;
 drop policy if exists "owner_write_instructores" on instructores;
 drop policy if exists "self_claim_instructores" on instructores;
-create policy "read_instructores" on instructores for select to authenticated using (true);
-create policy "owner_write_instructores" on instructores for all to authenticated using (current_rol() = 'PROPIETARIO') with check (current_rol() = 'PROPIETARIO');
+create policy "read_instructores" on instructores for select to authenticated using (studio_id = current_studio_id());
+create policy "owner_write_instructores" on instructores for all to authenticated using (current_rol() = 'PROPIETARIO' and studio_id = current_studio_id()) with check (current_rol() = 'PROPIETARIO' and studio_id = current_studio_id());
 create policy "self_claim_instructores" on instructores for update to authenticated
   using (auth_user_id is null and email = (auth.jwt() ->> 'email'))
   with check (auth_user_id = auth.uid());
 
 -- Socios: lectura pública (login del portal por email) + edición pública
--- limitada (una socia edita su propio avatar/perfil desde el portal)
+-- limitada (una socia edita su propio avatar/perfil desde el portal).
+-- El acceso autenticado (panel) se restringe al propio negocio.
 drop policy if exists "allow_all_socios" on socios;
 drop policy if exists "admin_socios" on socios;
 drop policy if exists "public_read_socios" on socios;
 drop policy if exists "public_update_socios" on socios;
-create policy "admin_socios" on socios for all to authenticated using (true) with check (true);
+create policy "admin_socios" on socios for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
 create policy "public_read_socios" on socios for select to anon using (true);
 create policy "public_update_socios" on socios for update to anon using (true) with check (true);
 
 -- Suscripciones: la app pública necesita ver el bono activo y descontar
--- sesiones al hacer check-in en el kiosco
+-- sesiones al hacer check-in en el kiosco. El acceso autenticado se
+-- restringe al propio negocio.
 drop policy if exists "allow_all_suscripciones" on suscripciones;
 drop policy if exists "admin_suscripciones" on suscripciones;
 drop policy if exists "public_read_suscripciones" on suscripciones;
 drop policy if exists "public_update_suscripciones" on suscripciones;
-create policy "admin_suscripciones" on suscripciones for all to authenticated using (true) with check (true);
+create policy "admin_suscripciones" on suscripciones for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
 create policy "public_read_suscripciones" on suscripciones for select to anon using (true);
 create policy "public_update_suscripciones" on suscripciones for update to anon using (true) with check (true);
 
--- Reservas: reservar (crear/cancelar) y kiosk (check-in) son públicos por diseño
+-- Reservas: reservar (crear/cancelar) y kiosk (check-in) son públicos por
+-- diseño. El acceso autenticado se restringe al propio negocio.
 drop policy if exists "allow_all_reservas" on reservas;
 drop policy if exists "admin_reservas" on reservas;
 drop policy if exists "public_read_reservas" on reservas;
 drop policy if exists "public_write_reservas" on reservas;
-create policy "admin_reservas" on reservas for all to authenticated using (true) with check (true);
+create policy "admin_reservas" on reservas for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
 create policy "public_read_reservas" on reservas for select to anon using (true);
 create policy "public_write_reservas" on reservas for insert to anon with check (true);
 create policy "public_update_reservas" on reservas for update to anon using (true) with check (true);
 
 -- Recibos: el check-in del kiosco genera un recibo de renovación cuando
--- se agota un bono, y el portal muestra el historial de pagos
+-- se agota un bono, y el portal muestra el historial de pagos. El acceso
+-- autenticado se restringe al propio negocio.
 drop policy if exists "allow_all_recibos" on recibos;
 drop policy if exists "admin_recibos" on recibos;
 drop policy if exists "public_read_recibos" on recibos;
 drop policy if exists "public_insert_recibos" on recibos;
-create policy "admin_recibos" on recibos for all to authenticated using (true) with check (true);
+create policy "admin_recibos" on recibos for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
 create policy "public_read_recibos" on recibos for select to anon using (true);
 create policy "public_insert_recibos" on recibos for insert to anon with check (true);

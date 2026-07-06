@@ -1,6 +1,42 @@
 import { supabase } from '@/lib/supabase';
 
-const STUDIO_ID = 'studio-1';
+// Multi-tenancy: STUDIO_ID used to be a hardcoded constant. It's now resolved
+// per logged-in user (see resolveStudioId/setCurrentStudioId) and read at
+// call time by every helper below, so changing it here propagates everywhere
+// without touching each of the ~45 call sites individually. 'studio-1' stays
+// as the fallback for the single studio that existed before this migration
+// and for any session where resolution hasn't run yet.
+let STUDIO_ID = 'studio-1';
+
+export function setCurrentStudioId(id: string) {
+  STUDIO_ID = id;
+}
+
+export function getCurrentStudioId() {
+  return STUDIO_ID;
+}
+
+// Looks up which studio a just-authenticated user belongs to: first as a
+// claimed team member (instructores.auth_user_id), then as an owner
+// (studios.owner_auth_user_id). Returns null if neither matches (a brand
+// new signup that hasn't created or joined a studio yet).
+export async function resolveStudioId(userId: string): Promise<string | null> {
+  const { data: instructor } = await supabase
+    .from('instructores')
+    .select('studio_id')
+    .eq('auth_user_id', userId)
+    .maybeSingle();
+  if (instructor?.studio_id) return instructor.studio_id;
+
+  const { data: studio } = await supabase
+    .from('studios')
+    .select('id')
+    .eq('owner_auth_user_id', userId)
+    .maybeSingle();
+  if (studio?.id) return studio.id;
+
+  return null;
+}
 
 // ─── Global DB error reporting ───────────────────────────────────────────────
 // Write helpers are fire-and-forget; when a write fails we log to console AND
@@ -1110,6 +1146,23 @@ export async function dbUpdateStudio(changes: any) {
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);
+}
+
+// Crea un negocio nuevo (multi-tenancy: alta real desde /crear-estudio) y lo
+// vincula a la cuenta de Supabase Auth que lo creó. Devuelve el id del nuevo
+// negocio, o null si falló.
+export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string }): Promise<string | null> {
+  const id = `studio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const { error } = await supabase.from('studios').insert({
+    id,
+    nombre: fields.nombre,
+    ciudad: fields.ciudad,
+    telefono: fields.telefono,
+    plan: 'BASE',
+    owner_auth_user_id: fields.ownerAuthUserId,
+  });
+  if (error) { reportDbError('[dbCreateStudio]', error); return null; }
+  return id;
 }
 
 export async function dbUpdateStudioAvatar(avatarId: string | null) {

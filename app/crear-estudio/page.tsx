@@ -2,7 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Building2, User, CheckCircle2 } from 'lucide-react';
+import { Building2, User, CheckCircle2, Mail } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
+import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
+
+const PENDING_STUDIO_KEY = 'ps_pending_studio';
 
 type StudioTipo = 'Pilates' | 'Yoga' | 'Fitness' | 'CrossFit' | 'Danza' | 'Otro';
 
@@ -22,17 +27,52 @@ interface OwnerForm {
 const TIPOS: StudioTipo[] = ['Pilates', 'Yoga', 'Fitness', 'CrossFit', 'Danza', 'Otro'];
 
 export default function CrearEstudioPage() {
+  const { signUp } = useAuth();
   const [step, setStep] = useState(1);
   const [studio, setStudio] = useState<StudioForm>({ nombre: '', tipo: 'Pilates', ciudad: '', telefono: '' });
   const [owner, setOwner] = useState<OwnerForm>({ nombreCompleto: '', email: '', contrasena: '' });
+  const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [needsConfirmEmail, setNeedsConfirmEmail] = useState(false);
 
   function handleStudioSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStep(2);
   }
 
-  function handleOwnerSubmit(e: React.FormEvent) {
+  async function handleOwnerSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError('');
+    setCreating(true);
+
+    const { error: signUpError, needsConfirmation } = await signUp(owner.email, owner.contrasena);
+    if (signUpError) {
+      setError(signUpError);
+      setCreating(false);
+      return;
+    }
+
+    const studioFields = { nombre: studio.nombre, ciudad: studio.ciudad, telefono: studio.telefono };
+
+    if (needsConfirmation) {
+      // No hay sesión todavía (el proyecto exige confirmar el email antes de
+      // iniciar sesión). Guardamos los datos del negocio y lo creamos de
+      // verdad en cuanto confirme e inicie sesión por primera vez (ver
+      // app/login/page.tsx).
+      localStorage.setItem(PENDING_STUDIO_KEY, JSON.stringify(studioFields));
+      setNeedsConfirmEmail(true);
+      setCreating(false);
+      return;
+    }
+
+    // Ya hay sesión activa (confirmación de email desactivada en el proyecto)
+    // — creamos el negocio ahora mismo.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const newStudioId = await dbCreateStudio({ ...studioFields, ownerAuthUserId: user.id });
+      if (newStudioId) setCurrentStudioId(newStudioId);
+    }
+    setCreating(false);
     setStep(3);
   }
 
@@ -188,6 +228,10 @@ export default function CrearEstudioPage() {
                 </div>
               </div>
 
+              {error && (
+                <p className="text-[13px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              )}
+
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -198,15 +242,39 @@ export default function CrearEstudioPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-[2] py-3 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors"
+                  disabled={creating}
+                  className="flex-[2] py-3 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors disabled:opacity-60"
                 >
-                  Crear estudio →
+                  {creating ? 'Creando…' : 'Crear estudio →'}
                 </button>
               </div>
             </form>
           )}
 
-          {step === 3 && (
+          {needsConfirmEmail && (
+            <div className="p-6 space-y-4 text-center">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-[#EDF9C8] flex items-center justify-center">
+                  <Mail size={32} className="text-[#3F5200]" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-[18px] font-bold text-[#111827]">Confirma tu email</h1>
+                <p className="text-[14px] text-[#6B7280] mt-1">
+                  Te hemos enviado un enlace a <strong className="text-[#111827]">{owner.email}</strong>.
+                  Confírmalo y luego inicia sesión — tu estudio <strong className="text-[#111827]">{studio.nombre}</strong> se creará automáticamente en ese momento.
+                </p>
+              </div>
+              <Link
+                href="/login"
+                className="flex items-center justify-center w-full py-3 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors"
+              >
+                Ir a iniciar sesión →
+              </Link>
+            </div>
+          )}
+
+          {step === 3 && !needsConfirmEmail && (
             <div className="p-6 space-y-5 text-center">
               <div className="flex justify-center">
                 <div className="w-16 h-16 rounded-2xl bg-[#EDF9C8] flex items-center justify-center">
@@ -230,12 +298,15 @@ export default function CrearEstudioPage() {
               </div>
 
               <div className="space-y-2.5">
-                <Link
+                {/* Hard navigation on purpose: forces StudioProvider to remount
+                    and resolve against the studio we just created, instead of
+                    keeping whatever it fetched before dbCreateStudio finished. */}
+                <a
                   href="/dashboard"
                   className="flex items-center justify-center w-full py-3.5 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors"
                 >
                   Ir al dashboard →
-                </Link>
+                </a>
                 <Link
                   href="/portal/login"
                   className="flex items-center justify-center w-full py-3.5 rounded-xl border border-[#E7E7E0] text-[#1A1A1A] font-semibold text-[15px] hover:bg-[#F5F5F1] transition-colors"
