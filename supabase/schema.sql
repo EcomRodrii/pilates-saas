@@ -551,7 +551,13 @@ drop policy if exists "admin_studios" on studios;
 drop policy if exists "owner_studios" on studios;
 drop policy if exists "public_read_studios" on studios;
 create policy "owner_studios" on studios for all to authenticated using (current_rol() = 'PROPIETARIO' and id = current_studio_id()) with check (current_rol() = 'PROPIETARIO' and id = current_studio_id());
-create policy "public_read_studios" on studios for select to anon using (true);
+-- "to public" (no solo "to anon"): las páginas públicas por slug
+-- (/reservar/[slug], /kiosk/[slug], /portal/[slug]) deben poder resolver
+-- CUALQUIER negocio a partir de la URL incluso si quien navega tiene una
+-- sesión de admin abierta en el mismo navegador — si esto fuera solo
+-- "to anon", esa consulta autenticada caería en la política restrictiva
+-- de arriba (solo ve su propio negocio) y el slug ajeno no resolvería.
+create policy "public_read_studios" on studios for select to public using (true);
 -- Cualquier persona autenticada puede CREAR un negocio nuevo (alta de
 -- una propietaria nueva vía /crear-estudio) — no exige studio_id porque
 -- todavía no existe.
