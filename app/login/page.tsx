@@ -4,9 +4,8 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
+import { supabase } from '@/lib/supabase';
 import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
-
-const PENDING_STUDIO_KEY = 'ps_pending_studio';
 
 export default function LoginPage() {
   const { signIn, signUp, session, user, loading } = useAuth();
@@ -23,16 +22,17 @@ export default function LoginPage() {
 
     (async () => {
       // Alta pendiente de /crear-estudio (el proyecto exigía confirmar el
-      // email antes de tener sesión): crea el negocio real ahora que ya
-      // hay sesión, y no repitas si ya se creó.
-      const pending = localStorage.getItem(PENDING_STUDIO_KEY);
+      // email antes de tener sesión): crea el negocio real ahora que ya hay
+      // sesión. Los datos viajan en la metadata del usuario (no localStorage),
+      // así que esto funciona aunque el email se confirme desde otro
+      // dispositivo distinto al que hizo el alta.
+      const pending = user.user_metadata?.pending_studio as
+        | { nombre: string; ciudad: string; telefono: string }
+        | undefined;
       if (pending) {
-        localStorage.removeItem(PENDING_STUDIO_KEY);
-        try {
-          const fields = JSON.parse(pending) as { nombre: string; ciudad: string; telefono: string };
-          const newStudioId = await dbCreateStudio({ ...fields, ownerAuthUserId: user.id });
-          if (newStudioId) setCurrentStudioId(newStudioId);
-        } catch { /* datos corruptos, ignorar */ }
+        const newStudioId = await dbCreateStudio({ ...pending, ownerAuthUserId: user.id });
+        if (newStudioId) setCurrentStudioId(newStudioId);
+        await supabase.auth.updateUser({ data: { pending_studio: null } });
       }
       await claimInstructorAccount(user.email ?? '', user.id);
     })().finally(() => {

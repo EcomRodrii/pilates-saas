@@ -7,8 +7,6 @@ import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
 
-const PENDING_STUDIO_KEY = 'ps_pending_studio';
-
 type StudioTipo = 'Pilates' | 'Yoga' | 'Fitness' | 'CrossFit' | 'Danza' | 'Otro';
 
 interface StudioForm {
@@ -45,21 +43,22 @@ export default function CrearEstudioPage() {
     setError('');
     setCreating(true);
 
-    const { error: signUpError, needsConfirmation } = await signUp(owner.email, owner.contrasena);
+    const studioFields = { nombre: studio.nombre, ciudad: studio.ciudad, telefono: studio.telefono };
+
+    // Los datos del negocio viajan como metadata del propio usuario de Supabase
+    // (no localStorage): así, si confirma el email desde otro dispositivo
+    // (ej. abre el enlace en el Gmail del móvil), el estudio se puede crear
+    // igual al iniciar sesión por primera vez (ver app/login/page.tsx).
+    const { error: signUpError, needsConfirmation } = await signUp(owner.email, owner.contrasena, {
+      pending_studio: studioFields,
+    });
     if (signUpError) {
       setError(signUpError);
       setCreating(false);
       return;
     }
 
-    const studioFields = { nombre: studio.nombre, ciudad: studio.ciudad, telefono: studio.telefono };
-
     if (needsConfirmation) {
-      // No hay sesión todavía (el proyecto exige confirmar el email antes de
-      // iniciar sesión). Guardamos los datos del negocio y lo creamos de
-      // verdad en cuanto confirme e inicie sesión por primera vez (ver
-      // app/login/page.tsx).
-      localStorage.setItem(PENDING_STUDIO_KEY, JSON.stringify(studioFields));
       setNeedsConfirmEmail(true);
       setCreating(false);
       return;
