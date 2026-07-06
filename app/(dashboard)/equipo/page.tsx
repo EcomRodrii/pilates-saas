@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, AlertTriangle, ShieldCheck, KeyRound } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
 const COLORES = ['#F7A6C4', '#F7A6C4', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
@@ -211,12 +211,6 @@ export default function EquipoPage() {
           })}
         </div>
       )}
-
-      {/* Roles note */}
-      <div className="flex items-start gap-2 bg-[#F8F9FB] border border-[#E7E7E0] rounded-xl p-3.5 text-[12px] text-[#8E8E86]">
-        <AlertTriangle size={14} className="text-[#A8A89F] shrink-0 mt-0.5" />
-        <p>Los roles y permisos por persona (propietaria / recepción / instructora) se activarán junto con el inicio de sesión de usuarios. De momento, todo el equipo comparte acceso.</p>
-      </div>
 
       {/* Create/edit modal */}
       <Dialog open={modal !== null} onOpenChange={open => !open && setModal(null)}>
