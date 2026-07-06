@@ -38,7 +38,7 @@ function initials(nombre: string, apellidos: string) {
 
 function avatarColor(id: string) {
   const colors = [
-    { bg: '#EDF9C8', text: '#2563EB' },
+    { bg: '#FFF2F7', text: '#2563EB' },
     { bg: '#F0FDF4', text: '#059669' },
     { bg: '#FEF3C7', text: '#D97706' },
     { bg: '#EDE9FE', text: '#7C3AED' },
@@ -157,7 +157,7 @@ export default function KioskPage() {
                 onClick={() => setSelectedSesionId(s.id)}
                 className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
                 style={s.id === selectedSesionId
-                  ? { backgroundColor: s.tipo?.color ?? '#C6F94D', color: isDark(s.tipo?.color ?? '#C6F94D') ? '#fff' : '#171717' }
+                  ? { backgroundColor: s.tipo?.color ?? '#FFC8E2', color: isDark(s.tipo?.color ?? '#FFC8E2') ? '#fff' : '#171717' }
                   : { backgroundColor: 'rgba(255,255,255,0.07)', color: s.isPast ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)' }
                 }
               >
@@ -178,7 +178,7 @@ export default function KioskPage() {
             {/* Session info bar */}
             <div className="flex items-center gap-4 shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedSesion.tipo?.color ?? '#C6F94D' }} />
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedSesion.tipo?.color ?? '#FFC8E2' }} />
                 <span className="text-xl font-bold">{selectedSesion.tipo?.nombre ?? 'Clase'}</span>
               </div>
               <span className="text-white/40">·</span>

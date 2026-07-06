@@ -181,7 +181,7 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
             className={cn(
               'flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors',
               form.titulo.trim()
-                ? 'bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F]'
+                ? 'bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2]'
                 : 'bg-[#E7E7E0] text-[#A8A89F] cursor-not-allowed'
             )}
           >
@@ -323,7 +323,7 @@ export default function OnDemandPage() {
           </div>
           <button
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-[13px] font-medium hover:bg-[#BCEF3F] transition-colors shrink-0"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[13px] font-medium hover:bg-[#F7B3D2] transition-colors shrink-0"
           >
             <Upload size={14} />
             Subir vídeo
@@ -357,7 +357,7 @@ export default function OnDemandPage() {
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors',
                   categoriaActiva === c.value
-                    ? 'bg-[#C6F94D] text-[#171717]'
+                    ? 'bg-[#FFC8E2] text-[#171717]'
                     : 'bg-white border border-[#E7E7E0] text-[#8E8E86] hover:text-[#1A1A1A]'
                 )}
               >

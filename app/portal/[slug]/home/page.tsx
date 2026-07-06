@@ -59,7 +59,7 @@ export default function PortalHome() {
       {/* ── Header gradient ─────────────────────────── */}
       <div
         className="px-5 pt-6 pb-8"
-        style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #8FBF12 100%)' }}
+        style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}
       >
         {/* Top row */}
         <div className="flex items-start justify-between mb-6">
@@ -104,7 +104,7 @@ export default function PortalHome() {
           const tipo = tiposClase.find(t => t.id === proxima.s!.tipoClaseId);
           const sala = salas.find(s => s.id === proxima.s!.salaId);
           const instr = instructores.find(i => i.id === proxima.s!.instructorId);
-          const color = tipo?.color ?? '#8FBF12';
+          const color = tipo?.color ?? '#F7A6C4';
           return (
             <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
               <div className="p-5 text-white" style={{ background: `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
@@ -132,11 +132,11 @@ export default function PortalHome() {
           );
         })() : (
           <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
-            <div className="p-5 bg-gradient-to-br from-[#1A1A1A] to-[#3F5200] text-white">
+            <div className="p-5 bg-gradient-to-br from-[#1A1A1A] to-[#B57A8E] text-white">
               <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-3">Próxima clase</p>
               <p className="text-white text-[20px] font-extrabold mb-1">Sin clases reservadas</p>
               <p className="text-white/60 text-[13px] mb-4">Reserva tu próxima sesión ahora</p>
-              <div className="inline-flex items-center gap-2 bg-white text-[#6B8E00] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
+              <div className="inline-flex items-center gap-2 bg-white text-[#B57A8E] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
                 <Calendar size={15} />
                 Ver clases disponibles
               </div>
@@ -154,8 +154,8 @@ export default function PortalHome() {
                 <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-1">Mi bono</p>
                 <p className="text-[18px] font-extrabold text-[#171717] leading-tight">{plan.nombre}</p>
               </div>
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${bonoCaducado ? 'bg-red-50' : 'bg-[#EDF9C8]'}`}>
-                <CreditCard size={18} className={bonoCaducado ? 'text-red-500' : 'text-[#6B8E00]'} />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${bonoCaducado ? 'bg-red-50' : 'bg-[#FFF2F7]'}`}>
+                <CreditCard size={18} className={bonoCaducado ? 'text-red-500' : 'text-[#B57A8E]'} />
               </div>
             </div>
             {bonoCaducado ? (
@@ -176,7 +176,7 @@ export default function PortalHome() {
                     className="h-full rounded-full transition-all"
                     style={{
                       width: `${Math.min(100, Math.round((activeSus.sesionesRestantes / plan.sesiones) * 100))}%`,
-                      backgroundColor: activeSus.sesionesRestantes > 3 ? '#8FBF12' : '#EF4444',
+                      backgroundColor: activeSus.sesionesRestantes > 3 ? '#F7A6C4' : '#EF4444',
                     }}
                   />
                 </div>
@@ -200,10 +200,10 @@ export default function PortalHome() {
         <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">Acceso rápido</p>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { href: `/portal/${slug}/clases`, icon: Calendar, label: 'Reservar clase', color: '#6B8E00', bg: '#EDF9C8' },
+            { href: `/portal/${slug}/clases`, icon: Calendar, label: 'Reservar clase', color: '#B57A8E', bg: '#FFF2F7' },
             { href: `/portal/${slug}/mi-plan`, icon: CreditCard, label: 'Mis pagos', color: '#059669', bg: '#ECFDF5' },
             { href: `/portal/${slug}/videos`, icon: Play, label: 'Videos on-demand', color: '#D97706', bg: '#FFFBEB' },
-            { href: `/portal/${slug}/progreso`, icon: TrendingUp, label: 'Mi progreso', color: '#8FBF12', bg: '#EDF9C8' },
+            { href: `/portal/${slug}/progreso`, icon: TrendingUp, label: 'Mi progreso', color: '#F7A6C4', bg: '#FFF2F7' },
           ].map(({ href, icon: Icon, label, color, bg }) => (
             <Link
               key={href}

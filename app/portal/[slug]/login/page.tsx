@@ -74,7 +74,7 @@ export default function PortalLogin() {
         <button
           type="submit"
           disabled={loading || !email}
-          className="w-full py-3.5 rounded-2xl bg-[#C6F94D] text-[#171717] font-bold text-sm transition-all disabled:opacity-50 hover:bg-[#BCEF3F] active:scale-[0.98]"
+          className="w-full py-3.5 rounded-2xl bg-[#FFC8E2] text-[#171717] font-bold text-sm transition-all disabled:opacity-50 hover:bg-[#F7B3D2] active:scale-[0.98]"
         >
           {loading ? 'Comprobando...' : 'Entrar'}
         </button>

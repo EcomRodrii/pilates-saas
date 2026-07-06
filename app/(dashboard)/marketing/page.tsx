@@ -222,7 +222,7 @@ function KpiTrendCard({ title, value, deltaPct, points, color, axisLabels }: {
         {deltaPct !== null && (
           <span className={cn(
             'text-[11px] font-bold px-2 py-0.5 rounded-full',
-            positive ? 'bg-[#EDF9C8] text-[#3F5200]' : 'bg-[#FEF3C7] text-[#92400E]'
+            positive ? 'bg-[#FFF2F7] text-[#B57A8E]' : 'bg-[#FEF3C7] text-[#92400E]'
           )}>
             {positive ? '+' : ''}{deltaPct.toFixed(1)}%
           </span>
@@ -246,7 +246,7 @@ function ConversionRatioCard({ activas, total }: { activas: number; total: numbe
       </div>
       <p className="text-[12px] text-[#8E8E86] mb-3">Tasa de conversión</p>
       <div className="h-2.5 bg-[#F1F1EC] rounded-full overflow-hidden mt-auto">
-        <div className="h-full rounded-full bg-[#8FBF12]" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-[#F7A6C4]" style={{ width: `${pct}%` }} />
       </div>
       <p className="text-[11px] text-[#A8A89F] mt-2">{activas} activas de {total} con etapa asignada</p>
     </div>
@@ -292,7 +292,7 @@ function ConversionFunnelCard({ socios }: { socios: { leadStage?: LeadStage }[] 
               <p className="text-[11px] text-[#8E8E86] mt-1 mb-3">{c.label}</p>
               <div className="h-16 flex items-end">
                 <div
-                  className={cn('w-full rounded-t-md', i === counts.length - 1 ? 'bg-[#8FBF12]' : 'bg-[#E7E7E0]')}
+                  className={cn('w-full rounded-t-md', i === counts.length - 1 ? 'bg-[#F7A6C4]' : 'bg-[#E7E7E0]')}
                   style={{ height: `${widthPct}%` }}
                 />
               </div>
@@ -354,7 +354,7 @@ function TopClasesCard({ sesiones, reservas, tiposClase }: {
 
 // ─── Desglose de ingresos por tipo de plan (donut, importes reales cobrados) ──
 
-const PLAN_TIPO_COLOR: Record<string, string> = { MENSUAL: '#8FBF12', BONO: '#F5D97A', PUNTUAL: '#A6D8F0' }
+const PLAN_TIPO_COLOR: Record<string, string> = { MENSUAL: '#F7A6C4', BONO: '#F5D97A', PUNTUAL: '#A6D8F0' }
 const PLAN_TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bonos', PUNTUAL: 'Clase suelta' }
 
 function RevenueDonutCard({ recibos, suscripciones, planesTarifa }: {
@@ -647,7 +647,7 @@ export default function MarketingPage() {
             value={String(totalLeadsActual)}
             deltaPct={leadsDeltaPct}
             points={leadsPorMes.map(m => m.count)}
-            color="#8FBF12"
+            color="#F7A6C4"
             axisLabels={leadsPorMes.map(m => m.label)}
           />
           <ConversionRatioCard activas={activas} total={totalConLeadStage} />
@@ -675,7 +675,7 @@ export default function MarketingPage() {
             </div>
             <button
               onClick={() => setShowCampanaModal(true)}
-              className="flex items-center gap-2 bg-[#C6F94D] text-[#171717] rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#BCEF3F] transition-colors shrink-0"
+              className="flex items-center gap-2 bg-[#FFC8E2] text-[#171717] rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#F7B3D2] transition-colors shrink-0"
             >
               <Plus className="w-4 h-4" />
               Nueva campaña
@@ -750,7 +750,7 @@ export default function MarketingPage() {
             </div>
             <button
               onClick={() => setShowAutoModal(true)}
-              className="flex items-center gap-2 bg-[#C6F94D] text-[#171717] rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#BCEF3F] transition-colors shrink-0"
+              className="flex items-center gap-2 bg-[#FFC8E2] text-[#171717] rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#F7B3D2] transition-colors shrink-0"
             >
               <Plus className="w-4 h-4" />
               Nueva automatización
@@ -879,7 +879,7 @@ export default function MarketingPage() {
             </div>
             <button
               onClick={() => setShowCodigoModal(true)}
-              className="flex items-center gap-2 bg-[#C6F94D] text-[#171717] rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#BCEF3F] transition-colors shrink-0"
+              className="flex items-center gap-2 bg-[#FFC8E2] text-[#171717] rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#F7B3D2] transition-colors shrink-0"
             >
               <Plus className="w-4 h-4" />
               Nuevo código
@@ -1114,7 +1114,7 @@ export default function MarketingPage() {
               </button>
               <button
                 onClick={handleAddCampana}
-                className="px-4 py-2 text-sm rounded-lg bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F] transition-colors font-medium"
+                className="px-4 py-2 text-sm rounded-lg bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2] transition-colors font-medium"
               >
                 Crear campaña
               </button>
@@ -1185,7 +1185,7 @@ export default function MarketingPage() {
               </button>
               <button
                 onClick={handleAddAuto}
-                className="px-4 py-2 text-sm rounded-lg bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F] transition-colors font-medium"
+                className="px-4 py-2 text-sm rounded-lg bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2] transition-colors font-medium"
               >
                 Crear automatización
               </button>
@@ -1268,7 +1268,7 @@ export default function MarketingPage() {
               </button>
               <button
                 onClick={handleAddCodigo}
-                className="px-4 py-2 text-sm rounded-lg bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F] transition-colors font-medium"
+                className="px-4 py-2 text-sm rounded-lg bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2] transition-colors font-medium"
               >
                 Crear código
               </button>

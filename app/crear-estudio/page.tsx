@@ -111,8 +111,8 @@ export default function CrearEstudioPage() {
           {step === 1 && (
             <form onSubmit={handleStudioSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-[#EDF9C8] flex items-center justify-center">
-                  <Building2 size={20} className="text-[#3F5200]" />
+                <div className="w-10 h-10 rounded-xl bg-[#FFF2F7] flex items-center justify-center">
+                  <Building2 size={20} className="text-[#B57A8E]" />
                 </div>
                 <div>
                   <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Tu estudio</h1>
@@ -171,7 +171,7 @@ export default function CrearEstudioPage() {
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors"
+                className="w-full py-3 rounded-xl bg-[#FFC8E2] text-[#171717] font-semibold text-[15px] hover:bg-[#F7B3D2] transition-colors"
               >
                 Continuar →
               </button>
@@ -181,8 +181,8 @@ export default function CrearEstudioPage() {
           {step === 2 && (
             <form onSubmit={handleOwnerSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-[#EDF9C8] flex items-center justify-center">
-                  <User size={20} className="text-[#3F5200]" />
+                <div className="w-10 h-10 rounded-xl bg-[#FFF2F7] flex items-center justify-center">
+                  <User size={20} className="text-[#B57A8E]" />
                 </div>
                 <div>
                   <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Tu cuenta</h1>
@@ -243,7 +243,7 @@ export default function CrearEstudioPage() {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-[2] py-3 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors disabled:opacity-60"
+                  className="flex-[2] py-3 rounded-xl bg-[#FFC8E2] text-[#171717] font-semibold text-[15px] hover:bg-[#F7B3D2] transition-colors disabled:opacity-60"
                 >
                   {creating ? 'Creando…' : 'Crear estudio →'}
                 </button>
@@ -254,8 +254,8 @@ export default function CrearEstudioPage() {
           {needsConfirmEmail && (
             <div className="p-6 space-y-4 text-center">
               <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#EDF9C8] flex items-center justify-center">
-                  <Mail size={32} className="text-[#3F5200]" />
+                <div className="w-16 h-16 rounded-2xl bg-[#FFF2F7] flex items-center justify-center">
+                  <Mail size={32} className="text-[#B57A8E]" />
                 </div>
               </div>
               <div>
@@ -267,7 +267,7 @@ export default function CrearEstudioPage() {
               </div>
               <Link
                 href="/login"
-                className="flex items-center justify-center w-full py-3 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors"
+                className="flex items-center justify-center w-full py-3 rounded-xl bg-[#FFC8E2] text-[#171717] font-semibold text-[15px] hover:bg-[#F7B3D2] transition-colors"
               >
                 Ir a iniciar sesión →
               </Link>
@@ -277,8 +277,8 @@ export default function CrearEstudioPage() {
           {step === 3 && !needsConfirmEmail && (
             <div className="p-6 space-y-5 text-center">
               <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#EDF9C8] flex items-center justify-center">
-                  <CheckCircle2 size={32} className="text-[#3F5200]" />
+                <div className="w-16 h-16 rounded-2xl bg-[#FFF2F7] flex items-center justify-center">
+                  <CheckCircle2 size={32} className="text-[#B57A8E]" />
                 </div>
               </div>
 
@@ -292,7 +292,7 @@ export default function CrearEstudioPage() {
 
               <div className="bg-[#F8F9FA] rounded-xl px-4 py-3 text-left space-y-1">
                 <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#9CA3AF]">URL del portal</p>
-                <p className="text-[13px] font-medium text-[#3F5200] break-all">
+                <p className="text-[13px] font-medium text-[#B57A8E] break-all">
                   https://{portalSlug}.miapp.com/portal
                 </p>
               </div>
@@ -303,7 +303,7 @@ export default function CrearEstudioPage() {
                     keeping whatever it fetched before dbCreateStudio finished. */}
                 <a
                   href="/dashboard"
-                  className="flex items-center justify-center w-full py-3.5 rounded-xl bg-[#C6F94D] text-[#171717] font-semibold text-[15px] hover:bg-[#BCEF3F] transition-colors"
+                  className="flex items-center justify-center w-full py-3.5 rounded-xl bg-[#FFC8E2] text-[#171717] font-semibold text-[15px] hover:bg-[#F7B3D2] transition-colors"
                 >
                   Ir al dashboard →
                 </a>
@@ -320,7 +320,7 @@ export default function CrearEstudioPage() {
 
         <p className="text-center text-[12px] text-[#9CA3AF] mt-4">
           ¿Ya tienes cuenta?{' '}
-          <Link href="/dashboard" className="text-[#3F5200] hover:underline">
+          <Link href="/dashboard" className="text-[#B57A8E] hover:underline">
             Iniciar sesión
           </Link>
         </p>

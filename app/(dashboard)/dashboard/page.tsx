@@ -46,7 +46,7 @@ const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'S
 
 const actividadConfig: Record<TipoActividad, { color: string; bg: string; label: string }> = {
   NUEVA_SOCIA:        { color: '#059669', bg: '#ECFDF5', label: 'Alta' },
-  NUEVA_RESERVA:      { color: '#7AA80E', bg: '#EDF9C8', label: 'Reserva' },
+  NUEVA_RESERVA:      { color: '#7AA80E', bg: '#FFF2F7', label: 'Reserva' },
   CANCELACION:        { color: '#DC2626', bg: '#FEF2F2', label: 'Cancelación' },
   PAGO_COBRADO:       { color: '#059669', bg: '#ECFDF5', label: 'Cobro' },
   PAGO_PENDIENTE:     { color: '#D97706', bg: '#FFFBEB', label: 'Pendiente' },
@@ -101,8 +101,8 @@ function RevenueSparkline({
     >
       <defs>
         <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#A9DE20" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#A9DE20" stopOpacity="0" />
+          <stop offset="0%" stopColor="#F7A6C4" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#F7A6C4" stopOpacity="0" />
         </linearGradient>
       </defs>
 
@@ -110,7 +110,7 @@ function RevenueSparkline({
       <path d={areaD} fill="url(#spark-grad)" />
 
       {/* Line */}
-      <path d={pathD} fill="none" stroke="#8FBF12" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} fill="none" stroke="#F7A6C4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
       {/* Data points */}
       {pts.map((p, i) => (
@@ -119,7 +119,7 @@ function RevenueSparkline({
             cx={p.x}
             cy={p.y}
             r={i === currentIdx ? 5 : 3}
-            fill={i === currentIdx ? "#8FBF12" : "#fff"} stroke="#8FBF12"
+            fill={i === currentIdx ? "#F7A6C4" : "#fff"} stroke="#F7A6C4"
             strokeWidth="2"
           />
           <text
@@ -318,7 +318,7 @@ function ClaseHoyCard({
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => checkin(r.id)}
-                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F] transition-colors"
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2] transition-colors"
                         >
                           Check-in
                         </button>
@@ -612,18 +612,18 @@ export default function Dashboard() {
 
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard label="Miembros activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-[#6B8E00]" tintBg="bg-[#EDF9C8]" />
+          <KpiCard label="Miembros activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-[#B57A8E]" tintBg="bg-[#FFF2F7]" />
           <Card size="sm" className="gap-2.5">
             <CardContent className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
-              <span className="flex size-7 items-center justify-center rounded-lg bg-[#EDF9C8]"><Activity className="size-3.5 text-[#6B8E00]" /></span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-[#FFF2F7]"><Activity className="size-3.5 text-[#B57A8E]" /></span>
             </CardContent>
             <CardContent>
               <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? '#DC2626' : ocupacionMedia >= 60 ? '#D97706' : '#059669' }}>{ocupacionMedia}%</p>
               <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
             </CardContent>
           </Card>
-          <KpiCard label="Reservas hoy" value={reservasHoy} sub={`${clasesHoy.length} clase${clasesHoy.length !== 1 ? 's' : ''} programada${clasesHoy.length !== 1 ? 's' : ''}`} Icon={Calendar} tint="text-[#6B8E00]" tintBg="bg-[#EDF9C8]" />
+          <KpiCard label="Reservas hoy" value={reservasHoy} sub={`${clasesHoy.length} clase${clasesHoy.length !== 1 ? 's' : ''} programada${clasesHoy.length !== 1 ? 's' : ''}`} Icon={Calendar} tint="text-[#B57A8E]" tintBg="bg-[#FFF2F7]" />
           <KpiCard
             label="Renovaciones 30d"
             value={renovacionesProximas.length}
@@ -723,7 +723,7 @@ export default function Dashboard() {
                         </span>
                         <button
                           onClick={() => marcarCobrado(r.id)}
-                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F] transition-colors"
+                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2] transition-colors"
                         >
                           Cobrar
                         </button>
@@ -756,7 +756,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <Link
                   href="/socios?nuevo=1"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
                 >
                   <UserPlus size={14} /> Nuevo miembro
                 </Link>

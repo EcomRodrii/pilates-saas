@@ -173,14 +173,14 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
               Imprimir
             </button>
             {showPrintTooltip && (
-              <div className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 bg-[#C6F94D] text-[#171717] text-[11px] rounded-lg whitespace-nowrap">
+              <div className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 bg-[#FFC8E2] text-[#171717] text-[11px] rounded-lg whitespace-nowrap">
                 Próximamente
               </div>
             )}
           </div>
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-[13px] font-semibold hover:bg-[#BCEF3F] transition-colors"
+            className="flex-1 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[13px] font-semibold hover:bg-[#F7B3D2] transition-colors"
           >
             Cerrar
           </button>
@@ -425,13 +425,13 @@ export default function POSPage() {
       <div className="lg:hidden shrink-0 flex items-center gap-1 px-4 py-2 bg-white border-b border-[#E7E7E0]">
         <button
           onClick={() => setPosView('catalog')}
-          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors ${posView === 'catalog' ? 'bg-[#C6F94D] text-[#171717]' : 'text-[#8E8E86]'}`}
+          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors ${posView === 'catalog' ? 'bg-[#FFC8E2] text-[#171717]' : 'text-[#8E8E86]'}`}
         >
           Catálogo
         </button>
         <button
           onClick={() => setPosView('cart')}
-          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors relative ${posView === 'cart' ? 'bg-[#C6F94D] text-[#171717]' : 'text-[#8E8E86]'}`}
+          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors relative ${posView === 'cart' ? 'bg-[#FFC8E2] text-[#171717]' : 'text-[#8E8E86]'}`}
         >
           Carrito
           {carrito.length > 0 && (
@@ -470,7 +470,7 @@ export default function POSPage() {
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors',
                   tab === t.value
-                    ? 'bg-[#C6F94D] text-[#171717]'
+                    ? 'bg-[#FFC8E2] text-[#171717]'
                     : 'bg-white border border-[#E7E7E0] text-[#8E8E86] hover:text-[#1A1A1A]'
                 )}
               >
@@ -517,7 +517,7 @@ export default function POSPage() {
             <ShoppingCart size={15} className="text-[#8E8E86]" />
             <h2 className="text-[14px] font-semibold text-[#1A1A1A]">Ticket actual</h2>
             {carrito.length > 0 && (
-              <span className="ml-auto text-[11px] bg-[#C6F94D] text-[#171717] rounded-full px-2 py-0.5">
+              <span className="ml-auto text-[11px] bg-[#FFC8E2] text-[#171717] rounded-full px-2 py-0.5">
                 {carrito.reduce((s, i) => s + i.cantidad, 0)}
               </span>
             )}
@@ -658,7 +658,7 @@ export default function POSPage() {
                     className={cn(
                       'py-1.5 rounded-lg text-[12px] font-medium border transition-colors',
                       metodoPago === m.value
-                        ? 'bg-[#C6F94D] text-[#171717] border-[#1A1A1A]'
+                        ? 'bg-[#FFC8E2] text-[#171717] border-[#1A1A1A]'
                         : 'bg-white border-[#E7E7E0] text-[#8E8E86] hover:border-[#1A1A1A] hover:text-[#1A1A1A]'
                     )}
                   >
@@ -681,7 +681,7 @@ export default function POSPage() {
                   className={cn(
                     'flex-[2] py-2 rounded-lg text-[13px] font-semibold transition-colors',
                     carrito.length > 0
-                      ? 'bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F]'
+                      ? 'bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2]'
                       : 'bg-[#E7E7E0] text-[#A8A89F] cursor-not-allowed'
                   )}
                 >

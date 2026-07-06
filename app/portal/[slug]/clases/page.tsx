@@ -62,7 +62,7 @@ export default function ClasesPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #8FBF12 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight leading-tight">Clases</h1>
         <p className="text-white/50 text-[13px] mt-0.5">{totalReservas} reservas activas</p>
 
@@ -88,8 +88,8 @@ export default function ClasesPage() {
       <div className="px-4 pt-4 pb-4 space-y-6">
         {groupedByDay.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 rounded-3xl bg-[#EDF9C8] flex items-center justify-center mb-4">
-              <Clock size={28} className="text-[#6B8E00]" />
+            <div className="w-16 h-16 rounded-3xl bg-[#FFF2F7] flex items-center justify-center mb-4">
+              <Clock size={28} className="text-[#B57A8E]" />
             </div>
             <p className="font-bold text-[#171717] text-[16px]">
               {tab === 'mis-reservas' ? 'Sin reservas activas' : 'Sin clases disponibles'}
@@ -109,7 +109,7 @@ export default function ClasesPage() {
                   const instr = instructores.find(i => i.id === ses.instructorId);
                   const libres = getLibres(ses.id, ses.aforoMaximo);
                   const miReserva = getMiReserva(ses.id);
-                  const color = tipo?.color ?? '#8FBF12';
+                  const color = tipo?.color ?? '#F7A6C4';
 
                   return (
                     <div key={ses.id} className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.08)' }}>

@@ -37,14 +37,14 @@ const accionConfig: Record<AccionAutomatica, { label: string; icon: React.Elemen
   NOTIFICAR_ADMIN:   { label: 'Notificación admin', icon: Bell, color: '#D97706' },
   OFRECER_CLASE_GRATIS: { label: 'Clase gratis', icon: Gift, color: '#DB2777' },
   PROPONER_PLAN:     { label: 'Proponer plan', icon: TrendingUp, color: '#059669' },
-  ENVIAR_EJERCICIOS: { label: 'Ejercicios casa', icon: Send, color: '#8FBF12' },
+  ENVIAR_EJERCICIOS: { label: 'Ejercicios casa', icon: Send, color: '#F7A6C4' },
 };
 
 const resultadoConfig: Record<ResultadoLog, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   EJECUTADO:       { label: 'Ejecutado', color: '#16A34A', bg: '#DCFCE7', icon: CheckCircle2 },
   ESPERANDO:       { label: 'Esperando', color: '#D97706', bg: '#FEF3C7', icon: Clock },
   FALLIDO:         { label: 'Fallido', color: '#DC2626', bg: '#FEE2E2', icon: XCircle },
-  PENDIENTE_ADMIN: { label: 'Acción humana', color: '#6B8E00', bg: '#EDF9C8', icon: AlertTriangle },
+  PENDIENTE_ADMIN: { label: 'Acción humana', color: '#B57A8E', bg: '#FFF2F7', icon: AlertTriangle },
 };
 
 const triggerLabels: Record<string, string> = {
@@ -308,9 +308,9 @@ export default function AutomatizacionesPage() {
       {pendingAdmin.length > 0 && (
         <div className="mb-6 rounded-2xl border border-[#E7E7E0] bg-[#F8FBEE] p-4">
           <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle size={16} className="text-[#6B8E00]" />
-            <h2 className="font-semibold text-[#3F5200] text-sm">Requiere tu intervención</h2>
-            <span className="ml-auto text-xs text-[#6B8E00] bg-[#EDF9C8] px-2 py-0.5 rounded-full font-medium">
+            <AlertTriangle size={16} className="text-[#B57A8E]" />
+            <h2 className="font-semibold text-[#B57A8E] text-sm">Requiere tu intervención</h2>
+            <span className="ml-auto text-xs text-[#B57A8E] bg-[#FFF2F7] px-2 py-0.5 rounded-full font-medium">
               {pendingAdmin.length}
             </span>
           </div>

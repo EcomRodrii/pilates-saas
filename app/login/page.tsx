@@ -130,14 +130,14 @@ export default function LoginPage() {
               <p className="text-[13px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
             )}
             {info && (
-              <p className="text-[13px] text-[#3F5200] bg-[#EDF9C8] rounded-lg px-3 py-2">{info}</p>
+              <p className="text-[13px] text-[#B57A8E] bg-[#FFF2F7] rounded-lg px-3 py-2">{info}</p>
             )}
 
             <button
               type="submit"
               disabled={submitting}
               className="w-full py-3 rounded-full text-[14px] font-bold text-[#171717] transition-all hover:brightness-95 disabled:opacity-60"
-              style={{ backgroundColor: '#C6F94D' }}
+              style={{ backgroundColor: '#FFC8E2' }}
             >
               {submitting ? 'Un momento…' : modo === 'entrar' ? 'Entrar' : 'Crear cuenta'}
             </button>

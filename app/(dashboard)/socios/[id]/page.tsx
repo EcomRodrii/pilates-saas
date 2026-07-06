@@ -16,7 +16,7 @@ import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TAGS_OPTIONS = [
-  { label: 'VIP', bg: '#EDF9C8', text: '#7AA80E' },
+  { label: 'VIP', bg: '#FFF2F7', text: '#7AA80E' },
   { label: 'Prueba', bg: '#FEF3C7', text: '#92400E' },
   { label: 'Lesión', bg: '#FEE2E2', text: '#B91C1C' },
   { label: 'Embarazo', bg: '#D1FAE5', text: '#059669' },
@@ -26,7 +26,7 @@ const TAGS_OPTIONS = [
 ];
 
 const AVATAR_COLORS = [
-  { bg: '#EDF9C8', text: '#7AA80E' },
+  { bg: '#FFF2F7', text: '#7AA80E' },
   { bg: '#D1FAE5', text: '#059669' },
   { bg: '#FEF3C7', text: '#92400E' },
   { bg: '#FCE7F3', text: '#9D174D' },
@@ -45,7 +45,7 @@ const LABEL_RECIBO: Record<string, string> = {
 };
 
 const BADGE_RESERVA: Record<string, { bg: string; text: string; label: string }> = {
-  CONFIRMADA:   { bg: '#EDF9C8', text: '#7AA80E', label: 'Confirmada' },
+  CONFIRMADA:   { bg: '#FFF2F7', text: '#7AA80E', label: 'Confirmada' },
   ASISTIDA:     { bg: '#D1FAE5', text: '#059669', label: 'Asistida' },
   LISTA_ESPERA: { bg: '#FEF3C7', text: '#92400E', label: 'En espera' },
   CANCELADA:    { bg: '#F1F1EC', text: '#8E8E86', label: 'Cancelada' },
@@ -112,7 +112,7 @@ function Toast({ message, onHide }: { message: string; onHide: () => void }) {
     return () => clearTimeout(t);
   }, [onHide]);
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#C6F94D] text-[#171717] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold animate-in slide-in-from-bottom-2">
+    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#FFC8E2] text-[#171717] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold animate-in slide-in-from-bottom-2">
       <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
       {message}
     </div>
@@ -250,7 +250,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     return (
       <div className="text-center py-20">
         <p className="font-medium text-[#8E8E86]">Socia no encontrada.</p>
-        <Link href="/socios" className="text-sm mt-3 inline-block font-semibold text-[#6B8E00]">
+        <Link href="/socios" className="text-sm mt-3 inline-block font-semibold text-[#B57A8E]">
           ← Volver a socias
         </Link>
       </div>
@@ -480,7 +480,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       <button
                         onClick={() => setShowChangePlan(true)}
                         className="text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
-                        style={{ backgroundColor: '#EDF9C8', color: '#7AA80E' }}
+                        style={{ backgroundColor: '#FFF2F7', color: '#7AA80E' }}
                       >
                         {plan ? 'Cambiar plan' : 'Asignar plan'}
                       </button>
@@ -589,7 +589,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           <p className="text-sm font-medium text-[#8E8E86]">Sin suscripción activa</p>
                           <button
                             onClick={() => setShowChangePlan(true)}
-                            className="mt-3 text-sm font-bold px-4 py-2 rounded-lg text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
+                            className="mt-3 text-sm font-bold px-4 py-2 rounded-lg text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
                           >
                             Asignar plan
                           </button>
@@ -678,7 +678,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         {misNotas.map(nota => (
                           <div key={nota.id} className="flex gap-3">
                             <div className="mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold"
-                              style={nota.tipo === 'SISTEMA' ? { backgroundColor: '#EDF9C8', color: '#7AA80E' } : { backgroundColor: '#F1F1EC', color: '#8E8E86' }}>
+                              style={nota.tipo === 'SISTEMA' ? { backgroundColor: '#FFF2F7', color: '#7AA80E' } : { backgroundColor: '#F1F1EC', color: '#8E8E86' }}>
                               {nota.tipo === 'SISTEMA' ? '⚙' : 'MS'}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -704,7 +704,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     <div className="flex items-center gap-2 mb-4">
                       <Bot size={15} className="text-[#8E8E86]" />
                       <SectionTitle>Nota de sesión IA</SectionTitle>
-                      <span className="ml-auto text-[10px] bg-[#EDF9C8] text-[#3F5200] px-2 py-0.5 rounded-full font-semibold">Beta</span>
+                      <span className="ml-auto text-[10px] bg-[#FFF2F7] text-[#B57A8E] px-2 py-0.5 rounded-full font-semibold">Beta</span>
                     </div>
                     <p className="text-xs text-[#8E8E86] mb-3">
                       Dicta o escribe lo que pasó en la sesión. La IA estructura automáticamente la nota de progreso.
@@ -722,7 +722,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       <button
                         onClick={handleAiNote}
                         disabled={aiLoading || !aiNoteText.trim()}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-[#C6F94D] text-[#171717] rounded-xl text-xs font-bold hover:bg-[#BCEF3F] disabled:opacity-40 transition-colors"
+                        className="flex items-center gap-1.5 px-4 py-2 bg-[#FFC8E2] text-[#171717] rounded-xl text-xs font-bold hover:bg-[#F7B3D2] disabled:opacity-40 transition-colors"
                       >
                         {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
                         {aiLoading ? 'Procesando...' : 'Generar nota IA'}
@@ -730,10 +730,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     </div>
                     {aiResult && (
                       <div className="rounded-xl border border-[#E7E7E0] bg-[#F8FBEE] p-4 space-y-3">
-                        <p className="text-xs font-bold text-[#3F5200] uppercase tracking-wide mb-2">Nota estructurada</p>
+                        <p className="text-xs font-bold text-[#B57A8E] uppercase tracking-wide mb-2">Nota estructurada</p>
                         {aiResult.progreso && (
                           <div>
-                            <p className="text-[10px] font-bold text-[#6B8E00] uppercase tracking-wide mb-0.5">Progreso</p>
+                            <p className="text-[10px] font-bold text-[#B57A8E] uppercase tracking-wide mb-0.5">Progreso</p>
                             <p className="text-sm text-[#1A1A1A]">{aiResult.progreso}</p>
                           </div>
                         )}
@@ -745,7 +745,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         )}
                         {aiResult.planProximaSesion && (
                           <div>
-                            <p className="text-[10px] font-bold text-[#6B8E00] uppercase tracking-wide mb-0.5">Próxima sesión</p>
+                            <p className="text-[10px] font-bold text-[#B57A8E] uppercase tracking-wide mb-0.5">Próxima sesión</p>
                             <p className="text-sm text-[#1A1A1A]">{aiResult.planProximaSesion}</p>
                           </div>
                         )}
@@ -801,7 +801,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         onClick={() => { setReservaFilter(f); setReservasPage(20); }}
                         className={cn(
                           'px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors',
-                          reservaFilter === f ? 'bg-[#C6F94D] text-[#171717]' : 'border border-[#E7E7E0] text-[#8E8E86] hover:border-[#A8A89F]'
+                          reservaFilter === f ? 'bg-[#FFC8E2] text-[#171717]' : 'border border-[#E7E7E0] text-[#8E8E86] hover:border-[#A8A89F]'
                         )}
                       >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -879,7 +879,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowAddRecibo(true)}
-                        className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
+                        className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
                       >
                         <Plus size={13} />Nuevo cobro
                       </button>
@@ -965,7 +965,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     </p>
                     <button
                       onClick={() => setShowSendMessage(true)}
-                      className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
+                      className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
                     >
                       <Send size={13} />Enviar mensaje
                     </button>
@@ -978,7 +978,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       <p className="text-xs text-[#A8A89F] mt-1">Los emails enviados a esta socia aparecerán aquí.</p>
                       <button
                         onClick={() => setShowSendMessage(true)}
-                        className="mt-4 text-xs font-bold px-4 py-2 rounded-lg text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
+                        className="mt-4 text-xs font-bold px-4 py-2 rounded-lg text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
                       >
                         Enviar primer mensaje
                       </button>
@@ -989,7 +989,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         <div key={c.id} className="border border-[#E7E7E0] rounded-xl p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
-                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#EDF9C8' }}>
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#FFF2F7' }}>
                                 <Mail size={14} style={{ color: '#7AA80E' }} />
                               </div>
                               <div>
@@ -1100,7 +1100,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               </button>
               <button
                 onClick={openEdit}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
               >
                 <Pencil size={14} />Editar socia
               </button>
@@ -1260,7 +1260,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <button
               onClick={saveEdit}
               disabled={!editForm.nombre || !editForm.apellidos || !editForm.email}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] disabled:opacity-40 transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] disabled:opacity-40 transition-colors"
             >
               Guardar cambios
             </button>
@@ -1287,10 +1287,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               <button
                 key={p.id}
                 onClick={() => { assignPlan(id, p.id); setShowChangePlan(false); setToast(`Plan "${p.nombre}" asignado`); }}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-[#EDF9C8]"
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-[#FFF2F7]"
                 style={{
                   borderColor: suscripcion?.planId === p.id ? '#BFDBFE' : '#E7E7E0',
-                  backgroundColor: suscripcion?.planId === p.id ? '#EDF9C8' : 'white',
+                  backgroundColor: suscripcion?.planId === p.id ? '#FFF2F7' : 'white',
                 }}
               >
                 <div>
@@ -1300,7 +1300,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   </p>
                 </div>
                 {suscripcion?.planId === p.id && (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#EDF9C8', color: '#7AA80E' }}>Actual</span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#FFF2F7', color: '#7AA80E' }}>Actual</span>
                 )}
               </button>
             ))}
@@ -1348,7 +1348,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <button
               onClick={handleAddRecibo}
               disabled={!reciboForm.concepto || !reciboForm.importe}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] disabled:opacity-40 transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] disabled:opacity-40 transition-colors"
             >
               Crear cobro
             </button>
@@ -1389,7 +1389,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <button
               onClick={handleSendMessage}
               disabled={!msgForm.asunto.trim() || !msgForm.cuerpo.trim()}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
             >
               <Send size={14} />Enviar email
             </button>

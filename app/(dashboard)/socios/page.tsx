@@ -410,7 +410,7 @@ export default function Socios() {
         </div>
         <button
           onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors shrink-0 shadow-sm"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors shrink-0 shadow-sm"
         >
           <Plus size={14} />
           Nuevo miembro
@@ -457,7 +457,7 @@ export default function Socios() {
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border',
                   smartFilter === f.id
-                    ? 'bg-[#C6F94D] text-[#171717] border-[#1A1A1A] shadow-sm'
+                    ? 'bg-[#FFC8E2] text-[#171717] border-[#1A1A1A] shadow-sm'
                     : 'bg-white text-[#8E8E86] border-[#E7E7E0] hover:border-[#A8A89F] hover:text-[#3A3A34]',
                 )}
               >
@@ -493,7 +493,7 @@ export default function Socios() {
 
       {/* ── Bulk action bar ─────────────────────────────────────────────────── */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 px-4 py-3 bg-[#C6F94D] text-[#171717] rounded-xl shadow-lg">
+        <div className="flex items-center gap-2 px-4 py-3 bg-[#FFC8E2] text-[#171717] rounded-xl shadow-lg">
           <span className="text-[12px] font-medium text-[#A8A89F] mr-1">
             {selected.size} seleccionada{selected.size !== 1 ? 's' : ''}
           </span>
@@ -542,7 +542,7 @@ export default function Socios() {
             {!busqueda && smartFilter === 'todas' && (
               <button
                 onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
               >
                 <Plus size={14} />
                 Añadir primer miembro
@@ -641,7 +641,7 @@ export default function Socios() {
                     onClick={() => router.push(`/socios/${s.id}`)}
                     className={cn(
                       'hover:bg-[#F5F5F1] transition-colors group cursor-pointer',
-                      isSelected && 'bg-[#EDF9C8]',
+                      isSelected && 'bg-[#FFF2F7]',
                     )}
                   >
                     {/* Checkbox */}
@@ -823,7 +823,7 @@ export default function Socios() {
                 <div key={n} className="flex items-center gap-1.5">
                   <div className={cn(
                     'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors',
-                    formStep >= n ? 'bg-[#C6F94D] text-[#171717]' : 'bg-[#E7E7E0] text-[#A8A89F]',
+                    formStep >= n ? 'bg-[#FFC8E2] text-[#171717]' : 'bg-[#E7E7E0] text-[#A8A89F]',
                   )}>
                     {formStep > n ? <CheckCircle2 size={11} /> : n}
                   </div>
@@ -1001,7 +1001,7 @@ export default function Socios() {
               <button
                 onClick={() => { setScrolledToBottom(false); setFormStep(2); }}
                 disabled={!form.nombre || !form.apellidos || !form.email}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:bg-[#BCEF3F] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:bg-[#F7B3D2] transition-colors"
               >
                 Siguiente — Contrato
               </button>
@@ -1013,7 +1013,7 @@ export default function Socios() {
                     ? !aceptado || !firma.trim()
                     : !form.nombre || !form.apellidos || !form.email
                 }
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:bg-[#BCEF3F] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:bg-[#F7B3D2] transition-colors"
               >
                 {showForm === 'nueva' ? 'Crear miembro y firmar' : 'Guardar cambios'}
               </button>
@@ -1056,7 +1056,7 @@ export default function Socios() {
               <button
                 onClick={handleAsignarPlan}
                 disabled={!asignarPlanId}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:bg-[#BCEF3F] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:bg-[#F7B3D2] transition-colors"
               >
                 Asignar plan
               </button>

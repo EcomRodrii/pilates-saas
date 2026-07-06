@@ -182,7 +182,7 @@ export default function NotificacionesPage() {
                 {selected.enlace && (
                   <a
                     href={selected.enlace}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-[13px] font-medium hover:bg-[#BCEF3F] transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[13px] font-medium hover:bg-[#F7B3D2] transition-colors"
                   >
                     Ver
                     <ExternalLink size={13} />

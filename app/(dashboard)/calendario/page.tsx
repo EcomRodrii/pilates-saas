@@ -126,7 +126,7 @@ function DiaPill({ label, active, onClick }: { label: string; active: boolean; o
       onClick={onClick}
       className={cn(
         'w-9 h-9 rounded-full text-[12px] font-bold transition-colors',
-        active ? 'bg-[#C6F94D] text-[#171717]' : 'bg-[#F1F1EC] text-[#8E8E86] hover:bg-[#E7E7E0]'
+        active ? 'bg-[#FFC8E2] text-[#171717]' : 'bg-[#F1F1EC] text-[#8E8E86] hover:bg-[#E7E7E0]'
       )}
     >
       {label}
@@ -155,7 +155,7 @@ function StatsBar({ sesiones, reservas, todayStr }: {
   const ocupPct = totalPlazas > 0 ? Math.round((ocupadas / totalPlazas) * 100) : 0;
 
   const stats = [
-    { icon: CalendarDays, label: 'Clases hoy', value: hoy.length, sub: hoy.length === 1 ? 'sesión' : 'sesiones', color: '#8FBF12', bg: '#EDF9C8' },
+    { icon: CalendarDays, label: 'Clases hoy', value: hoy.length, sub: hoy.length === 1 ? 'sesión' : 'sesiones', color: '#F7A6C4', bg: '#FFF2F7' },
     { icon: Users, label: 'Plazas totales', value: totalPlazas, sub: 'disponibles hoy', color: '#1A1A1A', bg: '#F1F5F9' },
     { icon: TrendingUp, label: 'Ocupación', value: `${ocupPct}%`, sub: `${ocupadas} de ${totalPlazas} reservadas`, color: '#D97706', bg: '#FEF3C7' },
     { icon: CheckCircle2, label: 'Check-in', value: `${checkinRate}%`, sub: `${asistidas} asistidas`, color: '#059669', bg: '#DCFCE7' },
@@ -444,7 +444,7 @@ function SessionSidebar({
                       onClick={() => { onAddReserva(sesion.id, s.id); setShowAnadir(false); setBuscarSocia(''); }}
                       className="w-full flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-[#F5F5F1] transition-colors text-left"
                     >
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ backgroundColor: '#EDF9C8', color: '#8FBF12' }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ backgroundColor: '#FFF2F7', color: '#F7A6C4' }}>
                         {s.nombre[0]}{s.apellidos[0]}
                       </div>
                       <div className="min-w-0">
@@ -486,7 +486,7 @@ function SessionSidebar({
                           ? { backgroundColor: '#D1FAE5', color: '#065F46' }
                           : r.estado === 'LISTA_ESPERA'
                           ? { backgroundColor: '#FEF3C7', color: '#92400E' }
-                          : { backgroundColor: '#EDF9C8', color: '#8FBF12' }
+                          : { backgroundColor: '#FFF2F7', color: '#F7A6C4' }
                       }
                     >
                       {r.socio?.nombre[0]}{r.socio?.apellidos[0]}
@@ -726,7 +726,7 @@ function ModalClasesRecurrentes({
           <button
             onClick={handleSubmit}
             disabled={form.diasSemana.length === 0 || estimatedCount === 0}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {estimatedCount > 0 ? `Crear ${estimatedCount} clases` : 'Crear clases'}
           </button>
@@ -872,8 +872,8 @@ function WeekGrid({
   if (sesiones.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[#E2E4EB] bg-white">
-        <div className="w-14 h-14 rounded-2xl bg-[#EDF9C8] flex items-center justify-center mb-4">
-          <CalendarDays size={26} className="text-[#8FBF12]" />
+        <div className="w-14 h-14 rounded-2xl bg-[#FFF2F7] flex items-center justify-center mb-4">
+          <CalendarDays size={26} className="text-[#F7A6C4]" />
         </div>
         <p className="text-[16px] font-bold text-[#1A1A1A]">No hay clases esta semana</p>
         <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Crea la primera clase para empezar a llenar el calendario</p>
@@ -900,7 +900,7 @@ function WeekGrid({
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#A8A89F]">{DIAS_CORTOS[d.getDay()]}</p>
               <p className={cn(
                 'text-[15px] font-extrabold mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full',
-                isToday ? 'bg-[#C6F94D] text-[#171717]' : 'text-[#1A1A1A]',
+                isToday ? 'bg-[#FFC8E2] text-[#171717]' : 'text-[#1A1A1A]',
               )}>
                 {d.getDate()}
               </p>
@@ -1278,7 +1278,7 @@ export default function Calendario() {
               </span>
               <span className={cn(
                 'text-[13px] font-extrabold w-5 h-5 flex items-center justify-center rounded-full',
-                isSelected ? (isToday ? 'bg-[#C6F94D] text-[#171717]' : 'text-white') : (isToday ? 'text-[#8FBF12]' : 'text-[#1A1A1A]'),
+                isSelected ? (isToday ? 'bg-[#FFC8E2] text-[#171717]' : 'text-white') : (isToday ? 'text-[#F7A6C4]' : 'text-[#1A1A1A]'),
               )}>
                 {d.getDate()}
               </span>
@@ -1379,10 +1379,10 @@ export default function Calendario() {
                     type="checkbox"
                     checked={form.repetir}
                     onChange={e => setForm(f => ({ ...f, repetir: e.target.checked }))}
-                    className="w-4 h-4 rounded accent-[#8FBF12]"
+                    className="w-4 h-4 rounded accent-[#F7A6C4]"
                   />
                   <span className="flex items-center gap-2 text-sm font-semibold text-[#1A1A1A]">
-                    <RefreshCw size={14} className="text-[#8FBF12]" />
+                    <RefreshCw size={14} className="text-[#F7A6C4]" />
                     Repetir semanalmente
                   </span>
                 </label>
@@ -1437,7 +1437,7 @@ export default function Calendario() {
 
       {/* ── Toast ──────────────────────────────────────────────────────────────── */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[#C6F94D] text-[#171717] px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[#FFC8E2] text-[#171717] px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
           <CheckCircle2 size={16} className="text-green-400 shrink-0" />
           {toast}
         </div>

@@ -471,7 +471,7 @@ export default function Pagos() {
               });
               setShowNuevoCobro(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
           >
             <Plus size={15} />
             Nuevo cobro
@@ -535,7 +535,7 @@ export default function Pagos() {
             <p className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wider">
               Media por miembro
             </p>
-            <div className="w-8 h-8 rounded-lg bg-[#EDF9C8] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[#FFF2F7] flex items-center justify-center">
               <BarChart3 size={15} className="text-[#7AA80E]" />
             </div>
           </div>
@@ -598,7 +598,7 @@ export default function Pagos() {
                     className={cn(
                       'flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all',
                       active
-                        ? 'bg-[#C6F94D] text-[#171717]'
+                        ? 'bg-[#FFC8E2] text-[#171717]'
                         : 'text-[#8E8E86] hover:text-[#1A1A1A] hover:bg-white',
                     )}
                   >
@@ -761,7 +761,7 @@ export default function Pagos() {
                               <button
                                 onClick={() => cobrarOnline(r.id)}
                                 disabled={stripeLoading === r.id}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#EDF9C8] text-[#7AA80E] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#FFF2F7] text-[#7AA80E] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
                                 title="Enviar enlace de pago Stripe"
                               >
                                 {stripeLoading === r.id
@@ -1116,7 +1116,7 @@ export default function Pagos() {
               </div>
               <button
                 onClick={() => setShowMasivo(false)}
-                className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] transition-colors"
+                className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
               >
                 Cerrar
               </button>
@@ -1327,7 +1327,7 @@ export default function Pagos() {
                 // generarFactura would be called here when available in context
                 setShowFactura(false);
               }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
               <FileText size={14} />
               Generar factura
@@ -1394,7 +1394,7 @@ export default function Pagos() {
             <button
               onClick={crearNuevoCobro}
               disabled={!nuevoForm.concepto.trim() || !nuevoForm.importe || !nuevoForm.socioId}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#BCEF3F] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Crear cobro
             </button>

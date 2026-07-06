@@ -7,9 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, AlertTriangle, ShieldCheck, KeyRound } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
-const COLORES = ['#8FBF12', '#8FBF12', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
+const COLORES = ['#F7A6C4', '#F7A6C4', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
 
-const inputCls = 'w-full rounded-xl border border-[#E7E7E0] bg-white px-3.5 py-2.5 text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:border-[#8FBF12] focus:ring-2 focus:ring-[#8FBF12]/15 transition-all';
+const inputCls = 'w-full rounded-xl border border-[#E7E7E0] bg-white px-3.5 py-2.5 text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:border-[#F7A6C4] focus:ring-2 focus:ring-[#F7A6C4]/15 transition-all';
 const labelCls = 'text-[12px] font-semibold text-[#3A3A34] block mb-1.5';
 
 const ROL_LABEL: Record<Rol, string> = {
@@ -24,7 +24,7 @@ const ROL_DESC: Record<Rol, string> = {
 };
 
 type Form = { nombre: string; email: string; telefono: string; color: string; avatar: string | null; activo: boolean; rol: Rol };
-const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#8FBF12', avatar: null, activo: true, rol: 'INSTRUCTOR' });
+const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, activo: true, rol: 'INSTRUCTOR' });
 
 export default function EquipoPage() {
   const { instructores, sesiones, citas, addInstructor, updateInstructor, deleteInstructor } = useStudio();
@@ -102,7 +102,7 @@ export default function EquipoPage() {
           <h1 className="text-2xl font-bold text-[#1A1A1A] tracking-tight">Equipo</h1>
           <p className="text-sm text-[#8E8E86] mt-0.5">Instructoras y personal del estudio</p>
         </div>
-        <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C6F94D] text-[#171717] text-sm font-bold hover:bg-[#BCEF3F] transition-colors">
+        <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFC8E2] text-[#171717] text-sm font-bold hover:bg-[#F7B3D2] transition-colors">
           <Plus size={16} /> Nuevo miembro
         </button>
       </div>
@@ -110,7 +110,7 @@ export default function EquipoPage() {
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Miembros', value: instructores.length, sub: `${activos} activos`, color: '#8FBF12', bg: '#EDF9C8', Icon: Users },
+          { label: 'Miembros', value: instructores.length, sub: `${activos} activos`, color: '#F7A6C4', bg: '#FFF2F7', Icon: Users },
           { label: 'Clases 7 días', value: totalClasesSemana, sub: 'programadas', color: '#059669', bg: '#DCFCE7', Icon: Calendar },
           { label: 'Media / persona', value: activos ? Math.round(totalClasesSemana / activos) : 0, sub: 'clases por activo', color: '#D97706', bg: '#FEF3C7', Icon: Calendar },
         ].map(({ label, value, sub, color, bg, Icon }) => (
@@ -132,12 +132,12 @@ export default function EquipoPage() {
       {/* Grid */}
       {instructores.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[#E2E4EB] bg-white">
-          <div className="w-14 h-14 rounded-2xl bg-[#EDF9C8] flex items-center justify-center mb-4">
-            <Users size={26} className="text-[#8FBF12]" />
+          <div className="w-14 h-14 rounded-2xl bg-[#FFF2F7] flex items-center justify-center mb-4">
+            <Users size={26} className="text-[#F7A6C4]" />
           </div>
           <p className="text-[16px] font-bold text-[#1A1A1A]">Aún no hay nadie en el equipo</p>
           <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Añade a tus instructoras para asignarles clases y citas</p>
-          <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C6F94D] text-[#171717] text-[13px] font-bold">
+          <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFC8E2] text-[#171717] text-[13px] font-bold">
             <Plus size={15} /> Nuevo miembro
           </button>
         </div>
@@ -161,7 +161,7 @@ export default function EquipoPage() {
                         </span>
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#F1F1EC] text-[#3A3A34]">{ROL_LABEL[i.rol]}</span>
                         {i.authUserId ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EDF9C8] text-[#3F5200]">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FFF2F7] text-[#B57A8E]">
                             <ShieldCheck size={10} />Con acceso
                           </span>
                         ) : i.email ? (
@@ -254,9 +254,9 @@ export default function EquipoPage() {
                     key={r}
                     type="button"
                     onClick={() => setForm(f => ({ ...f, rol: r }))}
-                    className={`w-full flex items-start gap-2.5 text-left px-3.5 py-2.5 rounded-xl border transition-colors ${form.rol === r ? 'border-[#8FBF12] bg-[#F8FBEE]' : 'border-[#E7E7E0] hover:bg-[#F5F5F1]'}`}
+                    className={`w-full flex items-start gap-2.5 text-left px-3.5 py-2.5 rounded-xl border transition-colors ${form.rol === r ? 'border-[#F7A6C4] bg-[#F8FBEE]' : 'border-[#E7E7E0] hover:bg-[#F5F5F1]'}`}
                   >
-                    <ShieldCheck size={15} className={form.rol === r ? 'text-[#6B8E00] mt-0.5 shrink-0' : 'text-[#A8A89F] mt-0.5 shrink-0'} />
+                    <ShieldCheck size={15} className={form.rol === r ? 'text-[#B57A8E] mt-0.5 shrink-0' : 'text-[#A8A89F] mt-0.5 shrink-0'} />
                     <div className="min-w-0">
                       <p className="text-[13px] font-bold text-[#1A1A1A]">{ROL_LABEL[r]}</p>
                       <p className="text-[11px] text-[#8E8E86] mt-0.5">{ROL_DESC[r]}</p>
@@ -284,12 +284,12 @@ export default function EquipoPage() {
               </div>
             </div>
             <label className="flex items-center gap-3 cursor-pointer pt-1">
-              <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} className="w-4 h-4 rounded accent-[#8FBF12]" />
+              <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} className="w-4 h-4 rounded accent-[#F7A6C4]" />
               <span className="text-sm font-medium text-[#1A1A1A]">Miembro activo (puede recibir clases y citas)</span>
             </label>
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-[#E7E7E0] text-[13px] font-medium text-[#3A3A34] hover:bg-[#F5F5F1]">Cancelar</button>
-              <button onClick={guardar} disabled={!form.nombre.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C6F94D] text-[#171717] text-[13px] font-bold disabled:opacity-40">
+              <button onClick={guardar} disabled={!form.nombre.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#FFC8E2] text-[#171717] text-[13px] font-bold disabled:opacity-40">
                 <Check size={14} /> Guardar
               </button>
             </div>

@@ -58,26 +58,26 @@
   --secondary-foreground: #1A1A1A;
   --muted: #F5F5F1;
   --muted-foreground: #8E8E86;
-  --accent: #EDF9C8;
-  --accent-foreground: #3F5200;
+  --accent: #FFF2F7;
+  --accent-foreground: #B57A8E;
   --destructive: oklch(0.577 0.245 27.325);
   --border: #E7E7E0;
   --input: #E7E7E0;
-  --ring: #C6F94D;
+  --ring: #FFC8E2;
   --radius: 1rem;
   --sidebar: #0F0F0F;
   --sidebar-foreground: #E8E8E4;
-  --sidebar-primary: #C6F94D;
+  --sidebar-primary: #FFC8E2;
   --sidebar-primary-foreground: #131313;
   --sidebar-accent: rgba(255,255,255,0.06);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255,255,255,0.06);
-  --sidebar-ring: rgba(198,245,63,0.4);
+  --sidebar-ring: rgba(255,200,226,0.4);
 
   /* Lime accent scale (Midbox) */
-  --lime: #C6F94D;
-  --lime-dark: #A9DE20;
-  --lime-bg: #EDF9C8;
+  --lime: #FFC8E2;
+  --lime-dark: #F7A6C4;
+  --lime-bg: #FFF2F7;
 }
 
 @layer base {

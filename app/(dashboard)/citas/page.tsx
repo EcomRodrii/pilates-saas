@@ -284,7 +284,7 @@ export default function CitasPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 bg-[#C6F94D] text-[#171717] rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-[#BCEF3F] transition-colors shrink-0"
+          className="inline-flex items-center gap-2 bg-[#FFC8E2] text-[#171717] rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-[#F7B3D2] transition-colors shrink-0"
         >
           <Plus size={16} />
           Nueva cita
@@ -309,7 +309,7 @@ export default function CitasPage() {
             className={cn(
               'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
               tab === t
-                ? 'bg-[#C6F94D] text-[#171717]'
+                ? 'bg-[#FFC8E2] text-[#171717]'
                 : 'text-[#8E8E86] hover:text-[#1A1A1A]'
             )}
           >
@@ -329,7 +329,7 @@ export default function CitasPage() {
           className={cn(
             'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
             filterInstructor === 'all'
-              ? 'bg-[#C6F94D] text-[#171717] border-[#1A1A1A]'
+              ? 'bg-[#FFC8E2] text-[#171717] border-[#1A1A1A]'
               : 'bg-white border-[#E7E7E0] text-[#8E8E86] hover:text-[#1A1A1A]'
           )}
         >
@@ -342,7 +342,7 @@ export default function CitasPage() {
             className={cn(
               'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
               filterInstructor === ins.id
-                ? 'bg-[#C6F94D] text-[#171717] border-[#1A1A1A]'
+                ? 'bg-[#FFC8E2] text-[#171717] border-[#1A1A1A]'
                 : 'bg-white border-[#E7E7E0] text-[#8E8E86] hover:text-[#1A1A1A]'
             )}
           >
@@ -512,7 +512,7 @@ export default function CitasPage() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-sm font-medium hover:bg-[#BCEF3F] transition-colors"
+                className="px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-sm font-medium hover:bg-[#F7B3D2] transition-colors"
               >
                 Guardar cita
               </button>

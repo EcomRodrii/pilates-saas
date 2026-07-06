@@ -80,7 +80,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
             {resultado.ok === 0 ? ' — revisa que Resend esté configurado (RESEND_API_KEY) en .env.local' : ''}
           </p>
         )}
-        <button onClick={reset} className="text-xs font-semibold text-[#8FBF12] hover:underline mt-2">Enviar otro mensaje</button>
+        <button onClick={reset} className="text-xs font-semibold text-[#F7A6C4] hover:underline mt-2">Enviar otro mensaje</button>
       </div>
     );
   }
@@ -92,7 +92,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
         <select
           value={destinatario}
           onChange={e => setDestinatario(e.target.value)}
-          className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] bg-white outline-none focus:border-[#8FBF12]"
+          className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] bg-white outline-none focus:border-[#F7A6C4]"
         >
           <option value="todos">Todos los miembros ({socios.length})</option>
           {socios.map(s => (
@@ -106,7 +106,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
           value={asunto}
           onChange={e => setAsunto(e.target.value)}
           placeholder="Ej. Nuevo horario de verano"
-          className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#8FBF12]"
+          className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4]"
         />
       </div>
       <div>
@@ -116,7 +116,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
           onChange={e => setMensaje(e.target.value)}
           rows={6}
           placeholder="Escribe el mensaje que recibirán tus miembros..."
-          className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#8FBF12] resize-none"
+          className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4] resize-none"
         />
       </div>
 
@@ -129,7 +129,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
           onClick={enviar}
           disabled={enviando || !asunto.trim() || !mensaje.trim()}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-bold transition-all disabled:opacity-40"
-          style={{ backgroundColor: '#8FBF12' }}
+          style={{ backgroundColor: '#F7A6C4' }}
         >
           <Send size={14} />
           {enviando ? 'Enviando…' : 'Enviar mensaje'}
@@ -240,7 +240,7 @@ export default function Mensajeria() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-[#8FBF12] shrink-0" />}
+                        {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-[#F7A6C4] shrink-0" />}
                         <p className={`text-sm leading-tight ${isRead ? 'font-medium text-[#3A3A34]' : 'font-bold text-[#1A1A1A]'}`}>
                           {n.titulo}
                         </p>
@@ -248,7 +248,7 @@ export default function Mensajeria() {
                       </div>
                       <p className="text-xs text-[#8E8E86] mt-1 leading-relaxed">{n.texto}</p>
                       {n.enlace && (
-                        <Link href={n.enlace} className="inline-flex items-center gap-1 text-xs text-[#8FBF12] mt-1.5 hover:underline">
+                        <Link href={n.enlace} className="inline-flex items-center gap-1 text-xs text-[#F7A6C4] mt-1.5 hover:underline">
                           Ver más <ChevronRight size={10} />
                         </Link>
                       )}
@@ -283,7 +283,7 @@ export default function Mensajeria() {
               <div key={post.id} className="bg-white rounded-2xl border border-[#E7E7E0] p-5">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
-                    style={{ backgroundColor: '#8FBF12' }}>
+                    style={{ backgroundColor: '#F7A6C4' }}>
                     {post.autorInicial}
                   </div>
                   <div>
@@ -297,7 +297,7 @@ export default function Mensajeria() {
                     <Heart size={13} />
                     <span>{post.likes}</span>
                   </button>
-                  <button className="flex items-center gap-1.5 text-xs text-[#8E8E86] hover:text-[#8FBF12] transition-colors">
+                  <button className="flex items-center gap-1.5 text-xs text-[#8E8E86] hover:text-[#F7A6C4] transition-colors">
                     <MessageCircle size={13} />
                     <span>{post.comentariosCount} comentarios</span>
                   </button>

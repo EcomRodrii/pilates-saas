@@ -148,7 +148,7 @@ export default function Facturas() {
   body { font-family: -apple-system, Arial, sans-serif; font-size: 13px; color: #1A1A1A; padding: 40px; max-width: 680px; margin: 0 auto; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
   .title { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; }
-  .numero { font-size: 13px; font-family: monospace; font-weight: 700; color: #3F5200; margin-top: 4px; }
+  .numero { font-size: 13px; font-family: monospace; font-weight: 700; color: #B57A8E; margin-top: 4px; }
   .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 32px; }
   .party-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8E8E86; margin-bottom: 6px; }
   .party-name { font-weight: 700; margin-bottom: 2px; }
@@ -243,7 +243,7 @@ export default function Facturas() {
         </div>
         <button
           onClick={() => exportarCSV()}
-          className="flex items-center gap-2 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors bg-[#1A1A1A] hover:bg-[#BCEF3F]"
+          className="flex items-center gap-2 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors bg-[#1A1A1A] hover:bg-[#F7B3D2]"
         >
           <Download size={14} />
           Exportar CSV
@@ -279,7 +279,7 @@ export default function Facturas() {
       </div>
 
       {/* Verifactu banner */}
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-[#EDF9C8] border border-[#BFDBFE]">
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-[#FFF2F7] border border-[#BFDBFE]">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-[#BFDBFE]">
           <FileText size={15} className="text-[#7AA80E]" />
         </div>
@@ -310,7 +310,7 @@ export default function Facturas() {
               onClick={() => setAgrupador(opt)}
               className={cn(
                 'px-4 py-2.5 text-sm font-semibold transition-colors capitalize',
-                agrupador === opt ? 'bg-[#C6F94D] text-[#171717]' : 'text-[#8E8E86] hover:bg-[#F5F5F1]'
+                agrupador === opt ? 'bg-[#FFC8E2] text-[#171717]' : 'text-[#8E8E86] hover:bg-[#F5F5F1]'
               )}
             >
               Por {opt === 'mes' ? 'mes' : 'cliente'}
@@ -363,7 +363,7 @@ export default function Facturas() {
                           <p className="text-[12px] text-[#8E8E86] mt-0.5">{fecha(f.fechaEmision)} · IVA {f.tipoIVA}%</p>
                           <div className="flex items-center gap-4 mt-1.5">
                             <button onClick={() => setPreview(f.id)} className="text-[12px] font-semibold text-[#8E8E86]">Ver</button>
-                            <button onClick={() => descargarPDF(f, socio)} className="text-[12px] font-semibold text-[#8FBF12] inline-flex items-center gap-1">
+                            <button onClick={() => descargarPDF(f, socio)} className="text-[12px] font-semibold text-[#F7A6C4] inline-flex items-center gap-1">
                               <Download size={11} /> PDF
                             </button>
                           </div>
@@ -417,7 +417,7 @@ export default function Facturas() {
                                 </button>
                                 <button
                                   onClick={() => descargarPDF(f, socio)}
-                                  className="text-xs font-semibold text-[#8FBF12] hover:text-[#6E9E0A] transition-colors flex items-center gap-1"
+                                  className="text-xs font-semibold text-[#F7A6C4] hover:text-[#6E9E0A] transition-colors flex items-center gap-1"
                                 >
                                   <Download size={11} />
                                   PDF
@@ -471,7 +471,7 @@ export default function Facturas() {
               <div className="flex items-start justify-between mb-8">
                 <div>
                   <p className="text-2xl font-extrabold text-[#1A1A1A]">FACTURA</p>
-                  <p className="text-sm font-mono font-bold text-[#3F5200] mt-1">{previewFactura.numeroCompleto}</p>
+                  <p className="text-sm font-mono font-bold text-[#B57A8E] mt-1">{previewFactura.numeroCompleto}</p>
                 </div>
                 <button
                   onClick={() => setPreview(null)}
@@ -544,14 +544,14 @@ export default function Facturas() {
                 </button>
                 <button
                   onClick={() => descargarPDF(previewFactura, previewSocio)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#8FBF12] text-white text-sm font-semibold hover:bg-[#6E9E0A] transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#F7A6C4] text-white text-sm font-semibold hover:bg-[#6E9E0A] transition-colors"
                 >
                   <Download size={14} />
                   Descargar PDF
                 </button>
                 <button
                   onClick={() => setPreview(null)}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#C6F94D] text-[#171717] text-sm font-semibold hover:bg-[#BCEF3F] transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFC8E2] text-[#171717] text-sm font-semibold hover:bg-[#F7B3D2] transition-colors"
                 >
                   Cerrar
                 </button>

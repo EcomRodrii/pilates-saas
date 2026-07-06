@@ -115,7 +115,7 @@ export default function Transacciones() {
         </div>
         <button
           onClick={exportarCSV}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C6F94D] text-[#171717] text-sm font-semibold hover:bg-[#BCEF3F] transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFC8E2] text-[#171717] text-sm font-semibold hover:bg-[#F7B3D2] transition-colors"
         >
           <Download size={14} />
           Exportar CSV
@@ -125,7 +125,7 @@ export default function Transacciones() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total neto', value: fmt(totalNeto) + ' €', icon: TrendingUp, color: '#8FBF12', bg: '#EDF9C8' },
+          { label: 'Total neto', value: fmt(totalNeto) + ' €', icon: TrendingUp, color: '#F7A6C4', bg: '#FFF2F7' },
           { label: 'Cobros suscripción', value: fmt(totalCobros) + ' €', icon: CreditCard, color: '#15803D', bg: '#DCFCE7' },
           { label: 'Ventas POS', value: fmt(totalPOS) + ' €', icon: ShoppingCart, color: '#1D4ED8', bg: '#DBEAFE' },
           { label: 'Devoluciones', value: fmt(totalDev) + ' €', icon: ArrowLeftRight, color: '#B91C1C', bg: '#FEE2E2' },
@@ -194,7 +194,7 @@ export default function Transacciones() {
                     {m.miembro}{m.metodo ? ` · ${m.metodo}` : ''}
                   </p>
                   {m.facturaId && (
-                    <Link href="/facturas" className="text-[11px] text-[#8FBF12] hover:underline inline-flex items-center gap-1 mt-1">
+                    <Link href="/facturas" className="text-[11px] text-[#F7A6C4] hover:underline inline-flex items-center gap-1 mt-1">
                       <FileText size={10} /> Ver factura
                     </Link>
                   )}
@@ -251,7 +251,7 @@ export default function Transacciones() {
                     </td>
                     <td className="px-4 py-3">
                       {m.miembroId
-                        ? <Link href={`/socios/${m.miembroId}`} className="text-[#8FBF12] hover:underline font-medium">{m.miembro}</Link>
+                        ? <Link href={`/socios/${m.miembroId}`} className="text-[#F7A6C4] hover:underline font-medium">{m.miembro}</Link>
                         : <span className="text-[#8E8E86]">{m.miembro}</span>
                       }
                     </td>

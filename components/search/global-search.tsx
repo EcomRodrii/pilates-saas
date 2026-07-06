@@ -110,7 +110,7 @@ export function GlobalSearch({ collapsed }: { collapsed?: boolean } = {}) {
                   {sociosRes.map(s => (
                     <button key={s.id} onClick={() => go(`/socios/${s.id}`)}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F5F5F1] transition-colors text-left group">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: '#EDF9C8', color: '#3F5200' }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: '#FFF2F7', color: '#B57A8E' }}>
                         {s.nombre[0]}{s.apellidos[0]}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -118,7 +118,7 @@ export function GlobalSearch({ collapsed }: { collapsed?: boolean } = {}) {
                         <p className="text-xs truncate" style={{ color: '#9898A6' }}>{s.email}</p>
                       </div>
                       {(s.tags ?? []).length > 0 && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: '#EDF9C8', color: '#3F5200' }}>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: '#FFF2F7', color: '#B57A8E' }}>
                           {s.tags![0]}
                         </span>
                       )}

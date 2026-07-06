@@ -88,7 +88,7 @@ export default function ProgresoPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #8FBF12 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}>
         {/* Profile */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white font-extrabold text-[16px]">
@@ -133,7 +133,7 @@ export default function ProgresoPage() {
                       className="w-full rounded-t-xl transition-all"
                       style={{
                         height: s.count === 0 ? 4 : Math.max(8, Math.round((s.count / maxSem) * 52)),
-                        backgroundColor: s.count === 0 ? '#F1F1EC' : '#8FBF12',
+                        backgroundColor: s.count === 0 ? '#F1F1EC' : '#F7A6C4',
                       }}
                     />
                   </div>
@@ -148,7 +148,7 @@ export default function ProgresoPage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest">Logros</p>
-            <p className="text-[12px] font-bold text-[#6B8E00]">{earnedCount}/{BADGES.length}</p>
+            <p className="text-[12px] font-bold text-[#B57A8E]">{earnedCount}/{BADGES.length}</p>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
             {BADGES.map(b => {
@@ -158,7 +158,7 @@ export default function ProgresoPage() {
                   key={b.key}
                   className="rounded-2xl p-3.5 flex items-center gap-3 transition-all"
                   style={{
-                    backgroundColor: earned ? '#EDF9C8' : '#F5F5F1',
+                    backgroundColor: earned ? '#FFF2F7' : '#F5F5F1',
                     opacity: earned ? 1 : 0.45,
                   }}
                 >

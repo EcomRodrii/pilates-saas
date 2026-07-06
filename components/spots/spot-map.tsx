@@ -36,7 +36,7 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
           <div className="w-3.5 h-3.5 rounded-lg border-2 border-[#E7E7E0] bg-white" />Libre
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3.5 h-3.5 rounded-lg" style={{ backgroundColor: '#EDF9C8', border: '2px solid #8FBF12' }} />Reservado
+          <div className="w-3.5 h-3.5 rounded-lg" style={{ backgroundColor: '#FFF2F7', border: '2px solid #F7A6C4' }} />Reservado
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3.5 h-3.5 rounded-lg" style={{ backgroundColor: '#E3EFE6', border: '2px solid #9CC5A8' }} />Check-in
@@ -70,7 +70,7 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
                   asistida
                     ? { backgroundColor: '#E3EFE6', borderColor: '#9CC5A8' } as React.CSSProperties
                     : reserva
-                    ? { backgroundColor: '#EDF9C8', borderColor: '#8FBF12' } as React.CSSProperties
+                    ? { backgroundColor: '#FFF2F7', borderColor: '#F7A6C4' } as React.CSSProperties
                     : { backgroundColor: '#FFFFFF', borderColor: '#E5E5EA' } as React.CSSProperties
                 }
               >
@@ -81,7 +81,7 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
                       className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
                       style={asistida
                         ? { backgroundColor: '#C3D9B0', color: '#1A1A2E' }
-                        : { backgroundColor: '#8FBF12', color: '#1A1A2E' }}
+                        : { backgroundColor: '#F7A6C4', color: '#1A1A2E' }}
                     >
                       {asistida ? <Check size={13} /> : `${reserva.socio.nombre[0]}${reserva.socio.apellidos[0]}`}
                     </div>
@@ -131,8 +131,8 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
                   <button
                     key={s.id}
                     onClick={() => { onAsignarSpot(selectedSpot.id, s.id); setSelected(null); }}
-                    className="text-left px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-[#E7E7E0] text-[#3A3A34] hover:border-[#8FBF12] transition-colors"
-                    style={{ ':hover': { backgroundColor: '#EDF9C8' } } as React.CSSProperties}
+                    className="text-left px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-[#E7E7E0] text-[#3A3A34] hover:border-[#F7A6C4] transition-colors"
+                    style={{ ':hover': { backgroundColor: '#FFF2F7' } } as React.CSSProperties}
                   >
                     {s.nombre} {s.apellidos}
                   </button>

@@ -73,7 +73,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                 href={href}
                 className="flex-1 flex flex-col items-center justify-center gap-[3px]"
               >
-                <span className={active ? 'flex items-center justify-center w-8 h-6 rounded-full bg-[#C6F94D]' : 'flex items-center justify-center w-8 h-6'}>
+                <span className={active ? 'flex items-center justify-center w-8 h-6 rounded-full bg-[#FFC8E2]' : 'flex items-center justify-center w-8 h-6'}>
                   <Icon
                     size={19}
                     strokeWidth={active ? 2.5 : 1.8}

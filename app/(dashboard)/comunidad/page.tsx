@@ -139,7 +139,7 @@ function CommentThread({
             className={cn(
               'px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors shrink-0',
               draft.trim()
-                ? 'bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F]'
+                ? 'bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2]'
                 : 'bg-[#E7E7E0] text-[#A8A89F] cursor-not-allowed'
             )}
           >
@@ -282,7 +282,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
                 Foto
               </button>
               {mediaTooltip === 'foto' && (
-                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap bg-[#C6F94D] text-[#171717] text-[11px] px-2 py-1 rounded-md shadow">
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap bg-[#FFC8E2] text-[#171717] text-[11px] px-2 py-1 rounded-md shadow">
                   Próximamente disponible
                 </span>
               )}
@@ -297,7 +297,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
                 Vídeo
               </button>
               {mediaTooltip === 'video' && (
-                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap bg-[#C6F94D] text-[#171717] text-[11px] px-2 py-1 rounded-md shadow">
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap bg-[#FFC8E2] text-[#171717] text-[11px] px-2 py-1 rounded-md shadow">
                   Próximamente disponible
                 </span>
               )}
@@ -317,7 +317,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
             className={cn(
               'flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors',
               texto.trim()
-                ? 'bg-[#C6F94D] text-[#171717] hover:bg-[#BCEF3F]'
+                ? 'bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2]'
                 : 'bg-[#E7E7E0] text-[#A8A89F] cursor-not-allowed'
             )}
           >
@@ -447,7 +447,7 @@ export default function ComunidadPage() {
         </div>
         <button
           onClick={() => setModalOpen(true)}
-          className="px-4 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-[13px] font-medium hover:bg-[#BCEF3F] transition-colors"
+          className="px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[13px] font-medium hover:bg-[#F7B3D2] transition-colors"
         >
           Nueva publicación
         </button>
@@ -475,7 +475,7 @@ export default function ComunidadPage() {
                   <div className="flex justify-end mt-2">
                     <button
                       onClick={handleQuickPost}
-                      className="px-4 py-1.5 rounded-lg bg-[#C6F94D] text-[#171717] text-[13px] font-medium hover:bg-[#BCEF3F] transition-colors"
+                      className="px-4 py-1.5 rounded-lg bg-[#FFC8E2] text-[#171717] text-[13px] font-medium hover:bg-[#F7B3D2] transition-colors"
                     >
                       Publicar
                     </button>

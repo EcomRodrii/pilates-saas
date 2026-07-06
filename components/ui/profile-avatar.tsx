@@ -16,14 +16,14 @@ interface AvatarDef {
 }
 
 export const PREDEFINED_AVATARS: AvatarDef[] = [
-  { id: 'mujer-1', genero: 'mujer', bg: '#EDF9C8', skin: '#F0B892', hair: '#3B2A20' },
+  { id: 'mujer-1', genero: 'mujer', bg: '#FFF2F7', skin: '#F0B892', hair: '#3B2A20' },
   { id: 'mujer-2', genero: 'mujer', bg: '#FCE7F3', skin: '#F6D2B0', hair: '#7A4A2B' },
   { id: 'mujer-3', genero: 'mujer', bg: '#DBEAFE', skin: '#8D5A3C', hair: '#1A1A1A' },
   { id: 'mujer-4', genero: 'mujer', bg: '#FEF3C7', skin: '#F0B892', hair: '#C97A2B' },
   { id: 'hombre-1', genero: 'hombre', bg: '#D1FAE5', skin: '#F0B892', hair: '#2B2118' },
   { id: 'hombre-2', genero: 'hombre', bg: '#E0F2FE', skin: '#8D5A3C', hair: '#141414' },
   { id: 'hombre-3', genero: 'hombre', bg: '#FEE2E2', skin: '#F6D2B0', hair: '#5C3A20' },
-  { id: 'hombre-4', genero: 'hombre', bg: '#EDF9C8', skin: '#F0B892', hair: '#8A8A82' },
+  { id: 'hombre-4', genero: 'hombre', bg: '#FFF2F7', skin: '#F0B892', hair: '#8A8A82' },
 ];
 
 function avatarDef(id: string | null | undefined) {
@@ -122,7 +122,7 @@ export function AvatarPicker({ value, onChange }: { value: string | null; onChan
                   onClick={() => onChange(selected ? null : a.id)}
                   className={cn(
                     'w-12 h-12 rounded-full overflow-hidden transition-all shrink-0',
-                    selected ? 'ring-2 ring-[#C6F94D] ring-offset-2' : 'hover:opacity-80',
+                    selected ? 'ring-2 ring-[#FFC8E2] ring-offset-2' : 'hover:opacity-80',
                   )}
                 >
                   <AvatarGlyph def={a} />

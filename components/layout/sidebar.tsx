@@ -80,7 +80,7 @@ function NavItem({ href, label, Icon, onClick, collapsed }: { href: string; labe
       className={cn(
         'flex items-center rounded-full text-[13px] font-medium transition-all relative',
         collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
-        active ? 'bg-[#C6F94D] text-[#131313] font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-white/5'
+        active ? 'bg-[#FFC8E2] text-[#131313] font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-white/5'
       )}
     >
       <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
@@ -101,7 +101,7 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
     >
       <div className={cn(
         'w-10 h-7 rounded-full flex items-center justify-center transition-colors',
-        active ? 'bg-[#C6F94D]' : 'bg-transparent'
+        active ? 'bg-[#FFC8E2]' : 'bg-transparent'
       )}>
         <Icon
           size={20}
@@ -159,7 +159,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
                   onClick={onClose}
                   className={cn(
                     'flex items-center gap-3.5 px-4 py-3.5 rounded-full text-[15px] font-medium transition-all mb-1',
-                    active ? 'bg-[#C6F94D] text-[#131313] font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+                    active ? 'bg-[#FFC8E2] text-[#131313] font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
                   )}
                 >
                   <item.icon size={18} strokeWidth={active ? 2.5 : 2} />
@@ -280,7 +280,7 @@ export function Sidebar() {
           style={{ borderColor: 'rgba(255,255,255,0.07)' }}
         >
           {collapsed ? (
-            <div className="w-8 h-8 rounded-full bg-[#C6F94D] flex items-center justify-center text-[#131313] text-[13px] font-extrabold">T</div>
+            <div className="w-8 h-8 rounded-full bg-[#FFC8E2] flex items-center justify-center text-[#131313] text-[13px] font-extrabold">T</div>
           ) : (
             <Image src="/logo-transparent.png" alt="Tentare" width={90} height={40} className="h-8 w-auto object-contain" />
           )}
@@ -319,7 +319,7 @@ export function Sidebar() {
             <Link href={`/reservar/${studioSlug}`} target="_blank" title="Portal de reservas" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.35)' }}>
               <Calendar size={15} />
             </Link>
-            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal miembros" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5 text-[#8FBF12]">
+            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal miembros" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5 text-[#F7A6C4]">
               <ExternalLink size={15} />
             </Link>
           </div>
@@ -346,7 +346,7 @@ export function Sidebar() {
             <Link
               href={`/portal/${studioSlug}/login`}
               target="_blank"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#8FBF12]"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#F7A6C4]"
             >
               <ExternalLink size={12} className="shrink-0" />
               <span>Portal miembros</span>

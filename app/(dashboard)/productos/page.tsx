@@ -9,13 +9,13 @@ type Tab = 'planes' | 'pos';
 
 const TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bono sesiones', PUNTUAL: 'Puntual' };
 const TIPO_COLOR: Record<string, { bg: string; text: string }> = {
-  MENSUAL: { bg: '#EDF9C8', text: '#8FBF12' },
+  MENSUAL: { bg: '#FFF2F7', text: '#F7A6C4' },
   BONO: { bg: '#FEF3C7', text: '#B45309' },
   PUNTUAL: { bg: '#F0FDF4', text: '#15803D' },
 };
 const CAT_LABEL: Record<string, string> = { SESION: 'Sesión', PACK: 'Pack', PRODUCTO: 'Producto', OTRO: 'Otro' };
 const CAT_COLOR: Record<string, { bg: string; text: string }> = {
-  SESION: { bg: '#EDF9C8', text: '#8FBF12' },
+  SESION: { bg: '#FFF2F7', text: '#F7A6C4' },
   PACK: { bg: '#FEF3C7', text: '#B45309' },
   PRODUCTO: { bg: '#F0FDF4', text: '#15803D' },
   OTRO: { bg: '#F1F1EC', text: '#8E8E86' },
@@ -53,20 +53,20 @@ function PlanModal({ initial, onSave, onClose }: {
           <div>
             <label className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wide mb-1.5 block">Nombre *</label>
             <input value={form.nombre} onChange={e => set('nombre', e.target.value)}
-              className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#8FBF12]"
+              className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4]"
               placeholder="Ej. Mensual ilimitado" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wide mb-1.5 block">Precio (€) *</label>
               <input value={form.precio} onChange={e => set('precio', e.target.value)} type="number" min="0" step="0.01"
-                className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#8FBF12]"
+                className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4]"
                 placeholder="0.00" />
             </div>
             <div>
               <label className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wide mb-1.5 block">Tipo</label>
               <select value={form.tipo} onChange={e => set('tipo', e.target.value)}
-                className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#8FBF12] bg-white">
+                className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4] bg-white">
                 <option value="MENSUAL">Mensual</option>
                 <option value="BONO">Bono sesiones</option>
                 <option value="PUNTUAL">Puntual</option>
@@ -77,20 +77,20 @@ function PlanModal({ initial, onSave, onClose }: {
             <div>
               <label className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wide mb-1.5 block">Número de sesiones</label>
               <input value={form.sesiones} onChange={e => set('sesiones', e.target.value)} type="number" min="1"
-                className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#8FBF12]"
+                className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4]"
                 placeholder="8" />
             </div>
           )}
           <div>
             <label className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wide mb-1.5 block">Descripción</label>
             <input value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
-              className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#8FBF12]"
+              className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4]"
               placeholder="Acceso ilimitado a clases grupales" />
           </div>
           <label className="flex items-center gap-2.5 cursor-pointer">
             <div onClick={() => set('activo', !form.activo)}
               className="w-9 h-5 rounded-full transition-colors flex items-center px-0.5"
-              style={{ backgroundColor: form.activo ? '#8FBF12' : '#D1D5DB' }}>
+              style={{ backgroundColor: form.activo ? '#F7A6C4' : '#D1D5DB' }}>
               <div className="w-4 h-4 bg-white rounded-full shadow transition-transform"
                 style={{ transform: form.activo ? 'translateX(16px)' : 'translateX(0)' }} />
             </div>
@@ -101,7 +101,7 @@ function PlanModal({ initial, onSave, onClose }: {
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-[#F5F5F1]">Cancelar</button>
           <button onClick={() => valid && onSave(form)} disabled={!valid}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
-            style={{ backgroundColor: '#8FBF12' }}>
+            style={{ backgroundColor: '#F7A6C4' }}>
             {initial ? 'Guardar cambios' : 'Crear plan'}
           </button>
         </div>
@@ -139,20 +139,20 @@ function PosModal({ initial, onSave, onClose }: {
           <div>
             <label className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wide mb-1.5 block">Nombre *</label>
             <input value={form.nombre} onChange={e => set('nombre', e.target.value)}
-              className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#8FBF12]"
+              className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4]"
               placeholder="Ej. Calcetines antideslizantes" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wide mb-1.5 block">Precio (€) *</label>
               <input value={form.precio} onChange={e => set('precio', e.target.value)} type="number" min="0" step="0.01"
-                className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#8FBF12]"
+                className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4]"
                 placeholder="0.00" />
             </div>
             <div>
               <label className="text-xs font-semibold text-[#8E8E86] uppercase tracking-wide mb-1.5 block">Categoría</label>
               <select value={form.categoria} onChange={e => set('categoria', e.target.value)}
-                className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#8FBF12] bg-white">
+                className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4] bg-white">
                 <option value="SESION">Sesión</option>
                 <option value="PACK">Pack</option>
                 <option value="PRODUCTO">Producto</option>
@@ -163,7 +163,7 @@ function PosModal({ initial, onSave, onClose }: {
           <label className="flex items-center gap-2.5 cursor-pointer">
             <div onClick={() => set('activo', !form.activo)}
               className="w-9 h-5 rounded-full transition-colors flex items-center px-0.5"
-              style={{ backgroundColor: form.activo ? '#8FBF12' : '#D1D5DB' }}>
+              style={{ backgroundColor: form.activo ? '#F7A6C4' : '#D1D5DB' }}>
               <div className="w-4 h-4 bg-white rounded-full shadow transition-transform"
                 style={{ transform: form.activo ? 'translateX(16px)' : 'translateX(0)' }} />
             </div>
@@ -174,7 +174,7 @@ function PosModal({ initial, onSave, onClose }: {
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-[#F5F5F1]">Cancelar</button>
           <button onClick={() => valid && onSave(form)} disabled={!valid}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
-            style={{ backgroundColor: '#8FBF12' }}>
+            style={{ backgroundColor: '#F7A6C4' }}>
             {initial ? 'Guardar cambios' : 'Crear producto'}
           </button>
         </div>
@@ -231,7 +231,7 @@ export default function Productos() {
         <button
           onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold transition-colors"
-          style={{ backgroundColor: '#8FBF12' }}
+          style={{ backgroundColor: '#F7A6C4' }}
         >
           <Plus size={15} />
           {tab === 'planes' ? 'Nuevo plan' : 'Nuevo producto'}
@@ -315,7 +315,7 @@ export default function Productos() {
 
           {/* Add card */}
           <button onClick={() => setPlanModal('new')}
-            className="bg-white rounded-2xl border-2 border-dashed border-[#E7E7E0] p-5 flex flex-col items-center justify-center gap-2 text-[#A8A89F] hover:border-[#8FBF12] hover:text-[#8FBF12] transition-colors min-h-[160px]">
+            className="bg-white rounded-2xl border-2 border-dashed border-[#E7E7E0] p-5 flex flex-col items-center justify-center gap-2 text-[#A8A89F] hover:border-[#F7A6C4] hover:text-[#F7A6C4] transition-colors min-h-[160px]">
             <Plus size={20} />
             <span className="text-sm font-semibold">Añadir plan</span>
           </button>
@@ -410,7 +410,7 @@ export default function Productos() {
           )}
           <div className="p-4 border-t border-[#E7E7E0]">
             <button onClick={() => setPosModal('new')}
-              className="flex items-center gap-2 text-sm font-semibold text-[#8FBF12] hover:text-[#6E9E0A] transition-colors">
+              className="flex items-center gap-2 text-sm font-semibold text-[#F7A6C4] hover:text-[#6E9E0A] transition-colors">
               <Plus size={14} />
               Añadir producto
             </button>

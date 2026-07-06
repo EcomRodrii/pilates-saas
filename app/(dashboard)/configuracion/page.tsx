@@ -14,7 +14,7 @@ const inputCls =
   'rounded-lg border border-[#E7E7E0] px-3 py-2 text-[13px] w-full focus:outline-none focus:ring-2 focus:ring-black/10';
 const labelCls = 'text-[12px] font-medium text-[#3A3A34] block mb-1';
 const btnPrimary =
-  'bg-[#C6F94D] text-[#171717] rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 hover:bg-[#BCEF3F] transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
+  'bg-[#FFC8E2] text-[#171717] rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 hover:bg-[#F7B3D2] transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
 const btnSecondary =
   'bg-white border border-[#E7E7E0] rounded-lg px-4 py-2 text-[13px] text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors';
 const cardCls = 'bg-white border border-[#E7E7E0] rounded-xl';
@@ -140,7 +140,7 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
   }, [onDismiss]);
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-[#C6F94D] text-[#171717] text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-lg pointer-events-none">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-[#FFC8E2] text-[#171717] text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-lg pointer-events-none">
       <Check size={14} className="text-[#34D399]" />
       {message}
     </div>
@@ -251,7 +251,7 @@ export default function ConfiguracionPage() {
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all whitespace-nowrap',
               activeTab === tab.id
-                ? 'bg-[#C6F94D] text-[#171717]'
+                ? 'bg-[#FFC8E2] text-[#171717]'
                 : 'text-[#8E8E86] hover:text-[#1A1A1A] hover:bg-[#EEEEE8]'
             )}
           >
@@ -589,7 +589,7 @@ type ClaseForm = {
 
 const emptyClaseForm = (): ClaseForm => ({
   nombre: '',
-  color: '#8FBF12',
+  color: '#F7A6C4',
   duracionMinutos: '60',
   nivel: 'TODOS',
   descripcion: '',
@@ -811,7 +811,7 @@ type SalaForm = {
 const emptySalaForm = (): SalaForm => ({
   nombre: '',
   capacidad: '10',
-  color: '#8FBF12',
+  color: '#F7A6C4',
 });
 
 function salaToForm(s: Sala): SalaForm {
@@ -1382,7 +1382,7 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
             <input className={inputCls} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           </div>
         </div>
-        <button onClick={guardarEstudio} className="mt-4 px-4 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-[12px] font-medium hover:bg-[#BCEF3F] transition-colors">
+        <button onClick={guardarEstudio} className="mt-4 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[12px] font-medium hover:bg-[#F7B3D2] transition-colors">
           Guardar datos del estudio
         </button>
       </div>
@@ -1401,7 +1401,7 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         />
         <button
           onClick={() => { updateStudioConfig({ politicaPrivacidad: politica }); showToast('Política de privacidad guardada'); }}
-          className="mt-3 px-4 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-[12px] font-medium hover:bg-[#BCEF3F] transition-colors"
+          className="mt-3 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[12px] font-medium hover:bg-[#F7B3D2] transition-colors"
         >
           Guardar política
         </button>
@@ -1421,7 +1421,7 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         />
         <button
           onClick={() => { updateStudioConfig({ terminosServicio: terminos }); showToast('Términos y condiciones guardados'); }}
-          className="mt-3 px-4 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-[12px] font-medium hover:bg-[#BCEF3F] transition-colors"
+          className="mt-3 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[12px] font-medium hover:bg-[#F7B3D2] transition-colors"
         >
           Guardar términos
         </button>

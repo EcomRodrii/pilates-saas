@@ -40,7 +40,7 @@ const NIVEL_COLOR: Record<string, { bg: string; text: string }> = {
   PRINCIPIANTE: { bg: '#D1FAE5', text: '#065F46' },
   MEDIO: { bg: '#FEF3C7', text: '#92400E' },
   AVANZADO: { bg: '#FEE2E2', text: '#B91C1C' },
-  TODOS: { bg: '#EDF9C8', text: '#1D4ED8' },
+  TODOS: { bg: '#FFF2F7', text: '#1D4ED8' },
 };
 
 // ─── Calendar helpers ─────────────────────────────────────────────────────────
@@ -587,7 +587,7 @@ export default function ReservarPage() {
           <div className="space-y-3">
             {!socia ? (
               <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-4 text-center shadow-sm">
-                <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: '#EDF9C8' }}>
+                <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFF2F7' }}>
                   <Users size={24} style={{ color: PRIMARY }} />
                 </div>
                 <div>
@@ -635,7 +635,7 @@ export default function ReservarPage() {
                               : r.estado === 'LISTA_ESPERA'
                               ? { backgroundColor: '#FEF3C7', color: '#92400E' }
                               : isPast ? { backgroundColor: '#F1F1EC', color: '#A8A89E' }
-                              : { backgroundColor: '#EDF9C8', color: PRIMARY }}>
+                              : { backgroundColor: '#FFF2F7', color: PRIMARY }}>
                             {r.estado === 'ASISTIDA' ? '✓ Asistida' : r.estado === 'LISTA_ESPERA' ? '⏳ En espera' : isPast ? 'Finalizada' : '✅ Confirmada'}
                           </span>
                         </div>
@@ -709,7 +709,7 @@ export default function ReservarPage() {
                       {p.descripcion && <p className="text-[#8E8E86] text-xs mt-0.5">{p.descripcion}</p>}
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: '#EDF9C8', color: PRIMARY }}>
+                          style={{ backgroundColor: '#FFF2F7', color: PRIMARY }}>
                           {p.tipo === 'MENSUAL' ? 'Mensual' : p.tipo === 'BONO' ? `Bono ${p.sesiones} clases` : 'Clase suelta'}
                         </span>
                       </div>
