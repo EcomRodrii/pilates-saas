@@ -50,7 +50,10 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = await resend.emails.send({
-    from: 'Tentare <no-reply@tentare.es>',
+    // Dominio de pruebas de Resend: hasta que se compre y verifique un
+    // dominio propio (ver tentare.es), solo se puede enviar de verdad al
+    // email con el que se creó la cuenta de Resend.
+    from: 'Tentare <onboarding@resend.dev>',
     to: [body.to],
     subject,
     html,

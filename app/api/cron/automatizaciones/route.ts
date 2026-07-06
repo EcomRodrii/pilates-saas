@@ -93,7 +93,10 @@ export async function GET(req: NextRequest) {
             estudioNombre: studio.nombre,
           }));
           const { error } = await resend!.emails.send({
-            from: 'Tentare <no-reply@tentare.es>',
+            // Dominio de pruebas de Resend: hasta que se compre y verifique un
+            // dominio propio (ver tentare.es), solo se puede enviar de verdad
+            // al email con el que se creó la cuenta de Resend.
+            from: 'Tentare <onboarding@resend.dev>',
             to: [c.socio.email],
             subject: c.titulo,
             html,
