@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { Calendar, CreditCard, Play, TrendingUp, Clock, ChevronRight, Zap, AlertCircle } from 'lucide-react';
@@ -9,6 +10,7 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { ProfileSheet } from '@/components/portal/profile-sheet';
 
 export default function PortalHome() {
+  const { slug } = useParams<{ slug: string }>();
   const { session, logout } = usePortalAuth();
   const { socios, suscripciones, planesTarifa, sesiones, reservas, tiposClase, salas, instructores, updateSocio } = useStudio();
   const [showProfile, setShowProfile] = useState(false);
@@ -104,7 +106,7 @@ export default function PortalHome() {
           const instr = instructores.find(i => i.id === proxima.s!.instructorId);
           const color = tipo?.color ?? '#8FBF12';
           return (
-            <Link href="/portal/clases" className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
+            <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
               <div className="p-5 text-white" style={{ background: `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -129,7 +131,7 @@ export default function PortalHome() {
             </Link>
           );
         })() : (
-          <Link href="/portal/clases" className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
+          <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
             <div className="p-5 bg-gradient-to-br from-[#1A1A1A] to-[#3F5200] text-white">
               <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-3">Próxima clase</p>
               <p className="text-white text-[20px] font-extrabold mb-1">Sin clases reservadas</p>
@@ -146,7 +148,7 @@ export default function PortalHome() {
       {/* ── Mi bono ──────────────────────────────────── */}
       {plan && activeSus && (
         <div className="px-4 mt-5">
-          <Link href="/portal/mi-plan" className={`block bg-white rounded-3xl shadow-sm border p-5 active:scale-[0.98] transition-transform ${bonoCaducado ? 'border-red-200' : 'border-black/[0.06]'}`}>
+          <Link href={`/portal/${slug}/mi-plan`} className={`block bg-white rounded-3xl shadow-sm border p-5 active:scale-[0.98] transition-transform ${bonoCaducado ? 'border-red-200' : 'border-black/[0.06]'}`}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-1">Mi bono</p>
@@ -198,10 +200,10 @@ export default function PortalHome() {
         <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">Acceso rápido</p>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { href: '/portal/clases', icon: Calendar, label: 'Reservar clase', color: '#6B8E00', bg: '#EDF9C8' },
-            { href: '/portal/mi-plan', icon: CreditCard, label: 'Mis pagos', color: '#059669', bg: '#ECFDF5' },
-            { href: '/portal/videos', icon: Play, label: 'Videos on-demand', color: '#D97706', bg: '#FFFBEB' },
-            { href: '/portal/progreso', icon: TrendingUp, label: 'Mi progreso', color: '#8FBF12', bg: '#EDF9C8' },
+            { href: `/portal/${slug}/clases`, icon: Calendar, label: 'Reservar clase', color: '#6B8E00', bg: '#EDF9C8' },
+            { href: `/portal/${slug}/mi-plan`, icon: CreditCard, label: 'Mis pagos', color: '#059669', bg: '#ECFDF5' },
+            { href: `/portal/${slug}/videos`, icon: Play, label: 'Videos on-demand', color: '#D97706', bg: '#FFFBEB' },
+            { href: `/portal/${slug}/progreso`, icon: TrendingUp, label: 'Mi progreso', color: '#8FBF12', bg: '#EDF9C8' },
           ].map(({ href, icon: Icon, label, color, bg }) => (
             <Link
               key={href}

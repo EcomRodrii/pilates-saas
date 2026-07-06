@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { supabase } from '@/lib/supabase';
+import { getCurrentStudioId } from '@/lib/supabase-data';
 import { Mail, AlertCircle } from 'lucide-react';
 
 export default function PortalLogin() {
@@ -21,7 +22,7 @@ export default function PortalLogin() {
       .from('socios')
       .select('id, nombre, apellidos, email')
       .ilike('email', email.trim())
-      .eq('studio_id', 'studio-1')
+      .eq('studio_id', getCurrentStudioId())
       .maybeSingle();
 
     if (dbError || !data) {

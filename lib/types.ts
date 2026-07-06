@@ -21,6 +21,8 @@ export interface Studio {
   colorPrimario: string;
   plan: 'BASE' | 'ESTUDIO' | 'CADENA';
   avatarAdmin: string | null;
+  ownerAuthUserId: string | null;
+  slug: string | null;
   creadoEn: string;
 }
 

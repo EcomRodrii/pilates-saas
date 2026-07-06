@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { Users, ChevronRight } from 'lucide-react';
 
@@ -14,6 +15,7 @@ function getInitials(nombre: string) {
 }
 
 export default function InstructoresPage() {
+  const { slug } = useParams<{ slug: string }>();
   const { instructores, tiposClase } = useStudio();
 
   const instructoresActivos = instructores.filter(i => i.activo);
@@ -72,7 +74,7 @@ export default function InstructoresPage() {
                 )}
 
                 <Link
-                  href="/portal/clases"
+                  href={`/portal/${slug}/clases`}
                   className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-[#8FBF12]/30 text-[#6B8E00] text-[13px] font-medium hover:bg-[#C6F94D]/5 transition-colors"
                 >
                   <span>Ver clases</span>

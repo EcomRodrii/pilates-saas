@@ -17,6 +17,8 @@ export const studio: Studio = {
   colorPrimario: '#6366f1',
   plan: 'ESTUDIO',
   avatarAdmin: null,
+  ownerAuthUserId: null,
+  slug: 'tentare',
   creadoEn: '2024-01-15T10:00:00Z',
 };
 

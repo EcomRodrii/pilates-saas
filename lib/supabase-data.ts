@@ -74,6 +74,8 @@ function mapStudio(r: any) {
     colorPrimario: r.color_primario,
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
+    ownerAuthUserId: r.owner_auth_user_id ?? null,
+    slug: r.slug ?? null,
     creadoEn: r.creado_en,
   };
 }
@@ -1148,11 +1150,34 @@ export async function dbUpdateStudio(changes: any) {
   if (error) reportDbError('[dbUpdateStudio]', error);
 }
 
+function slugify(nombre: string): string {
+  return nombre
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // quita acentos
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'estudio';
+}
+
+// Genera un slug único para /reservar/[slug], /kiosk/[slug], /portal/[slug]
+// probando sufijos -2, -3... si el base ya existe.
+async function generateUniqueSlug(nombre: string): Promise<string> {
+  const base = slugify(nombre);
+  let candidate = base;
+  let n = 2;
+  while (true) {
+    const { data } = await supabase.from('studios').select('id').eq('slug', candidate).maybeSingle();
+    if (!data) return candidate;
+    candidate = `${base}-${n}`;
+    n++;
+  }
+}
+
 // Crea un negocio nuevo (multi-tenancy: alta real desde /crear-estudio) y lo
 // vincula a la cuenta de Supabase Auth que lo creó. Devuelve el id del nuevo
 // negocio, o null si falló.
 export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string }): Promise<string | null> {
   const id = `studio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const slug = await generateUniqueSlug(fields.nombre);
   const { error } = await supabase.from('studios').insert({
     id,
     nombre: fields.nombre,
@@ -1160,9 +1185,16 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
     telefono: fields.telefono,
     plan: 'BASE',
     owner_auth_user_id: fields.ownerAuthUserId,
+    slug,
   });
   if (error) { reportDbError('[dbCreateStudio]', error); return null; }
   return id;
+}
+
+// Resuelve el studio_id a partir del slug público de la URL (/reservar/[slug]...).
+export async function resolveStudioIdBySlug(slug: string): Promise<string | null> {
+  const { data } = await supabase.from('studios').select('id').eq('slug', slug).maybeSingle();
+  return data?.id ?? null;
 }
 
 export async function dbUpdateStudioAvatar(avatarId: string | null) {

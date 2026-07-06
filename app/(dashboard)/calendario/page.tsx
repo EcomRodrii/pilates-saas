@@ -261,6 +261,7 @@ function SessionSidebar({
   onLiberarSpot: (reservaId: string) => void;
   onAsignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
 }) {
+  const { studio } = useStudio();
   const [buscarSocia, setBuscarSocia] = useState('');
   const [showAnadir, setShowAnadir] = useState(false);
   const [showConfirm, setShowConfirm] = useState<'cancelar' | 'eliminar' | null>(null);
@@ -549,7 +550,7 @@ function SessionSidebar({
       {/* Footer: kiosk link */}
       <div className="px-5 py-3 border-t border-[#E7E7E0]">
         <a
-          href={`/kiosk/${sesion.id}`}
+          href={`/kiosk/${studio?.slug ?? 'tentare'}`}
           className="flex items-center gap-1.5 text-xs font-semibold text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
         >
           <ArrowUpRight size={13} />Ver en modo kiosk

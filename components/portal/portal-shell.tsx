@@ -1,31 +1,33 @@
 'use client';
 
 import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home, Calendar, CreditCard, Play, TrendingUp } from 'lucide-react';
 import { usePortalAuth } from '@/lib/portal-auth';
 
 const NAV = [
-  { href: '/portal/home', icon: Home, label: 'Inicio' },
-  { href: '/portal/clases', icon: Calendar, label: 'Clases' },
-  { href: '/portal/mi-plan', icon: CreditCard, label: 'Mi plan' },
-  { href: '/portal/videos', icon: Play, label: 'Videos' },
-  { href: '/portal/progreso', icon: TrendingUp, label: 'Progreso' },
+  { seg: 'home', icon: Home, label: 'Inicio' },
+  { seg: 'clases', icon: Calendar, label: 'Clases' },
+  { seg: 'mi-plan', icon: CreditCard, label: 'Mi plan' },
+  { seg: 'videos', icon: Play, label: 'Videos' },
+  { seg: 'progreso', icon: TrendingUp, label: 'Progreso' },
 ];
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const params = useParams<{ slug: string }>();
+  const slug = params.slug;
 
-  const isLoginPage = pathname === '/portal' || pathname === '/portal/login';
+  const isLoginPage = pathname === `/portal/${slug}` || pathname === `/portal/${slug}/login`;
 
   useEffect(() => {
     if (isLoading) return;
-    if (!session && !isLoginPage) router.replace('/portal/login');
-    if (session && isLoginPage) router.replace('/portal/home');
-  }, [session, isLoading, isLoginPage, router]);
+    if (!session && !isLoginPage) router.replace(`/portal/${slug}/login`);
+    if (session && isLoginPage) router.replace(`/portal/${slug}/home`);
+  }, [session, isLoading, isLoginPage, router, slug]);
 
   if (isLoading) {
     return (
@@ -62,11 +64,12 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
         }}
       >
         <div className="flex h-[56px]">
-          {NAV.map(({ href, icon: Icon, label }) => {
+          {NAV.map(({ seg, icon: Icon, label }) => {
+            const href = `/portal/${slug}/${seg}`;
             const active = pathname.startsWith(href);
             return (
               <Link
-                key={href}
+                key={seg}
                 href={href}
                 className="flex-1 flex flex-col items-center justify-center gap-[3px]"
               >

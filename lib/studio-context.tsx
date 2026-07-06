@@ -278,7 +278,7 @@ export function useStudio(): StudioContextValue {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export function StudioProvider({ children }: { children: ReactNode }) {
+export function StudioProvider({ children, studioIdOverride }: { children: ReactNode; studioIdOverride?: string }) {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [dbError, setDbError] = useState<{ msg: string; key: number } | null>(null);
 
@@ -342,7 +342,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       // Multi-tenancy: figure out which studio this session belongs to
       // *before* fetching, so every query below is scoped correctly both
       // by our own .eq('studio_id', ...) filters and by RLS.
-      if (authUserId) {
+      // A public route (e.g. /reservar/[slug]) already knows its studio from
+      // the URL and passes it as studioIdOverride — that takes priority over
+      // resolving from the (possibly absent, possibly unrelated) auth session.
+      if (studioIdOverride) {
+        setCurrentStudioId(studioIdOverride);
+      } else if (authUserId) {
         const resolved = await resolveStudioId(authUserId);
         if (resolved) setCurrentStudioId(resolved);
       }
@@ -381,7 +386,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setDataLoaded(true);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUserId]);
+  }, [authUserId, studioIdOverride]);
 
   // ── Auto-increment factura counter ──────────────────────────────────────────
   function nextFacturaNumero(existingFacturas: Factura[]): string {

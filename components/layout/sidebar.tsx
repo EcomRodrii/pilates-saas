@@ -199,6 +199,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, signOut } = useAuth();
   const { studio } = useStudio();
+  const studioSlug = studio?.slug ?? 'tentare';
   const { puedeVer } = usePermisos();
   const router = useRouter();
 
@@ -312,20 +313,20 @@ export function Sidebar() {
         {/* External links */}
         {collapsed ? (
           <div className="px-2 pb-2 flex flex-col items-center gap-0.5">
-            <Link href="/kiosk" target="_blank" title="Modo quiosco" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            <Link href={`/kiosk/${studioSlug}`} target="_blank" title="Modo quiosco" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.35)' }}>
               <Monitor size={15} />
             </Link>
-            <Link href="/reservar" target="_blank" title="Portal de reservas" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            <Link href={`/reservar/${studioSlug}`} target="_blank" title="Portal de reservas" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.35)' }}>
               <Calendar size={15} />
             </Link>
-            <Link href="/portal/login" target="_blank" title="Portal miembros" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5 text-[#8FBF12]">
+            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal miembros" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5 text-[#8FBF12]">
               <ExternalLink size={15} />
             </Link>
           </div>
         ) : (
           <div className="px-3 pb-2 space-y-0.5">
             <Link
-              href="/kiosk"
+              href={`/kiosk/${studioSlug}`}
               target="_blank"
               className="flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5"
               style={{ color: 'rgba(255,255,255,0.35)' }}
@@ -334,7 +335,7 @@ export function Sidebar() {
               <span style={{ color: 'rgba(255,255,255,0.2)' }}>→</span>
             </Link>
             <Link
-              href="/reservar"
+              href={`/reservar/${studioSlug}`}
               target="_blank"
               className="flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5"
               style={{ color: 'rgba(255,255,255,0.35)' }}
@@ -343,7 +344,7 @@ export function Sidebar() {
               <span style={{ color: 'rgba(255,255,255,0.2)' }}>→</span>
             </Link>
             <Link
-              href="/portal/login"
+              href={`/portal/${studioSlug}/login`}
               target="_blank"
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#8FBF12]"
             >

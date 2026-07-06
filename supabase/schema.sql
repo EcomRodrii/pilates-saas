@@ -21,6 +21,7 @@ create table if not exists studios (
   plan text default 'BASE',
   avatar_admin text,
   owner_auth_user_id uuid references auth.users(id) on delete set null,
+  slug text unique,
   creado_en timestamptz default now()
 );
 
@@ -429,6 +430,10 @@ alter table instructores add column if not exists auth_user_id uuid references a
 
 -- Migración: multi-tenancy — cada negocio tiene su propia propietaria
 alter table studios add column if not exists owner_auth_user_id uuid references auth.users(id) on delete set null;
+
+-- Migración: slug público para /reservar/[slug], /kiosk/[slug], /portal/[slug]
+alter table studios add column if not exists slug text unique;
+update studios set slug = 'tentare' where id = 'studio-1' and slug is null;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- Políticas de acceso
