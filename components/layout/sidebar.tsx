@@ -240,7 +240,7 @@ export function Sidebar() {
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
         style={{ backgroundColor: '#ffffff', borderColor: '#E7E7E0' }}
       >
-        <Image src="/logo-light.png" alt="Tentare" width={100} height={36} className="h-7 w-auto object-contain" />
+        <Image src="/logo-horizontal.png" alt="Tentare" width={100} height={69} className="h-9 w-auto object-contain" />
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
@@ -282,7 +282,12 @@ export function Sidebar() {
           {collapsed ? (
             <div className="w-8 h-8 rounded-full bg-[#FFC8E2] flex items-center justify-center text-[#131313] text-[13px] font-extrabold">T</div>
           ) : (
-            <Image src="/logo-transparent.png" alt="Tentare" width={90} height={40} className="h-8 w-auto object-contain" />
+            <>
+              {/* Los logos nuevos usan tinta oscura (ilegible sobre este fondo casi negro) —
+                  se mantiene el icono circular en vez de una imagen del logo aquí. */}
+              <div className="w-8 h-8 shrink-0 rounded-full bg-[#FFC8E2] flex items-center justify-center text-[#131313] text-[13px] font-extrabold">T</div>
+              <span className="text-white text-[15px] font-bold tracking-tight">Tentare</span>
+            </>
           )}
         </div>
 

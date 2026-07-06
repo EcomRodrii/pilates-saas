@@ -42,7 +42,7 @@ export default function PortalLogin() {
     <div className="min-h-screen bg-[#EEEEE8] flex flex-col items-center justify-center p-6">
       {/* Logo */}
       <div className="mb-10 flex flex-col items-center gap-4">
-        <Image src="/logo-transparent.png" alt="Tentare" width={160} height={70} className="h-20 w-auto object-contain" />
+        <Image src="/logo-stacked.png" alt="Tentare" width={160} height={110} className="h-24 w-auto object-contain" />
         <div className="text-center">
           <h1 className="text-2xl font-extrabold text-[#171717]">Portal de miembros</h1>
           <p className="text-sm text-[#8E8E86] mt-1">Accede con tu email</p>
