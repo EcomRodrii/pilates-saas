@@ -481,7 +481,7 @@ export default function POSPage() {
 
           {/* Grid */}
           <div className="flex-1 overflow-y-auto px-4 pb-4">
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               {productosFiltrados.map(p => (
                 <button
                   key={p.id}
@@ -709,12 +709,12 @@ export default function POSPage() {
           <table className="w-full text-[12px]">
             <thead className="sticky top-0 bg-white z-10">
               <tr className="text-[#A8A89F] border-b border-[#E7E7E0]">
-                <th className="text-left px-6 py-2 font-medium">Fecha / Hora</th>
+                <th className="text-left px-3 sm:px-6 py-2 font-medium">Fecha / Hora</th>
                 <th className="text-left px-3 py-2 font-medium">Cliente</th>
-                <th className="text-left px-3 py-2 font-medium">Artículos</th>
+                <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Artículos</th>
                 <th className="text-right px-3 py-2 font-medium">Total</th>
-                <th className="text-left px-3 py-2 font-medium">Pago</th>
-                <th className="text-center px-6 py-2 font-medium">Ticket</th>
+                <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Pago</th>
+                <th className="text-center px-3 sm:px-6 py-2 font-medium">Ticket</th>
               </tr>
             </thead>
             <tbody>
@@ -728,7 +728,15 @@ export default function POSPage() {
               {dateGroups.map(group => (
                 <React.Fragment key={group.dateKey}>
                   {/* Date separator */}
-                  <tr className="bg-[#EEEEE8]">
+                  <tr className="bg-[#EEEEE8] sm:hidden">
+                    <td colSpan={2} className="px-3 py-1.5 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide">
+                      {group.label}
+                    </td>
+                    <td colSpan={2} className="px-3 py-1.5 text-right text-[11px] text-[#A8A89F]">
+                      {group.ventas.length} {group.ventas.length === 1 ? 'venta' : 'ventas'}
+                    </td>
+                  </tr>
+                  <tr className="bg-[#EEEEE8] hidden sm:table-row">
                     <td colSpan={4} className="px-6 py-1.5 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide">
                       {group.label}
                     </td>
@@ -745,15 +753,20 @@ export default function POSPage() {
                     const fechaHora = formatTimeOrDate(new Date(v.realizadaEn), today);
                     return (
                       <tr key={v.id} className="border-b border-[#E7E7E0] last:border-0 hover:bg-[#EEEEE8] transition-colors">
-                        <td className="px-6 py-2.5 text-[#8E8E86] font-mono">{fechaHora}</td>
-                        <td className="px-3 py-2.5 text-[#1A1A1A] font-medium">{clienteNombre}</td>
-                        <td className="px-3 py-2.5 text-[#8E8E86]">
+                        <td className="px-3 sm:px-6 py-2.5 text-[#8E8E86] font-mono">{fechaHora}</td>
+                        <td className="px-3 py-2.5 text-[#1A1A1A] font-medium">
+                          {clienteNombre}
+                          <p className="text-[10px] text-[#A8A89F] font-normal sm:hidden">
+                            {v.items.map(i => `${i.cantidad}× ${i.nombre}`).join(', ')}
+                          </p>
+                        </td>
+                        <td className="px-3 py-2.5 text-[#8E8E86] hidden sm:table-cell">
                           {v.items.map(i => `${i.cantidad}× ${i.nombre}`).join(', ')}
                         </td>
                         <td className="px-3 py-2.5 text-right font-semibold text-[#1A1A1A]">
                           {v.total.toFixed(2)} €
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-3 py-2.5 hidden sm:table-cell">
                           <span className={cn(
                             'px-2 py-0.5 rounded-full text-[11px] font-medium',
                             v.metodoPago === 'EFECTIVO' && 'bg-[#F0FDF4] text-[#059669]',
@@ -764,7 +777,7 @@ export default function POSPage() {
                             {METODO_LABEL[v.metodoPago] ?? v.metodoPago}
                           </span>
                         </td>
-                        <td className="px-6 py-2.5 text-center">
+                        <td className="px-3 sm:px-6 py-2.5 text-center">
                           <button className="text-[#A8A89F] hover:text-[#1A1A1A] transition-colors">
                             <Receipt size={14} />
                           </button>
@@ -774,15 +787,26 @@ export default function POSPage() {
                   })}
                   {/* Today's total row */}
                   {group.isToday && group.ventas.length > 0 && (
-                    <tr key="today-total" className="bg-[#F0FDF4] border-t border-[#059669]/20">
-                      <td colSpan={3} className="px-6 py-2 text-[11px] font-semibold text-[#059669] uppercase tracking-wide">
-                        Total del día
-                      </td>
-                      <td className="px-3 py-2 text-right font-bold text-[13px] text-[#059669]">
-                        {todayTotal.toFixed(2)} €
-                      </td>
-                      <td colSpan={2} />
-                    </tr>
+                    <>
+                      <tr key="today-total-mobile" className="bg-[#F0FDF4] border-t border-[#059669]/20 sm:hidden">
+                        <td colSpan={2} className="px-3 py-2 text-[11px] font-semibold text-[#059669] uppercase tracking-wide">
+                          Total del día
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-[13px] text-[#059669]">
+                          {todayTotal.toFixed(2)} €
+                        </td>
+                        <td />
+                      </tr>
+                      <tr key="today-total" className="bg-[#F0FDF4] border-t border-[#059669]/20 hidden sm:table-row">
+                        <td colSpan={3} className="px-6 py-2 text-[11px] font-semibold text-[#059669] uppercase tracking-wide">
+                          Total del día
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-[13px] text-[#059669]">
+                          {todayTotal.toFixed(2)} €
+                        </td>
+                        <td colSpan={2} />
+                      </tr>
+                    </>
                   )}
                 </React.Fragment>
               ))}

@@ -760,70 +760,102 @@ export default function MarketingPage() {
           {automatizaciones.length === 0 ? (
             <div className="flex items-center justify-center py-16 text-[#8E8E86]">Sin automatizaciones</div>
           ) : (
-            <div className="bg-white border border-[#E7E7E0] rounded-xl overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm min-w-[700px]">
-                <thead>
-                  <tr className="border-b border-[#E7E7E0]">
-                    {['Automatización', 'Cuándo se activa', 'Qué hace', 'Ejecuciones', 'Última ejecución', 'Estado'].map(col => (
-                      <th key={col} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#8E8E86]">
-                        {col}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {automatizaciones.map((a, i) => (
-                    <tr key={a.id} className={cn('border-b border-[#E7E7E0] last:border-0', i % 2 === 0 ? 'bg-white' : 'bg-[#F5F5F1]')}>
-                      <td className="px-4 py-4">
-                        <span className="font-semibold text-[#1A1A1A]">{a.nombre}</span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-start gap-1.5">
-                          <Zap className="w-3.5 h-3.5 text-[#A8A89F] mt-0.5 shrink-0" />
-                          <div>
-                            <p className="text-sm text-[#1A1A1A] font-medium leading-snug">{triggerLabel[a.trigger] ?? a.trigger}</p>
-                            <p className="text-xs text-[#A8A89F] leading-snug mt-0.5">{triggerDesc[a.trigger] ?? ''}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-start gap-1.5">
-                          <span className={cn('flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium shrink-0', accionBadge(a.accion))}>
-                            {accionIcon(a.accion)}
-                            {a.accion}
-                          </span>
-                        </div>
-                        <p className="text-xs text-[#A8A89F] mt-1">{accionDesc[a.accion] ?? ''}</p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="text-[#1A1A1A] font-medium">{a.ejecutadas ?? 0}</span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className={cn('text-sm', (a.ejecutadas ?? 0) === 0 ? 'text-[#A8A89F] italic' : 'text-[#8E8E86]')}>
-                          {(a.ejecutadas ?? 0) === 0 ? 'Nunca' : 'Reciente'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <button
-                          onClick={() => toggleAutomatizacion(a.id)}
-                          className={cn(
-                            'w-10 h-[22px] rounded-full transition-colors relative shrink-0',
-                            a.activa ? 'bg-[#1A1A1A]' : 'bg-[#D1D5DB]'
-                          )}
-                          aria-label={a.activa ? 'Desactivar' : 'Activar'}
-                        >
-                          <span
-                            className={cn(
-                              'absolute top-0.5 w-[18px] h-[18px] rounded-full bg-white shadow transition-all',
-                              a.activa ? 'left-[calc(100%-1.25rem-0.125rem)]' : 'left-0.5'
-                            )}
-                          />
-                        </button>
-                      </td>
+            <div className="bg-white border border-[#E7E7E0] rounded-xl overflow-hidden">
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm min-w-[700px]">
+                  <thead>
+                    <tr className="border-b border-[#E7E7E0]">
+                      {['Automatización', 'Cuándo se activa', 'Qué hace', 'Ejecuciones', 'Última ejecución', 'Estado'].map(col => (
+                        <th key={col} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#8E8E86]">
+                          {col}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {automatizaciones.map((a, i) => (
+                      <tr key={a.id} className={cn('border-b border-[#E7E7E0] last:border-0', i % 2 === 0 ? 'bg-white' : 'bg-[#F5F5F1]')}>
+                        <td className="px-4 py-4">
+                          <span className="font-semibold text-[#1A1A1A]">{a.nombre}</span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-start gap-1.5">
+                            <Zap className="w-3.5 h-3.5 text-[#A8A89F] mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-sm text-[#1A1A1A] font-medium leading-snug">{triggerLabel[a.trigger] ?? a.trigger}</p>
+                              <p className="text-xs text-[#A8A89F] leading-snug mt-0.5">{triggerDesc[a.trigger] ?? ''}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-start gap-1.5">
+                            <span className={cn('flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium shrink-0', accionBadge(a.accion))}>
+                              {accionIcon(a.accion)}
+                              {a.accion}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#A8A89F] mt-1">{accionDesc[a.accion] ?? ''}</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className="text-[#1A1A1A] font-medium">{a.ejecutadas ?? 0}</span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className={cn('text-sm', (a.ejecutadas ?? 0) === 0 ? 'text-[#A8A89F] italic' : 'text-[#8E8E86]')}>
+                            {(a.ejecutadas ?? 0) === 0 ? 'Nunca' : 'Reciente'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <button
+                            onClick={() => toggleAutomatizacion(a.id)}
+                            className={cn(
+                              'w-10 h-[22px] rounded-full transition-colors relative shrink-0',
+                              a.activa ? 'bg-[#1A1A1A]' : 'bg-[#D1D5DB]'
+                            )}
+                            aria-label={a.activa ? 'Desactivar' : 'Activar'}
+                          >
+                            <span
+                              className={cn(
+                                'absolute top-0.5 w-[18px] h-[18px] rounded-full bg-white shadow transition-all',
+                                a.activa ? 'left-[calc(100%-1.25rem-0.125rem)]' : 'left-0.5'
+                              )}
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="sm:hidden divide-y divide-[#E7E7E0]">
+                {automatizaciones.map(a => (
+                  <div key={a.id} className="p-4 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-semibold text-[#1A1A1A] text-[14px]">{a.nombre}</span>
+                      <button
+                        onClick={() => toggleAutomatizacion(a.id)}
+                        className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0', a.activa ? 'bg-[#1A1A1A]' : 'bg-[#D1D5DB]')}
+                        aria-label={a.activa ? 'Desactivar' : 'Activar'}
+                      >
+                        <span className={cn('absolute top-0.5 w-[18px] h-[18px] rounded-full bg-white shadow transition-all', a.activa ? 'left-[calc(100%-1.25rem-0.125rem)]' : 'left-0.5')} />
+                      </button>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-[#A8A89F] mt-0.5 shrink-0" />
+                      <p className="text-[13px] text-[#1A1A1A] font-medium leading-snug">{triggerLabel[a.trigger] ?? a.trigger}</p>
+                    </div>
+                    <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium', accionBadge(a.accion))}>
+                      {accionIcon(a.accion)}
+                      {a.accion}
+                    </span>
+                    <p className="text-[11px] text-[#A8A89F]">
+                      {a.ejecutadas ?? 0} ejecuciones · {(a.ejecutadas ?? 0) === 0 ? 'nunca ejecutada' : 'ejecución reciente'}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -857,61 +889,97 @@ export default function MarketingPage() {
           {codigos.length === 0 ? (
             <div className="flex items-center justify-center py-16 text-[#8E8E86]">Sin códigos</div>
           ) : (
-            <div className="bg-white border border-[#E7E7E0] rounded-xl overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm min-w-[650px]">
-                <thead>
-                  <tr className="border-b border-[#E7E7E0]">
-                    {['Código', 'Descripción', 'Descuento', 'Usos', 'Expira', 'Estado', 'Acciones'].map(col => (
-                      <th key={col} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#8E8E86]">
-                        {col}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {codigos.map((cod, i) => (
-                    <tr key={cod.id} className={cn('border-b border-[#E7E7E0] last:border-0', i % 2 === 0 ? 'bg-white' : 'bg-[#F5F5F1]')}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-[#1A1A1A] text-sm">{cod.codigo}</span>
-                          <CopyButton text={cod.codigo} />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-[#8E8E86]">{cod.descripcion || '—'}</td>
-                      <td className="px-4 py-3 text-[#1A1A1A] font-medium">
-                        {cod.tipo === 'PORCENTAJE' ? `${cod.valor}%` : `${cod.valor} €`}
-                      </td>
-                      <td className="px-4 py-3">
-                        <UsageBar usos={cod.usos} usosMax={cod.usosMax} />
-                      </td>
-                      <td className="px-4 py-3 text-[#8E8E86]">{formatDateEs(cod.expira)}</td>
-                      <td className="px-4 py-3">
-                        <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', cod.activo ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#F1F1EC] text-[#8E8E86]')}>
-                          {cod.activo ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => toggleCodigoDescuento(cod.id)}
-                            className="p-1.5 rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
-                            title={cod.activo ? 'Desactivar' : 'Activar'}
-                          >
-                            {cod.activo ? <ToggleRight className="w-4 h-4 text-[#059669]" /> : <ToggleLeft className="w-4 h-4" />}
-                          </button>
-                          <button
-                            onClick={() => deleteCodigoDescuento(cod.id)}
-                            className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86] hover:text-[#DC2626] transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+            <div className="bg-white border border-[#E7E7E0] rounded-xl overflow-hidden">
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm min-w-[650px]">
+                  <thead>
+                    <tr className="border-b border-[#E7E7E0]">
+                      {['Código', 'Descripción', 'Descuento', 'Usos', 'Expira', 'Estado', 'Acciones'].map(col => (
+                        <th key={col} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#8E8E86]">
+                          {col}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {codigos.map((cod, i) => (
+                      <tr key={cod.id} className={cn('border-b border-[#E7E7E0] last:border-0', i % 2 === 0 ? 'bg-white' : 'bg-[#F5F5F1]')}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-[#1A1A1A] text-sm">{cod.codigo}</span>
+                            <CopyButton text={cod.codigo} />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-[#8E8E86]">{cod.descripcion || '—'}</td>
+                        <td className="px-4 py-3 text-[#1A1A1A] font-medium">
+                          {cod.tipo === 'PORCENTAJE' ? `${cod.valor}%` : `${cod.valor} €`}
+                        </td>
+                        <td className="px-4 py-3">
+                          <UsageBar usos={cod.usos} usosMax={cod.usosMax} />
+                        </td>
+                        <td className="px-4 py-3 text-[#8E8E86]">{formatDateEs(cod.expira)}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', cod.activo ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#F1F1EC] text-[#8E8E86]')}>
+                            {cod.activo ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => toggleCodigoDescuento(cod.id)}
+                              className="p-1.5 rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
+                              title={cod.activo ? 'Desactivar' : 'Activar'}
+                            >
+                              {cod.activo ? <ToggleRight className="w-4 h-4 text-[#059669]" /> : <ToggleLeft className="w-4 h-4" />}
+                            </button>
+                            <button
+                              onClick={() => deleteCodigoDescuento(cod.id)}
+                              className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86] hover:text-[#DC2626] transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="sm:hidden divide-y divide-[#E7E7E0]">
+                {codigos.map(cod => (
+                  <div key={cod.id} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-[#1A1A1A] text-sm">{cod.codigo}</span>
+                        <CopyButton text={cod.codigo} />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => toggleCodigoDescuento(cod.id)} className="p-1.5 rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86]" title={cod.activo ? 'Desactivar' : 'Activar'}>
+                          {cod.activo ? <ToggleRight className="w-4 h-4 text-[#059669]" /> : <ToggleLeft className="w-4 h-4" />}
+                        </button>
+                        <button onClick={() => deleteCodigoDescuento(cod.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86]" title="Eliminar">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    {cod.descripcion && <p className="text-[12px] text-[#8E8E86]">{cod.descripcion}</p>}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[12px] font-semibold text-[#1A1A1A] bg-[#F1F1EC] px-2 py-0.5 rounded-md">
+                        {cod.tipo === 'PORCENTAJE' ? `${cod.valor}%` : `${cod.valor} €`}
+                      </span>
+                      <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', cod.activo ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#F1F1EC] text-[#8E8E86]')}>
+                        {cod.activo ? 'Activo' : 'Inactivo'}
+                      </span>
+                      <span className="text-[11px] text-[#A8A89F]">Expira {formatDateEs(cod.expira)}</span>
+                    </div>
+                    <UsageBar usos={cod.usos} usosMax={cod.usosMax} />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
