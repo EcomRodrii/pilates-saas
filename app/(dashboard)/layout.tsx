@@ -12,16 +12,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
-    if (!loading && !session) router.replace('/login');
-  }, [loading, session, router]);
+  // NOTE: Auth gate temporarily disabled again (petición explícita del usuario para probar sin login)
+  // useEffect(() => {
+  //   if (!loading && !session) router.replace('/login');
+  // }, [loading, session, router]);
 
   const autorizado = puedeVer(pathname);
   useEffect(() => {
     if (!loading && session && !autorizado) router.replace('/dashboard');
   }, [loading, session, autorizado, router]);
 
-  if (loading || !session) return null;
+  if (loading) return null;
 
   if (!autorizado) {
     return (
