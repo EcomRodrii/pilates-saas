@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, CreditCard, Mail, FileSpreadsheet, Calendar as CalendarIcon, MessageCircle, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -220,8 +221,14 @@ export default function ConfiguracionPage() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('planes');
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const searchParams = useSearchParams();
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && TABS.some(t => t.id === tab)) setActiveTab(tab as TabId);
+  }, [searchParams]);
 
   if (!mounted) return null;
 

@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -543,6 +544,8 @@ export default function Dashboard() {
             </Link>
           </div>
         </div>
+
+        <OnboardingChecklist />
 
         {/* ── Automation briefing ────────────────────────────────────────────── */}
         {(() => {
