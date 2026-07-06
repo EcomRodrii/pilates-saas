@@ -314,16 +314,16 @@ export default function OnDemandPage() {
     <div className="space-y-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-[20px] font-semibold text-[#1A1A1A]">Biblioteca on-demand</h1>
-            <span className="px-2 py-0.5 rounded-full bg-white border border-[#E7E7E0] text-[12px] text-[#8E8E86]">
+            <span className="px-2 py-0.5 rounded-full bg-white border border-[#E7E7E0] text-[12px] text-[#8E8E86] whitespace-nowrap">
               {totalVideos} vídeos
             </span>
           </div>
           <button
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-[13px] font-medium hover:bg-[#BCEF3F] transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#C6F94D] text-[#171717] text-[13px] font-medium hover:bg-[#BCEF3F] transition-colors shrink-0"
           >
             <Upload size={14} />
             Subir vídeo
@@ -331,18 +331,18 @@ export default function OnDemandPage() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
           <div className="bg-white border border-[#E7E7E0] rounded-xl px-4 py-3">
             <p className="text-[12px] text-[#8E8E86] mb-0.5">Total reproducciones</p>
-            <p className="text-[22px] font-semibold text-[#1A1A1A]">{totalVistas.toLocaleString('es-ES')}</p>
+            <p className="text-[22px] font-semibold text-[#1A1A1A] truncate">{totalVistas.toLocaleString('es-ES')}</p>
           </div>
           <div className="bg-white border border-[#E7E7E0] rounded-xl px-4 py-3">
             <p className="text-[12px] text-[#8E8E86] mb-0.5">Vídeos publicados</p>
-            <p className="text-[22px] font-semibold text-[#1A1A1A]">{videos.filter(v => v.activo).length}</p>
+            <p className="text-[22px] font-semibold text-[#1A1A1A] truncate">{videos.filter(v => v.activo).length}</p>
           </div>
           <div className="bg-white border border-[#E7E7E0] rounded-xl px-4 py-3">
             <p className="text-[12px] text-[#8E8E86] mb-0.5">Categoría más popular</p>
-            <p className="text-[22px] font-semibold text-[#1A1A1A] capitalize">{topCategoria.charAt(0) + topCategoria.slice(1).toLowerCase()}</p>
+            <p className="text-[22px] font-semibold text-[#1A1A1A] capitalize truncate">{topCategoria.charAt(0) + topCategoria.slice(1).toLowerCase()}</p>
           </div>
         </div>
 

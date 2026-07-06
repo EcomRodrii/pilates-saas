@@ -457,8 +457,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
         </Link>
       </div>
 
-      {/* 2-column layout */}
-      <div className="px-6 pb-10 flex gap-6 items-start max-w-7xl">
+      {/* 2-column layout (stacked below lg, side-by-side on desktop) */}
+      <div className="px-4 sm:px-6 pb-10 flex flex-col lg:flex-row gap-6 items-start max-w-7xl">
 
         {/* ────────────── LEFT: main content ────────────── */}
         <div className="flex-1 min-w-0 space-y-0">
@@ -605,7 +605,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   </div>
 
                   {/* Stats row */}
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
                       { label: 'Clases asistidas', value: String(asistidas), color: '#1A1A1A' },
                       { label: 'Clases este mes', value: String(estesMes), color: '#1A1A1A' },
@@ -1016,7 +1016,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
         </div>
 
         {/* ────────────── RIGHT: sidebar ────────────── */}
-        <div className="w-72 shrink-0 space-y-4 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pb-4 pr-1">
+        <div className="w-full lg:w-72 shrink-0 space-y-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] overflow-y-auto pb-4 lg:pr-1 order-first lg:order-none">
 
           {/* Avatar + identity */}
           <Card>

@@ -372,71 +372,102 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
       </div>
 
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr className="border-b border-[#E7E7E0]">
-              {['Nombre', 'Tipo', 'Precio', 'Sesiones', 'Estado', 'Acciones'].map(h => (
-                <th
-                  key={h}
-                  className="text-left px-5 py-3 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {planesTarifa.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-[13px] text-[#8E8E86]">
-                  No hay planes creados. Haz clic en &quot;Nuevo plan&quot; para empezar.
-                </td>
-              </tr>
-            )}
-            {planesTarifa.map(plan => (
-              <tr
-                key={plan.id}
-                className={cn(
-                  'border-b border-[#EEEEE8] last:border-0 hover:bg-[#F5F5F1] transition-colors',
-                  !plan.activo && 'opacity-50'
-                )}
-              >
-                <td className="px-5 py-3 font-medium text-[#1A1A1A]">{plan.nombre}</td>
-                <td className="px-5 py-3">
-                  <TipoPlanBadge tipo={plan.tipo} />
-                </td>
-                <td className="px-5 py-3 font-semibold text-[#1A1A1A]">{plan.precio} €</td>
-                <td className="px-5 py-3 text-[#8E8E86]">
-                  {plan.sesiones !== null ? plan.sesiones : '—'}
-                </td>
-                <td className="px-5 py-3">
-                  <Toggle
-                    on={plan.activo}
-                    onChange={() => toggleActivo(plan.id, plan.activo)}
-                  />
-                </td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => openEditar(plan)}
-                      className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
-                      aria-label="Editar plan"
+        {planesTarifa.length === 0 ? (
+          <div className="px-5 py-10 text-center text-[13px] text-[#8E8E86]">
+            No hay planes creados. Haz clic en &quot;Nuevo plan&quot; para empezar.
+          </div>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <table className="w-full text-[13px] hidden sm:table">
+              <thead>
+                <tr className="border-b border-[#E7E7E0]">
+                  {['Nombre', 'Tipo', 'Precio', 'Sesiones', 'Estado', 'Acciones'].map(h => (
+                    <th
+                      key={h}
+                      className="text-left px-5 py-3 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide"
                     >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={() => setConfirmDel(plan.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86] hover:text-[#DC2626] transition-colors"
-                      aria-label="Eliminar plan"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {planesTarifa.map(plan => (
+                  <tr
+                    key={plan.id}
+                    className={cn(
+                      'border-b border-[#EEEEE8] last:border-0 hover:bg-[#F5F5F1] transition-colors',
+                      !plan.activo && 'opacity-50'
+                    )}
+                  >
+                    <td className="px-5 py-3 font-medium text-[#1A1A1A]">{plan.nombre}</td>
+                    <td className="px-5 py-3">
+                      <TipoPlanBadge tipo={plan.tipo} />
+                    </td>
+                    <td className="px-5 py-3 font-semibold text-[#1A1A1A]">{plan.precio} €</td>
+                    <td className="px-5 py-3 text-[#8E8E86]">
+                      {plan.sesiones !== null ? plan.sesiones : '—'}
+                    </td>
+                    <td className="px-5 py-3">
+                      <Toggle
+                        on={plan.activo}
+                        onChange={() => toggleActivo(plan.id, plan.activo)}
+                      />
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEditar(plan)}
+                          className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
+                          aria-label="Editar plan"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => setConfirmDel(plan.id)}
+                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86] hover:text-[#DC2626] transition-colors"
+                          aria-label="Eliminar plan"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Mobile cards */}
+            <div className="sm:hidden divide-y divide-[#EEEEE8]">
+              {planesTarifa.map(plan => (
+                <div key={plan.id} className={cn('p-4 space-y-2', !plan.activo && 'opacity-50')}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-[#1A1A1A] text-[14px]">{plan.nombre}</p>
+                      <div className="mt-1"><TipoPlanBadge tipo={plan.tipo} /></div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => openEditar(plan)} className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86]" aria-label="Editar plan">
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => setConfirmDel(plan.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86]" aria-label="Eliminar plan">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[13px] text-[#8E8E86]">
+                      <span className="font-semibold text-[#1A1A1A]">{plan.precio} €</span>
+                      {plan.sesiones !== null && ` · ${plan.sesiones} sesiones`}
+                    </p>
+                    <Toggle on={plan.activo} onChange={() => toggleActivo(plan.id, plan.activo)} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Modal nuevo/editar */}
@@ -842,62 +873,87 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       </div>
 
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr className="border-b border-[#E7E7E0]">
-              {['Nombre', 'Capacidad', 'Color', 'Acciones'].map(h => (
-                <th
-                  key={h}
-                  className="text-left px-5 py-3 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {salas.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-5 py-10 text-center text-[13px] text-[#8E8E86]">
-                  No hay salas creadas. Haz clic en &quot;Nueva sala&quot; para empezar.
-                </td>
-              </tr>
-            )}
-            {salas.map(sala => (
-              <tr
-                key={sala.id}
-                className="border-b border-[#EEEEE8] last:border-0 hover:bg-[#F5F5F1] transition-colors"
-              >
-                <td className="px-5 py-3 font-medium text-[#1A1A1A]">{sala.nombre}</td>
-                <td className="px-5 py-3 text-[#8E8E86]">{sala.capacidad} personas</td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-2">
-                    <ColorSwatch color={sala.color} size="sm" />
-                    <span className="text-[12px] text-[#8E8E86] font-mono">{sala.color}</span>
-                  </div>
-                </td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => openEditar(sala)}
-                      className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
-                      aria-label="Editar sala"
+        {salas.length === 0 ? (
+          <div className="px-5 py-10 text-center text-[13px] text-[#8E8E86]">
+            No hay salas creadas. Haz clic en &quot;Nueva sala&quot; para empezar.
+          </div>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <table className="w-full text-[13px] hidden sm:table">
+              <thead>
+                <tr className="border-b border-[#E7E7E0]">
+                  {['Nombre', 'Capacidad', 'Color', 'Acciones'].map(h => (
+                    <th
+                      key={h}
+                      className="text-left px-5 py-3 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide"
                     >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {salas.map(sala => (
+                  <tr
+                    key={sala.id}
+                    className="border-b border-[#EEEEE8] last:border-0 hover:bg-[#F5F5F1] transition-colors"
+                  >
+                    <td className="px-5 py-3 font-medium text-[#1A1A1A]">{sala.nombre}</td>
+                    <td className="px-5 py-3 text-[#8E8E86]">{sala.capacidad} personas</td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <ColorSwatch color={sala.color} size="sm" />
+                        <span className="text-[12px] text-[#8E8E86] font-mono">{sala.color}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEditar(sala)}
+                          className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
+                          aria-label="Editar sala"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => setConfirmDel(sala.id)}
+                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86] hover:text-[#DC2626] transition-colors"
+                          aria-label="Eliminar sala"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Mobile cards */}
+            <div className="sm:hidden divide-y divide-[#EEEEE8]">
+              {salas.map(sala => (
+                <div key={sala.id} className="p-4 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <ColorSwatch color={sala.color} size="sm" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-[#1A1A1A] text-[14px] truncate">{sala.nombre}</p>
+                      <p className="text-[12px] text-[#8E8E86]">{sala.capacidad} personas</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => openEditar(sala)} className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86]" aria-label="Editar sala">
                       <Pencil size={13} />
                     </button>
-                    <button
-                      onClick={() => setConfirmDel(sala.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86] hover:text-[#DC2626] transition-colors"
-                      aria-label="Eliminar sala"
-                    >
+                    <button onClick={() => setConfirmDel(sala.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86]" aria-label="Eliminar sala">
                       <Trash2 size={13} />
                     </button>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Modal */}
