@@ -670,6 +670,47 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ================= COMPLIANCE ESPAÑA ================= */}
+      <section className="lp-section" style={{ padding: '70px 40px', maxWidth: 1180, margin: '0 auto' }}>
+        <Reveal style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 24, padding: '36px 40px' }}>
+          <div className="lp-mono" style={{ fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: '#B57A8E', marginBottom: 10 }}>
+            Hecho para España
+          </div>
+          <h2 style={{ fontWeight: 800, fontSize: 28, letterSpacing: '-.02em', margin: '0 0 28px' }}>Legal, seguro y sin sorpresas</h2>
+          <div className="lp-compliance-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 24 }}>
+            {[
+              { t: 'Facturación legal', d: 'Facturas con NIF, IVA y numeración correlativa desde el primer cobro. Integración Verifactu/AEAT en desarrollo.' },
+              { t: 'Pagos vía Stripe', d: 'Tarjeta y SEPA. Tentare no se lleva comisión adicional sobre tus cobros — solo la cuota estándar de Stripe.' },
+              { t: 'RGPD', d: 'Tus datos y los de tus socias se quedan en la UE. Exporta o borra todo cuando quieras, sin permanencia.' },
+              { t: 'Tus datos son tuyos', d: 'Sin permanencia. Si te vas, exportas socias, historial y facturas — no se quedan retenidos.' },
+            ].map(item => (
+              <div key={item.t}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4E9E7F', flexShrink: 0 }} />
+                  <span style={{ fontSize: 15, fontWeight: 700 }}>{item.t}</span>
+                </div>
+                <p style={{ fontSize: 13.5, color: '#5A5A52', margin: 0, lineHeight: 1.5 }}>{item.d}</p>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ================= FAQ ================= */}
+      <section className="lp-section" style={{ padding: '40px 40px 110px', maxWidth: 820, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 44 }}>
+          <Reveal className="lp-mono" style={{ fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: '#B57A8E', marginBottom: 16 }}>
+            Preguntas frecuentes
+          </Reveal>
+          <Reveal delay={80}>
+            <h2 className="lp-h2" style={{ fontWeight: 800, fontSize: 44, lineHeight: 1.05, letterSpacing: '-.04em', margin: 0 }}>Antes de que preguntes</h2>
+          </Reveal>
+        </div>
+        <Reveal delay={120}>
+          <Faq />
+        </Reveal>
+      </section>
+
       {/* ================= CTA ================= */}
       <section className="lp-section" style={{ padding: '120px 40px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 680, height: 680, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,200,226,.55),transparent 62%)', pointerEvents: 'none' }} />
@@ -698,6 +739,7 @@ export default function LandingPage() {
           .lp-bento { grid-template-columns: repeat(2,1fr) !important; }
           .lp-bento-4, .lp-bento-2 { grid-column: span 2 !important; }
           .lp-pricing { grid-template-columns: 1fr !important; }
+          .lp-compliance-grid { grid-template-columns: repeat(2,1fr) !important; }
         }
         @media (max-width: 640px) {
           .lp-nav-links { display: none !important; }
@@ -712,8 +754,100 @@ export default function LandingPage() {
           .lp-bento { grid-template-columns: 1fr !important; grid-auto-rows: auto !important; }
           .lp-bento-4, .lp-bento-2 { grid-column: span 1 !important; min-height: 200px; }
           .lp-quote { font-size: 26px !important; }
+          .lp-compliance-grid { grid-template-columns: 1fr !important; gap: 20px !important; }
         }
       `}</style>
+    </div>
+  );
+}
+
+// ─── FAQ accordion ────────────────────────────────────────────────────────────
+
+const FAQ_ITEMS: { q: string; a: string }[] = [
+  {
+    q: '¿Y si el sistema le cobra a una clienta por error mientras yo duermo?',
+    a: 'El sistema autónomo prepara la acción (renovar un bono, reintentar un cobro fallido) pero cada cobro sale con tu aprobación de un toque, no en automático sin control. Tú decides qué acciones requieren tu OK y cuáles se ejecutan solas — configurable por tipo de acción.',
+  },
+  {
+    q: '¿Cuánto tarda de verdad la migración y quién la hace?',
+    a: 'La migración de tus socias, planes y bonos la hacemos nosotros a partir de tu export actual (Excel, Bsport, Mindbody u otro). El tiempo depende del volumen de datos; para un estudio típico son 24–48h.',
+  },
+  {
+    q: '¿Esto emite factura legal en España? ¿Verifactu?',
+    a: 'Sí generamos factura con NIF, IVA y numeración correlativa desde el primer cobro. La integración con Verifactu/AEAT está en desarrollo — hoy la facturación es real pero aún no envía a Hacienda automáticamente.',
+  },
+  {
+    q: '¿Os lleváis comisión de mis cobros?',
+    a: 'No. Los pagos se procesan por Stripe (tarjeta y SEPA) y solo pagas la cuota estándar de Stripe — Tentare no añade ninguna comisión extra sobre tus cobros.',
+  },
+  {
+    q: '¿Funciona con reformer, salas y aforo, o es genérico?',
+    a: 'Está pensado para pilates de verdad: gestión de salas con capacidad propia, mapa de spots por reformer, tipos de clase con aforo y precio independiente, y bonos de sesiones — no es un calendario genérico reetiquetado.',
+  },
+  {
+    q: '¿Y si quiero cancelar, me llevo mis datos?',
+    a: 'Sí. Sin permanencia: puedes exportar socias, historial de asistencia y facturas en cualquier momento, te quedes o te vayas.',
+  },
+  {
+    q: '¿La app de marca está de verdad en las stores, o es una web?',
+    a: 'Hoy es un portal web instalable (PWA) con tu nombre y tus colores — tus socias lo añaden a su pantalla de inicio como una app, sin pasar por App Store ni Google Play. La publicación en tiendas está en el roadmap.',
+  },
+];
+
+function Faq() {
+  const [open, setOpen] = useState<number | null>(0);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {FAQ_ITEMS.map((item, i) => {
+        const isOpen = open === i;
+        return (
+          <div key={item.q} style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 16, overflow: 'hidden' }}>
+            <button
+              onClick={() => setOpen(isOpen ? null : i)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 16,
+                padding: '18px 22px',
+                textAlign: 'left',
+                fontSize: 16,
+                fontWeight: 700,
+                letterSpacing: '-.01em',
+                color: '#1A1A1A',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <span>{item.q}</span>
+              <span
+                style={{
+                  flexShrink: 0,
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  background: isOpen ? '#FFC8E2' : '#F3F3EF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: '#171717',
+                  transition: 'transform .2s',
+                  transform: isOpen ? 'rotate(45deg)' : 'none',
+                }}
+              >
+                +
+              </span>
+            </button>
+            {isOpen && (
+              <p style={{ margin: 0, padding: '0 22px 20px', fontSize: 14.5, lineHeight: 1.6, color: '#5A5A52' }}>{item.a}</p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
