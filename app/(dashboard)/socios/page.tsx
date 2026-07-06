@@ -207,6 +207,23 @@ export default function Socios() {
     return !!sus && !active;
   }
 
+  function estadoBadgeInfo(s: Socio): { label: string; bg: string; color: string; Icon?: typeof AlertCircle } {
+    if (!s.activo) return { label: 'Inactiva', bg: '#F1F1EC', color: '#8E8E86' };
+    if (isBonoExpirado(s.id)) return { label: 'Bono expirado', bg: '#FEE2E2', color: '#DC2626', Icon: AlertCircle };
+    if (isInactiva30d(s.id)) return { label: 'Sin asistencia', bg: '#FEF3C7', color: '#D97706', Icon: Clock };
+    return { label: 'Activa', bg: '#D1FAE5', color: '#059669' };
+  }
+
+  function EstadoBadge({ s }: { s: Socio }) {
+    const { label, bg, color, Icon } = estadoBadgeInfo(s);
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: bg, color }}>
+        {Icon ? <Icon size={10} /> : <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />}
+        {label}
+      </span>
+    );
+  }
+
   // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const total = socios.length;
@@ -541,7 +558,8 @@ export default function Socios() {
             )}
           </div>
         ) : (
-          <table className="w-full">
+          <>
+          <table className="w-full hidden sm:table">
             <thead>
               <tr className="border-b border-[#F1F1EC] bg-[#FAFAFA]">
                 {/* Checkbox */}
@@ -617,38 +635,6 @@ export default function Socios() {
                   else if (sesRest <= 2) { sesColor = '#D97706'; sesBg = '#FEF3C7'; }
                 }
 
-                // Estado badge
-                const expirado = isBonoExpirado(s.id);
-                const inactiva30 = isInactiva30d(s.id);
-                let estadoBadge = (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#D1FAE5] text-[#059669]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
-                    Activa
-                  </span>
-                );
-                if (!s.activo) {
-                  estadoBadge = (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#F1F1EC] text-[#8E8E86]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#A8A89F]" />
-                      Inactiva
-                    </span>
-                  );
-                } else if (expirado) {
-                  estadoBadge = (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#FEE2E2] text-[#DC2626]">
-                      <AlertCircle size={10} />
-                      Bono expirado
-                    </span>
-                  );
-                } else if (inactiva30) {
-                  estadoBadge = (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#FEF3C7] text-[#D97706]">
-                      <Clock size={10} />
-                      Sin asistencia
-                    </span>
-                  );
-                }
-
                 return (
                   <tr
                     key={s.id}
@@ -715,7 +701,7 @@ export default function Socios() {
                     </td>
 
                     {/* Estado */}
-                    <td className="px-4 py-3.5 hidden md:table-cell">{estadoBadge}</td>
+                    <td className="px-4 py-3.5 hidden md:table-cell"><EstadoBadge s={s} /></td>
 
                     {/* Row actions */}
                     <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
@@ -750,6 +736,55 @@ export default function Socios() {
               })}
             </tbody>
           </table>
+
+          {/* Mobile card list */}
+          <div className="sm:hidden divide-y divide-[#F5F5F1]">
+            {lista.map(s => {
+              const sus = getActiveSus(s.id);
+              const plan = getPlan(sus?.planId);
+              const lastVisit = getLastVisit(s.id);
+              const sesRest = sus?.sesionesRestantes;
+              const [, avatarText] = avatarColor(`${s.nombre}${s.apellidos}`);
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => router.push(`/socios/${s.id}`)}
+                  className="flex items-start gap-3 px-4 py-3.5 active:bg-[#F5F5F1] transition-colors cursor-pointer"
+                >
+                  <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarText} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">{s.nombre} {s.apellidos}</p>
+                        <p className="text-[11px] text-[#A8A89F] truncate">{s.email}</p>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setConfirmEliminar(s.id); }}
+                        className="p-1.5 -mr-1.5 rounded-md hover:bg-[#FEE2E2] shrink-0"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={13} className="text-[#DC2626]" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                      <EstadoBadge s={s} />
+                      {plan && <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#F1F1EC] text-[#3A3A34]">{plan.nombre}</span>}
+                      {sesRest != null && (
+                        <span
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                          style={{ backgroundColor: sesRest <= 0 ? '#FEE2E2' : sesRest <= 2 ? '#FEF3C7' : '#D1FAE5', color: sesRest <= 0 ? '#DC2626' : sesRest <= 2 ? '#D97706' : '#059669' }}
+                        >
+                          {sesRest} ses.
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#A8A89F] mt-1.5">Última visita: {relativeTime(lastVisit)}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
 
         {/* Table footer */}

@@ -324,61 +324,90 @@ export default function Productos() {
 
       {/* ── PRODUCTOS POS ── */}
       {tab === 'pos' && (
-        <div className="bg-white rounded-2xl border border-[#E7E7E0] overflow-x-auto">
-          <table className="w-full text-sm min-w-[480px]">
-            <thead>
-              <tr className="bg-[#F5F5F1] border-b border-[#E7E7E0]">
-                {['Producto', 'Categoría', 'Precio', 'Estado', ''].map(h => (
-                  <th key={h} className="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#8E8E86]">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F1F1EC]">
-              {productosPOS.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center">
-                    <p className="text-sm font-semibold text-[#1A1A1A]">Aún no hay productos POS</p>
-                    <p className="text-[13px] text-[#A8A89F] mt-1">Añade productos (agua, toallas, packs…) para venderlos en el terminal.</p>
-                  </td>
-                </tr>
-              )}
-              {productosPOS.map(p => {
-                const c = CAT_COLOR[p.categoria] ?? CAT_COLOR.OTRO;
-                return (
-                  <tr key={p.id} className="hover:bg-[#F5F5F1] transition-colors">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: c.bg }}>
-                          <ShoppingBag size={13} style={{ color: c.text }} />
-                        </div>
-                        <span className="font-semibold text-[#1A1A1A]">{p.nombre}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold" style={{ backgroundColor: c.bg, color: c.text }}>
-                        {CAT_LABEL[p.categoria]}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 font-bold text-[#1A1A1A]">{fmt(p.precio)} €</td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : '#D1D5DB' }} />
-                        <span className="text-xs font-medium" style={{ color: p.activo ? '#15803D' : '#A8A89F' }}>
-                          {p.activo ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <button onClick={() => setPosModal(p)}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] transition-colors">
-                        <Pencil size={13} />
-                      </button>
-                    </td>
+        <div className="bg-white rounded-2xl border border-[#E7E7E0] overflow-hidden">
+          {productosPOS.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <p className="text-sm font-semibold text-[#1A1A1A]">Aún no hay productos POS</p>
+              <p className="text-[13px] text-[#A8A89F] mt-1">Añade productos (agua, toallas, packs…) para venderlos en el terminal.</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <table className="w-full text-sm hidden sm:table">
+                <thead>
+                  <tr className="bg-[#F5F5F1] border-b border-[#E7E7E0]">
+                    {['Producto', 'Categoría', 'Precio', 'Estado', ''].map(h => (
+                      <th key={h} className="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#8E8E86]">{h}</th>
+                    ))}
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-[#F1F1EC]">
+                  {productosPOS.map(p => {
+                    const c = CAT_COLOR[p.categoria] ?? CAT_COLOR.OTRO;
+                    return (
+                      <tr key={p.id} className="hover:bg-[#F5F5F1] transition-colors">
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: c.bg }}>
+                              <ShoppingBag size={13} style={{ color: c.text }} />
+                            </div>
+                            <span className="font-semibold text-[#1A1A1A]">{p.nombre}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold" style={{ backgroundColor: c.bg, color: c.text }}>
+                            {CAT_LABEL[p.categoria]}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 font-bold text-[#1A1A1A]">{fmt(p.precio)} €</td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : '#D1D5DB' }} />
+                            <span className="text-xs font-medium" style={{ color: p.activo ? '#15803D' : '#A8A89F' }}>
+                              {p.activo ? 'Activo' : 'Inactivo'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <button onClick={() => setPosModal(p)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] transition-colors">
+                            <Pencil size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Mobile cards */}
+              <div className="sm:hidden divide-y divide-[#F1F1EC]">
+                {productosPOS.map(p => {
+                  const c = CAT_COLOR[p.categoria] ?? CAT_COLOR.OTRO;
+                  return (
+                    <button key={p.id} onClick={() => setPosModal(p)} className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-[#F5F5F1] transition-colors">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: c.bg }}>
+                        <ShoppingBag size={14} style={{ color: c.text }} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-[#1A1A1A] text-[13px] truncate">{p.nombre}</p>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: c.bg, color: c.text }}>
+                            {CAT_LABEL[p.categoria]}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: p.activo ? '#15803D' : '#A8A89F' }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : '#D1D5DB' }} />
+                            {p.activo ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="font-bold text-[#1A1A1A] text-[14px] shrink-0">{fmt(p.precio)} €</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <div className="p-4 border-t border-[#E7E7E0]">
             <button onClick={() => setPosModal('new')}
               className="flex items-center gap-2 text-sm font-semibold text-[#8FBF12] hover:text-[#6E9E0A] transition-colors">
