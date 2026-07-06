@@ -9,6 +9,7 @@ import {
   Send, X, Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { aprobarCobroAutonomo } from '@/lib/api-client';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -213,7 +214,14 @@ function RuleCard({
 
 // ─── Log Item ─────────────────────────────────────────────────────────────────
 
-function LogItem({ log, onDismiss }: { log: AutomationLog; onDismiss: () => void }) {
+function LogItem({
+  log, onDismiss, onApproveCharge, approving,
+}: {
+  log: AutomationLog;
+  onDismiss: () => void;
+  onApproveCharge?: () => void;
+  approving?: boolean;
+}) {
   const cfg = resultadoConfig[log.resultado];
   const accionCfg = accionConfig[log.accion];
   const AIcon = accionCfg.icon;
@@ -255,6 +263,16 @@ function LogItem({ log, onDismiss }: { log: AutomationLog; onDismiss: () => void
           )}
         </div>
       </div>
+      {onApproveCharge && (
+        <button
+          onClick={onApproveCharge}
+          disabled={approving}
+          className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#1A1A1A] text-white hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+        >
+          {approving ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
+          {approving ? 'Cobrando…' : 'Aprobar y cobrar'}
+        </button>
+      )}
       <button
         onClick={onDismiss}
         className="text-[#C6C6BE] hover:text-[#8E8E86] transition-colors shrink-0 mt-0.5"
@@ -271,10 +289,11 @@ function LogItem({ log, onDismiss }: { log: AutomationLog; onDismiss: () => void
 export default function AutomatizacionesPage() {
   const {
     automationRules, automationLogs,
-    toggleAutomationRule, runAutomation, dismissLog,
+    toggleAutomationRule, runAutomation, dismissLog, marcarCobrado, actualizarLog,
   } = useStudio();
 
   const [running, setRunning] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [tab, setTab] = useState<'log' | 'reglas'>('log');
   const [filterResultado, setFilterResultado] = useState<ResultadoLog | 'TODAS'>('TODAS');
 
@@ -290,6 +309,19 @@ export default function AutomatizacionesPage() {
     setRunning(true);
     await runAutomation();
     setRunning(false);
+  }
+
+  async function handleApproveCharge(log: AutomationLog) {
+    if (!log.reciboId || !log.socioId) return;
+    setApprovingId(log.id);
+    const result = await aprobarCobroAutonomo({ logId: log.id, reciboId: log.reciboId, socioId: log.socioId });
+    if ('ok' in result) {
+      marcarCobrado(log.reciboId);
+      actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: 'Cobro aprobado y ejecutado con la tarjeta guardada.' });
+    } else {
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: result.error });
+    }
+    setApprovingId(null);
   }
 
   const filters: { value: ResultadoLog | 'TODAS'; label: string }[] = [
@@ -316,7 +348,13 @@ export default function AutomatizacionesPage() {
           </div>
           <div className="space-y-2">
             {pendingAdmin.map(log => (
-              <LogItem key={log.id} log={log} onDismiss={() => dismissLog(log.id)} />
+              <LogItem
+                key={log.id}
+                log={log}
+                onDismiss={() => dismissLog(log.id)}
+                onApproveCharge={log.accion === 'COBRAR_RECIBO' ? () => handleApproveCharge(log) : undefined}
+                approving={approvingId === log.id}
+              />
             ))}
           </div>
         </div>

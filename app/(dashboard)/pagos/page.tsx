@@ -341,6 +341,7 @@ export default function Pagos() {
     setStripeLoading(reciboId);
     const result = await crearCheckoutStripe({
       reciboId,
+      socioId: r.socioId,
       concepto: r.concepto,
       importe: r.importe,
       socioEmail: socio?.email ?? null,

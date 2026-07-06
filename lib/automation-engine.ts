@@ -6,6 +6,7 @@ import type {
   Recibo,
   Sesion,
   TipoClase,
+  AccionAutomatica,
 } from '@/lib/types';
 
 // Detección de candidatos a notificar, compartida entre el botón "Ejecutar
@@ -19,6 +20,10 @@ export interface AutomationCandidato {
   titulo: string;
   mensaje: string;
   proximaAccionEn: string | null;
+  // ENVIAR_EMAIL se ejecuta solo (manda el email). COBRAR_RECIBO requiere
+  // aprobación humana de un toque — nunca se cobra sin que alguien lo apruebe.
+  accion: AccionAutomatica;
+  reciboId?: string;
 }
 
 export interface AutomationEngineInput {
@@ -56,6 +61,7 @@ export function computeAutomationCandidatos(
           titulo: 'Te echamos de menos',
           mensaje: `${socio.nombre}, llevas ${dias} días sin venir a clase. ¿Todo bien? Te esperamos pronto por el estudio.`,
           proximaAccionEn: new Date(now.getTime() + 48 * 3600000).toISOString(),
+          accion: 'ENVIAR_EMAIL',
         });
       });
     }
@@ -71,12 +77,28 @@ export function computeAutomationCandidatos(
           l => l.ruleId === rule.id && l.socioId === socio.id && l.resultado !== 'FALLIDO'
         );
         if (alreadyLogged) return;
-        candidatos.push({
-          rule, socio,
-          titulo: 'Tienes un pago pendiente',
-          mensaje: `${socio.nombre}, tienes un pago pendiente de ${recibo.importe}€ (${recibo.concepto}). Puedes regularizarlo cuando quieras desde el estudio.`,
-          proximaAccionEn: new Date(now.getTime() + 72 * 3600000).toISOString(),
-        });
+
+        // Si ya hay tarjeta guardada, proponemos cobrar directamente en vez
+        // de solo recordar por email — pero SIEMPRE con aprobación humana de
+        // un toque (resultado PENDIENTE_ADMIN), nunca se cobra en automático.
+        if (socio.stripeCustomerId && socio.stripePaymentMethodId) {
+          candidatos.push({
+            rule, socio,
+            titulo: '¿Cobramos el pago pendiente?',
+            mensaje: `${socio.nombre} tiene ${recibo.importe}€ pendientes (${recibo.concepto}) desde hace ${dias} días. Hay tarjeta guardada — ¿lo cobramos ahora?`,
+            proximaAccionEn: null,
+            accion: 'COBRAR_RECIBO',
+            reciboId: recibo.id,
+          });
+        } else {
+          candidatos.push({
+            rule, socio,
+            titulo: 'Tienes un pago pendiente',
+            mensaje: `${socio.nombre}, tienes un pago pendiente de ${recibo.importe}€ (${recibo.concepto}). Puedes regularizarlo cuando quieras desde el estudio.`,
+            proximaAccionEn: new Date(now.getTime() + 72 * 3600000).toISOString(),
+            accion: 'ENVIAR_EMAIL',
+          });
+        }
       });
     }
 
@@ -104,6 +126,7 @@ export function computeAutomationCandidatos(
                 titulo: 'Recordatorio: tu clase es mañana',
                 mensaje: `${socio.nombre}, te recordamos tu clase de ${tipo?.nombre ?? 'pilates'} mañana a las ${hora}. ¡Te esperamos!`,
                 proximaAccionEn: null,
+                accion: 'ENVIAR_EMAIL',
               });
             });
         });

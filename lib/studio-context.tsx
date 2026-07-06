@@ -58,7 +58,6 @@ import type {
   AutomationRule,
   AutomationLog,
   NotaProgreso,
-  AccionAutomatica,
   ResultadoLog,
   Integracion,
   TipoIntegracion,
@@ -256,6 +255,7 @@ interface StudioContextValue {
   runAutomation: () => Promise<AutomationLog[]>;
   addNotaProgreso: (nota: Omit<NotaProgreso, 'id' | 'studioId' | 'creadaEn'>) => void;
   dismissLog: (id: string) => void;
+  actualizarLog: (id: string, changes: Partial<Pick<AutomationLog, 'resultado' | 'detalle'>>) => void;
 
   // Studio management
   resetDatosPilates: () => void;
@@ -1273,6 +1273,12 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     setAutomationLogs(prev => prev.filter(l => l.id !== id));
   }
 
+  // Refleja en la UI el resultado de aprobar un cobro autónomo (ver
+  // /api/stripe/charge-off-session, que ya persiste el cambio en servidor).
+  function actualizarLog(id: string, changes: Partial<Pick<AutomationLog, 'resultado' | 'detalle'>>) {
+    setAutomationLogs(prev => prev.map(l => l.id === id ? { ...l, ...changes } : l));
+  }
+
   async function runAutomation(): Promise<AutomationLog[]> {
     const now = new Date();
 
@@ -1287,7 +1293,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
     if (candidatos.length === 0) return [];
 
-    // Envío real vía Resend (a través de la ruta de servidor /api/emails/send).
+    // ENVIAR_EMAIL se manda solo (vía /api/emails/send). COBRAR_RECIBO nunca
+    // se ejecuta aquí — solo queda registrado como PENDIENTE_ADMIN a la espera
+    // de que alguien lo apruebe con un toque desde Automatizaciones.
     const nuevosLogs: AutomationLog[] = await Promise.all(candidatos.map(async (c): Promise<AutomationLog> => {
       const base = {
         id: `log-${uid()}`,
@@ -1297,10 +1305,16 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
         socioId: c.socio.id,
         socioNombre: `${c.socio.nombre} ${c.socio.apellidos}`,
         pasoIndex: 0,
-        accion: 'ENVIAR_EMAIL' as AccionAutomatica,
+        accion: c.accion,
         ejecutadoEn: now.toISOString(),
         proximaAccionEn: c.proximaAccionEn,
+        reciboId: c.reciboId ?? null,
       };
+
+      if (c.accion === 'COBRAR_RECIBO') {
+        return { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.mensaje };
+      }
+
       try {
         const res = await fetch('/api/emails/send', {
           method: 'POST',
@@ -1439,6 +1453,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     runAutomation,
     addNotaProgreso,
     dismissLog,
+    actualizarLog,
     dataLoaded,
     studio,
     updateAvatarAdmin,

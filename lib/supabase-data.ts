@@ -116,6 +116,8 @@ function mapSocio(r: any) {
     tags: r.tags ?? undefined,
     aceptacionContrato,
     avatar: r.avatar ?? null,
+    stripeCustomerId: r.stripe_customer_id ?? null,
+    stripePaymentMethodId: r.stripe_payment_method_id ?? null,
   };
 }
 
@@ -378,6 +380,7 @@ function mapAutomationLog(r: any) {
     detalle: r.detalle,
     ejecutadoEn: r.ejecutado_en,
     proximaAccionEn: r.proxima_accion_en ?? null,
+    reciboId: r.recibo_id ?? null,
   };
 }
 
@@ -808,6 +811,8 @@ export async function dbUpdateSocio(id: string, changes: any) {
   if ('leadStage' in changes) db.lead_stage = changes.leadStage;
   if ('tags' in changes) db.tags = changes.tags;
   if ('avatar' in changes) db.avatar = changes.avatar;
+  if ('stripeCustomerId' in changes) db.stripe_customer_id = changes.stripeCustomerId;
+  if ('stripePaymentMethodId' in changes) db.stripe_payment_method_id = changes.stripePaymentMethodId;
   if ('aceptacionContrato' in changes) {
     db.aceptacion_fecha = changes.aceptacionContrato?.fecha ?? null;
     db.aceptacion_firma = changes.aceptacionContrato?.firma ?? null;
@@ -955,9 +960,19 @@ export async function dbInsertAutomationLog(log: any) {
     detalle: log.detalle,
     ejecutado_en: log.ejecutadoEn,
     proxima_accion_en: log.proximaAccionEn,
+    recibo_id: log.reciboId ?? null,
   };
   const { error } = await supabase.from('automation_logs').insert(row);
   if (error) reportDbError('[dbInsertAutomationLog]', error);
+}
+
+export async function dbUpdateAutomationLog(id: string, changes: any) {
+  const db: any = {};
+  if ('resultado' in changes) db.resultado = changes.resultado;
+  if ('detalle' in changes) db.detalle = changes.detalle;
+  if ('proximaAccionEn' in changes) db.proxima_accion_en = changes.proximaAccionEn;
+  const { error } = await supabase.from('automation_logs').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateAutomationLog]', error);
 }
 
 export async function dbUpdateAutomationRule(id: string, changes: any) {

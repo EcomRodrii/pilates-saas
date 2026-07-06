@@ -4,6 +4,7 @@
 
 export async function crearCheckoutStripe(params: {
   reciboId: string;
+  socioId: string;
   concepto: string;
   importe: number;
   socioEmail: string | null;
@@ -15,6 +16,23 @@ export async function crearCheckoutStripe(params: {
     body: JSON.stringify(params),
   });
   return res.json() as Promise<{ url: string } | { error: string }>;
+}
+
+// Aprobación de un toque: cobra un recibo pendiente con la tarjeta ya
+// guardada de la socia, sin redirigirla a ningún sitio.
+export async function aprobarCobroAutonomo(params: {
+  logId: string;
+  reciboId: string;
+  socioId: string;
+}): Promise<{ ok: true } | { error: string }> {
+  const res = await fetch('/api/stripe/charge-off-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  const data = await res.json();
+  if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+  return { ok: true };
 }
 
 // ── Emails ────────────────────────────────────────────────────────────────────

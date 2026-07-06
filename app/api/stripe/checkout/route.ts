@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json() as {
     reciboId: string;
+    socioId: string;
     concepto: string;
     importe: number;
     socioEmail: string | null;
@@ -36,7 +37,12 @@ export async function POST(req: NextRequest) {
       },
     ],
     customer_email: body.socioEmail ?? undefined,
-    metadata: { reciboId: body.reciboId },
+    // Crea un Customer de Stripe y guarda la tarjeta para poder cobrar sola
+    // (off_session) la próxima vez que este recibo tenga pagos pendientes,
+    // sin que la socia tenga que volver a introducir la tarjeta.
+    customer_creation: 'always',
+    payment_intent_data: { setup_future_usage: 'off_session' },
+    metadata: { reciboId: body.reciboId, socioId: body.socioId },
     success_url: `${appUrl}/pagos?stripe_success=1&recibo=${body.reciboId}`,
     cancel_url:  `${appUrl}/pagos?stripe_cancel=1`,
     locale: 'es',

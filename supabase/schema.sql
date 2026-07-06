@@ -435,6 +435,12 @@ alter table studios add column if not exists owner_auth_user_id uuid references 
 alter table studios add column if not exists slug text unique;
 update studios set slug = 'tentare' where id = 'studio-1' and slug is null;
 
+-- Migración: cobro autónomo — tarjeta guardada por socia (Stripe) y
+-- trazabilidad del recibo asociado a cada propuesta de cobro en el log
+alter table socios add column if not exists stripe_customer_id text;
+alter table socios add column if not exists stripe_payment_method_id text;
+alter table automation_logs add column if not exists recibo_id text;
+
 -- ═══════════════════════════════════════════════════════════════════
 -- Políticas de acceso
 --

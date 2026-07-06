@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { fetchAllStudioData, setCurrentStudioId, dbInsertAutomationLog, dbUpdateAutomationRule } from '@/lib/supabase-data';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
-import type { AutomationLog, ResultadoLog, AccionAutomatica } from '@/lib/types';
+import type { AutomationLog, ResultadoLog } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date();
-  const resumen: { studioId: string; emailsEnviados: number; fallidos: number }[] = [];
+  const resumen: { studioId: string; emailsEnviados: number; fallidos: number; cobrosPropuestos: number }[] = [];
 
   for (const studio of studios ?? []) {
     setCurrentStudioId(studio.id);
@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
 
     let emailsEnviados = 0;
     let fallidos = 0;
+    let cobrosPropuestos = 0;
     const ejecutadaVecesPorRegla = new Map(data.automationRules.map(r => [r.id, r.ejecutadaVeces]));
 
     for (const c of candidatos) {
@@ -72,13 +73,19 @@ export async function GET(req: NextRequest) {
         socioId: c.socio.id,
         socioNombre: `${c.socio.nombre} ${c.socio.apellidos}`,
         pasoIndex: 0,
-        accion: 'ENVIAR_EMAIL' as AccionAutomatica,
+        accion: c.accion,
         ejecutadoEn: now.toISOString(),
         proximaAccionEn: c.proximaAccionEn,
+        reciboId: c.reciboId ?? null,
       };
 
       let log: AutomationLog;
-      if (DRY_RUN) {
+      // COBRAR_RECIBO nunca se ejecuta aquí — solo queda como PENDIENTE_ADMIN
+      // a la espera de aprobación de un toque desde Automatizaciones.
+      if (c.accion === 'COBRAR_RECIBO') {
+        cobrosPropuestos++;
+        log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.mensaje };
+      } else if (DRY_RUN) {
         emailsEnviados++;
         log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.titulo} → ${c.socio.email}` };
       } else if (!c.socio.email) {
@@ -125,7 +132,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    resumen.push({ studioId: studio.id, emailsEnviados, fallidos });
+    resumen.push({ studioId: studio.id, emailsEnviados, fallidos, cobrosPropuestos });
   }
 
   return NextResponse.json({ ejecutadoEn: now.toISOString(), estudios: resumen });

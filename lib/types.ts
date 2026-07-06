@@ -68,6 +68,8 @@ export interface Socio {
   tags?: string[];
   aceptacionContrato?: AceptacionContrato;
   avatar?: string | null;
+  stripeCustomerId?: string | null;
+  stripePaymentMethodId?: string | null;
 }
 
 export interface NotaInterna {
@@ -374,6 +376,7 @@ export interface AutomationLog {
   detalle: string;
   ejecutadoEn: string;
   proximaAccionEn: string | null;
+  reciboId?: string | null;
 }
 
 export interface NotaProgreso {
