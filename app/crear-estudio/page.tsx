@@ -320,7 +320,7 @@ export default function CrearEstudioPage() {
 
         <p className="text-center text-[12px] text-[#9CA3AF] mt-4">
           ¿Ya tienes cuenta?{' '}
-          <Link href="/dashboard" className="text-[#B57A8E] hover:underline">
+          <Link href="/login" className="text-[#B57A8E] hover:underline">
             Iniciar sesión
           </Link>
         </p>
