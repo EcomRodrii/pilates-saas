@@ -406,6 +406,7 @@ function mapTipoClase(r: any) {
     duracionMinutos: r.duracion_minutos,
     descripcion: r.descripcion ?? null,
     nivel: r.nivel,
+    fotoUrl: r.foto_url ?? null,
   };
 }
 
@@ -1722,6 +1723,33 @@ export async function dbUpsertIntegracion(intg: any) {
   };
   const { error } = await supabase.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
   if (error) reportDbError('[dbUpsertIntegracion]', error);
+}
+
+export async function dbInsertTipoClase(t: any) {
+  const row = {
+    id: t.id, studio_id: t.studioId ?? STUDIO_ID, nombre: t.nombre, color: t.color,
+    duracion_minutos: t.duracionMinutos, descripcion: t.descripcion ?? null, nivel: t.nivel,
+    foto_url: t.fotoUrl ?? null,
+  };
+  const { error } = await supabase.from('tipos_clase').insert(row);
+  if (error) reportDbError('[dbInsertTipoClase]', error);
+}
+
+export async function dbUpdateTipoClase(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('color' in changes) db.color = changes.color;
+  if ('duracionMinutos' in changes) db.duracion_minutos = changes.duracionMinutos;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('nivel' in changes) db.nivel = changes.nivel;
+  if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateTipoClase]', error);
+}
+
+export async function dbDeleteTipoClase(id: string) {
+  const { error } = await supabase.from('tipos_clase').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteTipoClase]', error);
 }
 
 export async function dbInsertInstructor(i: any) {

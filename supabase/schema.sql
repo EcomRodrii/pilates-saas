@@ -473,6 +473,10 @@ alter table socios add column if not exists foto_url text;
 -- Migración: programa de referidos ("invita a una amiga")
 alter table socios add column if not exists referido_por text references socios(id) on delete set null;
 
+-- Migración: foto del tipo de clase (ej. la sala de Reformer) — se muestra
+-- en la tarjeta de reserva en el portal de socias.
+alter table tipos_clase add column if not exists foto_url text;
+
 create table if not exists preferencias_socio (
   socio_id text primary key references socios(id) on delete cascade,
   studio_id text references studios(id) on delete cascade,

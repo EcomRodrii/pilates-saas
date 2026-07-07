@@ -69,10 +69,10 @@ export const spots: Spot[] = [
 ];
 
 export const tiposClase: TipoClase[] = [
-  { id: 'tc-1', studioId: 'studio-1', nombre: 'Reformer Fundamental', color: '#1C1C28', duracionMinutos: 55, descripcion: 'Clase base en reformer', nivel: 'PRINCIPIANTE' },
-  { id: 'tc-2', studioId: 'studio-1', nombre: 'Reformer Avanzado', color: '#C3D9B0', duracionMinutos: 55, descripcion: 'Para alumnas con experiencia', nivel: 'AVANZADO' },
-  { id: 'tc-3', studioId: 'studio-1', nombre: 'Pilates Mat', color: '#C8C2E8', duracionMinutos: 60, descripcion: 'Trabajo en colchoneta', nivel: 'TODOS' },
-  { id: 'tc-4', studioId: 'studio-1', nombre: 'Mat + Circuito', color: '#E8D5C2', duracionMinutos: 50, descripcion: 'Combinación mat y accesorios', nivel: 'MEDIO' },
+  { id: 'tc-1', studioId: 'studio-1', nombre: 'Reformer Fundamental', color: '#1C1C28', duracionMinutos: 55, descripcion: 'Clase base en reformer', nivel: 'PRINCIPIANTE', fotoUrl: null },
+  { id: 'tc-2', studioId: 'studio-1', nombre: 'Reformer Avanzado', color: '#C3D9B0', duracionMinutos: 55, descripcion: 'Para alumnas con experiencia', nivel: 'AVANZADO', fotoUrl: null },
+  { id: 'tc-3', studioId: 'studio-1', nombre: 'Pilates Mat', color: '#C8C2E8', duracionMinutos: 60, descripcion: 'Trabajo en colchoneta', nivel: 'TODOS', fotoUrl: null },
+  { id: 'tc-4', studioId: 'studio-1', nombre: 'Mat + Circuito', color: '#E8D5C2', duracionMinutos: 50, descripcion: 'Combinación mat y accesorios', nivel: 'MEDIO', fotoUrl: null },
 ];
 
 export const instructores: Instructor[] = [

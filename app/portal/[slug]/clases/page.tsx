@@ -3,15 +3,21 @@
 import { useMemo, useState } from 'react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { Clock, MapPin, User, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, MapPin, User, CheckCircle, AlertCircle, Users, BarChart2 } from 'lucide-react';
 
 type Tab = 'proximas' | 'mis-reservas';
 
+const NIVEL_LABEL: Record<string, string> = {
+  TODOS: 'Todos los niveles', PRINCIPIANTE: 'Iniciación', MEDIO: 'Intermedio', AVANZADO: 'Avanzado',
+};
+
 export default function ClasesPage() {
   const { session } = usePortalAuth();
-  const { sesiones, reservas, tiposClase, salas, instructores, addReserva, cancelarReserva } = useStudio();
+  const { sesiones, reservas, tiposClase, salas, instructores, planesTarifa, addReserva, cancelarReserva } = useStudio();
   const [tab, setTab] = useState<Tab>('proximas');
   const now = new Date();
+
+  const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
 
   const sesionesActivas = useMemo(() =>
     sesiones
@@ -112,66 +118,83 @@ export default function ClasesPage() {
                   const color = tipo?.color ?? '#F7A6C4';
 
                   return (
-                    <div key={ses.id} className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.08)' }}>
-                      {/* Color stripe */}
-                      <div className="h-1" style={{ backgroundColor: color }} />
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-extrabold text-[#171717] text-[16px] leading-tight">{tipo?.nombre ?? 'Clase'}</p>
-                            {instr && (
-                              <div className="flex items-center gap-1 mt-1">
-                                <User size={11} className="text-[#8E8E93]" />
-                                <p className="text-[12px] text-[#8E8E86]">{instr.nombre}</p>
-                              </div>
-                            )}
+                    <div key={ses.id} className="bg-white rounded-3xl overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.08)' }}>
+                      {/* Foto (o bloque de color de respaldo) */}
+                      <div className="relative h-36">
+                        {tipo?.fotoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={tipo.fotoUrl} alt={tipo.nombre} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: color }}>
+                            <BarChart2 size={28} className="text-white/40" />
                           </div>
-                          {miReserva?.estado === 'CONFIRMADA' && (
-                            <div className="flex items-center gap-1 bg-green-50 px-2.5 py-1 rounded-full shrink-0">
-                              <CheckCircle size={11} className="text-green-600" />
-                              <span className="text-[11px] font-bold text-green-700">Reservada</span>
-                            </div>
-                          )}
-                          {miReserva?.estado === 'LISTA_ESPERA' && (
-                            <div className="flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-full shrink-0">
-                              <AlertCircle size={11} className="text-amber-600" />
-                              <span className="text-[11px] font-bold text-amber-700">En espera</span>
-                            </div>
-                          )}
-                        </div>
+                        )}
+                        {precioClaseSuelta != null && (
+                          <span className="absolute top-3 left-3 bg-black/70 text-white text-[12px] font-bold px-3 py-1 rounded-full">
+                            {precioClaseSuelta} €
+                          </span>
+                        )}
+                        {miReserva?.estado === 'CONFIRMADA' && (
+                          <div className="absolute top-3 right-3 flex items-center gap-1 bg-white px-2.5 py-1 rounded-full shadow">
+                            <CheckCircle size={11} className="text-green-600" />
+                            <span className="text-[11px] font-bold text-green-700">Reservada</span>
+                          </div>
+                        )}
+                        {miReserva?.estado === 'LISTA_ESPERA' && (
+                          <div className="absolute top-3 right-3 flex items-center gap-1 bg-white px-2.5 py-1 rounded-full shadow">
+                            <AlertCircle size={11} className="text-amber-600" />
+                            <span className="text-[11px] font-bold text-amber-700">En espera</span>
+                          </div>
+                        )}
+                      </div>
 
-                        <div className="flex items-center gap-4">
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="font-extrabold text-[#171717] text-[16px] leading-tight">{tipo?.nombre ?? 'Clase'}</p>
+                          <span className="text-[11px] font-bold text-[#B57A8E] shrink-0">{NIVEL_LABEL[tipo?.nivel ?? 'TODOS']}</span>
+                        </div>
+                        {instr && (
+                          <div className="flex items-center gap-1 mb-2">
+                            <User size={11} className="text-[#8E8E93]" />
+                            <p className="text-[12px] text-[#8E8E86]">{instr.nombre}{sala ? ` · ${sala.nombre}` : ''}</p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-4 py-3 border-y border-[#F5F5F5]">
                           <div className="flex items-center gap-1.5">
-                            <Clock size={12} className="text-[#8E8E93]" />
-                            <span className="text-[13px] font-semibold text-[#3A3A32]">{formatTime(ses.inicio)} – {formatTime(ses.fin)}</span>
+                            <Clock size={13} className="text-[#8E8E93]" />
+                            <span className="text-[12.5px] font-semibold text-[#3A3A32]">{formatTime(ses.inicio)}–{formatTime(ses.fin)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Users size={13} className="text-[#8E8E93]" />
+                            <span className="text-[12.5px] font-semibold" style={{ color: libres <= 2 && libres > 0 ? '#D97706' : libres === 0 ? '#EF4444' : '#3A3A32' }}>
+                              {libres > 0 ? `${libres} libre${libres !== 1 ? 's' : ''}` : 'Completo'}
+                            </span>
                           </div>
                           {sala && (
-                            <div className="flex items-center gap-1">
-                              <MapPin size={11} className="text-[#8E8E93]" />
-                              <span className="text-[12px] text-[#8E8E86]">{sala.nombre}</span>
+                            <div className="flex items-center gap-1.5">
+                              <MapPin size={12} className="text-[#8E8E93]" />
+                              <span className="text-[12.5px] text-[#8E8E86]">{sala.nombre}</span>
                             </div>
                           )}
                         </div>
 
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#F5F5F5]">
-                          <p className="text-[12px] font-medium" style={{ color: libres <= 2 && libres > 0 ? '#D97706' : libres === 0 ? '#EF4444' : '#8E8E93' }}>
-                            {libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''} libre${libres !== 1 ? 's' : ''}` : 'Aforo completo'}
-                          </p>
+                        <div className="pt-3">
                           {miReserva?.estado === 'CONFIRMADA' ? (
                             <button
                               onClick={() => cancelarReserva(miReserva.id)}
-                              className="text-[13px] font-bold text-red-500 px-4 py-1.5 rounded-xl border border-red-100 active:opacity-70"
+                              className="w-full text-[13px] font-bold text-red-500 py-2.5 rounded-2xl border border-red-100 active:opacity-70"
                             >
-                              Cancelar
+                              Cancelar reserva
                             </button>
                           ) : !miReserva && (
                             <button
                               onClick={() => session?.socioId && addReserva(ses.id, session.socioId)}
                               disabled={libres <= 0}
-                              className="text-[13px] font-bold px-4 py-1.5 rounded-xl text-white transition-opacity active:opacity-70 disabled:opacity-40"
-                              style={{ backgroundColor: libres > 0 ? color : '#C7C7CC' }}
+                              className="w-full text-[14px] font-bold py-2.5 rounded-2xl text-white transition-opacity active:opacity-70 disabled:opacity-40"
+                              style={{ backgroundColor: libres > 0 ? '#171717' : '#C7C7CC' }}
                             >
-                              {libres > 0 ? 'Reservar' : 'Lista espera'}
+                              {libres > 0 ? 'Reservar' : 'Lista de espera'}
                             </button>
                           )}
                         </div>

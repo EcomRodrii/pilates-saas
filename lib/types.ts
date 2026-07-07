@@ -159,6 +159,7 @@ export interface TipoClase {
   duracionMinutos: number;
   descripcion: string | null;
   nivel: NivelClase;
+  fotoUrl: string | null;
 }
 
 export interface Instructor {

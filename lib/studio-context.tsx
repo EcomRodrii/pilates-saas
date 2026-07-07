@@ -32,6 +32,7 @@ import {
   dbInsertPostComunidad, dbUpdatePostComunidad,
   dbUpsertIntegracion,
   dbInsertAutomationLog, dbUpdateAutomationRule,
+  dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
   dbUpdateStudio, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener,
@@ -587,13 +588,17 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // ── Tipos de clase ────────────────────────────────────────────────────────────
 
   function addTipoClase(fields: Omit<TipoClase, 'id' | 'studioId'>) {
-    setTiposClase(prev => [...prev, { ...fields, id: `tc-${uid()}`, studioId: getCurrentStudioId() }]);
+    const nuevo: TipoClase = { ...fields, id: `tc-${uid()}`, studioId: getCurrentStudioId() };
+    setTiposClase(prev => [...prev, nuevo]);
+    dbInsertTipoClase(nuevo);
   }
   function updateTipoClase(id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>) {
     setTiposClase(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
+    dbUpdateTipoClase(id, changes);
   }
   function deleteTipoClase(id: string) {
     setTiposClase(prev => prev.filter(t => t.id !== id));
+    dbDeleteTipoClase(id);
   }
 
   // ── Instructores ──────────────────────────────────────────────────────────────

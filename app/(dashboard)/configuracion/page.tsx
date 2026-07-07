@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, FileSpreadsheet, ExternalLink, Ticket, Dumbbell, HeartPulse, Activity, Users2, KeyRound, BellRing, Monitor, Calendar as CalendarLinkIcon } from 'lucide-react';
@@ -16,6 +16,7 @@ import { TabBackups } from '@/components/configuracion/tab-backups';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, PayPalIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
 import { useAuth } from '@/lib/auth-context';
+import { subirFotoClase, eliminarFotoClase } from '@/lib/portal-storage';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -637,6 +638,31 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<ClaseForm>(emptyClaseForm());
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const fotoInputRef = useRef<HTMLInputElement>(null);
+  const editando = editId ? tiposClase.find(t => t.id === editId) ?? null : null;
+
+  async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !editId) return;
+    if (!file.type.startsWith('image/')) { showToast('Elige un archivo de imagen'); return; }
+    if (file.size > 5 * 1024 * 1024) { showToast('La imagen no puede superar 5 MB'); return; }
+    setSubiendoFoto(true);
+    const result = await subirFotoClase(editId, file);
+    setSubiendoFoto(false);
+    if ('error' in result) { showToast(result.error); return; }
+    updateTipoClase(editId, { fotoUrl: result.url });
+  }
+
+  async function handleEliminarFoto() {
+    if (!editId) return;
+    setSubiendoFoto(true);
+    const result = await eliminarFotoClase(editId);
+    setSubiendoFoto(false);
+    if ('error' in result) { showToast(result.error); return; }
+    updateTipoClase(editId, { fotoUrl: null });
+  }
 
   const openNueva = useCallback(() => {
     setForm(emptyClaseForm());
@@ -661,7 +687,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
       descripcion: form.descripcion.trim() || null,
     };
     if (modal === 'nueva') {
-      addTipoClase(fields);
+      addTipoClase({ ...fields, fotoUrl: null });
       showToast('Tipo de clase creado');
     } else if (editId) {
       updateTipoClase(editId, fields);
@@ -751,6 +777,38 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
                 placeholder="Ej: Reformer Avanzado"
               />
+            </Field>
+            <Field label="Foto de la clase">
+              {editId ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#F1F1EC] flex items-center justify-center shrink-0">
+                    {editando?.fotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={editando.fotoUrl} alt={form.nombre} className="w-full h-full object-cover" />
+                    ) : (
+                      <ColorSwatch color={form.color} size="md" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => fotoInputRef.current?.click()}
+                      disabled={subiendoFoto}
+                      className="text-[12px] font-semibold text-[#B57A8E] underline underline-offset-2 disabled:opacity-50"
+                    >
+                      {subiendoFoto ? 'Subiendo…' : editando?.fotoUrl ? 'Cambiar foto' : 'Subir foto'}
+                    </button>
+                    {editando?.fotoUrl && (
+                      <button type="button" onClick={handleEliminarFoto} className="text-[12px] text-[#8E8E86] text-left">
+                        Quitar foto
+                      </button>
+                    )}
+                  </div>
+                  <input ref={fotoInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
+                </div>
+              ) : (
+                <p className="text-[12px] text-[#A8A89F]">Podrás añadir una foto una vez creada la clase.</p>
+              )}
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Duración (min)">
