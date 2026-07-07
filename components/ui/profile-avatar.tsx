@@ -77,7 +77,7 @@ const SIZE_CLS: Record<string, string> = {
 };
 
 export function ProfileAvatar({
-  avatarId, nombre, apellidos, color, size = 'md', className,
+  avatarId, nombre, apellidos, color, size = 'md', className, fotoUrl,
 }: {
   avatarId?: string | null;
   nombre: string;
@@ -85,9 +85,15 @@ export function ProfileAvatar({
   color?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+  fotoUrl?: string | null;
 }) {
   const def = avatarDef(avatarId);
   const cls = cn('rounded-full shrink-0 overflow-hidden flex items-center justify-center font-bold', SIZE_CLS[size], className);
+
+  if (fotoUrl) {
+    // eslint-disable-next-line @next/next/no-img-element -- foto subida por la socia, no un asset estático conocido en build
+    return <img src={fotoUrl} alt={nombre} className={cls} style={{ objectFit: 'cover' }} />;
+  }
 
   if (def) {
     return (

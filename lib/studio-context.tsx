@@ -14,6 +14,7 @@ import {
   dbInsertVentaPOS,
   dbInsertActividadReciente,
   dbInsertMensajeEquipo,
+  dbUpsertPreferenciasSocio,
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCampana, dbDeleteCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
@@ -55,6 +56,8 @@ import type {
   ActividadReciente,
   TipoActividad,
   MensajeEquipo,
+  PreferenciasSocio,
+  Disponibilidad,
   Notificacion,
   VideoOnDemand,
   PostComunidad,
@@ -225,6 +228,8 @@ interface StudioContextValue {
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>) => void;
   mensajesEquipo: MensajeEquipo[];
   addMensajeEquipo: (texto: string) => void;
+  preferenciasSocio: PreferenciasSocio[];
+  upsertPreferenciasSocio: (socioId: string, changes: Partial<Omit<PreferenciasSocio, 'socioId' | 'studioId'>>) => void;
   marcarTodasLeidas: () => void;
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => void;
@@ -329,6 +334,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [postsComunidad, setPostsComunidad] = useState<PostComunidad[]>([]);
   const [integraciones, setIntegraciones] = useState<Integracion[]>([]);
   const [mensajesEquipo, setMensajesEquipo] = useState<MensajeEquipo[]>([]);
+  const [preferenciasSocio, setPreferenciasSocio] = useState<PreferenciasSocio[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
@@ -389,6 +395,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setPostsComunidad(data.postsComunidad);
       setIntegraciones(data.integraciones ?? []);
       setMensajesEquipo(data.mensajesEquipo ?? []);
+      setPreferenciasSocio(data.preferenciasSocio ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
@@ -1205,6 +1212,12 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // ── Actividad reciente ────────────────────────────────────────────────────────
 
   function addActividadReciente(tipo: TipoActividad, texto: string, socioId?: string, enlace?: string) {
+    // Sin sesión de Supabase Auth no hay a quién atribuir la acción — pasa
+    // en el portal de miembros (login propio por email, no Supabase Auth) y
+    // al navegar el dashboard sin iniciar sesión. Además esta tabla exige
+    // "authenticated" en RLS, así que escribir aquí sin sesión solo daría
+    // un 401 silencioso.
+    if (!user) return;
     const nueva: ActividadReciente = {
       id: `act-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -1232,6 +1245,31 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     };
     setMensajesEquipo(prev => [...prev, nuevo]);
     dbInsertMensajeEquipo(nuevo);
+  }
+
+  // ── Preferencias del alumno (portal de miembros) ──────────────────────────────
+
+  function upsertPreferenciasSocio(socioId: string, changes: Partial<Omit<PreferenciasSocio, 'socioId' | 'studioId'>>) {
+    setPreferenciasSocio(prev => {
+      const existente = prev.find(p => p.socioId === socioId);
+      const actualizado: PreferenciasSocio = existente
+        ? { ...existente, ...changes, actualizadoEn: new Date().toISOString() }
+        : {
+            socioId,
+            studioId: getCurrentStudioId(),
+            disponibilidad: {} as Disponibilidad,
+            instructorFavoritoId: null,
+            tipoClaseFavorita: null,
+            duracionPreferida: null,
+            nivel: null,
+            notifEmail: true,
+            notifWhatsapp: true,
+            actualizadoEn: new Date().toISOString(),
+            ...changes,
+          };
+      dbUpsertPreferenciasSocio(actualizado);
+      return existente ? prev.map(p => p.socioId === socioId ? actualizado : p) : [...prev, actualizado];
+    });
   }
 
   // ── Notificaciones ────────────────────────────────────────────────────────────
@@ -1519,6 +1557,8 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     upsertIntegracion,
     mensajesEquipo,
     addMensajeEquipo,
+    preferenciasSocio,
+    upsertPreferenciasSocio,
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
@@ -1563,6 +1603,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setPostsComunidad(data.postsComunidad);
       setIntegraciones(data.integraciones ?? []);
       setMensajesEquipo(data.mensajesEquipo ?? []);
+      setPreferenciasSocio(data.preferenciasSocio ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);

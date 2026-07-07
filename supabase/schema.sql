@@ -465,6 +465,33 @@ drop policy if exists "admin_mensajes_equipo" on mensajes_equipo;
 create policy "admin_mensajes_equipo" on mensajes_equipo for all to authenticated
   using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
 
+-- Migración: Portal de miembros — perfil completo y preferencias del alumno
+alter table socios add column if not exists fecha_nacimiento date;
+alter table socios add column if not exists direccion text;
+alter table socios add column if not exists foto_url text;
+
+create table if not exists preferencias_socio (
+  socio_id text primary key references socios(id) on delete cascade,
+  studio_id text references studios(id) on delete cascade,
+  disponibilidad jsonb not null default '{}',
+  instructor_favorito_id text references instructores(id) on delete set null,
+  tipo_clase_favorita text,
+  duracion_preferida int,
+  nivel text,
+  notif_email boolean not null default true,
+  notif_whatsapp boolean not null default true,
+  actualizado_en timestamptz not null default now()
+);
+alter table preferencias_socio enable row level security;
+drop policy if exists "admin_preferencias_socio" on preferencias_socio;
+drop policy if exists "public_read_preferencias_socio" on preferencias_socio;
+drop policy if exists "public_write_preferencias_socio" on preferencias_socio;
+create policy "admin_preferencias_socio" on preferencias_socio for all to authenticated
+  using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
+create policy "public_read_preferencias_socio" on preferencias_socio for select to anon using (true);
+create policy "public_write_preferencias_socio" on preferencias_socio for insert to anon with check (true);
+create policy "public_update_preferencias_socio" on preferencias_socio for update to anon using (true) with check (true);
+
 -- ═══════════════════════════════════════════════════════════════════
 -- Políticas de acceso
 --

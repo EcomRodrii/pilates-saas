@@ -1,22 +1,24 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { Calendar, CreditCard, Play, TrendingUp, Clock, ChevronRight, Zap, AlertCircle } from 'lucide-react';
+import {
+  Calendar, CreditCard, Play, TrendingUp, Clock, ChevronRight, Zap,
+  AlertCircle, ListChecks, User, AlertTriangle,
+} from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { ProfileSheet } from '@/components/portal/profile-sheet';
+import { getHomeCardContext } from '@/lib/portal-home-logic';
 
 export default function PortalHome() {
   const { slug } = useParams<{ slug: string }>();
-  const { session, logout } = usePortalAuth();
-  const { socios, suscripciones, planesTarifa, sesiones, reservas, tiposClase, salas, instructores, updateSocio } = useStudio();
-  const [showProfile, setShowProfile] = useState(false);
+  const { session } = usePortalAuth();
+  const { socios, suscripciones, planesTarifa, sesiones, reservas, tiposClase, salas, instructores } = useStudio();
 
   const socio = socios.find(s => s.id === session?.socioId);
-  const activeSus = suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA');
+  const activeSus = suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA') ?? null;
   const plan = activeSus ? planesTarifa.find(p => p.id === activeSus.planId) : null;
   const now = new Date();
   const bonoCaducado = !!(activeSus?.fechaFin && activeSus.fechaFin < now.toISOString().slice(0, 10));
@@ -24,13 +26,9 @@ export default function PortalHome() {
   const misReservas = useMemo(() =>
     reservas.filter(r => r.socioId === session?.socioId), [reservas, session?.socioId]);
 
-  const proxima = useMemo(() =>
-    misReservas
-      .filter(r => r.estado === 'CONFIRMADA')
-      .map(r => ({ r, s: sesiones.find(s => s.id === r.sesionId) }))
-      .filter(x => x.s && new Date(x.s.inicio) > now)
-      .sort((a, b) => new Date(a.s!.inicio).getTime() - new Date(b.s!.inicio).getTime())[0] ?? null,
-  [misReservas, sesiones]);
+  const homeCard = useMemo(() => getHomeCardContext({
+    now, misReservas, sesiones, tiposClase, salas, instructores, activeSus,
+  }), [now, misReservas, sesiones, tiposClase, salas, instructores, activeSus]);
 
   const totalAsistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
   const clasesEsteMes = useMemo(() => {
@@ -69,12 +67,12 @@ export default function PortalHome() {
               {nombre} 👋
             </h1>
           </div>
-          <button
-            onClick={() => setShowProfile(true)}
+          <Link
+            href={`/portal/${slug}/perfil`}
             className="mt-1 rounded-full ring-2 ring-white/20 active:opacity-80 transition-opacity"
           >
-            <ProfileAvatar avatarId={socio?.avatar} nombre={session?.nombre ?? ''} size="md" />
-          </button>
+            <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
+          </Link>
         </div>
 
         {/* Stats row */}
@@ -98,21 +96,18 @@ export default function PortalHome() {
         </div>
       </div>
 
-      {/* ── Próxima clase ────────────────────────────── */}
+      {/* ── Tarjeta principal contextual ─────────────── */}
       <div className="px-4 -mt-4">
-        {proxima ? (() => {
-          const tipo = tiposClase.find(t => t.id === proxima.s!.tipoClaseId);
-          const sala = salas.find(s => s.id === proxima.s!.salaId);
-          const instr = instructores.find(i => i.id === proxima.s!.instructorId);
-          const color = tipo?.color ?? '#F7A6C4';
+        {homeCard.caso === 'PROXIMA_CLASE' && (() => {
+          const color = homeCard.tipo?.color ?? '#F7A6C4';
           return (
-            <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
+            <Link href={`/portal/${slug}/reservas`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
               <div className="p-5 text-white" style={{ background: `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-1">Próxima clase</p>
-                    <p className="text-white text-[22px] font-extrabold leading-tight">{tipo?.nombre ?? 'Clase'}</p>
-                    {instr && <p className="text-white/70 text-[13px] mt-0.5">con {instr.nombre}</p>}
+                    <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-1">Tu próxima clase</p>
+                    <p className="text-white text-[22px] font-extrabold leading-tight">{homeCard.tipo?.nombre ?? 'Clase'}</p>
+                    {homeCard.instructor && <p className="text-white/70 text-[13px] mt-0.5">con {homeCard.instructor.nombre}</p>}
                   </div>
                   <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
                     <Zap size={20} className="text-white" />
@@ -121,24 +116,64 @@ export default function PortalHome() {
                 <div className="flex items-center gap-4 bg-white/15 rounded-2xl px-4 py-3">
                   <div className="flex items-center gap-1.5 text-white text-[13px] font-semibold">
                     <Clock size={14} className="text-white/70" />
-                    {formatDayShort(proxima.s!.inicio)} · {formatTime(proxima.s!.inicio)}
+                    {formatDayShort(homeCard.sesion.inicio)} · {formatTime(homeCard.sesion.inicio)}
                   </div>
-                  {sala && (
-                    <p className="text-white/60 text-[12px] ml-auto">{sala.nombre}</p>
+                  {homeCard.sala && (
+                    <p className="text-white/60 text-[12px] ml-auto">{homeCard.sala.nombre}</p>
                   )}
                 </div>
+                <p className="text-white/70 text-[12px] font-semibold mt-3 flex items-center gap-1">
+                  Ver reserva <ChevronRight size={13} />
+                </p>
               </div>
             </Link>
           );
-        })() : (
+        })()}
+
+        {homeCard.caso === 'ULTIMA_SESION' && (
+          <Link href={`/portal/${slug}/mi-plan`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
+            <div className="p-5 bg-gradient-to-br from-[#B45309] to-[#92400E] text-white">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircle size={18} className="text-white" />
+                <p className="text-white/70 text-[11px] font-bold uppercase tracking-widest">Último aviso</p>
+              </div>
+              <p className="text-white text-[20px] font-extrabold mb-1">Solo te queda una sesión del bono</p>
+              <p className="text-white/70 text-[13px] mb-4">Renueva antes de perder tu plaza.</p>
+              <div className="inline-flex items-center gap-2 bg-white text-[#92400E] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
+                Renovar
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {homeCard.caso === 'INACTIVA' && (
+          <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
+            <div className="p-5 bg-gradient-to-br from-[#1A1A1A] to-[#3A3A34] text-white">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle size={18} className="text-[#F7A6C4]" />
+                <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest">
+                  {homeCard.diasSinVenir} días sin venir
+                </p>
+              </div>
+              <p className="text-white text-[20px] font-extrabold mb-1">Hace tiempo que no entrenas</p>
+              <p className="text-white/60 text-[13px] mb-4">Tenemos clases disponibles esta semana.</p>
+              <div className="inline-flex items-center gap-2 bg-white text-[#1A1A1A] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
+                <Calendar size={15} />
+                Reservar
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {homeCard.caso === 'SIN_CLASES' && (
           <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
             <div className="p-5 bg-gradient-to-br from-[#1A1A1A] to-[#B57A8E] text-white">
               <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-3">Próxima clase</p>
-              <p className="text-white text-[20px] font-extrabold mb-1">Sin clases reservadas</p>
+              <p className="text-white text-[20px] font-extrabold mb-1">Aún no tienes ninguna clase reservada</p>
               <p className="text-white/60 text-[13px] mb-4">Reserva tu próxima sesión ahora</p>
               <div className="inline-flex items-center gap-2 bg-white text-[#B57A8E] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
                 <Calendar size={15} />
-                Ver clases disponibles
+                Reservar clase
               </div>
             </div>
           </Link>
@@ -201,9 +236,11 @@ export default function PortalHome() {
         <div className="grid grid-cols-2 gap-3">
           {[
             { href: `/portal/${slug}/clases`, icon: Calendar, label: 'Reservar clase', color: '#B57A8E', bg: '#FFF2F7' },
-            { href: `/portal/${slug}/mi-plan`, icon: CreditCard, label: 'Mis pagos', color: '#059669', bg: '#ECFDF5' },
-            { href: `/portal/${slug}/videos`, icon: Play, label: 'Videos on-demand', color: '#D97706', bg: '#FFFBEB' },
-            { href: `/portal/${slug}/progreso`, icon: TrendingUp, label: 'Mi progreso', color: '#F7A6C4', bg: '#FFF2F7' },
+            { href: `/portal/${slug}/reservas`, icon: ListChecks, label: 'Mis reservas', color: '#0369A1', bg: '#EAF6FF' },
+            { href: `/portal/${slug}/mi-plan`, icon: CreditCard, label: 'Mi plan', color: '#059669', bg: '#ECFDF5' },
+            { href: `/portal/${slug}/videos`, icon: Play, label: 'Vídeos', color: '#D97706', bg: '#FFFBEB' },
+            { href: `/portal/${slug}/progreso`, icon: TrendingUp, label: 'Progreso', color: '#F7A6C4', bg: '#FFF2F7' },
+            { href: `/portal/${slug}/perfil`, icon: User, label: 'Perfil', color: '#6D28D9', bg: '#F3EEFF' },
           ].map(({ href, icon: Icon, label, color, bg }) => (
             <Link
               key={href}
@@ -218,16 +255,6 @@ export default function PortalHome() {
           ))}
         </div>
       </div>
-
-      {showProfile && (
-        <ProfileSheet
-          avatarId={socio?.avatar ?? null}
-          nombre={session?.nombre ?? ''}
-          onChangeAvatar={id => socio && updateSocio(socio.id, { avatar: id })}
-          onLogout={logout}
-          onClose={() => setShowProfile(false)}
-        />
-      )}
     </div>
   );
 }

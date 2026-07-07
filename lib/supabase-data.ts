@@ -119,6 +119,24 @@ function mapSocio(r: any) {
     avatar: r.avatar ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     stripePaymentMethodId: r.stripe_payment_method_id ?? null,
+    fechaNacimiento: r.fecha_nacimiento ?? null,
+    direccion: r.direccion ?? null,
+    fotoUrl: r.foto_url ?? null,
+  };
+}
+
+function mapPreferenciasSocio(r: any) {
+  return {
+    socioId: r.socio_id,
+    studioId: r.studio_id,
+    disponibilidad: r.disponibilidad ?? {},
+    instructorFavoritoId: r.instructor_favorito_id ?? null,
+    tipoClaseFavorita: r.tipo_clase_favorita ?? null,
+    duracionPreferida: r.duracion_preferida ?? null,
+    nivel: r.nivel ?? null,
+    notifEmail: r.notif_email ?? true,
+    notifWhatsapp: r.notif_whatsapp ?? true,
+    actualizadoEn: r.actualizado_en,
   };
 }
 
@@ -530,6 +548,7 @@ export async function fetchAllStudioData() {
     notasInternasRes,
     integracionesRes,
     mensajesEquipoRes,
+    preferenciasSocioRes,
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
     supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
@@ -560,6 +579,7 @@ export async function fetchAllStudioData() {
     supabase.from('notas_internas').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('integraciones').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('mensajes_equipo').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('preferencias_socio').select('*').eq('studio_id', STUDIO_ID),
   ]);
 
   return {
@@ -592,6 +612,7 @@ export async function fetchAllStudioData() {
     notasInternas: (notasInternasRes.data ?? []).map(mapNotaInterna),
     integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
     mensajesEquipo: (mensajesEquipoRes.data ?? []).map(mapMensajeEquipo),
+    preferenciasSocio: (preferenciasSocioRes.data ?? []).map(mapPreferenciasSocio),
   };
 }
 
@@ -854,6 +875,9 @@ export async function dbUpdateSocio(id: string, changes: any) {
   if ('avatar' in changes) db.avatar = changes.avatar;
   if ('stripeCustomerId' in changes) db.stripe_customer_id = changes.stripeCustomerId;
   if ('stripePaymentMethodId' in changes) db.stripe_payment_method_id = changes.stripePaymentMethodId;
+  if ('fechaNacimiento' in changes) db.fecha_nacimiento = changes.fechaNacimiento;
+  if ('direccion' in changes) db.direccion = changes.direccion;
+  if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
   if ('aceptacionContrato' in changes) {
     db.aceptacion_fecha = changes.aceptacionContrato?.fecha ?? null;
     db.aceptacion_firma = changes.aceptacionContrato?.firma ?? null;
@@ -1012,6 +1036,23 @@ export async function dbInsertActividadReciente(act: any) {
 export async function dbInsertMensajeEquipo(m: any) {
   const { error } = await supabase.from('mensajes_equipo').insert(mensajeEquipoToDb(m));
   if (error) reportDbError('[dbInsertMensajeEquipo]', error);
+}
+
+export async function dbUpsertPreferenciasSocio(p: any) {
+  const row = {
+    socio_id: p.socioId,
+    studio_id: p.studioId ?? STUDIO_ID,
+    disponibilidad: p.disponibilidad,
+    instructor_favorito_id: p.instructorFavoritoId ?? null,
+    tipo_clase_favorita: p.tipoClaseFavorita ?? null,
+    duracion_preferida: p.duracionPreferida ?? null,
+    nivel: p.nivel ?? null,
+    notif_email: p.notifEmail,
+    notif_whatsapp: p.notifWhatsapp,
+    actualizado_en: new Date().toISOString(),
+  };
+  const { error } = await supabase.from('preferencias_socio').upsert(row, { onConflict: 'socio_id' });
+  if (error) reportDbError('[dbUpsertPreferenciasSocio]', error);
 }
 
 export async function dbInsertAutomationLog(log: any) {

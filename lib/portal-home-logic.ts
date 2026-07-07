@@ -1,0 +1,69 @@
+import type { Reserva, Sesion, Suscripcion, TipoClase, Sala, Instructor } from '@/lib/types';
+
+// Decide qué tarjeta principal mostrar en el Home del portal de miembros.
+// Función pura y reutilizable — sin JSX, sin estado — para que la lógica de
+// negocio ("¿qué le importa a esta socia ahora mismo?") no viva enredada en
+// el componente de página.
+
+export type HomeCardContext =
+  | { caso: 'PROXIMA_CLASE'; sesion: Sesion; tipo: TipoClase | null; sala: Sala | null; instructor: Instructor | null; reserva: Reserva }
+  | { caso: 'ULTIMA_SESION'; sesionesRestantes: number }
+  | { caso: 'INACTIVA'; diasSinVenir: number }
+  | { caso: 'SIN_CLASES' };
+
+const DIAS_INACTIVIDAD = 10;
+
+export function getHomeCardContext({
+  now,
+  misReservas,
+  sesiones,
+  tiposClase,
+  salas,
+  instructores,
+  activeSus,
+}: {
+  now: Date;
+  misReservas: Reserva[];
+  sesiones: Sesion[];
+  tiposClase: TipoClase[];
+  salas: Sala[];
+  instructores: Instructor[];
+  activeSus: Suscripcion | null;
+}): HomeCardContext {
+  const proxima = misReservas
+    .filter(r => r.estado === 'CONFIRMADA')
+    .map(r => ({ r, s: sesiones.find(s => s.id === r.sesionId) }))
+    .filter((x): x is { r: Reserva; s: Sesion } => !!x.s && new Date(x.s.inicio) > now)
+    .sort((a, b) => new Date(a.s.inicio).getTime() - new Date(b.s.inicio).getTime())[0] ?? null;
+
+  // CASO C — se le acaba el bono: es lo más urgente, se avisa aunque ya
+  // tenga una clase reservada.
+  if (activeSus?.sesionesRestantes === 1) {
+    return { caso: 'ULTIMA_SESION', sesionesRestantes: 1 };
+  }
+
+  // CASO B — ya tiene una clase confirmada próxima.
+  if (proxima) {
+    const tipo = tiposClase.find(t => t.id === proxima.s.tipoClaseId) ?? null;
+    const sala = salas.find(s => s.id === proxima.s.salaId) ?? null;
+    const instructor = instructores.find(i => i.id === proxima.s.instructorId) ?? null;
+    return { caso: 'PROXIMA_CLASE', sesion: proxima.s, tipo, sala, instructor, reserva: proxima.r };
+  }
+
+  // CASO D — lleva más de 10 días sin asistir (y no tiene nada reservado).
+  const ultimaAsistida = misReservas
+    .filter(r => r.estado === 'ASISTIDA')
+    .map(r => sesiones.find(s => s.id === r.sesionId))
+    .filter((s): s is Sesion => !!s)
+    .sort((a, b) => new Date(b.inicio).getTime() - new Date(a.inicio).getTime())[0] ?? null;
+
+  if (ultimaAsistida) {
+    const dias = Math.floor((now.getTime() - new Date(ultimaAsistida.inicio).getTime()) / 86400000);
+    if (dias >= DIAS_INACTIVIDAD) {
+      return { caso: 'INACTIVA', diasSinVenir: dias };
+    }
+  }
+
+  // CASO A — nunca ha reservado nada, o no tiene nada pendiente ni activo reciente.
+  return { caso: 'SIN_CLASES' };
+}

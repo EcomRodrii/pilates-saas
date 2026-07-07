@@ -71,6 +71,29 @@ export interface Socio {
   avatar?: string | null;
   stripeCustomerId?: string | null;
   stripePaymentMethodId?: string | null;
+  fechaNacimiento?: string | null;
+  direccion?: string | null;
+  fotoUrl?: string | null;
+}
+
+// ─── Preferencias del alumno (portal de miembros) ────────────────────────────
+
+export type DiaSemana = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo';
+export type FranjaHoraria = 'manana' | 'tarde' | 'noche';
+export type Disponibilidad = Record<DiaSemana, Record<FranjaHoraria, boolean>>;
+export type NivelSocio = 'PRINCIPIANTE' | 'INTERMEDIO' | 'AVANZADO';
+
+export interface PreferenciasSocio {
+  socioId: string;
+  studioId: string;
+  disponibilidad: Disponibilidad;
+  instructorFavoritoId: string | null;
+  tipoClaseFavorita: string | null;
+  duracionPreferida: number | null;
+  nivel: NivelSocio | null;
+  notifEmail: boolean;
+  notifWhatsapp: boolean;
+  actualizadoEn: string;
 }
 
 export interface NotaInterna {
