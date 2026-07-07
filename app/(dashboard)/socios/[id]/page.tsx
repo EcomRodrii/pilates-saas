@@ -3,6 +3,7 @@
 import { use, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
+import { useRol } from '@/lib/permisos';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
@@ -164,11 +165,11 @@ function AttendanceSparkline({ weeks }: { weeks: boolean[] }) {
 
 type Tab = 'resumen' | 'reservas' | 'pagos' | 'comunicaciones';
 
-function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
+function TabBar({ active, onChange, verFinanzas }: { active: Tab; onChange: (t: Tab) => void; verFinanzas: boolean }) {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'resumen', label: 'Resumen' },
     { id: 'reservas', label: 'Reservas' },
-    { id: 'pagos', label: 'Pagos' },
+    ...(verFinanzas ? [{ id: 'pagos' as Tab, label: 'Pagos' }] : []),
     { id: 'comunicaciones', label: 'Comunicaciones' },
   ];
   return (
@@ -195,6 +196,8 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
 
 export default function DetalleSocio({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const rol = useRol();
+  const verFinanzas = rol !== 'INSTRUCTOR';
 
   const {
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
@@ -465,7 +468,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
           {/* Tab bar + panels */}
           <div className="bg-white border border-[#E7E7E0] rounded-xl overflow-hidden">
-            <TabBar active={activeTab} onChange={setActiveTab} />
+            <TabBar active={activeTab} onChange={setActiveTab} verFinanzas={verFinanzas} />
 
             <div className="p-5">
 
@@ -477,13 +480,15 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   <div className="border border-[#E7E7E0] rounded-xl overflow-hidden">
                     <div className="flex items-center justify-between px-5 py-3.5 bg-[#F5F5F1] border-b border-[#E7E7E0]">
                       <span className="text-xs font-bold text-[#8E8E86] uppercase tracking-wider">Plan activo</span>
-                      <button
-                        onClick={() => setShowChangePlan(true)}
-                        className="text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
-                        style={{ backgroundColor: '#FFF2F7', color: '#7AA80E' }}
-                      >
-                        {plan ? 'Cambiar plan' : 'Asignar plan'}
-                      </button>
+                      {verFinanzas && (
+                        <button
+                          onClick={() => setShowChangePlan(true)}
+                          className="text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+                          style={{ backgroundColor: '#FFF2F7', color: '#7AA80E' }}
+                        >
+                          {plan ? 'Cambiar plan' : 'Asignar plan'}
+                        </button>
+                      )}
                     </div>
                     <div className="p-5">
                       {plan && suscripcion ? (
@@ -499,10 +504,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                 <span className="inline-block mt-2 text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>Pausada</span>
                               )}
                             </div>
-                            <div className="text-right shrink-0">
-                              <p className="text-2xl font-extrabold text-[#1A1A1A]">{plan.precio} €</p>
-                              <p className="text-xs font-medium text-[#8E8E86]">{plan.tipo === 'MENSUAL' ? '/ mes' : 'bono'}</p>
-                            </div>
+                            {verFinanzas && (
+                              <div className="text-right shrink-0">
+                                <p className="text-2xl font-extrabold text-[#1A1A1A]">{plan.precio} €</p>
+                                <p className="text-xs font-medium text-[#8E8E86]">{plan.tipo === 'MENSUAL' ? '/ mes' : 'bono'}</p>
+                              </div>
+                            )}
                           </div>
 
                           {/* Sessions remaining — BIG colored number */}
@@ -610,7 +617,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       { label: 'Clases asistidas', value: String(asistidas), color: '#1A1A1A' },
                       { label: 'Clases este mes', value: String(estesMes), color: '#1A1A1A' },
                       { label: 'Bonos comprados', value: String(bonosComprados), color: '#1A1A1A' },
-                      { label: 'Gasto total', value: `${totalGastado.toFixed(0)} €`, color: '#059669' },
+                      ...(verFinanzas ? [{ label: 'Gasto total', value: `${totalGastado.toFixed(0)} €`, color: '#059669' }] : []),
                     ].map(stat => (
                       <div key={stat.label} className="border border-[#E7E7E0] bg-white rounded-xl p-4">
                         <p className="text-2xl font-extrabold" style={{ color: stat.color }}>{stat.value}</p>
@@ -873,7 +880,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               )}
 
               {/* ═══ TAB: PAGOS ═════════════════════════════════════════════ */}
-              {activeTab === 'pagos' && (
+              {activeTab === 'pagos' && verFinanzas && (
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex gap-2">
@@ -1269,7 +1276,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       </Dialog>
 
       {/* Change plan */}
-      <Dialog open={showChangePlan} onOpenChange={open => !open && setShowChangePlan(false)}>
+      <Dialog open={showChangePlan && verFinanzas} onOpenChange={open => !open && setShowChangePlan(false)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-[#1A1A1A]">{plan ? 'Cambiar plan' : 'Asignar plan'}</DialogTitle>

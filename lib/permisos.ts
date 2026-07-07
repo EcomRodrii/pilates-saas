@@ -4,8 +4,11 @@ import { useAuth } from './auth-context';
 import { useStudio } from './studio-context';
 import type { Rol } from './types';
 
-// Instructoras: solo su agenda y sus citas.
-const PERMITIDO_INSTRUCTOR = ['/dashboard', '/calendario', '/citas'];
+// Instructoras: su agenda, sus alumnas y las herramientas de contenido/equipo
+// — nada de cobros, informes, marketing ni ajustes del negocio.
+const PERMITIDO_INSTRUCTOR = [
+  '/dashboard', '/calendario', '/citas', '/socios', '/ondemand', '/comunidad', '/mensajeria',
+];
 
 // Recepción: todo lo operativo, nada de configuración del negocio,
 // marketing, automatizaciones, informes o gestión del equipo.

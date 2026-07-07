@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { useRol } from '@/lib/permisos';
 import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
@@ -80,6 +81,7 @@ interface CitaCardProps {
   instructorNombre: string;
   onCompletar: (id: string) => void;
   onCancelar: (id: string) => void;
+  verPrecio: boolean;
 }
 
 function CitaCard({
@@ -90,6 +92,7 @@ function CitaCard({
   instructorNombre,
   onCompletar,
   onCancelar,
+  verPrecio,
 }: CitaCardProps) {
   const [hovered, setHovered] = useState(false);
   const tipoBadge = TIPO_BADGE[cita.tipo];
@@ -142,9 +145,11 @@ function CitaCard({
       </div>
 
       {/* Price */}
-      <span className="text-sm font-medium text-[#1A1A1A] shrink-0 w-14 text-right">
-        {cita.precio != null ? `${cita.precio} €` : '—'}
-      </span>
+      {verPrecio && (
+        <span className="text-sm font-medium text-[#1A1A1A] shrink-0 w-14 text-right">
+          {cita.precio != null ? `${cita.precio} €` : '—'}
+        </span>
+      )}
 
       {/* Status badge or action buttons */}
       <div className="flex items-center gap-2 shrink-0">
@@ -184,6 +189,8 @@ function CitaCard({
 
 export default function CitasPage() {
   const { socios, instructores, citas, addCita, completarCita, cancelarCita } = useStudio();
+  const rol = useRol();
+  const verPrecio = rol !== 'INSTRUCTOR';
   const [tab, setTab] = useState<'proximas' | 'historial'>('proximas');
   const [filterInstructor, setFilterInstructor] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
@@ -292,13 +299,15 @@ export default function CitasPage() {
       </div>
 
       {/* Revenue banner */}
-      <div className="bg-white border border-[#E7E7E0] rounded-xl px-5 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-[#8E8E86]">
-          <CheckCircle2 size={16} className="text-[#059669]" />
-          <span>Ingresos completadas este mes</span>
+      {verPrecio && (
+        <div className="bg-white border border-[#E7E7E0] rounded-xl px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-[#8E8E86]">
+            <CheckCircle2 size={16} className="text-[#059669]" />
+            <span>Ingresos completadas este mes</span>
+          </div>
+          <span className="text-xl font-bold text-[#1A1A1A]">{ingresosMes} €</span>
         </div>
-        <span className="text-xl font-bold text-[#1A1A1A]">{ingresosMes} €</span>
-      </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-white border border-[#E7E7E0] rounded-xl p-1 w-fit">
@@ -384,6 +393,7 @@ export default function CitasPage() {
                 instructorNombre={instructorNombre}
                 onCompletar={handleCompletar}
                 onCancelar={handleCancelar}
+                verPrecio={verPrecio}
               />
             );
           })
@@ -479,17 +489,19 @@ export default function CitasPage() {
                   ))}
                 </select>
               </FF>
-              <FF label="Precio (€)">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.precio}
-                  onChange={(e) => setForm((f) => ({ ...f, precio: e.target.value }))}
-                  className={inputCls}
-                />
-              </FF>
+              {verPrecio && (
+                <FF label="Precio (€)">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={form.precio}
+                    onChange={(e) => setForm((f) => ({ ...f, precio: e.target.value }))}
+                    className={inputCls}
+                  />
+                </FF>
+              )}
             </div>
 
             <FF label="Notas">
