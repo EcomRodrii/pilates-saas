@@ -6,8 +6,8 @@ import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import {
-  Calendar, CreditCard, Play, TrendingUp, Clock, ChevronRight, Zap,
-  AlertCircle, ListChecks, User, AlertTriangle, Coins, Trophy, UserPlus, Target,
+  Calendar, CreditCard, Play, Clock, ChevronRight, Zap,
+  AlertCircle, ListChecks, User, AlertTriangle, Coins, UserPlus,
 } from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext } from '@/lib/portal-home-logic';
@@ -72,7 +72,7 @@ export default function PortalHome() {
             </h1>
             {racha && racha.semanas > 0 && (
               <Link
-                href={`/portal/${slug}/logros`}
+                href={`/portal/${slug}/progreso?tab=logros`}
                 className="inline-flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 mt-2 active:opacity-80 transition-opacity"
               >
                 <span className="text-[13px]">🔥</span>
@@ -88,7 +88,7 @@ export default function PortalHome() {
               <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
             </Link>
             <Link
-              href={`/portal/${slug}/creditos`}
+              href={`/portal/${slug}/progreso?tab=recompensas`}
               className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 active:opacity-80 transition-opacity"
             >
               <Coins size={11} className="text-[#FFC8E2]" />
@@ -280,10 +280,6 @@ export default function PortalHome() {
             { href: `/portal/${slug}/reservas`, icon: ListChecks, label: 'Mis reservas', color: '#0369A1', bg: '#EAF6FF' },
             { href: `/portal/${slug}/mi-plan`, icon: CreditCard, label: 'Mi plan', color: '#059669', bg: '#ECFDF5' },
             { href: `/portal/${slug}/videos`, icon: Play, label: 'Vídeos', color: '#D97706', bg: '#FFFBEB' },
-            { href: `/portal/${slug}/progreso`, icon: TrendingUp, label: 'Progreso', color: '#F7A6C4', bg: '#FFF2F7' },
-            { href: `/portal/${slug}/creditos`, icon: Coins, label: 'Mis créditos', color: '#B45309', bg: '#FFFBEB' },
-            { href: `/portal/${slug}/logros`, icon: Trophy, label: 'Logros', color: '#B57A8E', bg: '#FFF2F7' },
-            { href: `/portal/${slug}/retos`, icon: Target, label: 'Retos', color: '#1D4ED8', bg: '#EAF6FF' },
             { href: `/portal/${slug}/invitar`, icon: UserPlus, label: 'Invita a una amiga', color: '#2E7D4F', bg: '#ECFDF5' },
             { href: `/portal/${slug}/perfil`, icon: User, label: 'Perfil', color: '#6D28D9', bg: '#F3EEFF' },
           ].map(({ href, icon: Icon, label, color, bg }) => (
