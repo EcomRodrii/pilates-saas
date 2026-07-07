@@ -8,7 +8,7 @@ import {
   FileText, Settings, BarChart2, ChevronRight, ChevronLeft, X,
   Clock, ShoppingCart, MessageCircle, Megaphone, Play, Bell,
   Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
-  LogOut, UserCog, Monitor,
+  LogOut, UserCog, Monitor, Users2,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -36,6 +36,7 @@ const navSections = [
       { href: '/socios', label: 'Miembros', icon: Users },
       { href: '/mensajeria', label: 'Mensajería', icon: Inbox },
       { href: '/comunidad', label: 'Comunidad', icon: MessageCircle },
+      { href: '/chat', label: 'Chat de equipo', icon: Users2 },
     ],
   },
   {

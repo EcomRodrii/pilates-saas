@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
 const COLORES = ['#F7A6C4', '#14B8A6', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
@@ -20,15 +20,16 @@ const ROL_LABEL: Record<Rol, string> = {
 const ROL_DESC: Record<Rol, string> = {
   PROPIETARIO: 'Acceso total: negocio, marketing, automatizaciones y equipo.',
   RECEPCION: 'Reservas, socias, cobros y POS — sin acceso a marketing, informes ni ajustes del negocio.',
-  INSTRUCTOR: 'Solo su calendario y sus citas.',
+  INSTRUCTOR: 'Calendario, citas (sin precios), miembros, oferta digital, comunidad y mensajería — sin datos de facturación.',
 };
 
 type Form = { nombre: string; email: string; telefono: string; color: string; avatar: string | null; activo: boolean; rol: Rol };
 const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, activo: true, rol: 'INSTRUCTOR' });
 
 export default function EquipoPage() {
-  const { instructores, sesiones, citas, addInstructor, updateInstructor, deleteInstructor } = useStudio();
+  const { instructores, sesiones, citas, addInstructor, updateInstructor, deleteInstructor, actividadReciente } = useStudio();
 
+  const [tab, setTab] = useState<'equipo' | 'actividad'>('equipo');
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
@@ -102,11 +103,32 @@ export default function EquipoPage() {
           <h1 className="text-2xl font-bold text-[#1A1A1A] tracking-tight">Equipo</h1>
           <p className="text-sm text-[#8E8E86] mt-0.5">Instructoras y personal del estudio</p>
         </div>
-        <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFC8E2] text-[#171717] text-sm font-bold hover:bg-[#F7B3D2] transition-colors">
-          <Plus size={16} /> Nuevo miembro
-        </button>
+        {tab === 'equipo' && (
+          <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFC8E2] text-[#171717] text-sm font-bold hover:bg-[#F7B3D2] transition-colors">
+            <Plus size={16} /> Nuevo miembro
+          </button>
+        )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 bg-white border border-[#E7E7E0] rounded-xl p-1 w-fit">
+        {(['equipo', 'actividad'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === t ? 'bg-[#FFC8E2] text-[#171717]' : 'text-[#8E8E86] hover:text-[#1A1A1A]'
+            }`}
+          >
+            {t === 'equipo' ? 'Equipo' : 'Actividad'}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'actividad' ? (
+        <ActividadTab actividadReciente={actividadReciente} />
+      ) : (
+      <>
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-3">
         {[
@@ -211,6 +233,8 @@ export default function EquipoPage() {
           })}
         </div>
       )}
+      </>
+      )}
 
       {/* Create/edit modal */}
       <Dialog open={modal !== null} onOpenChange={open => !open && setModal(null)}>
@@ -308,6 +332,45 @@ export default function EquipoPage() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─── Tab: Actividad (auditoría — quién hizo qué) ───────────────────────────────
+
+const TIPO_AUDITORIA = new Set([
+  'SOCIA_EDITADA', 'SOCIA_ELIMINADA', 'PLAN_CREADO', 'PLAN_EDITADO', 'PLAN_ELIMINADO',
+  'PLAN_ASIGNADO', 'COBRO_MANUAL', 'EQUIPO_ALTA', 'EQUIPO_EDITADO', 'EQUIPO_BAJA',
+  'AUTOMATIZACION_CAMBIO', 'NUEVA_SOCIA',
+]);
+
+function formatFechaHora(iso: string) {
+  return new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function ActividadTab({ actividadReciente }: { actividadReciente: import('@/lib/types').ActividadReciente[] }) {
+  const relevantes = actividadReciente
+    .filter(a => TIPO_AUDITORIA.has(a.tipo))
+    .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
+
+  return (
+    <div className="bg-white border border-[#E7E7E0] rounded-2xl p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <History size={16} className="text-[#8E8E86]" />
+        <h2 className="text-sm font-bold text-[#1A1A1A]">Quién ha hecho qué</h2>
+      </div>
+      {relevantes.length === 0 ? (
+        <p className="text-sm text-[#8E8E86] py-8 text-center">Todavía no hay movimientos registrados.</p>
+      ) : (
+        <div className="space-y-2">
+          {relevantes.map(a => (
+            <div key={a.id} className="flex items-start justify-between gap-3 py-2.5 border-b border-[#F1F1EC] last:border-0">
+              <p className="text-sm text-[#3A3A34]">{a.texto}</p>
+              <span className="text-xs text-[#A8A89F] whitespace-nowrap shrink-0">{formatFechaHora(a.creadoEn)}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

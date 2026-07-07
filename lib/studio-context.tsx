@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import {
   fetchAllStudioData,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
+  dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion,
   dbInsertReserva, dbUpdateReserva,
@@ -12,6 +13,7 @@ import {
   dbInsertCita, dbUpdateCita,
   dbInsertVentaPOS,
   dbInsertActividadReciente,
+  dbInsertMensajeEquipo,
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCampana, dbDeleteCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
@@ -52,6 +54,7 @@ import type {
   CodigoDescuento,
   ActividadReciente,
   TipoActividad,
+  MensajeEquipo,
   Notificacion,
   VideoOnDemand,
   PostComunidad,
@@ -220,6 +223,8 @@ interface StudioContextValue {
   toggleLikePost: (postId: string) => void;
   integraciones: Integracion[];
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>) => void;
+  mensajesEquipo: MensajeEquipo[];
+  addMensajeEquipo: (texto: string) => void;
   marcarTodasLeidas: () => void;
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => void;
@@ -323,6 +328,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [videosOnDemand, setVideosOnDemand] = useState<VideoOnDemand[]>([]);
   const [postsComunidad, setPostsComunidad] = useState<PostComunidad[]>([]);
   const [integraciones, setIntegraciones] = useState<Integracion[]>([]);
+  const [mensajesEquipo, setMensajesEquipo] = useState<MensajeEquipo[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
@@ -337,6 +343,11 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // after signing in without a full page reload.
   const { user } = useAuth();
   const authUserId = user?.id ?? null;
+  // Quién está haciendo la acción ahora mismo — para el registro de
+  // auditoría (addActividadReciente) y el chat de equipo. Sin instructores
+  // vinculada, el auth_user_id es el de la propietaria original del negocio.
+  const yo = instructores.find(i => i.authUserId === authUserId);
+  const actorNombre = yo?.nombre ?? (user ? 'Propietaria' : null);
 
   useEffect(() => {
     (async () => {
@@ -377,6 +388,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setVideosOnDemand(data.videosOnDemand);
       setPostsComunidad(data.postsComunidad);
       setIntegraciones(data.integraciones ?? []);
+      setMensajesEquipo(data.mensajesEquipo ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
@@ -426,13 +438,27 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // ── Planes ────────────────────────────────────────────────────────────────────
 
   function addPlan(fields: Omit<PlanTarifa, 'id' | 'studioId'>) {
-    setPlanesTarifa(prev => [...prev, { ...fields, id: `plan-${uid()}`, studioId: getCurrentStudioId() }]);
+    const nuevo: PlanTarifa = { ...fields, id: `plan-${uid()}`, studioId: getCurrentStudioId() };
+    setPlanesTarifa(prev => [...prev, nuevo]);
+    dbInsertPlanTarifa(nuevo);
+    addActividadReciente('PLAN_CREADO', `${actorNombre ?? 'Alguien'} creó el plan "${fields.nombre}" — ${fields.precio} €`);
   }
   function updatePlan(id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) {
+    const anterior = planesTarifa.find(p => p.id === id);
     setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
+    dbUpdatePlanTarifa(id, changes);
+    if (anterior) {
+      const detalle = 'precio' in changes && changes.precio !== anterior.precio
+        ? `precio ${anterior.precio}€ → ${changes.precio}€`
+        : 'datos actualizados';
+      addActividadReciente('PLAN_EDITADO', `${actorNombre ?? 'Alguien'} editó el plan "${anterior.nombre}" (${detalle})`);
+    }
   }
   function deletePlan(id: string) {
+    const plan = planesTarifa.find(p => p.id === id);
     setPlanesTarifa(prev => prev.filter(p => p.id !== id));
+    dbDeletePlanTarifa(id);
+    if (plan) addActividadReciente('PLAN_ELIMINADO', `${actorNombre ?? 'Alguien'} eliminó el plan "${plan.nombre}"`);
   }
 
   // ── Salas ─────────────────────────────────────────────────────────────────────
@@ -465,14 +491,24 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     const nuevo: Instructor = { ...fields, id: `ins-${uid()}`, studioId: getCurrentStudioId() };
     setInstructores(prev => [...prev, nuevo]);
     dbInsertInstructor(nuevo);
+    addActividadReciente('EQUIPO_ALTA', `${actorNombre ?? 'Alguien'} añadió a ${nuevo.nombre} al equipo (${nuevo.rol})`);
   }
   function updateInstructor(id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) {
+    const anterior = instructores.find(i => i.id === id);
     setInstructores(prev => prev.map(i => i.id === id ? { ...i, ...changes } : i));
     dbUpdateInstructor(id, changes);
+    if (anterior) {
+      const detalle = 'rol' in changes && changes.rol !== anterior.rol
+        ? `rol ${anterior.rol} → ${changes.rol}`
+        : 'datos actualizados';
+      addActividadReciente('EQUIPO_EDITADO', `${actorNombre ?? 'Alguien'} editó a ${anterior.nombre} del equipo (${detalle})`);
+    }
   }
   function deleteInstructor(id: string) {
+    const instructor = instructores.find(i => i.id === id);
     setInstructores(prev => prev.filter(i => i.id !== id));
     dbDeleteInstructor(id);
+    if (instructor) addActividadReciente('EQUIPO_BAJA', `${actorNombre ?? 'Alguien'} eliminó a ${instructor.nombre} del equipo`);
   }
 
   async function claimInstructorAccount(email: string, authUserId: string) {
@@ -507,6 +543,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     };
     setSocios(prev => [...prev, nuevaSocia]);
     dbInsertSocio(nuevaSocia);
+    addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
       if (plan) {
@@ -574,14 +611,18 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   function updateSocio(id: string, changes: Partial<Socio>) {
     setSocios(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
     dbUpdateSocio(id, changes);
+    const socio = socios.find(s => s.id === id);
+    if (socio) addActividadReciente('SOCIA_EDITADA', `${actorNombre ?? 'Alguien'} editó los datos de ${socio.nombre} ${socio.apellidos}`, id, `/socios/${id}`);
   }
 
   function deleteSocio(id: string) {
+    const socio = socios.find(s => s.id === id);
     setSocios(prev => prev.filter(s => s.id !== id));
     setSuscripciones(prev => prev.filter(s => s.socioId !== id));
     setRecibos(prev => prev.filter(r => r.socioId !== id));
     setNotasInternas(prev => prev.filter(n => n.socioId !== id));
     dbDeleteSocio(id);
+    if (socio) addActividadReciente('SOCIA_ELIMINADA', `${actorNombre ?? 'Alguien'} eliminó a ${socio.nombre} ${socio.apellidos}`);
   }
 
   function addTagSocio(socioId: string, tag: string) {
@@ -623,28 +664,36 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // ── Suscripciones ────────────────────────────────────────────────────────────
 
   function assignPlan(socioId: string, planId: string | null) {
+    const aDesactivar = suscripciones.filter(s => s.socioId === socioId && s.estado === 'ACTIVA');
+    const plan = planId ? planesTarifa.find(p => p.id === planId) : null;
+    const nueva: Suscripcion | null = plan ? {
+      id: `sus-${uid()}`,
+      studioId: getCurrentStudioId(),
+      socioId,
+      planId: plan.id,
+      estado: 'ACTIVA',
+      fechaInicio: new Date().toISOString(),
+      fechaFin: null,
+      sesionesRestantes: plan.sesiones,
+      stripeSubscriptionId: null,
+    } : null;
     setSuscripciones(prev => {
       const deactivated = prev.map(s =>
         s.socioId === socioId && s.estado === 'ACTIVA'
           ? { ...s, estado: 'CANCELADA' as const }
           : s
       );
-      if (!planId) return deactivated;
-      const plan = planesTarifa.find(p => p.id === planId);
-      if (!plan) return deactivated;
-      const nueva: Suscripcion = {
-        id: `sus-${uid()}`,
-        studioId: getCurrentStudioId(),
-        socioId,
-        planId,
-        estado: 'ACTIVA',
-        fechaInicio: new Date().toISOString(),
-        fechaFin: null,
-        sesionesRestantes: plan.sesiones,
-        stripeSubscriptionId: null,
-      };
-      return [...deactivated, nueva];
+      return nueva ? [...deactivated, nueva] : deactivated;
     });
+    aDesactivar.forEach(s => dbUpdateSuscripcion(s.id, { estado: 'CANCELADA' }));
+    if (nueva) dbInsertSuscripcion(nueva);
+    const socio = socios.find(s => s.id === socioId);
+    addActividadReciente(
+      'PLAN_ASIGNADO',
+      `${actorNombre ?? 'Alguien'} ${plan ? `asignó el plan "${plan.nombre}"` : 'quitó el plan'} a ${socio?.nombre ?? 'una socia'}`,
+      socioId,
+      `/socios/${socioId}`
+    );
   }
 
   function pausarSuscripcion(susId: string) {
@@ -918,6 +967,15 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
         }
       }
     }
+    if (recibo) {
+      const socio = socios.find(s => s.id === recibo.socioId);
+      addActividadReciente(
+        'COBRO_MANUAL',
+        `${actorNombre ?? 'Alguien'} marcó como cobrado "${recibo.concepto}" (${recibo.importe} €) de ${socio?.nombre ?? 'una socia'}`,
+        recibo.socioId,
+        `/socios/${recibo.socioId}`
+      );
+    }
   }
 
   function marcarDevuelto(reciboId: string) {
@@ -1155,9 +1213,25 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       socioId: socioId ?? null,
       enlace: enlace ?? null,
       creadoEn: new Date().toISOString(),
+      actorNombre,
     };
     setActividadReciente(prev => [nueva, ...prev]);
     dbInsertActividadReciente(nueva);
+  }
+
+  // ── Chat de equipo (canal único compartido) ───────────────────────────────────
+
+  function addMensajeEquipo(texto: string) {
+    const nuevo: MensajeEquipo = {
+      id: `msgeq-${uid()}`,
+      studioId: getCurrentStudioId(),
+      autorInstructorId: yo?.id ?? null,
+      autorNombre: actorNombre ?? 'Propietaria',
+      texto,
+      creadoEn: new Date().toISOString(),
+    };
+    setMensajesEquipo(prev => [...prev, nuevo]);
+    dbInsertMensajeEquipo(nuevo);
   }
 
   // ── Notificaciones ────────────────────────────────────────────────────────────
@@ -1251,6 +1325,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       r.id === id ? { ...r, activa: !r.activa } : r
     ));
     dbUpdateAutomationRule(id, { activa: !rule.activa });
+    addActividadReciente('AUTOMATIZACION_CAMBIO', `${actorNombre ?? 'Alguien'} ${rule.activa ? 'desactivó' : 'activó'} la automatización "${rule.nombre}"`);
   }
 
   function addAutomationLog(log: Omit<AutomationLog, 'id' | 'studioId'>) {
@@ -1442,6 +1517,8 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     toggleLikePost,
     integraciones,
     upsertIntegracion,
+    mensajesEquipo,
+    addMensajeEquipo,
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
@@ -1485,6 +1562,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setVideosOnDemand(data.videosOnDemand);
       setPostsComunidad(data.postsComunidad);
       setIntegraciones(data.integraciones ?? []);
+      setMensajesEquipo(data.mensajesEquipo ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);

@@ -304,6 +304,16 @@ create table if not exists actividad_reciente (
   creado_en timestamptz default now()
 );
 
+-- ─── Chat de equipo (canal único compartido por negocio) ──────────────────────
+create table if not exists mensajes_equipo (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  autor_instructor_id text references instructores(id) on delete set null,
+  autor_nombre text not null,
+  texto text not null,
+  creado_en timestamptz default now()
+);
+
 -- ─── Notificaciones ───────────────────────────────────────────────────────────
 create table if not exists notificaciones (
   id text primary key,
@@ -446,6 +456,14 @@ alter table automation_logs add column if not exists recibo_id text;
 -- Configuración → Integraciones, sin que el estudio tenga que tocar
 -- ninguna API key.
 alter table studios add column if not exists stripe_account_id text;
+
+-- Migración: registro de auditoría (quién hizo cada acción) y chat de equipo
+alter table actividad_reciente add column if not exists actor_nombre text;
+
+alter table mensajes_equipo enable row level security;
+drop policy if exists "admin_mensajes_equipo" on mensajes_equipo;
+create policy "admin_mensajes_equipo" on mensajes_equipo for all to authenticated
+  using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
 
 -- ═══════════════════════════════════════════════════════════════════
 -- Políticas de acceso

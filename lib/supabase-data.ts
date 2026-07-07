@@ -426,6 +426,18 @@ function mapActividadReciente(r: any) {
     socioId: r.socio_id ?? null,
     enlace: r.enlace ?? null,
     creadoEn: r.creado_en,
+    actorNombre: r.actor_nombre ?? null,
+  };
+}
+
+function mapMensajeEquipo(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    autorInstructorId: r.autor_instructor_id ?? null,
+    autorNombre: r.autor_nombre,
+    texto: r.texto,
+    creadoEn: r.creado_en,
   };
 }
 
@@ -517,6 +529,7 @@ export async function fetchAllStudioData() {
     postsComunidadRes,
     notasInternasRes,
     integracionesRes,
+    mensajesEquipoRes,
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
     supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
@@ -546,6 +559,7 @@ export async function fetchAllStudioData() {
     supabase.from('posts_comunidad').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('notas_internas').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('integraciones').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('mensajes_equipo').select('*').eq('studio_id', STUDIO_ID),
   ]);
 
   return {
@@ -577,6 +591,7 @@ export async function fetchAllStudioData() {
     postsComunidad: (postsComunidadRes.data ?? []).map(mapPostComunidad),
     notasInternas: (notasInternasRes.data ?? []).map(mapNotaInterna),
     integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
+    mensajesEquipo: (mensajesEquipoRes.data ?? []).map(mapMensajeEquipo),
   };
 }
 
@@ -592,6 +607,19 @@ function socioToDb(socio: any) {
     aceptacion_fecha: aceptacionContrato?.fecha ?? null,
     aceptacion_firma: aceptacionContrato?.firma ?? null,
     aceptacion_version: aceptacionContrato?.versionTexto ?? null,
+  };
+}
+
+function planTarifaToDb(plan: any) {
+  return {
+    id: plan.id,
+    studio_id: plan.studioId ?? STUDIO_ID,
+    nombre: plan.nombre,
+    descripcion: plan.descripcion ?? null,
+    precio: plan.precio,
+    tipo: plan.tipo,
+    sesiones: plan.sesiones ?? null,
+    activo: plan.activo,
   };
 }
 
@@ -712,6 +740,18 @@ function actividadRecienteToDb(act: any) {
     socio_id: act.socioId ?? null,
     enlace: act.enlace ?? null,
     creado_en: act.creadoEn,
+    actor_nombre: act.actorNombre ?? null,
+  };
+}
+
+function mensajeEquipoToDb(m: any) {
+  return {
+    id: m.id,
+    studio_id: m.studioId ?? STUDIO_ID,
+    autor_instructor_id: m.autorInstructorId ?? null,
+    autor_nombre: m.autorNombre,
+    texto: m.texto,
+    creado_en: m.creadoEn,
   };
 }
 
@@ -826,6 +866,28 @@ export async function dbUpdateSocio(id: string, changes: any) {
 export async function dbDeleteSocio(id: string) {
   const { error } = await supabase.from('socios').delete().eq('id', id);
   if (error) reportDbError('[dbDeleteSocio]', error);
+}
+
+export async function dbInsertPlanTarifa(plan: any) {
+  const { error } = await supabase.from('planes_tarifa').insert(planTarifaToDb(plan));
+  if (error) reportDbError('[dbInsertPlanTarifa]', error);
+}
+
+export async function dbUpdatePlanTarifa(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('precio' in changes) db.precio = changes.precio;
+  if ('tipo' in changes) db.tipo = changes.tipo;
+  if ('sesiones' in changes) db.sesiones = changes.sesiones;
+  if ('activo' in changes) db.activo = changes.activo;
+  const { error } = await supabase.from('planes_tarifa').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdatePlanTarifa]', error);
+}
+
+export async function dbDeletePlanTarifa(id: string) {
+  const { error } = await supabase.from('planes_tarifa').delete().eq('id', id);
+  if (error) reportDbError('[dbDeletePlanTarifa]', error);
 }
 
 export async function dbInsertSuscripcion(sus: any) {
@@ -945,6 +1007,11 @@ export async function dbInsertVentaPOS(venta: any) {
 export async function dbInsertActividadReciente(act: any) {
   const { error } = await supabase.from('actividad_reciente').insert(actividadRecienteToDb(act));
   if (error) reportDbError('[dbInsertActividadReciente]', error);
+}
+
+export async function dbInsertMensajeEquipo(m: any) {
+  const { error } = await supabase.from('mensajes_equipo').insert(mensajeEquipoToDb(m));
+  if (error) reportDbError('[dbInsertMensajeEquipo]', error);
 }
 
 export async function dbInsertAutomationLog(log: any) {

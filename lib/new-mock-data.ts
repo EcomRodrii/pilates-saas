@@ -60,16 +60,16 @@ export const codigosDescuento: CodigoDescuento[] = [
 ];
 
 export const actividadReciente: ActividadReciente[] = [
-  { id: 'act-1', studioId: 'studio-1', tipo: 'PAGO_COBRADO', texto: 'Laura Martínez pagó Mensual Ilimitado — 85 €', socioId: 'soc-1', enlace: '/socios/soc-1', creadoEn: '2026-06-28T09:30:00Z' },
-  { id: 'act-2', studioId: 'studio-1', tipo: 'NUEVA_RESERVA', texto: 'Carmen López reservó Reformer Avanzado (lun 10:00)', socioId: 'soc-2', enlace: '/calendario', creadoEn: '2026-06-28T08:45:00Z' },
-  { id: 'act-3', studioId: 'studio-1', tipo: 'CITA_CREADA', texto: 'Nueva cita privada — Laura Martínez con María Soler', socioId: 'soc-1', enlace: '/citas', creadoEn: '2026-06-28T08:00:00Z' },
-  { id: 'act-4', studioId: 'studio-1', tipo: 'VENTA_POS', texto: 'Venta POS — Bono 5 clases + Calcetines — 107 €', socioId: 'soc-3', enlace: '/pos', creadoEn: '2026-06-27T11:15:00Z' },
-  { id: 'act-5', studioId: 'studio-1', tipo: 'CANCELACION', texto: 'Isabel González canceló su reserva en Mat Beginners', socioId: 'soc-4', enlace: '/calendario', creadoEn: '2026-06-27T10:30:00Z' },
-  { id: 'act-6', studioId: 'studio-1', tipo: 'NUEVA_SOCIA', texto: 'Nueva socia registrada: Patricia Romero', socioId: 'soc-8', enlace: '/socios/soc-8', creadoEn: '2026-06-26T16:00:00Z' },
-  { id: 'act-7', studioId: 'studio-1', tipo: 'PAGO_COBRADO', texto: 'Elena Jiménez pagó Bono 4 clases — 65 €', socioId: 'soc-7', enlace: '/socios/soc-7', creadoEn: '2026-06-26T11:00:00Z' },
-  { id: 'act-8', studioId: 'studio-1', tipo: 'NUEVA_SUSCRIPCION', texto: 'Marta Sánchez renovó Mensual Ilimitado', socioId: 'soc-5', enlace: '/socios/soc-5', creadoEn: '2026-06-25T09:00:00Z' },
-  { id: 'act-9', studioId: 'studio-1', tipo: 'CITA_COMPLETADA', texto: 'Cita privada completada — Marta Sánchez', socioId: 'soc-5', enlace: '/citas', creadoEn: '2026-06-25T11:00:00Z' },
-  { id: 'act-10', studioId: 'studio-1', tipo: 'PAGO_PENDIENTE', texto: 'Pago pendiente — Carmen López — Bono 8 clases', socioId: 'soc-2', enlace: '/pagos', creadoEn: '2026-06-24T10:00:00Z' },
+  { id: 'act-1', studioId: 'studio-1', tipo: 'PAGO_COBRADO', texto: 'Laura Martínez pagó Mensual Ilimitado — 85 €', socioId: 'soc-1', enlace: '/socios/soc-1', creadoEn: '2026-06-28T09:30:00Z' , actorNombre: null },
+  { id: 'act-2', studioId: 'studio-1', tipo: 'NUEVA_RESERVA', texto: 'Carmen López reservó Reformer Avanzado (lun 10:00)', socioId: 'soc-2', enlace: '/calendario', creadoEn: '2026-06-28T08:45:00Z' , actorNombre: null },
+  { id: 'act-3', studioId: 'studio-1', tipo: 'CITA_CREADA', texto: 'Nueva cita privada — Laura Martínez con María Soler', socioId: 'soc-1', enlace: '/citas', creadoEn: '2026-06-28T08:00:00Z' , actorNombre: null },
+  { id: 'act-4', studioId: 'studio-1', tipo: 'VENTA_POS', texto: 'Venta POS — Bono 5 clases + Calcetines — 107 €', socioId: 'soc-3', enlace: '/pos', creadoEn: '2026-06-27T11:15:00Z' , actorNombre: null },
+  { id: 'act-5', studioId: 'studio-1', tipo: 'CANCELACION', texto: 'Isabel González canceló su reserva en Mat Beginners', socioId: 'soc-4', enlace: '/calendario', creadoEn: '2026-06-27T10:30:00Z' , actorNombre: null },
+  { id: 'act-6', studioId: 'studio-1', tipo: 'NUEVA_SOCIA', texto: 'Nueva socia registrada: Patricia Romero', socioId: 'soc-8', enlace: '/socios/soc-8', creadoEn: '2026-06-26T16:00:00Z' , actorNombre: null },
+  { id: 'act-7', studioId: 'studio-1', tipo: 'PAGO_COBRADO', texto: 'Elena Jiménez pagó Bono 4 clases — 65 €', socioId: 'soc-7', enlace: '/socios/soc-7', creadoEn: '2026-06-26T11:00:00Z' , actorNombre: null },
+  { id: 'act-8', studioId: 'studio-1', tipo: 'NUEVA_SUSCRIPCION', texto: 'Marta Sánchez renovó Mensual Ilimitado', socioId: 'soc-5', enlace: '/socios/soc-5', creadoEn: '2026-06-25T09:00:00Z' , actorNombre: null },
+  { id: 'act-9', studioId: 'studio-1', tipo: 'CITA_COMPLETADA', texto: 'Cita privada completada — Marta Sánchez', socioId: 'soc-5', enlace: '/citas', creadoEn: '2026-06-25T11:00:00Z' , actorNombre: null },
+  { id: 'act-10', studioId: 'studio-1', tipo: 'PAGO_PENDIENTE', texto: 'Pago pendiente — Carmen López — Bono 8 clases', socioId: 'soc-2', enlace: '/pagos', creadoEn: '2026-06-24T10:00:00Z' , actorNombre: null },
 ];
 
 export const notificaciones: Notificacion[] = [

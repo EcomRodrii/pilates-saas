@@ -56,6 +56,17 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   CITA_COMPLETADA:    { color: '#059669', bg: '#ECFDF5', label: 'Cita ✓' },
   VENTA_POS:          { color: '#059669', bg: '#ECFDF5', label: 'Venta' },
   MENSAJE_ENVIADO:    { color: '#8E8E86', bg: '#F5F5F1', label: 'Email' },
+  SOCIA_EDITADA:      { color: '#0891B2', bg: '#ECFEFF', label: 'Edición' },
+  SOCIA_ELIMINADA:    { color: '#DC2626', bg: '#FEF2F2', label: 'Baja' },
+  PLAN_CREADO:        { color: '#7C3AED', bg: '#EDE9FE', label: 'Plan nuevo' },
+  PLAN_EDITADO:       { color: '#7C3AED', bg: '#EDE9FE', label: 'Plan editado' },
+  PLAN_ELIMINADO:     { color: '#DC2626', bg: '#FEF2F2', label: 'Plan borrado' },
+  PLAN_ASIGNADO:      { color: '#7C3AED', bg: '#EDE9FE', label: 'Plan asignado' },
+  COBRO_MANUAL:       { color: '#059669', bg: '#ECFDF5', label: 'Cobro manual' },
+  EQUIPO_ALTA:        { color: '#059669', bg: '#ECFDF5', label: 'Alta equipo' },
+  EQUIPO_EDITADO:     { color: '#0891B2', bg: '#ECFEFF', label: 'Equipo editado' },
+  EQUIPO_BAJA:        { color: '#DC2626', bg: '#FEF2F2', label: 'Baja equipo' },
+  AUTOMATIZACION_CAMBIO: { color: '#8E8E86', bg: '#F5F5F1', label: 'Automatización' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────

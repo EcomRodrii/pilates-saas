@@ -419,7 +419,18 @@ export type TipoActividad =
   | 'CITA_CREADA'
   | 'CITA_COMPLETADA'
   | 'VENTA_POS'
-  | 'MENSAJE_ENVIADO';
+  | 'MENSAJE_ENVIADO'
+  | 'SOCIA_EDITADA'
+  | 'SOCIA_ELIMINADA'
+  | 'PLAN_CREADO'
+  | 'PLAN_EDITADO'
+  | 'PLAN_ELIMINADO'
+  | 'PLAN_ASIGNADO'
+  | 'COBRO_MANUAL'
+  | 'EQUIPO_ALTA'
+  | 'EQUIPO_EDITADO'
+  | 'EQUIPO_BAJA'
+  | 'AUTOMATIZACION_CAMBIO';
 
 export interface ActividadReciente {
   id: string;
@@ -428,6 +439,19 @@ export interface ActividadReciente {
   texto: string;
   socioId: string | null;
   enlace: string | null;
+  creadoEn: string;
+  // Quién hizo la acción — para el registro de auditoría del propietario.
+  actorNombre: string | null;
+}
+
+// ─── Chat de equipo (canal único compartido del negocio) ─────────────────────
+
+export interface MensajeEquipo {
+  id: string;
+  studioId: string;
+  autorInstructorId: string | null;
+  autorNombre: string;
+  texto: string;
   creadoEn: string;
 }
 
