@@ -524,6 +524,32 @@ export default function Dashboard() {
     [recibos, socios]
   );
 
+  const pendientesTotal = useMemo(() => recibos.filter(r => r.estado === 'PENDIENTE').length, [recibos]);
+
+  // ── "10 segundos": lo que el negocio necesita ver hoy sin navegar ───────────
+  const resumenHoy = useMemo(() => {
+    const alumnosHoyIds = new Set(
+      reservas
+        .filter(r => r.estado !== 'CANCELADA' && sesiones.find(s => s.id === r.sesionId && localDate(s.inicio) === hoyStr))
+        .map(r => r.socioId)
+    );
+    const bonosCaducanHoy = suscripciones.filter(s => s.estado === 'ACTIVA' && s.fechaFin === hoyStr).length;
+
+    const inactivas30d = socios.filter(s => {
+      if (!s.activo) return false;
+      const ultimaAsistida = reservas
+        .filter(r => r.socioId === s.id && r.estado === 'ASISTIDA')
+        .map(r => sesiones.find(x => x.id === r.sesionId))
+        .filter((x): x is typeof sesiones[number] => !!x)
+        .sort((a, b) => b.inicio.localeCompare(a.inicio))[0];
+      if (!ultimaAsistida) return false;
+      const dias = Math.floor((now.getTime() - new Date(ultimaAsistida.inicio).getTime()) / 86400000);
+      return dias >= 30;
+    }).length;
+
+    return { alumnosHoy: alumnosHoyIds.size, bonosCaducanHoy, inactivas30d };
+  }, [reservas, sesiones, hoyStr, suscripciones, socios, now]);
+
   // ── Trend direction ──────────────────────────────────────────────────────────
   const TrendIcon =
     pctChange > 0 ? TrendingUp : pctChange < 0 ? TrendingDown : Minus;
@@ -555,6 +581,29 @@ export default function Dashboard() {
               <ShoppingCart /> Abrir caja
             </Link>
           </div>
+        </div>
+
+        {/* ── Hoy de un vistazo (10 segundos) ─────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Alumnos hoy', alert: false },
+            { href: '/informes', Icon: Activity, value: `${ocupacionMedia}%`, label: 'Ocupación semana', alert: ocupacionMedia >= 85 },
+            { href: '/transacciones', Icon: CreditCard, value: pendientesTotal, label: 'Pagos pendientes', alert: pendientesTotal > 0 },
+            { href: '/socios', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0 },
+            { href: '/socios', Icon: Clock, value: resumenHoy.inactivas30d, label: '30d sin venir', alert: resumenHoy.inactivas30d > 0 },
+            { href: '/informes', Icon: TrendingUp, value: `${ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €`, label: 'Ingresos del mes', alert: false },
+          ].map(({ href, Icon, value, label, alert }) => (
+            <Link
+              key={label}
+              href={href}
+              className="rounded-xl border p-3.5 transition-colors hover:bg-[#F5F5F1]"
+              style={{ backgroundColor: alert ? '#FEF2F2' : 'white', borderColor: alert ? '#FCA5A5' : '#E7E7E0' }}
+            >
+              <Icon size={15} style={{ color: alert ? '#DC2626' : '#8E8E86' }} />
+              <p className="text-[22px] font-bold leading-none mt-2" style={{ color: alert ? '#DC2626' : '#1A1A1A' }}>{value}</p>
+              <p className="text-[10.5px] font-medium text-[#8E8E86] mt-1 leading-tight">{label}</p>
+            </Link>
+          ))}
         </div>
 
         <OnboardingChecklist />

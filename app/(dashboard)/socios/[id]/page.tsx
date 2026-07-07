@@ -221,8 +221,6 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showAddTag, setShowAddTag] = useState(false);
   const [showSendMessage, setShowSendMessage] = useState(false);
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [notesValue, setNotesValue] = useState('');
   const [notaText, setNotaText] = useState('');
   const [reservaFilter, setReservaFilter] = useState<'todas' | 'confirmadas' | 'asistidas' | 'canceladas'>('todas');
   const [reservasPage, setReservasPage] = useState(20);
@@ -287,6 +285,21 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const bonosComprados = suscripciones.filter(s => s.socioId === id).length;
   const totalGastado = misRecibos.filter(r => r.estado === 'COBRADO').reduce((acc, r) => acc + r.importe, 0);
   const pendientes = misRecibos.filter(r => r.estado === 'PENDIENTE');
+
+  // ── Ficha rápida (CRM) ──────────────────────────────────────────────────────
+  const ultimaAsistidaFecha = misReservas
+    .filter(r => r.estado === 'ASISTIDA')
+    .map(r => sesiones.find(s => s.id === r.sesionId))
+    .filter((s): s is typeof sesiones[number] => !!s)
+    .sort((a, b) => b.inicio.localeCompare(a.inicio))[0]?.inicio ?? null;
+  const diasSinVenir = ultimaAsistidaFecha ? Math.floor((now.getTime() - new Date(ultimaAsistidaFecha).getTime()) / 86400000) : null;
+  const suscripcionActiva = suscripciones.find(s => s.socioId === id && s.estado === 'ACTIVA') ?? null;
+  const planActivo = suscripcionActiva ? planesTarifa.find(p => p.id === suscripcionActiva.planId) ?? null : null;
+  const bonosActivos = suscripciones.filter(s => s.socioId === id && s.estado === 'ACTIVA').length;
+  const pendientesImporte = pendientes.reduce((acc, r) => acc + r.importe, 0);
+  const cumpleanos = socio.fechaNacimiento
+    ? new Date(socio.fechaNacimiento).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })
+    : null;
 
   // 12-week attendance sparkline
   const sparklineWeeks = Array.from({ length: 12 }, (_, i) => {
@@ -1126,33 +1139,43 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             </div>
           </Card>
 
-          {/* Notes */}
+          {/* Ficha rápida (CRM) */}
           <Card>
-            <div className="flex items-center justify-between mb-3">
-              <SectionTitle>Notas</SectionTitle>
-              <button
-                onClick={() => {
-                  if (!editingNotes) setNotesValue((socio as any).notas ?? '');
-                  else updateSocio(id, { ...(socio as any), notas: notesValue });
-                  setEditingNotes(v => !v);
-                }}
-                className="text-xs font-bold text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
-              >
-                {editingNotes ? 'Guardar' : 'Editar'}
-              </button>
+            <SectionTitle>Ficha rápida</SectionTitle>
+            <div className="space-y-2.5 mt-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#8E8E86]">Última asistencia</span>
+                <span className="text-xs font-bold" style={{ color: diasSinVenir != null && diasSinVenir >= 30 ? '#DC2626' : '#1A1A1A' }}>
+                  {diasSinVenir == null ? 'Nunca' : diasSinVenir === 0 ? 'Hoy' : `Hace ${diasSinVenir} días`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#8E8E86]">Membresía</span>
+                <span className="text-xs font-bold text-[#1A1A1A]">{planActivo?.nombre ?? 'Sin plan'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#8E8E86]">Bonos activos</span>
+                <span className="text-xs font-bold text-[#1A1A1A]">{bonosActivos}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#8E8E86]">Pagos pendientes</span>
+                <span className="text-xs font-bold" style={{ color: pendientesImporte > 0 ? '#DC2626' : '#1A1A1A' }}>
+                  {pendientesImporte.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
+                </span>
+              </div>
+              {cumpleanos && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[#8E8E86]">Cumpleaños</span>
+                  <span className="text-xs font-bold text-[#1A1A1A]">{cumpleanos}</span>
+                </div>
+              )}
             </div>
-            {editingNotes ? (
-              <textarea
-                rows={4}
-                value={notesValue}
-                onChange={e => setNotesValue(e.target.value)}
-                placeholder="Notas sobre la socia…"
-                className="w-full text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none resize-none border border-[#E7E7E0] rounded-lg px-3 py-2"
-              />
-            ) : (
-              <p className="text-sm text-[#8E8E86] leading-relaxed min-h-[40px]">
-                {(socio as any).notas ?? 'Sin notas.'}
-              </p>
+            {misNotas.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-[#F1F1EC]">
+                <p className="text-xs text-[#8E8E86] leading-relaxed line-clamp-3">
+                  {misNotas.filter(n => n.tipo === 'NOTA').slice(0, 2).map(n => `• ${n.texto}`).join('\n') || 'Sin notas.'}
+                </p>
+              </div>
             )}
           </Card>
 
