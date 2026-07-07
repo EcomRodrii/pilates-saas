@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { PlanTarifa } from '@/lib/types';
 import {
@@ -224,6 +225,8 @@ export default function ReservarPage() {
   const estudioEmail = studio?.email ?? 'hola@tentare.es';
   const estudioTelefono = studio?.telefono ?? '+34 951 000 000';
   const { socia, login, logout } = useLocalSocia();
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get('ref');
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -335,6 +338,7 @@ export default function ReservarPage() {
     if (!socioId) {
       // First-time booking: register guest as a real socia with contract accepted
       socioId = `soc-${Date.now()}`;
+      const referidoValido = refCode && refCode !== socioId && socios.some(s => s.id === refCode) ? refCode : null;
       addSocioFromPortal({
         id: socioId,
         nombre: socia.nombre,
@@ -344,6 +348,7 @@ export default function ReservarPage() {
           firma: socia.nombre,
           versionTexto: 'v1.1',
         },
+        referidoPor: referidoValido,
       });
       login({ nombre: socia.nombre, email: socia.email, socioId });
     }

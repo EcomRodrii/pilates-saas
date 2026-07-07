@@ -74,6 +74,7 @@ export interface Socio {
   fechaNacimiento?: string | null;
   direccion?: string | null;
   fotoUrl?: string | null;
+  referidoPor?: string | null; // id del socio que la invitó (programa de referidos)
 }
 
 // ─── Preferencias del alumno (portal de miembros) ────────────────────────────

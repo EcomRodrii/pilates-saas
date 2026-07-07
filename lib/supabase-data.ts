@@ -122,6 +122,7 @@ function mapSocio(r: any) {
     fechaNacimiento: r.fecha_nacimiento ?? null,
     direccion: r.direccion ?? null,
     fotoUrl: r.foto_url ?? null,
+    referidoPor: r.referido_por ?? null,
   };
 }
 
@@ -793,12 +794,21 @@ export async function fetchAllStudioData() {
 // ─── Mappers: TS (camelCase) → DB (snake_case) ───────────────────────────────
 
 function socioToDb(socio: any) {
-  const { aceptacionContrato, studioId, fechaAlta, leadStage, ...rest } = socio;
+  const {
+    aceptacionContrato, studioId, fechaAlta, leadStage,
+    stripeCustomerId, stripePaymentMethodId, fechaNacimiento, fotoUrl, referidoPor,
+    ...rest
+  } = socio;
   return {
     ...rest,
     studio_id: studioId ?? STUDIO_ID,
     fecha_alta: fechaAlta,
     lead_stage: leadStage ?? null,
+    stripe_customer_id: stripeCustomerId ?? null,
+    stripe_payment_method_id: stripePaymentMethodId ?? null,
+    fecha_nacimiento: fechaNacimiento ?? null,
+    foto_url: fotoUrl ?? null,
+    referido_por: referidoPor ?? null,
     aceptacion_fecha: aceptacionContrato?.fecha ?? null,
     aceptacion_firma: aceptacionContrato?.firma ?? null,
     aceptacion_version: aceptacionContrato?.versionTexto ?? null,
@@ -1052,6 +1062,7 @@ export async function dbUpdateSocio(id: string, changes: any) {
   if ('fechaNacimiento' in changes) db.fecha_nacimiento = changes.fechaNacimiento;
   if ('direccion' in changes) db.direccion = changes.direccion;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  if ('referidoPor' in changes) db.referido_por = changes.referidoPor;
   if ('aceptacionContrato' in changes) {
     db.aceptacion_fecha = changes.aceptacionContrato?.fecha ?? null;
     db.aceptacion_firma = changes.aceptacionContrato?.firma ?? null;

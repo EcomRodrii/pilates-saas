@@ -7,7 +7,7 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import {
   Calendar, CreditCard, Play, TrendingUp, Clock, ChevronRight, Zap,
-  AlertCircle, ListChecks, User, AlertTriangle, Coins, Trophy,
+  AlertCircle, ListChecks, User, AlertTriangle, Coins, Trophy, UserPlus,
 } from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext } from '@/lib/portal-home-logic';
@@ -283,6 +283,7 @@ export default function PortalHome() {
             { href: `/portal/${slug}/progreso`, icon: TrendingUp, label: 'Progreso', color: '#F7A6C4', bg: '#FFF2F7' },
             { href: `/portal/${slug}/creditos`, icon: Coins, label: 'Mis créditos', color: '#B45309', bg: '#FFFBEB' },
             { href: `/portal/${slug}/logros`, icon: Trophy, label: 'Logros', color: '#B57A8E', bg: '#FFF2F7' },
+            { href: `/portal/${slug}/invitar`, icon: UserPlus, label: 'Invita a una amiga', color: '#2E7D4F', bg: '#ECFDF5' },
             { href: `/portal/${slug}/perfil`, icon: User, label: 'Perfil', color: '#6D28D9', bg: '#F3EEFF' },
           ].map(({ href, icon: Icon, label, color, bg }) => (
             <Link

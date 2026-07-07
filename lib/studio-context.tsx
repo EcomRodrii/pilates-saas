@@ -167,7 +167,7 @@ interface StudioContextValue {
 
   // Socios
   addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string }) => void;
-  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato }) => void;
+  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => void;
   updateSocio: (id: string, changes: Partial<Socio>) => void;
   deleteSocio: (id: string) => void;
   addTagSocio: (socioId: string, tag: string) => void;
@@ -669,7 +669,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     }
   }
 
-  function addSocioFromPortal(fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato }) {
+  function addSocioFromPortal(fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) {
     const nuevaSocia: Socio = {
       id: fields.id,
       studioId: getCurrentStudioId(),
@@ -681,8 +681,16 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       fechaAlta: new Date().toISOString(),
       activo: true,
       ...(fields.aceptacionContrato ? { aceptacionContrato: fields.aceptacionContrato } : {}),
+      ...(fields.referidoPor ? { referidoPor: fields.referidoPor } : {}),
     };
     setSocios(prev => [...prev, nuevaSocia]);
+    dbInsertSocio(nuevaSocia);
+    // El amigo referidor recibe sus créditos al confirmarse la nueva alta —
+    // refId es el id de la nueva socia, así nunca se premia dos veces por la
+    // misma persona referida.
+    if (fields.referidoPor) {
+      otorgarCreditos(fields.referidoPor, 'REFERIDO_AMIGO', nuevaSocia.id);
+    }
   }
 
   function updateStudioConfig(changes: Partial<StudioConfig>) {

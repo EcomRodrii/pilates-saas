@@ -470,6 +470,9 @@ alter table socios add column if not exists fecha_nacimiento date;
 alter table socios add column if not exists direccion text;
 alter table socios add column if not exists foto_url text;
 
+-- Migración: programa de referidos ("invita a una amiga")
+alter table socios add column if not exists referido_por text references socios(id) on delete set null;
+
 create table if not exists preferencias_socio (
   socio_id text primary key references socios(id) on delete cascade,
   studio_id text references studios(id) on delete cascade,
