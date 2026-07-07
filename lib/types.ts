@@ -777,3 +777,17 @@ export interface DashboardChart {
   color: string;
   creadoEn: string;
 }
+
+// ─── Copias de seguridad ────────────────────────────────────────────────────
+// El contenido real (jsonb con todas las tablas) nunca llega al cliente —
+// solo se lee/escribe desde rutas de servidor con la service role key (ver
+// lib/backup-engine.ts). El panel solo ve estos metadatos.
+
+export type TipoBackup = 'DIARIO' | 'SEMANAL' | 'MENSUAL' | 'MANUAL';
+
+export interface BackupMeta {
+  id: string;
+  studioId: string;
+  tipo: TipoBackup;
+  creadoEn: string;
+}

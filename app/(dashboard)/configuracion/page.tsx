@@ -12,6 +12,7 @@ import { TabRecompensas } from '@/components/configuracion/tab-recompensas';
 import { TabLogros } from '@/components/configuracion/tab-logros';
 import { TabNiveles } from '@/components/configuracion/tab-niveles';
 import { TabRetos } from '@/components/configuracion/tab-retos';
+import { TabBackups } from '@/components/configuracion/tab-backups';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, PayPalIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
 
@@ -210,7 +211,7 @@ function EstadoBadge({ activo }: { activo: boolean }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'logros' | 'niveles' | 'retos' | 'integraciones' | 'estudio' | 'perfil';
+type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'logros' | 'niveles' | 'retos' | 'integraciones' | 'estudio' | 'backups' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
@@ -222,6 +223,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'retos',       label: 'Retos' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
+  { id: 'backups',     label: 'Copias de seguridad' },
   { id: 'perfil',      label: 'Mi perfil' },
 ];
 
@@ -278,6 +280,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'logros'      && <TabLogros       showToast={showToast} />}
       {activeTab === 'niveles'     && <TabNiveles      showToast={showToast} />}
       {activeTab === 'retos'       && <TabRetos        showToast={showToast} />}
+      {activeTab === 'backups'     && <TabBackups      showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
       {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}

@@ -337,6 +337,15 @@ function mapDashboardChart(r: any) {
   };
 }
 
+function mapBackupMeta(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    tipo: r.tipo,
+    creadoEn: r.creado_en,
+  };
+}
+
 function mapPlanTarifa(r: any) {
   return {
     id: r.id,
@@ -761,6 +770,7 @@ export async function fetchAllStudioData() {
     challengeProgressRes,
     challengeHistoryRes,
     dashboardChartsRes,
+    backupsRes,
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
     supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
@@ -807,6 +817,7 @@ export async function fetchAllStudioData() {
     supabase.from('challenge_progress').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('challenge_history').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('dashboard_charts').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('backups').select('id, studio_id, tipo, creado_en').eq('studio_id', STUDIO_ID).order('creado_en', { ascending: false }),
   ]);
 
   return {
@@ -855,6 +866,7 @@ export async function fetchAllStudioData() {
     challengeProgress: (challengeProgressRes.data ?? []).map(mapChallengeProgress),
     challengeHistory: (challengeHistoryRes.data ?? []).map(mapChallengeHistory),
     dashboardCharts: (dashboardChartsRes.data ?? []).map(mapDashboardChart),
+    backups: (backupsRes.data ?? []).map(mapBackupMeta),
   };
 }
 

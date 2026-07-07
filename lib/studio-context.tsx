@@ -85,6 +85,7 @@ import type {
   ChallengeProgress,
   ChallengeHistory,
   DashboardChart,
+  BackupMeta,
   Notificacion,
   VideoOnDemand,
   PostComunidad,
@@ -300,6 +301,7 @@ interface StudioContextValue {
   dashboardCharts: DashboardChart[];
   addDashboardChart: (fields: Omit<DashboardChart, 'id' | 'studioId' | 'creadoEn'>) => void;
   deleteDashboardChart: (id: string) => void;
+  backups: BackupMeta[];
   marcarTodasLeidas: () => void;
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => void;
@@ -420,6 +422,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [challengeProgress, setChallengeProgress] = useState<ChallengeProgress[]>([]);
   const [challengeHistory, setChallengeHistory] = useState<ChallengeHistory[]>([]);
   const [dashboardCharts, setDashboardCharts] = useState<DashboardChart[]>([]);
+  const [backups, setBackups] = useState<BackupMeta[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
@@ -496,6 +499,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setChallengeProgress(data.challengeProgress ?? []);
       setChallengeHistory(data.challengeHistory ?? []);
       setDashboardCharts(data.dashboardCharts ?? []);
+      setBackups(data.backups ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
@@ -2020,6 +2024,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     dashboardCharts,
     addDashboardChart,
     deleteDashboardChart,
+    backups,
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
@@ -2080,6 +2085,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setChallengeProgress(data.challengeProgress ?? []);
       setChallengeHistory(data.challengeHistory ?? []);
       setDashboardCharts(data.dashboardCharts ?? []);
+      setBackups(data.backups ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);

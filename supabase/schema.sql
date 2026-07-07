@@ -682,6 +682,25 @@ alter table dashboard_charts enable row level security;
 drop policy if exists "admin_dashboard_charts" on dashboard_charts;
 create policy "admin_dashboard_charts" on dashboard_charts for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
 
+-- Migración: copias de seguridad. El contenido (columna datos) solo lo tocan
+-- rutas de servidor con la service role key — el panel autenticado solo
+-- puede LEER metadatos (nunca la columna datos, que no se selecciona desde
+-- el cliente) y no puede insertar/borrar directamente: crear y restaurar
+-- pasan siempre por /api/backups/*, que valida rol de propietaria para
+-- restaurar.
+create table if not exists backups (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  tipo text not null check (tipo in ('DIARIO', 'SEMANAL', 'MENSUAL', 'MANUAL')),
+  datos jsonb not null,
+  creado_en timestamptz not null default now()
+);
+alter table backups enable row level security;
+drop policy if exists "admin_read_backups" on backups;
+-- Solo propietaria: un backup es un volcado conjunto de todas las tablas
+-- (recibos, socios...), más sensible que cualquiera de ellas por separado.
+create policy "admin_read_backups" on backups for select to authenticated using (current_rol() = 'PROPIETARIO' and studio_id = current_studio_id());
+
 do $$
 declare
   t text;
