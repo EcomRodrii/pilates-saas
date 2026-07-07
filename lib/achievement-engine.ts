@@ -1,4 +1,5 @@
 import type { AchievementMetric, AchievementMetricDef, Reserva, Sesion, Socio } from '@/lib/types';
+import { calcularRacha } from '@/lib/streak-engine';
 
 // Catálogo de métricas que la app sabe calcular. El estudio no inventa
 // métricas nuevas (eso es código), pero SÍ decide el umbral de cada logro
@@ -14,37 +15,6 @@ export const ACHIEVEMENT_METRICS: AchievementMetricDef[] = [
 
 export function metricaDef(metric: AchievementMetric): AchievementMetricDef | undefined {
   return ACHIEVEMENT_METRICS.find(m => m.metric === metric);
-}
-
-function semanasConsecutivas(reservas: Reserva[], sesiones: Sesion[], now: Date): number {
-  const asistidas = reservas
-    .filter(r => r.estado === 'ASISTIDA')
-    .map(r => sesiones.find(s => s.id === r.sesionId))
-    .filter((s): s is Sesion => !!s)
-    .map(s => new Date(s.inicio));
-  if (asistidas.length === 0) return 0;
-
-  // Lunes de la semana de una fecha dada, normalizado a medianoche.
-  const lunesDe = (d: Date) => {
-    const copia = new Date(d);
-    const diaSemana = (copia.getDay() + 6) % 7; // 0 = lunes
-    copia.setDate(copia.getDate() - diaSemana);
-    copia.setHours(0, 0, 0, 0);
-    return copia.getTime();
-  };
-
-  const semanasConClase = new Set(asistidas.map(lunesDe));
-  let racha = 0;
-  let cursor = lunesDe(now);
-  const unaSemanaMs = 7 * 86400000;
-  // Si esta semana aún no tiene clase, no rompe la racha todavía — se
-  // cuenta desde la última semana que sí tuvo actividad.
-  if (!semanasConClase.has(cursor)) cursor -= unaSemanaMs;
-  while (semanasConClase.has(cursor)) {
-    racha++;
-    cursor -= unaSemanaMs;
-  }
-  return racha;
 }
 
 function asistioEnCumpleanos(reservas: Reserva[], sesiones: Sesion[], socio: Socio | undefined): boolean {
@@ -89,7 +59,7 @@ export function calcularMetrica(metric: AchievementMetric, ctx: MetricaContexto)
     case 'RESERVAS_TOTALES':
       return ctx.reservas.length;
     case 'SEMANAS_CONSECUTIVAS':
-      return semanasConsecutivas(ctx.reservas, ctx.sesiones, ctx.now);
+      return calcularRacha(ctx.reservas, ctx.sesiones, ctx.now).semanas;
     case 'ASISTENCIA_MENSUAL_COMPLETA':
       return asistenciaMensualCompleta(ctx.reservas, ctx.sesiones, ctx.now) ? 1 : 0;
     case 'AMIGOS_INVITADOS':

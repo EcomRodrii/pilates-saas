@@ -90,6 +90,7 @@ import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, yaOtorgado } from '@/lib/reward-engine';
 import { calcularMetrica } from '@/lib/achievement-engine';
+import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -259,6 +260,7 @@ interface StudioContextValue {
   rewardRedemptions: RewardRedemption[];
   otorgarCreditos: (socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) => void;
   saldoCreditos: (socioId: string) => number;
+  rachaSocio: (socioId: string) => RachaInfo;
   addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn'>) => void;
   updateRewardRule: (id: string, changes: Partial<Omit<RewardRule, 'id' | 'studioId'>>) => void;
   addRewardCatalogItem: (fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) => void;
@@ -874,6 +876,12 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     if (!reserva) return;
     otorgarCreditos(reserva.socioId, 'ASISTENCIA_CLASE', reservaId);
     evaluarLogrosSocio(reserva.socioId, reservasActualizadas);
+    // Racha: si esta es la primera clase de la semana, se premia "semana
+    // completa" — refId por semana evita otorgarlo dos veces la misma semana.
+    const racha = calcularRacha(reservasActualizadas.filter(r => r.socioId === reserva.socioId), sesiones, new Date());
+    if (racha.semanas > 0) {
+      otorgarCreditos(reserva.socioId, 'SEMANA_COMPLETA', `${reserva.socioId}:${racha.claveSemanaActual}`);
+    }
     const sus = suscripciones.find(s => s.socioId === reserva.socioId && s.estado === 'ACTIVA');
     if (!sus) return;
     const plan = planesTarifa.find(p => p.id === sus.planId);
@@ -1391,6 +1399,10 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     return memberCredits.find(m => m.socioId === socioId)?.saldo ?? 0;
   }
 
+  function rachaSocio(socioId: string) {
+    return calcularRacha(reservas.filter(r => r.socioId === socioId), sesiones, new Date());
+  }
+
   function addRewardRule(fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn'>) {
     const nueva: RewardRule = { ...fields, id: `rwr-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
     setRewardRules(prev => [...prev, nueva]);
@@ -1825,6 +1837,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     rewardRedemptions,
     otorgarCreditos,
     saldoCreditos,
+    rachaSocio,
     addRewardRule,
     updateRewardRule,
     addRewardCatalogItem,

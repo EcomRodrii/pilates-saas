@@ -15,7 +15,7 @@ import { getHomeCardContext } from '@/lib/portal-home-logic';
 export default function PortalHome() {
   const { slug } = useParams<{ slug: string }>();
   const { session } = usePortalAuth();
-  const { socios, suscripciones, planesTarifa, sesiones, reservas, tiposClase, salas, instructores, saldoCreditos } = useStudio();
+  const { socios, suscripciones, planesTarifa, sesiones, reservas, tiposClase, salas, instructores, saldoCreditos, rachaSocio } = useStudio();
 
   const socio = socios.find(s => s.id === session?.socioId);
   const activeSus = suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA') ?? null;
@@ -26,9 +26,13 @@ export default function PortalHome() {
   const misReservas = useMemo(() =>
     reservas.filter(r => r.socioId === session?.socioId), [reservas, session?.socioId]);
 
+  const racha = useMemo(() => session ? rachaSocio(session.socioId) : null,
+    [session, reservas, sesiones]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const homeCard = useMemo(() => getHomeCardContext({
     now, misReservas, sesiones, tiposClase, salas, instructores, activeSus,
-  }), [now, misReservas, sesiones, tiposClase, salas, instructores, activeSus]);
+    racha: racha ?? { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: '' },
+  }), [now, misReservas, sesiones, tiposClase, salas, instructores, activeSus, racha]);
 
   const totalAsistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
   const clasesEsteMes = useMemo(() => {
@@ -66,6 +70,15 @@ export default function PortalHome() {
             <h1 className="text-white text-[28px] font-extrabold leading-tight tracking-tight mt-0.5">
               {nombre} 👋
             </h1>
+            {racha && racha.semanas > 0 && (
+              <Link
+                href={`/portal/${slug}/logros`}
+                className="inline-flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 mt-2 active:opacity-80 transition-opacity"
+              >
+                <span className="text-[13px]">🔥</span>
+                <span className="text-white text-[11px] font-bold">{racha.semanas} {racha.semanas === 1 ? 'semana' : 'semanas'} seguidas</span>
+              </Link>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2">
             <Link
@@ -150,6 +163,25 @@ export default function PortalHome() {
               <p className="text-white/70 text-[13px] mb-4">Renueva antes de perder tu plaza.</p>
               <div className="inline-flex items-center gap-2 bg-white text-[#92400E] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
                 Renovar
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {homeCard.caso === 'RACHA_EN_RIESGO' && (
+          <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
+            <div className="p-5 bg-gradient-to-br from-[#EA580C] to-[#9A3412] text-white">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[18px]">🔥</span>
+                <p className="text-white/70 text-[11px] font-bold uppercase tracking-widest">Racha de {homeCard.semanas} semanas</p>
+              </div>
+              <p className="text-white text-[20px] font-extrabold mb-1">
+                Te quedan {homeCard.diasParaPerder} {homeCard.diasParaPerder === 1 ? 'día' : 'días'} para mantener tu racha
+              </p>
+              <p className="text-white/70 text-[13px] mb-4">Reserva una clase esta semana para no perderla.</p>
+              <div className="inline-flex items-center gap-2 bg-white text-[#9A3412] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
+                <Calendar size={15} />
+                Reservar ahora
               </div>
             </div>
           </Link>

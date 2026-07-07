@@ -1,4 +1,5 @@
 import type { Reserva, Sesion, Suscripcion, TipoClase, Sala, Instructor } from '@/lib/types';
+import type { RachaInfo } from '@/lib/streak-engine';
 
 // Decide qué tarjeta principal mostrar en el Home del portal de miembros.
 // Función pura y reutilizable — sin JSX, sin estado — para que la lógica de
@@ -8,6 +9,7 @@ import type { Reserva, Sesion, Suscripcion, TipoClase, Sala, Instructor } from '
 export type HomeCardContext =
   | { caso: 'PROXIMA_CLASE'; sesion: Sesion; tipo: TipoClase | null; sala: Sala | null; instructor: Instructor | null; reserva: Reserva }
   | { caso: 'ULTIMA_SESION'; sesionesRestantes: number }
+  | { caso: 'RACHA_EN_RIESGO'; semanas: number; diasParaPerder: number }
   | { caso: 'INACTIVA'; diasSinVenir: number }
   | { caso: 'SIN_CLASES' };
 
@@ -21,6 +23,7 @@ export function getHomeCardContext({
   salas,
   instructores,
   activeSus,
+  racha,
 }: {
   now: Date;
   misReservas: Reserva[];
@@ -29,6 +32,7 @@ export function getHomeCardContext({
   salas: Sala[];
   instructores: Instructor[];
   activeSus: Suscripcion | null;
+  racha: RachaInfo;
 }): HomeCardContext {
   const proxima = misReservas
     .filter(r => r.estado === 'CONFIRMADA')
@@ -40,6 +44,12 @@ export function getHomeCardContext({
   // tenga una clase reservada.
   if (activeSus?.sesionesRestantes === 1) {
     return { caso: 'ULTIMA_SESION', sesionesRestantes: 1 };
+  }
+
+  // CASO E — tiene una racha de semanas y todavía no ha entrenado esta
+  // semana. Solo se avisa si no tiene ya una clase reservada que la salve.
+  if (!proxima && racha.enRiesgo && racha.diasParaPerder != null) {
+    return { caso: 'RACHA_EN_RIESGO', semanas: racha.semanas, diasParaPerder: racha.diasParaPerder };
   }
 
   // CASO B — ya tiene una clase confirmada próxima.
