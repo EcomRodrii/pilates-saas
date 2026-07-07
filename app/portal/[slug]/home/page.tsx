@@ -7,7 +7,7 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import {
   Calendar, CreditCard, Play, TrendingUp, Clock, ChevronRight, Zap,
-  AlertCircle, ListChecks, User, AlertTriangle,
+  AlertCircle, ListChecks, User, AlertTriangle, Coins,
 } from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext } from '@/lib/portal-home-logic';
@@ -15,7 +15,7 @@ import { getHomeCardContext } from '@/lib/portal-home-logic';
 export default function PortalHome() {
   const { slug } = useParams<{ slug: string }>();
   const { session } = usePortalAuth();
-  const { socios, suscripciones, planesTarifa, sesiones, reservas, tiposClase, salas, instructores } = useStudio();
+  const { socios, suscripciones, planesTarifa, sesiones, reservas, tiposClase, salas, instructores, saldoCreditos } = useStudio();
 
   const socio = socios.find(s => s.id === session?.socioId);
   const activeSus = suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA') ?? null;
@@ -67,12 +67,21 @@ export default function PortalHome() {
               {nombre} 👋
             </h1>
           </div>
-          <Link
-            href={`/portal/${slug}/perfil`}
-            className="mt-1 rounded-full ring-2 ring-white/20 active:opacity-80 transition-opacity"
-          >
-            <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
-          </Link>
+          <div className="flex flex-col items-end gap-2">
+            <Link
+              href={`/portal/${slug}/perfil`}
+              className="rounded-full ring-2 ring-white/20 active:opacity-80 transition-opacity"
+            >
+              <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
+            </Link>
+            <Link
+              href={`/portal/${slug}/creditos`}
+              className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 active:opacity-80 transition-opacity"
+            >
+              <Coins size={11} className="text-[#FFC8E2]" />
+              <span className="text-white text-[11px] font-bold">{socio ? saldoCreditos(socio.id) : 0}</span>
+            </Link>
+          </div>
         </div>
 
         {/* Stats row */}
@@ -240,6 +249,7 @@ export default function PortalHome() {
             { href: `/portal/${slug}/mi-plan`, icon: CreditCard, label: 'Mi plan', color: '#059669', bg: '#ECFDF5' },
             { href: `/portal/${slug}/videos`, icon: Play, label: 'Vídeos', color: '#D97706', bg: '#FFFBEB' },
             { href: `/portal/${slug}/progreso`, icon: TrendingUp, label: 'Progreso', color: '#F7A6C4', bg: '#FFF2F7' },
+            { href: `/portal/${slug}/creditos`, icon: Coins, label: 'Mis créditos', color: '#B45309', bg: '#FFFBEB' },
             { href: `/portal/${slug}/perfil`, icon: User, label: 'Perfil', color: '#6D28D9', bg: '#F3EEFF' },
           ].map(({ href, icon: Icon, label, color, bg }) => (
             <Link

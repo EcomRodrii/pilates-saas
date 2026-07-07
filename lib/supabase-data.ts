@@ -140,6 +140,93 @@ function mapPreferenciasSocio(r: any) {
   };
 }
 
+function mapRewardRule(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    trigger: r.trigger,
+    nombre: r.nombre,
+    descripcion: r.descripcion ?? null,
+    creditos: r.creditos,
+    activa: r.activa,
+    creadoEn: r.creado_en,
+  };
+}
+
+function mapRewardAction(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    trigger: r.trigger,
+    refId: r.ref_id ?? null,
+    creadoEn: r.creado_en,
+  };
+}
+
+function mapRewardHistory(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    ruleId: r.rule_id,
+    actionId: r.action_id,
+    creditos: r.creditos,
+    descripcion: r.descripcion,
+    creadoEn: r.creado_en,
+  };
+}
+
+function mapCreditTransaction(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    tipo: r.tipo,
+    creditos: r.creditos,
+    descripcion: r.descripcion,
+    refId: r.ref_id ?? null,
+    creadoEn: r.creado_en,
+  };
+}
+
+function mapMemberCredits(r: any) {
+  return {
+    socioId: r.socio_id,
+    studioId: r.studio_id,
+    saldo: r.saldo,
+    totalGanado: r.total_ganado,
+    totalCanjeado: r.total_canjeado,
+    actualizadoEn: r.actualizado_en,
+  };
+}
+
+function mapRewardCatalogItem(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    nombre: r.nombre,
+    descripcion: r.descripcion ?? null,
+    costeCreditos: r.coste_creditos,
+    icono: r.icono,
+    activo: r.activo,
+    stock: r.stock ?? null,
+    creadoEn: r.creado_en,
+  };
+}
+
+function mapRewardRedemption(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    catalogItemId: r.catalog_item_id,
+    creditosGastados: r.creditos_gastados,
+    estado: r.estado,
+    creadoEn: r.creado_en,
+  };
+}
+
 function mapPlanTarifa(r: any) {
   return {
     id: r.id,
@@ -549,6 +636,13 @@ export async function fetchAllStudioData() {
     integracionesRes,
     mensajesEquipoRes,
     preferenciasSocioRes,
+    rewardRulesRes,
+    rewardActionsRes,
+    rewardHistoryRes,
+    creditTransactionsRes,
+    memberCreditsRes,
+    rewardCatalogRes,
+    rewardRedemptionsRes,
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
     supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
@@ -580,6 +674,13 @@ export async function fetchAllStudioData() {
     supabase.from('integraciones').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('mensajes_equipo').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('preferencias_socio').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('reward_rules').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('reward_actions').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('reward_history').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('credit_transactions').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('member_credits').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('reward_catalog').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('reward_redemptions').select('*').eq('studio_id', STUDIO_ID),
   ]);
 
   return {
@@ -613,6 +714,13 @@ export async function fetchAllStudioData() {
     integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
     mensajesEquipo: (mensajesEquipoRes.data ?? []).map(mapMensajeEquipo),
     preferenciasSocio: (preferenciasSocioRes.data ?? []).map(mapPreferenciasSocio),
+    rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
+    rewardActions: (rewardActionsRes.data ?? []).map(mapRewardAction),
+    rewardHistory: (rewardHistoryRes.data ?? []).map(mapRewardHistory),
+    creditTransactions: (creditTransactionsRes.data ?? []).map(mapCreditTransaction),
+    memberCredits: (memberCreditsRes.data ?? []).map(mapMemberCredits),
+    rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
+    rewardRedemptions: (rewardRedemptionsRes.data ?? []).map(mapRewardRedemption),
   };
 }
 
@@ -1053,6 +1161,106 @@ export async function dbUpsertPreferenciasSocio(p: any) {
   };
   const { error } = await supabase.from('preferencias_socio').upsert(row, { onConflict: 'socio_id' });
   if (error) reportDbError('[dbUpsertPreferenciasSocio]', error);
+}
+
+// ─── Gamificación: créditos y recompensas ────────────────────────────────────
+
+export async function dbInsertRewardRule(r: any) {
+  const row = {
+    id: r.id, studio_id: r.studioId ?? STUDIO_ID, trigger: r.trigger, nombre: r.nombre,
+    descripcion: r.descripcion ?? null, creditos: r.creditos, activa: r.activa, creado_en: r.creadoEn,
+  };
+  const { error } = await supabase.from('reward_rules').insert(row);
+  if (error) reportDbError('[dbInsertRewardRule]', error);
+}
+
+export async function dbUpdateRewardRule(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('creditos' in changes) db.creditos = changes.creditos;
+  if ('activa' in changes) db.activa = changes.activa;
+  const { error } = await supabase.from('reward_rules').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateRewardRule]', error);
+}
+
+export async function dbInsertRewardAction(a: any) {
+  const row = {
+    id: a.id, studio_id: a.studioId ?? STUDIO_ID, socio_id: a.socioId, trigger: a.trigger,
+    ref_id: a.refId ?? null, creado_en: a.creadoEn,
+  };
+  const { error } = await supabase.from('reward_actions').insert(row);
+  if (error) reportDbError('[dbInsertRewardAction]', error);
+  return !error;
+}
+
+export async function dbInsertRewardHistory(h: any) {
+  const row = {
+    id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, rule_id: h.ruleId,
+    action_id: h.actionId, creditos: h.creditos, descripcion: h.descripcion, creado_en: h.creadoEn,
+  };
+  const { error } = await supabase.from('reward_history').insert(row);
+  if (error) reportDbError('[dbInsertRewardHistory]', error);
+}
+
+export async function dbInsertCreditTransaction(t: any) {
+  const row = {
+    id: t.id, studio_id: t.studioId ?? STUDIO_ID, socio_id: t.socioId, tipo: t.tipo,
+    creditos: t.creditos, descripcion: t.descripcion, ref_id: t.refId ?? null, creado_en: t.creadoEn,
+  };
+  const { error } = await supabase.from('credit_transactions').insert(row);
+  if (error) reportDbError('[dbInsertCreditTransaction]', error);
+}
+
+export async function dbUpsertMemberCredits(m: any) {
+  const row = {
+    socio_id: m.socioId, studio_id: m.studioId ?? STUDIO_ID, saldo: m.saldo,
+    total_ganado: m.totalGanado, total_canjeado: m.totalCanjeado, actualizado_en: new Date().toISOString(),
+  };
+  const { error } = await supabase.from('member_credits').upsert(row, { onConflict: 'socio_id' });
+  if (error) reportDbError('[dbUpsertMemberCredits]', error);
+}
+
+export async function dbInsertRewardCatalogItem(c: any) {
+  const row = {
+    id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
+    coste_creditos: c.costeCreditos, icono: c.icono, activo: c.activo, stock: c.stock ?? null, creado_en: c.creadoEn,
+  };
+  const { error } = await supabase.from('reward_catalog').insert(row);
+  if (error) reportDbError('[dbInsertRewardCatalogItem]', error);
+}
+
+export async function dbUpdateRewardCatalogItem(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('costeCreditos' in changes) db.coste_creditos = changes.costeCreditos;
+  if ('icono' in changes) db.icono = changes.icono;
+  if ('activo' in changes) db.activo = changes.activo;
+  if ('stock' in changes) db.stock = changes.stock;
+  const { error } = await supabase.from('reward_catalog').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateRewardCatalogItem]', error);
+}
+
+export async function dbDeleteRewardCatalogItem(id: string) {
+  const { error } = await supabase.from('reward_catalog').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteRewardCatalogItem]', error);
+}
+
+export async function dbInsertRewardRedemption(r: any) {
+  const row = {
+    id: r.id, studio_id: r.studioId ?? STUDIO_ID, socio_id: r.socioId, catalog_item_id: r.catalogItemId,
+    creditos_gastados: r.creditosGastados, estado: r.estado, creado_en: r.creadoEn,
+  };
+  const { error } = await supabase.from('reward_redemptions').insert(row);
+  if (error) reportDbError('[dbInsertRewardRedemption]', error);
+}
+
+export async function dbUpdateRewardRedemption(id: string, changes: any) {
+  const db: any = {};
+  if ('estado' in changes) db.estado = changes.estado;
+  const { error } = await supabase.from('reward_redemptions').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateRewardRedemption]', error);
 }
 
 export async function dbInsertAutomationLog(log: any) {

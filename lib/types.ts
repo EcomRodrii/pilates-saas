@@ -518,3 +518,108 @@ export interface PostComunidad {
   fijado: boolean;
   creadoEn: string;
 }
+
+// ─── Gamificación: créditos y recompensas ─────────────────────────────────────
+// El estudio configura CUÁNTO vale cada acción (RewardRule) — el motor
+// (lib/reward-engine.ts) nunca usa números fijos, siempre lee la regla.
+
+export type RewardTrigger =
+  | 'ASISTENCIA_CLASE'
+  | 'RENOVACION_PLAN'
+  | 'REFERIDO_AMIGO'
+  | 'SEMANA_COMPLETA'
+  | 'PRIMERA_RESERVA'
+  | 'OBJETIVO_MENSUAL';
+
+// Catálogo (fijo en código: solo la app puede "detectar" estos disparadores;
+// lo configurable es cuánto vale cada uno, vía RewardRule) de qué es cada uno.
+export interface RewardTriggerDef {
+  trigger: RewardTrigger;
+  nombre: string;
+  descripcion: string;
+}
+
+export interface RewardRule {
+  id: string;
+  studioId: string;
+  trigger: RewardTrigger;
+  nombre: string;
+  descripcion: string | null;
+  creditos: number;
+  activa: boolean;
+  creadoEn: string;
+}
+
+// Hecho en bruto: "este disparador ocurrió para esta socia" — existe sobre
+// todo para poder comprobar idempotencia (refId) y no premiar dos veces la
+// misma reserva/recibo si el evento se reintenta.
+export interface RewardAction {
+  id: string;
+  studioId: string;
+  socioId: string;
+  trigger: RewardTrigger;
+  refId: string | null;
+  creadoEn: string;
+}
+
+// Línea de historial legible para la socia ("Wallet" → Historial).
+export interface RewardHistory {
+  id: string;
+  studioId: string;
+  socioId: string;
+  ruleId: string;
+  actionId: string;
+  creditos: number;
+  descripcion: string;
+  creadoEn: string;
+}
+
+export type TipoTransaccion = 'GANANCIA' | 'CANJE';
+
+// Libro mayor completo (ganancias + canjes) — es la fuente de verdad real
+// del saldo; MemberCredits es solo una caché para no recalcular sumando.
+export interface CreditTransaction {
+  id: string;
+  studioId: string;
+  socioId: string;
+  tipo: TipoTransaccion;
+  creditos: number; // positivo en GANANCIA, negativo en CANJE
+  descripcion: string;
+  refId: string | null;
+  creadoEn: string;
+}
+
+export interface MemberCredits {
+  socioId: string;
+  studioId: string;
+  saldo: number;
+  totalGanado: number;
+  totalCanjeado: number;
+  actualizadoEn: string;
+}
+
+export type EstadoRecompensaCanjeable = 'DISPONIBLE' | 'BLOQUEADA' | 'CANJEADA';
+
+export interface RewardCatalogItem {
+  id: string;
+  studioId: string;
+  nombre: string;
+  descripcion: string | null;
+  costeCreditos: number;
+  icono: string;
+  activo: boolean;
+  stock: number | null; // null = ilimitado
+  creadoEn: string;
+}
+
+export type EstadoCanje = 'PENDIENTE' | 'ENTREGADO' | 'CANCELADO';
+
+export interface RewardRedemption {
+  id: string;
+  studioId: string;
+  socioId: string;
+  catalogItemId: string;
+  creditosGastados: number;
+  estado: EstadoCanje;
+  creadoEn: string;
+}

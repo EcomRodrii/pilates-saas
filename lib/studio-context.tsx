@@ -15,6 +15,10 @@ import {
   dbInsertActividadReciente,
   dbInsertMensajeEquipo,
   dbUpsertPreferenciasSocio,
+  dbInsertRewardRule, dbUpdateRewardRule,
+  dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbUpsertMemberCredits,
+  dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem,
+  dbInsertRewardRedemption, dbUpdateRewardRedemption,
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCampana, dbDeleteCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
@@ -58,6 +62,14 @@ import type {
   MensajeEquipo,
   PreferenciasSocio,
   Disponibilidad,
+  RewardRule,
+  RewardAction,
+  RewardHistory,
+  CreditTransaction,
+  MemberCredits,
+  RewardCatalogItem,
+  RewardRedemption,
+  RewardTrigger,
   Notificacion,
   VideoOnDemand,
   PostComunidad,
@@ -70,6 +82,7 @@ import type {
 } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
+import { reglaActivaPara, yaOtorgado } from '@/lib/reward-engine';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -230,6 +243,22 @@ interface StudioContextValue {
   addMensajeEquipo: (texto: string) => void;
   preferenciasSocio: PreferenciasSocio[];
   upsertPreferenciasSocio: (socioId: string, changes: Partial<Omit<PreferenciasSocio, 'socioId' | 'studioId'>>) => void;
+  rewardRules: RewardRule[];
+  rewardActions: RewardAction[];
+  rewardHistory: RewardHistory[];
+  creditTransactions: CreditTransaction[];
+  memberCredits: MemberCredits[];
+  rewardCatalog: RewardCatalogItem[];
+  rewardRedemptions: RewardRedemption[];
+  otorgarCreditos: (socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) => void;
+  saldoCreditos: (socioId: string) => number;
+  addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn'>) => void;
+  updateRewardRule: (id: string, changes: Partial<Omit<RewardRule, 'id' | 'studioId'>>) => void;
+  addRewardCatalogItem: (fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) => void;
+  updateRewardCatalogItem: (id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) => void;
+  deleteRewardCatalogItem: (id: string) => void;
+  canjearRecompensa: (socioId: string, catalogItemId: string) => { ok: true } | { error: string };
+  updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado']) => void;
   marcarTodasLeidas: () => void;
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => void;
@@ -335,6 +364,13 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [integraciones, setIntegraciones] = useState<Integracion[]>([]);
   const [mensajesEquipo, setMensajesEquipo] = useState<MensajeEquipo[]>([]);
   const [preferenciasSocio, setPreferenciasSocio] = useState<PreferenciasSocio[]>([]);
+  const [rewardRules, setRewardRules] = useState<RewardRule[]>([]);
+  const [rewardActions, setRewardActions] = useState<RewardAction[]>([]);
+  const [rewardHistory, setRewardHistory] = useState<RewardHistory[]>([]);
+  const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
+  const [memberCredits, setMemberCredits] = useState<MemberCredits[]>([]);
+  const [rewardCatalog, setRewardCatalog] = useState<RewardCatalogItem[]>([]);
+  const [rewardRedemptions, setRewardRedemptions] = useState<RewardRedemption[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
@@ -396,6 +432,13 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setIntegraciones(data.integraciones ?? []);
       setMensajesEquipo(data.mensajesEquipo ?? []);
       setPreferenciasSocio(data.preferenciasSocio ?? []);
+      setRewardRules(data.rewardRules ?? []);
+      setRewardActions(data.rewardActions ?? []);
+      setRewardHistory(data.rewardHistory ?? []);
+      setCreditTransactions(data.creditTransactions ?? []);
+      setMemberCredits(data.memberCredits ?? []);
+      setRewardCatalog(data.rewardCatalog ?? []);
+      setRewardRedemptions(data.rewardRedemptions ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
@@ -737,6 +780,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // ── Reservas ─────────────────────────────────────────────────────────────────
 
   function addReserva(sesionId: string, socioId: string) {
+    const esPrimeraReserva = !reservas.some(r => r.socioId === socioId);
     const nueva: Reserva = {
       id: `res-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -750,6 +794,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     };
     setReservas(prev => [...prev, nueva]);
     dbInsertReserva(nueva);
+    if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
   }
 
   function cancelarReserva(reservaId: string) {
@@ -805,6 +850,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     dbUpdateReserva(reservaId, { estado: 'ASISTIDA', checkInEn });
     const reserva = reservas.find(r => r.id === reservaId);
     if (!reserva) return;
+    otorgarCreditos(reserva.socioId, 'ASISTENCIA_CLASE', reservaId);
     const sus = suscripciones.find(s => s.socioId === reserva.socioId && s.estado === 'ACTIVA');
     if (!sus) return;
     const plan = planesTarifa.find(p => p.id === sus.planId);
@@ -982,6 +1028,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
         recibo.socioId,
         `/socios/${recibo.socioId}`
       );
+      if (recibo.concepto.startsWith('Renovación')) {
+        otorgarCreditos(recibo.socioId, 'RENOVACION_PLAN', reciboId);
+      }
     }
   }
 
@@ -1272,6 +1321,123 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     });
   }
 
+  // ── Gamificación: créditos y recompensas ──────────────────────────────────────
+  // El valor de cada acción SIEMPRE sale de rewardRules (configurable por el
+  // estudio) — otorgarCreditos nunca usa un número fijo.
+
+  function otorgarCreditos(socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) {
+    const studioId = getCurrentStudioId();
+    const regla = reglaActivaPara(rewardRules, trigger);
+    if (!regla || regla.creditos <= 0) return;
+    if (yaOtorgado(rewardActions, trigger, refId)) return;
+
+    const now = new Date().toISOString();
+    const action: RewardAction = { id: `rwa-${uid()}`, studioId, socioId, trigger, refId, creadoEn: now };
+    const historyEntry: RewardHistory = {
+      id: `rwh-${uid()}`, studioId, socioId, ruleId: regla.id, actionId: action.id,
+      creditos: regla.creditos, descripcion: descripcionOverride ?? regla.nombre, creadoEn: now,
+    };
+    const transaccion: CreditTransaction = {
+      id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: regla.creditos,
+      descripcion: historyEntry.descripcion, refId, creadoEn: now,
+    };
+
+    setRewardActions(prev => [...prev, action]);
+    setRewardHistory(prev => [historyEntry, ...prev]);
+    setCreditTransactions(prev => [transaccion, ...prev]);
+    setMemberCredits(prev => {
+      const existente = prev.find(m => m.socioId === socioId);
+      const actualizado: MemberCredits = existente
+        ? { ...existente, saldo: existente.saldo + regla.creditos, totalGanado: existente.totalGanado + regla.creditos, actualizadoEn: now }
+        : { socioId, studioId, saldo: regla.creditos, totalGanado: regla.creditos, totalCanjeado: 0, actualizadoEn: now };
+      dbUpsertMemberCredits(actualizado);
+      return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
+    });
+
+    (async () => {
+      const ok = await dbInsertRewardAction(action);
+      // El UNIQUE (studio_id, trigger, ref_id) es el cerrojo real contra
+      // duplicados — si la inserción choca con él, no seguimos otorgando.
+      if (!ok) return;
+      dbInsertRewardHistory(historyEntry);
+      dbInsertCreditTransaction(transaccion);
+    })();
+  }
+
+  function saldoCreditos(socioId: string): number {
+    return memberCredits.find(m => m.socioId === socioId)?.saldo ?? 0;
+  }
+
+  function addRewardRule(fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn'>) {
+    const nueva: RewardRule = { ...fields, id: `rwr-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    setRewardRules(prev => [...prev, nueva]);
+    dbInsertRewardRule(nueva);
+  }
+
+  function updateRewardRule(id: string, changes: Partial<Omit<RewardRule, 'id' | 'studioId'>>) {
+    setRewardRules(prev => prev.map(r => r.id === id ? { ...r, ...changes } : r));
+    dbUpdateRewardRule(id, changes);
+  }
+
+  function addRewardCatalogItem(fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) {
+    const nuevo: RewardCatalogItem = { ...fields, id: `rwc-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    setRewardCatalog(prev => [...prev, nuevo]);
+    dbInsertRewardCatalogItem(nuevo);
+  }
+
+  function updateRewardCatalogItem(id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) {
+    setRewardCatalog(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c));
+    dbUpdateRewardCatalogItem(id, changes);
+  }
+
+  function deleteRewardCatalogItem(id: string) {
+    setRewardCatalog(prev => prev.filter(c => c.id !== id));
+    dbDeleteRewardCatalogItem(id);
+  }
+
+  function canjearRecompensa(socioId: string, catalogItemId: string): { ok: true } | { error: string } {
+    const item = rewardCatalog.find(c => c.id === catalogItemId);
+    if (!item || !item.activo) return { error: 'Esta recompensa ya no está disponible.' };
+    if (item.stock != null && item.stock <= 0) return { error: 'Sin stock disponible.' };
+    const saldo = saldoCreditos(socioId);
+    if (saldo < item.costeCreditos) return { error: 'No tienes créditos suficientes todavía.' };
+
+    const studioId = getCurrentStudioId();
+    const now = new Date().toISOString();
+    const redemption: RewardRedemption = {
+      id: `rwd-${uid()}`, studioId, socioId, catalogItemId, creditosGastados: item.costeCreditos,
+      estado: 'PENDIENTE', creadoEn: now,
+    };
+    const transaccion: CreditTransaction = {
+      id: `ctx-${uid()}`, studioId, socioId, tipo: 'CANJE', creditos: -item.costeCreditos,
+      descripcion: `Canje: ${item.nombre}`, refId: redemption.id, creadoEn: now,
+    };
+
+    setRewardRedemptions(prev => [redemption, ...prev]);
+    setCreditTransactions(prev => [transaccion, ...prev]);
+    setMemberCredits(prev => prev.map(m => m.socioId === socioId
+      ? { ...m, saldo: m.saldo - item.costeCreditos, totalCanjeado: m.totalCanjeado + item.costeCreditos, actualizadoEn: now }
+      : m));
+    if (item.stock != null) {
+      setRewardCatalog(prev => prev.map(c => c.id === catalogItemId ? { ...c, stock: (c.stock ?? 1) - 1 } : c));
+      dbUpdateRewardCatalogItem(catalogItemId, { stock: item.stock - 1 });
+    }
+
+    dbInsertRewardRedemption(redemption);
+    dbInsertCreditTransaction(transaccion);
+    const actualizado = memberCredits.find(m => m.socioId === socioId);
+    dbUpsertMemberCredits(actualizado
+      ? { ...actualizado, saldo: actualizado.saldo - item.costeCreditos, totalCanjeado: actualizado.totalCanjeado + item.costeCreditos }
+      : { socioId, studioId, saldo: -item.costeCreditos, totalGanado: 0, totalCanjeado: item.costeCreditos });
+
+    return { ok: true };
+  }
+
+  function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado']) {
+    setRewardRedemptions(prev => prev.map(r => r.id === id ? { ...r, estado } : r));
+    dbUpdateRewardRedemption(id, { estado });
+  }
+
   // ── Notificaciones ────────────────────────────────────────────────────────────
 
   function marcarNotificacionLeida(notiId: string) {
@@ -1559,6 +1725,22 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     addMensajeEquipo,
     preferenciasSocio,
     upsertPreferenciasSocio,
+    rewardRules,
+    rewardActions,
+    rewardHistory,
+    creditTransactions,
+    memberCredits,
+    rewardCatalog,
+    rewardRedemptions,
+    otorgarCreditos,
+    saldoCreditos,
+    addRewardRule,
+    updateRewardRule,
+    addRewardCatalogItem,
+    updateRewardCatalogItem,
+    deleteRewardCatalogItem,
+    canjearRecompensa,
+    updateRewardRedemptionEstado,
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
@@ -1604,6 +1786,13 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setIntegraciones(data.integraciones ?? []);
       setMensajesEquipo(data.mensajesEquipo ?? []);
       setPreferenciasSocio(data.preferenciasSocio ?? []);
+      setRewardRules(data.rewardRules ?? []);
+      setRewardActions(data.rewardActions ?? []);
+      setRewardHistory(data.rewardHistory ?? []);
+      setCreditTransactions(data.creditTransactions ?? []);
+      setMemberCredits(data.memberCredits ?? []);
+      setRewardCatalog(data.rewardCatalog ?? []);
+      setRewardRedemptions(data.rewardRedemptions ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);

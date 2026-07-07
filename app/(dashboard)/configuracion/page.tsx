@@ -8,16 +8,17 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { PlanTarifa, Sala, TipoClase, TipoIntegracion, Studio } from '@/lib/types';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
+import { TabRecompensas } from '@/components/configuracion/tab-recompensas';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const inputCls =
+export const inputCls =
   'rounded-lg border border-[#E7E7E0] px-3 py-2 text-[13px] w-full focus:outline-none focus:ring-2 focus:ring-black/10';
-const labelCls = 'text-[12px] font-medium text-[#3A3A34] block mb-1';
-const btnPrimary =
+export const labelCls = 'text-[12px] font-medium text-[#3A3A34] block mb-1';
+export const btnPrimary =
   'bg-[#FFC8E2] text-[#171717] rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 hover:bg-[#F7B3D2] transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
-const btnSecondary =
+export const btnSecondary =
   'bg-white border border-[#E7E7E0] rounded-lg px-4 py-2 text-[13px] text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors';
-const cardCls = 'bg-white border border-[#E7E7E0] rounded-xl';
+export const cardCls = 'bg-white border border-[#E7E7E0] rounded-xl';
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
 
@@ -204,12 +205,13 @@ function EstadoBadge({ activo }: { activo: boolean }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'integraciones' | 'estudio' | 'perfil';
+type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'integraciones' | 'estudio' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
   { id: 'clases',      label: 'Clases' },
   { id: 'salas',       label: 'Salas' },
+  { id: 'recompensas', label: 'Recompensas' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
   { id: 'perfil',      label: 'Mi perfil' },
@@ -264,6 +266,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'planes'      && <TabPlanes      showToast={showToast} />}
       {activeTab === 'clases'      && <TabClases       showToast={showToast} />}
       {activeTab === 'salas'       && <TabSalas        showToast={showToast} />}
+      {activeTab === 'recompensas' && <TabRecompensas  showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
       {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}

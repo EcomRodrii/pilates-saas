@@ -492,6 +492,107 @@ create policy "public_read_preferencias_socio" on preferencias_socio for select 
 create policy "public_write_preferencias_socio" on preferencias_socio for insert to anon with check (true);
 create policy "public_update_preferencias_socio" on preferencias_socio for update to anon using (true) with check (true);
 
+-- Migración: Gamificación — créditos y recompensas (Fase 2, bloque 1)
+-- El valor de cada acción SIEMPRE se lee de reward_rules — nunca hardcodeado.
+create table if not exists reward_rules (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  trigger text not null,
+  nombre text not null,
+  descripcion text,
+  creditos int not null default 0,
+  activa boolean not null default true,
+  creado_en timestamptz not null default now()
+);
+
+create table if not exists reward_actions (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  socio_id text references socios(id) on delete cascade,
+  trigger text not null,
+  ref_id text,
+  creado_en timestamptz not null default now(),
+  unique (studio_id, trigger, ref_id)
+);
+
+create table if not exists reward_history (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  socio_id text references socios(id) on delete cascade,
+  rule_id text references reward_rules(id) on delete set null,
+  action_id text references reward_actions(id) on delete set null,
+  creditos int not null,
+  descripcion text not null,
+  creado_en timestamptz not null default now()
+);
+
+create table if not exists credit_transactions (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  socio_id text references socios(id) on delete cascade,
+  tipo text not null check (tipo in ('GANANCIA', 'CANJE')),
+  creditos int not null,
+  descripcion text not null,
+  ref_id text,
+  creado_en timestamptz not null default now()
+);
+
+create table if not exists member_credits (
+  socio_id text primary key references socios(id) on delete cascade,
+  studio_id text references studios(id) on delete cascade,
+  saldo int not null default 0,
+  total_ganado int not null default 0,
+  total_canjeado int not null default 0,
+  actualizado_en timestamptz not null default now()
+);
+
+create table if not exists reward_catalog (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  nombre text not null,
+  descripcion text,
+  coste_creditos int not null default 0,
+  icono text not null default '🎁',
+  activo boolean not null default true,
+  stock int,
+  creado_en timestamptz not null default now()
+);
+
+create table if not exists reward_redemptions (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  socio_id text references socios(id) on delete cascade,
+  catalog_item_id text references reward_catalog(id) on delete cascade,
+  creditos_gastados int not null,
+  estado text not null default 'PENDIENTE' check (estado in ('PENDIENTE', 'ENTREGADO', 'CANCELADO')),
+  creado_en timestamptz not null default now()
+);
+
+do $$
+declare
+  t text;
+  gamification_tables text[] := array[
+    'reward_rules', 'reward_actions', 'reward_history', 'credit_transactions',
+    'member_credits', 'reward_catalog', 'reward_redemptions'
+  ];
+begin
+  foreach t in array gamification_tables loop
+    execute format('alter table %s enable row level security', t);
+    execute format('drop policy if exists "admin_%s" on %s', t, t);
+    execute format('drop policy if exists "public_read_%s" on %s', t, t);
+    execute format('drop policy if exists "public_write_%s" on %s', t, t);
+    execute format('drop policy if exists "public_update_%s" on %s', t, t);
+    -- Personal del estudio: acceso completo a su propio negocio.
+    execute format('create policy "admin_%s" on %s for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id())', t, t);
+    -- Portal de miembros (sesión anónima por email, no Supabase Auth): la
+    -- socia necesita leer su saldo/historial y el catálogo, e insertar sus
+    -- propias acciones/transacciones/canjes.
+    execute format('create policy "public_read_%s" on %s for select to anon using (true)', t, t);
+    execute format('create policy "public_write_%s" on %s for insert to anon with check (true)', t, t);
+    execute format('create policy "public_update_%s" on %s for update to anon using (true) with check (true)', t, t);
+  end loop;
+end $$;
+
 -- ═══════════════════════════════════════════════════════════════════
 -- Políticas de acceso
 --
