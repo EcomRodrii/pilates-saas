@@ -739,6 +739,22 @@ begin
   end loop;
 end $$;
 
+-- Migración: buzón de soporte del widget de ayuda del dashboard — cualquier
+-- miembro del equipo puede dejar una duda/mejora/bug para el equipo de
+-- Tentare; solo lectura/escritura del propio negocio (nadie ve peticiones
+-- de otro estudio).
+create table if not exists soporte_solicitudes (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  tipo text not null default 'DUDA' check (tipo in ('DUDA', 'MEJORA', 'BUG')),
+  mensaje text not null,
+  contacto text,
+  creado_en timestamptz not null default now()
+);
+alter table soporte_solicitudes enable row level security;
+drop policy if exists "admin_soporte_solicitudes" on soporte_solicitudes;
+create policy "admin_soporte_solicitudes" on soporte_solicitudes for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
+
 -- Tablas de negocio: acceso completo para el panel del propio negocio
 -- (autenticado) + lectura pública para reservar/kiosk/portal (todavía
 -- sin aislar por negocio, ver nota arriba).

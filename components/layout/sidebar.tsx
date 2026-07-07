@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { GlobalSearch } from '@/components/search/global-search';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -294,11 +293,6 @@ export function Sidebar() {
               <span className="text-white text-[15px] font-bold tracking-tight">Tentare</span>
             </>
           )}
-        </div>
-
-        {/* Search */}
-        <div className={cn('py-2 border-b', collapsed ? 'px-2' : 'px-3')} style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-          <GlobalSearch collapsed={collapsed} />
         </div>
 
         {/* Nav */}

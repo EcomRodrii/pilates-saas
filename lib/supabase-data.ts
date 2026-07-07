@@ -1373,6 +1373,17 @@ export async function dbInsertAchievementHistory(h: any) {
 
 // ─── Gamificación: niveles ─────────────────────────────────────────────────────
 
+// ─── Soporte ──────────────────────────────────────────────────────────────────
+
+export async function dbInsertSoporteSolicitud(s: { id: string; tipo: string; mensaje: string; contacto: string | null; creadoEn: string }) {
+  const row = {
+    id: s.id, studio_id: getCurrentStudioId(), tipo: s.tipo, mensaje: s.mensaje,
+    contacto: s.contacto, creado_en: s.creadoEn,
+  };
+  const { error } = await supabase.from('soporte_solicitudes').insert(row);
+  if (error) reportDbError('[dbInsertSoporteSolicitud]', error);
+}
+
 export async function dbInsertLevelDefinition(l: any) {
   const row = {
     id: l.id, studio_id: l.studioId ?? STUDIO_ID, nombre: l.nombre, orden: l.orden,

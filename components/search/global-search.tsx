@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { Search, ArrowRight, Calendar, CreditCard, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-export function GlobalSearch({ collapsed }: { collapsed?: boolean } = {}) {
+export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: boolean; variant?: 'dark' | 'light' } = {}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const router = useRouter();
@@ -64,14 +65,19 @@ export function GlobalSearch({ collapsed }: { collapsed?: boolean } = {}) {
         onClick={() => setOpen(true)}
         title="Buscar (⌘K)"
         className={collapsed
-          ? 'flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all hover:bg-white/10'
-          : 'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:bg-white/10'}
-        style={{ color: 'rgba(255,255,255,0.45)' }}
+          ? cn('flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all', variant === 'dark' ? 'hover:bg-white/10' : 'hover:bg-[#F1F1EC]')
+          : cn('flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all', variant === 'dark' ? 'hover:bg-white/10' : 'bg-[#F5F5F1] hover:bg-[#EEEEE8] w-full max-w-xs')}
+        style={{ color: variant === 'dark' ? 'rgba(255,255,255,0.45)' : '#8E8E86' }}
       >
         <Search size={15} className="shrink-0" />
         {!collapsed && <span className="hidden md:inline text-xs">Buscar</span>}
         {!collapsed && (
-          <kbd className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded font-mono leading-none" style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }}>⌘K</kbd>
+          <kbd
+            className="hidden md:inline ml-auto text-[10px] px-1.5 py-0.5 rounded font-mono leading-none"
+            style={variant === 'dark'
+              ? { backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }
+              : { backgroundColor: '#E7E7E0', color: '#A8A89F' }}
+          >⌘K</kbd>
         )}
       </button>
 

@@ -489,6 +489,20 @@ export interface Notificacion {
   creadaEn: string;
 }
 
+// Buzón de soporte: dudas/mejoras/bugs que un estudio deja desde el widget
+// de ayuda del dashboard, dirigidos al equipo de Tentare (no visibles para
+// otros estudios).
+export type TipoSoporte = 'DUDA' | 'MEJORA' | 'BUG';
+
+export interface SoporteSolicitud {
+  id: string;
+  studioId: string;
+  tipo: TipoSoporte;
+  mensaje: string;
+  contacto: string | null;
+  creadoEn: string;
+}
+
 export type CategoriaVideo = 'REFORMER' | 'MAT' | 'BARRE' | 'CARDIO' | 'MEDITACION' | 'ESTIRAMIENTO';
 
 export interface VideoOnDemand {
