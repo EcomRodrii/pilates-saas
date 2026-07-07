@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
@@ -8,7 +8,7 @@ import { useStudio } from '@/lib/studio-context';
 import { subirFotoPerfil, eliminarFotoPerfil } from '@/lib/portal-storage';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import {
-  Camera, Trash2, LogOut, ChevronRight, Bell, SlidersHorizontal, Loader2, Check,
+  Camera, Trash2, LogOut, ChevronRight, Bell, SlidersHorizontal, Loader2, Check, Trophy,
 } from 'lucide-react';
 
 const inputCls = 'w-full rounded-2xl border border-[#E7E7E0] bg-white px-4 py-3 text-[14px] text-[#171717] placeholder:text-[#A8A89E] outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition-all';
@@ -18,11 +18,37 @@ export default function PerfilPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const { session, logout } = usePortalAuth();
-  const { socios, updateSocio, preferenciasSocio, upsertPreferenciasSocio } = useStudio();
+  const {
+    socios, updateSocio, preferenciasSocio, upsertPreferenciasSocio,
+    reservas, sesiones, nivelSocio, rachaSocio, achievementDefinitions, achievementProgress,
+  } = useStudio();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const socio = socios.find(s => s.id === session?.socioId);
   const prefs = preferenciasSocio.find(p => p.socioId === session?.socioId);
+
+  const misReservas = useMemo(() => reservas.filter(r => r.socioId === session?.socioId), [reservas, session?.socioId]);
+  const asistidas = useMemo(() => misReservas.filter(r => r.estado === 'ASISTIDA'), [misReservas]);
+  const clasesEsteMes = useMemo(() => {
+    const now = new Date();
+    return asistidas.filter(r => {
+      const s = sesiones.find(x => x.id === r.sesionId);
+      if (!s) return false;
+      const d = new Date(s.inicio);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
+  }, [asistidas, sesiones]);
+  const racha = session ? rachaSocio(session.socioId) : null;
+  const nivel = session ? nivelSocio(session.socioId) : null;
+
+  const logrosPreview = useMemo(() => {
+    if (!session) return [];
+    return achievementDefinitions
+      .filter(a => a.activo)
+      .map(def => ({ def, completado: achievementProgress.some(p => p.socioId === session.socioId && p.achievementId === def.id && p.completado) }))
+      .sort((a, b) => (b.completado ? 1 : 0) - (a.completado ? 1 : 0))
+      .slice(0, 4);
+  }, [achievementDefinitions, achievementProgress, session]);
 
   const [form, setForm] = useState({
     nombre: socio?.nombre ?? '',
@@ -120,8 +146,56 @@ export default function PerfilPage() {
               </button>
             )}
           </div>
+          <p className="text-white font-extrabold text-[16px] mt-1">{socio.nombre} {socio.apellidos}</p>
+          <p className="text-white/40 text-[12px]">{socio.email}</p>
+          {nivel?.actual && (
+            <span
+              className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full text-[11px] font-bold"
+              style={{ backgroundColor: `${nivel.actual.color}33`, color: '#fff' }}
+            >
+              {nivel.actual.icono} Nivel {nivel.actual.nombre}
+            </span>
+          )}
         </div>
       </div>
+
+      <div className="px-4 -mt-4">
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { v: clasesEsteMes, l: 'Este mes' },
+            { v: racha?.semanas ?? 0, l: 'Racha 🔥' },
+            { v: asistidas.length, l: 'Total clases' },
+          ].map(({ v, l }) => (
+            <div key={l} className="bg-white rounded-2xl border border-black/[0.06] px-2 py-3 text-center" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+              <p className="text-[20px] font-extrabold text-[#171717] leading-none">{v}</p>
+              <p className="text-[9px] font-bold text-[#A8A89F] mt-1.5 uppercase tracking-wider">{l}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {logrosPreview.length > 0 && (
+        <div className="px-4 pt-4">
+          <Link href={`/portal/${slug}/progreso?tab=logros`} className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-1.5">
+              <Trophy size={13} className="text-[#8E8E86]" />
+              <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest">Logros</p>
+            </div>
+            <span className="text-[11px] font-semibold text-[#B57A8E] flex items-center gap-0.5">Ver todos <ChevronRight size={12} /></span>
+          </Link>
+          <div className="grid grid-cols-4 gap-2">
+            {logrosPreview.map(({ def, completado }) => (
+              <div
+                key={def.id}
+                className="rounded-2xl p-2.5 flex flex-col items-center gap-1 text-center"
+                style={{ backgroundColor: completado ? '#FFF2F7' : '#F5F5F1', opacity: completado ? 1 : 0.45 }}
+              >
+                <span className="text-[22px] leading-none">{def.icono}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="px-4 pt-5 pb-6 space-y-5">
         {error && (

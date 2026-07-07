@@ -15,6 +15,7 @@ import { TabRetos } from '@/components/configuracion/tab-retos';
 import { TabBackups } from '@/components/configuracion/tab-backups';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, PayPalIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
+import { useAuth } from '@/lib/auth-context';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -1693,23 +1694,109 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
 // TAB: MI PERFIL
 // ─────────────────────────────────────────────────────────────────────────────
 
+const ROL_LABEL: Record<string, { label: string; bg: string; text: string }> = {
+  PROPIETARIO: { label: 'Propietaria', bg: '#F3EEFF', text: '#6D28D9' },
+  INSTRUCTOR: { label: 'Instructora', bg: '#FFF2F7', text: '#B57A8E' },
+  RECEPCION: { label: 'Recepción', bg: '#EAF6FF', text: '#0369A1' },
+};
+
 function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, updateAvatarAdmin } = useStudio();
+  const { studio, updateAvatarAdmin, updateStudio, instructores, updateInstructor, sesiones } = useStudio();
+  const { user } = useAuth();
+
+  const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
+  const rol = yo?.rol ?? 'PROPIETARIO';
+  const rolInfo = ROL_LABEL[rol];
+
+  const [form, setForm] = useState({
+    nombre: yo?.nombre ?? 'Propietaria',
+    email: yo?.email ?? user?.email ?? '',
+    telefono: yo?.telefono ?? '',
+  });
+  const [guardado, setGuardado] = useState(false);
+
+  const now = new Date();
+  const clasesImpartidas = yo ? sesiones.filter(s => s.instructorId === yo.id && new Date(s.inicio) < now) : [];
+  const clasesEsteMes = clasesImpartidas.filter(s => {
+    const d = new Date(s.inicio);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+  const proximaClase = yo
+    ? sesiones.filter(s => s.instructorId === yo.id && new Date(s.inicio) > now).sort((a, b) => a.inicio.localeCompare(b.inicio))[0]
+    : null;
+
+  function guardar() {
+    if (!yo) return;
+    updateInstructor(yo.id, { nombre: form.nombre.trim(), email: form.email.trim() || null, telefono: form.telefono.trim() || null });
+    setGuardado(true);
+    showToast('Perfil actualizado');
+    setTimeout(() => setGuardado(false), 2000);
+  }
 
   return (
     <div className="space-y-5 max-w-2xl">
       <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">Tu avatar</h3>
-        <p className="text-[12px] text-[#8E8E86] mb-4">
-          Elige el avatar que te representa en el panel de administración.
-        </p>
-        <div className="flex items-center gap-4 mb-5">
-          <ProfileAvatar avatarId={studio?.avatarAdmin} nombre="Admin" size="xl" />
+        <div className="flex items-center gap-4 mb-1">
+          <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={form.nombre || 'Admin'} size="xl" />
+          <div>
+            <p className="text-[15px] font-bold text-[#1A1A1A]">{form.nombre || 'Sin nombre'}</p>
+            <p className="text-[12px] text-[#8E8E86]">{form.email}</p>
+            <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: rolInfo.bg, color: rolInfo.text }}>
+              {rolInfo.label}
+            </span>
+          </div>
         </div>
-        <AvatarPicker
-          value={studio?.avatarAdmin ?? null}
-          onChange={id => { updateAvatarAdmin(id); showToast('Avatar actualizado'); }}
-        />
+        <div className="mt-5">
+          <AvatarPicker
+            value={studio?.avatarAdmin ?? null}
+            onChange={id => { updateAvatarAdmin(id); showToast('Avatar actualizado'); }}
+          />
+        </div>
+      </div>
+
+      {rol === 'INSTRUCTOR' && yo && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { v: clasesEsteMes, l: 'Este mes' },
+            { v: clasesImpartidas.length, l: 'Impartidas' },
+            { v: proximaClase ? new Date(proximaClase.inicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '—', l: 'Próxima clase' },
+          ].map(({ v, l }) => (
+            <div key={l} className={cn(cardCls, 'p-4 text-center')}>
+              <p className="text-[20px] font-extrabold text-[#1A1A1A] leading-none">{v}</p>
+              <p className="text-[10px] font-bold text-[#A8A89F] mt-1.5 uppercase tracking-wider">{l}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-4">Tus datos</h3>
+        {yo ? (
+          <>
+            <div className="space-y-3.5">
+              <div>
+                <p className={labelCls}>Nombre</p>
+                <input className={inputCls} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+              </div>
+              <div>
+                <p className={labelCls}>Email</p>
+                <input type="email" className={inputCls} value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              </div>
+              <div>
+                <p className={labelCls}>Teléfono</p>
+                <input type="tel" className={inputCls} value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+              </div>
+            </div>
+            <button onClick={guardar} className="mt-4 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[12px] font-medium hover:bg-[#F7B3D2] transition-colors flex items-center gap-1.5">
+              {guardado && <Check size={13} />}
+              {guardado ? 'Guardado' : 'Guardar cambios'}
+            </button>
+          </>
+        ) : (
+          <p className="text-[12px] text-[#8E8E86]">
+            Cuenta: {form.email}. Tu nombre y datos de contacto de propietaria se gestionan en Configuración &gt; Estudio.
+          </p>
+        )}
       </div>
     </div>
   );
