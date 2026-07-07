@@ -7,8 +7,8 @@ import { Home, Calendar, CreditCard, Play, TrendingUp } from 'lucide-react';
 import { usePortalAuth } from '@/lib/portal-auth';
 
 const NAV = [
-  { seg: 'home', icon: Home, label: 'Inicio' },
   { seg: 'clases', icon: Calendar, label: 'Clases' },
+  { seg: 'home', icon: Home, label: 'Inicio' },
   { seg: 'mi-plan', icon: CreditCard, label: 'Mi plan' },
   { seg: 'videos', icon: Play, label: 'Videos' },
   { seg: 'progreso', icon: TrendingUp, label: 'Progreso' },
@@ -26,7 +26,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
     if (!session && !isLoginPage) router.replace(`/portal/${slug}/login`);
-    if (session && isLoginPage) router.replace(`/portal/${slug}/home`);
+    if (session && isLoginPage) router.replace(`/portal/${slug}/clases`);
   }, [session, isLoading, isLoginPage, router, slug]);
 
   if (isLoading) {
