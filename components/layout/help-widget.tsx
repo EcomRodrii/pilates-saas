@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { HelpCircle, X, ChevronDown, Search, Send, CheckCircle2 } from 'lucide-react';
+import { X, ChevronDown, Search, Send, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
@@ -34,9 +34,8 @@ const FAQS: FaqItem[] = [
 
 const CATEGORIAS = [...new Set(FAQS.map(f => f.categoria))];
 
-export function HelpWidget() {
+export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { studio } = useStudio();
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [tipo, setTipo] = useState<TipoSoporte>('DUDA');
@@ -68,37 +67,25 @@ export function HelpWidget() {
     setTimeout(() => setEnviado(false), 4000);
   }
 
-  return (
-    <>
-      {/* Launcher — junto al menú negro, esquina inferior izquierda */}
-      <button
-        onClick={() => setOpen(true)}
-        className={cn(
-          'hidden lg:flex fixed bottom-4 z-30 items-center justify-center w-11 h-11 rounded-full shadow-lg transition-transform hover:scale-105',
-        )}
-        style={{ left: 'calc(var(--sidebar-w, 256px) + 32px)', backgroundColor: '#171717' }}
-        title="¿Necesitas ayuda?"
-      >
-        <HelpCircle size={19} className="text-white" />
-      </button>
+  if (!open) return null;
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center lg:justify-start px-0 lg:px-0">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-          <div
-            className="relative w-full lg:w-[420px] lg:ml-[calc(var(--sidebar-w,256px)+24px)] bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl flex flex-col"
-            style={{ maxHeight: '85vh' }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#EDEDE6]">
-              <div>
-                <p className="text-[15px] font-extrabold text-[#171717]">¿Necesitas ayuda?</p>
-                <p className="text-[12px] text-[#8E8E86]">Preguntas frecuentes y contacto directo con {studio?.nombre ?? 'Tentare'}</p>
-              </div>
-              <button onClick={() => setOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F5F5F1]">
-                <X size={16} className="text-[#8E8E86]" />
-              </button>
-            </div>
+  return (
+    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div
+        className="relative w-full lg:w-[420px] bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl flex flex-col"
+        style={{ maxHeight: '85vh' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#EDEDE6]">
+          <div>
+            <p className="text-[15px] font-extrabold text-[#171717]">Preguntas frecuentes</p>
+            <p className="text-[12px] text-[#8E8E86]">Y contacto directo con {studio?.nombre ?? 'Tentare'}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F5F5F1]">
+            <X size={16} className="text-[#8E8E86]" />
+          </button>
+        </div>
 
             <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
               {/* FAQ search */}
@@ -200,9 +187,7 @@ export function HelpWidget() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }

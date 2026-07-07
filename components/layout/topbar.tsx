@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Inbox, Bell } from 'lucide-react';
 import { GlobalSearch } from '@/components/search/global-search';
+import { ProfileMenu } from '@/components/layout/profile-menu';
 import { useStudio } from '@/lib/studio-context';
 
 export function Topbar() {
@@ -30,6 +31,7 @@ export function Topbar() {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#C4695A]" />
           )}
         </Link>
+        <ProfileMenu />
       </div>
     </div>
   );

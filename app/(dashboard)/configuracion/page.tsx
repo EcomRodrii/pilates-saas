@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, FileSpreadsheet, ExternalLink, Ticket, Dumbbell, HeartPulse, Activity, Users2, KeyRound, BellRing } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, FileSpreadsheet, ExternalLink, Ticket, Dumbbell, HeartPulse, Activity, Users2, KeyRound, BellRing, Monitor, Calendar as CalendarLinkIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { PlanTarifa, Sala, TipoClase, TipoIntegracion, Studio } from '@/lib/types';
@@ -1550,6 +1550,40 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         <button onClick={guardarEstudio} className="mt-4 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[12px] font-medium hover:bg-[#F7B3D2] transition-colors">
           Guardar datos del estudio
         </button>
+      </div>
+
+      {/* Enlaces públicos */}
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">Enlaces públicos</h3>
+        <p className="text-[12px] text-[#8E8E86] mb-3">
+          Páginas de tu estudio para compartir con clientas o usar en tablet.
+        </p>
+        <div className="space-y-2">
+          <a
+            href={`/reservar/${studio?.slug ?? ''}`}
+            target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] hover:bg-[#F5F5F1] transition-colors"
+          >
+            <CalendarLinkIcon size={15} className="text-[#8E8E86] shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-[#1A1A1A]">Portal de reservas</p>
+              <p className="text-[11px] text-[#A8A89F]">Página pública para que cualquiera reserve una clase</p>
+            </div>
+            <ExternalLink size={13} className="text-[#A8A89F] shrink-0" />
+          </a>
+          <a
+            href={`/kiosk/${studio?.slug ?? ''}`}
+            target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] hover:bg-[#F5F5F1] transition-colors"
+          >
+            <Monitor size={15} className="text-[#8E8E86] shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-[#1A1A1A]">Modo quiosco</p>
+              <p className="text-[11px] text-[#A8A89F]">Pantalla de check-in para dejar en una tablet en recepción</p>
+            </div>
+            <ExternalLink size={13} className="text-[#A8A89F] shrink-0" />
+          </a>
+        </div>
       </div>
 
       {/* Privacy policy */}
