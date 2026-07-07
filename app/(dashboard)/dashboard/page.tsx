@@ -17,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
+import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -644,6 +645,8 @@ export default function Dashboard() {
             tintBg="bg-emerald-50"
           />
         </div>
+
+        <CustomChartsSection />
 
         {/* ── Main content grid ──────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

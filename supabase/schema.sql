@@ -665,6 +665,23 @@ create table if not exists challenge_history (
   creado_en timestamptz not null default now()
 );
 
+-- Migración: gráficos personalizados del dashboard — solo el panel del
+-- negocio los usa, sin acceso público.
+create table if not exists dashboard_charts (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  nombre text not null,
+  tipo text not null default 'LINEA' check (tipo in ('LINEA', 'BARRAS')),
+  metrica text not null,
+  agrupacion text not null default 'MES' check (agrupacion in ('DIA', 'SEMANA', 'MES')),
+  rango int not null default 6,
+  color text not null default '#F7A6C4',
+  creado_en timestamptz not null default now()
+);
+alter table dashboard_charts enable row level security;
+drop policy if exists "admin_dashboard_charts" on dashboard_charts;
+create policy "admin_dashboard_charts" on dashboard_charts for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
+
 do $$
 declare
   t text;

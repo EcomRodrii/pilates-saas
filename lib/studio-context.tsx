@@ -24,6 +24,7 @@ import {
   dbInsertLevelDefinition, dbUpdateLevelDefinition, dbDeleteLevelDefinition,
   dbInsertChallengeDefinition, dbUpdateChallengeDefinition, dbDeleteChallengeDefinition,
   dbUpsertChallengeProgress, dbInsertChallengeHistory,
+  dbInsertDashboardChart, dbDeleteDashboardChart,
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCampana, dbDeleteCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
@@ -83,6 +84,7 @@ import type {
   ChallengeDefinition,
   ChallengeProgress,
   ChallengeHistory,
+  DashboardChart,
   Notificacion,
   VideoOnDemand,
   PostComunidad,
@@ -295,6 +297,9 @@ interface StudioContextValue {
   updateChallengeDefinition: (id: string, changes: Partial<Omit<ChallengeDefinition, 'id' | 'studioId'>>) => void;
   deleteChallengeDefinition: (id: string) => void;
   evaluarRetosSocio: (socioId: string) => void;
+  dashboardCharts: DashboardChart[];
+  addDashboardChart: (fields: Omit<DashboardChart, 'id' | 'studioId' | 'creadoEn'>) => void;
+  deleteDashboardChart: (id: string) => void;
   marcarTodasLeidas: () => void;
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => void;
@@ -414,6 +419,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [challengeDefinitions, setChallengeDefinitions] = useState<ChallengeDefinition[]>([]);
   const [challengeProgress, setChallengeProgress] = useState<ChallengeProgress[]>([]);
   const [challengeHistory, setChallengeHistory] = useState<ChallengeHistory[]>([]);
+  const [dashboardCharts, setDashboardCharts] = useState<DashboardChart[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
@@ -489,6 +495,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setChallengeDefinitions(data.challengeDefinitions ?? []);
       setChallengeProgress(data.challengeProgress ?? []);
       setChallengeHistory(data.challengeHistory ?? []);
+      setDashboardCharts(data.dashboardCharts ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
@@ -1675,6 +1682,19 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       });
   }
 
+  // ── Dashboard: gráficos personalizados ──────────────────────────────────────────
+
+  function addDashboardChart(fields: Omit<DashboardChart, 'id' | 'studioId' | 'creadoEn'>) {
+    const nuevo: DashboardChart = { ...fields, id: `chart-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    setDashboardCharts(prev => [...prev, nuevo]);
+    dbInsertDashboardChart(nuevo);
+  }
+
+  function deleteDashboardChart(id: string) {
+    setDashboardCharts(prev => prev.filter(c => c.id !== id));
+    dbDeleteDashboardChart(id);
+  }
+
   // ── Notificaciones ────────────────────────────────────────────────────────────
 
   function marcarNotificacionLeida(notiId: string) {
@@ -1997,6 +2017,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     updateChallengeDefinition,
     deleteChallengeDefinition,
     evaluarRetosSocio,
+    dashboardCharts,
+    addDashboardChart,
+    deleteDashboardChart,
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
@@ -2056,6 +2079,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setChallengeDefinitions(data.challengeDefinitions ?? []);
       setChallengeProgress(data.challengeProgress ?? []);
       setChallengeHistory(data.challengeHistory ?? []);
+      setDashboardCharts(data.dashboardCharts ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);

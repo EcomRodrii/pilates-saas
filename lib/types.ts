@@ -755,3 +755,25 @@ export interface ChallengeHistory {
 }
 
 export type EstadoReto = 'ACTIVO' | 'COMPLETADO' | 'CADUCADO';
+
+// ─── Dashboard: gráficos personalizados ────────────────────────────────────
+// El estudio arma su propio panel eligiendo qué métrica graficar y cómo — el
+// motor (lib/dashboard-chart-engine.ts) solo sabe calcular las métricas del
+// catálogo fijo, todo lo demás (nombre, tipo, rango, color) es su elección.
+
+export type TipoGraficoDashboard = 'LINEA' | 'BARRAS';
+export type MetricaGraficoDashboard =
+  | 'INGRESOS_COBRADOS' | 'NUEVAS_SOCIAS' | 'RESERVAS' | 'CLASES_ASISTIDAS' | 'CREDITOS_OTORGADOS';
+export type AgrupacionGraficoDashboard = 'DIA' | 'SEMANA' | 'MES';
+
+export interface DashboardChart {
+  id: string;
+  studioId: string;
+  nombre: string;
+  tipo: TipoGraficoDashboard;
+  metrica: MetricaGraficoDashboard;
+  agrupacion: AgrupacionGraficoDashboard;
+  rango: number;
+  color: string;
+  creadoEn: string;
+}

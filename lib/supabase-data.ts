@@ -323,6 +323,20 @@ function mapChallengeHistory(r: any) {
   };
 }
 
+function mapDashboardChart(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    nombre: r.nombre,
+    tipo: r.tipo,
+    metrica: r.metrica,
+    agrupacion: r.agrupacion,
+    rango: r.rango,
+    color: r.color,
+    creadoEn: r.creado_en,
+  };
+}
+
 function mapPlanTarifa(r: any) {
   return {
     id: r.id,
@@ -746,6 +760,7 @@ export async function fetchAllStudioData() {
     challengeDefinitionsRes,
     challengeProgressRes,
     challengeHistoryRes,
+    dashboardChartsRes,
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
     supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
@@ -791,6 +806,7 @@ export async function fetchAllStudioData() {
     supabase.from('challenge_definitions').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('challenge_progress').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('challenge_history').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('dashboard_charts').select('*').eq('studio_id', STUDIO_ID),
   ]);
 
   return {
@@ -838,6 +854,7 @@ export async function fetchAllStudioData() {
     challengeDefinitions: (challengeDefinitionsRes.data ?? []).map(mapChallengeDefinition),
     challengeProgress: (challengeProgressRes.data ?? []).map(mapChallengeProgress),
     challengeHistory: (challengeHistoryRes.data ?? []).map(mapChallengeHistory),
+    dashboardCharts: (dashboardChartsRes.data ?? []).map(mapDashboardChart),
   };
 }
 
@@ -1521,6 +1538,22 @@ export async function dbInsertChallengeHistory(h: any) {
   };
   const { error } = await supabase.from('challenge_history').insert(row);
   if (error) reportDbError('[dbInsertChallengeHistory]', error);
+}
+
+// ─── Dashboard: gráficos personalizados ────────────────────────────────────────
+
+export async function dbInsertDashboardChart(c: any) {
+  const row = {
+    id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, tipo: c.tipo,
+    metrica: c.metrica, agrupacion: c.agrupacion, rango: c.rango, color: c.color, creado_en: c.creadoEn,
+  };
+  const { error } = await supabase.from('dashboard_charts').insert(row);
+  if (error) reportDbError('[dbInsertDashboardChart]', error);
+}
+
+export async function dbDeleteDashboardChart(id: string) {
+  const { error } = await supabase.from('dashboard_charts').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteDashboardChart]', error);
 }
 
 export async function dbInsertAutomationLog(log: any) {
