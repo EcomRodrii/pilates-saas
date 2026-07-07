@@ -625,6 +625,46 @@ create table if not exists level_definitions (
   creado_en timestamptz not null default now()
 );
 
+-- Migración: Gamificación — retos (Fase 2, bloque 5)
+-- Como un logro, pero con fecha_inicio/fecha_fin: solo cuenta lo ocurrido
+-- dentro de esa ventana (lib/challenge-engine.ts). Reutiliza el mismo
+-- catálogo de métricas que achievement_definitions (campo metric).
+create table if not exists challenge_definitions (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  nombre text not null,
+  descripcion text,
+  icono text not null default '🎯',
+  metric text not null,
+  objetivo int not null default 1,
+  fecha_inicio timestamptz not null,
+  fecha_fin timestamptz not null,
+  creditos_recompensa int not null default 0,
+  activo boolean not null default true,
+  creado_en timestamptz not null default now()
+);
+
+create table if not exists challenge_progress (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  socio_id text references socios(id) on delete cascade,
+  challenge_id text references challenge_definitions(id) on delete cascade,
+  progreso_actual int not null default 0,
+  completado boolean not null default false,
+  completado_en timestamptz,
+  unique (socio_id, challenge_id)
+);
+
+create table if not exists challenge_history (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  socio_id text references socios(id) on delete cascade,
+  challenge_id text references challenge_definitions(id) on delete cascade,
+  nombre text not null,
+  icono text not null,
+  creado_en timestamptz not null default now()
+);
+
 do $$
 declare
   t text;
@@ -632,7 +672,8 @@ declare
     'reward_rules', 'reward_actions', 'reward_history', 'credit_transactions',
     'member_credits', 'reward_catalog', 'reward_redemptions',
     'achievement_definitions', 'achievement_progress', 'achievement_history',
-    'level_definitions'
+    'level_definitions',
+    'challenge_definitions', 'challenge_progress', 'challenge_history'
   ];
 begin
   foreach t in array gamification_tables loop

@@ -48,6 +48,7 @@ export interface MetricaContexto {
   sesiones: Sesion[];
   socio: Socio | undefined;
   now: Date;
+  todosLosSocios?: Socio[]; // necesario solo para AMIGOS_INVITADOS
 }
 
 // Devuelve el progreso actual para una métrica. Para métricas booleanas,
@@ -63,8 +64,8 @@ export function calcularMetrica(metric: AchievementMetric, ctx: MetricaContexto)
     case 'ASISTENCIA_MENSUAL_COMPLETA':
       return asistenciaMensualCompleta(ctx.reservas, ctx.sesiones, ctx.now) ? 1 : 0;
     case 'AMIGOS_INVITADOS':
-      // Sin mecanismo de referidos todavía — queda modelado, no calculado.
-      return 0;
+      if (!ctx.socio || !ctx.todosLosSocios) return 0;
+      return ctx.todosLosSocios.filter(s => s.referidoPor === ctx.socio!.id).length;
     case 'ASISTENCIA_CUMPLEANOS':
       return asistioEnCumpleanos(ctx.reservas, ctx.sesiones, ctx.socio) ? 1 : 0;
     default:

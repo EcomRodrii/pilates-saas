@@ -282,6 +282,47 @@ function mapLevelDefinition(r: any) {
   };
 }
 
+function mapChallengeDefinition(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    nombre: r.nombre,
+    descripcion: r.descripcion ?? null,
+    icono: r.icono,
+    metric: r.metric,
+    objetivo: r.objetivo,
+    fechaInicio: r.fecha_inicio,
+    fechaFin: r.fecha_fin,
+    creditosRecompensa: r.creditos_recompensa,
+    activo: r.activo,
+    creadoEn: r.creado_en,
+  };
+}
+
+function mapChallengeProgress(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    challengeId: r.challenge_id,
+    progresoActual: r.progreso_actual,
+    completado: r.completado,
+    completadoEn: r.completado_en ?? null,
+  };
+}
+
+function mapChallengeHistory(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    challengeId: r.challenge_id,
+    nombre: r.nombre,
+    icono: r.icono,
+    creadoEn: r.creado_en,
+  };
+}
+
 function mapPlanTarifa(r: any) {
   return {
     id: r.id,
@@ -702,6 +743,9 @@ export async function fetchAllStudioData() {
     achievementProgressRes,
     achievementHistoryRes,
     levelDefinitionsRes,
+    challengeDefinitionsRes,
+    challengeProgressRes,
+    challengeHistoryRes,
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
     supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
@@ -744,6 +788,9 @@ export async function fetchAllStudioData() {
     supabase.from('achievement_progress').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('achievement_history').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('level_definitions').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('challenge_definitions').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('challenge_progress').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('challenge_history').select('*').eq('studio_id', STUDIO_ID),
   ]);
 
   return {
@@ -788,6 +835,9 @@ export async function fetchAllStudioData() {
     achievementProgress: (achievementProgressRes.data ?? []).map(mapAchievementProgress),
     achievementHistory: (achievementHistoryRes.data ?? []).map(mapAchievementHistory),
     levelDefinitions: (levelDefinitionsRes.data ?? []).map(mapLevelDefinition),
+    challengeDefinitions: (challengeDefinitionsRes.data ?? []).map(mapChallengeDefinition),
+    challengeProgress: (challengeProgressRes.data ?? []).map(mapChallengeProgress),
+    challengeHistory: (challengeHistoryRes.data ?? []).map(mapChallengeHistory),
   };
 }
 
@@ -1421,6 +1471,56 @@ export async function dbUpdateLevelDefinition(id: string, changes: any) {
 export async function dbDeleteLevelDefinition(id: string) {
   const { error } = await supabase.from('level_definitions').delete().eq('id', id);
   if (error) reportDbError('[dbDeleteLevelDefinition]', error);
+}
+
+// ─── Gamificación: retos ────────────────────────────────────────────────────────
+
+export async function dbInsertChallengeDefinition(c: any) {
+  const row = {
+    id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
+    icono: c.icono, metric: c.metric, objetivo: c.objetivo, fecha_inicio: c.fechaInicio, fecha_fin: c.fechaFin,
+    creditos_recompensa: c.creditosRecompensa, activo: c.activo, creado_en: c.creadoEn,
+  };
+  const { error } = await supabase.from('challenge_definitions').insert(row);
+  if (error) reportDbError('[dbInsertChallengeDefinition]', error);
+}
+
+export async function dbUpdateChallengeDefinition(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('icono' in changes) db.icono = changes.icono;
+  if ('metric' in changes) db.metric = changes.metric;
+  if ('objetivo' in changes) db.objetivo = changes.objetivo;
+  if ('fechaInicio' in changes) db.fecha_inicio = changes.fechaInicio;
+  if ('fechaFin' in changes) db.fecha_fin = changes.fechaFin;
+  if ('creditosRecompensa' in changes) db.creditos_recompensa = changes.creditosRecompensa;
+  if ('activo' in changes) db.activo = changes.activo;
+  const { error } = await supabase.from('challenge_definitions').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateChallengeDefinition]', error);
+}
+
+export async function dbDeleteChallengeDefinition(id: string) {
+  const { error } = await supabase.from('challenge_definitions').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteChallengeDefinition]', error);
+}
+
+export async function dbUpsertChallengeProgress(p: any) {
+  const row = {
+    id: p.id, studio_id: p.studioId ?? STUDIO_ID, socio_id: p.socioId, challenge_id: p.challengeId,
+    progreso_actual: p.progresoActual, completado: p.completado, completado_en: p.completadoEn ?? null,
+  };
+  const { error } = await supabase.from('challenge_progress').upsert(row, { onConflict: 'socio_id,challenge_id' });
+  if (error) reportDbError('[dbUpsertChallengeProgress]', error);
+}
+
+export async function dbInsertChallengeHistory(h: any) {
+  const row = {
+    id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, challenge_id: h.challengeId,
+    nombre: h.nombre, icono: h.icono, creado_en: h.creadoEn,
+  };
+  const { error } = await supabase.from('challenge_history').insert(row);
+  if (error) reportDbError('[dbInsertChallengeHistory]', error);
 }
 
 export async function dbInsertAutomationLog(log: any) {

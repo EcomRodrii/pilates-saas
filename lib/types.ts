@@ -712,3 +712,46 @@ export interface LevelDefinition {
   activo: boolean;
   creadoEn: string;
 }
+
+// ─── Gamificación: retos ────────────────────────────────────────────────────
+// A diferencia de un logro (permanente, sin fecha), un reto vive entre
+// fechaInicio y fechaFin — reutiliza el mismo catálogo de métricas que los
+// logros (AchievementMetric) pero el progreso solo cuenta lo ocurrido dentro
+// de esa ventana de tiempo.
+
+export interface ChallengeDefinition {
+  id: string;
+  studioId: string;
+  nombre: string;
+  descripcion: string | null;
+  icono: string;
+  metric: AchievementMetric;
+  objetivo: number;
+  fechaInicio: string;
+  fechaFin: string;
+  creditosRecompensa: number;
+  activo: boolean;
+  creadoEn: string;
+}
+
+export interface ChallengeProgress {
+  id: string;
+  studioId: string;
+  socioId: string;
+  challengeId: string;
+  progresoActual: number;
+  completado: boolean;
+  completadoEn: string | null;
+}
+
+export interface ChallengeHistory {
+  id: string;
+  studioId: string;
+  socioId: string;
+  challengeId: string;
+  nombre: string;
+  icono: string;
+  creadoEn: string;
+}
+
+export type EstadoReto = 'ACTIVO' | 'COMPLETADO' | 'CADUCADO';

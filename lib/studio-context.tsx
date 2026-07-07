@@ -22,6 +22,8 @@ import {
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
   dbUpsertAchievementProgress, dbInsertAchievementHistory,
   dbInsertLevelDefinition, dbUpdateLevelDefinition, dbDeleteLevelDefinition,
+  dbInsertChallengeDefinition, dbUpdateChallengeDefinition, dbDeleteChallengeDefinition,
+  dbUpsertChallengeProgress, dbInsertChallengeHistory,
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCampana, dbDeleteCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
@@ -78,6 +80,9 @@ import type {
   AchievementMetric,
   RewardTrigger,
   LevelDefinition,
+  ChallengeDefinition,
+  ChallengeProgress,
+  ChallengeHistory,
   Notificacion,
   VideoOnDemand,
   PostComunidad,
@@ -94,6 +99,7 @@ import { reglaActivaPara, yaOtorgado } from '@/lib/reward-engine';
 import { calcularMetrica } from '@/lib/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/level-engine';
+import { calcularProgresoReto } from '@/lib/challenge-engine';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -282,6 +288,13 @@ interface StudioContextValue {
   addLevelDefinition: (fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>) => void;
   updateLevelDefinition: (id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>) => void;
   deleteLevelDefinition: (id: string) => void;
+  challengeDefinitions: ChallengeDefinition[];
+  challengeProgress: ChallengeProgress[];
+  challengeHistory: ChallengeHistory[];
+  addChallengeDefinition: (fields: Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'>) => void;
+  updateChallengeDefinition: (id: string, changes: Partial<Omit<ChallengeDefinition, 'id' | 'studioId'>>) => void;
+  deleteChallengeDefinition: (id: string) => void;
+  evaluarRetosSocio: (socioId: string) => void;
   marcarTodasLeidas: () => void;
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => void;
@@ -398,6 +411,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [achievementProgress, setAchievementProgress] = useState<AchievementProgress[]>([]);
   const [achievementHistory, setAchievementHistory] = useState<AchievementHistory[]>([]);
   const [levelDefinitions, setLevelDefinitions] = useState<LevelDefinition[]>([]);
+  const [challengeDefinitions, setChallengeDefinitions] = useState<ChallengeDefinition[]>([]);
+  const [challengeProgress, setChallengeProgress] = useState<ChallengeProgress[]>([]);
+  const [challengeHistory, setChallengeHistory] = useState<ChallengeHistory[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
@@ -470,6 +486,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setAchievementProgress(data.achievementProgress ?? []);
       setAchievementHistory(data.achievementHistory ?? []);
       setLevelDefinitions(data.levelDefinitions ?? []);
+      setChallengeDefinitions(data.challengeDefinitions ?? []);
+      setChallengeProgress(data.challengeProgress ?? []);
+      setChallengeHistory(data.challengeHistory ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
@@ -836,6 +855,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     dbInsertReserva(nueva);
     if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
     evaluarLogrosSocio(socioId, reservasActualizadas);
+    evaluarRetosSocio(socioId, reservasActualizadas);
   }
 
   function cancelarReserva(reservaId: string) {
@@ -894,6 +914,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     if (!reserva) return;
     otorgarCreditos(reserva.socioId, 'ASISTENCIA_CLASE', reservaId);
     evaluarLogrosSocio(reserva.socioId, reservasActualizadas);
+    evaluarRetosSocio(reserva.socioId, reservasActualizadas);
     // Racha: si esta es la primera clase de la semana, se premia "semana
     // completa" — refId por semana evita otorgarlo dos veces la misma semana.
     const racha = calcularRacha(reservasActualizadas.filter(r => r.socioId === reserva.socioId), sesiones, new Date());
@@ -1521,7 +1542,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       const progresoExistente = achievementProgress.find(p => p.socioId === socioId && p.achievementId === def.id);
       if (progresoExistente?.completado) return; // ya conseguido, no se re-evalúa
 
-      const valor = calcularMetrica(def.metric, { reservas: misReservas, sesiones, socio, now });
+      const valor = calcularMetrica(def.metric, { reservas: misReservas, sesiones, socio, now, todosLosSocios: socios });
       const completadoAhora = valor >= def.umbral;
       const progresoActualizado: AchievementProgress = progresoExistente
         ? { ...progresoExistente, progresoActual: valor, completado: completadoAhora, completadoEn: completadoAhora ? now.toISOString() : null }
@@ -1582,6 +1603,76 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   function deleteLevelDefinition(id: string) {
     setLevelDefinitions(prev => prev.filter(l => l.id !== id));
     dbDeleteLevelDefinition(id);
+  }
+
+  // ── Gamificación: retos ────────────────────────────────────────────────────────
+  // A diferencia de un logro, un reto tiene fechaInicio/fechaFin — solo cuenta
+  // lo ocurrido dentro de esa ventana (ver lib/challenge-engine.ts).
+
+  function addChallengeDefinition(fields: Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'>) {
+    const nuevo: ChallengeDefinition = { ...fields, id: `cha-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    setChallengeDefinitions(prev => [...prev, nuevo]);
+    dbInsertChallengeDefinition(nuevo);
+  }
+
+  function updateChallengeDefinition(id: string, changes: Partial<Omit<ChallengeDefinition, 'id' | 'studioId'>>) {
+    setChallengeDefinitions(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c));
+    dbUpdateChallengeDefinition(id, changes);
+  }
+
+  function deleteChallengeDefinition(id: string) {
+    setChallengeDefinitions(prev => prev.filter(c => c.id !== id));
+    dbDeleteChallengeDefinition(id);
+  }
+
+  function evaluarRetosSocio(socioId: string, reservasOverride?: Reserva[]) {
+    const now = new Date();
+    const studioId = getCurrentStudioId();
+    const socio = socios.find(s => s.id === socioId);
+    const misReservas = (reservasOverride ?? reservas).filter(r => r.socioId === socioId);
+
+    challengeDefinitions
+      .filter(reto => reto.activo && new Date(reto.fechaInicio) <= now && now <= new Date(reto.fechaFin))
+      .forEach(reto => {
+        const progresoExistente = challengeProgress.find(p => p.socioId === socioId && p.challengeId === reto.id);
+        if (progresoExistente?.completado) return;
+
+        const valor = calcularProgresoReto(reto, misReservas, sesiones, socio, socios, now);
+        const completadoAhora = valor >= reto.objetivo;
+        const progresoActualizado: ChallengeProgress = progresoExistente
+          ? { ...progresoExistente, progresoActual: valor, completado: completadoAhora, completadoEn: completadoAhora ? now.toISOString() : null }
+          : { id: `chap-${uid()}`, studioId, socioId, challengeId: reto.id, progresoActual: valor, completado: completadoAhora, completadoEn: completadoAhora ? now.toISOString() : null };
+
+        setChallengeProgress(prev => progresoExistente
+          ? prev.map(p => p.id === progresoExistente.id ? progresoActualizado : p)
+          : [...prev, progresoActualizado]);
+        dbUpsertChallengeProgress(progresoActualizado);
+
+        if (!completadoAhora) return;
+
+        const entry: ChallengeHistory = {
+          id: `chah-${uid()}`, studioId, socioId, challengeId: reto.id, nombre: reto.nombre, icono: reto.icono, creadoEn: now.toISOString(),
+        };
+        setChallengeHistory(prev => [entry, ...prev]);
+        dbInsertChallengeHistory(entry);
+
+        if (reto.creditosRecompensa > 0) {
+          const transaccion: CreditTransaction = {
+            id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: reto.creditosRecompensa,
+            descripcion: `Reto completado: ${reto.nombre}`, refId: reto.id, creadoEn: now.toISOString(),
+          };
+          setCreditTransactions(prev => [transaccion, ...prev]);
+          dbInsertCreditTransaction(transaccion);
+          setMemberCredits(prev => {
+            const existente = prev.find(m => m.socioId === socioId);
+            const actualizado: MemberCredits = existente
+              ? { ...existente, saldo: existente.saldo + reto.creditosRecompensa, totalGanado: existente.totalGanado + reto.creditosRecompensa, actualizadoEn: now.toISOString() }
+              : { socioId, studioId, saldo: reto.creditosRecompensa, totalGanado: reto.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
+            dbUpsertMemberCredits(actualizado);
+            return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
+          });
+        }
+      });
   }
 
   // ── Notificaciones ────────────────────────────────────────────────────────────
@@ -1899,6 +1990,13 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     addLevelDefinition,
     updateLevelDefinition,
     deleteLevelDefinition,
+    challengeDefinitions,
+    challengeProgress,
+    challengeHistory,
+    addChallengeDefinition,
+    updateChallengeDefinition,
+    deleteChallengeDefinition,
+    evaluarRetosSocio,
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
@@ -1955,6 +2053,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setAchievementProgress(data.achievementProgress ?? []);
       setAchievementHistory(data.achievementHistory ?? []);
       setLevelDefinitions(data.levelDefinitions ?? []);
+      setChallengeDefinitions(data.challengeDefinitions ?? []);
+      setChallengeProgress(data.challengeProgress ?? []);
+      setChallengeHistory(data.challengeHistory ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);

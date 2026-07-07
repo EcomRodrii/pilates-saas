@@ -11,6 +11,7 @@ import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { TabRecompensas } from '@/components/configuracion/tab-recompensas';
 import { TabLogros } from '@/components/configuracion/tab-logros';
 import { TabNiveles } from '@/components/configuracion/tab-niveles';
+import { TabRetos } from '@/components/configuracion/tab-retos';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -208,7 +209,7 @@ function EstadoBadge({ activo }: { activo: boolean }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'logros' | 'niveles' | 'integraciones' | 'estudio' | 'perfil';
+type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'logros' | 'niveles' | 'retos' | 'integraciones' | 'estudio' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
@@ -217,6 +218,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'recompensas', label: 'Recompensas' },
   { id: 'logros',      label: 'Logros' },
   { id: 'niveles',     label: 'Niveles' },
+  { id: 'retos',       label: 'Retos' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
   { id: 'perfil',      label: 'Mi perfil' },
@@ -274,6 +276,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'recompensas' && <TabRecompensas  showToast={showToast} />}
       {activeTab === 'logros'      && <TabLogros       showToast={showToast} />}
       {activeTab === 'niveles'     && <TabNiveles      showToast={showToast} />}
+      {activeTab === 'retos'       && <TabRetos        showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
       {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}
