@@ -28,7 +28,9 @@ export interface Studio {
 }
 
 // ─── Integraciones por negocio ───────────────────────────────────────────────
-export type TipoIntegracion = 'STRIPE' | 'RESEND' | 'GOOGLE_CALENDAR' | 'WHATSAPP' | 'EXCEL';
+export type TipoIntegracion =
+  | 'STRIPE' | 'RESEND' | 'GOOGLE_CALENDAR' | 'WHATSAPP' | 'EXCEL'
+  | 'PAYPAL' | 'CLASSPASS' | 'URBAN_SPORTS_CLUB' | 'WELLHUB' | 'EGYM_WELLPASS' | 'MYCLUBS' | 'ZOOM' | 'KISI';
 
 export interface Integracion {
   id: string;

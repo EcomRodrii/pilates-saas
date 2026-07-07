@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, CreditCard, Mail, FileSpreadsheet, Calendar as CalendarIcon, MessageCircle, ExternalLink } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, CreditCard, Mail, FileSpreadsheet, Calendar as CalendarIcon, MessageCircle, ExternalLink, Wallet, Ticket, Dumbbell, HeartPulse, Activity, Users2, Video, KeyRound, BellRing } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { PlanTarifa, Sala, TipoClase, TipoIntegracion, Studio } from '@/lib/types';
@@ -11,6 +11,7 @@ import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { TabRecompensas } from '@/components/configuracion/tab-recompensas';
 import { TabLogros } from '@/components/configuracion/tab-logros';
 import { TabNiveles } from '@/components/configuracion/tab-niveles';
+import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -1046,6 +1047,8 @@ type CatalogoIntegracion = {
   secretoEnv?: string;
   docsUrl?: string;
   accion?: 'exportar';
+  categoria?: string;
+  proximamente?: boolean;
 };
 
 const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
@@ -1108,6 +1111,98 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     bg: '#E7F4EC',
     campos: [],
     accion: 'exportar',
+  },
+  {
+    tipo: 'PAYPAL',
+    nombre: 'PayPal',
+    descripcion: 'Acepta pagos con una de las soluciones FinTech más usadas del mundo.',
+    Icon: Wallet,
+    color: '#003087',
+    bg: '#EAF0FB',
+    categoria: 'Pagos',
+    campos: [
+      { key: 'clientId', label: 'Client ID', placeholder: 'AeA1QIZ...' },
+      { key: 'clientSecret', label: 'Client Secret', placeholder: '••••••••', tipo: 'password' },
+    ],
+    secretoEnv: 'PAYPAL_CLIENT_SECRET',
+    docsUrl: 'https://developer.paypal.com/dashboard/',
+  },
+  {
+    tipo: 'CLASSPASS',
+    nombre: 'ClassPass',
+    descripcion: 'Gana visibilidad entre miles de usuarios con la mayor red de fitness y bienestar.',
+    Icon: Ticket,
+    color: '#8B5CF6',
+    bg: '#F3EEFF',
+    categoria: 'Agregadores',
+    campos: [],
+    proximamente: true,
+  },
+  {
+    tipo: 'URBAN_SPORTS_CLUB',
+    nombre: 'Urban Sports Club',
+    descripcion: 'Forma parte de una de las suscripciones deportivas más populares de Europa.',
+    Icon: Dumbbell,
+    color: '#111827',
+    bg: '#F1F1EC',
+    categoria: 'Agregadores',
+    campos: [],
+    proximamente: true,
+  },
+  {
+    tipo: 'WELLHUB',
+    nombre: 'Wellhub',
+    descripcion: 'Conecta con una red global de profesionales del bienestar y atrae clientes vía programas corporativos.',
+    Icon: HeartPulse,
+    color: '#EE5A6F',
+    bg: '#FFF0F2',
+    categoria: 'Agregadores',
+    campos: [],
+    proximamente: true,
+  },
+  {
+    tipo: 'EGYM_WELLPASS',
+    nombre: 'EGYM Wellpass',
+    descripcion: 'Accede a una red en crecimiento de profesionales preocupados por su salud.',
+    Icon: Activity,
+    color: '#059669',
+    bg: '#E7F7F0',
+    categoria: 'Agregadores',
+    campos: [],
+    proximamente: true,
+  },
+  {
+    tipo: 'MYCLUBS',
+    nombre: 'myclubs',
+    descripcion: 'Integra tu estudio con uno de los principales agregadores de fitness en Austria y Suiza.',
+    Icon: Users2,
+    color: '#EA580C',
+    bg: '#FFF1E7',
+    categoria: 'Agregadores',
+    campos: [],
+    proximamente: true,
+  },
+  {
+    tipo: 'ZOOM',
+    nombre: 'Zoom',
+    descripcion: 'Lleva tus clases más allá del estudio y ofrece sesiones en cualquier momento y lugar.',
+    Icon: Video,
+    color: '#2D8CFF',
+    bg: '#EAF3FF',
+    categoria: 'Contenido digital',
+    campos: [],
+    proximamente: true,
+  },
+  {
+    tipo: 'KISI',
+    nombre: 'Kisi',
+    descripcion: 'Ofrece acceso seguro y rápido a tu estudio. Gestiona el estado de tus clientes en tiempo real.',
+    Icon: KeyRound,
+    color: '#4F46E5',
+    bg: '#EEF0FE',
+    categoria: 'Control de acceso',
+    campos: [],
+    proximamente: true,
   },
 ];
 
@@ -1184,6 +1279,19 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
     showToast(`${cat.nombre} desconectado`);
   };
 
+  const [avisado, setAvisado] = useState<Set<TipoIntegracion>>(new Set());
+  const avisarme = (cat: CatalogoIntegracion) => {
+    dbInsertSoporteSolicitud({
+      id: `sup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      tipo: 'MEJORA',
+      mensaje: `Quiero que se avise cuando esté disponible la integración con ${cat.nombre}.`,
+      contacto: null,
+      creadoEn: new Date().toISOString(),
+    });
+    setAvisado(prev => new Set(prev).add(cat.tipo));
+    showToast(`Te avisaremos cuando ${cat.nombre} esté disponible`);
+  };
+
   const exportarExcel = () => {
     const fmtEur = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     // Hoja socias con su plan y estado de suscripción
@@ -1239,7 +1347,11 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-[14px] font-semibold text-[#1A1A1A]">{cat.nombre}</p>
-                    {cat.accion !== 'exportar' && (
+                    {cat.proximamente ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FFF7ED] text-[#B45309]">
+                        Próximamente
+                      </span>
+                    ) : cat.accion !== 'exportar' && (
                       <span className={cn(
                         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
                         conectado ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-[#F1F1EC] text-[#8E8E86]',
@@ -1249,11 +1361,20 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                       </span>
                     )}
                   </div>
+                  {cat.categoria && <p className="text-[10px] font-bold uppercase tracking-wide text-[#B8B8AE] mt-0.5">{cat.categoria}</p>}
                   <p className="text-[12px] text-[#8E8E86] mt-1 leading-snug">{cat.descripcion}</p>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-[#F1F1F4] flex items-center gap-2">
-                {cat.accion === 'exportar' ? (
+                {cat.proximamente ? (
+                  <button
+                    onClick={() => avisarme(cat)}
+                    disabled={avisado.has(cat.tipo)}
+                    className={cn(btnSecondary, avisado.has(cat.tipo) && 'opacity-50')}
+                  >
+                    <BellRing size={14} /> {avisado.has(cat.tipo) ? 'Ya te avisaremos' : 'Avísame cuando esté disponible'}
+                  </button>
+                ) : cat.accion === 'exportar' ? (
                   <button onClick={exportarExcel} className={btnPrimary}>
                     <FileSpreadsheet size={14} /> Descargar Excel
                   </button>
