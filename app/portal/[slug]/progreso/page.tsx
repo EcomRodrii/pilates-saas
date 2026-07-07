@@ -1,8 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
+import Link from 'next/link';
 
 const BADGES = [
   { key: 'primer_paso', emoji: '🎯', nombre: 'Primer paso', sub: '1 clase', req: (t: number) => t >= 1 },
@@ -16,8 +18,9 @@ const BADGES = [
 ];
 
 export default function ProgresoPage() {
+  const { slug } = useParams<{ slug: string }>();
   const { session } = usePortalAuth();
-  const { socios, sesiones, reservas } = useStudio();
+  const { socios, sesiones, reservas, nivelSocio } = useStudio();
   const socioId = session?.socioId;
   const now = new Date();
 
@@ -81,6 +84,7 @@ export default function ProgresoPage() {
   const maxSem = Math.max(...semanas.map(s => s.count), 1);
   const earnedCount = BADGES.filter(b => b.req(totalAsistidas, racha, tasaAsistencia)).length;
   const initials = socio ? `${socio.nombre[0]}${socio.apellidos[0]}`.toUpperCase() : '?';
+  const nivel = socioId ? nivelSocio(socioId) : null;
 
   if (!socio) return null;
 
@@ -119,6 +123,40 @@ export default function ProgresoPage() {
       </div>
 
       <div className="px-4 pt-5 pb-6 space-y-6">
+
+        {/* Nivel */}
+        {nivel?.actual && (
+          <Link
+            href={`/portal/${slug}/logros`}
+            className="flex items-center gap-3 rounded-2xl p-4"
+            style={{ backgroundColor: `${nivel.actual.color}14`, boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}
+          >
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center text-[24px] shrink-0"
+              style={{ backgroundColor: `${nivel.actual.color}22` }}
+            >
+              {nivel.actual.icono}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[14px] font-extrabold text-[#171717] leading-tight">Nivel {nivel.actual.nombre}</p>
+              {nivel.siguiente ? (
+                <>
+                  <p className="text-[11px] text-[#8E8E86] mt-0.5">
+                    {nivel.creditosParaSiguiente} créditos para {nivel.siguiente.nombre}
+                  </p>
+                  <div className="w-full h-1.5 rounded-full bg-black/5 mt-1.5 overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${Math.round(nivel.progreso * 100)}%`, backgroundColor: nivel.actual.color }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <p className="text-[11px] text-[#8E8E86] mt-0.5">Nivel máximo alcanzado</p>
+              )}
+            </div>
+          </Link>
+        )}
 
         {/* Bar chart */}
         <div>

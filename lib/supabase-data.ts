@@ -266,6 +266,21 @@ function mapAchievementHistory(r: any) {
   };
 }
 
+function mapLevelDefinition(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    nombre: r.nombre,
+    orden: r.orden,
+    umbralCreditos: r.umbral_creditos,
+    color: r.color,
+    icono: r.icono,
+    beneficios: r.beneficios ?? null,
+    activo: r.activo,
+    creadoEn: r.creado_en,
+  };
+}
+
 function mapPlanTarifa(r: any) {
   return {
     id: r.id,
@@ -685,6 +700,7 @@ export async function fetchAllStudioData() {
     achievementDefinitionsRes,
     achievementProgressRes,
     achievementHistoryRes,
+    levelDefinitionsRes,
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
     supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
@@ -726,6 +742,7 @@ export async function fetchAllStudioData() {
     supabase.from('achievement_definitions').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('achievement_progress').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('achievement_history').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('level_definitions').select('*').eq('studio_id', STUDIO_ID),
   ]);
 
   return {
@@ -769,6 +786,7 @@ export async function fetchAllStudioData() {
     achievementDefinitions: (achievementDefinitionsRes.data ?? []).map(mapAchievementDefinition),
     achievementProgress: (achievementProgressRes.data ?? []).map(mapAchievementProgress),
     achievementHistory: (achievementHistoryRes.data ?? []).map(mapAchievementHistory),
+    levelDefinitions: (levelDefinitionsRes.data ?? []).map(mapLevelDefinition),
   };
 }
 
@@ -1351,6 +1369,36 @@ export async function dbInsertAchievementHistory(h: any) {
   };
   const { error } = await supabase.from('achievement_history').insert(row);
   if (error) reportDbError('[dbInsertAchievementHistory]', error);
+}
+
+// ─── Gamificación: niveles ─────────────────────────────────────────────────────
+
+export async function dbInsertLevelDefinition(l: any) {
+  const row = {
+    id: l.id, studio_id: l.studioId ?? STUDIO_ID, nombre: l.nombre, orden: l.orden,
+    umbral_creditos: l.umbralCreditos, color: l.color, icono: l.icono,
+    beneficios: l.beneficios ?? null, activo: l.activo, creado_en: l.creadoEn,
+  };
+  const { error } = await supabase.from('level_definitions').insert(row);
+  if (error) reportDbError('[dbInsertLevelDefinition]', error);
+}
+
+export async function dbUpdateLevelDefinition(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('orden' in changes) db.orden = changes.orden;
+  if ('umbralCreditos' in changes) db.umbral_creditos = changes.umbralCreditos;
+  if ('color' in changes) db.color = changes.color;
+  if ('icono' in changes) db.icono = changes.icono;
+  if ('beneficios' in changes) db.beneficios = changes.beneficios;
+  if ('activo' in changes) db.activo = changes.activo;
+  const { error } = await supabase.from('level_definitions').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateLevelDefinition]', error);
+}
+
+export async function dbDeleteLevelDefinition(id: string) {
+  const { error } = await supabase.from('level_definitions').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteLevelDefinition]', error);
 }
 
 export async function dbInsertAutomationLog(log: any) {

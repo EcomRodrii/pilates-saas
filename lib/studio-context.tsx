@@ -21,6 +21,7 @@ import {
   dbInsertRewardRedemption, dbUpdateRewardRedemption,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
   dbUpsertAchievementProgress, dbInsertAchievementHistory,
+  dbInsertLevelDefinition, dbUpdateLevelDefinition, dbDeleteLevelDefinition,
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCampana, dbDeleteCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
@@ -76,6 +77,7 @@ import type {
   AchievementHistory,
   AchievementMetric,
   RewardTrigger,
+  LevelDefinition,
   Notificacion,
   VideoOnDemand,
   PostComunidad,
@@ -91,6 +93,7 @@ import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, yaOtorgado } from '@/lib/reward-engine';
 import { calcularMetrica } from '@/lib/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
+import { calcularNivel, type NivelInfo } from '@/lib/level-engine';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -274,6 +277,11 @@ interface StudioContextValue {
   addAchievementDefinition: (fields: Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'>) => void;
   updateAchievementDefinition: (id: string, changes: Partial<Omit<AchievementDefinition, 'id' | 'studioId'>>) => void;
   evaluarLogrosSocio: (socioId: string) => void;
+  levelDefinitions: LevelDefinition[];
+  nivelSocio: (socioId: string) => NivelInfo;
+  addLevelDefinition: (fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>) => void;
+  updateLevelDefinition: (id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>) => void;
+  deleteLevelDefinition: (id: string) => void;
   marcarTodasLeidas: () => void;
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => void;
@@ -389,6 +397,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [achievementDefinitions, setAchievementDefinitions] = useState<AchievementDefinition[]>([]);
   const [achievementProgress, setAchievementProgress] = useState<AchievementProgress[]>([]);
   const [achievementHistory, setAchievementHistory] = useState<AchievementHistory[]>([]);
+  const [levelDefinitions, setLevelDefinitions] = useState<LevelDefinition[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
@@ -460,6 +469,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setAchievementDefinitions(data.achievementDefinitions ?? []);
       setAchievementProgress(data.achievementProgress ?? []);
       setAchievementHistory(data.achievementHistory ?? []);
+      setLevelDefinitions(data.levelDefinitions ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
@@ -1541,6 +1551,31 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     });
   }
 
+  // ── Gamificación: niveles ──────────────────────────────────────────────────────
+  // El nivel se calcula sobre el total histórico ganado (memberCredits.totalGanado),
+  // nunca sobre el saldo — así canjear recompensas no hace bajar de nivel.
+
+  function nivelSocio(socioId: string): NivelInfo {
+    const totalGanado = memberCredits.find(m => m.socioId === socioId)?.totalGanado ?? 0;
+    return calcularNivel(levelDefinitions, totalGanado);
+  }
+
+  function addLevelDefinition(fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>) {
+    const nuevo: LevelDefinition = { ...fields, id: `lvl-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    setLevelDefinitions(prev => [...prev, nuevo]);
+    dbInsertLevelDefinition(nuevo);
+  }
+
+  function updateLevelDefinition(id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>) {
+    setLevelDefinitions(prev => prev.map(l => l.id === id ? { ...l, ...changes } : l));
+    dbUpdateLevelDefinition(id, changes);
+  }
+
+  function deleteLevelDefinition(id: string) {
+    setLevelDefinitions(prev => prev.filter(l => l.id !== id));
+    dbDeleteLevelDefinition(id);
+  }
+
   // ── Notificaciones ────────────────────────────────────────────────────────────
 
   function marcarNotificacionLeida(notiId: string) {
@@ -1851,6 +1886,11 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     addAchievementDefinition,
     updateAchievementDefinition,
     evaluarLogrosSocio,
+    levelDefinitions,
+    nivelSocio,
+    addLevelDefinition,
+    updateLevelDefinition,
+    deleteLevelDefinition,
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
@@ -1906,6 +1946,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setAchievementDefinitions(data.achievementDefinitions ?? []);
       setAchievementProgress(data.achievementProgress ?? []);
       setAchievementHistory(data.achievementHistory ?? []);
+      setLevelDefinitions(data.levelDefinitions ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);

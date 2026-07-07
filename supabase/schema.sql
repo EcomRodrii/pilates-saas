@@ -605,13 +605,31 @@ create table if not exists achievement_history (
   creado_en timestamptz not null default now()
 );
 
+-- Migración: Gamificación — niveles (Fase 2, bloque 4)
+-- El nivel de una socia se calcula sobre su total histórico de créditos
+-- ganados (member_credits.total_ganado) — el umbral de cada nivel lo decide
+-- el estudio aquí, nunca hardcodeado en el motor (lib/level-engine.ts).
+create table if not exists level_definitions (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  nombre text not null,
+  orden int not null default 0,
+  umbral_creditos int not null default 0,
+  color text not null default '#B08D57',
+  icono text not null default '🏅',
+  beneficios text,
+  activo boolean not null default true,
+  creado_en timestamptz not null default now()
+);
+
 do $$
 declare
   t text;
   gamification_tables text[] := array[
     'reward_rules', 'reward_actions', 'reward_history', 'credit_transactions',
     'member_credits', 'reward_catalog', 'reward_redemptions',
-    'achievement_definitions', 'achievement_progress', 'achievement_history'
+    'achievement_definitions', 'achievement_progress', 'achievement_history',
+    'level_definitions'
   ];
 begin
   foreach t in array gamification_tables loop

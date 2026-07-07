@@ -677,3 +677,21 @@ export interface AchievementHistory {
   icono: string;
   creadoEn: string;
 }
+
+// ─── Gamificación: niveles ─────────────────────────────────────────────────
+// Progresión (Bronce → Diamante, o los nombres que quiera el estudio) según
+// el total histórico de créditos ganados (MemberCredits.totalGanado, no el
+// saldo — así canjear recompensas nunca hace "bajar de nivel" a una socia).
+
+export interface LevelDefinition {
+  id: string;
+  studioId: string;
+  nombre: string;
+  orden: number;
+  umbralCreditos: number;
+  color: string;
+  icono: string;
+  beneficios: string | null;
+  activo: boolean;
+  creadoEn: string;
+}

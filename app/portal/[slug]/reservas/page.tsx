@@ -69,21 +69,24 @@ export default function MisReservasPage() {
 
       <div className="px-4 pt-4 pb-6">
         {/* Tabs */}
-        <div className="flex gap-2 mb-4 overflow-x-auto -mx-1 px-1" style={{ WebkitOverflowScrolling: 'touch' }}>
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className="shrink-0 px-3.5 py-1.5 rounded-2xl text-[12px] font-bold transition-all"
-              style={{
-                backgroundColor: tab === t.id ? '#171717' : '#F1F1EC',
-                color: tab === t.id ? 'white' : '#8E8E86',
-              }}
-            >
-              {t.label}
-              {porTab[t.id].length > 0 && ` (${porTab[t.id].length})`}
-            </button>
-          ))}
+        <div className="relative mb-4 -mx-4 px-4">
+          <div className="flex gap-2 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className="shrink-0 px-3.5 py-1.5 rounded-2xl text-[12px] font-bold transition-all"
+                style={{
+                  backgroundColor: tab === t.id ? '#171717' : '#F1F1EC',
+                  color: tab === t.id ? 'white' : '#8E8E86',
+                }}
+              >
+                {t.label}
+                {porTab[t.id].length > 0 && ` (${porTab[t.id].length})`}
+              </button>
+            ))}
+          </div>
+          <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8" style={{ background: 'linear-gradient(to right, transparent, white)' }} />
         </div>
 
         {lista.length === 0 ? (
