@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, CreditCard, Mail, FileSpreadsheet, Calendar as CalendarIcon, MessageCircle, ExternalLink, Wallet, Ticket, Dumbbell, HeartPulse, Activity, Users2, Video, KeyRound, BellRing } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, FileSpreadsheet, ExternalLink, Ticket, Dumbbell, HeartPulse, Activity, Users2, KeyRound, BellRing } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { PlanTarifa, Sala, TipoClase, TipoIntegracion, Studio } from '@/lib/types';
@@ -13,6 +13,7 @@ import { TabLogros } from '@/components/configuracion/tab-logros';
 import { TabNiveles } from '@/components/configuracion/tab-niveles';
 import { TabRetos } from '@/components/configuracion/tab-retos';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
+import { StripeIcon, PayPalIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -1059,18 +1060,18 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     tipo: 'STRIPE',
     nombre: 'Stripe',
     descripcion: 'Cobra suscripciones y bonos con tarjeta o SEPA. El dinero va directo a tu propia cuenta de Stripe — conéctala con un clic, sin claves.',
-    Icon: CreditCard,
+    Icon: StripeIcon,
     color: '#635BFF',
-    bg: '#F1F0FF',
+    bg: '#F5F5F5',
     campos: [],
   },
   {
     tipo: 'RESEND',
     nombre: 'Resend',
     descripcion: 'Envía emails de bienvenida, recibos y campañas desde tu propio dominio.',
-    Icon: Mail,
+    Icon: ResendIcon,
     color: '#1A1A1A',
-    bg: '#F1F5F9',
+    bg: '#F5F5F5',
     campos: [
       { key: 'fromEmail', label: 'Email remitente', placeholder: 'hola@tentare.es' },
       { key: 'fromName', label: 'Nombre remitente', placeholder: 'Tentare' },
@@ -1082,9 +1083,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     tipo: 'GOOGLE_CALENDAR',
     nombre: 'Google Calendar',
     descripcion: 'Sincroniza las clases y citas del estudio con un calendario de Google.',
-    Icon: CalendarIcon,
+    Icon: GoogleCalendarIcon,
     color: '#4285F4',
-    bg: '#EAF1FE',
+    bg: '#F5F5F5',
     campos: [
       { key: 'calendarId', label: 'ID del calendario', placeholder: 'estudio@group.calendar.google.com' },
     ],
@@ -1095,9 +1096,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     tipo: 'WHATSAPP',
     nombre: 'WhatsApp Business',
     descripcion: 'Envía recordatorios y automatizaciones por WhatsApp con la API de Meta.',
-    Icon: MessageCircle,
+    Icon: WhatsAppIcon,
     color: '#25D366',
-    bg: '#E7FBEF',
+    bg: '#F5F5F5',
     campos: [
       { key: 'phoneNumberId', label: 'Phone Number ID', placeholder: '1234567890' },
       { key: 'businessAccountId', label: 'Business Account ID', placeholder: '0987654321' },
@@ -1119,9 +1120,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     tipo: 'PAYPAL',
     nombre: 'PayPal',
     descripcion: 'Acepta pagos con una de las soluciones FinTech más usadas del mundo.',
-    Icon: Wallet,
+    Icon: PayPalIcon,
     color: '#003087',
-    bg: '#EAF0FB',
+    bg: '#F5F5F5',
     categoria: 'Pagos',
     campos: [
       { key: 'clientId', label: 'Client ID', placeholder: 'AeA1QIZ...' },
@@ -1189,9 +1190,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     tipo: 'ZOOM',
     nombre: 'Zoom',
     descripcion: 'Lleva tus clases más allá del estudio y ofrece sesiones en cualquier momento y lugar.',
-    Icon: Video,
-    color: '#2D8CFF',
-    bg: '#EAF3FF',
+    Icon: ZoomIcon,
+    color: '#0B5CFF',
+    bg: '#F5F5F5',
     categoria: 'Contenido digital',
     campos: [],
     proximamente: true,
