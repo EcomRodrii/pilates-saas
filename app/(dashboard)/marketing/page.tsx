@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical } from 'lucide-react'
+import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
 import type { Campana, Automatizacion, CodigoDescuento, TipoCampana, TriggerAutomatizacion, LeadStage } from '@/lib/types'
@@ -490,6 +490,12 @@ export default function MarketingPage() {
     contenido: '',
   })
 
+  // Asistente IA de campañas
+  const [objetivoIA, setObjetivoIA] = useState('')
+  const [generandoIA, setGenerandoIA] = useState(false)
+  const [errorIA, setErrorIA] = useState<string | null>(null)
+  const [razonSegmentoIA, setRazonSegmentoIA] = useState<string | null>(null)
+
   // Automatizaciones modal
   const [showAutoModal, setShowAutoModal] = useState(false)
   const [newAuto, setNewAuto] = useState({
@@ -557,6 +563,9 @@ export default function MarketingPage() {
     setNewCampana({ nombre: '', tipo: 'EMAIL', asunto: '', destinatarios: 'TODAS', contenido: '' })
     setSelectedTemplate(null)
     setShowPreview(false)
+    setObjetivoIA('')
+    setErrorIA(null)
+    setRazonSegmentoIA(null)
     setShowCampanaModal(false)
   }
 
@@ -593,6 +602,42 @@ export default function MarketingPage() {
     setSelectedTemplate(key)
     setNewCampana(p => ({ ...p, contenido: TEMPLATES[key].text }))
     setShowPreview(false)
+  }
+
+  async function handleGenerarIA() {
+    if (!objetivoIA.trim() || generandoIA) return
+    setGenerandoIA(true)
+    setErrorIA(null)
+    setRazonSegmentoIA(null)
+    try {
+      const segmentos = Object.entries(destinatariosLabel).map(([value, label]) => ({
+        value, label, count: recipientCount[value] ?? 0,
+      }))
+      const res = await fetch('/api/ai/campana-asistente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objetivo: objetivoIA, tipo: newCampana.tipo, segmentos }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setErrorIA(data.error ?? 'No se pudo generar la campaña')
+        return
+      }
+      setNewCampana(p => ({
+        ...p,
+        nombre: data.nombre || p.nombre,
+        asunto: data.asunto || p.asunto,
+        contenido: data.contenido || p.contenido,
+        destinatarios: data.destinatariosSugeridos || p.destinatarios,
+      }))
+      setRazonSegmentoIA(data.razonSegmento ?? null)
+      setSelectedTemplate(null)
+      setShowPreview(false)
+    } catch {
+      setErrorIA('Error de conexión con el asistente IA')
+    } finally {
+      setGenerandoIA(false)
+    }
   }
 
   const tipoBadge = (tipo: string) => {
@@ -988,13 +1033,44 @@ export default function MarketingPage() {
       {/* ==================== MODAL: NUEVA CAMPAÑA ==================== */}
       <Dialog open={showCampanaModal} onOpenChange={(open) => {
         setShowCampanaModal(open)
-        if (!open) { setSelectedTemplate(null); setShowPreview(false) }
+        if (!open) { setSelectedTemplate(null); setShowPreview(false); setObjetivoIA(''); setErrorIA(null); setRazonSegmentoIA(null) }
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nueva campaña</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
+            {/* Asistente IA */}
+            <div className="rounded-xl border border-[#F0D5E3] bg-[#FFF7FB] p-3.5 space-y-2.5">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#B57A8E]" />
+                <span className="text-[12px] font-bold text-[#1A1A1A]">Escribe la campaña con IA</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  className={cn(inputCls, 'bg-white')}
+                  placeholder="Ej. recuérdales que se les acaba el bono y ofréceles 10% en la renovación"
+                  value={objetivoIA}
+                  onChange={e => setObjetivoIA(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleGenerarIA() } }}
+                />
+                <button
+                  onClick={handleGenerarIA}
+                  disabled={!objetivoIA.trim() || generandoIA}
+                  className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#171717] text-white text-sm font-medium disabled:opacity-40"
+                >
+                  {generandoIA ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  Generar
+                </button>
+              </div>
+              {errorIA && <p className="text-[11px] text-[#DC2626]">{errorIA}</p>}
+              {razonSegmentoIA && (
+                <p className="text-[11px] text-[#8E8E86]">
+                  <span className="font-semibold text-[#B57A8E]">Segmento elegido: </span>{razonSegmentoIA}
+                </p>
+              )}
+            </div>
+
             {/* Basic fields */}
             <FF label="Nombre">
               <input
