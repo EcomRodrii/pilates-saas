@@ -9,6 +9,7 @@ import { useStudio } from '@/lib/studio-context';
 import type { PlanTarifa, Sala, TipoClase, TipoIntegracion, Studio } from '@/lib/types';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { TabRecompensas } from '@/components/configuracion/tab-recompensas';
+import { TabLogros } from '@/components/configuracion/tab-logros';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -205,13 +206,14 @@ function EstadoBadge({ activo }: { activo: boolean }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'integraciones' | 'estudio' | 'perfil';
+type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'logros' | 'integraciones' | 'estudio' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
   { id: 'clases',      label: 'Clases' },
   { id: 'salas',       label: 'Salas' },
   { id: 'recompensas', label: 'Recompensas' },
+  { id: 'logros',      label: 'Logros' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
   { id: 'perfil',      label: 'Mi perfil' },
@@ -267,6 +269,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'clases'      && <TabClases       showToast={showToast} />}
       {activeTab === 'salas'       && <TabSalas        showToast={showToast} />}
       {activeTab === 'recompensas' && <TabRecompensas  showToast={showToast} />}
+      {activeTab === 'logros'      && <TabLogros       showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
       {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}

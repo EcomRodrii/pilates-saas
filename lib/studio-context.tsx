@@ -19,6 +19,8 @@ import {
   dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbUpsertMemberCredits,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem,
   dbInsertRewardRedemption, dbUpdateRewardRedemption,
+  dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
+  dbUpsertAchievementProgress, dbInsertAchievementHistory,
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCampana, dbDeleteCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
@@ -69,6 +71,10 @@ import type {
   MemberCredits,
   RewardCatalogItem,
   RewardRedemption,
+  AchievementDefinition,
+  AchievementProgress,
+  AchievementHistory,
+  AchievementMetric,
   RewardTrigger,
   Notificacion,
   VideoOnDemand,
@@ -83,6 +89,7 @@ import type {
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, yaOtorgado } from '@/lib/reward-engine';
+import { calcularMetrica } from '@/lib/achievement-engine';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -259,6 +266,12 @@ interface StudioContextValue {
   deleteRewardCatalogItem: (id: string) => void;
   canjearRecompensa: (socioId: string, catalogItemId: string) => { ok: true } | { error: string };
   updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado']) => void;
+  achievementDefinitions: AchievementDefinition[];
+  achievementProgress: AchievementProgress[];
+  achievementHistory: AchievementHistory[];
+  addAchievementDefinition: (fields: Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'>) => void;
+  updateAchievementDefinition: (id: string, changes: Partial<Omit<AchievementDefinition, 'id' | 'studioId'>>) => void;
+  evaluarLogrosSocio: (socioId: string) => void;
   marcarTodasLeidas: () => void;
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => void;
@@ -371,6 +384,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [memberCredits, setMemberCredits] = useState<MemberCredits[]>([]);
   const [rewardCatalog, setRewardCatalog] = useState<RewardCatalogItem[]>([]);
   const [rewardRedemptions, setRewardRedemptions] = useState<RewardRedemption[]>([]);
+  const [achievementDefinitions, setAchievementDefinitions] = useState<AchievementDefinition[]>([]);
+  const [achievementProgress, setAchievementProgress] = useState<AchievementProgress[]>([]);
+  const [achievementHistory, setAchievementHistory] = useState<AchievementHistory[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
@@ -439,6 +455,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setMemberCredits(data.memberCredits ?? []);
       setRewardCatalog(data.rewardCatalog ?? []);
       setRewardRedemptions(data.rewardRedemptions ?? []);
+      setAchievementDefinitions(data.achievementDefinitions ?? []);
+      setAchievementProgress(data.achievementProgress ?? []);
+      setAchievementHistory(data.achievementHistory ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);
@@ -792,9 +811,11 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       checkInEn: null,
       creadoEn: new Date().toISOString(),
     };
-    setReservas(prev => [...prev, nueva]);
+    const reservasActualizadas = [...reservas, nueva];
+    setReservas(reservasActualizadas);
     dbInsertReserva(nueva);
     if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
+    evaluarLogrosSocio(socioId, reservasActualizadas);
   }
 
   function cancelarReserva(reservaId: string) {
@@ -844,13 +865,15 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   function checkin(reservaId: string) {
     const checkInEn = new Date().toISOString();
-    setReservas(prev => prev.map(r =>
+    const reservasActualizadas = reservas.map(r =>
       r.id === reservaId ? { ...r, estado: 'ASISTIDA' as const, checkInEn } : r
-    ));
+    );
+    setReservas(reservasActualizadas);
     dbUpdateReserva(reservaId, { estado: 'ASISTIDA', checkInEn });
     const reserva = reservas.find(r => r.id === reservaId);
     if (!reserva) return;
     otorgarCreditos(reserva.socioId, 'ASISTENCIA_CLASE', reservaId);
+    evaluarLogrosSocio(reserva.socioId, reservasActualizadas);
     const sus = suscripciones.find(s => s.socioId === reserva.socioId && s.estado === 'ACTIVA');
     if (!sus) return;
     const plan = planesTarifa.find(p => p.id === sus.planId);
@@ -1438,6 +1461,74 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     dbUpdateRewardRedemption(id, { estado });
   }
 
+  // ── Gamificación: logros ──────────────────────────────────────────────────────
+  // El umbral de cada logro SIEMPRE sale de achievementDefinitions — nunca un
+  // número fijo aquí. Se reevalúa el progreso de una socia tras cualquier
+  // acción que pueda mover una métrica (check-in, nueva reserva...).
+
+  function addAchievementDefinition(fields: Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'>) {
+    const nueva: AchievementDefinition = { ...fields, id: `ach-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    setAchievementDefinitions(prev => [...prev, nueva]);
+    dbInsertAchievementDefinition(nueva);
+  }
+
+  function updateAchievementDefinition(id: string, changes: Partial<Omit<AchievementDefinition, 'id' | 'studioId'>>) {
+    setAchievementDefinitions(prev => prev.map(a => a.id === id ? { ...a, ...changes } : a));
+    dbUpdateAchievementDefinition(id, changes);
+  }
+
+  function evaluarLogrosSocio(socioId: string, reservasOverride?: Reserva[]) {
+    const now = new Date();
+    const studioId = getCurrentStudioId();
+    const socio = socios.find(s => s.id === socioId);
+    // reservasOverride: quien llama justo acaba de hacer setReservas(...) en
+    // este mismo tick — el `reservas` del closure todavía no lo refleja (los
+    // set de React no aplican de forma síncrona), así que se puede pasar la
+    // lista ya actualizada para no evaluar logros con datos de un paso atrás.
+    const misReservas = (reservasOverride ?? reservas).filter(r => r.socioId === socioId);
+
+    achievementDefinitions.filter(def => def.activo).forEach(def => {
+      const progresoExistente = achievementProgress.find(p => p.socioId === socioId && p.achievementId === def.id);
+      if (progresoExistente?.completado) return; // ya conseguido, no se re-evalúa
+
+      const valor = calcularMetrica(def.metric, { reservas: misReservas, sesiones, socio, now });
+      const completadoAhora = valor >= def.umbral;
+      const progresoActualizado: AchievementProgress = progresoExistente
+        ? { ...progresoExistente, progresoActual: valor, completado: completadoAhora, completadoEn: completadoAhora ? now.toISOString() : null }
+        : { id: `achp-${uid()}`, studioId, socioId, achievementId: def.id, progresoActual: valor, completado: completadoAhora, completadoEn: completadoAhora ? now.toISOString() : null };
+
+      setAchievementProgress(prev => progresoExistente
+        ? prev.map(p => p.id === progresoExistente.id ? progresoActualizado : p)
+        : [...prev, progresoActualizado]);
+      dbUpsertAchievementProgress(progresoActualizado);
+
+      if (!completadoAhora) return;
+
+      const entry: AchievementHistory = {
+        id: `achh-${uid()}`, studioId, socioId, achievementId: def.id, nombre: def.nombre, icono: def.icono, creadoEn: now.toISOString(),
+      };
+      setAchievementHistory(prev => [entry, ...prev]);
+      dbInsertAchievementHistory(entry);
+
+      if (def.creditosRecompensa > 0) {
+        const transaccion: CreditTransaction = {
+          id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: def.creditosRecompensa,
+          descripcion: `Logro desbloqueado: ${def.nombre}`, refId: def.id, creadoEn: now.toISOString(),
+        };
+        setCreditTransactions(prev => [transaccion, ...prev]);
+        dbInsertCreditTransaction(transaccion);
+        setMemberCredits(prev => {
+          const existente = prev.find(m => m.socioId === socioId);
+          const actualizado: MemberCredits = existente
+            ? { ...existente, saldo: existente.saldo + def.creditosRecompensa, totalGanado: existente.totalGanado + def.creditosRecompensa, actualizadoEn: now.toISOString() }
+            : { socioId, studioId, saldo: def.creditosRecompensa, totalGanado: def.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
+          dbUpsertMemberCredits(actualizado);
+          return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
+        });
+      }
+    });
+  }
+
   // ── Notificaciones ────────────────────────────────────────────────────────────
 
   function marcarNotificacionLeida(notiId: string) {
@@ -1741,6 +1832,12 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     deleteRewardCatalogItem,
     canjearRecompensa,
     updateRewardRedemptionEstado,
+    achievementDefinitions,
+    achievementProgress,
+    achievementHistory,
+    addAchievementDefinition,
+    updateAchievementDefinition,
+    evaluarLogrosSocio,
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
@@ -1793,6 +1890,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setMemberCredits(data.memberCredits ?? []);
       setRewardCatalog(data.rewardCatalog ?? []);
       setRewardRedemptions(data.rewardRedemptions ?? []);
+      setAchievementDefinitions(data.achievementDefinitions ?? []);
+      setAchievementProgress(data.achievementProgress ?? []);
+      setAchievementHistory(data.achievementHistory ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setNotasProgreso(data.notasProgreso);

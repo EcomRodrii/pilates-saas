@@ -623,3 +623,57 @@ export interface RewardRedemption {
   estado: EstadoCanje;
   creadoEn: string;
 }
+
+// ─── Gamificación: logros ─────────────────────────────────────────────────────
+// Igual que con los créditos: el ESTUDIO decide el umbral de cada logro
+// (5 clases, 10 clases...) — el motor nunca hardcodea el número.
+
+export type AchievementMetric =
+  | 'CLASES_ASISTIDAS'
+  | 'RESERVAS_TOTALES'
+  | 'SEMANAS_CONSECUTIVAS'
+  | 'ASISTENCIA_MENSUAL_COMPLETA'
+  | 'AMIGOS_INVITADOS'
+  | 'ASISTENCIA_CUMPLEANOS';
+
+export interface AchievementMetricDef {
+  metric: AchievementMetric;
+  nombre: string;
+  descripcion: string;
+  // Métricas "booleanas" (ocurre o no ocurre, ej. asistir el día de tu
+  // cumpleaños) no acumulan progreso — se cumplen o no en cada evaluación.
+  acumulable: boolean;
+}
+
+export interface AchievementDefinition {
+  id: string;
+  studioId: string;
+  metric: AchievementMetric;
+  nombre: string;
+  descripcion: string | null;
+  umbral: number;
+  icono: string;
+  creditosRecompensa: number;
+  activo: boolean;
+  creadoEn: string;
+}
+
+export interface AchievementProgress {
+  id: string;
+  studioId: string;
+  socioId: string;
+  achievementId: string;
+  progresoActual: number;
+  completado: boolean;
+  completadoEn: string | null;
+}
+
+export interface AchievementHistory {
+  id: string;
+  studioId: string;
+  socioId: string;
+  achievementId: string;
+  nombre: string;
+  icono: string;
+  creadoEn: string;
+}

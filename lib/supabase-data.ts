@@ -227,6 +227,45 @@ function mapRewardRedemption(r: any) {
   };
 }
 
+function mapAchievementDefinition(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    metric: r.metric,
+    nombre: r.nombre,
+    descripcion: r.descripcion ?? null,
+    umbral: r.umbral,
+    icono: r.icono,
+    creditosRecompensa: r.creditos_recompensa,
+    activo: r.activo,
+    creadoEn: r.creado_en,
+  };
+}
+
+function mapAchievementProgress(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    achievementId: r.achievement_id,
+    progresoActual: r.progreso_actual,
+    completado: r.completado,
+    completadoEn: r.completado_en ?? null,
+  };
+}
+
+function mapAchievementHistory(r: any) {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    achievementId: r.achievement_id,
+    nombre: r.nombre,
+    icono: r.icono,
+    creadoEn: r.creado_en,
+  };
+}
+
 function mapPlanTarifa(r: any) {
   return {
     id: r.id,
@@ -643,6 +682,9 @@ export async function fetchAllStudioData() {
     memberCreditsRes,
     rewardCatalogRes,
     rewardRedemptionsRes,
+    achievementDefinitionsRes,
+    achievementProgressRes,
+    achievementHistoryRes,
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
     supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
@@ -681,6 +723,9 @@ export async function fetchAllStudioData() {
     supabase.from('member_credits').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('reward_catalog').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('reward_redemptions').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('achievement_definitions').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('achievement_progress').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('achievement_history').select('*').eq('studio_id', STUDIO_ID),
   ]);
 
   return {
@@ -721,6 +766,9 @@ export async function fetchAllStudioData() {
     memberCredits: (memberCreditsRes.data ?? []).map(mapMemberCredits),
     rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
     rewardRedemptions: (rewardRedemptionsRes.data ?? []).map(mapRewardRedemption),
+    achievementDefinitions: (achievementDefinitionsRes.data ?? []).map(mapAchievementDefinition),
+    achievementProgress: (achievementProgressRes.data ?? []).map(mapAchievementProgress),
+    achievementHistory: (achievementHistoryRes.data ?? []).map(mapAchievementHistory),
   };
 }
 
@@ -1261,6 +1309,48 @@ export async function dbUpdateRewardRedemption(id: string, changes: any) {
   if ('estado' in changes) db.estado = changes.estado;
   const { error } = await supabase.from('reward_redemptions').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateRewardRedemption]', error);
+}
+
+// ─── Gamificación: logros ─────────────────────────────────────────────────────
+
+export async function dbInsertAchievementDefinition(a: any) {
+  const row = {
+    id: a.id, studio_id: a.studioId ?? STUDIO_ID, metric: a.metric, nombre: a.nombre,
+    descripcion: a.descripcion ?? null, umbral: a.umbral, icono: a.icono,
+    creditos_recompensa: a.creditosRecompensa, activo: a.activo, creado_en: a.creadoEn,
+  };
+  const { error } = await supabase.from('achievement_definitions').insert(row);
+  if (error) reportDbError('[dbInsertAchievementDefinition]', error);
+}
+
+export async function dbUpdateAchievementDefinition(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('umbral' in changes) db.umbral = changes.umbral;
+  if ('icono' in changes) db.icono = changes.icono;
+  if ('creditosRecompensa' in changes) db.creditos_recompensa = changes.creditosRecompensa;
+  if ('activo' in changes) db.activo = changes.activo;
+  const { error } = await supabase.from('achievement_definitions').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateAchievementDefinition]', error);
+}
+
+export async function dbUpsertAchievementProgress(p: any) {
+  const row = {
+    id: p.id, studio_id: p.studioId ?? STUDIO_ID, socio_id: p.socioId, achievement_id: p.achievementId,
+    progreso_actual: p.progresoActual, completado: p.completado, completado_en: p.completadoEn ?? null,
+  };
+  const { error } = await supabase.from('achievement_progress').upsert(row, { onConflict: 'socio_id,achievement_id' });
+  if (error) reportDbError('[dbUpsertAchievementProgress]', error);
+}
+
+export async function dbInsertAchievementHistory(h: any) {
+  const row = {
+    id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, achievement_id: h.achievementId,
+    nombre: h.nombre, icono: h.icono, creado_en: h.creadoEn,
+  };
+  const { error } = await supabase.from('achievement_history').insert(row);
+  if (error) reportDbError('[dbInsertAchievementHistory]', error);
 }
 
 export async function dbInsertAutomationLog(log: any) {

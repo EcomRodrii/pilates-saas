@@ -568,12 +568,50 @@ create table if not exists reward_redemptions (
   creado_en timestamptz not null default now()
 );
 
+-- Migración: Gamificación — logros (Fase 2, bloque 2)
+-- El umbral de cada logro (5 clases, 10 clases...) SIEMPRE sale de
+-- achievement_definitions — nunca hardcodeado en el motor.
+create table if not exists achievement_definitions (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  metric text not null,
+  nombre text not null,
+  descripcion text,
+  umbral int not null default 1,
+  icono text not null default '🏆',
+  creditos_recompensa int not null default 0,
+  activo boolean not null default true,
+  creado_en timestamptz not null default now()
+);
+
+create table if not exists achievement_progress (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  socio_id text references socios(id) on delete cascade,
+  achievement_id text references achievement_definitions(id) on delete cascade,
+  progreso_actual int not null default 0,
+  completado boolean not null default false,
+  completado_en timestamptz,
+  unique (socio_id, achievement_id)
+);
+
+create table if not exists achievement_history (
+  id text primary key,
+  studio_id text references studios(id) on delete cascade,
+  socio_id text references socios(id) on delete cascade,
+  achievement_id text references achievement_definitions(id) on delete cascade,
+  nombre text not null,
+  icono text not null,
+  creado_en timestamptz not null default now()
+);
+
 do $$
 declare
   t text;
   gamification_tables text[] := array[
     'reward_rules', 'reward_actions', 'reward_history', 'credit_transactions',
-    'member_credits', 'reward_catalog', 'reward_redemptions'
+    'member_credits', 'reward_catalog', 'reward_redemptions',
+    'achievement_definitions', 'achievement_progress', 'achievement_history'
   ];
 begin
   foreach t in array gamification_tables loop
