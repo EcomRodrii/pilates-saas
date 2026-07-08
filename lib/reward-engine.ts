@@ -1,4 +1,4 @@
-import type { RewardRule, RewardAction, RewardTrigger, RewardTriggerDef, MemberCredits } from '@/lib/types';
+import type { RewardRule, RewardAction, RewardTrigger, RewardTriggerDef, MemberCredits, RewardCatalogItem } from '@/lib/types';
 
 // Catálogo de disparadores que la app sabe detectar. El estudio no puede
 // inventar disparadores nuevos (eso requiere código), pero SÍ configura
@@ -49,4 +49,30 @@ export function aplicarGananciaCreditos(
   return existente
     ? { ...existente, saldo: existente.saldo + creditos, totalGanado: existente.totalGanado + creditos, actualizadoEn: now }
     : { socioId, studioId, saldo: creditos, totalGanado: creditos, totalCanjeado: 0, actualizadoEn: now };
+}
+
+// ── Canje de recompensas ──────────────────────────────────────────────────────
+
+// Valida si una socia puede canjear una recompensa del catálogo con su saldo.
+export function validarCanje(
+  item: RewardCatalogItem | undefined,
+  saldo: number,
+): { ok: true } | { error: string } {
+  if (!item || !item.activo) return { error: 'Esta recompensa ya no está disponible.' };
+  if (item.stock != null && item.stock <= 0) return { error: 'Sin stock disponible.' };
+  if (saldo < item.costeCreditos) return { error: 'No tienes créditos suficientes todavía.' };
+  return { ok: true };
+}
+
+// Nuevo saldo tras CANJEAR: descuenta del saldo y suma al total canjeado.
+export function aplicarCanjeCreditos(
+  existente: MemberCredits | undefined,
+  socioId: string,
+  studioId: string,
+  coste: number,
+  now: string,
+): MemberCredits {
+  return existente
+    ? { ...existente, saldo: existente.saldo - coste, totalCanjeado: existente.totalCanjeado + coste, actualizadoEn: now }
+    : { socioId, studioId, saldo: -coste, totalGanado: 0, totalCanjeado: coste, actualizadoEn: now };
 }
