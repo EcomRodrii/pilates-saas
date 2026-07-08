@@ -332,7 +332,6 @@ export default function ReservarPage() {
     if (!bookingSesionId || !socia) return;
     const sesion = sesionesRich.find(s => s.id === bookingSesionId);
     if (!sesion) return;
-    const isFull = sesion.ocupadas >= sesion.aforoMaximo;
 
     let socioId = socia.socioId;
     if (!socioId) {
@@ -353,8 +352,10 @@ export default function ReservarPage() {
       login({ nombre: socia.nombre, email: socia.email, socioId });
     }
 
-    addReserva(bookingSesionId, socioId);
-    setLoginStep(isFull ? 'espera' : 'done');
+    // El estado real lo decide addReserva según el aforo en ese momento
+    // (evita depender de un cálculo previo que podría estar desactualizado).
+    const estado = addReserva(bookingSesionId, socioId);
+    setLoginStep(estado === 'LISTA_ESPERA' ? 'espera' : 'done');
   }
 
   async function handleContratarPlan(plan: PlanTarifa) {

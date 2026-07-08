@@ -12,6 +12,7 @@ import {
   dbInsertFactura,
   dbInsertCita, dbUpdateCita,
   dbInsertVentaPOS,
+  dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
   dbInsertMensajeEquipo,
   dbUpsertPreferenciasSocio,
@@ -26,7 +27,7 @@ import {
   dbUpsertChallengeProgress, dbInsertChallengeHistory,
   dbInsertDashboardChart, dbDeleteDashboardChart,
   dbInsertNotaInterna, dbDeleteNotaInterna,
-  dbInsertCampana, dbDeleteCampana,
+  dbInsertCampana, dbDeleteCampana, dbUpdateCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
   dbInsertVideoOnDemand, dbUpdateVideoOnDemand,
   dbInsertPostComunidad, dbUpdatePostComunidad,
@@ -44,6 +45,7 @@ import type {
   Suscripcion,
   Sesion,
   Reserva,
+  EstadoReserva,
   Recibo,
   Factura,
   PlanTarifa,
@@ -97,6 +99,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
+import { enviarEmailCampana } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, yaOtorgado } from '@/lib/reward-engine';
@@ -198,7 +201,7 @@ interface StudioContextValue {
   deleteSesion: (id: string) => void;
 
   // Reservas
-  addReserva: (sesionId: string, socioId: string) => void;
+  addReserva: (sesionId: string, socioId: string) => EstadoReserva;
   cancelarReserva: (reservaId: string) => void;
   checkin: (reservaId: string) => void;
   liberarSpot: (reservaId: string) => void;
@@ -222,6 +225,9 @@ interface StudioContextValue {
   // POS
   productosPOS: ProductoPOS[];
   ventasPOS: VentaPOS[];
+  addProductoPOS: (fields: Omit<ProductoPOS, 'id' | 'studioId'>) => void;
+  updateProductoPOS: (id: string, changes: Partial<ProductoPOS>) => void;
+  deleteProductoPOS: (id: string) => void;
   addVentaPOS: (fields: Omit<VentaPOS, 'id' | 'studioId' | 'realizadaEn'>) => void;
 
   // Campañas
@@ -229,6 +235,7 @@ interface StudioContextValue {
   addCampana: (fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>) => void;
   deleteCampana: (id: string) => void;
   duplicateCampana: (campana: Campana) => void;
+  enviarCampana: (campana: Campana) => Promise<{ enviados: number; total: number }>;
 
   // Automatizaciones
   automatizaciones: Automatizacion[];
@@ -457,7 +464,11 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
         setCurrentStudioId(studioIdOverride);
       } else if (authUserId) {
         const resolved = await resolveStudioId(authUserId);
-        if (resolved) setCurrentStudioId(resolved);
+        // Resetea a vacío si no resuelve, para no heredar el estudio de una
+        // sesión anterior en el mismo cliente.
+        setCurrentStudioId(resolved ?? '');
+      } else {
+        setCurrentStudioId('');
       }
       return fetchAllStudioData();
     })().then(data => {
@@ -854,50 +865,152 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   // ── Reservas ─────────────────────────────────────────────────────────────────
 
-  function addReserva(sesionId: string, socioId: string) {
+  // Descuenta una sesión del bono activo del socio al confirmar una reserva.
+  // Si el bono se agota, genera el recibo de renovación + notificación.
+  function consumirSesionBono(socioId: string) {
+    const sus = suscripciones.find(s => s.socioId === socioId && s.estado === 'ACTIVA');
+    if (!sus) return;
+    const plan = planesTarifa.find(p => p.id === sus.planId);
+    if (!plan) return;
+    if ((plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL') || sus.sesionesRestantes === null) return;
+
+    const nuevasRestantes = Math.max(0, (sus.sesionesRestantes ?? 0) - 1);
+    setSuscripciones(prev => prev.map(s =>
+      s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
+    ));
+    dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
+
+    // Bono agotado → generar recibo de renovación + notificación
+    if (nuevasRestantes === 0) {
+      const socio = socios.find(s => s.id === socioId);
+      const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
+      const hoy = new Date().toISOString().slice(0, 10);
+      const reciboRenovacion: Recibo = {
+        id: `rec-renov-${uid()}`,
+        studioId: getCurrentStudioId(),
+        socioId,
+        suscripcionId: sus.id,
+        concepto: `Renovación ${plan.nombre}`,
+        importe: plan.precio,
+        estado: 'PENDIENTE',
+        fechaVencimiento: hoy,
+        fechaCobro: null,
+        fechaDevolucion: null,
+        intentosReintento: 0,
+      };
+      setRecibos(prev => [reciboRenovacion, ...prev]);
+      dbInsertRecibo(reciboRenovacion);
+      setNotificaciones(prev => [{
+        id: `notif-bono-${uid()}`,
+        studioId: getCurrentStudioId(),
+        titulo: 'Bono agotado',
+        texto: `${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`,
+        leida: false,
+        tipo: 'AVISO' as const,
+        enlace: `/socios/${socioId}`,
+        creadaEn: new Date().toISOString(),
+      }, ...prev]);
+      addActividadReciente(
+        'PAGO_PENDIENTE',
+        `Bono agotado — ${nombreSocio} necesita renovar ${plan.nombre}`,
+        socioId,
+        `/socios/${socioId}`,
+      );
+    }
+  }
+
+  // Devuelve una sesión al bono cuando se cancela una reserva confirmada,
+  // sin superar el total del plan.
+  function devolverSesionBono(socioId: string) {
+    const sus = suscripciones.find(s => s.socioId === socioId && s.estado === 'ACTIVA');
+    if (!sus) return;
+    const plan = planesTarifa.find(p => p.id === sus.planId);
+    if (!plan) return;
+    if ((plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL') || sus.sesionesRestantes === null) return;
+
+    const tope = plan.sesiones ?? Number.POSITIVE_INFINITY;
+    const nuevasRestantes = Math.min(tope, (sus.sesionesRestantes ?? 0) + 1);
+    setSuscripciones(prev => prev.map(s =>
+      s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
+    ));
+    dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
+  }
+
+  // Ocupación real de una sesión: solo cuentan las plazas que ocupan un sitio
+  // (confirmadas o ya asistidas). La lista de espera NO consume aforo.
+  function plazasOcupadas(sesionId: string, lista: Reserva[] = reservas) {
+    return lista.filter(
+      r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')
+    ).length;
+  }
+
+  function addReserva(sesionId: string, socioId: string): EstadoReserva {
     const esPrimeraReserva = !reservas.some(r => r.socioId === socioId);
+    const sesion = sesiones.find(s => s.id === sesionId);
+    const aforo = sesion?.aforoMaximo ?? Number.POSITIVE_INFINITY;
+    const ocupadas = plazasOcupadas(sesionId);
+    const hayHueco = ocupadas < aforo;
+
+    // Si no hay hueco, entra en lista de espera con su posición correspondiente.
+    const enEspera = reservas.filter(
+      r => r.sesionId === sesionId && r.estado === 'LISTA_ESPERA'
+    ).length;
+    const estado: EstadoReserva = hayHueco ? 'CONFIRMADA' : 'LISTA_ESPERA';
+
     const nueva: Reserva = {
       id: `res-${uid()}`,
       studioId: getCurrentStudioId(),
       sesionId,
       socioId,
-      estado: 'CONFIRMADA',
+      estado,
       spotId: null,
-      posicionEspera: null,
+      posicionEspera: hayHueco ? null : enEspera + 1,
       checkInEn: null,
       creadoEn: new Date().toISOString(),
     };
     const reservasActualizadas = [...reservas, nueva];
     setReservas(reservasActualizadas);
     dbInsertReserva(nueva);
+
+    // La sesión del bono se descuenta al confirmar la plaza, no en el check-in.
+    if (estado === 'CONFIRMADA') consumirSesionBono(socioId);
+
     if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
     evaluarLogrosSocio(socioId, reservasActualizadas);
     evaluarRetosSocio(socioId, reservasActualizadas);
+    return estado;
   }
 
   function cancelarReserva(reservaId: string) {
     let promotedSocioId: string | null = null;
     let promotedSesionId: string | null = null;
 
+    const cancelada = reservas.find(r => r.id === reservaId);
+    // Solo se devuelve la sesión si la reserva ocupaba plaza (estaba confirmada).
+    // Una reserva en lista de espera nunca llegó a descontar bono.
+    if (cancelada?.estado === 'CONFIRMADA') devolverSesionBono(cancelada.socioId);
+
     setReservas(prev => {
       const updated = prev.map(r =>
         r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r
       );
       dbUpdateReserva(reservaId, { estado: 'CANCELADA' });
-      // Auto-promote first LISTA_ESPERA for same sesion
-      const cancelada = prev.find(r => r.id === reservaId);
+      // Auto-promociona la primera de la LISTA_ESPERA (por posición) de la sesión
       if (!cancelada) return updated;
-      const espera = updated.find(
-        r => r.sesionId === cancelada.sesionId && r.estado === 'LISTA_ESPERA'
-      );
+      const espera = updated
+        .filter(r => r.sesionId === cancelada.sesionId && r.estado === 'LISTA_ESPERA')
+        .sort((a, b) => (a.posicionEspera ?? 0) - (b.posicionEspera ?? 0))[0];
       if (!espera) return updated;
       promotedSocioId = espera.socioId;
       promotedSesionId = espera.sesionId;
-      dbUpdateReserva(espera.id, { estado: 'CONFIRMADA', posicion_espera: null });
+      dbUpdateReserva(espera.id, { estado: 'CONFIRMADA', posicionEspera: null });
       return updated.map(r =>
         r.id === espera.id ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r
       );
     });
+
+    // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
+    if (promotedSocioId) consumirSesionBono(promotedSocioId);
 
     // Fire notification for promoted socia
     if (promotedSocioId && promotedSesionId) {
@@ -938,56 +1051,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     if (racha.semanas > 0) {
       otorgarCreditos(reserva.socioId, 'SEMANA_COMPLETA', `${reserva.socioId}:${racha.claveSemanaActual}`);
     }
-    const sus = suscripciones.find(s => s.socioId === reserva.socioId && s.estado === 'ACTIVA');
-    if (!sus) return;
-    const plan = planesTarifa.find(p => p.id === sus.planId);
-    if (!plan) return;
-
-    if ((plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && sus.sesionesRestantes !== null) {
-      const nuevasRestantes = Math.max(0, (sus.sesionesRestantes ?? 0) - 1);
-      setSuscripciones(prev => prev.map(s =>
-        s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
-      ));
-      dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
-
-      // Bono agotado → generar recibo de renovación + notificación
-      if (nuevasRestantes === 0) {
-        const socio = socios.find(s => s.id === reserva.socioId);
-        const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
-        const hoy = new Date().toISOString().slice(0, 10);
-        const reciboRenovacion: Recibo = {
-          id: `rec-renov-${uid()}`,
-          studioId: getCurrentStudioId(),
-          socioId: reserva.socioId,
-          suscripcionId: sus.id,
-          concepto: `Renovación ${plan.nombre}`,
-          importe: plan.precio,
-          estado: 'PENDIENTE',
-          fechaVencimiento: hoy,
-          fechaCobro: null,
-          fechaDevolucion: null,
-          intentosReintento: 0,
-        };
-        setRecibos(prev => [reciboRenovacion, ...prev]);
-        dbInsertRecibo(reciboRenovacion);
-        setNotificaciones(prev => [{
-          id: `notif-bono-${uid()}`,
-          studioId: getCurrentStudioId(),
-          titulo: 'Bono agotado',
-          texto: `${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`,
-          leida: false,
-          tipo: 'AVISO' as const,
-          enlace: `/socios/${reserva.socioId}`,
-          creadaEn: new Date().toISOString(),
-        }, ...prev]);
-        addActividadReciente(
-          'PAGO_PENDIENTE',
-          `Bono agotado — ${nombreSocio} necesita renovar ${plan.nombre}`,
-          reserva.socioId,
-          `/socios/${reserva.socioId}`,
-        );
-      }
-    }
+    // Nota: la sesión del bono ya se descuenta al confirmar la reserva
+    // (ver consumirSesionBono en addReserva), no en el check-in, para evitar
+    // el doble cobro y para que el saldo refleje las plazas ya comprometidas.
   }
 
   // Detectar planes MENSUAL caducados al cargar (una vez por sesión)
@@ -1223,6 +1289,22 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   // ── POS ──────────────────────────────────────────────────────────────────────
 
+  function addProductoPOS(fields: Omit<ProductoPOS, 'id' | 'studioId'>) {
+    const nuevo: ProductoPOS = { id: `pos-${uid()}`, studioId: getCurrentStudioId(), ...fields };
+    setProductosPOS(prev => [...prev, nuevo]);
+    dbInsertProductoPOS(nuevo);
+  }
+
+  function updateProductoPOS(id: string, changes: Partial<ProductoPOS>) {
+    setProductosPOS(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
+    dbUpdateProductoPOS(id, changes);
+  }
+
+  function deleteProductoPOS(id: string) {
+    setProductosPOS(prev => prev.filter(p => p.id !== id));
+    dbDeleteProductoPOS(id);
+  }
+
   function addVentaPOS(fields: Omit<VentaPOS, 'id' | 'studioId' | 'realizadaEn'>) {
     const nueva: VentaPOS = {
       id: `vpos-${uid()}`,
@@ -1298,6 +1380,55 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     };
     setCampanas(prev => [copy, ...prev]);
     dbInsertCampana(copy);
+  }
+
+  // Resuelve las destinatarias de una campaña a partir de su segmento.
+  function resolverDestinatariasCampana(destinatarios: DestinatariosCampana): Socio[] {
+    const conSusActiva = new Set(
+      suscripciones.filter(s => s.estado === 'ACTIVA').map(s => s.socioId)
+    );
+    switch (destinatarios) {
+      case 'ACTIVAS': return socios.filter(s => s.activo !== false);
+      case 'INACTIVAS': return socios.filter(s => s.activo === false);
+      case 'SIN_PLAN': return socios.filter(s => !conSusActiva.has(s.id));
+      case 'BONO': return socios.filter(s => conSusActiva.has(s.id));
+      case 'VIP': return socios.filter(s => s.tags?.includes('VIP'));
+      case 'TODAS':
+      default: return socios;
+    }
+  }
+
+  // Envía una campaña de verdad: manda el email a cada destinataria con correo
+  // válido y marca la campaña como ENVIADA con el recuento real.
+  async function enviarCampana(campana: Campana): Promise<{ enviados: number; total: number }> {
+    const destinatarias = resolverDestinatariasCampana(campana.destinatarios)
+      .filter(s => s.email && s.email.includes('@'));
+
+    let enviados = 0;
+    for (const socio of destinatarias) {
+      const ok = await enviarEmailCampana({
+        to: socio.email,
+        toName: `${socio.nombre} ${socio.apellidos}`.trim(),
+        asunto: campana.asunto,
+        contenido: campana.contenido,
+      });
+      if (ok) enviados++;
+    }
+
+    const enviadaEn = new Date().toISOString();
+    setCampanas(prev => prev.map(c =>
+      c.id === campana.id
+        ? { ...c, estado: 'ENVIADA' as const, enviados, enviadaEn }
+        : c
+    ));
+    dbUpdateCampana(campana.id, { estado: 'ENVIADA', enviados, enviadaEn });
+    addActividadReciente(
+      'MENSAJE_ENVIADO',
+      `Campaña "${campana.nombre}" enviada a ${enviados} de ${destinatarias.length} destinatarias`,
+      undefined,
+      '/marketing',
+    );
+    return { enviados, total: destinatarias.length };
   }
 
   // ── Automatizaciones ─────────────────────────────────────────────────────────
@@ -2022,12 +2153,16 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     cancelarCita,
     completarCita,
     productosPOS,
+    addProductoPOS,
+    updateProductoPOS,
+    deleteProductoPOS,
     ventasPOS,
     addVentaPOS,
     campanas,
     addCampana,
     deleteCampana,
     duplicateCampana,
+    enviarCampana,
     automatizaciones,
     addAutomatizacion,
     toggleAutomatizacion,

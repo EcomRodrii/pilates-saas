@@ -1,12 +1,15 @@
 import { supabase } from '@/lib/supabase';
 
-// Multi-tenancy: STUDIO_ID used to be a hardcoded constant. It's now resolved
-// per logged-in user (see resolveStudioId/setCurrentStudioId) and read at
-// call time by every helper below, so changing it here propagates everywhere
-// without touching each of the ~45 call sites individually. 'studio-1' stays
-// as the fallback for the single studio that existed before this migration
-// and for any session where resolution hasn't run yet.
-let STUDIO_ID = 'studio-1';
+// Multi-tenancy: STUDIO_ID is resolved per logged-in user (see
+// resolveStudioId/setCurrentStudioId) and read at call time by every helper
+// below, so changing it here propagates everywhere without touching each of
+// the ~45 call sites individually.
+//
+// The default is an EMPTY sentinel on purpose: until resolution runs, queries
+// filter by studio_id = '' and match nothing, instead of silently falling back
+// to another tenant's data (the old 'studio-1' default leaked studio-1 to any
+// new user whose studio hadn't resolved yet).
+let STUDIO_ID = '';
 
 export function setCurrentStudioId(id: string) {
   STUDIO_ID = id;
@@ -1177,6 +1180,32 @@ export async function dbUpdatePlanTarifa(id: string, changes: any) {
 export async function dbDeletePlanTarifa(id: string) {
   const { error } = await supabase.from('planes_tarifa').delete().eq('id', id);
   if (error) reportDbError('[dbDeletePlanTarifa]', error);
+}
+
+// ── Productos POS ──────────────────────────────────────────────────────────────
+export async function dbInsertProductoPOS(prod: any) {
+  const { error } = await supabase.from('productos_pos').insert({
+    id: prod.id,
+    studio_id: prod.studioId ?? STUDIO_ID,
+    nombre: prod.nombre,
+    categoria: prod.categoria,
+    precio: prod.precio,
+    activo: prod.activo,
+  });
+  if (error) reportDbError('[dbInsertProductoPOS]', error);
+}
+export async function dbUpdateProductoPOS(id: string, changes: any) {
+  const db: any = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('categoria' in changes) db.categoria = changes.categoria;
+  if ('precio' in changes) db.precio = changes.precio;
+  if ('activo' in changes) db.activo = changes.activo;
+  const { error } = await supabase.from('productos_pos').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateProductoPOS]', error);
+}
+export async function dbDeleteProductoPOS(id: string) {
+  const { error } = await supabase.from('productos_pos').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteProductoPOS]', error);
 }
 
 export async function dbInsertSuscripcion(sus: any) {

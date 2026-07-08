@@ -57,8 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     // Multi-tenancy: don't let the next session (anonymous browsing, or a
     // different account signing in on this device) inherit this user's
-    // resolved studio id.
-    setCurrentStudioId('studio-1');
+    // resolved studio id. Empty sentinel = matches no tenant.
+    setCurrentStudioId('');
   }
 
   return (
