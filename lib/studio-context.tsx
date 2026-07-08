@@ -15,7 +15,6 @@ import {
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
   dbInsertMensajeEquipo,
-  dbUpsertPreferenciasSocio,
   dbInsertRewardRule, dbUpdateRewardRule,
   dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbUpsertMemberCredits,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem,
@@ -25,7 +24,6 @@ import {
   dbInsertLevelDefinition, dbUpdateLevelDefinition, dbDeleteLevelDefinition,
   dbInsertChallengeDefinition, dbUpdateChallengeDefinition, dbDeleteChallengeDefinition,
   dbUpsertChallengeProgress, dbInsertChallengeHistory,
-  dbInsertDashboardChart, dbDeleteDashboardChart,
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCampana, dbDeleteCampana, dbUpdateCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
@@ -67,7 +65,6 @@ import type {
   TipoActividad,
   MensajeEquipo,
   PreferenciasSocio,
-  Disponibilidad,
   RewardRule,
   RewardAction,
   RewardHistory,
@@ -108,6 +105,9 @@ import { uid } from '@/lib/utils';
 import { useContentStore } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
+import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
+import { useProgressNotesStore } from '@/lib/stores/use-progress-notes-store';
+import { useMemberPrefsStore } from '@/lib/stores/use-member-prefs-store';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -417,7 +417,13 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const content = useContentStore();
   const { videosOnDemand, postsComunidad } = content;
   const [mensajesEquipo, setMensajesEquipo] = useState<MensajeEquipo[]>([]);
-  const [preferenciasSocio, setPreferenciasSocio] = useState<PreferenciasSocio[]>([]);
+  // Dominios extraídos a sus stores (Fase B).
+  const dashboardChartsStore = useDashboardChartsStore();
+  const { dashboardCharts } = dashboardChartsStore;
+  const progressNotesStore = useProgressNotesStore();
+  const { notasProgreso } = progressNotesStore;
+  const memberPrefsStore = useMemberPrefsStore();
+  const { preferenciasSocio } = memberPrefsStore;
   const [rewardRules, setRewardRules] = useState<RewardRule[]>([]);
   const [rewardActions, setRewardActions] = useState<RewardAction[]>([]);
   const [rewardHistory, setRewardHistory] = useState<RewardHistory[]>([]);
@@ -432,13 +438,11 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [challengeDefinitions, setChallengeDefinitions] = useState<ChallengeDefinition[]>([]);
   const [challengeProgress, setChallengeProgress] = useState<ChallengeProgress[]>([]);
   const [challengeHistory, setChallengeHistory] = useState<ChallengeHistory[]>([]);
-  const [dashboardCharts, setDashboardCharts] = useState<DashboardChart[]>([]);
   const [backups, setBackups] = useState<BackupMeta[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
   const [automationLogs, setAutomationLogs] = useState<AutomationLog[]>([]);
-  const [notasProgreso, setNotasProgreso] = useState<NotaProgreso[]>([]);
   const [studio, setStudio] = useState<Studio | null>(null);
 
   // ── Fetch all data from Supabase whenever the auth session changes ──────────
@@ -498,7 +502,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       content.setPostsComunidad(data.postsComunidad);
       integrationsStore.setIntegraciones(data.integraciones ?? []);
       setMensajesEquipo(data.mensajesEquipo ?? []);
-      setPreferenciasSocio(data.preferenciasSocio ?? []);
+      memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
       setMemberCredits(data.memberCredits ?? []);
@@ -509,7 +513,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setLevelDefinitions(data.levelDefinitions ?? []);
       setChallengeDefinitions(data.challengeDefinitions ?? []);
       setChallengeProgress(data.challengeProgress ?? []);
-      setDashboardCharts(data.dashboardCharts ?? []);
+      dashboardChartsStore.setDashboardCharts(data.dashboardCharts ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setStudio(data.studio);
@@ -523,7 +527,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
         setCreditTransactions(def.creditTransactions);
         setAchievementHistory(def.achievementHistory);
         setChallengeHistory(def.challengeHistory);
-        setNotasProgreso(def.notasProgreso);
+        progressNotesStore.setNotasProgreso(def.notasProgreso);
         setBackups(def.backups);
       }).catch(err => console.error('Error cargando datos diferidos:', err));
     }).catch(err => {
@@ -1536,28 +1540,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   // ── Preferencias del alumno (portal de miembros) ──────────────────────────────
 
-  function upsertPreferenciasSocio(socioId: string, changes: Partial<Omit<PreferenciasSocio, 'socioId' | 'studioId'>>) {
-    setPreferenciasSocio(prev => {
-      const existente = prev.find(p => p.socioId === socioId);
-      const actualizado: PreferenciasSocio = existente
-        ? { ...existente, ...changes, actualizadoEn: new Date().toISOString() }
-        : {
-            socioId,
-            studioId: getCurrentStudioId(),
-            disponibilidad: {} as Disponibilidad,
-            instructorFavoritoId: null,
-            tipoClaseFavorita: null,
-            duracionPreferida: null,
-            nivel: null,
-            notifEmail: true,
-            notifWhatsapp: true,
-            actualizadoEn: new Date().toISOString(),
-            ...changes,
-          };
-      dbUpsertPreferenciasSocio(actualizado);
-      return existente ? prev.map(p => p.socioId === socioId ? actualizado : p) : [...prev, actualizado];
-    });
-  }
+  // Preferencias de la socia: extraídas a useMemberPrefsStore (Fase B).
 
   // ── Gamificación: créditos y recompensas ──────────────────────────────────────
   // El valor de cada acción SIEMPRE sale de rewardRules (configurable por el
@@ -1845,16 +1828,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   // ── Dashboard: gráficos personalizados ──────────────────────────────────────────
 
-  function addDashboardChart(fields: Omit<DashboardChart, 'id' | 'studioId' | 'creadoEn'>) {
-    const nuevo: DashboardChart = { ...fields, id: `chart-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
-    setDashboardCharts(prev => [...prev, nuevo]);
-    dbInsertDashboardChart(nuevo);
-  }
-
-  function deleteDashboardChart(id: string) {
-    setDashboardCharts(prev => prev.filter(c => c.id !== id));
-    dbDeleteDashboardChart(id);
-  }
+  // Gráficos del dashboard: extraídos a useDashboardChartsStore (Fase B).
 
   // ── Notificaciones ────────────────────────────────────────────────────────────
 
@@ -2045,15 +2019,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     return nuevosLogs;
   }
 
-  function addNotaProgreso(nota: Omit<NotaProgreso, 'id' | 'studioId' | 'creadaEn'>) {
-    const nueva: NotaProgreso = {
-      id: `nota-prog-${uid()}`,
-      studioId: getCurrentStudioId(),
-      creadaEn: new Date().toISOString(),
-      ...nota,
-    };
-    setNotasProgreso(prev => [nueva, ...prev]);
-  }
+  // Notas de progreso: extraídas a useProgressNotesStore (Fase B).
 
   const value: StudioContextValue = {
     planesTarifa,
@@ -2145,7 +2111,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     mensajesEquipo,
     addMensajeEquipo,
     preferenciasSocio,
-    upsertPreferenciasSocio,
+    upsertPreferenciasSocio: memberPrefsStore.upsertPreferenciasSocio,
     rewardRules,
     rewardActions,
     rewardHistory,
@@ -2182,8 +2148,8 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     deleteChallengeDefinition,
     evaluarRetosSocio,
     dashboardCharts,
-    addDashboardChart,
-    deleteDashboardChart,
+    addDashboardChart: dashboardChartsStore.addDashboardChart,
+    deleteDashboardChart: dashboardChartsStore.deleteDashboardChart,
     backups,
     studioConfig,
     updateStudioConfig,
@@ -2195,7 +2161,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     addAutomationRule,
     addAutomationLog,
     runAutomation,
-    addNotaProgreso,
+    addNotaProgreso: progressNotesStore.addNotaProgreso,
     dismissLog,
     actualizarLog,
     dataLoaded,
@@ -2230,7 +2196,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       content.setPostsComunidad(data.postsComunidad);
       integrationsStore.setIntegraciones(data.integraciones ?? []);
       setMensajesEquipo(data.mensajesEquipo ?? []);
-      setPreferenciasSocio(data.preferenciasSocio ?? []);
+      memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
       setRewardHistory(data.rewardHistory ?? []);
@@ -2245,11 +2211,11 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setChallengeDefinitions(data.challengeDefinitions ?? []);
       setChallengeProgress(data.challengeProgress ?? []);
       setChallengeHistory(data.challengeHistory ?? []);
-      setDashboardCharts(data.dashboardCharts ?? []);
+      dashboardChartsStore.setDashboardCharts(data.dashboardCharts ?? []);
       setBackups(data.backups ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
-      setNotasProgreso(data.notasProgreso);
+      progressNotesStore.setNotasProgreso(data.notasProgreso);
       setStudio(data.studio);
     }).catch(console.error);
   }
