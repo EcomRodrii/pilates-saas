@@ -81,6 +81,31 @@ export async function enviarEmailBienvenida(params: {
   });
 }
 
+// Envía un email de campaña de marketing a una destinataria. Reutiliza la
+// plantilla 'automatizacion' (asunto → titulo, contenido → mensaje).
+export async function enviarEmailCampana(params: {
+  to: string;
+  toName: string;
+  asunto: string;
+  contenido: string;
+}): Promise<boolean> {
+  try {
+    const res = await fetch('/api/emails/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo: 'automatizacion',
+        to: params.to,
+        toName: params.toName,
+        data: { titulo: params.asunto, mensaje: params.contenido },
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function enviarEmailReserva(params: {
   to: string;
   toName: string;

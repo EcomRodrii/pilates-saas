@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2 } from 'lucide-react'
+import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
 import type { Campana, Automatizacion, CodigoDescuento, TipoCampana, TriggerAutomatizacion, LeadStage } from '@/lib/types'
@@ -445,7 +445,7 @@ function UsageBar({ usos, usosMax }: { usos: number; usosMax: number | null }) {
 
 export default function MarketingPage() {
   const {
-    campanas, addCampana, deleteCampana, duplicateCampana,
+    campanas, addCampana, deleteCampana, duplicateCampana, enviarCampana,
     automatizaciones, addAutomatizacion, toggleAutomatizacion,
     codigosDescuento: codigos, addCodigoDescuento, toggleCodigoDescuento, deleteCodigoDescuento,
     socios,
@@ -519,6 +519,26 @@ export default function MarketingPage() {
 
   // Hover state for campaign cards
   const [hoveredCampana, setHoveredCampana] = useState<string | null>(null)
+  const [enviandoId, setEnviandoId] = useState<string | null>(null)
+  const [resultadoEnvio, setResultadoEnvio] = useState<string | null>(null)
+
+  async function handleEnviarCampana(c: Campana) {
+    if (enviandoId) return
+    setEnviandoId(c.id)
+    setResultadoEnvio(null)
+    try {
+      const { enviados, total } = await enviarCampana(c)
+      setResultadoEnvio(
+        total === 0
+          ? `"${c.nombre}": no hay destinatarias con email en ese segmento.`
+          : `"${c.nombre}" enviada a ${enviados} de ${total} destinatarias.`
+      )
+    } catch {
+      setResultadoEnvio(`No se pudo enviar "${c.nombre}". Revisa la configuración de email.`)
+    } finally {
+      setEnviandoId(null)
+    }
+  }
 
   // Campañas stats
   const enviadas = campanas.filter(c => c.estado === 'ENVIADA')
@@ -727,6 +747,13 @@ export default function MarketingPage() {
             </button>
           </div>
 
+          {resultadoEnvio && (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-[#D1FAE5] text-[#065F46] text-sm px-4 py-2.5">
+              <span>{resultadoEnvio}</span>
+              <button onClick={() => setResultadoEnvio(null)} className="text-[#065F46]/70 hover:text-[#065F46]">✕</button>
+            </div>
+          )}
+
           {/* Campaign list */}
           {campanas.length === 0 ? (
             <div className="flex items-center justify-center py-16 text-[#8E8E86]">Sin campañas</div>
@@ -752,6 +779,19 @@ export default function MarketingPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {(c.estado === 'BORRADOR' || c.estado === 'PROGRAMADA') && (
+                        <button
+                          onClick={() => handleEnviarCampana(c)}
+                          disabled={enviandoId === c.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A1A1A] text-white text-xs font-medium hover:bg-[#333] disabled:opacity-60 transition-colors"
+                          title="Enviar campaña ahora"
+                        >
+                          {enviandoId === c.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Send className="w-3.5 h-3.5" />}
+                          {enviandoId === c.id ? 'Enviando…' : 'Enviar'}
+                        </button>
+                      )}
                       <span className="text-xs text-[#A8A89F]">{formatDateEs(c.creadaEn)}</span>
                       <div className={cn('flex gap-1 transition-opacity', hoveredCampana === c.id ? 'opacity-100' : 'opacity-0')}>
                         <button
