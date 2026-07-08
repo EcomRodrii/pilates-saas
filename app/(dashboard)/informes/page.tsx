@@ -325,9 +325,17 @@ export default function Informes() {
     setTimeout(() => { setCsvState('done'); setTimeout(() => setCsvState('idle'), 2500); }, 600);
   }, [recibos, socios, periodStart, mounted]);
 
-  const simulatePDF = useCallback(() => {
+  // Export real: abre el diálogo de impresión del navegador, desde el que se
+  // puede "Guardar como PDF". Sin dependencias externas y funciona en todos los
+  // navegadores modernos.
+  const exportPDF = useCallback(() => {
     setPdfState('loading');
-    setTimeout(() => { setPdfState('done'); setTimeout(() => setPdfState('idle'), 2500); }, 1200);
+    // Deja repintar el estado del botón antes de bloquear con el diálogo.
+    setTimeout(() => {
+      window.print();
+      setPdfState('done');
+      setTimeout(() => setPdfState('idle'), 2500);
+    }, 150);
   }, []);
 
   // ─── SVG chart math ─────────────────────────────────────────────────────────
@@ -888,7 +896,7 @@ export default function Informes() {
 
             {/* PDF download */}
             <button
-              onClick={simulatePDF}
+              onClick={exportPDF}
               disabled={pdfState !== 'idle'}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1A1A]"
               style={pdfState === 'done'
