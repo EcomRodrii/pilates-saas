@@ -106,6 +106,7 @@ import {
   siguienteEnEspera,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
+import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -886,20 +887,20 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // Descuenta una sesión del bono activo del socio al confirmar una reserva.
   // Si el bono se agota, genera el recibo de renovación + notificación.
   function consumirSesionBono(socioId: string) {
-    const sus = suscripciones.find(s => s.socioId === socioId && s.estado === 'ACTIVA');
-    if (!sus) return;
-    const plan = planesTarifa.find(p => p.id === sus.planId);
-    if (!plan) return;
-    if ((plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL') || sus.sesionesRestantes === null) return;
+    // Lógica pura y testeada (bono-logic): resuelve el bono consumible y calcula
+    // el nuevo saldo y si queda agotado.
+    const consumible = bonoConsumible(socioId, suscripciones, planesTarifa);
+    if (!consumible) return;
+    const { suscripcion: sus, plan, sesionesRestantes } = consumible;
 
-    const nuevasRestantes = Math.max(0, (sus.sesionesRestantes ?? 0) - 1);
+    const { nuevasRestantes, agotado } = calcularConsumoBono(sesionesRestantes);
     setSuscripciones(prev => prev.map(s =>
       s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
     ));
     dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
 
     // Bono agotado → generar recibo de renovación + notificación
-    if (nuevasRestantes === 0) {
+    if (agotado) {
       const socio = socios.find(s => s.id === socioId);
       const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
       const hoy = new Date().toISOString().slice(0, 10);
@@ -940,14 +941,11 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // Devuelve una sesión al bono cuando se cancela una reserva confirmada,
   // sin superar el total del plan.
   function devolverSesionBono(socioId: string) {
-    const sus = suscripciones.find(s => s.socioId === socioId && s.estado === 'ACTIVA');
-    if (!sus) return;
-    const plan = planesTarifa.find(p => p.id === sus.planId);
-    if (!plan) return;
-    if ((plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL') || sus.sesionesRestantes === null) return;
+    const consumible = bonoConsumible(socioId, suscripciones, planesTarifa);
+    if (!consumible) return;
+    const { suscripcion: sus, plan, sesionesRestantes } = consumible;
 
-    const tope = plan.sesiones ?? Number.POSITIVE_INFINITY;
-    const nuevasRestantes = Math.min(tope, (sus.sesionesRestantes ?? 0) + 1);
+    const nuevasRestantes = calcularDevolucionBono(sesionesRestantes, plan.sesiones);
     setSuscripciones(prev => prev.map(s =>
       s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
     ));
