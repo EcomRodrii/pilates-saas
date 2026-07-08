@@ -650,7 +650,7 @@ export default function POSPage() {
               </div>
 
               {/* Payment method */}
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 {METODOS.map(m => (
                   <button
                     key={m.value}

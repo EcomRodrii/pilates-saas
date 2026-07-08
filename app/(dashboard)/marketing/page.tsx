@@ -1165,7 +1165,7 @@ export default function MarketingPage() {
               <label className="text-[11px] font-semibold uppercase tracking-wide text-[#8E8E86]">Contenido</label>
 
               {/* Template picker */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {(Object.entries(TEMPLATES) as [TemplateKey, typeof TEMPLATES[TemplateKey]][]).map(([key, tpl]) => (
                   <button
                     key={key}

@@ -1813,7 +1813,7 @@ function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
       </div>
 
       {rol === 'INSTRUCTOR' && yo && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
             { v: clasesEsteMes, l: 'Este mes' },
             { v: clasesImpartidas.length, l: 'Impartidas' },

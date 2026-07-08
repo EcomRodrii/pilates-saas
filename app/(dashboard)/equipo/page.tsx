@@ -130,7 +130,7 @@ export default function EquipoPage() {
       ) : (
       <>
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
           { label: 'Miembros', value: instructores.length, sub: `${activos} activos`, color: '#F7A6C4', bg: '#FFF2F7', Icon: Users },
           { label: 'Clases 7 días', value: totalClasesSemana, sub: 'programadas', color: '#059669', bg: '#DCFCE7', Icon: Calendar },

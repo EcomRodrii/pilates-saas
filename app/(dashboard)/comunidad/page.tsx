@@ -546,7 +546,7 @@ export default function ComunidadPage() {
           {/* Miembros activos */}
           <div className="bg-white border border-[#E7E7E0] rounded-xl p-4">
             <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-3">Miembros activos</h3>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {activeSocias.map((socio, i) => {
                 const ini = getInitials(socio.nombre);
                 return (
