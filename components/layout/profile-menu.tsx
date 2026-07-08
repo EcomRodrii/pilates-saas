@@ -40,7 +40,7 @@ export function ProfileMenu() {
           onClick={() => setOpen(v => !v)}
           className="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-[#EEEEE8] transition-colors"
         >
-          <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={userInitials} size="xs" />
+          <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={userInitials} size="sm" />
           <ChevronDown size={13} className="text-[#8E8E86]" />
         </button>
 

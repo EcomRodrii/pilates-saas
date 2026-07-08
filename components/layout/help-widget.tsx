@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronDown, Search, Send, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -69,7 +70,7 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div
@@ -188,6 +189,7 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
               </div>
             </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
