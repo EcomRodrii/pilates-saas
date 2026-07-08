@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
+import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { ChevronLeft, Clock, Users, MapPin, BarChart2, CheckCircle, AlertCircle } from 'lucide-react';
 
 const NIVEL_LABEL: Record<string, string> = {
@@ -14,7 +15,7 @@ export default function ClaseDetallePage() {
   const router = useRouter();
   const { slug, sesionId } = useParams<{ slug: string; sesionId: string }>();
   const { session } = usePortalAuth();
-  const { sesiones, reservas, tiposClase, salas, instructores, planesTarifa, addReserva, cancelarReserva } = useStudio();
+  const { sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, addReserva, cancelarReserva } = useStudio();
 
   const ses = sesiones.find(s => s.id === sesionId);
   const tipo = ses ? tiposClase.find(t => t.id === ses.tipoClaseId) : undefined;
@@ -23,6 +24,11 @@ export default function ClaseDetallePage() {
   const color = tipo?.color ?? 'var(--portal-brand)';
 
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
+  const activeSus = useMemo(() =>
+    suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA') ?? null,
+  [suscripciones, session?.socioId]);
+  const planActivo = activeSus ? planesTarifa.find(p => p.id === activeSus.planId) ?? null : null;
+  const cubierta = tieneCoberturaPlan(activeSus, planActivo);
 
   const libres = useMemo(() => {
     if (!ses) return 0;
@@ -151,7 +157,9 @@ export default function ClaseDetallePage() {
               className="w-full text-[15px] font-bold py-3.5 rounded-2xl text-white active:opacity-70 transition-opacity"
               style={{ backgroundColor: '#171717' }}
             >
-              {libres > 0 ? (precioClaseSuelta != null ? `Reservar · ${precioClaseSuelta} €` : 'Reservar') : 'Unirme a la lista de espera'}
+              {libres > 0
+                ? (cubierta || precioClaseSuelta == null ? 'Reservar' : `Reservar · ${precioClaseSuelta} €`)
+                : 'Unirme a la lista de espera'}
             </button>
           )}
         </div>
