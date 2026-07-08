@@ -1,21 +1,22 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import {
   Calendar, CreditCard, Play, Clock, ChevronRight, Zap,
-  AlertCircle, ListChecks, User, AlertTriangle, Coins, UserPlus,
+  AlertCircle, ListChecks, User, AlertTriangle, Coins, UserPlus, Bell,
 } from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext } from '@/lib/portal-home-logic';
+import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
 
 export default function PortalHome() {
   const { slug } = useParams<{ slug: string }>();
   const { session } = usePortalAuth();
-  const { socios, suscripciones, planesTarifa, sesiones, reservas, tiposClase, salas, instructores, saldoCreditos, rachaSocio } = useStudio();
+  const { socios, suscripciones, planesTarifa, sesiones, reservas, recibos, tiposClase, salas, instructores, saldoCreditos, rachaSocio, addReserva } = useStudio();
 
   const socio = socios.find(s => s.id === session?.socioId);
   const activeSus = suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA') ?? null;
@@ -55,6 +56,37 @@ export default function PortalHome() {
   const formatDayShort = (iso: string) =>
     new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
 
+  // ── Notificaciones (campana) ──────────────────────
+  const notifItems = useMemo(() => {
+    if (!session?.socioId) return [];
+    return buildPortalNotifications({ socioId: session.socioId, reservas, recibos, sesiones, tiposClase, instructores });
+  }, [session?.socioId, reservas, recibos, sesiones, tiposClase, instructores]);
+  const unreadCount = usePortalNotifUnreadCount(session?.socioId, notifItems);
+
+  // ── Reserva rápida: próximos 5 días + clases del día seleccionado ──
+  const proximosDias = useMemo(() => {
+    return Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(now); d.setDate(d.getDate() + i); d.setHours(0, 0, 0, 0);
+      return d;
+    });
+  }, [now]);
+  const [diaSeleccionado, setDiaSeleccionado] = useState(0);
+
+  const clasesDelDia = useMemo(() => {
+    const dia = proximosDias[diaSeleccionado];
+    if (!dia) return [];
+    const dayKey = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`;
+    return sesiones
+      .filter(s => !s.cancelada && s.inicio.slice(0, 10) === dayKey && new Date(s.inicio) > now)
+      .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime())
+      .slice(0, 4);
+  }, [proximosDias, diaSeleccionado, sesiones, now]);
+
+  const getLibres = (sesionId: string, aforo: number) =>
+    aforo - reservas.filter(r => r.sesionId === sesionId && r.estado === 'CONFIRMADA').length;
+  const getMiReserva = (sesionId: string) =>
+    misReservas.find(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')) ?? null;
+
   return (
     <div className="bg-white min-h-full">
 
@@ -81,12 +113,23 @@ export default function PortalHome() {
             )}
           </div>
           <div className="flex flex-col items-end gap-2">
-            <Link
-              href={`/portal/${slug}/perfil`}
-              className="rounded-full ring-2 ring-white/20 active:opacity-80 transition-opacity"
-            >
-              <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/portal/${slug}/notificaciones`}
+                className="relative w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:opacity-80 transition-opacity"
+              >
+                <Bell size={16} className="text-white" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#F7A6C4] ring-2 ring-[#1A1A1A]" />
+                )}
+              </Link>
+              <Link
+                href={`/portal/${slug}/perfil`}
+                className="rounded-full ring-2 ring-white/20 active:opacity-80 transition-opacity"
+              >
+                <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
+              </Link>
+            </div>
             <Link
               href={`/portal/${slug}/progreso?tab=recompensas`}
               className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 active:opacity-80 transition-opacity"
@@ -118,8 +161,79 @@ export default function PortalHome() {
         </div>
       </div>
 
-      {/* ── Tarjeta principal contextual ─────────────── */}
+      {/* ── Reserva rápida ───────────────────────────── */}
       <div className="px-4 -mt-4">
+        <div className="bg-white rounded-3xl shadow-sm border border-black/[0.06] p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[15px] font-extrabold text-[#171717]">Reserva rápida</p>
+            <Link href={`/portal/${slug}/clases`} className="flex items-center gap-0.5 text-[12px] font-bold text-[#B57A8E] active:opacity-70">
+              Ver agenda <ChevronRight size={13} />
+            </Link>
+          </div>
+
+          {/* Tira de días */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
+            {proximosDias.map((d, i) => {
+              const activo = i === diaSeleccionado;
+              return (
+                <button
+                  key={d.toISOString()}
+                  onClick={() => setDiaSeleccionado(i)}
+                  className="shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-colors"
+                  style={{ backgroundColor: activo ? '#171717' : '#F1F1EC' }}
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: activo ? 'rgba(255,255,255,0.6)' : '#A8A89E' }}>
+                    {d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}
+                  </span>
+                  <span className="text-[16px] font-extrabold" style={{ color: activo ? 'white' : '#171717' }}>
+                    {d.getDate()}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Clases del día */}
+          <div className="mt-3 space-y-2">
+            {clasesDelDia.length === 0 ? (
+              <p className="text-[13px] text-[#8E8E93] py-4 text-center">Sin clases este día</p>
+            ) : (
+              clasesDelDia.map(ses => {
+                const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
+                const instr = instructores.find(i => i.id === ses.instructorId);
+                const libres = getLibres(ses.id, ses.aforoMaximo);
+                const miReserva = getMiReserva(ses.id);
+                return (
+                  <div key={ses.id} className="flex items-center gap-3 py-2 border-b border-[#F5F5F5] last:border-0">
+                    <p className="text-[13px] font-bold text-[#171717] w-12 shrink-0">{formatTime(ses.inicio)}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13.5px] font-bold text-[#171717] truncate">{tipo?.nombre ?? 'Clase'}</p>
+                      <p className="text-[11.5px] text-[#8E8E93] truncate">
+                        {instr?.nombre ?? ''}{instr ? ' · ' : ''}{libres > 0 ? `${libres} libre${libres !== 1 ? 's' : ''}` : 'Completo'}
+                      </p>
+                    </div>
+                    {miReserva ? (
+                      <span className="shrink-0 text-[11px] font-bold text-green-700 bg-green-50 px-3 py-1.5 rounded-xl">Reservada</span>
+                    ) : (
+                      <button
+                        onClick={() => session?.socioId && addReserva(ses.id, session.socioId)}
+                        disabled={libres <= 0}
+                        className="shrink-0 text-[12px] font-bold text-white px-3.5 py-1.5 rounded-xl active:opacity-70 disabled:opacity-40 transition-opacity"
+                        style={{ backgroundColor: '#171717' }}
+                      >
+                        Reservar
+                      </button>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Tarjeta principal contextual ─────────────── */}
+      <div className="px-4 mt-4">
         {homeCard.caso === 'PROXIMA_CLASE' && (() => {
           const color = homeCard.tipo?.color ?? '#F7A6C4';
           return (
