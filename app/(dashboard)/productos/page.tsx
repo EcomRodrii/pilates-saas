@@ -114,10 +114,11 @@ function PlanModal({ initial, onSave, onClose }: {
 
 type PosFormData = { nombre: string; precio: string; categoria: ProductoPOS['categoria']; activo: boolean };
 
-function PosModal({ initial, onSave, onClose }: {
+function PosModal({ initial, onSave, onClose, onDelete }: {
   initial?: ProductoPOS;
   onSave: (d: PosFormData) => void;
   onClose: () => void;
+  onDelete?: () => void;
 }) {
   const [form, setForm] = useState<PosFormData>({
     nombre: initial?.nombre ?? '',
@@ -171,6 +172,13 @@ function PosModal({ initial, onSave, onClose }: {
           </label>
         </div>
         <div className="flex gap-3 px-6 pb-6">
+          {initial && onDelete && (
+            <button onClick={onDelete}
+              className="py-2.5 px-3 rounded-xl border border-[#FECACA] text-sm font-semibold text-[#DC2626] hover:bg-[#FEF2F2]"
+              title="Eliminar producto">
+              <Trash2 size={15} />
+            </button>
+          )}
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-[#F5F5F1]">Cancelar</button>
           <button onClick={() => valid && onSave(form)} disabled={!valid}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
@@ -186,7 +194,7 @@ function PosModal({ initial, onSave, onClose }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Productos() {
-  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, suscripciones } = useStudio();
+  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones } = useStudio();
   const [tab, setTab] = useState<Tab>('planes');
   const [planModal, setPlanModal] = useState<PlanTarifa | null | 'new'>(null);
   const [posModal, setPosModal] = useState<ProductoPOS | null | 'new'>(null);
@@ -212,8 +220,17 @@ export default function Productos() {
   }
 
   function savePos(d: { nombre: string; precio: string; categoria: ProductoPOS['categoria']; activo: boolean }) {
-    // productosPOS is currently read-only seed data — no add/update functions in context yet
-    // This will be wired when the context exposes addProductoPOS/updateProductoPOS
+    const fields = {
+      nombre: d.nombre.trim(),
+      precio: parseFloat(d.precio) || 0,
+      categoria: d.categoria,
+      activo: d.activo,
+    };
+    if (posModal && posModal !== 'new') {
+      updateProductoPOS(posModal.id, fields);
+    } else {
+      addProductoPOS(fields);
+    }
     setPosModal(null);
   }
 
@@ -431,6 +448,7 @@ export default function Productos() {
           initial={posModal !== 'new' ? posModal : undefined}
           onSave={savePos}
           onClose={() => setPosModal(null)}
+          onDelete={posModal !== 'new' && posModal ? () => { deleteProductoPOS(posModal.id); setPosModal(null); } : undefined}
         />
       )}
     </div>
