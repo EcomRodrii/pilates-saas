@@ -14,7 +14,6 @@ import {
   dbInsertVentaPOS,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
-  dbInsertMensajeEquipo,
   dbInsertRewardRule, dbUpdateRewardRule,
   dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbUpsertMemberCredits,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem,
@@ -108,6 +107,7 @@ import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
 import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
 import { useProgressNotesStore } from '@/lib/stores/use-progress-notes-store';
 import { useMemberPrefsStore } from '@/lib/stores/use-member-prefs-store';
+import { useTeamChatStore } from '@/lib/stores/use-team-chat-store';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -416,7 +416,6 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // Dominio Contenido y Comunidad extraído a su propio store (Fase B).
   const content = useContentStore();
   const { videosOnDemand, postsComunidad } = content;
-  const [mensajesEquipo, setMensajesEquipo] = useState<MensajeEquipo[]>([]);
   // Dominios extraídos a sus stores (Fase B).
   const dashboardChartsStore = useDashboardChartsStore();
   const { dashboardCharts } = dashboardChartsStore;
@@ -457,6 +456,10 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // vinculada, el auth_user_id es el de la propietaria original del negocio.
   const yo = instructores.find(i => i.authUserId === authUserId);
   const actorNombre = yo?.nombre ?? (user ? 'Propietaria' : null);
+
+  // Chat de equipo: extraído a su store (Fase B). Recibe el autor derivado.
+  const teamChatStore = useTeamChatStore({ autorInstructorId: yo?.id ?? null, autorNombre: actorNombre });
+  const { mensajesEquipo } = teamChatStore;
 
   useEffect(() => {
     (async () => {
@@ -501,7 +504,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       content.setVideosOnDemand(data.videosOnDemand);
       content.setPostsComunidad(data.postsComunidad);
       integrationsStore.setIntegraciones(data.integraciones ?? []);
-      setMensajesEquipo(data.mensajesEquipo ?? []);
+      teamChatStore.setMensajesEquipo(data.mensajesEquipo ?? []);
       memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
@@ -1525,18 +1528,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   // ── Chat de equipo (canal único compartido) ───────────────────────────────────
 
-  function addMensajeEquipo(texto: string) {
-    const nuevo: MensajeEquipo = {
-      id: `msgeq-${uid()}`,
-      studioId: getCurrentStudioId(),
-      autorInstructorId: yo?.id ?? null,
-      autorNombre: actorNombre ?? 'Propietaria',
-      texto,
-      creadoEn: new Date().toISOString(),
-    };
-    setMensajesEquipo(prev => [...prev, nuevo]);
-    dbInsertMensajeEquipo(nuevo);
-  }
+  // Chat de equipo: extraído a useTeamChatStore (Fase B).
 
   // ── Preferencias del alumno (portal de miembros) ──────────────────────────────
 
@@ -2109,7 +2101,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     integraciones,
     upsertIntegracion: integrationsStore.upsertIntegracion,
     mensajesEquipo,
-    addMensajeEquipo,
+    addMensajeEquipo: teamChatStore.addMensajeEquipo,
     preferenciasSocio,
     upsertPreferenciasSocio: memberPrefsStore.upsertPreferenciasSocio,
     rewardRules,
@@ -2195,7 +2187,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       content.setVideosOnDemand(data.videosOnDemand);
       content.setPostsComunidad(data.postsComunidad);
       integrationsStore.setIntegraciones(data.integraciones ?? []);
-      setMensajesEquipo(data.mensajesEquipo ?? []);
+      teamChatStore.setMensajesEquipo(data.mensajesEquipo ?? []);
       memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
