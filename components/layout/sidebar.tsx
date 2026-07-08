@@ -289,35 +289,29 @@ export function Sidebar() {
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
       {masOpen && <MasDrawer onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />}
 
+      {/* ── Desktop logo (fuera de la píldora del menú) ─────────────────────── */}
+      <div
+        className={cn(
+          'hidden lg:flex fixed top-4 left-4 z-20 items-center h-16 shrink-0 rounded-[22px] bg-white shadow-sm transition-[width] duration-200',
+          collapsed ? 'w-16 justify-center' : 'w-56 px-4 gap-2.5',
+        )}
+        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+      >
+        {collapsed ? (
+          <Image src="/logo-icon.png" alt="Tentare" width={34} height={34} className="w-9 h-9 object-contain" />
+        ) : (
+          <Image src="/logo-horizontal.png" alt="Tentare" width={140} height={64} className="h-8 w-auto object-contain" />
+        )}
+      </div>
+
       {/* ── Desktop sidebar (floating black pill — Midbox) ─────────────────── */}
       <aside
         className={cn(
-          'hidden lg:flex fixed top-4 left-4 bottom-4 z-20 flex-col rounded-[28px] overflow-hidden transition-[width] duration-200',
+          'hidden lg:flex fixed top-[88px] left-4 bottom-4 z-20 flex-col rounded-[28px] overflow-hidden transition-[width] duration-200',
           collapsed ? 'w-16' : 'w-56',
         )}
         style={{ backgroundColor: '#0A0A0A' }}
       >
-        {/* Logo */}
-        <div
-          className={cn('flex items-center h-14 shrink-0 border-b', collapsed ? 'justify-center px-2' : 'gap-2.5 px-4')}
-          style={{ borderColor: 'rgba(255,255,255,0.07)' }}
-        >
-          {collapsed ? (
-            <div className="w-11 h-11 rounded-full bg-[#FFC8E2] flex items-center justify-center p-1">
-              <Image src="/logo-icon.png" alt="Tentare" width={36} height={36} className="w-full h-full object-contain" />
-            </div>
-          ) : (
-            <>
-              {/* El icono del logo tiene tinta oscura (ilegible directamente sobre este fondo
-                  casi negro) — se apoya sobre el círculo rosa para mantener contraste. */}
-              <div className="w-11 h-11 shrink-0 rounded-full bg-[#FFC8E2] flex items-center justify-center p-1">
-                <Image src="/logo-icon.png" alt="Tentare" width={36} height={36} className="w-full h-full object-contain" />
-              </div>
-              <span className="text-white text-[15px] font-bold tracking-tight">Tentare</span>
-            </>
-          )}
-        </div>
-
         {/* Modo Esencial / Avanzado */}
         {!collapsed && (
           <div className="px-3 pt-2.5 pb-1">
