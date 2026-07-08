@@ -1222,6 +1222,81 @@ export async function cancelarReservaPublica(params: {
   return { ok: true as const };
 }
 
+// Registra una socia nueva desde el portal/reserva (alta pública). Valida que
+// el estudio existe; el id lo genera el cliente (primera reserva).
+export async function registrarSociaPublica(params: {
+  studioId: string; id: string; nombre: string; email: string;
+  aceptacion?: { fecha: string; firma: string; versionTexto: string };
+  referidoPor?: string | null;
+}) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const { data: studio } = await admin.from('studios').select('id').eq('id', params.studioId).maybeSingle();
+  if (!studio) return { error: 'Estudio no encontrado' as const };
+
+  // El referido solo es válido si existe una socia con ese id en el estudio.
+  let referido: string | null = null;
+  if (params.referidoPor && params.referidoPor !== params.id) {
+    const { data } = await admin.from('socios').select('id').eq('id', params.referidoPor).eq('studio_id', params.studioId).maybeSingle();
+    referido = data ? params.referidoPor : null;
+  }
+
+  const { error } = await admin.from('socios').insert({
+    id: params.id, studio_id: params.studioId, nombre: params.nombre, apellidos: '',
+    email: params.email, activo: true, fecha_alta: new Date().toISOString(),
+    aceptacion_fecha: params.aceptacion?.fecha ?? null,
+    aceptacion_firma: params.aceptacion?.firma ?? null,
+    aceptacion_version: params.aceptacion?.versionTexto ?? null,
+    referido_por: referido,
+  });
+  if (error) return { error: error.message };
+  return { ok: true as const };
+}
+
+// Campos que una socia puede editar de SU propia ficha (whitelist). No puede
+// tocar tags, lead_stage, activo, referido_por ni datos de Stripe.
+const CAMPOS_SOCIA_EDITABLES: Record<string, string> = {
+  telefono: 'telefono', nif: 'nif', avatar: 'avatar', fotoUrl: 'foto_url',
+  fechaNacimiento: 'fecha_nacimiento', direccion: 'direccion',
+};
+
+export async function actualizarSociaPublica(params: {
+  studioId: string; socioId: string; email: string; cambios: Record<string, unknown>;
+}) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  const db: Record<string, unknown> = {};
+  for (const [camel, snake] of Object.entries(CAMPOS_SOCIA_EDITABLES)) {
+    if (camel in params.cambios) db[snake] = params.cambios[camel];
+  }
+  if (Object.keys(db).length === 0) return { ok: true as const };
+  const { error } = await admin.from('socios').update(db).eq('id', params.socioId);
+  if (error) return { error: error.message };
+  return { ok: true as const };
+}
+
+export async function guardarPreferenciasPublica(params: {
+  studioId: string; socioId: string; email: string; cambios: Record<string, unknown>;
+}) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  const { data: existente } = await admin
+    .from('preferencias_socio').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId).maybeSingle();
+  const fila = {
+    socio_id: params.socioId, studio_id: params.studioId,
+    ...(existente ?? {}), ...params.cambios, actualizado_en: new Date().toISOString(),
+  };
+  const { error } = await admin.from('preferencias_socio').upsert(fila, { onConflict: 'socio_id' });
+  if (error) return { error: error.message };
+  return { ok: true as const };
+}
+
 // ─── Mappers: TS (camelCase) → DB (snake_case) ───────────────────────────────
 
 function socioToDb(socio: Socio) {
