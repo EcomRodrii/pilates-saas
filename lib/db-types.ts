@@ -391,6 +391,7 @@ export interface RowRewardRules {
   creditos: number;
   activa: boolean;
   creado_en: string;
+  tope_mensual: number | null;
 }
 
 export interface RowRewardActions {
