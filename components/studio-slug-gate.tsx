@@ -29,5 +29,5 @@ export function StudioSlugGate({ slug, children }: { slug: string; children: Rea
     );
   }
 
-  return <StudioProvider studioIdOverride={state.studioId}>{children}</StudioProvider>;
+  return <StudioProvider studioIdOverride={state.studioId} publicSlug={slug}>{children}</StudioProvider>;
 }
