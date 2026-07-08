@@ -567,6 +567,9 @@ export interface RewardRule {
   descripcion: string | null;
   creditos: number;
   activa: boolean;
+  // Máximo de veces al mes que esta regla puede premiar (por socia que invita).
+  // null = sin tope. Usado sobre todo por REFERIDO_AMIGO para acotar el fraude.
+  topeMensual: number | null;
   creadoEn: string;
 }
 

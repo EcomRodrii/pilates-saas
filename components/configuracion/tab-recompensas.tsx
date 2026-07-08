@@ -57,6 +57,16 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
     }
   }
 
+  // Tope mensual de referidos premiados (solo REFERIDO_AMIGO). Vacío o 0 = sin tope.
+  function handleTopeChange(trigger: string, nombre: string, descripcion: string, topeMensual: number | null) {
+    const existente = reglaDe(trigger);
+    if (existente) {
+      updateRewardRule(existente.id, { topeMensual });
+    } else {
+      addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos: CREDITOS_SUGERIDOS[trigger] ?? 0, activa: true, topeMensual });
+    }
+  }
+
   function openNuevo() { setForm(emptyCatalogForm()); setEditId(null); setModal('nuevo'); }
   function openEditar(item: RewardCatalogItem) {
     setForm({ nombre: item.nombre, descripcion: item.descripcion ?? '', costeCreditos: item.costeCreditos, icono: item.icono, activo: item.activo, stock: item.stock });
@@ -93,6 +103,23 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                   <p className="text-[13px] font-semibold text-[#1A1A1A]">{def.nombre}</p>
                   <p className="text-[11px] text-[#8E8E86] mt-0.5">{def.descripcion}</p>
                 </div>
+                {def.trigger === 'REFERIDO_AMIGO' && (
+                  <div className="flex flex-col items-center shrink-0">
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="∞"
+                      value={regla?.topeMensual ?? ''}
+                      onChange={e => {
+                        const n = parseInt(e.target.value, 10);
+                        handleTopeChange(def.trigger, def.nombre, def.descripcion, Number.isFinite(n) && n > 0 ? n : null);
+                      }}
+                      className={cn(inputCls, 'w-16 text-center')}
+                      title="Máximo de referidos premiados al mes (vacío = sin tope)"
+                    />
+                    <span className="text-[9px] text-[#A8A89F] mt-0.5">tope/mes</span>
+                  </div>
+                )}
                 <input
                   type="number"
                   min={0}

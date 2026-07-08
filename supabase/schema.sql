@@ -476,6 +476,9 @@ alter table socios add column if not exists referido_por text references socios(
 -- Migración: foto del tipo de clase (ej. la sala de Reformer) — se muestra
 -- en la tarjeta de reserva en el portal de socias.
 alter table tipos_clase add column if not exists foto_url text;
+-- Tope mensual de recompensas por regla (sobre todo REFERIDO_AMIGO): máximo de
+-- veces al mes que una misma socia puede cobrar por esta regla. NULL = sin tope.
+alter table reward_rules add column if not exists tope_mensual int;
 
 create table if not exists preferencias_socio (
   socio_id text primary key references socios(id) on delete cascade,
