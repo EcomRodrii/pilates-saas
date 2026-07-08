@@ -974,3 +974,44 @@ drop policy if exists "public_read_achievement_progress" on achievement_progress
 drop policy if exists "public_read_achievement_history" on achievement_history;
 drop policy if exists "public_read_challenge_progress" on challenge_progress;
 drop policy if exists "public_read_challenge_history" on challenge_history;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- CIERRE DE ESCRITURA ANÓNIMA (proxy de servidor en producción)
+-- Las páginas públicas escriben vía /api/public/* con service-role y validación
+-- de identidad (id+email). Se retira la escritura anónima directa.
+-- ═══════════════════════════════════════════════════════════════════
+drop policy if exists "public_update_socios" on socios;
+drop policy if exists "public_update_suscripciones" on suscripciones;
+drop policy if exists "public_write_reservas" on reservas;
+drop policy if exists "public_update_reservas" on reservas;
+drop policy if exists "public_insert_recibos" on recibos;
+drop policy if exists "public_write_preferencias_socio" on preferencias_socio;
+drop policy if exists "public_update_preferencias_socio" on preferencias_socio;
+drop policy if exists "public_write_reward_rules" on reward_rules;
+drop policy if exists "public_update_reward_rules" on reward_rules;
+drop policy if exists "public_write_reward_actions" on reward_actions;
+drop policy if exists "public_update_reward_actions" on reward_actions;
+drop policy if exists "public_write_reward_history" on reward_history;
+drop policy if exists "public_update_reward_history" on reward_history;
+drop policy if exists "public_write_credit_transactions" on credit_transactions;
+drop policy if exists "public_update_credit_transactions" on credit_transactions;
+drop policy if exists "public_write_member_credits" on member_credits;
+drop policy if exists "public_update_member_credits" on member_credits;
+drop policy if exists "public_write_reward_catalog" on reward_catalog;
+drop policy if exists "public_update_reward_catalog" on reward_catalog;
+drop policy if exists "public_write_reward_redemptions" on reward_redemptions;
+drop policy if exists "public_update_reward_redemptions" on reward_redemptions;
+drop policy if exists "public_write_achievement_definitions" on achievement_definitions;
+drop policy if exists "public_update_achievement_definitions" on achievement_definitions;
+drop policy if exists "public_write_achievement_progress" on achievement_progress;
+drop policy if exists "public_update_achievement_progress" on achievement_progress;
+drop policy if exists "public_write_achievement_history" on achievement_history;
+drop policy if exists "public_update_achievement_history" on achievement_history;
+drop policy if exists "public_write_level_definitions" on level_definitions;
+drop policy if exists "public_update_level_definitions" on level_definitions;
+drop policy if exists "public_write_challenge_definitions" on challenge_definitions;
+drop policy if exists "public_update_challenge_definitions" on challenge_definitions;
+drop policy if exists "public_write_challenge_progress" on challenge_progress;
+drop policy if exists "public_update_challenge_progress" on challenge_progress;
+drop policy if exists "public_write_challenge_history" on challenge_history;
+drop policy if exists "public_update_challenge_history" on challenge_history;

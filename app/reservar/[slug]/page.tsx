@@ -328,7 +328,7 @@ export default function ReservarPage() {
     setLoginStep('confirm');
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (!bookingSesionId || !socia) return;
     const sesion = sesionesRich.find(s => s.id === bookingSesionId);
     if (!sesion) return;
@@ -338,7 +338,10 @@ export default function ReservarPage() {
       // First-time booking: register guest as a real socia with contract accepted
       socioId = `soc-${Date.now()}`;
       const referidoValido = refCode && refCode !== socioId && socios.some(s => s.id === refCode) ? refCode : null;
-      addSocioFromPortal({
+      // Se AWAITea el alta para que la reserva encuentre la socia ya creada
+      // (en modo público el alta va por endpoint de servidor).
+      login({ nombre: socia.nombre, email: socia.email, socioId });
+      await addSocioFromPortal({
         id: socioId,
         nombre: socia.nombre,
         email: socia.email,
@@ -349,7 +352,6 @@ export default function ReservarPage() {
         },
         referidoPor: referidoValido,
       });
-      login({ nombre: socia.nombre, email: socia.email, socioId });
     }
 
     // El estado real lo decide addReserva según el aforo en ese momento

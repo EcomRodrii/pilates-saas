@@ -184,7 +184,7 @@ interface StudioContextValue {
 
   // Socios
   addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string }) => void;
-  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => void;
+  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<void>;
   updateSocio: (id: string, changes: Partial<Socio>) => void;
   deleteSocio: (id: string) => void;
   addTagSocio: (socioId: string, tag: string) => void;
@@ -791,7 +791,44 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
   }
 
-  function addSocioFromPortal(fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) {
+  // En ruta pública, las escrituras van por los endpoints de servidor (service-
+  // role + validación por email), no por la anon key. Devuelve el contexto de la
+  // socia en sesión, o null si no estamos en modo público.
+  function ctxPublico(): { studioId: string; socioId: string; email: string } | null {
+    if (!publicSlug) return null;
+    const m = leerSociaLocal();
+    return { studioId: studioIdOverride ?? '', socioId: m?.socioId ?? '', email: m?.email ?? '' };
+  }
+  async function postPublico(url: string, body: Record<string, unknown>) {
+    try {
+      await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } finally {
+      cargarPublico(); // re-sincroniza el estado desde el servidor
+    }
+  }
+
+  // Preferencias de la socia: en público van por endpoint; si no, al store.
+  function upsertPreferenciasSocioPub(socioId: string, changes: Partial<Omit<PreferenciasSocio, 'socioId' | 'studioId'>>) {
+    const cpub = ctxPublico();
+    if (cpub) {
+      memberPrefsStore.upsertPreferenciasSocio(socioId, changes); // optimista (estado local)
+      postPublico('/api/public/socio', { accion: 'preferencias', studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, cambios: changes });
+      return;
+    }
+    memberPrefsStore.upsertPreferenciasSocio(socioId, changes);
+  }
+
+  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }): Promise<void> {
+    const cpub = ctxPublico();
+    if (cpub) {
+      // Alta pública vía endpoint (service-role). Se AWAITea para que la reserva
+      // posterior encuentre a la socia ya creada.
+      await postPublico('/api/public/socio', {
+        accion: 'registrar', studioId: cpub.studioId, id: fields.id, nombre: fields.nombre, email: fields.email,
+        aceptacion: fields.aceptacionContrato, referidoPor: fields.referidoPor ?? null,
+      });
+      return;
+    }
     const nuevaSocia: Socio = {
       id: fields.id,
       studioId: getCurrentStudioId(),
@@ -818,6 +855,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function updateSocio(id: string, changes: Partial<Socio>) {
+    const cpub = ctxPublico();
+    if (cpub) {
+      // La socia edita su propio perfil vía endpoint (whitelist de campos).
+      setSocios(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s)); // optimista
+      postPublico('/api/public/socio', { accion: 'actualizar', studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, cambios: changes });
+      return;
+    }
     setSocios(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
     dbUpdateSocio(id, changes);
     const socio = socios.find(s => s.id === id);
@@ -1012,6 +1056,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
     const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
 
+    const cpub = ctxPublico();
+    if (cpub) {
+      // La creación real (con bono/renovación) la hace el servidor; el estado que
+      // devolvemos es la estimación cliente (misma lógica pura); recargarPublico
+      // sincroniza el estado autoritativo.
+      postPublico('/api/public/reserva', { accion: 'crear', studioId: cpub.studioId, sesionId, socioId, email: cpub.email });
+      return estado;
+    }
+
     const nueva: Reserva = {
       id: `res-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -1037,6 +1090,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function cancelarReserva(reservaId: string) {
+    const cpub = ctxPublico();
+    if (cpub) {
+      setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r)); // optimista
+      postPublico('/api/public/reserva', { accion: 'cancelar', studioId: cpub.studioId, reservaId, socioId: cpub.socioId, email: cpub.email });
+      return;
+    }
+
     let promotedSocioId: string | null = null;
     let promotedSesionId: string | null = null;
 
@@ -1105,6 +1165,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function checkin(reservaId: string) {
+    if (publicSlug) {
+      // Kiosk público: el check-in (ASISTIDA + créditos + premio de referido) lo
+      // hace el servidor; se re-sincroniza al terminar.
+      setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'ASISTIDA' as const, checkInEn: new Date().toISOString() } : r)); // optimista
+      postPublico('/api/public/checkin', { studioId: studioIdOverride ?? '', reservaId });
+      return;
+    }
     const checkInEn = new Date().toISOString();
     const reservasActualizadas = reservas.map(r =>
       r.id === reservaId ? { ...r, estado: 'ASISTIDA' as const, checkInEn } : r
@@ -1645,6 +1712,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if ('error' in validacion) return validacion;
     if (!item) return { error: 'Esta recompensa ya no está disponible.' };
 
+    const cpub = ctxPublico();
+    if (cpub) {
+      // El canje real (descuento + registro) lo hace el servidor; validamos en
+      // cliente para el feedback inmediato y recargamos.
+      postPublico('/api/public/canje', { studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, catalogItemId });
+      return { ok: true };
+    }
+
     const studioId = getCurrentStudioId();
     const now = new Date().toISOString();
     const redemption: RewardRedemption = {
@@ -2127,7 +2202,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     mensajesEquipo,
     addMensajeEquipo: teamChatStore.addMensajeEquipo,
     preferenciasSocio,
-    upsertPreferenciasSocio: memberPrefsStore.upsertPreferenciasSocio,
+    upsertPreferenciasSocio: upsertPreferenciasSocioPub,
     rewardRules,
     rewardActions,
     rewardHistory,
