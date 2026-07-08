@@ -39,6 +39,7 @@ const accionConfig: Record<AccionAutomatica, { label: string; icon: React.Elemen
   OFRECER_CLASE_GRATIS: { label: 'Clase gratis', icon: Gift, color: '#DB2777' },
   PROPONER_PLAN:     { label: 'Proponer plan', icon: TrendingUp, color: '#059669' },
   ENVIAR_EJERCICIOS: { label: 'Ejercicios casa', icon: Send, color: '#F7A6C4' },
+  OFRECER_DESCUENTO: { label: 'Oferta de reactivación', icon: Gift, color: '#B45309' },
 };
 
 const resultadoConfig: Record<ResultadoLog, { label: string; color: string; bg: string; icon: React.ElementType }> = {
@@ -56,7 +57,31 @@ const triggerLabels: Record<string, string> = {
   NUEVA_SOCIA:         'Nueva socia',
   CLASE_MANANA:        'Clase mañana',
   RENOVACION_COBRADA:  'Renovación cobrada',
+  CLASE_LLENA_RECURRENTE: 'Clase con demanda sostenida',
 };
+
+// Punto de partida opcional (botón "Cargar reglas sugeridas") — no se
+// insertan solas, el estudio decide si las quiere y puede editarlas o
+// desactivarlas después. Los umbrales (días, % de descuento...) son solo un
+// punto de partida razonable, no están grabados a fuego en ningún sitio.
+const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>[] = [
+  {
+    nombre: 'Socia ausente', descripcion: 'Recuerda a las socias que llevan días sin venir, y ofrece una vuelta con descuento si la ausencia se alarga',
+    icono: '👤', trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCritico: 21, descuentoPct: 15 }, pasos: [], activa: true,
+  },
+  {
+    nombre: 'Pago pendiente', descripcion: 'Persigue pagos vencidos — cobra directo si hay tarjeta guardada (con tu aprobación) o recuerda por email',
+    icono: '💳', trigger: 'PAGO_PENDIENTE_DIAS', condicion: { dias: 3 }, pasos: [], activa: true,
+  },
+  {
+    nombre: 'Recordatorio de clase', descripcion: 'Avisa a las socias con reserva confirmada el día antes de su clase',
+    icono: '📅', trigger: 'CLASE_MANANA', condicion: {}, pasos: [], activa: true,
+  },
+  {
+    nombre: 'Clase con demanda sostenida', descripcion: 'Detecta franjas horarias que llevan varias semanas casi llenas y te recomienda abrir otra sesión',
+    icono: '📈', trigger: 'CLASE_LLENA_RECURRENTE', condicion: { semanasConsecutivas: 3, ocupacionMinima: 0.95 }, pasos: [], activa: true,
+  },
+];
 
 // ─── Morning Briefing ─────────────────────────────────────────────────────────
 
@@ -215,11 +240,12 @@ function RuleCard({
 // ─── Log Item ─────────────────────────────────────────────────────────────────
 
 function LogItem({
-  log, onDismiss, onApproveCharge, approving,
+  log, onDismiss, onApproveCharge, onSendOffer, approving,
 }: {
   log: AutomationLog;
   onDismiss: () => void;
   onApproveCharge?: () => void;
+  onSendOffer?: () => void;
   approving?: boolean;
 }) {
   const cfg = resultadoConfig[log.resultado];
@@ -273,6 +299,16 @@ function LogItem({
           {approving ? 'Cobrando…' : 'Aprobar y cobrar'}
         </button>
       )}
+      {onSendOffer && (
+        <button
+          onClick={onSendOffer}
+          disabled={approving}
+          className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#1A1A1A] text-white hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+        >
+          {approving ? <Loader2 size={12} className="animate-spin" /> : <Gift size={12} />}
+          {approving ? 'Enviando…' : 'Enviar oferta'}
+        </button>
+      )}
       <button
         onClick={onDismiss}
         className="text-[#C6C6BE] hover:text-[#8E8E86] transition-colors shrink-0 mt-0.5"
@@ -288,8 +324,8 @@ function LogItem({
 
 export default function AutomatizacionesPage() {
   const {
-    studio, automationRules, automationLogs,
-    toggleAutomationRule, runAutomation, dismissLog, marcarCobrado, actualizarLog,
+    studio, automationRules, automationLogs, socios,
+    toggleAutomationRule, addAutomationRule, runAutomation, dismissLog, marcarCobrado, actualizarLog,
   } = useStudio();
 
   const [running, setRunning] = useState(false);
@@ -311,6 +347,12 @@ export default function AutomatizacionesPage() {
     setRunning(false);
   }
 
+  function handleCargarSugeridas() {
+    const existentes = new Set(automationRules.map(r => r.trigger));
+    const nuevas = REGLAS_SUGERIDAS.filter(r => !existentes.has(r.trigger));
+    nuevas.forEach(addAutomationRule);
+  }
+
   async function handleApproveCharge(log: AutomationLog) {
     if (!log.reciboId || !log.socioId || !studio) return;
     setApprovingId(log.id);
@@ -320,6 +362,37 @@ export default function AutomatizacionesPage() {
       actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: 'Cobro aprobado y ejecutado con la tarjeta guardada.' });
     } else {
       actualizarLog(log.id, { resultado: 'FALLIDO', detalle: result.error });
+    }
+    setApprovingId(null);
+  }
+
+  async function handleSendOffer(log: AutomationLog) {
+    if (!log.socioId) return;
+    const socio = socios.find(s => s.id === log.socioId);
+    if (!socio?.email) {
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'La socia no tiene email registrado' });
+      return;
+    }
+    setApprovingId(log.id);
+    try {
+      const res = await fetch('/api/emails/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo: 'automatizacion',
+          to: socio.email,
+          toName: socio.nombre,
+          data: { titulo: 'Te echamos de menos 💛', mensaje: log.detalle },
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        actualizarLog(log.id, { resultado: 'FALLIDO', detalle: body.error ?? `No se pudo enviar el email (HTTP ${res.status})` });
+      } else {
+        actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: `Oferta enviada a ${socio.email}: "${log.detalle}"` });
+      }
+    } catch (err) {
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: err instanceof Error ? err.message : 'Error de red al enviar el email' });
     }
     setApprovingId(null);
   }
@@ -353,6 +426,7 @@ export default function AutomatizacionesPage() {
                 log={log}
                 onDismiss={() => dismissLog(log.id)}
                 onApproveCharge={log.accion === 'COBRAR_RECIBO' ? () => handleApproveCharge(log) : undefined}
+                onSendOffer={log.accion === 'OFRECER_DESCUENTO' ? () => handleSendOffer(log) : undefined}
                 approving={approvingId === log.id}
               />
             ))}
@@ -388,6 +462,21 @@ export default function AutomatizacionesPage() {
 
       {tab === 'reglas' && (
         <div className="space-y-3">
+          <div className="flex justify-end">
+            <button
+              onClick={handleCargarSugeridas}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#E7E7E0] text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors"
+            >
+              <Zap size={12} />
+              Cargar reglas sugeridas
+            </button>
+          </div>
+          {automationRules.length === 0 && (
+            <div className="text-center py-12 text-[#A8A89F]">
+              <Bot size={32} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Todavía no tienes ninguna automatización activa</p>
+            </div>
+          )}
           {automationRules.map(rule => (
             <RuleCard
               key={rule.id}

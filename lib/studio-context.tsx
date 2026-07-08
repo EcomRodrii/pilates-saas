@@ -31,7 +31,7 @@ import {
   dbInsertVideoOnDemand, dbUpdateVideoOnDemand,
   dbInsertPostComunidad, dbUpdatePostComunidad,
   dbUpsertIntegracion,
-  dbInsertAutomationLog, dbUpdateAutomationRule,
+  dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
   dbUpdateStudio, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
@@ -334,6 +334,7 @@ interface StudioContextValue {
   automationLogs: AutomationLog[];
   notasProgreso: NotaProgreso[];
   toggleAutomationRule: (id: string) => void;
+  addAutomationRule: (fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>) => void;
   addAutomationLog: (log: Omit<AutomationLog, 'id' | 'studioId'>) => void;
   runAutomation: () => Promise<AutomationLog[]>;
   addNotaProgreso: (nota: Omit<NotaProgreso, 'id' | 'studioId' | 'creadaEn'>) => void;
@@ -1798,6 +1799,19 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     addActividadReciente('AUTOMATIZACION_CAMBIO', `${actorNombre ?? 'Alguien'} ${rule.activa ? 'desactivó' : 'activó'} la automatización "${rule.nombre}"`);
   }
 
+  function addAutomationRule(fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>) {
+    const nueva: AutomationRule = {
+      ...fields,
+      id: `rule-${uid()}`,
+      studioId: getCurrentStudioId(),
+      ejecutadaVeces: 0,
+      ultimaEjecucion: null,
+      creadaEn: new Date().toISOString(),
+    };
+    setAutomationRules(prev => [...prev, nueva]);
+    dbInsertAutomationRule(nueva);
+  }
+
   function addAutomationLog(log: Omit<AutomationLog, 'id' | 'studioId'>) {
     const nuevo: AutomationLog = {
       id: `log-${uid()}`,
@@ -1838,17 +1852,19 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
     if (candidatos.length === 0) return [];
 
-    // ENVIAR_EMAIL se manda solo (vía /api/emails/send). COBRAR_RECIBO nunca
-    // se ejecuta aquí — solo queda registrado como PENDIENTE_ADMIN a la espera
-    // de que alguien lo apruebe con un toque desde Automatizaciones.
+    // ENVIAR_EMAIL se manda solo (vía /api/emails/send). COBRAR_RECIBO y
+    // OFRECER_DESCUENTO nunca se ejecutan aquí — quedan como PENDIENTE_ADMIN
+    // a la espera de que alguien los apruebe con un toque desde
+    // Automatizaciones. NOTIFICAR_ADMIN es un insight de negocio (sin socia
+    // asociada) que tampoco requiere ninguna acción automática.
     const nuevosLogs: AutomationLog[] = await Promise.all(candidatos.map(async (c): Promise<AutomationLog> => {
       const base = {
         id: `log-${uid()}`,
         studioId: getCurrentStudioId(),
         ruleId: c.rule.id,
         ruleName: c.rule.nombre,
-        socioId: c.socio.id,
-        socioNombre: `${c.socio.nombre} ${c.socio.apellidos}`,
+        socioId: c.socio?.id ?? null,
+        socioNombre: c.socio ? `${c.socio.nombre} ${c.socio.apellidos}` : null,
         pasoIndex: 0,
         accion: c.accion,
         ejecutadoEn: now.toISOString(),
@@ -1858,6 +1874,51 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
       if (c.accion === 'COBRAR_RECIBO') {
         return { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.mensaje };
+      }
+
+      if (c.accion === 'NOTIFICAR_ADMIN') {
+        // Insight redactado con IA a partir de los datos que ya detectó el
+        // motor (ver lib/automation-engine.ts) — si la IA falla, se muestra
+        // igualmente el mensaje base calculado por el motor.
+        let detalle = c.mensaje;
+        if (c.contextoIA) {
+          try {
+            const res = await fetch('/api/ai/recomendacion', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tipo: 'CLASE_LLENA', ...c.contextoIA }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.mensaje) detalle = data.mensaje;
+            }
+          } catch { /* se queda con el mensaje base del motor */ }
+        }
+        return { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle };
+      }
+
+      if (c.accion === 'OFRECER_DESCUENTO') {
+        // Redacta la oferta de reactivación con IA; si falla, usa el mensaje
+        // base del motor como respaldo — nunca se envía nada sin aprobación.
+        let detalle = c.mensaje;
+        if (c.contextoIA) {
+          try {
+            const res = await fetch('/api/ai/recomendacion', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tipo: 'REACTIVACION', ...c.contextoIA }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.mensaje) detalle = data.mensaje;
+            }
+          } catch { /* se queda con el mensaje base del motor */ }
+        }
+        return { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle };
+      }
+
+      if (!c.socio) {
+        return { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Acción sin socia asociada' };
       }
 
       try {
@@ -2037,6 +2098,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     automationLogs,
     notasProgreso,
     toggleAutomationRule,
+    addAutomationRule,
     addAutomationLog,
     runAutomation,
     addNotaProgreso,

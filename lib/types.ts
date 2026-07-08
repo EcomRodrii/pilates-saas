@@ -355,7 +355,8 @@ export type TriggerRule =
   | 'SUSCRIPCION_EXPIRA_DIAS'
   | 'NUEVA_SOCIA'
   | 'CLASE_MANANA'
-  | 'RENOVACION_COBRADA';
+  | 'RENOVACION_COBRADA'
+  | 'CLASE_LLENA_RECURRENTE';
 
 export type AccionAutomatica =
   | 'ENVIAR_EMAIL'
@@ -365,7 +366,8 @@ export type AccionAutomatica =
   | 'NOTIFICAR_ADMIN'
   | 'OFRECER_CLASE_GRATIS'
   | 'PROPONER_PLAN'
-  | 'ENVIAR_EJERCICIOS';
+  | 'ENVIAR_EJERCICIOS'
+  | 'OFRECER_DESCUENTO';
 
 export interface AutomationStep {
   accion: AccionAutomatica;

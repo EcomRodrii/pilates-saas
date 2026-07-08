@@ -1598,6 +1598,17 @@ export async function dbUpdateAutomationLog(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateAutomationLog]', error);
 }
 
+export async function dbInsertAutomationRule(r: any) {
+  const row = {
+    id: r.id, studio_id: r.studioId ?? STUDIO_ID, nombre: r.nombre, descripcion: r.descripcion,
+    icono: r.icono, trigger: r.trigger, condicion: r.condicion ?? {}, pasos: r.pasos ?? [],
+    activa: r.activa, ejecutada_veces: r.ejecutadaVeces ?? 0, ultima_ejecucion: r.ultimaEjecucion ?? null,
+    creada_en: r.creadaEn,
+  };
+  const { error } = await supabase.from('automation_rules').insert(row);
+  if (error) reportDbError('[dbInsertAutomationRule]', error);
+}
+
 export async function dbUpdateAutomationRule(id: string, changes: any) {
   const db: any = {};
   if ('activa' in changes) db.activa = changes.activa;
