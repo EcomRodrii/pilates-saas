@@ -56,10 +56,10 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = await resend.emails.send({
-    // Dominio de pruebas de Resend: hasta que se compre y verifique un
-    // dominio propio (ver tentare.es), solo se puede enviar de verdad al
-    // email con el que se creó la cuenta de Resend.
-    from: 'Tentare <onboarding@resend.dev>',
+    // Remitente configurable por env: una vez verificado el dominio propio en
+    // Resend, poner RESEND_FROM='Tentare <hola@tudominio.com>'. Sin verificar,
+    // el sandbox de Resend solo entrega al email de la cuenta.
+    from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>',
     to: [body.to],
     subject,
     html,

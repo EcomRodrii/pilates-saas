@@ -136,10 +136,9 @@ export async function GET(req: NextRequest) {
             estudioNombre: studio.nombre,
           }));
           const { error } = await resend!.emails.send({
-            // Dominio de pruebas de Resend: hasta que se compre y verifique un
-            // dominio propio (ver tentare.es), solo se puede enviar de verdad
-            // al email con el que se creó la cuenta de Resend.
-            from: 'Tentare <onboarding@resend.dev>',
+            // Remitente configurable por env (ver RESEND_FROM). Sin dominio
+            // verificado, el sandbox de Resend solo entrega al email de la cuenta.
+            from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>',
             to: [c.socio.email],
             subject: c.titulo,
             html,
