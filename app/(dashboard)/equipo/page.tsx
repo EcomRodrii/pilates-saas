@@ -9,8 +9,8 @@ import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
 const COLORES = ['#F7A6C4', '#14B8A6', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
 
-const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-[#A8A89F] focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all';
-const labelCls = 'text-[12px] font-semibold text-[#3A3A34] block mb-1.5';
+const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all';
+const labelCls = 'text-[12px] font-semibold text-foreground block mb-1.5';
 
 const ROL_LABEL: Record<Rol, string> = {
   PROPIETARIO: 'Propietaria',
@@ -132,20 +132,20 @@ export default function EquipoPage() {
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Miembros', value: instructores.length, sub: `${activos} activos`, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, white)', Icon: Users },
+          { label: 'Miembros', value: instructores.length, sub: `${activos} activos`, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', Icon: Users },
           { label: 'Clases 7 días', value: totalClasesSemana, sub: 'programadas', color: '#059669', bg: '#DCFCE7', Icon: Calendar },
           { label: 'Media / persona', value: activos ? Math.round(totalClasesSemana / activos) : 0, sub: 'clases por activo', color: '#D97706', bg: '#FEF3C7', Icon: Calendar },
         ].map(({ label, value, sub, color, bg, Icon }) => (
           <div key={label} className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#A8A89F]">{label}</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: bg }}>
                 <Icon size={15} color={color} />
               </div>
             </div>
             <div>
               <p className="text-[26px] font-extrabold text-foreground leading-none tabular-nums">{value}</p>
-              <p className="text-[11px] text-[#A8A89F] mt-1">{sub}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>
             </div>
           </div>
         ))}
@@ -177,11 +177,11 @@ export default function EquipoPage() {
                     <div className="min-w-0">
                       <p className="font-bold text-foreground text-[15px] leading-tight truncate">{i.nombre}</p>
                       <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${i.activo ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-muted text-[#A8A89F]'}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-[#059669]' : 'bg-[#A8A89F]'}`} />
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${i.activo ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-muted text-muted-foreground'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-[#059669]' : 'bg-muted-foreground'}`} />
                           {i.activo ? 'Activa' : 'Inactiva'}
                         </span>
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-[#3A3A34]">{ROL_LABEL[i.rol]}</span>
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ROL_LABEL[i.rol]}</span>
                         {i.authUserId ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand/10 text-brand-secondary">
                             <ShieldCheck size={10} />Con acceso
@@ -204,25 +204,25 @@ export default function EquipoPage() {
 
                 <div className="space-y-1.5">
                   {i.email && (
-                    <p className="flex items-center gap-2 text-[13px] text-muted-foreground truncate"><Mail size={13} className="text-[#A8A89F] shrink-0" />{i.email}</p>
+                    <p className="flex items-center gap-2 text-[13px] text-muted-foreground truncate"><Mail size={13} className="text-muted-foreground shrink-0" />{i.email}</p>
                   )}
                   {i.telefono && (
-                    <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Phone size={13} className="text-[#A8A89F] shrink-0" />{i.telefono}</p>
+                    <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Phone size={13} className="text-muted-foreground shrink-0" />{i.telefono}</p>
                   )}
                   {!i.email && !i.telefono && (
-                    <p className="text-[12px] text-[#C6C6BE] italic">Sin datos de contacto</p>
+                    <p className="text-[12px] text-muted-foreground italic">Sin datos de contacto</p>
                   )}
                 </div>
 
                 <div className="flex items-center justify-between pt-3 border-t border-[#F1F1F4]">
                   <div>
-                    <p className="text-[18px] font-extrabold text-foreground leading-none tabular-nums">{carga}<span className="text-[12px] font-medium text-[#A8A89F]"> clases</span></p>
-                    <p className="text-[11px] text-[#A8A89F] mt-1">próximos 7 días{nCitas > 0 ? ` · ${nCitas} citas` : ''}</p>
+                    <p className="text-[18px] font-extrabold text-foreground leading-none tabular-nums">{carga}<span className="text-[12px] font-medium text-muted-foreground"> clases</span></p>
+                    <p className="text-[11px] text-muted-foreground mt-1">próximos 7 días{nCitas > 0 ? ` · ${nCitas} citas` : ''}</p>
                   </div>
                   {prox && (
                     <div className="text-right">
-                      <p className="text-[11px] text-[#A8A89F]">Próxima</p>
-                      <p className="text-[12px] font-semibold text-[#3A3A34] capitalize">
+                      <p className="text-[11px] text-muted-foreground">Próxima</p>
+                      <p className="text-[12px] font-semibold text-foreground capitalize">
                         {prox.toLocaleDateString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
@@ -272,9 +272,9 @@ export default function EquipoPage() {
                     key={r}
                     type="button"
                     onClick={() => setForm(f => ({ ...f, rol: r }))}
-                    className={`w-full flex items-start gap-2.5 text-left px-3.5 py-2.5 rounded-xl border transition-colors ${form.rol === r ? 'border-brand bg-[#F8FBEE]' : 'border-border hover:bg-muted'}`}
+                    className={`w-full flex items-start gap-2.5 text-left px-3.5 py-2.5 rounded-xl border transition-colors ${form.rol === r ? 'border-brand bg-brand/10' : 'border-border hover:bg-muted'}`}
                   >
-                    <ShieldCheck size={15} className={form.rol === r ? 'text-brand-secondary mt-0.5 shrink-0' : 'text-[#A8A89F] mt-0.5 shrink-0'} />
+                    <ShieldCheck size={15} className={form.rol === r ? 'text-brand-secondary mt-0.5 shrink-0' : 'text-muted-foreground mt-0.5 shrink-0'} />
                     <div className="min-w-0">
                       <p className="text-[13px] font-bold text-foreground">{ROL_LABEL[r]}</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">{ROL_DESC[r]}</p>
@@ -283,9 +283,9 @@ export default function EquipoPage() {
                 ))}
               </div>
               {form.email.trim() && (
-                <p className="text-[11px] text-[#A8A89F] mt-2 flex items-start gap-1.5">
+                <p className="text-[11px] text-muted-foreground mt-2 flex items-start gap-1.5">
                   <KeyRound size={12} className="shrink-0 mt-0.5" />
-                  Para acceder al panel, esta persona debe entrar en /login y crear una cuenta con el email <strong className="text-[#3A3A34]">{form.email.trim()}</strong> — quedará vinculada automáticamente a este rol.
+                  Para acceder al panel, esta persona debe entrar en /login y crear una cuenta con el email <strong className="text-foreground">{form.email.trim()}</strong> — quedará vinculada automáticamente a este rol.
                 </p>
               )}
             </div>
@@ -295,7 +295,7 @@ export default function EquipoPage() {
                 {COLORES.map(c => (
                   <button key={c} onClick={() => setForm(f => ({ ...f, color: c }))}
                     className="w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-110"
-                    style={{ backgroundColor: c, outline: form.color === c ? '2px solid #1A1A1A' : 'none', outlineOffset: 2 }}>
+                    style={{ backgroundColor: c, outline: form.color === c ? '2px solid var(--foreground)' : 'none', outlineOffset: 2 }}>
                     {form.color === c && <Check size={14} className="text-white" />}
                   </button>
                 ))}
@@ -306,7 +306,7 @@ export default function EquipoPage() {
               <span className="text-sm font-medium text-foreground">Miembro activo (puede recibir clases y citas)</span>
             </label>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-[#3A3A34] hover:bg-muted">Cancelar</button>
+              <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
               <button onClick={guardar} disabled={!form.nombre.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
                 <Check size={14} /> Guardar
               </button>
@@ -325,7 +325,7 @@ export default function EquipoPage() {
             ¿Seguro que quieres eliminar a <strong className="text-foreground">{confirmDel?.nombre}</strong> del equipo? Las clases y citas ya asignadas no se borran, pero quedarán sin instructor visible.
           </p>
           <div className="flex justify-end gap-2 pt-4">
-            <button onClick={() => setConfirmDel(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-[#3A3A34] hover:bg-muted">Cancelar</button>
+            <button onClick={() => setConfirmDel(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
             <button onClick={() => { if (confirmDel) deleteInstructor(confirmDel.id); setConfirmDel(null); }} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600">
               <X size={14} /> Eliminar
             </button>
@@ -364,9 +364,9 @@ function ActividadTab({ actividadReciente }: { actividadReciente: import('@/lib/
       ) : (
         <div className="space-y-2">
           {relevantes.map(a => (
-            <div key={a.id} className="flex items-start justify-between gap-3 py-2.5 border-b border-[#F1F1EC] last:border-0">
-              <p className="text-sm text-[#3A3A34]">{a.texto}</p>
-              <span className="text-xs text-[#A8A89F] whitespace-nowrap shrink-0">{formatFechaHora(a.creadoEn)}</span>
+            <div key={a.id} className="flex items-start justify-between gap-3 py-2.5 border-b border-muted last:border-0">
+              <p className="text-sm text-foreground">{a.texto}</p>
+              <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{formatFechaHora(a.creadoEn)}</span>
             </div>
           ))}
         </div>

@@ -104,7 +104,7 @@ export function ProfileAvatar({
   }
 
   return (
-    <div className={cls} style={{ backgroundColor: color ? `${color}1A` : '#F1F1EC', color: color ?? '#8E8E86' }}>
+    <div className={cls} style={{ backgroundColor: color ? `${color}1A` : 'var(--muted)', color: color ?? 'var(--muted-foreground)' }}>
       {initialsOf(nombre, apellidos)}
     </div>
   );
@@ -117,7 +117,7 @@ export function AvatarPicker({ value, onChange }: { value: string | null; onChan
     <div className="space-y-3">
       {(['mujer', 'hombre'] as const).map(genero => (
         <div key={genero}>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#A8A89F] mb-1.5">{genero === 'mujer' ? 'Mujer' : 'Hombre'}</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{genero === 'mujer' ? 'Mujer' : 'Hombre'}</p>
           <div className="flex flex-wrap gap-2">
             {PREDEFINED_AVATARS.filter(a => a.genero === genero).map(a => {
               const selected = value === a.id;

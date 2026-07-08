@@ -48,33 +48,33 @@ export function ProfileMenu() {
 
         {open && (
           <div className="absolute right-0 top-full mt-2 w-64 bg-card rounded-2xl shadow-xl border border-border py-1.5 z-20">
-            <div className="px-3.5 py-2.5 border-b border-[#F1F1EC]">
+            <div className="px-3.5 py-2.5 border-b border-muted">
               <p className="text-[13px] font-semibold text-foreground truncate">{studio?.nombre ?? 'Tentare'}</p>
               <p className="text-[12px] text-muted-foreground truncate">{userEmail}</p>
             </div>
             <Link
               href="/configuracion?tab=perfil"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-[#3A3A34] hover:bg-muted transition-colors"
+              className="flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-foreground hover:bg-muted transition-colors"
             >
               <UserCog size={15} className="text-muted-foreground" />
               Mi perfil
             </Link>
             <button
               onClick={() => { setHelpOpen(true); setOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-[#3A3A34] hover:bg-muted transition-colors text-left"
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-foreground hover:bg-muted transition-colors text-left"
             >
               <HelpCircle size={15} className="text-muted-foreground" />
               Preguntas frecuentes
             </button>
             <button
               onClick={() => { setAppearanceOpen(true); setOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-[#3A3A34] hover:bg-muted transition-colors text-left"
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-foreground hover:bg-muted transition-colors text-left"
             >
               <Palette size={15} className="text-muted-foreground" />
               Apariencia
             </button>
-            <div className="border-t border-[#F1F1EC] mt-1 pt-1">
+            <div className="border-t border-muted mt-1 pt-1">
               <button
                 onClick={handleSignOut}
                 className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-[#C4695A] hover:bg-[#FFF2F2] transition-colors text-left"

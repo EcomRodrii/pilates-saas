@@ -104,7 +104,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                   type="button"
                   onClick={() => handleToggleActiva(def.trigger, def.nombre, def.descripcion)}
                   className="w-11 h-6 rounded-full transition-colors relative shrink-0"
-                  style={{ backgroundColor: activa ? '#171717' : '#E7E7E0' }}
+                  style={{ backgroundColor: activa ? 'var(--foreground)' : 'var(--border)' }}
                 >
                   <span
                     className="absolute top-0.5 w-5 h-5 rounded-full bg-card transition-transform"
@@ -144,7 +144,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold text-foreground">{item.nombre}</p>
                   <p className="text-[12px] text-muted-foreground">{item.costeCreditos} créditos{item.stock != null ? ` · ${item.stock} en stock` : ''}</p>
-                  {!item.activo && <span className="text-[10px] font-bold uppercase text-[#A8A89F]">Inactiva</span>}
+                  {!item.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactiva</span>}
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button onClick={() => openEditar(item)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
@@ -196,7 +196,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
               </div>
             </div>
             <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 text-[13px] text-[#3A3A34]">
+              <label className="flex items-center gap-2 text-[13px] text-foreground">
                 <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} />
                 Activa
               </label>

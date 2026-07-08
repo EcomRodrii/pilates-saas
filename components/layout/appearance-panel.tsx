@@ -34,7 +34,7 @@ function PresetSwatch({
           <Check size={15} style={{ color: preset.foreground }} strokeWidth={3} />
         )}
       </span>
-      <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-[#3A3A34] transition-colors">
+      <span className="text-[10px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
         {preset.label}
       </span>
     </button>
@@ -88,7 +88,7 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
               </span>
               <span
                 className="w-10 h-6 rounded-full flex items-center px-0.5 transition-colors"
-                style={{ backgroundColor: dark ? 'var(--brand)' : '#D1D5DB' }}
+                style={{ backgroundColor: dark ? 'var(--brand)' : 'var(--muted-foreground)' }}
               >
                 <span
                   className="w-5 h-5 bg-card rounded-full shadow transition-transform"
@@ -107,15 +107,15 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
                 />
               ))}
             </div>
-            <p className="text-[11.5px] text-[#A8A89F] mt-3">Solo lo ves tú — se guarda en este navegador.</p>
+            <p className="text-[11.5px] text-muted-foreground mt-3">Solo lo ves tú — se guarda en este navegador.</p>
           </div>
 
           {/* App de socias — solo propietaria */}
           {rol === 'PROPIETARIO' && (
-            <div className="border-t border-[#F1F1EC] pt-5">
+            <div className="border-t border-muted pt-5">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tema de la app de socias</p>
-                {portalSaving === 'guardando' && <span className="text-[11px] text-[#A8A89F]">Guardando…</span>}
+                {portalSaving === 'guardando' && <span className="text-[11px] text-muted-foreground">Guardando…</span>}
                 {portalSaving === 'guardado' && <span className="text-[11px] text-green-600 font-semibold">Guardado ✓</span>}
               </div>
 
@@ -129,7 +129,7 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
                   />
                 ))}
               </div>
-              <p className="text-[11.5px] text-[#A8A89F] mt-3">Lo verán todas tus socias en su app.</p>
+              <p className="text-[11.5px] text-muted-foreground mt-3">Lo verán todas tus socias en su app.</p>
             </div>
           )}
         </div>

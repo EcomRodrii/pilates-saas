@@ -68,7 +68,7 @@ export default function ChatEquipoPage() {
                 {nuevoDia && (
                   <div className="flex items-center gap-2 my-3">
                     <div className="flex-1 h-px bg-muted" />
-                    <span className="text-[10px] font-medium text-[#A8A89F] uppercase tracking-wide">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                       {formatFecha(m.creadoEn)}
                     </span>
                     <div className="flex-1 h-px bg-muted" />
@@ -84,9 +84,9 @@ export default function ChatEquipoPage() {
                   <div className="min-w-0">
                     <div className="flex items-baseline gap-2">
                       <span className="text-sm font-semibold text-foreground">{m.autorNombre}</span>
-                      <span className="text-[10px] text-[#A8A89F]">{formatHora(m.creadoEn)}</span>
+                      <span className="text-[10px] text-muted-foreground">{formatHora(m.creadoEn)}</span>
                     </div>
-                    <p className="text-sm text-[#3A3A34] whitespace-pre-wrap break-words">{m.texto}</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap break-words">{m.texto}</p>
                   </div>
                 </div>
               </div>
@@ -107,7 +107,7 @@ export default function ChatEquipoPage() {
         <button
           onClick={enviar}
           disabled={!texto.trim()}
-          className="shrink-0 w-10 h-10 rounded-xl bg-[#1A1A1A] text-white flex items-center justify-center hover:bg-[#333] transition-colors disabled:opacity-40"
+          className="shrink-0 w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:bg-[#333] transition-colors disabled:opacity-40"
         >
           <Send size={16} />
         </button>

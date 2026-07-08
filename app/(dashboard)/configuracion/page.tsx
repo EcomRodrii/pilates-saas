@@ -21,11 +21,11 @@ import { subirFotoClase, eliminarFotoClase } from '@/lib/portal-storage';
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
   'rounded-lg border border-border px-3 py-2 text-[13px] w-full focus:outline-none focus:ring-2 focus:ring-black/10';
-export const labelCls = 'text-[12px] font-medium text-[#3A3A34] block mb-1';
+export const labelCls = 'text-[12px] font-medium text-foreground block mb-1';
 export const btnPrimary =
   'bg-brand text-brand-foreground rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
 export const btnSecondary =
-  'bg-card border border-border rounded-lg px-4 py-2 text-[13px] text-[#3A3A34] hover:bg-muted transition-colors';
+  'bg-card border border-border rounded-lg px-4 py-2 text-[13px] text-foreground hover:bg-muted transition-colors';
 export const cardCls = 'bg-card border border-border rounded-xl';
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
@@ -47,7 +47,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
       aria-pressed={on}
       className={cn(
         'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
-        on ? 'bg-[#1A1A1A]' : 'bg-[#D1D5DB]'
+        on ? 'bg-primary' : 'bg-muted-foreground/40'
       )}
     >
       <span
@@ -735,7 +735,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
             <div className="flex items-center justify-between">
               <NivelBadge nivel={tc.nivel} />
               {tc.descripcion && (
-                <p className="text-[11px] text-[#A8A89F] truncate ml-2 flex-1 text-right">
+                <p className="text-[11px] text-muted-foreground truncate ml-2 flex-1 text-right">
                   {tc.descripcion}
                 </p>
               )}
@@ -807,7 +807,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
                   <input ref={fotoInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
                 </div>
               ) : (
-                <p className="text-[12px] text-[#A8A89F]">Podrás añadir una foto una vez creada la clase.</p>
+                <p className="text-[12px] text-muted-foreground">Podrás añadir una foto una vez creada la clase.</p>
               )}
             </Field>
             <div className="grid grid-cols-2 gap-3">
@@ -1132,7 +1132,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     nombre: 'Resend',
     descripcion: 'Envía emails de bienvenida, recibos y campañas desde tu propio dominio.',
     Icon: ResendIcon,
-    color: '#1A1A1A',
+    color: 'var(--foreground)',
     bg: '#F5F5F5',
     campos: [
       { key: 'fromEmail', label: 'Email remitente', placeholder: 'hola@tentare.es' },
@@ -1422,7 +1422,7 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
                         conectado ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-muted text-muted-foreground',
                       )}>
-                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-[#059669]' : 'bg-[#A8A89F]')} />
+                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-[#059669]' : 'bg-muted-foreground')} />
                         {conectado ? 'Conectado' : 'No conectado'}
                       </span>
                     )}
@@ -1629,9 +1629,9 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
             <CalendarLinkIcon size={15} className="text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-foreground">Portal de reservas</p>
-              <p className="text-[11px] text-[#A8A89F]">Página pública para que cualquiera reserve una clase</p>
+              <p className="text-[11px] text-muted-foreground">Página pública para que cualquiera reserve una clase</p>
             </div>
-            <ExternalLink size={13} className="text-[#A8A89F] shrink-0" />
+            <ExternalLink size={13} className="text-muted-foreground shrink-0" />
           </a>
           <a
             href={`/kiosk/${studio?.slug ?? ''}`}
@@ -1641,9 +1641,9 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
             <Monitor size={15} className="text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-foreground">Modo quiosco</p>
-              <p className="text-[11px] text-[#A8A89F]">Pantalla de check-in para dejar en una tablet en recepción</p>
+              <p className="text-[11px] text-muted-foreground">Pantalla de check-in para dejar en una tablet en recepción</p>
             </div>
-            <ExternalLink size={13} className="text-[#A8A89F] shrink-0" />
+            <ExternalLink size={13} className="text-muted-foreground shrink-0" />
           </a>
         </div>
       </div>
@@ -1656,7 +1656,7 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         </p>
         <textarea
           rows={8}
-          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-mono text-[#3A3A34] focus:outline-none focus:border-[#A8A89F] transition-colors resize-y"
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-mono text-foreground focus:outline-none focus:border-muted-foreground transition-colors resize-y"
           value={politica}
           onChange={(e) => setPolitica(e.target.value)}
         />
@@ -1676,7 +1676,7 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         </p>
         <textarea
           rows={8}
-          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-mono text-[#3A3A34] focus:outline-none focus:border-[#A8A89F] transition-colors resize-y"
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-mono text-foreground focus:outline-none focus:border-muted-foreground transition-colors resize-y"
           value={terminos}
           onChange={(e) => setTerminos(e.target.value)}
         />
@@ -1821,7 +1821,7 @@ function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
           ].map(({ v, l }) => (
             <div key={l} className={cn(cardCls, 'p-4 text-center')}>
               <p className="text-[20px] font-extrabold text-foreground leading-none">{v}</p>
-              <p className="text-[10px] font-bold text-[#A8A89F] mt-1.5 uppercase tracking-wider">{l}</p>
+              <p className="text-[10px] font-bold text-muted-foreground mt-1.5 uppercase tracking-wider">{l}</p>
             </div>
           ))}
         </div>

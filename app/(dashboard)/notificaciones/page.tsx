@@ -105,7 +105,7 @@ export default function NotificacionesPage() {
           {unreadCount > 0 && (
             <button
               onClick={marcarTodasLeidas}
-              className="px-4 py-2 rounded-lg bg-card border border-border text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-[#1A1A1A] transition-colors"
+              className="px-4 py-2 rounded-lg bg-card border border-border text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
             >
               Marcar todas leídas
             </button>
@@ -124,10 +124,10 @@ export default function NotificacionesPage() {
                 className={cn(
                   'w-full text-left rounded-xl border transition-all p-3 flex items-start gap-3',
                   selected?.id === n.id
-                    ? 'border-[#1A1A1A] bg-card shadow-sm'
+                    ? 'border-foreground bg-card shadow-sm'
                     : n.leida
-                    ? 'border-border bg-card hover:border-[#D1D5DB]'
-                    : 'border-border bg-blue-50/40 hover:border-[#D1D5DB]'
+                    ? 'border-border bg-card hover:border-muted-foreground'
+                    : 'border-border bg-blue-50/40 hover:border-muted-foreground'
                 )}
               >
                 {/* Unread dot */}
@@ -143,7 +143,7 @@ export default function NotificacionesPage() {
                     )}>
                       {n.titulo}
                     </p>
-                    <span className="shrink-0 text-[11px] text-[#A8A89F]">{timeAgo(n.creadaEn)}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">{timeAgo(n.creadaEn)}</span>
                   </div>
                   <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
                     {n.texto}
@@ -171,11 +171,11 @@ export default function NotificacionesPage() {
                     <h2 className="text-[16px] font-semibold text-foreground leading-snug">
                       {selected.titulo}
                     </h2>
-                    <p className="text-[12px] text-[#A8A89F] mt-1">{timeAgo(selected.creadaEn)}</p>
+                    <p className="text-[12px] text-muted-foreground mt-1">{timeAgo(selected.creadaEn)}</p>
                   </div>
                 </div>
 
-                <p className="text-[14px] text-[#3A3A34] leading-relaxed mb-5">
+                <p className="text-[14px] text-foreground leading-relaxed mb-5">
                   {selected.texto}
                 </p>
 
@@ -190,7 +190,7 @@ export default function NotificacionesPage() {
                 )}
               </div>
             ) : (
-              <div className="bg-card border border-border rounded-xl h-64 flex flex-col items-center justify-center gap-3 text-[#A8A89F]">
+              <div className="bg-card border border-border rounded-xl h-64 flex flex-col items-center justify-center gap-3 text-muted-foreground">
                 <Mail size={32} strokeWidth={1.5} />
                 <p className="text-[14px]">Selecciona una notificación</p>
               </div>
@@ -201,26 +201,26 @@ export default function NotificacionesPage() {
         {/* Activity feed */}
         <div>
           <h2 className="text-[16px] font-semibold text-foreground mb-4">Actividad reciente</h2>
-          <div className="bg-card border border-border rounded-xl divide-y divide-[#E7E7E0]">
+          <div className="bg-card border border-border rounded-xl divide-y divide-border">
             {actividadReciente.map((act, i) => (
               <div key={act.id} className="flex items-start gap-3 px-4 py-3">
                 {/* Timeline line */}
                 <div className="relative flex flex-col items-center">
                   <ActividadIcon tipo={act.tipo} />
                   {i < actividadReciente.length - 1 && (
-                    <div className="w-px flex-1 bg-[#E7E7E0] mt-1" style={{ minHeight: 12 }} />
+                    <div className="w-px flex-1 bg-border mt-1" style={{ minHeight: 12 }} />
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0 pt-1">
                   <p className="text-[13px] text-foreground">{act.texto}</p>
-                  <p className="text-[12px] text-[#A8A89F] mt-0.5">{timeAgo(act.creadoEn)}</p>
+                  <p className="text-[12px] text-muted-foreground mt-0.5">{timeAgo(act.creadoEn)}</p>
                 </div>
 
                 {act.enlace && (
                   <a
                     href={act.enlace}
-                    className="shrink-0 mt-1 text-[#A8A89F] hover:text-[#7AA80E] transition-colors"
+                    className="shrink-0 mt-1 text-muted-foreground hover:text-[#7AA80E] transition-colors"
                     title="Ver"
                   >
                     <ExternalLink size={14} />

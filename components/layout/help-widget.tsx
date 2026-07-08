@@ -92,12 +92,12 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
               {/* FAQ search */}
               <div>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted mb-3">
-                  <Search size={14} className="text-[#A8A89F] shrink-0" />
+                  <Search size={14} className="text-muted-foreground shrink-0" />
                   <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     placeholder="Busca en las preguntas frecuentes…"
-                    className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-[#A8A89F]"
+                    className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-muted-foreground"
                   />
                 </div>
 
@@ -119,10 +119,10 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                                   className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left"
                                 >
                                   <span className="text-[13px] font-semibold text-foreground">{f.pregunta}</span>
-                                  <ChevronDown size={14} className={cn('shrink-0 text-[#A8A89F] transition-transform', isOpen && 'rotate-180')} />
+                                  <ChevronDown size={14} className={cn('shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
                                 </button>
                                 {isOpen && (
-                                  <p className="px-3 pb-3 text-[12.5px] text-[#5A5A52] leading-relaxed">{f.respuesta}</p>
+                                  <p className="px-3 pb-3 text-[12.5px] text-muted-foreground leading-relaxed">{f.respuesta}</p>
                                 )}
                               </div>
                             );
@@ -156,7 +156,7 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                           onClick={() => setTipo(val)}
                           className={cn(
                             'px-3 py-1.5 rounded-full text-[11px] font-bold transition-all',
-                            tipo === val ? 'bg-[#171717] text-white' : 'bg-muted text-muted-foreground'
+                            tipo === val ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                           )}
                         >
                           {label}
@@ -179,7 +179,7 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                     <button
                       onClick={enviarSolicitud}
                       disabled={!mensaje.trim() || enviando}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#171717] text-white text-[13px] font-bold disabled:opacity-40"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-[13px] font-bold disabled:opacity-40"
                     >
                       <Send size={14} />
                       {enviando ? 'Enviando…' : 'Enviar'}

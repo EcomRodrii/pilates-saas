@@ -92,7 +92,7 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-foreground">{a.nombre}</p>
                 <p className="text-[12px] text-muted-foreground">{metricLabel(a.metric)} · umbral {a.umbral}{a.creditosRecompensa > 0 ? ` · +${a.creditosRecompensa} créditos` : ''}</p>
-                {!a.activo && <span className="text-[10px] font-bold uppercase text-[#A8A89F]">Inactivo</span>}
+                {!a.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactivo</span>}
               </div>
               <button onClick={() => openEditar(a)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
                 <Pencil size={13} />
@@ -141,7 +141,7 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
               </div>
             </div>
             <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 text-[13px] text-[#3A3A34]">
+              <label className="flex items-center gap-2 text-[13px] text-foreground">
                 <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} />
                 Activo
               </label>

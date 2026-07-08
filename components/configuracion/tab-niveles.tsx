@@ -94,7 +94,7 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-foreground">{l.nombre}</p>
                 <p className="text-[12px] text-muted-foreground">Desde {l.umbralCreditos} créditos ganados</p>
-                {!l.activo && <span className="text-[10px] font-bold uppercase text-[#A8A89F]">Inactivo</span>}
+                {!l.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactivo</span>}
               </div>
               <button onClick={() => openEditar(l)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
                 <Pencil size={13} />
@@ -142,7 +142,7 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
               <input className={inputCls} value={form.beneficios ?? ''} placeholder="Ej. 10% dto. en recompensas" onChange={e => setForm(f => ({ ...f, beneficios: e.target.value }))} />
             </div>
             <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 text-[13px] text-[#3A3A34]">
+              <label className="flex items-center gap-2 text-[13px] text-foreground">
                 <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} />
                 Activo
               </label>
@@ -160,7 +160,7 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
           <DialogHeader>
             <DialogTitle>Eliminar nivel</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-[#5A5A52]">¿Seguro que quieres eliminar este nivel? Las socias que lo tengan alcanzado pasarán a mostrarse en el nivel inmediatamente inferior.</p>
+          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este nivel? Las socias que lo tengan alcanzado pasarán a mostrarse en el nivel inmediatamente inferior.</p>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setBorrarId(null)} className={btnSecondary}>Cancelar</button>
             <button onClick={confirmarBorrar} className="px-4 py-2 rounded-xl bg-[#C4695A] text-white text-[13px] font-semibold hover:bg-[#B25B4D]">Eliminar</button>

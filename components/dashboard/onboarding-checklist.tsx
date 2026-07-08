@@ -50,10 +50,10 @@ export function OnboardingChecklist() {
           </div>
         </div>
         <button onClick={handleDismiss} className="shrink-0 p-1 rounded-lg hover:bg-muted transition-colors" title="Ocultar">
-          <X size={14} className="text-[#A8A89F]" />
+          <X size={14} className="text-muted-foreground" />
         </button>
       </div>
-      <div className="divide-y divide-[#F5F5F1]">
+      <div className="divide-y divide-muted">
         {steps.map(step => (
           <Link
             key={step.label}
@@ -63,7 +63,7 @@ export function OnboardingChecklist() {
             {step.done
               ? <CheckCircle2 size={16} className="text-brand-secondary shrink-0" />
               : <Circle size={16} className="text-[#D4D4CC] shrink-0" />}
-            <span className={`text-[13px] ${step.done ? 'text-[#A8A89F] line-through' : 'text-[#3A3A34] font-medium'}`}>
+            <span className={`text-[13px] ${step.done ? 'text-muted-foreground line-through' : 'text-foreground font-medium'}`}>
               {step.label}
             </span>
           </Link>

@@ -474,7 +474,7 @@ export default function Pagos() {
               });
               setShowNuevoCobro(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:brightness-95 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
           >
             <Plus size={15} />
             Nuevo cobro
@@ -497,7 +497,7 @@ export default function Pagos() {
           <p className="text-2xl font-extrabold text-[#059669]">
             {kpis.cobradoMes.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
           </p>
-          <p className="text-xs text-[#A8A89F] mt-1">{monthLabel(thisMonth)}</p>
+          <p className="text-xs text-muted-foreground mt-1">{monthLabel(thisMonth)}</p>
         </div>
 
         {/* Pendiente de cobro */}
@@ -513,7 +513,7 @@ export default function Pagos() {
           <p className="text-2xl font-extrabold text-[#D97706]">
             {kpis.pendienteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
           </p>
-          <p className="text-xs text-[#A8A89F] mt-1">{pendientesCount} recibo{pendientesCount !== 1 ? 's' : ''} pendiente{pendientesCount !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-muted-foreground mt-1">{pendientesCount} recibo{pendientesCount !== 1 ? 's' : ''} pendiente{pendientesCount !== 1 ? 's' : ''}</p>
         </div>
 
         {/* Socias con deuda */}
@@ -529,7 +529,7 @@ export default function Pagos() {
           <p className="text-2xl font-extrabold text-[#DC2626]">
             {kpis.sociosConDeuda}
           </p>
-          <p className="text-xs text-[#A8A89F] mt-1">miembro{kpis.sociosConDeuda !== 1 ? 's' : ''} con recibos pendientes</p>
+          <p className="text-xs text-muted-foreground mt-1">miembro{kpis.sociosConDeuda !== 1 ? 's' : ''} con recibos pendientes</p>
         </div>
 
         {/* Media por socia */}
@@ -545,7 +545,7 @@ export default function Pagos() {
           <p className="text-2xl font-extrabold text-foreground">
             {kpis.mediaXSocia.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
           </p>
-          <p className="text-xs text-[#A8A89F] mt-1">sobre miembros activos este mes</p>
+          <p className="text-xs text-muted-foreground mt-1">sobre miembros activos este mes</p>
         </div>
       </div>
 
@@ -562,7 +562,7 @@ export default function Pagos() {
             className={cn(
               'px-5 py-3 text-sm font-semibold border-b-2 transition-all',
               mainTab === t.value
-                ? 'border-[#1A1A1A] text-foreground'
+                ? 'border-foreground text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
             )}
           >
@@ -636,7 +636,7 @@ export default function Pagos() {
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-48">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8A89F]" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Buscar por concepto o miembro…"
@@ -686,8 +686,8 @@ export default function Pagos() {
 
             {filtradosCobros.length === 0 ? (
               <div className="py-16 text-center">
-                <CreditCard size={32} className="text-[#E7E7E0] mx-auto mb-3" />
-                <p className="text-sm text-[#A8A89F]">Sin recibos en esta categoría</p>
+                <CreditCard size={32} className="text-border mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Sin recibos en esta categoría</p>
               </div>
             ) : (
               <div className="divide-y divide-background">
@@ -719,7 +719,7 @@ export default function Pagos() {
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-foreground truncate">{r.concepto}</p>
-                          <p className="text-xs mt-0.5 text-[#A8A89F] truncate">
+                          <p className="text-xs mt-0.5 text-muted-foreground truncate">
                             <Link
                               href={`/socios/${r.socioId}`}
                               onClick={e => e.stopPropagation()}
@@ -786,7 +786,7 @@ export default function Pagos() {
                               {factura && (
                                 <button
                                   onClick={() => {/* TODO: abrir factura */}}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-background text-muted-foreground hover:bg-[#E7E7E0] transition-colors"
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-background text-muted-foreground hover:bg-border transition-colors"
                                   title="Ver factura"
                                 >
                                   <FileText size={12} />
@@ -821,7 +821,7 @@ export default function Pagos() {
                         </div>
 
                         {/* Chevron */}
-                        <div className="shrink-0 text-[#A8A89F]">
+                        <div className="shrink-0 text-muted-foreground">
                           {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                         </div>
                       </div>
@@ -831,43 +831,43 @@ export default function Pagos() {
                         <div className="px-5 pb-5 bg-muted border-t border-border">
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
                             <div>
-                              <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Estado</p>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Estado</p>
                               <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
                                 style={{ backgroundColor: badge.bg, color: badge.text }}>
                                 {badge.label}
                               </span>
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Vencimiento</p>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Vencimiento</p>
                               <p className="text-sm font-semibold text-foreground">{fecha(r.fechaVencimiento)}</p>
                             </div>
                             {r.fechaCobro && (
                               <div>
-                                <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Fecha cobro</p>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Fecha cobro</p>
                                 <p className="text-sm font-semibold text-foreground">{fecha(r.fechaCobro)}</p>
                               </div>
                             )}
                             {r.fechaDevolucion && (
                               <div>
-                                <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Devolución</p>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Devolución</p>
                                 <p className="text-sm font-semibold text-foreground">{fecha(r.fechaDevolucion)}</p>
                               </div>
                             )}
                             {typeof r.intentosReintento === 'number' && r.intentosReintento > 0 && (
                               <div>
-                                <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Reintentos</p>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Reintentos</p>
                                 <p className="text-sm font-semibold text-foreground">{r.intentosReintento}</p>
                               </div>
                             )}
                             {sus && (
                               <div>
-                                <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Plan</p>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Plan</p>
                                 <p className="text-sm font-semibold text-foreground">{planName(sus.planId)}</p>
                               </div>
                             )}
                             {factura && (
                               <div>
-                                <p className="text-xs font-semibold text-[#A8A89F] uppercase tracking-wider mb-1">Factura</p>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Factura</p>
                                 <p className="text-sm font-semibold text-[#7AA80E]">{factura.numeroCompleto}</p>
                               </div>
                             )}
@@ -896,8 +896,8 @@ export default function Pagos() {
 
           {suscripciones.filter(s => s.estado === 'ACTIVA').length === 0 ? (
             <div className="py-16 text-center">
-              <Users size={32} className="text-[#E7E7E0] mx-auto mb-3" />
-              <p className="text-sm text-[#A8A89F]">No hay suscripciones activas</p>
+              <Users size={32} className="text-border mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">No hay suscripciones activas</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -958,7 +958,7 @@ export default function Pagos() {
                               {sus.sesionesRestantes} ses.
                             </span>
                           ) : (
-                            <span className="text-xs text-[#A8A89F]">Ilimitadas</span>
+                            <span className="text-xs text-muted-foreground">Ilimitadas</span>
                           )}
                         </div>
 
@@ -989,7 +989,7 @@ export default function Pagos() {
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-48">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8A89F]" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Buscar miembro o concepto…"
@@ -1036,8 +1036,8 @@ export default function Pagos() {
           {/* Grouped by month */}
           {historialAgrupado.length === 0 ? (
             <div className="bg-card border border-border rounded-xl py-16 text-center">
-              <BarChart3 size={32} className="text-[#E7E7E0] mx-auto mb-3" />
-              <p className="text-sm text-[#A8A89F]">Sin resultados para los filtros seleccionados</p>
+              <BarChart3 size={32} className="text-border mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Sin resultados para los filtros seleccionados</p>
             </div>
           ) : (
             historialAgrupado.map(group => (
@@ -1047,7 +1047,7 @@ export default function Pagos() {
                   <div className="flex items-center gap-2">
                     <Calendar size={14} className="text-muted-foreground" />
                     <p className="text-sm font-bold text-foreground capitalize">{group.label}</p>
-                    <span className="text-xs text-[#A8A89F] font-medium">
+                    <span className="text-xs text-muted-foreground font-medium">
                       {group.items.length} recibo{group.items.length !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -1067,7 +1067,7 @@ export default function Pagos() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-foreground truncate">{r.concepto}</p>
-                          <p className="text-xs text-[#A8A89F] truncate">{socioName(r.socioId)}</p>
+                          <p className="text-xs text-muted-foreground truncate">{socioName(r.socioId)}</p>
                         </div>
                         <p className="text-sm font-bold text-foreground shrink-0">
                           {r.importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
@@ -1078,7 +1078,7 @@ export default function Pagos() {
                         >
                           {badge.label}
                         </span>
-                        <p className="text-xs text-[#A8A89F] shrink-0 hidden sm:block">
+                        <p className="text-xs text-muted-foreground shrink-0 hidden sm:block">
                           {r.fechaCobro ? fecha(r.fechaCobro) : fecha(r.fechaVencimiento)}
                         </p>
                       </div>
@@ -1119,7 +1119,7 @@ export default function Pagos() {
               </div>
               <button
                 onClick={() => setShowMasivo(false)}
-                className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:brightness-95 transition-colors"
+                className="px-6 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
               >
                 Cerrar
               </button>
@@ -1134,7 +1134,7 @@ export default function Pagos() {
                 <p className="text-lg font-bold text-foreground">
                   Cobrando {masivoCobrando} / {masivoTotal}
                 </p>
-                <div className="w-48 h-2 bg-[#E7E7E0] rounded-full mt-3 mx-auto overflow-hidden">
+                <div className="w-48 h-2 bg-border rounded-full mt-3 mx-auto overflow-hidden">
                   <div
                     className="h-full bg-[#059669] rounded-full transition-all duration-200"
                     style={{ width: `${(masivoCobrando / masivoTotal) * 100}%` }}
@@ -1147,7 +1147,7 @@ export default function Pagos() {
             <>
               <div className="flex-1 overflow-y-auto space-y-2 my-2 pr-1">
                 {masivoData.length === 0 ? (
-                  <p className="text-sm text-[#A8A89F] text-center py-8">No hay suscripciones activas</p>
+                  <p className="text-sm text-muted-foreground text-center py-8">No hay suscripciones activas</p>
                 ) : (
                   masivoData.map(({ sus, socio, plan, pendientesRecibos }) => {
                     if (!socio) return null;
@@ -1183,7 +1183,7 @@ export default function Pagos() {
                           'w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 transition-colors',
                           isSelected
                             ? 'bg-[#059669] border-[#059669]'
-                            : 'border-[#D1D5DB] bg-card'
+                            : 'border-muted-foreground bg-card'
                         )}>
                           {isSelected && <CheckCircle size={12} className="text-white" />}
                         </div>
@@ -1198,7 +1198,7 @@ export default function Pagos() {
                           <p className="text-sm font-semibold text-foreground truncate">
                             {socio.nombre} {socio.apellidos}
                           </p>
-                          <p className="text-xs text-[#A8A89F] truncate">{plan?.nombre ?? '—'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{plan?.nombre ?? '—'}</p>
                         </div>
 
                         {/* Amount / status */}
@@ -1330,7 +1330,7 @@ export default function Pagos() {
                 // generarFactura would be called here when available in context
                 setShowFactura(false);
               }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
               <FileText size={14} />
               Generar factura
@@ -1397,7 +1397,7 @@ export default function Pagos() {
             <button
               onClick={crearNuevoCobro}
               disabled={!nuevoForm.concepto.trim() || !nuevoForm.importe || !nuevoForm.socioId}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Crear cobro
             </button>

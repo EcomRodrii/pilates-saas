@@ -21,7 +21,7 @@ const TAGS_OPTIONS = [
   { label: 'Prueba', bg: '#FEF3C7', text: '#92400E' },
   { label: 'Lesión', bg: '#FEE2E2', text: '#B91C1C' },
   { label: 'Embarazo', bg: '#D1FAE5', text: '#059669' },
-  { label: 'Baja temp.', bg: '#F1F1EC', text: '#8E8E86' },
+  { label: 'Baja temp.', bg: 'var(--muted)', text: 'var(--muted-foreground)' },
   { label: 'Online', bg: '#E0F2FE', text: '#0369A1' },
   { label: 'Profesora', bg: '#FEF9C3', text: '#713F12' },
 ];
@@ -49,14 +49,14 @@ const BADGE_RESERVA: Record<string, { bg: string; text: string; label: string }>
   CONFIRMADA:   { bg: '#FFF2F7', text: '#7AA80E', label: 'Confirmada' },
   ASISTIDA:     { bg: '#D1FAE5', text: '#059669', label: 'Asistida' },
   LISTA_ESPERA: { bg: '#FEF3C7', text: '#92400E', label: 'En espera' },
-  CANCELADA:    { bg: '#F1F1EC', text: '#8E8E86', label: 'Cancelada' },
+  CANCELADA:    { bg: 'var(--muted)', text: 'var(--muted-foreground)', label: 'Cancelada' },
   NO_ASISTIO:   { bg: '#FFF1F2', text: '#B91C1C', label: 'No asistió' },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function tagStyle(label: string) {
-  return TAGS_OPTIONS.find(t => t.label === label) ?? { bg: '#F1F1EC', text: '#8E8E86' };
+  return TAGS_OPTIONS.find(t => t.label === label) ?? { bg: 'var(--muted)', text: 'var(--muted-foreground)' };
 }
 
 function avatarColor(id: string) {
@@ -79,7 +79,7 @@ function formatHora(iso: string) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const inputCls = "w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-[#1A1A1A] transition-colors";
+const inputCls = "w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-foreground transition-colors";
 const selectCls = inputCls + " appearance-none";
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
@@ -141,7 +141,7 @@ function AttendanceSparkline({ weeks }: { weeks: boolean[] }) {
             className="flex-1 rounded-sm transition-all duration-300"
             style={{
               height: attended ? '28px' : '10px',
-              backgroundColor: attended ? '#059669' : '#E7E7E0',
+              backgroundColor: attended ? '#059669' : 'var(--border)',
             }}
             title={attended ? 'Asistió' : 'No asistió'}
           />
@@ -181,7 +181,7 @@ function TabBar({ active, onChange, verFinanzas }: { active: Tab; onChange: (t: 
           className={cn(
             'px-5 py-3.5 text-sm font-semibold transition-colors whitespace-nowrap',
             active === t.id
-              ? 'text-foreground border-b-2 border-[#1A1A1A] -mb-px'
+              ? 'text-foreground border-b-2 border-foreground -mb-px'
               : 'text-muted-foreground hover:text-foreground'
           )}
         >
@@ -609,7 +609,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           <p className="text-sm font-medium text-muted-foreground">Sin suscripción activa</p>
                           <button
                             onClick={() => setShowChangePlan(true)}
-                            className="mt-3 text-sm font-bold px-4 py-2 rounded-lg text-white bg-[#1A1A1A] hover:brightness-95 transition-colors"
+                            className="mt-3 text-sm font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                           >
                             Asignar plan
                           </button>
@@ -627,9 +627,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   {/* Stats row */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
-                      { label: 'Clases asistidas', value: String(asistidas), color: '#1A1A1A' },
-                      { label: 'Clases este mes', value: String(estesMes), color: '#1A1A1A' },
-                      { label: 'Bonos comprados', value: String(bonosComprados), color: '#1A1A1A' },
+                      { label: 'Clases asistidas', value: String(asistidas), color: 'var(--foreground)' },
+                      { label: 'Clases este mes', value: String(estesMes), color: 'var(--foreground)' },
+                      { label: 'Bonos comprados', value: String(bonosComprados), color: 'var(--foreground)' },
                       ...(verFinanzas ? [{ label: 'Gasto total', value: `${totalGastado.toFixed(0)} €`, color: '#059669' }] : []),
                     ].map(stat => (
                       <div key={stat.label} className="border border-border bg-card rounded-xl p-4">
@@ -675,17 +675,17 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       <MessageSquare size={15} className="text-muted-foreground" />
                       <SectionTitle>Notas internas</SectionTitle>
                     </div>
-                    <div className="mb-4 rounded-xl border border-border overflow-hidden focus-within:border-[#1A1A1A] transition-colors">
+                    <div className="mb-4 rounded-xl border border-border overflow-hidden focus-within:border-foreground transition-colors">
                       <textarea
                         rows={2}
                         placeholder="Añadir nota interna… (solo visible para el equipo)"
                         value={notaText}
                         onChange={e => setNotaText(e.target.value)}
-                        className="w-full px-3.5 py-2.5 text-sm font-medium text-foreground placeholder:text-[#A8A89F] focus:outline-none resize-none bg-transparent"
+                        className="w-full px-3.5 py-2.5 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none resize-none bg-transparent"
                       />
                       {notaText.trim() && (
                         <div className="flex justify-end px-3 pb-2">
-                          <button onClick={handleAddNota} className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1A1A1A]">
+                          <button onClick={handleAddNota} className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-primary-foreground bg-primary">
                             Guardar nota
                           </button>
                         </div>
@@ -698,7 +698,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         {misNotas.map(nota => (
                           <div key={nota.id} className="flex gap-3">
                             <div className="mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold"
-                              style={nota.tipo === 'SISTEMA' ? { backgroundColor: '#FFF2F7', color: '#7AA80E' } : { backgroundColor: '#F1F1EC', color: '#8E8E86' }}>
+                              style={nota.tipo === 'SISTEMA' ? { backgroundColor: '#FFF2F7', color: '#7AA80E' } : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}>
                               {nota.tipo === 'SISTEMA' ? '⚙' : 'MS'}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -706,7 +706,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                 <span className="text-xs font-bold text-foreground">{nota.tipo === 'SISTEMA' ? 'Sistema' : 'María Soler'}</span>
                                 <span className="text-[10px] font-medium text-muted-foreground">{fecha(nota.creadoEn)}</span>
                               </div>
-                              <p className="text-sm mt-0.5" style={{ color: nota.tipo === 'SISTEMA' ? '#8E8E86' : '#1A1A1A' }}>{nota.texto}</p>
+                              <p className="text-sm mt-0.5" style={{ color: nota.tipo === 'SISTEMA' ? 'var(--muted-foreground)' : 'var(--foreground)' }}>{nota.texto}</p>
                             </div>
                             {nota.tipo === 'NOTA' && (
                               <button onClick={() => deleteNota(nota.id)} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors mt-0.5">
@@ -729,13 +729,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     <p className="text-xs text-muted-foreground mb-3">
                       Dicta o escribe lo que pasó en la sesión. La IA estructura automáticamente la nota de progreso.
                     </p>
-                    <div className="rounded-xl border border-border overflow-hidden focus-within:border-[#1A1A1A] transition-colors mb-3">
+                    <div className="rounded-xl border border-border overflow-hidden focus-within:border-foreground transition-colors mb-3">
                       <textarea
                         rows={3}
                         placeholder='Ej: "Laura estuvo bien hoy, mejoró la alineación en el rollup. Sigue con tensión cervical. La próxima sesión trabajaremos la movilidad torácica. Le mando ejercicios de respiración para casa."'
                         value={aiNoteText}
                         onChange={e => setAiNoteText(e.target.value)}
-                        className="w-full px-3.5 py-2.5 text-sm text-foreground placeholder:text-[#A8A89F] focus:outline-none resize-none bg-transparent"
+                        className="w-full px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none bg-transparent"
                       />
                     </div>
                     <div className="flex gap-2 mb-4">
@@ -749,7 +749,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       </button>
                     </div>
                     {aiResult && (
-                      <div className="rounded-xl border border-border bg-[#F8FBEE] p-4 space-y-3">
+                      <div className="rounded-xl border border-border bg-brand/10 p-4 space-y-3">
                         <p className="text-xs font-bold text-brand-secondary uppercase tracking-wide mb-2">Nota estructurada</p>
                         {aiResult.progreso && (
                           <div>
@@ -778,7 +778,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         <div className="flex gap-2 pt-2 border-t border-border">
                           <button
                             onClick={handleSaveAiNote}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1A1A] text-white rounded-lg text-xs font-bold hover:bg-[#2A2A24] transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-bold hover:bg-[#2A2A24] transition-colors"
                           >
                             <CheckCircle2 size={12} /> Guardar nota
                           </button>
@@ -793,13 +793,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     )}
                     {/* Previous AI notes */}
                     {notasProgreso.filter(n => n.socioId === id).length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-[#F1F1EC]">
-                        <p className="text-[10px] font-bold text-[#A8A89F] uppercase tracking-wide mb-2">Historial de notas IA</p>
+                      <div className="mt-4 pt-4 border-t border-muted">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Historial de notas IA</p>
                         <div className="space-y-2">
                           {notasProgreso.filter(n => n.socioId === id).slice(0, 3).map(nota => (
                             <div key={nota.id} className="rounded-lg bg-muted border border-border px-3 py-2.5">
-                              <p className="text-[10px] text-[#A8A89F] mb-1">{fecha(nota.creadaEn)}</p>
-                              {nota.progreso && <p className="text-xs text-[#3A3A34] line-clamp-2">{nota.progreso}</p>}
+                              <p className="text-[10px] text-muted-foreground mb-1">{fecha(nota.creadaEn)}</p>
+                              {nota.progreso && <p className="text-xs text-foreground line-clamp-2">{nota.progreso}</p>}
                             </div>
                           ))}
                         </div>
@@ -821,7 +821,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         onClick={() => { setReservaFilter(f); setReservasPage(20); }}
                         className={cn(
                           'px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors',
-                          reservaFilter === f ? 'bg-brand text-brand-foreground' : 'border border-border text-muted-foreground hover:border-[#A8A89F]'
+                          reservaFilter === f ? 'bg-brand text-brand-foreground' : 'border border-border text-muted-foreground hover:border-muted-foreground'
                         )}
                       >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -850,7 +850,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               <th className="text-right px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Estado</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#F1F1EC]">
+                          <tbody className="divide-y divide-muted">
                             {filteredReservas.slice(0, reservasPage).map(r => {
                               const info = getReservaInfo(r);
                               const badge = BADGE_RESERVA[r.estado] ?? BADGE_RESERVA.CANCELADA;
@@ -858,7 +858,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                 <tr key={r.id} className="hover:bg-muted transition-colors">
                                   <td className="px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">
                                     {info.date}<br />
-                                    <span className="text-[#A8A89F]">{info.time}</span>
+                                    <span className="text-muted-foreground">{info.time}</span>
                                   </td>
                                   <td className="px-4 py-3">
                                     <div className="flex items-center gap-2">
@@ -899,7 +899,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowAddRecibo(true)}
-                        className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-white bg-[#1A1A1A] hover:brightness-95 transition-colors"
+                        className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                       >
                         <Plus size={13} />Nuevo cobro
                       </button>
@@ -932,7 +932,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               <th className="px-4 py-3" />
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#F1F1EC]">
+                          <tbody className="divide-y divide-muted">
                             {misRecibos.map(r => (
                               <tr key={r.id} className="hover:bg-muted transition-colors">
                                 <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
@@ -965,7 +965,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           </tbody>
                         </table>
                       </div>
-                      <div className="flex justify-end mt-3 pt-3 border-t border-[#F1F1EC]">
+                      <div className="flex justify-end mt-3 pt-3 border-t border-muted">
                         <div className="text-right">
                           <p className="text-xs font-medium text-muted-foreground">Total cobrado</p>
                           <p className="text-xl font-extrabold text-foreground">{totalGastado.toFixed(2)} €</p>
@@ -985,7 +985,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     </p>
                     <button
                       onClick={() => setShowSendMessage(true)}
-                      className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-white bg-[#1A1A1A] hover:brightness-95 transition-colors"
+                      className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                     >
                       <Send size={13} />Enviar mensaje
                     </button>
@@ -993,12 +993,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
                   {comunicaciones.length === 0 ? (
                     <div className="py-16 text-center border border-dashed border-border rounded-xl">
-                      <Mail size={28} className="mx-auto text-[#D1D5DB] mb-3" />
+                      <Mail size={28} className="mx-auto text-muted-foreground mb-3" />
                       <p className="text-sm font-semibold text-muted-foreground">Sin comunicaciones enviadas</p>
-                      <p className="text-xs text-[#A8A89F] mt-1">Los emails enviados a esta socia aparecerán aquí.</p>
+                      <p className="text-xs text-muted-foreground mt-1">Los emails enviados a esta socia aparecerán aquí.</p>
                       <button
                         onClick={() => setShowSendMessage(true)}
-                        className="mt-4 text-xs font-bold px-4 py-2 rounded-lg text-white bg-[#1A1A1A] hover:brightness-95 transition-colors"
+                        className="mt-4 text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                       >
                         Enviar primer mensaje
                       </button>
@@ -1021,7 +1021,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#D1FAE5', color: '#059669' }}>
                                 Enviado
                               </span>
-                              <p className="text-[10px] text-[#A8A89F] mt-1">{fecha(c.fecha)}</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">{fecha(c.fecha)}</p>
                             </div>
                           </div>
                         </div>
@@ -1056,40 +1056,40 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               {/* Status badge */}
               <span
                 className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full mt-2"
-                style={socio.activo ? { backgroundColor: '#D1FAE5', color: '#059669' } : { backgroundColor: '#F1F1EC', color: '#8E8E86' }}
+                style={socio.activo ? { backgroundColor: '#D1FAE5', color: '#059669' } : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
               >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: socio.activo ? '#059669' : '#A8A89F' }} />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: socio.activo ? '#059669' : 'var(--muted-foreground)' }} />
                 {socio.activo ? 'Activa' : 'Inactiva'}
               </span>
             </div>
 
             {/* Contact info */}
-            <div className="space-y-2.5 border-t border-[#F1F1EC] pt-4">
+            <div className="space-y-2.5 border-t border-muted pt-4">
               <div className="flex items-center gap-2.5">
-                <Mail size={13} className="text-[#A8A89F] shrink-0" />
+                <Mail size={13} className="text-muted-foreground shrink-0" />
                 <span className="text-xs font-medium text-foreground truncate flex-1">{socio.email}</span>
               </div>
               {socio.telefono && (
                 <div className="flex items-center gap-2.5">
-                  <Phone size={13} className="text-[#A8A89F] shrink-0" />
+                  <Phone size={13} className="text-muted-foreground shrink-0" />
                   <span className="text-xs font-medium text-foreground">{socio.telefono}</span>
                 </div>
               )}
               {socio.nif && (
                 <div className="flex items-center gap-2.5">
-                  <CreditCard size={13} className="text-[#A8A89F] shrink-0" />
+                  <CreditCard size={13} className="text-muted-foreground shrink-0" />
                   <span className="text-xs font-medium text-foreground">{socio.nif}</span>
                 </div>
               )}
               <div className="flex items-center gap-2.5">
-                <Calendar size={13} className="text-[#A8A89F] shrink-0" />
+                <Calendar size={13} className="text-muted-foreground shrink-0" />
                 <span className="text-xs font-medium text-muted-foreground">Alta: {fecha(socio.fechaAlta)}</span>
               </div>
             </div>
 
             {/* Tags */}
             {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-4 pt-4 border-t border-[#F1F1EC]">
+              <div className="flex flex-wrap gap-1.5 mt-4 pt-4 border-t border-muted">
                 {tags.map(tag => {
                   const style = tagStyle(tag);
                   return (
@@ -1105,13 +1105,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             )}
             <button
               onClick={() => setShowAddTag(true)}
-              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border border-dashed border-border hover:border-[#A8A89F] transition-colors text-muted-foreground"
+              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border border-dashed border-border hover:border-muted-foreground transition-colors text-muted-foreground"
             >
               <Tag size={10} />+ Etiqueta
             </button>
 
             {/* Actions */}
-            <div className="space-y-2 mt-4 pt-4 border-t border-[#F1F1EC]">
+            <div className="space-y-2 mt-4 pt-4 border-t border-muted">
               <button
                 onClick={() => { setActiveTab('comunicaciones'); setShowSendMessage(true); }}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors"
@@ -1120,7 +1120,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               </button>
               <button
                 onClick={openEdit}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:brightness-95 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
               >
                 <Pencil size={14} />Editar socia
               </button>
@@ -1145,7 +1145,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <div className="space-y-2.5 mt-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Última asistencia</span>
-                <span className="text-xs font-bold" style={{ color: diasSinVenir != null && diasSinVenir >= 30 ? '#DC2626' : '#1A1A1A' }}>
+                <span className="text-xs font-bold" style={{ color: diasSinVenir != null && diasSinVenir >= 30 ? '#DC2626' : 'var(--foreground)' }}>
                   {diasSinVenir == null ? 'Nunca' : diasSinVenir === 0 ? 'Hoy' : `Hace ${diasSinVenir} días`}
                 </span>
               </div>
@@ -1159,7 +1159,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Pagos pendientes</span>
-                <span className="text-xs font-bold" style={{ color: pendientesImporte > 0 ? '#DC2626' : '#1A1A1A' }}>
+                <span className="text-xs font-bold" style={{ color: pendientesImporte > 0 ? '#DC2626' : 'var(--foreground)' }}>
                   {pendientesImporte.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
                 </span>
               </div>
@@ -1171,7 +1171,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               )}
             </div>
             {misNotas.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-[#F1F1EC]">
+              <div className="mt-3 pt-3 border-t border-muted">
                 <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
                   {misNotas.filter(n => n.tipo === 'NOTA').slice(0, 2).map(n => `• ${n.texto}`).join('\n') || 'Sin notas.'}
                 </p>
@@ -1202,7 +1202,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
           {/* Contract acceptance */}
           <Card>
             <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck size={14} className={socio.aceptacionContrato ? 'text-[#059669]' : 'text-[#A8A89F]'} />
+              <ShieldCheck size={14} className={socio.aceptacionContrato ? 'text-[#059669]' : 'text-muted-foreground'} />
               <SectionTitle>Contrato</SectionTitle>
             </div>
             {socio.aceptacionContrato ? (
@@ -1223,7 +1223,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-[#A8A89F]">Sin contrato firmado.</p>
+              <p className="text-xs text-muted-foreground">Sin contrato firmado.</p>
             )}
           </Card>
 
@@ -1290,7 +1290,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <button
               onClick={saveEdit}
               disabled={!editForm.nombre || !editForm.apellidos || !editForm.email}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:brightness-95 disabled:opacity-40 transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 transition-colors"
             >
               Guardar cambios
             </button>
@@ -1308,7 +1308,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <button
               onClick={() => { assignPlan(id, null); setShowChangePlan(false); }}
               className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-muted"
-              style={{ borderColor: '#E7E7E0', color: '#8E8E86' }}
+              style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
             >
               <span>Sin plan</span>
               {!plan && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-muted">Actual</span>}
@@ -1319,8 +1319,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 onClick={() => { assignPlan(id, p.id); setShowChangePlan(false); setToast(`Plan "${p.nombre}" asignado`); }}
                 className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-brand/10"
                 style={{
-                  borderColor: suscripcion?.planId === p.id ? '#BFDBFE' : '#E7E7E0',
-                  backgroundColor: suscripcion?.planId === p.id ? 'color-mix(in srgb, var(--brand) 10%, white)' : 'white',
+                  borderColor: suscripcion?.planId === p.id ? '#BFDBFE' : 'var(--border)',
+                  backgroundColor: suscripcion?.planId === p.id ? 'color-mix(in srgb, var(--brand) 10%, var(--card))' : 'white',
                 }}
               >
                 <div>
@@ -1378,7 +1378,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <button
               onClick={handleAddRecibo}
               disabled={!reciboForm.concepto || !reciboForm.importe}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:brightness-95 disabled:opacity-40 transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 transition-colors"
             >
               Crear cobro
             </button>
@@ -1419,7 +1419,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <button
               onClick={handleSendMessage}
               disabled={!msgForm.asunto.trim() || !msgForm.cuerpo.trim()}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1A1A1A] hover:brightness-95 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
             >
               <Send size={14} />Enviar email
             </button>

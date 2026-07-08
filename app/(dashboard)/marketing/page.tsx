@@ -17,8 +17,8 @@ function FF({ label, children }: { label: string; children: React.ReactNode }) {
   )
 }
 
-const inputCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground placeholder-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/10'
-const selectCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/10'
+const inputCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10'
+const selectCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-foreground/10'
 
 const destinatariosLabel: Record<string, string> = {
   TODAS: 'Todas las socias',
@@ -96,10 +96,10 @@ function EstadoBadge({ estado, programadaEn, enviadaEn }: { estado: string; prog
   const dotColor =
     estado === 'ENVIADA' ? 'bg-[#059669]' :
     estado === 'PROGRAMADA' ? 'bg-[#D97706]' :
-    estado === 'BORRADOR' ? 'bg-[#A8A89F]' :
+    estado === 'BORRADOR' ? 'bg-muted-foreground' :
     estado === 'ACTIVA' ? 'bg-[#7AA80E]' :
     estado === 'PAUSADA' ? 'bg-[#EA580C]' :
-    'bg-[#A8A89F]'
+    'bg-muted-foreground'
 
   const bgColor =
     estado === 'ENVIADA' ? 'bg-[#D1FAE5] text-[#065F46]' :
@@ -147,7 +147,7 @@ function CopyButton({ text }: { text: string }) {
           'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors border',
           copied
             ? 'bg-[#D1FAE5] border-[#059669] text-[#065F46]'
-            : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-[#D1D5DB]'
+            : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground'
         )}
         title="Copiar código"
       >
@@ -174,7 +174,7 @@ function WidgetCard({ icon: Icon, title, action, children, className }: {
         </div>
         <div className="flex items-center gap-2">
           {action}
-          <span className="w-7 h-7 rounded-full flex items-center justify-center text-[#A8A89F]">
+          <span className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground">
             <MoreVertical size={14} />
           </span>
         </div>
@@ -231,7 +231,7 @@ function KpiTrendCard({ title, value, deltaPct, points, color, axisLabels }: {
       <p className="text-[12px] text-muted-foreground mb-2">{title}</p>
       <MiniSparkline points={points} color={color} />
       <div className="flex justify-between mt-1">
-        {axisLabels.map((l, i) => <span key={i} className="text-[10px] text-[#C6C6BE]">{l}</span>)}
+        {axisLabels.map((l, i) => <span key={i} className="text-[10px] text-muted-foreground">{l}</span>)}
       </div>
     </div>
   )
@@ -248,7 +248,7 @@ function ConversionRatioCard({ activas, total }: { activas: number; total: numbe
       <div className="h-2.5 bg-muted rounded-full overflow-hidden mt-auto">
         <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
       </div>
-      <p className="text-[11px] text-[#A8A89F] mt-2">{activas} activas de {total} con etapa asignada</p>
+      <p className="text-[11px] text-muted-foreground mt-2">{activas} activas de {total} con etapa asignada</p>
     </div>
   )
 }
@@ -274,14 +274,14 @@ function ConversionFunnelCard({ socios }: { socios: { leadStage?: LeadStage }[] 
       <WidgetCard icon={Filter} title="Embudo de captación" className="lg:col-span-2">
         <div className="flex flex-col items-center justify-center text-center py-10">
           <p className="text-[14px] font-semibold text-foreground">Aún no hay leads en el embudo</p>
-          <p className="text-[12px] text-[#A8A89F] mt-1">Asigna una etapa (lead, interesada, prueba…) a tus socias en su ficha para ver la conversión real aquí.</p>
+          <p className="text-[12px] text-muted-foreground mt-1">Asigna una etapa (lead, interesada, prueba…) a tus socias en su ficha para ver la conversión real aquí.</p>
         </div>
       </WidgetCard>
     )
   }
 
   return (
-    <WidgetCard icon={Filter} title="Embudo de captación" action={<span className="text-[11px] font-semibold text-[#A8A89F] px-2">Todo el histórico</span>} className="lg:col-span-2">
+    <WidgetCard icon={Filter} title="Embudo de captación" action={<span className="text-[11px] font-semibold text-muted-foreground px-2">Todo el histórico</span>} className="lg:col-span-2">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {counts.map((c, i) => {
           const widthPct = total > 0 ? Math.max(8, (c.value / total) * 100) : 0
@@ -292,11 +292,11 @@ function ConversionFunnelCard({ socios }: { socios: { leadStage?: LeadStage }[] 
               <p className="text-[11px] text-muted-foreground mt-1 mb-3">{c.label}</p>
               <div className="h-16 flex items-end">
                 <div
-                  className={cn('w-full rounded-t-md', i === counts.length - 1 ? 'bg-brand' : 'bg-[#E7E7E0]')}
+                  className={cn('w-full rounded-t-md', i === counts.length - 1 ? 'bg-brand' : 'bg-border')}
                   style={{ height: `${widthPct}%` }}
                 />
               </div>
-              <p className="text-[11px] font-semibold text-[#A8A89F] mt-1.5">{i === 0 ? '100%' : `${pctOfPrev}%`}</p>
+              <p className="text-[11px] font-semibold text-muted-foreground mt-1.5">{i === 0 ? '100%' : `${pctOfPrev}%`}</p>
             </div>
           )
         })}
@@ -328,11 +328,11 @@ function TopClasesCard({ sesiones, reservas, tiposClase }: {
   const total = ranking.reduce((a, r) => a + r.reservas, 0)
 
   return (
-    <WidgetCard icon={BarChart3} title="Clases más demandadas" action={<span className="text-[11px] font-semibold text-[#A8A89F] px-2">Todo el histórico</span>} className="lg:col-span-2">
+    <WidgetCard icon={BarChart3} title="Clases más demandadas" action={<span className="text-[11px] font-semibold text-muted-foreground px-2">Todo el histórico</span>} className="lg:col-span-2">
       {total === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-10">
           <p className="text-[14px] font-semibold text-foreground">Aún no hay reservas</p>
-          <p className="text-[12px] text-[#A8A89F] mt-1">Cuando tus socias empiecen a reservar clases, verás aquí el ranking real de demanda.</p>
+          <p className="text-[12px] text-muted-foreground mt-1">Cuando tus socias empiecen a reservar clases, verás aquí el ranking real de demanda.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -379,13 +379,13 @@ function RevenueDonutCard({ recibos, suscripciones, planesTarifa }: {
       {total === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-10">
           <p className="text-[14px] font-semibold text-foreground">Aún no hay cobros registrados</p>
-          <p className="text-[12px] text-[#A8A89F] mt-1">El desglose aparecerá en cuanto se cobren recibos.</p>
+          <p className="text-[12px] text-muted-foreground mt-1">El desglose aparecerá en cuanto se cobren recibos.</p>
         </div>
       ) : (
         <>
           <div className="relative w-full flex items-center justify-center py-4">
             <svg viewBox="0 0 180 180" className="w-44 h-44 -rotate-90">
-              <circle cx="90" cy="90" r={R} fill="none" stroke="#F1F1EC" strokeWidth="16" />
+              <circle cx="90" cy="90" r={R} fill="none" stroke="var(--muted)" strokeWidth="16" />
               {Object.entries(totals).filter(([, v]) => v > 0).map(([tipo, v]) => {
                 const frac = v / total
                 const dash = frac * C
@@ -415,7 +415,7 @@ function RevenueDonutCard({ recibos, suscripciones, planesTarifa }: {
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: PLAN_TIPO_COLOR[tipo] }} />
                 <div>
                   <p className="text-[12px] font-bold text-foreground leading-tight">{v.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €</p>
-                  <p className="text-[10px] text-[#A8A89F] leading-tight">{PLAN_TIPO_LABEL[tipo]}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">{PLAN_TIPO_LABEL[tipo]}</p>
                 </div>
               </div>
             ))}
@@ -783,7 +783,7 @@ export default function MarketingPage() {
                         <button
                           onClick={() => handleEnviarCampana(c)}
                           disabled={enviandoId === c.id}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A1A1A] text-white text-xs font-medium hover:bg-[#333] disabled:opacity-60 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-[#333] disabled:opacity-60 transition-colors"
                           title="Enviar campaña ahora"
                         >
                           {enviandoId === c.id
@@ -792,7 +792,7 @@ export default function MarketingPage() {
                           {enviandoId === c.id ? 'Enviando…' : 'Enviar'}
                         </button>
                       )}
-                      <span className="text-xs text-[#A8A89F]">{formatDateEs(c.creadaEn)}</span>
+                      <span className="text-xs text-muted-foreground">{formatDateEs(c.creadaEn)}</span>
                       <div className={cn('flex gap-1 transition-opacity', hoveredCampana === c.id ? 'opacity-100' : 'opacity-0')}>
                         <button
                           onClick={() => duplicateCampana(c)}
@@ -866,10 +866,10 @@ export default function MarketingPage() {
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-start gap-1.5">
-                            <Zap className="w-3.5 h-3.5 text-[#A8A89F] mt-0.5 shrink-0" />
+                            <Zap className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
                             <div>
                               <p className="text-sm text-foreground font-medium leading-snug">{triggerLabel[a.trigger] ?? a.trigger}</p>
-                              <p className="text-xs text-[#A8A89F] leading-snug mt-0.5">{triggerDesc[a.trigger] ?? ''}</p>
+                              <p className="text-xs text-muted-foreground leading-snug mt-0.5">{triggerDesc[a.trigger] ?? ''}</p>
                             </div>
                           </div>
                         </td>
@@ -880,13 +880,13 @@ export default function MarketingPage() {
                               {a.accion}
                             </span>
                           </div>
-                          <p className="text-xs text-[#A8A89F] mt-1">{accionDesc[a.accion] ?? ''}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{accionDesc[a.accion] ?? ''}</p>
                         </td>
                         <td className="px-4 py-4">
                           <span className="text-foreground font-medium">{a.ejecutadas ?? 0}</span>
                         </td>
                         <td className="px-4 py-4">
-                          <span className={cn('text-sm', (a.ejecutadas ?? 0) === 0 ? 'text-[#A8A89F] italic' : 'text-muted-foreground')}>
+                          <span className={cn('text-sm', (a.ejecutadas ?? 0) === 0 ? 'text-muted-foreground italic' : 'text-muted-foreground')}>
                             {(a.ejecutadas ?? 0) === 0 ? 'Nunca' : 'Reciente'}
                           </span>
                         </td>
@@ -895,7 +895,7 @@ export default function MarketingPage() {
                             onClick={() => toggleAutomatizacion(a.id)}
                             className={cn(
                               'w-10 h-[22px] rounded-full transition-colors relative shrink-0',
-                              a.activa ? 'bg-[#1A1A1A]' : 'bg-[#D1D5DB]'
+                              a.activa ? 'bg-primary' : 'bg-muted-foreground/40'
                             )}
                             aria-label={a.activa ? 'Desactivar' : 'Activar'}
                           >
@@ -914,28 +914,28 @@ export default function MarketingPage() {
               </div>
 
               {/* Mobile cards */}
-              <div className="sm:hidden divide-y divide-[#E7E7E0]">
+              <div className="sm:hidden divide-y divide-border">
                 {automatizaciones.map(a => (
                   <div key={a.id} className="p-4 space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-semibold text-foreground text-[14px]">{a.nombre}</span>
                       <button
                         onClick={() => toggleAutomatizacion(a.id)}
-                        className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0', a.activa ? 'bg-[#1A1A1A]' : 'bg-[#D1D5DB]')}
+                        className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
                         aria-label={a.activa ? 'Desactivar' : 'Activar'}
                       >
                         <span className={cn('absolute top-0.5 w-[18px] h-[18px] rounded-full bg-card shadow transition-all', a.activa ? 'left-[calc(100%-1.25rem-0.125rem)]' : 'left-0.5')} />
                       </button>
                     </div>
                     <div className="flex items-start gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-[#A8A89F] mt-0.5 shrink-0" />
+                      <Zap className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
                       <p className="text-[13px] text-foreground font-medium leading-snug">{triggerLabel[a.trigger] ?? a.trigger}</p>
                     </div>
                     <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium', accionBadge(a.accion))}>
                       {accionIcon(a.accion)}
                       {a.accion}
                     </span>
-                    <p className="text-[11px] text-[#A8A89F]">
+                    <p className="text-[11px] text-muted-foreground">
                       {a.ejecutadas ?? 0} ejecuciones · {(a.ejecutadas ?? 0) === 0 ? 'nunca ejecutada' : 'ejecución reciente'}
                     </p>
                   </div>
@@ -1034,7 +1034,7 @@ export default function MarketingPage() {
               </div>
 
               {/* Mobile cards */}
-              <div className="sm:hidden divide-y divide-[#E7E7E0]">
+              <div className="sm:hidden divide-y divide-border">
                 {codigos.map(cod => (
                   <div key={cod.id} className="p-4 space-y-2">
                     <div className="flex items-center justify-between gap-2">
@@ -1059,7 +1059,7 @@ export default function MarketingPage() {
                       <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', cod.activo ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-muted text-muted-foreground')}>
                         {cod.activo ? 'Activo' : 'Inactivo'}
                       </span>
-                      <span className="text-[11px] text-[#A8A89F]">Expira {formatDateEs(cod.expira)}</span>
+                      <span className="text-[11px] text-muted-foreground">Expira {formatDateEs(cod.expira)}</span>
                     </div>
                     <UsageBar usos={cod.usos} usosMax={cod.usosMax} />
                   </div>
@@ -1097,7 +1097,7 @@ export default function MarketingPage() {
                 <button
                   onClick={handleGenerarIA}
                   disabled={!objetivoIA.trim() || generandoIA}
-                  className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#171717] text-white text-sm font-medium disabled:opacity-40"
+                  className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40"
                 >
                   {generandoIA ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   Generar
@@ -1172,20 +1172,20 @@ export default function MarketingPage() {
                     className={cn(
                       'flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center',
                       selectedTemplate === key
-                        ? 'border-[#1A1A1A] bg-muted'
-                        : 'border-border hover:border-[#D1D5DB] bg-card'
+                        ? 'border-foreground bg-muted'
+                        : 'border-border hover:border-muted-foreground bg-card'
                     )}
                   >
                     <span className="text-2xl">{tpl.emoji}</span>
                     <span className="text-xs font-semibold text-foreground">{tpl.label}</span>
-                    <span className="text-[10px] text-[#A8A89F]">Plantilla</span>
+                    <span className="text-[10px] text-muted-foreground">Plantilla</span>
                   </button>
                 ))}
               </div>
 
               {/* Preview toggle */}
               <div className="flex items-center justify-between">
-                <p className="text-xs text-[#A8A89F]">Variables: {'{nombre}'}, {'{fecha}'}, {'{plan}'}</p>
+                <p className="text-xs text-muted-foreground">Variables: {'{nombre}'}, {'{fecha}'}, {'{plan}'}</p>
                 {newCampana.contenido && (
                   <button
                     onClick={() => setShowPreview(p => !p)}
@@ -1200,13 +1200,13 @@ export default function MarketingPage() {
               {showPreview ? (
                 /* Email preview card */
                 <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-                  <div className="border-b border-[#F1F1EC] pb-3 mb-3">
-                    <p className="text-xs text-[#A8A89F] uppercase tracking-wide">Vista previa</p>
+                  <div className="border-b border-muted pb-3 mb-3">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Vista previa</p>
                     {newCampana.asunto && (
                       <p className="text-sm font-semibold text-foreground mt-1">{newCampana.asunto}</p>
                     )}
                   </div>
-                  <div className="text-sm text-[#3A3A34] whitespace-pre-line leading-relaxed">
+                  <div className="text-sm text-foreground whitespace-pre-line leading-relaxed">
                     {newCampana.contenido}
                   </div>
                 </div>

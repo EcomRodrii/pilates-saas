@@ -53,8 +53,8 @@ function isDark(hex: string) {
 
 // ─── Shared input styles ──────────────────────────────────────────────────────
 
-const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-[#A8A89F] transition-colors';
-const selectCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-[#A8A89F] transition-colors appearance-none';
+const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground transition-colors';
+const selectCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground transition-colors appearance-none';
 
 // ─── SesionEnriquecida local type ─────────────────────────────────────────────
 
@@ -126,7 +126,7 @@ function DiaPill({ label, active, onClick }: { label: string; active: boolean; o
       onClick={onClick}
       className={cn(
         'w-9 h-9 rounded-full text-[12px] font-bold transition-colors',
-        active ? 'bg-brand text-brand-foreground' : 'bg-muted text-muted-foreground hover:bg-[#E7E7E0]'
+        active ? 'bg-brand text-brand-foreground' : 'bg-muted text-muted-foreground hover:bg-border'
       )}
     >
       {label}
@@ -155,8 +155,8 @@ function StatsBar({ sesiones, reservas, todayStr }: {
   const ocupPct = totalPlazas > 0 ? Math.round((ocupadas / totalPlazas) * 100) : 0;
 
   const stats = [
-    { icon: CalendarDays, label: 'Clases hoy', value: hoy.length, sub: hoy.length === 1 ? 'sesión' : 'sesiones', color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, white)' },
-    { icon: Users, label: 'Plazas totales', value: totalPlazas, sub: 'disponibles hoy', color: '#1A1A1A', bg: '#F1F5F9' },
+    { icon: CalendarDays, label: 'Clases hoy', value: hoy.length, sub: hoy.length === 1 ? 'sesión' : 'sesiones', color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))' },
+    { icon: Users, label: 'Plazas totales', value: totalPlazas, sub: 'disponibles hoy', color: 'var(--foreground)', bg: 'var(--muted)' },
     { icon: TrendingUp, label: 'Ocupación', value: `${ocupPct}%`, sub: `${ocupadas} de ${totalPlazas} reservadas`, color: '#D97706', bg: '#FEF3C7' },
     { icon: CheckCircle2, label: 'Check-in', value: `${checkinRate}%`, sub: `${asistidas} asistidas`, color: '#059669', bg: '#DCFCE7' },
   ];
@@ -166,14 +166,14 @@ function StatsBar({ sesiones, reservas, todayStr }: {
       {stats.map(({ icon: Icon, label, value, sub, color, bg }) => (
         <div key={label} className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-2.5 hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#A8A89F]">{label}</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
             <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: bg }}>
               <Icon size={15} color={color} />
             </div>
           </div>
           <div>
             <p className="text-[26px] font-extrabold text-foreground leading-none tracking-tight tabular-nums">{value}</p>
-            <p className="text-[11px] text-[#A8A89F] mt-1 truncate">{sub}</p>
+            <p className="text-[11px] text-muted-foreground mt-1 truncate">{sub}</p>
           </div>
         </div>
       ))}
@@ -194,9 +194,9 @@ function FilterBar({ instructores, salas, filtroInstructor, filtroSala, onInstru
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <div className="relative flex-1 min-w-[160px] max-w-xs">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8A89F]" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
-          className="w-full rounded-xl border border-border bg-card pl-8 pr-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:border-[#A8A89F] transition-colors placeholder:text-[#A8A89F]"
+          className="w-full rounded-xl border border-border bg-card pl-8 pr-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground transition-colors placeholder:text-muted-foreground"
           placeholder="Buscar clase..."
           value={busqueda}
           onChange={e => onBusqueda(e.target.value)}
@@ -407,8 +407,8 @@ function SessionSidebar({
             className={cn(
               'pb-2 mr-5 text-xs font-bold border-b-2 transition-colors capitalize',
               activeTab === tab
-                ? 'border-[#1A1A1A] text-foreground'
-                : 'border-transparent text-[#A8A89F] hover:text-muted-foreground'
+                ? 'border-foreground text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-muted-foreground'
             )}
           >
             {tab === 'asistentes' ? `Asistentes (${reservas.filter(r => r.estado !== 'LISTA_ESPERA' && r.estado !== 'CANCELADA').length})` : 'Mapa'}
@@ -424,14 +424,14 @@ function SessionSidebar({
             {!showAnadir ? (
               <button
                 onClick={() => setShowAnadir(true)}
-                className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-border text-xs font-bold text-muted-foreground hover:border-[#A8A89F] hover:text-foreground transition-colors mb-3"
+                className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-border text-xs font-bold text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors mb-3"
               >
                 <UserPlus size={13} />Añadir socia a la clase
               </button>
             ) : (
               <div className="mb-3 space-y-2">
                 <input
-                  className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-[#A8A89F]"
+                  className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground"
                   placeholder="Buscar socia..."
                   value={buscarSocia}
                   onChange={e => setBuscarSocia(e.target.value)}
@@ -444,22 +444,22 @@ function SessionSidebar({
                       onClick={() => { onAddReserva(sesion.id, s.id); setShowAnadir(false); setBuscarSocia(''); }}
                       className="w-full flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-muted transition-colors text-left"
                     >
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 10%, white)', color: 'var(--brand)' }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 10%, var(--card))', color: 'var(--brand)' }}>
                         {s.nombre[0]}{s.apellidos[0]}
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-foreground truncate">{s.nombre} {s.apellidos}</p>
-                        <p className="text-[10px] text-[#A8A89F] truncate">{s.email}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{s.email}</p>
                       </div>
                     </button>
                   ))}
                   {sociosDisponibles.length === 0 && (
-                    <p className="text-xs text-center py-3 text-[#A8A89F]">No hay socias disponibles</p>
+                    <p className="text-xs text-center py-3 text-muted-foreground">No hay socias disponibles</p>
                   )}
                 </div>
                 <button
                   onClick={() => { setShowAnadir(false); setBuscarSocia(''); }}
-                  className="w-full py-1.5 rounded-lg text-xs font-semibold text-[#A8A89F] hover:bg-muted"
+                  className="w-full py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted"
                 >
                   Cancelar
                 </button>
@@ -469,7 +469,7 @@ function SessionSidebar({
             {/* Attendee list */}
             {reservas.length === 0 ? (
               <div className="py-8 text-center">
-                <p className="text-sm text-[#A8A89F]">Sin asistentes aún</p>
+                <p className="text-sm text-muted-foreground">Sin asistentes aún</p>
               </div>
             ) : (
               reservas
@@ -486,14 +486,14 @@ function SessionSidebar({
                           ? { backgroundColor: '#D1FAE5', color: '#065F46' }
                           : r.estado === 'LISTA_ESPERA'
                           ? { backgroundColor: '#FEF3C7', color: '#92400E' }
-                          : { backgroundColor: 'color-mix(in srgb, var(--brand) 10%, white)', color: 'var(--brand)' }
+                          : { backgroundColor: 'color-mix(in srgb, var(--brand) 10%, var(--card))', color: 'var(--brand)' }
                       }
                     >
                       {r.socio?.nombre[0]}{r.socio?.apellidos[0]}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">{r.socio?.nombre} {r.socio?.apellidos}</p>
-                      <p className="text-[10px] text-[#A8A89F]">
+                      <p className="text-[10px] text-muted-foreground">
                         {r.estado === 'LISTA_ESPERA'
                           ? `Espera #${r.posicionEspera}`
                           : r.estado === 'ASISTIDA'
@@ -518,7 +518,7 @@ function SessionSidebar({
                       )}
                       <button
                         onClick={() => onCancelarReserva(r.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-[#C6C6BE] hover:bg-red-50 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                       >
                         <X size={12} />
                       </button>
@@ -539,7 +539,7 @@ function SessionSidebar({
                 onAsignarSpot={(spotId, socioId) => onAsignarSpot(sesion.id, socioId, spotId)}
               />
             ) : (
-              <div className="flex items-center justify-center h-32 rounded-2xl border-2 border-dashed border-border text-sm text-[#A8A89F]">
+              <div className="flex items-center justify-center h-32 rounded-2xl border-2 border-dashed border-border text-sm text-muted-foreground">
                 Sala sin mapa de spots
               </div>
             )}
@@ -648,8 +648,8 @@ function ModalClasesRecurrentes({
     onCrear(sesionesFields);
   }
 
-  const f2 = 'w-full border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-[#1A1A1A] focus:outline-none text-foreground';
-  const s2 = 'w-full border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-[#1A1A1A] focus:outline-none text-foreground bg-card appearance-none';
+  const f2 = 'w-full border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-foreground focus:outline-none text-foreground';
+  const s2 = 'w-full border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-foreground focus:outline-none text-foreground bg-card appearance-none';
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
@@ -781,7 +781,7 @@ function SessionBlock({ s, isSelected, onClick, startHour }: {
       onClick={() => onClick(s.id)}
       className={cn(
         'absolute rounded-lg px-2 py-1 text-left overflow-hidden transition-shadow z-10',
-        isSelected ? 'ring-2 ring-[#1A1A1A] shadow-md' : 'hover:shadow-md',
+        isSelected ? 'ring-2 ring-foreground shadow-md' : 'hover:shadow-md',
         s.cancelada && 'opacity-45 line-through',
       )}
       style={{
@@ -893,11 +893,11 @@ function WeekGrid({
             <div
               key={str}
               className={cn(
-                'flex-1 min-w-0 py-2 text-center border-l border-[#F1F1EC]',
+                'flex-1 min-w-0 py-2 text-center border-l border-muted',
                 str === mobileDia ? 'block' : 'hidden lg:block',
               )}
             >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#A8A89F]">{DIAS_CORTOS[d.getDay()]}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{DIAS_CORTOS[d.getDay()]}</p>
               <p className={cn(
                 'text-[15px] font-extrabold mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full',
                 isToday ? 'bg-brand text-brand-foreground' : 'text-foreground',
@@ -917,7 +917,7 @@ function WeekGrid({
             {hours.map(h => (
               <div
                 key={h}
-                className="absolute right-1.5 -translate-y-1/2 text-[10px] font-medium text-[#A8A89F]"
+                className="absolute right-1.5 -translate-y-1/2 text-[10px] font-medium text-muted-foreground"
                 style={{ top: `${(h - startHour) * HOUR_HEIGHT}px` }}
               >
                 {h}:00
@@ -935,7 +935,7 @@ function WeekGrid({
                 key={str}
                 onClick={e => handleColClick(e, str)}
                 className={cn(
-                  'flex-1 min-w-0 relative border-l border-[#F1F1EC] cursor-pointer',
+                  'flex-1 min-w-0 relative border-l border-muted cursor-pointer',
                   isToday && 'bg-[#FBFDF3]',
                   str === mobileDia ? 'block' : 'hidden lg:block',
                 )}
@@ -943,7 +943,7 @@ function WeekGrid({
                 {hours.map(h => (
                   <div
                     key={h}
-                    className="absolute left-0 right-0 border-t border-[#F1F1EC]"
+                    className="absolute left-0 right-0 border-t border-muted"
                     style={{ top: `${(h - startHour) * HOUR_HEIGHT}px` }}
                   />
                 ))}
@@ -1035,7 +1035,7 @@ export default function Calendario() {
   const sesionesEnriquecidas = useMemo<SesionEnr[]>(() =>
     sesiones.map(s => ({
       ...s,
-      tipoClase: tiposClase.find(t => t.id === s.tipoClaseId) ?? { nombre: '?', color: '#A8A89F' },
+      tipoClase: tiposClase.find(t => t.id === s.tipoClaseId) ?? { nombre: '?', color: 'var(--muted-foreground)' },
       sala: salas.find(x => x.id === s.salaId) ?? { nombre: '?' },
       instructor: instructores.find(i => i.id === s.instructorId) ?? { nombre: '?' },
       confirmadas: reservas.filter(r => r.sesionId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')).length,
@@ -1206,7 +1206,7 @@ export default function Calendario() {
 
           {/* Nueva clase dropdown */}
           <div className="relative">
-            <div className="flex rounded-xl overflow-hidden bg-[#1A1A1A]">
+            <div className="flex rounded-xl overflow-hidden bg-primary">
               <button
                 onClick={() => openNueva()}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white hover:bg-card/10 transition-colors"
@@ -1270,15 +1270,15 @@ export default function Calendario() {
               onClick={() => setMobileDia(str)}
               className={cn(
                 'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl shrink-0 transition-colors',
-                isSelected ? 'bg-[#1A1A1A]' : 'bg-card border border-border',
+                isSelected ? 'bg-primary' : 'bg-card border border-border',
               )}
             >
-              <span className={cn('text-[9px] font-bold uppercase tracking-wider', isSelected ? 'text-white/50' : 'text-[#A8A89F]')}>
+              <span className={cn('text-[9px] font-bold uppercase tracking-wider', isSelected ? 'text-primary-foreground/50' : 'text-muted-foreground')}>
                 {DIAS_CORTOS[d.getDay()]}
               </span>
               <span className={cn(
                 'text-[13px] font-extrabold w-5 h-5 flex items-center justify-center rounded-full',
-                isSelected ? (isToday ? 'bg-brand text-brand-foreground' : 'text-white') : (isToday ? 'text-brand' : 'text-foreground'),
+                isSelected ? (isToday ? 'bg-brand text-brand-foreground' : 'text-primary-foreground') : (isToday ? 'text-brand' : 'text-foreground'),
               )}>
                 {d.getDate()}
               </span>
@@ -1391,7 +1391,7 @@ export default function Calendario() {
                     <span className="text-sm text-muted-foreground">durante</span>
                     <input
                       type="number" min={2} max={52}
-                      className="w-20 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:border-[#A8A89F] text-center"
+                      className="w-20 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground text-center"
                       value={form.repetirSemanas}
                       onChange={e => setForm(f => ({ ...f, repetirSemanas: Math.max(2, Number(e.target.value)) }))}
                     />
@@ -1415,7 +1415,7 @@ export default function Calendario() {
             </button>
             <button
               onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90 bg-[#1A1A1A]"
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 bg-primary"
             >
               {showForm === 'nueva'
                 ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'

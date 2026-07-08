@@ -9,16 +9,16 @@ type Tab = 'planes' | 'pos';
 
 const TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bono sesiones', PUNTUAL: 'Puntual' };
 const TIPO_COLOR: Record<string, { bg: string; text: string }> = {
-  MENSUAL: { bg: 'color-mix(in srgb, var(--brand) 10%, white)', text: 'var(--brand-secondary)' },
+  MENSUAL: { bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', text: 'var(--brand-secondary)' },
   BONO: { bg: '#FEF3C7', text: '#B45309' },
   PUNTUAL: { bg: '#F0FDF4', text: '#15803D' },
 };
 const CAT_LABEL: Record<string, string> = { SESION: 'Sesión', PACK: 'Pack', PRODUCTO: 'Producto', OTRO: 'Otro' };
 const CAT_COLOR: Record<string, { bg: string; text: string }> = {
-  SESION: { bg: 'color-mix(in srgb, var(--brand) 10%, white)', text: 'var(--brand-secondary)' },
+  SESION: { bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', text: 'var(--brand-secondary)' },
   PACK: { bg: '#FEF3C7', text: '#B45309' },
   PRODUCTO: { bg: '#F0FDF4', text: '#15803D' },
-  OTRO: { bg: '#F1F1EC', text: '#8E8E86' },
+  OTRO: { bg: 'var(--muted)', text: 'var(--muted-foreground)' },
 };
 function fmt(n: number) { return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
@@ -90,11 +90,11 @@ function PlanModal({ initial, onSave, onClose }: {
           <label className="flex items-center gap-2.5 cursor-pointer">
             <div onClick={() => set('activo', !form.activo)}
               className="w-9 h-5 rounded-full transition-colors flex items-center px-0.5"
-              style={{ backgroundColor: form.activo ? 'var(--brand)' : '#D1D5DB' }}>
+              style={{ backgroundColor: form.activo ? 'var(--brand)' : 'var(--muted-foreground)' }}>
               <div className="w-4 h-4 bg-card rounded-full shadow transition-transform"
                 style={{ transform: form.activo ? 'translateX(16px)' : 'translateX(0)' }} />
             </div>
-            <span className="text-sm font-medium text-[#3A3A34]">Plan activo</span>
+            <span className="text-sm font-medium text-foreground">Plan activo</span>
           </label>
         </div>
         <div className="flex gap-3 px-6 pb-6">
@@ -164,11 +164,11 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
           <label className="flex items-center gap-2.5 cursor-pointer">
             <div onClick={() => set('activo', !form.activo)}
               className="w-9 h-5 rounded-full transition-colors flex items-center px-0.5"
-              style={{ backgroundColor: form.activo ? 'var(--brand)' : '#D1D5DB' }}>
+              style={{ backgroundColor: form.activo ? 'var(--brand)' : 'var(--muted-foreground)' }}>
               <div className="w-4 h-4 bg-card rounded-full shadow transition-transform"
                 style={{ transform: form.activo ? 'translateX(16px)' : 'translateX(0)' }} />
             </div>
-            <span className="text-sm font-medium text-[#3A3A34]">Producto activo</span>
+            <span className="text-sm font-medium text-foreground">Producto activo</span>
           </label>
         </div>
         <div className="flex gap-3 px-6 pb-6">
@@ -260,7 +260,7 @@ export default function Productos() {
         {([['planes', 'Planes de suscripción'], ['pos', 'Productos POS']] as const).map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-            style={tab === v ? { backgroundColor: '#fff', color: '#1A1A1A', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { color: '#8E8E86' }}>
+            style={tab === v ? { backgroundColor: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { color: 'var(--muted-foreground)' }}>
             {l}
           </button>
         ))}
@@ -303,7 +303,7 @@ export default function Productos() {
                 <div className="flex items-end justify-between">
                   <div>
                     <p className="text-2xl font-extrabold text-foreground">{fmt(plan.precio)} €</p>
-                    <p className="text-xs text-[#A8A89F] mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {plan.tipo === 'MENSUAL' ? 'al mes' : plan.sesiones ? `${plan.sesiones} sesiones` : 'por sesión'}
                     </p>
                   </div>
@@ -312,17 +312,17 @@ export default function Productos() {
                       <Users size={12} />
                       <span className="text-sm font-semibold text-foreground">{count}</span>
                     </div>
-                    <p className="text-[10px] text-[#A8A89F]">activos</p>
+                    <p className="text-[10px] text-muted-foreground">activos</p>
                   </div>
                 </div>
 
                 {plan.descripcion && (
-                  <p className="text-xs text-muted-foreground border-t border-[#F1F1EC] pt-3">{plan.descripcion}</p>
+                  <p className="text-xs text-muted-foreground border-t border-muted pt-3">{plan.descripcion}</p>
                 )}
 
                 <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: plan.activo ? '#22C55E' : '#D1D5DB' }} />
-                  <span className="text-xs font-medium" style={{ color: plan.activo ? '#15803D' : '#A8A89F' }}>
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: plan.activo ? '#22C55E' : 'var(--muted-foreground)' }} />
+                  <span className="text-xs font-medium" style={{ color: plan.activo ? '#15803D' : 'var(--muted-foreground)' }}>
                     {plan.activo ? 'Activo' : 'Inactivo'}
                   </span>
                 </div>
@@ -332,7 +332,7 @@ export default function Productos() {
 
           {/* Add card */}
           <button onClick={() => setPlanModal('new')}
-            className="bg-card rounded-2xl border-2 border-dashed border-border p-5 flex flex-col items-center justify-center gap-2 text-[#A8A89F] hover:border-brand hover:text-brand transition-colors min-h-[160px]">
+            className="bg-card rounded-2xl border-2 border-dashed border-border p-5 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-brand hover:text-brand transition-colors min-h-[160px]">
             <Plus size={20} />
             <span className="text-sm font-semibold">Añadir plan</span>
           </button>
@@ -345,7 +345,7 @@ export default function Productos() {
           {productosPOS.length === 0 ? (
             <div className="px-5 py-12 text-center">
               <p className="text-sm font-semibold text-foreground">Aún no hay productos POS</p>
-              <p className="text-[13px] text-[#A8A89F] mt-1">Añade productos (agua, toallas, packs…) para venderlos en el terminal.</p>
+              <p className="text-[13px] text-muted-foreground mt-1">Añade productos (agua, toallas, packs…) para venderlos en el terminal.</p>
             </div>
           ) : (
             <>
@@ -358,7 +358,7 @@ export default function Productos() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F1F1EC]">
+                <tbody className="divide-y divide-muted">
                   {productosPOS.map(p => {
                     const c = CAT_COLOR[p.categoria] ?? CAT_COLOR.OTRO;
                     return (
@@ -379,8 +379,8 @@ export default function Productos() {
                         <td className="px-5 py-3.5 font-bold text-foreground">{fmt(p.precio)} €</td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : '#D1D5DB' }} />
-                            <span className="text-xs font-medium" style={{ color: p.activo ? '#15803D' : '#A8A89F' }}>
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : 'var(--muted-foreground)' }} />
+                            <span className="text-xs font-medium" style={{ color: p.activo ? '#15803D' : 'var(--muted-foreground)' }}>
                               {p.activo ? 'Activo' : 'Inactivo'}
                             </span>
                           </div>
@@ -398,7 +398,7 @@ export default function Productos() {
               </table>
 
               {/* Mobile cards */}
-              <div className="sm:hidden divide-y divide-[#F1F1EC]">
+              <div className="sm:hidden divide-y divide-muted">
                 {productosPOS.map(p => {
                   const c = CAT_COLOR[p.categoria] ?? CAT_COLOR.OTRO;
                   return (
@@ -412,8 +412,8 @@ export default function Productos() {
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: c.bg, color: c.text }}>
                             {CAT_LABEL[p.categoria]}
                           </span>
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: p.activo ? '#15803D' : '#A8A89F' }}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : '#D1D5DB' }} />
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: p.activo ? '#15803D' : 'var(--muted-foreground)' }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : 'var(--muted-foreground)' }} />
                             {p.activo ? 'Activo' : 'Inactivo'}
                           </span>
                         </div>

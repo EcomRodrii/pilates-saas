@@ -133,7 +133,7 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
       </div>
       <span className={cn(
         'text-[10px] font-medium leading-none',
-        active ? 'text-foreground font-semibold' : 'text-[#A8A89F]'
+        active ? 'text-foreground font-semibold' : 'text-muted-foreground'
       )}>
         {label}
       </span>
@@ -261,7 +261,7 @@ export function Sidebar() {
       {/* ── Mobile top bar ─────────────────────────────────────────────────── */}
       <div
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
-        style={{ backgroundColor: '#ffffff', borderColor: '#E7E7E0' }}
+        style={{ backgroundColor: '#ffffff', borderColor: 'var(--border)' }}
       >
         <Image src="/logo-horizontal.png" alt="Tentare" width={100} height={69} className="h-9 w-auto object-contain" />
       </div>
@@ -269,7 +269,7 @@ export function Sidebar() {
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
       <nav
         className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around px-2 border-t"
-        style={{ backgroundColor: '#ffffff', borderColor: '#E7E7E0', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+        style={{ backgroundColor: '#ffffff', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
         {bottomNavVisibles.map(item => (
           <BottomNavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} />
@@ -282,7 +282,7 @@ export function Sidebar() {
           <div className="w-10 h-7 rounded-full flex items-center justify-center">
             <Menu size={20} strokeWidth={1.8} className="text-muted-foreground" />
           </div>
-          <span className="text-[10px] font-medium text-[#A8A89F] leading-none">Más</span>
+          <span className="text-[10px] font-medium text-muted-foreground leading-none">Más</span>
         </button>
       </nav>
 

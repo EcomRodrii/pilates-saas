@@ -60,13 +60,13 @@ function Avatar({
   const dims = size === 'sm' ? 'w-7 h-7 text-[11px]' : 'w-9 h-9 text-[12px]';
   if (studio) {
     return (
-      <div className={cn('rounded-full bg-[#1A1A1A] flex items-center justify-center shrink-0', dims)}>
-        <span className="font-bold text-white" style={{ fontSize: size === 'sm' ? 10 : 12 }}>TE</span>
+      <div className={cn('rounded-full bg-primary flex items-center justify-center shrink-0', dims)}>
+        <span className="font-bold text-primary-foreground" style={{ fontSize: size === 'sm' ? 10 : 12 }}>TE</span>
       </div>
     );
   }
   return (
-    <div className={cn('rounded-full flex items-center justify-center shrink-0 font-bold', dims, colorClass ?? 'bg-muted text-[#3A3A34]')}>
+    <div className={cn('rounded-full flex items-center justify-center shrink-0 font-bold', dims, colorClass ?? 'bg-muted text-foreground')}>
       {initials}
     </div>
   );
@@ -96,7 +96,7 @@ function CommentThread({
     <div className="mt-3 pt-3 border-t border-border space-y-3">
       {/* Existing comments */}
       {comments.length === 0 && (
-        <p className="text-[12px] text-[#A8A89F] pl-1">Sin comentarios aún. ¡Sé la primera!</p>
+        <p className="text-[12px] text-muted-foreground pl-1">Sin comentarios aún. ¡Sé la primera!</p>
       )}
       {comments.map((c, i) => (
         <div key={c.id} className="flex items-start gap-2">
@@ -109,9 +109,9 @@ function CommentThread({
           <div className="flex-1 min-w-0 bg-muted rounded-lg px-3 py-2">
             <div className="flex items-baseline gap-2 mb-0.5">
               <span className="text-[12px] font-semibold text-foreground">{c.autorNombre}</span>
-              <span className="text-[11px] text-[#A8A89F]">{timeAgo(c.creadoEn)}</span>
+              <span className="text-[11px] text-muted-foreground">{timeAgo(c.creadoEn)}</span>
             </div>
-            <p className="text-[13px] text-[#3A3A34] leading-relaxed">{c.texto}</p>
+            <p className="text-[13px] text-foreground leading-relaxed">{c.texto}</p>
           </div>
         </div>
       ))}
@@ -131,7 +131,7 @@ function CommentThread({
             }}
             placeholder="Escribe un comentario..."
             rows={1}
-            className="flex-1 px-3 py-2 rounded-lg border border-border text-[12px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors resize-none"
+            className="flex-1 px-3 py-2 rounded-lg border border-border text-[12px] placeholder:text-muted-foreground text-foreground outline-none focus:border-foreground transition-colors resize-none"
           />
           <button
             onClick={handleSubmit}
@@ -140,7 +140,7 @@ function CommentThread({
               'px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors shrink-0',
               draft.trim()
                 ? 'bg-brand text-brand-foreground hover:brightness-95'
-                : 'bg-[#E7E7E0] text-[#A8A89F] cursor-not-allowed'
+                : 'bg-border text-muted-foreground cursor-not-allowed'
             )}
           >
             Comentar
@@ -195,12 +195,12 @@ function PostCard({
         />
         <div>
           <p className="text-[13px] font-semibold text-foreground">{post.autorNombre}</p>
-          <p className="text-[12px] text-[#A8A89F]">{timeAgo(post.creadoEn)}</p>
+          <p className="text-[12px] text-muted-foreground">{timeAgo(post.creadoEn)}</p>
         </div>
       </div>
 
       {/* Text */}
-      <p className="text-[14px] text-[#3A3A34] leading-relaxed mb-3">
+      <p className="text-[14px] text-foreground leading-relaxed mb-3">
         {post.texto}
       </p>
 
@@ -220,7 +220,7 @@ function PostCard({
             isExpanded ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          <MessageCircle size={14} className={isExpanded ? 'fill-[#1A1A1A]/10' : ''} />
+          <MessageCircle size={14} className={isExpanded ? 'fill-foreground/10' : ''} />
           <span>{totalComments}</span>
         </button>
       </div>
@@ -253,7 +253,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
       <div className="bg-card rounded-xl border border-border shadow-xl w-full max-w-lg">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-[16px] font-semibold text-foreground">Nueva publicación</h2>
-          <button onClick={onClose} className="text-[#A8A89F] hover:text-foreground transition-colors">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -265,7 +265,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
               onChange={e => setTexto(e.target.value)}
               placeholder="Comparte algo con la comunidad..."
               rows={5}
-              className="flex-1 px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors resize-none"
+              className="flex-1 px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-muted-foreground text-foreground outline-none focus:border-foreground transition-colors resize-none"
               autoFocus
             />
           </div>
@@ -276,7 +276,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
               <button
                 onClick={() => showTooltip('foto')}
                 disabled
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] text-[#A8A89F] cursor-not-allowed select-none"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] text-muted-foreground cursor-not-allowed select-none"
               >
                 <Image size={13} />
                 Foto
@@ -291,7 +291,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
               <button
                 onClick={() => showTooltip('video')}
                 disabled
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] text-[#A8A89F] cursor-not-allowed select-none"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] text-muted-foreground cursor-not-allowed select-none"
               >
                 <Video size={13} />
                 Vídeo
@@ -307,7 +307,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
         <div className="flex gap-2 px-5 py-4 border-t border-border">
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-lg border border-border bg-card text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-[#1A1A1A] transition-colors"
+            className="flex-1 py-2 rounded-lg border border-border bg-card text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
           >
             Cancelar
           </button>
@@ -318,7 +318,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
               'flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors',
               texto.trim()
                 ? 'bg-brand text-brand-foreground hover:brightness-95'
-                : 'bg-[#E7E7E0] text-[#A8A89F] cursor-not-allowed'
+                : 'bg-border text-muted-foreground cursor-not-allowed'
             )}
           >
             Publicar
@@ -469,7 +469,7 @@ export default function ComunidadPage() {
                   onChange={e => setComposeText(e.target.value)}
                   placeholder="Comparte algo con la comunidad..."
                   rows={2}
-                  className="w-full px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors resize-none"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-muted-foreground text-foreground outline-none focus:border-foreground transition-colors resize-none"
                 />
                 {composeText.trim() && (
                   <div className="flex justify-end mt-2">
@@ -508,17 +508,17 @@ export default function ComunidadPage() {
             <h3 className="text-[14px] font-semibold text-foreground mb-3">Destacadas este mes</h3>
             <div className="space-y-3">
               {topMiembros.length === 0 && (
-                <p className="text-[13px] text-[#A8A89F]">Sin actividad aún</p>
+                <p className="text-[13px] text-muted-foreground">Sin actividad aún</p>
               )}
               {topMiembros.map((p, i) => (
                 <div key={p.id} className="flex items-center gap-3">
-                  <span className="text-[13px] font-bold text-[#A8A89F] w-4">{i + 1}</span>
+                  <span className="text-[13px] font-bold text-muted-foreground w-4">{i + 1}</span>
                   <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0', AVATAR_COLORS[i])}>
                     {getInitials(p.autorNombre)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-foreground truncate">{p.autorNombre}</p>
-                    <p className="text-[11px] text-[#A8A89F]">{p.likes + p.comentariosCount} interacciones</p>
+                    <p className="text-[11px] text-muted-foreground">{p.likes + p.comentariosCount} interacciones</p>
                   </div>
                 </div>
               ))}
@@ -530,13 +530,13 @@ export default function ComunidadPage() {
             <h3 className="text-[14px] font-semibold text-foreground mb-3">Próximos eventos</h3>
             <div className="space-y-2">
               {proximosEventos.length === 0 ? (
-                <p className="text-[13px] text-[#A8A89F]">No hay clases programadas próximamente</p>
+                <p className="text-[13px] text-muted-foreground">No hay clases programadas próximamente</p>
               ) : proximosEventos.map((ev, i) => (
                 <div key={i} className="flex items-center gap-3 py-1.5 border-b border-border last:border-0">
                   <div className="w-2 h-2 rounded-full bg-[#7AA80E] shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-foreground truncate">{ev.titulo}</p>
-                    <p className="text-[12px] text-[#A8A89F] capitalize">{ev.cuando}</p>
+                    <p className="text-[12px] text-muted-foreground capitalize">{ev.cuando}</p>
                   </div>
                 </div>
               ))}
@@ -554,12 +554,12 @@ export default function ComunidadPage() {
                     <div className={cn('w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold', AVATAR_COLORS[i % AVATAR_COLORS.length])}>
                       {ini}
                     </div>
-                    <span className="text-[10px] text-[#A8A89F] truncate w-full text-center">{ini}</span>
+                    <span className="text-[10px] text-muted-foreground truncate w-full text-center">{ini}</span>
                   </div>
                 );
               })}
               {activeSocias.length === 0 && (
-                <p className="col-span-4 text-[13px] text-[#A8A89F]">Sin miembros activos</p>
+                <p className="col-span-4 text-[13px] text-muted-foreground">Sin miembros activos</p>
               )}
             </div>
           </div>
@@ -569,7 +569,7 @@ export default function ComunidadPage() {
             <h3 className="text-[14px] font-semibold text-foreground mb-3">Logros del mes</h3>
             <div className="space-y-3">
               {logrosMes.length === 0 ? (
-                <p className="text-[13px] text-[#A8A89F]">Aún no hay datos suficientes este mes</p>
+                <p className="text-[13px] text-muted-foreground">Aún no hay datos suficientes este mes</p>
               ) : logrosMes.map((logro, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <span className="text-[20px] leading-none mt-0.5">{logro.emoji}</span>

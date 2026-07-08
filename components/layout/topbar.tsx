@@ -17,14 +17,14 @@ export function Topbar() {
         <Link
           href="/mensajeria"
           title="Mensajería"
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-background text-[#5A5A52] transition-colors"
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-background text-muted-foreground transition-colors"
         >
           <Inbox size={16} />
         </Link>
         <Link
           href="/notificaciones"
           title="Notificaciones"
-          className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-background text-[#5A5A52] transition-colors"
+          className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-background text-muted-foreground transition-colors"
         >
           <Bell size={16} />
           {sinLeer > 0 && (

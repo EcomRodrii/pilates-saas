@@ -8,7 +8,7 @@ import type { DashboardChart, TipoGraficoDashboard, MetricaGraficoDashboard, Agr
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
-const inputCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/10';
+const inputCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-foreground/10';
 const labelCls = 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block';
 
 const COLORES = ['#F7A6C4', '#7AA80E', '#0369A1', '#D97706', '#7C3AED', '#DC2626'];
@@ -69,12 +69,12 @@ function ChartCard({ chart, onDelete }: { chart: DashboardChart; onDelete: () =>
         <Trash2 size={13} />
       </button>
       <p className="text-[13px] font-semibold text-foreground pr-6">{chart.nombre}</p>
-      <p className="text-[11px] text-[#A8A89F] mb-2">{metricaLabel}</p>
+      <p className="text-[11px] text-muted-foreground mb-2">{metricaLabel}</p>
       <p className="text-[20px] font-bold text-foreground mb-2">{total.toLocaleString('es-ES')}</p>
       {chart.tipo === 'LINEA' ? <ChartLine points={serie} color={chart.color} /> : <ChartBars points={serie} color={chart.color} />}
       <div className="flex justify-between mt-1">
-        <span className="text-[10px] text-[#C6C6BE]">{serie[0]?.label}</span>
-        <span className="text-[10px] text-[#C6C6BE]">{serie[serie.length - 1]?.label}</span>
+        <span className="text-[10px] text-muted-foreground">{serie[0]?.label}</span>
+        <span className="text-[10px] text-muted-foreground">{serie[serie.length - 1]?.label}</span>
       </div>
     </div>
   );
@@ -167,7 +167,7 @@ export function CustomChartsSection() {
                   <button
                     key={c}
                     onClick={() => setForm(f => ({ ...f, color: c }))}
-                    className={cn('w-7 h-7 rounded-full transition-all', form.color === c && 'ring-2 ring-offset-2 ring-[#1A1A1A]')}
+                    className={cn('w-7 h-7 rounded-full transition-all', form.color === c && 'ring-2 ring-offset-2 ring-foreground')}
                     style={{ backgroundColor: c }}
                   />
                 ))}

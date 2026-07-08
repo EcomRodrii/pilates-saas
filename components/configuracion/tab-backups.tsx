@@ -34,7 +34,7 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
   if (rol !== 'PROPIETARIO') {
     return (
       <div className={cn(cardCls, 'p-8 text-center max-w-lg')}>
-        <ShieldAlert size={24} className="text-[#A8A89F] mx-auto mb-2" />
+        <ShieldAlert size={24} className="text-muted-foreground mx-auto mb-2" />
         <p className="text-[13px] text-muted-foreground">Solo la propietaria puede gestionar copias de seguridad.</p>
       </div>
     );
@@ -123,7 +123,7 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
                 </div>
                 <button
                   onClick={() => { setRestaurando(b); setConfirmText(''); setError(null); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-[#3A3A34] hover:bg-muted transition-colors shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors shrink-0"
                 >
                   <RotateCcw size={13} /> Restaurar
                 </button>
@@ -139,7 +139,7 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
             <DialogTitle>¿Restaurar esta copia de seguridad?</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <p className="text-[13px] text-[#5A5A52]">
+            <p className="text-[13px] text-muted-foreground">
               Esto <strong>sobrescribirá todos los datos actuales</strong> del negocio (socias, reservas, cobros, todo) con los de{' '}
               {restaurando && new Date(restaurando.creadoEn).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.
               Es irreversible salvo que exista otra copia posterior.

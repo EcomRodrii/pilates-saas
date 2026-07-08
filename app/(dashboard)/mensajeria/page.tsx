@@ -121,7 +121,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
       </div>
 
       <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-2 text-xs text-[#A8A89F]">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Info size={12} />
           <span>Se envía por email a través de Resend</span>
         </div>
@@ -180,7 +180,7 @@ export default function Mensajeria() {
           </p>
         </div>
         <Link href="/socios"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-[#3A3A34] hover:bg-muted transition-colors">
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors">
           <Users size={14} />
           Ver miembros
         </Link>
@@ -192,8 +192,8 @@ export default function Mensajeria() {
           <button key={t.id} onClick={() => { setTab(t.id); setBusqueda(''); }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
             style={tab === t.id
-              ? { backgroundColor: '#fff', color: '#1A1A1A', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
-              : { color: '#8E8E86' }}>
+              ? { backgroundColor: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+              : { color: 'var(--muted-foreground)' }}>
             <t.icon size={14} />
             {t.label}
             {t.count > 0 && (
@@ -210,10 +210,10 @@ export default function Mensajeria() {
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
             <div className="flex items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2 flex-1">
-              <Search size={13} className="text-[#A8A89F] shrink-0" />
+              <Search size={13} className="text-muted-foreground shrink-0" />
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar notificaciones..."
-                className="bg-transparent text-sm text-foreground placeholder:text-[#A8A89F] outline-none flex-1" />
+                className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1" />
             </div>
             {noLeidas > 0 && (
               <button onClick={() => setLeidas(new Set(notificaciones.map(n => n.id)))}
@@ -224,9 +224,9 @@ export default function Mensajeria() {
             )}
           </div>
           {notifFiltradas.length === 0 ? (
-            <div className="py-16 text-center text-sm text-[#A8A89F]">No hay notificaciones</div>
+            <div className="py-16 text-center text-sm text-muted-foreground">No hay notificaciones</div>
           ) : (
-            <ul className="divide-y divide-[#F1F1EC]">
+            <ul className="divide-y divide-muted">
               {notifFiltradas.map(n => {
                 const isRead = n.leida || leidas.has(n.id);
                 const { Icon, color, bg } = TIPO_ICON[n.tipo] ?? TIPO_ICON.INFO;
@@ -241,10 +241,10 @@ export default function Mensajeria() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-brand shrink-0" />}
-                        <p className={`text-sm leading-tight ${isRead ? 'font-medium text-[#3A3A34]' : 'font-bold text-foreground'}`}>
+                        <p className={`text-sm leading-tight ${isRead ? 'font-medium text-foreground' : 'font-bold text-foreground'}`}>
                           {n.titulo}
                         </p>
-                        <span className="ml-auto text-[11px] text-[#A8A89F] shrink-0">{timeAgo(n.creadaEn)}</span>
+                        <span className="ml-auto text-[11px] text-muted-foreground shrink-0">{timeAgo(n.creadaEn)}</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.texto}</p>
                       {n.enlace && (
@@ -266,16 +266,16 @@ export default function Mensajeria() {
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 flex-1">
-              <Search size={13} className="text-[#A8A89F] shrink-0" />
+              <Search size={13} className="text-muted-foreground shrink-0" />
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar en comunidad..."
-                className="bg-transparent text-sm text-foreground placeholder:text-[#A8A89F] outline-none flex-1" />
+                className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1" />
             </div>
-            <span className="text-xs text-[#A8A89F]">{postsFiltrados.length} posts</span>
+            <span className="text-xs text-muted-foreground">{postsFiltrados.length} posts</span>
           </div>
 
           {postsFiltrados.length === 0 ? (
-            <div className="bg-card rounded-2xl border border-border py-16 text-center text-sm text-[#A8A89F]">
+            <div className="bg-card rounded-2xl border border-border py-16 text-center text-sm text-muted-foreground">
               No hay posts en la comunidad
             </div>
           ) : (
@@ -288,11 +288,11 @@ export default function Mensajeria() {
                   </div>
                   <div>
                     <p className="text-sm font-bold text-foreground">{post.autorNombre}</p>
-                    <p className="text-[11px] text-[#A8A89F]">{timeAgo(post.creadoEn)}</p>
+                    <p className="text-[11px] text-muted-foreground">{timeAgo(post.creadoEn)}</p>
                   </div>
                 </div>
-                <p className="text-sm text-[#3A3A34] leading-relaxed">{post.texto}</p>
-                <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#F1F1EC]">
+                <p className="text-sm text-foreground leading-relaxed">{post.texto}</p>
+                <div className="flex items-center gap-4 mt-4 pt-3 border-t border-muted">
                   <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-500 transition-colors">
                     <Heart size={13} />
                     <span>{post.likes}</span>

@@ -69,7 +69,7 @@ function FF({ label, children }: { label: string; children: React.ReactNode }) {
 }
 
 const inputCls =
-  'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground outline-none focus:border-[#1A1A1A] focus:ring-1 focus:ring-[#1A1A1A] bg-card placeholder:text-[#A8A89F]';
+  'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground outline-none focus:border-foreground focus:ring-1 focus:ring-foreground bg-card placeholder:text-muted-foreground';
 
 // ─── Cita card ────────────────────────────────────────────────────────────────
 
@@ -338,7 +338,7 @@ export default function CitasPage() {
           className={cn(
             'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
             filterInstructor === 'all'
-              ? 'bg-brand text-brand-foreground border-[#1A1A1A]'
+              ? 'bg-brand text-brand-foreground border-foreground'
               : 'bg-card border-border text-muted-foreground hover:text-foreground'
           )}
         >
@@ -351,7 +351,7 @@ export default function CitasPage() {
             className={cn(
               'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
               filterInstructor === ins.id
-                ? 'bg-brand text-brand-foreground border-[#1A1A1A]'
+                ? 'bg-brand text-brand-foreground border-foreground'
                 : 'bg-card border-border text-muted-foreground hover:text-foreground'
             )}
           >
@@ -364,9 +364,9 @@ export default function CitasPage() {
       <div className="space-y-3">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Calendar size={40} className="text-[#D1D5DB] mb-3" />
+            <Calendar size={40} className="text-muted-foreground mb-3" />
             <p className="text-muted-foreground text-sm">No hay citas que mostrar</p>
-            <p className="text-[#A8A89F] text-xs mt-1">
+            <p className="text-muted-foreground text-xs mt-1">
               Prueba a cambiar el filtro o crear una nueva cita
             </p>
           </div>

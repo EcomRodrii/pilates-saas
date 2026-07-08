@@ -125,7 +125,7 @@ export default function Transacciones() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total neto', value: fmt(totalNeto) + ' €', icon: TrendingUp, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, white)' },
+          { label: 'Total neto', value: fmt(totalNeto) + ' €', icon: TrendingUp, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))' },
           { label: 'Cobros suscripción', value: fmt(totalCobros) + ' €', icon: CreditCard, color: '#15803D', bg: '#DCFCE7' },
           { label: 'Ventas POS', value: fmt(totalPOS) + ' €', icon: ShoppingCart, color: '#1D4ED8', bg: '#DBEAFE' },
           { label: 'Devoluciones', value: fmt(totalDev) + ' €', icon: ArrowLeftRight, color: '#B91C1C', bg: '#FEE2E2' },
@@ -146,12 +146,12 @@ export default function Transacciones() {
       <div className="bg-card rounded-2xl border border-border overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 p-4 border-b border-border">
           <div className="flex items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2 flex-1 min-w-[200px]">
-            <Search size={14} className="text-[#A8A89F] shrink-0" />
+            <Search size={14} className="text-muted-foreground shrink-0" />
             <input
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar por concepto o miembro..."
-              className="bg-transparent text-sm text-foreground placeholder:text-[#A8A89F] outline-none flex-1"
+              className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1"
             />
           </div>
           <div className="flex gap-1 overflow-x-auto flex-nowrap">
@@ -161,20 +161,20 @@ export default function Transacciones() {
                 onClick={() => setFiltro(f.value)}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                 style={filtro === f.value
-                  ? { backgroundColor: '#1A1A1A', color: '#fff' }
-                  : { backgroundColor: '#F1F1EC', color: '#8E8E86' }}
+                  ? { backgroundColor: 'var(--foreground)', color: 'var(--background)' }
+                  : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
               >
                 {f.label}
               </button>
             ))}
           </div>
-          <span className="text-xs text-[#A8A89F] ml-auto">{filtrados.length} movimientos</span>
+          <span className="text-xs text-muted-foreground ml-auto">{filtrados.length} movimientos</span>
         </div>
 
         {/* Tarjetas (móvil) */}
-        <div className="lg:hidden divide-y divide-[#F1F1EC]">
+        <div className="lg:hidden divide-y divide-muted">
           {filtrados.length === 0 ? (
-            <div className="px-4 py-12 text-center text-sm text-[#A8A89F]">
+            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
               No hay movimientos para los filtros seleccionados
             </div>
           ) : filtrados.map(m => {
@@ -187,7 +187,7 @@ export default function Transacciones() {
                       style={{ color: badge.color, backgroundColor: badge.bg }}>
                       {badge.label}
                     </span>
-                    <span className="text-[11px] text-[#A8A89F] whitespace-nowrap">{fechaCorta(m.fecha)}</span>
+                    <span className="text-[11px] text-muted-foreground whitespace-nowrap">{fechaCorta(m.fecha)}</span>
                   </div>
                   <p className="text-[14px] font-semibold text-foreground truncate">{m.concepto}</p>
                   <p className="text-[12px] text-muted-foreground truncate mt-0.5">
@@ -200,7 +200,7 @@ export default function Transacciones() {
                   )}
                 </div>
                 <p className="text-[15px] font-extrabold whitespace-nowrap shrink-0"
-                  style={{ color: m.importe < 0 ? '#B91C1C' : '#1A1A1A' }}>
+                  style={{ color: m.importe < 0 ? '#B91C1C' : 'var(--foreground)' }}>
                   {m.importe < 0 ? '-' : ''}{fmt(Math.abs(m.importe))} €
                 </p>
               </div>
@@ -226,10 +226,10 @@ export default function Transacciones() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F1F1EC]">
+            <tbody className="divide-y divide-muted">
               {filtrados.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-[#A8A89F]">
+                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
                     No hay movimientos para los filtros seleccionados
                   </td>
                 </tr>
@@ -259,7 +259,7 @@ export default function Transacciones() {
                       {m.metodo ?? '—'}
                     </td>
                     <td className="px-4 py-3 font-extrabold text-right whitespace-nowrap"
-                      style={{ color: m.importe < 0 ? '#B91C1C' : '#1A1A1A' }}>
+                      style={{ color: m.importe < 0 ? '#B91C1C' : 'var(--foreground)' }}>
                       {m.importe < 0 ? '-' : ''}{fmt(Math.abs(m.importe))} €
                     </td>
                     <td className="px-4 py-3">

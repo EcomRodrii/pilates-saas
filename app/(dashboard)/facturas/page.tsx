@@ -243,7 +243,7 @@ export default function Facturas() {
         </div>
         <button
           onClick={() => exportarCSV()}
-          className="flex items-center gap-2 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors bg-[#1A1A1A] hover:brightness-95"
+          className="flex items-center gap-2 text-primary-foreground font-bold px-4 py-2.5 rounded-xl text-sm transition-colors bg-primary hover:brightness-95"
         >
           <Download size={14} />
           Exportar CSV
@@ -300,7 +300,7 @@ export default function Facturas() {
             placeholder="Buscar por número, receptor o NIF..."
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-sm bg-card rounded-xl border border-border focus:outline-none focus:border-[#1A1A1A] placeholder:text-[#A8A89F] text-foreground transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 text-sm bg-card rounded-xl border border-border focus:outline-none focus:border-foreground placeholder:text-muted-foreground text-foreground transition-colors"
           />
         </div>
         <div className="flex bg-card border border-border rounded-xl overflow-hidden">
@@ -352,7 +352,7 @@ export default function Facturas() {
               {/* Rows */}
               {isOpen && (
                 <>
-                <div className="lg:hidden divide-y divide-[#F1F1EC] border-t border-[#F1F1EC]">
+                <div className="lg:hidden divide-y divide-muted border-t border-muted">
                   {grupo.items.map(f => {
                     const socio = socioParaFactura(f.reciboId);
                     return (
@@ -370,7 +370,7 @@ export default function Facturas() {
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-[15px] font-extrabold text-foreground whitespace-nowrap">{kpi(f.total)} €</p>
-                          <p className="text-[11px] text-[#A8A89F] whitespace-nowrap">base {kpi(f.baseImponible)} €</p>
+                          <p className="text-[11px] text-muted-foreground whitespace-nowrap">base {kpi(f.baseImponible)} €</p>
                         </div>
                       </div>
                     );
@@ -384,13 +384,13 @@ export default function Facturas() {
                 <div className="overflow-x-auto hidden lg:block">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-t border-[#F1F1EC] bg-muted">
+                      <tr className="border-t border-muted bg-muted">
                         {['Número', 'Fecha', 'Receptor', 'NIF', 'Base', 'IVA', 'Total', ''].map(h => (
                           <th key={h} className="text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap text-muted-foreground">{h}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#F1F1EC]">
+                    <tbody className="divide-y divide-muted">
                       {grupo.items.map(f => {
                         const socio = socioParaFactura(f.reciboId);
                         return (

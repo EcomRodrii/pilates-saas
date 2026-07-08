@@ -107,7 +107,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
             </div>
             <button
               onClick={onClose}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#A8A89F] hover:text-foreground hover:bg-background transition-colors"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
             >
               <X size={14} />
             </button>
@@ -118,11 +118,11 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
         <div className="px-6 py-4 bg-background border-b border-border">
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-card rounded-xl px-4 py-3 border border-border">
-              <p className="text-[11px] text-[#A8A89F] uppercase tracking-wide mb-1">Transacciones</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Transacciones</p>
               <p className="text-[22px] font-bold text-foreground">{ventasHoy.length}</p>
             </div>
             <div className="bg-card rounded-xl px-4 py-3 border border-border">
-              <p className="text-[11px] text-[#A8A89F] uppercase tracking-wide mb-1">Total recaudado</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Total recaudado</p>
               <p className="text-[22px] font-bold text-[#059669]">{grandTotal.toFixed(2)} €</p>
             </div>
           </div>
@@ -132,7 +132,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
         <div className="px-6 py-4">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="text-[#A8A89F] border-b border-border">
+              <tr className="text-muted-foreground border-b border-border">
                 <th className="text-left pb-2 font-medium">Método de pago</th>
                 <th className="text-center pb-2 font-medium">Operaciones</th>
                 <th className="text-right pb-2 font-medium">Total</th>
@@ -149,7 +149,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
                 </tr>
               ))}
               {/* Grand total */}
-              <tr className="border-t-2 border-[#1A1A1A]">
+              <tr className="border-t-2 border-foreground">
                 <td className="pt-3 pb-1 font-bold text-foreground">Total caja</td>
                 <td className="pt-3 pb-1 text-center font-bold text-foreground">{ventasHoy.length}</td>
                 <td className="pt-3 pb-1 text-right font-bold text-[16px] text-[#059669]">
@@ -167,7 +167,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
               disabled
               onMouseEnter={() => setShowPrintTooltip(true)}
               onMouseLeave={() => setShowPrintTooltip(false)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-[13px] font-medium text-[#A8A89F] cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-[13px] font-medium text-muted-foreground cursor-not-allowed"
             >
               <Printer size={14} />
               Imprimir
@@ -385,7 +385,7 @@ export default function POSPage() {
             <h1 className="text-[18px] font-semibold text-foreground">Punto de Venta</h1>
             <p className="text-[13px] text-muted-foreground mt-0.5">Terminal de cobro rápido</p>
           </div>
-          <p className="text-[12px] text-[#A8A89F] hidden sm:block">↵ Enter para cobrar cuando el carrito está listo</p>
+          <p className="text-[12px] text-muted-foreground hidden sm:block">↵ Enter para cobrar cuando el carrito está listo</p>
         </div>
       </div>
 
@@ -397,17 +397,17 @@ export default function POSPage() {
             <span className="font-semibold text-foreground">{ventasHoy.length}</span>{' '}
             {ventasHoy.length === 1 ? 'venta' : 'ventas'}
           </span>
-          <span className="text-[#E7E7E0]">·</span>
+          <span className="text-border">·</span>
           <span>
             <span className="font-semibold text-[#059669]">{totalHoy.toFixed(2)} €</span>{' '}
             total
           </span>
-          <span className="text-[#E7E7E0]">·</span>
+          <span className="text-border">·</span>
           <span className="hidden sm:inline">
             <span className="font-medium text-[#059669]">{efectivoHoy.toFixed(2)} €</span>
             {' '}efectivo
           </span>
-          <span className="hidden sm:inline text-[#E7E7E0]">/</span>
+          <span className="hidden sm:inline text-border">/</span>
           <span className="hidden sm:inline">
             <span className="font-medium text-[#1D4ED8]">{tarjetaHoy.toFixed(2)} €</span>
             {' '}tarjeta
@@ -415,7 +415,7 @@ export default function POSPage() {
         </div>
         <button
           onClick={() => setShowCerrarCaja(true)}
-          className="shrink-0 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-muted-foreground hover:border-[#1A1A1A] hover:text-foreground transition-colors"
+          className="shrink-0 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
         >
           Cerrar caja
         </button>
@@ -450,13 +450,13 @@ export default function POSPage() {
           {/* Search */}
           <div className="shrink-0 px-4 pt-4 pb-3">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8A89F]" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Buscar producto..."
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 rounded-lg border border-border text-[13px] bg-card placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors"
+                className="w-full pl-8 pr-3 py-2 rounded-lg border border-border text-[13px] bg-card placeholder:text-muted-foreground text-foreground outline-none focus:border-foreground transition-colors"
               />
             </div>
           </div>
@@ -486,7 +486,7 @@ export default function POSPage() {
                 <button
                   key={p.id}
                   onClick={() => addToCart(p)}
-                  className="bg-card border border-border rounded-xl p-3 text-left hover:border-[#1A1A1A] hover:shadow-sm transition-all group"
+                  className="bg-card border border-border rounded-xl p-3 text-left hover:border-foreground hover:shadow-sm transition-all group"
                 >
                   <p className="text-[13px] font-medium text-foreground leading-snug mb-2 line-clamp-2">
                     {p.nombre}
@@ -495,15 +495,15 @@ export default function POSPage() {
                     <span className="text-[13px] font-semibold text-foreground">
                       {p.precio.toFixed(2)} €
                     </span>
-                    <span className="w-6 h-6 rounded-full bg-background group-hover:bg-[#1A1A1A] group-hover:text-white flex items-center justify-center transition-colors">
+                    <span className="w-6 h-6 rounded-full bg-background group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center transition-colors">
                       <Plus size={12} />
                     </span>
                   </div>
-                  <span className="mt-1.5 inline-block text-[10px] text-[#A8A89F]">{p.categoria}</span>
+                  <span className="mt-1.5 inline-block text-[10px] text-muted-foreground">{p.categoria}</span>
                 </button>
               ))}
               {productosFiltrados.length === 0 && (
-                <div className="col-span-3 py-12 text-center text-[13px] text-[#A8A89F]">
+                <div className="col-span-3 py-12 text-center text-[13px] text-muted-foreground">
                   Sin resultados
                 </div>
               )}
@@ -530,7 +530,7 @@ export default function POSPage() {
             )}
 
             {carrito.length === 0 && !showSuccess ? (
-              <div className="flex flex-col items-center justify-center h-full text-center gap-2 text-[#A8A89F]">
+              <div className="flex flex-col items-center justify-center h-full text-center gap-2 text-muted-foreground">
                 <ShoppingCart size={28} strokeWidth={1.5} />
                 <p className="text-[13px]">Añade productos del catálogo</p>
               </div>
@@ -561,7 +561,7 @@ export default function POSPage() {
                   </span>
                   <button
                     onClick={() => removeFromCart(item.producto.id)}
-                    className="w-5 h-5 rounded flex items-center justify-center text-[#A8A89F] hover:text-[#DC2626] hover:bg-red-50 transition-colors shrink-0"
+                    className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-[#DC2626] hover:bg-red-50 transition-colors shrink-0"
                   >
                     <X size={12} />
                   </button>
@@ -582,7 +582,7 @@ export default function POSPage() {
                     </span>
                     <button
                       onClick={() => { setClienteId(''); setBusquedaCliente(''); }}
-                      className="text-[#A8A89F] hover:text-[#DC2626] transition-colors"
+                      className="text-muted-foreground hover:text-[#DC2626] transition-colors"
                     >
                       <X size={12} />
                     </button>
@@ -594,7 +594,7 @@ export default function POSPage() {
                       placeholder="Buscar socia... (opcional)"
                       value={busquedaCliente}
                       onChange={e => setBusquedaCliente(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors"
+                      className="w-full px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-muted-foreground text-foreground outline-none focus:border-foreground transition-colors"
                     />
                     {sociosFiltrados.length > 0 && (
                       <div className="absolute bottom-full left-0 right-0 mb-1 bg-card border border-border rounded-lg shadow-md overflow-hidden z-10">
@@ -621,11 +621,11 @@ export default function POSPage() {
                   value={descuento}
                   onChange={e => setDescuento(e.target.value)}
                   min={0}
-                  className="flex-1 px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors"
+                  className="flex-1 px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-muted-foreground text-foreground outline-none focus:border-foreground transition-colors"
                 />
                 <button
                   onClick={() => setDescuentoTipo(t => t === '€' ? '%' : '€')}
-                  className="px-3 py-2 rounded-lg border border-border text-[13px] font-medium text-muted-foreground hover:border-[#1A1A1A] hover:text-foreground transition-colors w-12"
+                  className="px-3 py-2 rounded-lg border border-border text-[13px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground transition-colors w-12"
                 >
                   {descuentoTipo}
                 </button>
@@ -658,8 +658,8 @@ export default function POSPage() {
                     className={cn(
                       'py-1.5 rounded-lg text-[12px] font-medium border transition-colors',
                       metodoPago === m.value
-                        ? 'bg-brand text-brand-foreground border-[#1A1A1A]'
-                        : 'bg-card border-border text-muted-foreground hover:border-[#1A1A1A] hover:text-foreground'
+                        ? 'bg-brand text-brand-foreground border-foreground'
+                        : 'bg-card border-border text-muted-foreground hover:border-foreground hover:text-foreground'
                     )}
                   >
                     {m.label}
@@ -671,7 +671,7 @@ export default function POSPage() {
               <div className="flex gap-2">
                 <button
                   onClick={clearCart}
-                  className="flex-1 py-2 rounded-lg border border-border bg-card text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-[#1A1A1A] transition-colors"
+                  className="flex-1 py-2 rounded-lg border border-border bg-card text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
                 >
                   Cancelar
                 </button>
@@ -682,7 +682,7 @@ export default function POSPage() {
                     'flex-[2] py-2 rounded-lg text-[13px] font-semibold transition-colors',
                     carrito.length > 0
                       ? 'bg-brand text-brand-foreground hover:brightness-95'
-                      : 'bg-[#E7E7E0] text-[#A8A89F] cursor-not-allowed'
+                      : 'bg-border text-muted-foreground cursor-not-allowed'
                   )}
                 >
                   Cobrar {carrito.length > 0 ? `${total.toFixed(2)} €` : ''}
@@ -708,7 +708,7 @@ export default function POSPage() {
         <div className="overflow-auto flex-1">
           <table className="w-full text-[12px]">
             <thead className="sticky top-0 bg-card z-10">
-              <tr className="text-[#A8A89F] border-b border-border">
+              <tr className="text-muted-foreground border-b border-border">
                 <th className="text-left px-3 sm:px-6 py-2 font-medium">Fecha / Hora</th>
                 <th className="text-left px-3 py-2 font-medium">Cliente</th>
                 <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Artículos</th>
@@ -720,7 +720,7 @@ export default function POSPage() {
             <tbody>
               {dateGroups.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-6 text-center text-[#A8A89F]">
+                  <td colSpan={6} className="px-6 py-6 text-center text-muted-foreground">
                     Sin ventas todavía
                   </td>
                 </tr>
@@ -732,7 +732,7 @@ export default function POSPage() {
                     <td colSpan={2} className="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                       {group.label}
                     </td>
-                    <td colSpan={2} className="px-3 py-1.5 text-right text-[11px] text-[#A8A89F]">
+                    <td colSpan={2} className="px-3 py-1.5 text-right text-[11px] text-muted-foreground">
                       {group.ventas.length} {group.ventas.length === 1 ? 'venta' : 'ventas'}
                     </td>
                   </tr>
@@ -740,7 +740,7 @@ export default function POSPage() {
                     <td colSpan={4} className="px-6 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                       {group.label}
                     </td>
-                    <td colSpan={2} className="px-6 py-1.5 text-right text-[11px] text-[#A8A89F]">
+                    <td colSpan={2} className="px-6 py-1.5 text-right text-[11px] text-muted-foreground">
                       {group.ventas.length} {group.ventas.length === 1 ? 'venta' : 'ventas'}
                     </td>
                   </tr>
@@ -756,7 +756,7 @@ export default function POSPage() {
                         <td className="px-3 sm:px-6 py-2.5 text-muted-foreground font-mono">{fechaHora}</td>
                         <td className="px-3 py-2.5 text-foreground font-medium">
                           {clienteNombre}
-                          <p className="text-[10px] text-[#A8A89F] font-normal sm:hidden">
+                          <p className="text-[10px] text-muted-foreground font-normal sm:hidden">
                             {v.items.map(i => `${i.cantidad}× ${i.nombre}`).join(', ')}
                           </p>
                         </td>
@@ -778,7 +778,7 @@ export default function POSPage() {
                           </span>
                         </td>
                         <td className="px-3 sm:px-6 py-2.5 text-center">
-                          <button className="text-[#A8A89F] hover:text-foreground transition-colors">
+                          <button className="text-muted-foreground hover:text-foreground transition-colors">
                             <Receipt size={14} />
                           </button>
                         </td>
