@@ -893,7 +893,7 @@ function WeekGrid({
 
   if (sesiones.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[#E2E4EB] bg-card">
+      <div className="flex flex-col items-center justify-center text-center py-20 mx-6 mb-6 rounded-2xl border border-dashed border-border bg-card">
         <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
           <CalendarDays size={26} className="text-brand" />
         </div>
@@ -904,7 +904,7 @@ function WeekGrid({
   }
 
   return (
-    <div className="flex flex-col h-full rounded-2xl border border-border bg-card overflow-hidden">
+    <div className="flex flex-col h-full bg-card">
       {/* Day header row */}
       <div className="flex border-b border-border shrink-0">
         <div className="w-12 shrink-0 lg:w-14" />
@@ -1197,9 +1197,10 @@ export default function Calendario() {
   if (!mounted) return null;
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0 rounded-3xl bg-card border border-border shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)] overflow-hidden">
       {/* ── Top header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap shrink-0">
+      <div className="flex items-center justify-between gap-3 flex-wrap shrink-0 px-6 pt-5 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-brand flex items-center justify-center shrink-0">
             <CalendarDays size={18} className="text-brand-foreground" />
@@ -1284,22 +1285,26 @@ export default function Calendario() {
       </div>
 
       {/* ── Stats bar ──────────────────────────────────────────────────────────── */}
-      <StatsBar sesiones={sesionesEnriquecidas} todayStr={todayStr} />
+      <div className="px-6 pb-4 shrink-0">
+        <StatsBar sesiones={sesionesEnriquecidas} todayStr={todayStr} />
+      </div>
 
       {/* ── Filter bar ─────────────────────────────────────────────────────────── */}
-      <FilterBar
-        instructores={instructores}
-        salas={salas}
-        filtroInstructor={filtroInstructor}
-        filtroSala={filtroSala}
-        onInstructor={setFiltroInstructor}
-        onSala={setFiltroSala}
-        busqueda={busqueda}
-        onBusqueda={setBusqueda}
-      />
+      <div className="px-6 pb-3 shrink-0">
+        <FilterBar
+          instructores={instructores}
+          salas={salas}
+          filtroInstructor={filtroInstructor}
+          filtroSala={filtroSala}
+          onInstructor={setFiltroInstructor}
+          onSala={setFiltroSala}
+          busqueda={busqueda}
+          onBusqueda={setBusqueda}
+        />
+      </div>
 
       {/* ── Mobile day picker ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 shrink-0 lg:hidden">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-3 px-6 shrink-0 lg:hidden">
         {dias.map(d => {
           const str = localDate(d);
           const isToday = str === todayStr;
@@ -1328,7 +1333,7 @@ export default function Calendario() {
       </div>
 
       {/* ── Main content: week grid + optional detail sidebar ─────────────────── */}
-      <div className="flex gap-0 flex-1 min-h-0 relative">
+      <div className="flex gap-0 flex-1 min-h-0 relative border-t border-border">
         {/* Week grid */}
         <div className="flex-1 min-w-0 min-h-0">
           <WeekGrid
@@ -1364,6 +1369,7 @@ export default function Calendario() {
           </div>
         )}
       </div>
+    </div>
 
       {/* ── Panel lateral crear / editar ────────────────────────────────────────── */}
       {showForm && (
