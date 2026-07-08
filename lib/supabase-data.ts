@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { uid } from '@/lib/utils';
 import { decidirReservaNueva, siguienteEnEspera } from '@/lib/booking-logic';
 import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono } from '@/lib/bono-logic';
+import { validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -1294,6 +1295,54 @@ export async function guardarPreferenciasPublica(params: {
   };
   const { error } = await admin.from('preferencias_socio').upsert(fila, { onConflict: 'socio_id' });
   if (error) return { error: error.message };
+  return { ok: true as const };
+}
+
+// Canjea una recompensa del catálogo con los créditos de la socia. Valida
+// identidad, disponibilidad/stock/saldo (reward-engine) y actualiza el saldo.
+export async function canjearRecompensaPublica(params: {
+  studioId: string; socioId: string; email: string; catalogItemId: string;
+}) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  const [{ data: itemRow }, { data: credRow }] = await Promise.all([
+    admin.from('reward_catalog').select('*').eq('id', params.catalogItemId).eq('studio_id', params.studioId).maybeSingle(),
+    admin.from('member_credits').select('*').eq('socio_id', params.socioId).maybeSingle(),
+  ]);
+  const item = itemRow ? mapRewardCatalogItem(itemRow as RowRewardCatalog) : undefined;
+  const saldo = credRow ? mapMemberCredits(credRow as RowMemberCredits).saldo : 0;
+
+  const validacion = validarCanje(item, saldo);
+  if ('error' in validacion) return validacion;
+  if (!item) return { error: 'Esta recompensa ya no está disponible.' as const };
+
+  const now = new Date().toISOString();
+  const redemptionId = `rwd-${uid()}`;
+  const actualizado = aplicarCanjeCreditos(
+    credRow ? mapMemberCredits(credRow as RowMemberCredits) : undefined,
+    params.socioId, params.studioId, item.costeCreditos, now,
+  );
+
+  await Promise.all([
+    admin.from('reward_redemptions').insert({
+      id: redemptionId, studio_id: params.studioId, socio_id: params.socioId,
+      catalog_item_id: params.catalogItemId, creditos_gastados: item.costeCreditos, estado: 'PENDIENTE', creado_en: now,
+    }),
+    admin.from('credit_transactions').insert({
+      id: `ctx-${uid()}`, studio_id: params.studioId, socio_id: params.socioId, tipo: 'CANJE',
+      creditos: -item.costeCreditos, descripcion: `Canje: ${item.nombre}`, ref_id: redemptionId, creado_en: now,
+    }),
+    admin.from('member_credits').upsert({
+      socio_id: actualizado.socioId, studio_id: actualizado.studioId, saldo: actualizado.saldo,
+      total_ganado: actualizado.totalGanado, total_canjeado: actualizado.totalCanjeado, actualizado_en: now,
+    }, { onConflict: 'socio_id' }),
+  ]);
+  if (item.stock != null) {
+    await admin.from('reward_catalog').update({ stock: item.stock - 1 }).eq('id', params.catalogItemId);
+  }
   return { ok: true as const };
 }
 
