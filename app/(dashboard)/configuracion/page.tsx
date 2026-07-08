@@ -1148,11 +1148,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     Icon: GoogleCalendarIcon,
     color: '#4285F4',
     bg: '#F5F5F5',
-    campos: [
-      { key: 'calendarId', label: 'ID del calendario', placeholder: 'estudio@group.calendar.google.com' },
-    ],
-    secretoEnv: 'GOOGLE_SERVICE_ACCOUNT_JSON',
-    docsUrl: 'https://calendar.google.com/',
+    categoria: 'Calendario',
+    campos: [],
+    proximamente: true,
   },
   {
     tipo: 'WHATSAPP',
@@ -1161,12 +1159,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     Icon: WhatsAppIcon,
     color: '#25D366',
     bg: '#F5F5F5',
-    campos: [
-      { key: 'phoneNumberId', label: 'Phone Number ID', placeholder: '1234567890' },
-      { key: 'businessAccountId', label: 'Business Account ID', placeholder: '0987654321' },
-    ],
-    secretoEnv: 'WHATSAPP_TOKEN',
-    docsUrl: 'https://business.facebook.com/',
+    categoria: 'Mensajería',
+    campos: [],
+    proximamente: true,
   },
   {
     tipo: 'EXCEL',
@@ -1186,12 +1181,8 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     color: '#003087',
     bg: '#F5F5F5',
     categoria: 'Pagos',
-    campos: [
-      { key: 'clientId', label: 'Client ID', placeholder: 'AeA1QIZ...' },
-      { key: 'clientSecret', label: 'Client Secret', placeholder: '••••••••', tipo: 'password' },
-    ],
-    secretoEnv: 'PAYPAL_CLIENT_SECRET',
-    docsUrl: 'https://developer.paypal.com/dashboard/',
+    campos: [],
+    proximamente: true,
   },
   {
     tipo: 'CLASSPASS',

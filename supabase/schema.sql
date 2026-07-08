@@ -145,6 +145,64 @@ create table if not exists reservas (
   creado_en timestamptz default now()
 );
 
+-- Reserva atómica: decide CONFIRMADA vs LISTA_ESPERA e inserta en una sola
+-- transacción, bloqueando la fila de la sesión (`for update`) mientras dura.
+-- Antes, la decisión se tomaba en JS leyendo un snapshot de `reservas` y
+-- luego insertando en un segundo paso — dos reservas concurrentes a la
+-- última plaza podían leer "hay hueco" las dos y sobrevender el aforo. Con
+-- el lock, la segunda transacción espera a que la primera confirme antes de
+-- contar plazas, así que ve el cupo ya actualizado.
+create or replace function crear_reserva_atomica(
+  p_id text,
+  p_studio_id text,
+  p_sesion_id text,
+  p_socio_id text,
+  p_spot_id text default null
+) returns reservas
+language plpgsql
+as $$
+declare
+  v_aforo int;
+  v_confirmadas int;
+  v_en_espera int;
+  v_estado text;
+  v_posicion int;
+  v_row reservas;
+begin
+  select aforo_maximo into v_aforo
+  from sesiones
+  where id = p_sesion_id and studio_id = p_studio_id
+  for update;
+
+  if v_aforo is null then
+    raise exception 'SESION_NO_ENCONTRADA';
+  end if;
+
+  select count(*) into v_confirmadas
+  from reservas
+  where sesion_id = p_sesion_id and estado in ('CONFIRMADA', 'ASISTIDA');
+
+  if v_confirmadas < v_aforo then
+    v_estado := 'CONFIRMADA';
+    v_posicion := null;
+  else
+    select count(*) into v_en_espera
+    from reservas
+    where sesion_id = p_sesion_id and estado = 'LISTA_ESPERA';
+    v_estado := 'LISTA_ESPERA';
+    v_posicion := v_en_espera + 1;
+  end if;
+
+  insert into reservas (id, studio_id, sesion_id, socio_id, spot_id, estado, posicion_espera)
+  values (p_id, p_studio_id, p_sesion_id, p_socio_id, p_spot_id, v_estado, v_posicion)
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+grant execute on function crear_reserva_atomica(text, text, text, text, text) to authenticated, anon, service_role;
+
 -- ─── Recibos ──────────────────────────────────────────────────────────────────
 create table if not exists recibos (
   id text primary key,
