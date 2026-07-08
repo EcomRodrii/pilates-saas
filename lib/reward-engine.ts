@@ -1,4 +1,4 @@
-import type { RewardRule, RewardAction, RewardTrigger, RewardTriggerDef } from '@/lib/types';
+import type { RewardRule, RewardAction, RewardTrigger, RewardTriggerDef, MemberCredits } from '@/lib/types';
 
 // Catálogo de disparadores que la app sabe detectar. El estudio no puede
 // inventar disparadores nuevos (eso requiere código), pero SÍ configura
@@ -21,4 +21,32 @@ export function reglaActivaPara(rules: RewardRule[], trigger: RewardTrigger): Re
 export function yaOtorgado(actions: RewardAction[], trigger: RewardTrigger, refId: string | null): boolean {
   if (!refId) return false;
   return actions.some(a => a.trigger === trigger && a.refId === refId);
+}
+
+// Decide si un disparador debe otorgar créditos: debe existir una regla activa
+// con créditos > 0 y no haberse otorgado ya para ese refId (idempotencia).
+export function decidirOtorgarCreditos(
+  rules: RewardRule[],
+  actions: RewardAction[],
+  trigger: RewardTrigger,
+  refId: string | null,
+): { otorgar: boolean; regla: RewardRule | null } {
+  const regla = reglaActivaPara(rules, trigger);
+  if (!regla || regla.creditos <= 0) return { otorgar: false, regla: null };
+  if (yaOtorgado(actions, trigger, refId)) return { otorgar: false, regla };
+  return { otorgar: true, regla };
+}
+
+// Nuevo saldo de créditos de la socia tras GANAR créditos (crea el registro si
+// aún no existía). Pura: el contexto la usa para actualizar memberCredits.
+export function aplicarGananciaCreditos(
+  existente: MemberCredits | undefined,
+  socioId: string,
+  studioId: string,
+  creditos: number,
+  now: string,
+): MemberCredits {
+  return existente
+    ? { ...existente, saldo: existente.saldo + creditos, totalGanado: existente.totalGanado + creditos, actualizadoEn: now }
+    : { socioId, studioId, saldo: creditos, totalGanado: creditos, totalCanjeado: 0, actualizadoEn: now };
 }
