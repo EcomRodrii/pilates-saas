@@ -670,8 +670,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       ...socioFields,
     };
     setSocios(prev => [...prev, nuevaSocia]);
-    dbInsertSocio(nuevaSocia);
-    addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+    dbInsertSocio(nuevaSocia).then(ok => {
+      if (ok) addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+    });
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
       if (plan) {

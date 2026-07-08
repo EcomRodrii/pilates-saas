@@ -1126,6 +1126,7 @@ function postComunidadToDb(p: any) {
 export async function dbInsertSocio(socio: any) {
   const { error } = await supabase.from('socios').insert(socioToDb(socio));
   if (error) reportDbError('[dbInsertSocio]', error);
+  return !error;
 }
 
 export async function dbUpdateSocio(id: string, changes: any) {
