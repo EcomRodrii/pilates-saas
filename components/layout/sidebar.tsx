@@ -67,6 +67,28 @@ const bottomNavItems = [
   { href: '/transacciones', label: 'Ventas', icon: ArrowLeftRight },
 ];
 
+// Modo Esencial: lo que un estudio pequeño con una sola propietaria necesita
+// de verdad para el día a día — todo lo demás (IA, marketing, POS, oferta
+// digital, comunidad...) se desbloquea cambiando a Modo Avanzado. Preferencia
+// puramente de UI, guardada en este navegador (no en el negocio).
+const ESSENTIAL_HREFS = ['/dashboard', '/calendario', '/socios', '/transacciones', '/informes', '/configuracion'];
+
+export function useNavMode() {
+  const [mode, setMode] = useState<'esencial' | 'avanzado'>('avanzado');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('nav-mode');
+    if (stored === 'esencial') setMode('esencial');
+  }, []);
+
+  function setNavMode(next: 'esencial' | 'avanzado') {
+    setMode(next);
+    localStorage.setItem('nav-mode', next);
+  }
+
+  return { mode, setNavMode };
+}
+
 // ─── Desktop nav item ─────────────────────────────────────────────────────────
 
 function NavItem({ href, label, Icon, onClick, collapsed }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean }) {
@@ -202,9 +224,10 @@ export function Sidebar() {
   const studioSlug = studio?.slug ?? 'tentare';
   const { puedeVer } = usePermisos();
   const router = useRouter();
+  const { mode: navMode, setNavMode } = useNavMode();
 
   const seccionesVisibles = navSections
-    .map(s => ({ ...s, items: s.items.filter(i => puedeVer(i.href)) }))
+    .map(s => ({ ...s, items: s.items.filter(i => puedeVer(i.href) && (navMode === 'avanzado' || ESSENTIAL_HREFS.includes(i.href))) }))
     .filter(s => s.items.length > 0);
   const bottomNavVisibles = bottomNavItems.filter(i => puedeVer(i.href));
 
@@ -294,6 +317,27 @@ export function Sidebar() {
             </>
           )}
         </div>
+
+        {/* Modo Esencial / Avanzado */}
+        {!collapsed && (
+          <div className="px-3 pt-2.5 pb-1">
+            <div className="flex gap-0.5 p-0.5 rounded-full bg-white/5">
+              {([['esencial', 'Esencial'], ['avanzado', 'Todo']] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setNavMode(val)}
+                  title={val === 'esencial' ? 'Solo lo esencial: Dashboard, Calendario, Miembros, Transacciones, Informes' : 'Todas las funciones'}
+                  className={cn(
+                    'flex-1 py-1 rounded-full text-[10.5px] font-bold transition-all',
+                    navMode === val ? 'bg-[#FFC8E2] text-[#131313]' : 'text-white/40',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Nav */}
         <nav className={cn('flex-1 py-2 overflow-y-auto space-y-1', collapsed ? 'px-2' : 'px-2')}>
