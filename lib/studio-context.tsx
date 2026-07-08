@@ -92,7 +92,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana } from '@/lib/api-client';
+import { enviarEmailCampana, authHeader } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
@@ -1911,7 +1911,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
           try {
             const res = await fetch('/api/ai/recomendacion', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
               body: JSON.stringify({ tipo: 'CLASE_LLENA', ...c.contextoIA }),
             });
             if (res.ok) {
@@ -1931,7 +1931,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
           try {
             const res = await fetch('/api/ai/recomendacion', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
               body: JSON.stringify({ tipo: 'REACTIVACION', ...c.contextoIA }),
             });
             if (res.ok) {
@@ -1950,7 +1950,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       try {
         const res = await fetch('/api/emails/send', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
           body: JSON.stringify({
             tipo: 'automatizacion',
             to: c.socio.email,

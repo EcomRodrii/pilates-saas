@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { verificarSesionStaff } from '@/lib/auth-server';
 
 const client = new Anthropic();
 
@@ -18,6 +19,8 @@ Si el texto no menciona algún campo, devuelve null para ese campo.
 Responde SOLO con el JSON, sin texto adicional.`;
 
 export async function POST(req: NextRequest) {
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   try {
     const body = await req.json();
     const { texto, socioId, instructorId, sesionId } = body as {

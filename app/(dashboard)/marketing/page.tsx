@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
+import { authHeader } from '@/lib/api-client'
 import type { Campana, Automatizacion, CodigoDescuento, TipoCampana, TriggerAutomatizacion, LeadStage } from '@/lib/types'
 
 
@@ -635,7 +636,7 @@ export default function MarketingPage() {
       }))
       const res = await fetch('/api/ai/campana-asistente', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({ objetivo: objetivoIA, tipo: newCampana.tipo, segmentos }),
       })
       const data = await res.json()

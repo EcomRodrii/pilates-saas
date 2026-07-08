@@ -1,5 +1,15 @@
 'use client';
 
+import { supabase } from '@/lib/supabase';
+
+// Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
+// rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
+// si no hay sesión (la ruta responderá 401).
+export async function authHeader(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
+
 // ── Stripe ────────────────────────────────────────────────────────────────────
 
 export async function crearCheckoutStripe(params: {
@@ -29,7 +39,7 @@ export async function aprobarCobroAutonomo(params: {
 }): Promise<{ ok: true } | { error: string }> {
   const res = await fetch('/api/stripe/charge-off-session', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify(params),
   });
   const data = await res.json();
@@ -49,7 +59,7 @@ export async function enviarEmailRecibo(params: {
 }) {
   await fetch('/api/emails/send', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify({
       tipo: 'recibo',
       to: params.to,
@@ -71,7 +81,7 @@ export async function enviarEmailBienvenida(params: {
 }) {
   await fetch('/api/emails/send', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify({
       tipo: 'bienvenida',
       to: params.to,
@@ -92,7 +102,7 @@ export async function enviarEmailCampana(params: {
   try {
     const res = await fetch('/api/emails/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({
         tipo: 'automatizacion',
         to: params.to,
@@ -117,7 +127,7 @@ export async function enviarEmailReserva(params: {
 }) {
   await fetch('/api/emails/send', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify({
       tipo: 'reserva',
       to: params.to,
