@@ -950,3 +950,27 @@ drop policy if exists "public_insert_recibos" on recibos;
 create policy "admin_recibos" on recibos for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
 create policy "public_read_recibos" on recibos for select to anon using (true);
 create policy "public_insert_recibos" on recibos for insert to anon with check (true);
+
+-- ═══════════════════════════════════════════════════════════════════
+-- CIERRE DE LECTURA ANÓNIMA (proxy de servidor en producción)
+-- Las páginas públicas (reserva/portal/kiosk) ya NO leen estas tablas con la
+-- anon key: lo hacen vía /api/public/* con service-role y validación. Por eso
+-- retiramos la lectura anónima de las tablas con PII / datos financieros / datos
+-- por-socia. El catálogo público (clases, salas, planes, vídeos, definiciones de
+-- gamificación) mantiene lectura anónima porque no es información sensible.
+-- ═══════════════════════════════════════════════════════════════════
+drop policy if exists "public_read_socios" on socios;
+drop policy if exists "public_read_suscripciones" on suscripciones;
+drop policy if exists "public_read_reservas" on reservas;
+drop policy if exists "public_read_recibos" on recibos;
+drop policy if exists "public_read_preferencias_socio" on preferencias_socio;
+drop policy if exists "public_read_facturas" on facturas;
+drop policy if exists "public_read_member_credits" on member_credits;
+drop policy if exists "public_read_reward_history" on reward_history;
+drop policy if exists "public_read_credit_transactions" on credit_transactions;
+drop policy if exists "public_read_reward_redemptions" on reward_redemptions;
+drop policy if exists "public_read_reward_actions" on reward_actions;
+drop policy if exists "public_read_achievement_progress" on achievement_progress;
+drop policy if exists "public_read_achievement_history" on achievement_history;
+drop policy if exists "public_read_challenge_progress" on challenge_progress;
+drop policy if exists "public_read_challenge_history" on challenge_history;

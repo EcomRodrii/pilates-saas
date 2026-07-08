@@ -10,6 +10,36 @@ export async function authHeader(): Promise<Record<string, string>> {
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
+// ── Datos públicos (proxy scopeado) ─────────────────────────────────────────
+// Carga el catálogo del estudio + (si hay socia en sesión) sus datos, vía el
+// endpoint de servidor con service-role. Sustituye el acceso anónimo directo.
+export async function cargarDatosPublicos(
+  slug: string,
+  member?: { socioId: string; email: string },
+) {
+  const res = await fetch('/api/public/studio-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug, member }),
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+// Lee la identidad de la socia guardada en el navegador (portal o reserva).
+export function leerSociaLocal(): { socioId: string; email: string } | null {
+  if (typeof window === 'undefined') return null;
+  for (const key of ['ps_portal_session', 'ps_portal_socia']) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const s = JSON.parse(raw) as { socioId?: string; email?: string };
+      if (s?.socioId && s?.email) return { socioId: s.socioId, email: s.email };
+    } catch { /* ignore */ }
+  }
+  return null;
+}
+
 // ── Stripe ────────────────────────────────────────────────────────────────────
 
 export async function crearCheckoutStripe(params: {

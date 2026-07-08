@@ -92,7 +92,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, authHeader } from '@/lib/api-client';
+import { enviarEmailCampana, authHeader, cargarDatosPublicos, leerSociaLocal } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
@@ -355,6 +355,8 @@ interface StudioContextValue {
   // Studio management
   resetDatosPilates: () => void;
   dataLoaded: boolean;
+  // Recarga los datos en ruta pública (tras el login de la socia).
+  recargarPublico: () => void;
 
   // Studio record (propietario) + avatar del admin
   studio: Studio | null;
@@ -374,7 +376,7 @@ export function useStudio(): StudioContextValue {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export function StudioProvider({ children, studioIdOverride }: { children: ReactNode; studioIdOverride?: string }) {
+export function StudioProvider({ children, studioIdOverride, publicSlug }: { children: ReactNode; studioIdOverride?: string; publicSlug?: string }) {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [dbError, setDbError] = useState<{ msg: string; key: number } | null>(null);
 
@@ -467,7 +469,59 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const teamChatStore = useTeamChatStore({ autorInstructorId: yo?.id ?? null, autorNombre: actorNombre });
   const { mensajesEquipo } = teamChatStore;
 
+  // Carga (o recarga) los datos en ruta pública desde el proxy scopeado. Se
+  // llama al montar y de nuevo tras el login de la socia (recargarPublico), para
+  // traer sus datos una vez identificada.
+  function cargarPublico() {
+    if (!publicSlug) return;
+    setCurrentStudioId(studioIdOverride ?? '');
+    const member = leerSociaLocal();
+    cargarDatosPublicos(publicSlug, member ?? undefined).then(pub => {
+      if (!pub || pub.error) { setDataLoaded(true); return; }
+      setStudio(pub.studio ?? null);
+      setSesiones(pub.sesiones ?? []);
+      setTiposClase(pub.tiposClase ?? []);
+      setSalas(pub.salas ?? []);
+      setInstructores(pub.instructores ?? []);
+      setSpots(pub.spots ?? []);
+      setPlanesTarifa(pub.planesTarifa ?? []);
+      content.setVideosOnDemand(pub.videosOnDemand ?? []);
+      setRewardRules(pub.rewardRules ?? []);
+      setRewardCatalog(pub.rewardCatalog ?? []);
+      setLevelDefinitions(pub.levelDefinitions ?? []);
+      setAchievementDefinitions(pub.achievementDefinitions ?? []);
+      setChallengeDefinitions(pub.challengeDefinitions ?? []);
+      const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string }) => ({
+        id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
+        estado: r.estado as Reserva['estado'], spotId: null, posicionEspera: null, checkInEn: null, creadoEn: '',
+      }));
+      const socia = pub.socia;
+      const miasById = new Map<string, Reserva>((socia?.reservas ?? []).map((r: Reserva) => [r.id, r]));
+      setReservas(aforo.map((r: Reserva) => miasById.get(r.id) ?? r));
+      setSocios(socia ? [socia.socio] : []);
+      setSuscripciones(socia?.suscripciones ?? []);
+      setRecibos(socia?.recibos ?? []);
+      setFacturas(socia?.facturas ?? []);
+      memberPrefsStore.setPreferenciasSocio(socia?.preferenciasSocio ?? []);
+      setMemberCredits(socia?.memberCredits ?? []);
+      setRewardHistory(socia?.rewardHistory ?? []);
+      setRewardRedemptions(socia?.rewardRedemptions ?? []);
+      setAchievementProgress(socia?.achievementProgress ?? []);
+      setChallengeProgress(socia?.challengeProgress ?? []);
+      setCreditTransactions(socia?.creditTransactions ?? []);
+      setDataLoaded(true);
+    }).catch(err => { console.error('Error cargando datos públicos:', err); setDataLoaded(true); });
+  }
+
   useEffect(() => {
+    // Ruta pública (reserva/portal/kiosk): los datos vienen del proxy de
+    // servidor scopeado (service-role), NO del acceso anónimo directo. Solo el
+    // catálogo del estudio + los datos de la socia en sesión.
+    if (publicSlug) {
+      cargarPublico();
+      return;
+    }
+
     (async () => {
       // Multi-tenancy: figure out which studio this session belongs to
       // *before* fetching, so every query below is scoped correctly both
@@ -544,7 +598,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setDataLoaded(true);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUserId, studioIdOverride]);
+  }, [authUserId, studioIdOverride, publicSlug]);
 
   // ── Auto-increment factura counter ──────────────────────────────────────────
   function nextFacturaNumero(existingFacturas: Factura[]): string {
@@ -2127,6 +2181,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     dismissLog,
     actualizarLog,
     dataLoaded,
+    recargarPublico: cargarPublico,
     studio,
     updateAvatarAdmin,
     updateStudio,
