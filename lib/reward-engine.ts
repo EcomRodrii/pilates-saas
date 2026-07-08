@@ -6,7 +6,7 @@ import type { RewardRule, RewardAction, RewardTrigger, RewardTriggerDef } from '
 export const REWARD_TRIGGERS: RewardTriggerDef[] = [
   { trigger: 'ASISTENCIA_CLASE', nombre: 'Asistir a clase', descripcion: 'La socia hace check-in en una reserva confirmada.' },
   { trigger: 'RENOVACION_PLAN', nombre: 'Renovar plan', descripcion: 'Se cobra un recibo de renovación de su plan o bono.' },
-  { trigger: 'REFERIDO_AMIGO', nombre: 'Traer un amigo', descripcion: 'Un amigo referido se da de alta como nueva socia.' },
+  { trigger: 'REFERIDO_AMIGO', nombre: 'Traer un amigo', descripcion: 'Un amigo referido asiste a su primera clase (no basta con registrarse).' },
   { trigger: 'SEMANA_COMPLETA', nombre: 'Completar una semana', descripcion: 'Asiste a todas las clases que tenía reservadas en la semana.' },
   { trigger: 'PRIMERA_RESERVA', nombre: 'Primera reserva', descripcion: 'La socia reserva una clase por primera vez.' },
   { trigger: 'OBJETIVO_MENSUAL', nombre: 'Cumplir objetivo mensual', descripcion: 'Alcanza el objetivo de clases que se marcó para el mes.' },

@@ -281,7 +281,7 @@ interface StudioContextValue {
   otorgarCreditos: (socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) => void;
   saldoCreditos: (socioId: string) => number;
   rachaSocio: (socioId: string) => RachaInfo;
-  addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn'>) => void;
+  addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual'> & { topeMensual?: number | null }) => void;
   updateRewardRule: (id: string, changes: Partial<Omit<RewardRule, 'id' | 'studioId'>>) => void;
   addRewardCatalogItem: (fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) => void;
   updateRewardCatalogItem: (id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) => void;
@@ -732,12 +732,10 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     };
     setSocios(prev => [...prev, nuevaSocia]);
     dbInsertSocio(nuevaSocia);
-    // El amigo referidor recibe sus créditos al confirmarse la nueva alta —
-    // refId es el id de la nueva socia, así nunca se premia dos veces por la
-    // misma persona referida.
-    if (fields.referidoPor) {
-      otorgarCreditos(fields.referidoPor, 'REFERIDO_AMIGO', nuevaSocia.id);
-    }
+    // El referido queda registrado en la socia (referidoPor), pero el premio
+    // al que invita NO se otorga aquí: se otorga cuando la referida asiste a
+    // su primera clase (ver premiarReferidoSiProcede en checkin). Así una alta
+    // falsa o que nunca aparece no genera recompensa.
   }
 
   function updateStudioConfig(changes: Partial<StudioConfig>) {
@@ -1033,6 +1031,37 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     }
   }
 
+  // Premia a quien invitó SOLO cuando la referida asiste a su primera clase,
+  // con tope mensual configurable (regla REFERIDO_AMIGO). El dedup real es el
+  // UNIQUE(studio_id, trigger, ref_id): refId = id de la referida, así una
+  // persona traída premia una única vez aunque asista muchas veces.
+  function premiarReferidoSiProcede(socioId: string, reservasActuales: Reserva[]) {
+    const asistidas = reservasActuales.filter(
+      r => r.socioId === socioId && r.estado === 'ASISTIDA'
+    ).length;
+    if (asistidas !== 1) return; // solo en la PRIMERA asistencia
+
+    const socia = socios.find(s => s.id === socioId);
+    if (!socia?.referidoPor) return;
+    const referidorId = socia.referidoPor;
+
+    // Tope mensual de la regla (null = sin tope). Invitar es ilimitado; lo que
+    // se acota es cuántos referidos se PREMIAN al mes por quien invita.
+    const regla = reglaActivaPara(rewardRules, 'REFERIDO_AMIGO');
+    const tope = regla?.topeMensual ?? null;
+    if (tope != null) {
+      const ahora = new Date();
+      const premiadosEsteMes = rewardActions.filter(a => {
+        if (a.trigger !== 'REFERIDO_AMIGO' || a.socioId !== referidorId) return false;
+        const d = new Date(a.creadoEn);
+        return d.getFullYear() === ahora.getFullYear() && d.getMonth() === ahora.getMonth();
+      }).length;
+      if (premiadosEsteMes >= tope) return; // tope del mes alcanzado
+    }
+
+    otorgarCreditos(referidorId, 'REFERIDO_AMIGO', socioId);
+  }
+
   function checkin(reservaId: string) {
     const checkInEn = new Date().toISOString();
     const reservasActualizadas = reservas.map(r =>
@@ -1051,6 +1080,8 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     if (racha.semanas > 0) {
       otorgarCreditos(reserva.socioId, 'SEMANA_COMPLETA', `${reserva.socioId}:${racha.claveSemanaActual}`);
     }
+    // Premio a quien la trajo, si esta es su primera clase y hay tope disponible.
+    premiarReferidoSiProcede(reserva.socioId, reservasActualizadas);
     // Nota: la sesión del bono ya se descuenta al confirmar la reserva
     // (ver consumirSesionBono en addReserva), no en el check-in, para evitar
     // el doble cobro y para que el saldo refleje las plazas ya comprometidas.
@@ -1590,8 +1621,8 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     return calcularRacha(reservas.filter(r => r.socioId === socioId), sesiones, new Date());
   }
 
-  function addRewardRule(fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn'>) {
-    const nueva: RewardRule = { ...fields, id: `rwr-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+  function addRewardRule(fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual'> & { topeMensual?: number | null }) {
+    const nueva: RewardRule = { topeMensual: null, ...fields, id: `rwr-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
     setRewardRules(prev => [...prev, nueva]);
     dbInsertRewardRule(nueva);
   }

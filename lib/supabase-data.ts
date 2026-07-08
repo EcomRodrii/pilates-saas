@@ -153,6 +153,7 @@ function mapRewardRule(r: any) {
     descripcion: r.descripcion ?? null,
     creditos: r.creditos,
     activa: r.activa,
+    topeMensual: r.tope_mensual ?? null,
     creadoEn: r.creado_en,
   };
 }
@@ -1354,7 +1355,8 @@ export async function dbUpsertPreferenciasSocio(p: any) {
 export async function dbInsertRewardRule(r: any) {
   const row = {
     id: r.id, studio_id: r.studioId ?? STUDIO_ID, trigger: r.trigger, nombre: r.nombre,
-    descripcion: r.descripcion ?? null, creditos: r.creditos, activa: r.activa, creado_en: r.creadoEn,
+    descripcion: r.descripcion ?? null, creditos: r.creditos, activa: r.activa,
+    tope_mensual: r.topeMensual ?? null, creado_en: r.creadoEn,
   };
   const { error } = await supabase.from('reward_rules').insert(row);
   if (error) reportDbError('[dbInsertRewardRule]', error);
@@ -1366,6 +1368,7 @@ export async function dbUpdateRewardRule(id: string, changes: any) {
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('creditos' in changes) db.creditos = changes.creditos;
   if ('activa' in changes) db.activa = changes.activa;
+  if ('topeMensual' in changes) db.tope_mensual = changes.topeMensual;
   const { error } = await supabase.from('reward_rules').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateRewardRule]', error);
 }
