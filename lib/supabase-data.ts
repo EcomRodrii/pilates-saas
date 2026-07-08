@@ -975,7 +975,7 @@ export async function fetchAllStudioData() {
 
 // ─── Mappers: TS (camelCase) → DB (snake_case) ───────────────────────────────
 
-function socioToDb(socio: any) {
+function socioToDb(socio: Socio) {
   const {
     aceptacionContrato, studioId, fechaAlta, leadStage,
     stripeCustomerId, stripePaymentMethodId, fechaNacimiento, fotoUrl, referidoPor,
@@ -997,7 +997,7 @@ function socioToDb(socio: any) {
   };
 }
 
-function planTarifaToDb(plan: any) {
+function planTarifaToDb(plan: PlanTarifa) {
   return {
     id: plan.id,
     studio_id: plan.studioId ?? STUDIO_ID,
@@ -1010,7 +1010,7 @@ function planTarifaToDb(plan: any) {
   };
 }
 
-function suscripcionToDb(sus: any) {
+function suscripcionToDb(sus: Suscripcion) {
   return {
     id: sus.id,
     studio_id: sus.studioId ?? STUDIO_ID,
@@ -1024,7 +1024,7 @@ function suscripcionToDb(sus: any) {
   };
 }
 
-function sesionToDb(ses: any) {
+function sesionToDb(ses: Sesion) {
   return {
     id: ses.id,
     studio_id: ses.studioId ?? STUDIO_ID,
@@ -1040,7 +1040,7 @@ function sesionToDb(ses: any) {
   };
 }
 
-function reservaToDb(res: any) {
+function reservaToDb(res: Reserva) {
   return {
     id: res.id,
     studio_id: res.studioId ?? STUDIO_ID,
@@ -1054,7 +1054,7 @@ function reservaToDb(res: any) {
   };
 }
 
-function reciboToDb(rec: any) {
+function reciboToDb(rec: Recibo) {
   return {
     id: rec.id,
     studio_id: rec.studioId ?? STUDIO_ID,
@@ -1070,7 +1070,7 @@ function reciboToDb(rec: any) {
   };
 }
 
-function facturaToDb(fac: any) {
+function facturaToDb(fac: Factura) {
   return {
     id: fac.id,
     studio_id: fac.studioId ?? STUDIO_ID,
@@ -1087,7 +1087,7 @@ function facturaToDb(fac: any) {
   };
 }
 
-function citaToDb(cita: any) {
+function citaToDb(cita: Cita) {
   return {
     id: cita.id,
     studio_id: cita.studioId ?? STUDIO_ID,
@@ -1103,7 +1103,7 @@ function citaToDb(cita: any) {
   };
 }
 
-function ventaPOSToDb(venta: any) {
+function ventaPOSToDb(venta: VentaPOS) {
   return {
     id: venta.id,
     studio_id: venta.studioId ?? STUDIO_ID,
@@ -1118,7 +1118,7 @@ function ventaPOSToDb(venta: any) {
   };
 }
 
-function actividadRecienteToDb(act: any) {
+function actividadRecienteToDb(act: ActividadReciente) {
   return {
     id: act.id,
     studio_id: act.studioId ?? STUDIO_ID,
@@ -1131,7 +1131,7 @@ function actividadRecienteToDb(act: any) {
   };
 }
 
-function mensajeEquipoToDb(m: any) {
+function mensajeEquipoToDb(m: MensajeEquipo) {
   return {
     id: m.id,
     studio_id: m.studioId ?? STUDIO_ID,
@@ -1142,7 +1142,7 @@ function mensajeEquipoToDb(m: any) {
   };
 }
 
-function notaInternaToDb(nota: any) {
+function notaInternaToDb(nota: NotaInterna) {
   return {
     id: nota.id,
     studio_id: nota.studioId ?? STUDIO_ID,
@@ -1153,7 +1153,7 @@ function notaInternaToDb(nota: any) {
   };
 }
 
-function campanaToDb(c: any) {
+function campanaToDb(c: Campana) {
   return {
     id: c.id,
     studio_id: c.studioId ?? STUDIO_ID,
@@ -1172,7 +1172,7 @@ function campanaToDb(c: any) {
   };
 }
 
-function automatizacionToDb(a: any) {
+function automatizacionToDb(a: Automatizacion) {
   return {
     id: a.id,
     studio_id: a.studioId ?? STUDIO_ID,
@@ -1187,7 +1187,7 @@ function automatizacionToDb(a: any) {
   };
 }
 
-function videoOnDemandToDb(v: any) {
+function videoOnDemandToDb(v: VideoOnDemand) {
   return {
     id: v.id,
     studio_id: v.studioId ?? STUDIO_ID,
@@ -1204,7 +1204,7 @@ function videoOnDemandToDb(v: any) {
   };
 }
 
-function postComunidadToDb(p: any) {
+function postComunidadToDb(p: PostComunidad) {
   return {
     id: p.id,
     studio_id: p.studioId ?? STUDIO_ID,
@@ -1221,13 +1221,13 @@ function postComunidadToDb(p: any) {
 
 // ─── Write functions (fire-and-forget, errors logged to console) ──────────────
 
-export async function dbInsertSocio(socio: any) {
+export async function dbInsertSocio(socio: Socio) {
   const { error } = await supabase.from('socios').insert(socioToDb(socio));
   if (error) reportDbError('[dbInsertSocio]', error);
 }
 
-export async function dbUpdateSocio(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateSocio(id: string, changes: Partial<Socio>) {
+  const db: Record<string, unknown> = {};
   if ('studioId' in changes) db.studio_id = changes.studioId;
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('apellidos' in changes) db.apellidos = changes.apellidos;
@@ -1259,13 +1259,13 @@ export async function dbDeleteSocio(id: string) {
   if (error) reportDbError('[dbDeleteSocio]', error);
 }
 
-export async function dbInsertPlanTarifa(plan: any) {
+export async function dbInsertPlanTarifa(plan: PlanTarifa) {
   const { error } = await supabase.from('planes_tarifa').insert(planTarifaToDb(plan));
   if (error) reportDbError('[dbInsertPlanTarifa]', error);
 }
 
-export async function dbUpdatePlanTarifa(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('precio' in changes) db.precio = changes.precio;
@@ -1282,7 +1282,7 @@ export async function dbDeletePlanTarifa(id: string) {
 }
 
 // ── Productos POS ──────────────────────────────────────────────────────────────
-export async function dbInsertProductoPOS(prod: any) {
+export async function dbInsertProductoPOS(prod: ProductoPOS) {
   const { error } = await supabase.from('productos_pos').insert({
     id: prod.id,
     studio_id: prod.studioId ?? STUDIO_ID,
@@ -1293,8 +1293,8 @@ export async function dbInsertProductoPOS(prod: any) {
   });
   if (error) reportDbError('[dbInsertProductoPOS]', error);
 }
-export async function dbUpdateProductoPOS(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateProductoPOS(id: string, changes: Partial<ProductoPOS>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('categoria' in changes) db.categoria = changes.categoria;
   if ('precio' in changes) db.precio = changes.precio;
@@ -1307,13 +1307,13 @@ export async function dbDeleteProductoPOS(id: string) {
   if (error) reportDbError('[dbDeleteProductoPOS]', error);
 }
 
-export async function dbInsertSuscripcion(sus: any) {
+export async function dbInsertSuscripcion(sus: Suscripcion) {
   const { error } = await supabase.from('suscripciones').insert(suscripcionToDb(sus));
   if (error) reportDbError('[dbInsertSuscripcion]', error);
 }
 
-export async function dbUpdateSuscripcion(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateSuscripcion(id: string, changes: Partial<Suscripcion>) {
+  const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('planId' in changes) db.plan_id = changes.planId;
   if ('estado' in changes) db.estado = changes.estado;
@@ -1325,13 +1325,13 @@ export async function dbUpdateSuscripcion(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateSuscripcion]', error);
 }
 
-export async function dbInsertSesion(ses: any) {
+export async function dbInsertSesion(ses: Sesion) {
   const { error } = await supabase.from('sesiones').insert(sesionToDb(ses));
   if (error) reportDbError('[dbInsertSesion]', error);
 }
 
-export async function dbUpdateSesion(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateSesion(id: string, changes: Partial<Sesion>) {
+  const db: Record<string, unknown> = {};
   if ('tipoClaseId' in changes) db.tipo_clase_id = changes.tipoClaseId;
   if ('salaId' in changes) db.sala_id = changes.salaId;
   if ('instructorId' in changes) db.instructor_id = changes.instructorId;
@@ -1350,13 +1350,13 @@ export async function dbDeleteSesion(id: string) {
   if (error) reportDbError('[dbDeleteSesion]', error);
 }
 
-export async function dbInsertReserva(res: any) {
+export async function dbInsertReserva(res: Reserva) {
   const { error } = await supabase.from('reservas').insert(reservaToDb(res));
   if (error) reportDbError('[dbInsertReserva]', error);
 }
 
-export async function dbUpdateReserva(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
+  const db: Record<string, unknown> = {};
   if ('sesionId' in changes) db.sesion_id = changes.sesionId;
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('estado' in changes) db.estado = changes.estado;
@@ -1367,13 +1367,13 @@ export async function dbUpdateReserva(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateReserva]', error);
 }
 
-export async function dbInsertRecibo(rec: any) {
+export async function dbInsertRecibo(rec: Recibo) {
   const { error } = await supabase.from('recibos').insert(reciboToDb(rec));
   if (error) reportDbError('[dbInsertRecibo]', error);
 }
 
-export async function dbUpdateRecibo(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>) {
+  const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('suscripcionId' in changes) db.suscripcion_id = changes.suscripcionId;
   if ('concepto' in changes) db.concepto = changes.concepto;
@@ -1392,18 +1392,18 @@ export async function dbDeleteRecibo(id: string) {
   if (error) reportDbError('[dbDeleteRecibo]', error);
 }
 
-export async function dbInsertFactura(fac: any) {
+export async function dbInsertFactura(fac: Factura) {
   const { error } = await supabase.from('facturas').insert(facturaToDb(fac));
   if (error) reportDbError('[dbInsertFactura]', error);
 }
 
-export async function dbInsertCita(cita: any) {
+export async function dbInsertCita(cita: Cita) {
   const { error } = await supabase.from('citas').insert(citaToDb(cita));
   if (error) reportDbError('[dbInsertCita]', error);
 }
 
-export async function dbUpdateCita(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateCita(id: string, changes: Partial<Cita>) {
+  const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('instructorId' in changes) db.instructor_id = changes.instructorId;
   if ('tipo' in changes) db.tipo = changes.tipo;
@@ -1416,22 +1416,22 @@ export async function dbUpdateCita(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateCita]', error);
 }
 
-export async function dbInsertVentaPOS(venta: any) {
+export async function dbInsertVentaPOS(venta: VentaPOS) {
   const { error } = await supabase.from('ventas_pos').insert(ventaPOSToDb(venta));
   if (error) reportDbError('[dbInsertVentaPOS]', error);
 }
 
-export async function dbInsertActividadReciente(act: any) {
+export async function dbInsertActividadReciente(act: ActividadReciente) {
   const { error } = await supabase.from('actividad_reciente').insert(actividadRecienteToDb(act));
   if (error) reportDbError('[dbInsertActividadReciente]', error);
 }
 
-export async function dbInsertMensajeEquipo(m: any) {
+export async function dbInsertMensajeEquipo(m: MensajeEquipo) {
   const { error } = await supabase.from('mensajes_equipo').insert(mensajeEquipoToDb(m));
   if (error) reportDbError('[dbInsertMensajeEquipo]', error);
 }
 
-export async function dbUpsertPreferenciasSocio(p: any) {
+export async function dbUpsertPreferenciasSocio(p: PreferenciasSocio) {
   const row = {
     socio_id: p.socioId,
     studio_id: p.studioId ?? STUDIO_ID,
@@ -1450,7 +1450,7 @@ export async function dbUpsertPreferenciasSocio(p: any) {
 
 // ─── Gamificación: créditos y recompensas ────────────────────────────────────
 
-export async function dbInsertRewardRule(r: any) {
+export async function dbInsertRewardRule(r: RewardRule) {
   const row = {
     id: r.id, studio_id: r.studioId ?? STUDIO_ID, trigger: r.trigger, nombre: r.nombre,
     descripcion: r.descripcion ?? null, creditos: r.creditos, activa: r.activa, creado_en: r.creadoEn,
@@ -1459,8 +1459,8 @@ export async function dbInsertRewardRule(r: any) {
   if (error) reportDbError('[dbInsertRewardRule]', error);
 }
 
-export async function dbUpdateRewardRule(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('creditos' in changes) db.creditos = changes.creditos;
@@ -1469,7 +1469,7 @@ export async function dbUpdateRewardRule(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateRewardRule]', error);
 }
 
-export async function dbInsertRewardAction(a: any) {
+export async function dbInsertRewardAction(a: RewardAction) {
   const row = {
     id: a.id, studio_id: a.studioId ?? STUDIO_ID, socio_id: a.socioId, trigger: a.trigger,
     ref_id: a.refId ?? null, creado_en: a.creadoEn,
@@ -1479,7 +1479,7 @@ export async function dbInsertRewardAction(a: any) {
   return !error;
 }
 
-export async function dbInsertRewardHistory(h: any) {
+export async function dbInsertRewardHistory(h: RewardHistory) {
   const row = {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, rule_id: h.ruleId,
     action_id: h.actionId, creditos: h.creditos, descripcion: h.descripcion, creado_en: h.creadoEn,
@@ -1488,7 +1488,7 @@ export async function dbInsertRewardHistory(h: any) {
   if (error) reportDbError('[dbInsertRewardHistory]', error);
 }
 
-export async function dbInsertCreditTransaction(t: any) {
+export async function dbInsertCreditTransaction(t: CreditTransaction) {
   const row = {
     id: t.id, studio_id: t.studioId ?? STUDIO_ID, socio_id: t.socioId, tipo: t.tipo,
     creditos: t.creditos, descripcion: t.descripcion, ref_id: t.refId ?? null, creado_en: t.creadoEn,
@@ -1497,7 +1497,7 @@ export async function dbInsertCreditTransaction(t: any) {
   if (error) reportDbError('[dbInsertCreditTransaction]', error);
 }
 
-export async function dbUpsertMemberCredits(m: any) {
+export async function dbUpsertMemberCredits(m: MemberCredits) {
   const row = {
     socio_id: m.socioId, studio_id: m.studioId ?? STUDIO_ID, saldo: m.saldo,
     total_ganado: m.totalGanado, total_canjeado: m.totalCanjeado, actualizado_en: new Date().toISOString(),
@@ -1506,7 +1506,7 @@ export async function dbUpsertMemberCredits(m: any) {
   if (error) reportDbError('[dbUpsertMemberCredits]', error);
 }
 
-export async function dbInsertRewardCatalogItem(c: any) {
+export async function dbInsertRewardCatalogItem(c: RewardCatalogItem) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
     coste_creditos: c.costeCreditos, icono: c.icono, activo: c.activo, stock: c.stock ?? null, creado_en: c.creadoEn,
@@ -1515,8 +1515,8 @@ export async function dbInsertRewardCatalogItem(c: any) {
   if (error) reportDbError('[dbInsertRewardCatalogItem]', error);
 }
 
-export async function dbUpdateRewardCatalogItem(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateRewardCatalogItem(id: string, changes: Partial<RewardCatalogItem>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('costeCreditos' in changes) db.coste_creditos = changes.costeCreditos;
@@ -1532,7 +1532,7 @@ export async function dbDeleteRewardCatalogItem(id: string) {
   if (error) reportDbError('[dbDeleteRewardCatalogItem]', error);
 }
 
-export async function dbInsertRewardRedemption(r: any) {
+export async function dbInsertRewardRedemption(r: RewardRedemption) {
   const row = {
     id: r.id, studio_id: r.studioId ?? STUDIO_ID, socio_id: r.socioId, catalog_item_id: r.catalogItemId,
     creditos_gastados: r.creditosGastados, estado: r.estado, creado_en: r.creadoEn,
@@ -1541,8 +1541,8 @@ export async function dbInsertRewardRedemption(r: any) {
   if (error) reportDbError('[dbInsertRewardRedemption]', error);
 }
 
-export async function dbUpdateRewardRedemption(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateRewardRedemption(id: string, changes: Partial<RewardRedemption>) {
+  const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
   const { error } = await supabase.from('reward_redemptions').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateRewardRedemption]', error);
@@ -1550,7 +1550,7 @@ export async function dbUpdateRewardRedemption(id: string, changes: any) {
 
 // ─── Gamificación: logros ─────────────────────────────────────────────────────
 
-export async function dbInsertAchievementDefinition(a: any) {
+export async function dbInsertAchievementDefinition(a: AchievementDefinition) {
   const row = {
     id: a.id, studio_id: a.studioId ?? STUDIO_ID, metric: a.metric, nombre: a.nombre,
     descripcion: a.descripcion ?? null, umbral: a.umbral, icono: a.icono,
@@ -1560,8 +1560,8 @@ export async function dbInsertAchievementDefinition(a: any) {
   if (error) reportDbError('[dbInsertAchievementDefinition]', error);
 }
 
-export async function dbUpdateAchievementDefinition(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateAchievementDefinition(id: string, changes: Partial<AchievementDefinition>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('umbral' in changes) db.umbral = changes.umbral;
@@ -1572,7 +1572,7 @@ export async function dbUpdateAchievementDefinition(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateAchievementDefinition]', error);
 }
 
-export async function dbUpsertAchievementProgress(p: any) {
+export async function dbUpsertAchievementProgress(p: AchievementProgress) {
   const row = {
     id: p.id, studio_id: p.studioId ?? STUDIO_ID, socio_id: p.socioId, achievement_id: p.achievementId,
     progreso_actual: p.progresoActual, completado: p.completado, completado_en: p.completadoEn ?? null,
@@ -1581,7 +1581,7 @@ export async function dbUpsertAchievementProgress(p: any) {
   if (error) reportDbError('[dbUpsertAchievementProgress]', error);
 }
 
-export async function dbInsertAchievementHistory(h: any) {
+export async function dbInsertAchievementHistory(h: AchievementHistory) {
   const row = {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, achievement_id: h.achievementId,
     nombre: h.nombre, icono: h.icono, creado_en: h.creadoEn,
@@ -1603,7 +1603,7 @@ export async function dbInsertSoporteSolicitud(s: { id: string; tipo: string; me
   if (error) reportDbError('[dbInsertSoporteSolicitud]', error);
 }
 
-export async function dbInsertLevelDefinition(l: any) {
+export async function dbInsertLevelDefinition(l: LevelDefinition) {
   const row = {
     id: l.id, studio_id: l.studioId ?? STUDIO_ID, nombre: l.nombre, orden: l.orden,
     umbral_creditos: l.umbralCreditos, color: l.color, icono: l.icono,
@@ -1613,8 +1613,8 @@ export async function dbInsertLevelDefinition(l: any) {
   if (error) reportDbError('[dbInsertLevelDefinition]', error);
 }
 
-export async function dbUpdateLevelDefinition(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateLevelDefinition(id: string, changes: Partial<LevelDefinition>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('orden' in changes) db.orden = changes.orden;
   if ('umbralCreditos' in changes) db.umbral_creditos = changes.umbralCreditos;
@@ -1633,7 +1633,7 @@ export async function dbDeleteLevelDefinition(id: string) {
 
 // ─── Gamificación: retos ────────────────────────────────────────────────────────
 
-export async function dbInsertChallengeDefinition(c: any) {
+export async function dbInsertChallengeDefinition(c: ChallengeDefinition) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
     icono: c.icono, metric: c.metric, objetivo: c.objetivo, fecha_inicio: c.fechaInicio, fecha_fin: c.fechaFin,
@@ -1643,8 +1643,8 @@ export async function dbInsertChallengeDefinition(c: any) {
   if (error) reportDbError('[dbInsertChallengeDefinition]', error);
 }
 
-export async function dbUpdateChallengeDefinition(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateChallengeDefinition(id: string, changes: Partial<ChallengeDefinition>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('icono' in changes) db.icono = changes.icono;
@@ -1663,7 +1663,7 @@ export async function dbDeleteChallengeDefinition(id: string) {
   if (error) reportDbError('[dbDeleteChallengeDefinition]', error);
 }
 
-export async function dbUpsertChallengeProgress(p: any) {
+export async function dbUpsertChallengeProgress(p: ChallengeProgress) {
   const row = {
     id: p.id, studio_id: p.studioId ?? STUDIO_ID, socio_id: p.socioId, challenge_id: p.challengeId,
     progreso_actual: p.progresoActual, completado: p.completado, completado_en: p.completadoEn ?? null,
@@ -1672,7 +1672,7 @@ export async function dbUpsertChallengeProgress(p: any) {
   if (error) reportDbError('[dbUpsertChallengeProgress]', error);
 }
 
-export async function dbInsertChallengeHistory(h: any) {
+export async function dbInsertChallengeHistory(h: ChallengeHistory) {
   const row = {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, challenge_id: h.challengeId,
     nombre: h.nombre, icono: h.icono, creado_en: h.creadoEn,
@@ -1683,7 +1683,7 @@ export async function dbInsertChallengeHistory(h: any) {
 
 // ─── Dashboard: gráficos personalizados ────────────────────────────────────────
 
-export async function dbInsertDashboardChart(c: any) {
+export async function dbInsertDashboardChart(c: DashboardChart) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, tipo: c.tipo,
     metrica: c.metrica, agrupacion: c.agrupacion, rango: c.rango, color: c.color, creado_en: c.creadoEn,
@@ -1697,7 +1697,7 @@ export async function dbDeleteDashboardChart(id: string) {
   if (error) reportDbError('[dbDeleteDashboardChart]', error);
 }
 
-export async function dbInsertAutomationLog(log: any) {
+export async function dbInsertAutomationLog(log: AutomationLog) {
   const row = {
     id: log.id,
     studio_id: log.studioId ?? STUDIO_ID,
@@ -1717,8 +1717,8 @@ export async function dbInsertAutomationLog(log: any) {
   if (error) reportDbError('[dbInsertAutomationLog]', error);
 }
 
-export async function dbUpdateAutomationLog(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateAutomationLog(id: string, changes: Partial<AutomationLog>) {
+  const db: Record<string, unknown> = {};
   if ('resultado' in changes) db.resultado = changes.resultado;
   if ('detalle' in changes) db.detalle = changes.detalle;
   if ('proximaAccionEn' in changes) db.proxima_accion_en = changes.proximaAccionEn;
@@ -1726,7 +1726,7 @@ export async function dbUpdateAutomationLog(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateAutomationLog]', error);
 }
 
-export async function dbInsertAutomationRule(r: any) {
+export async function dbInsertAutomationRule(r: AutomationRule) {
   const row = {
     id: r.id, studio_id: r.studioId ?? STUDIO_ID, nombre: r.nombre, descripcion: r.descripcion,
     icono: r.icono, trigger: r.trigger, condicion: r.condicion ?? {}, pasos: r.pasos ?? [],
@@ -1737,8 +1737,8 @@ export async function dbInsertAutomationRule(r: any) {
   if (error) reportDbError('[dbInsertAutomationRule]', error);
 }
 
-export async function dbUpdateAutomationRule(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateAutomationRule(id: string, changes: Partial<AutomationRule>) {
+  const db: Record<string, unknown> = {};
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadaVeces' in changes) db.ejecutada_veces = changes.ejecutadaVeces;
   if ('ultimaEjecucion' in changes) db.ultima_ejecucion = changes.ultimaEjecucion;
@@ -1746,7 +1746,7 @@ export async function dbUpdateAutomationRule(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateAutomationRule]', error);
 }
 
-export async function dbInsertNotaInterna(nota: any) {
+export async function dbInsertNotaInterna(nota: NotaInterna) {
   const { error } = await supabase.from('notas_internas').insert(notaInternaToDb(nota));
   if (error) reportDbError('[dbInsertNotaInterna]', error);
 }
@@ -1756,13 +1756,13 @@ export async function dbDeleteNotaInterna(id: string) {
   if (error) reportDbError('[dbDeleteNotaInterna]', error);
 }
 
-export async function dbInsertCampana(c: any) {
+export async function dbInsertCampana(c: Campana) {
   const { error } = await supabase.from('campanas').insert(campanaToDb(c));
   if (error) reportDbError('[dbInsertCampana]', error);
 }
 
-export async function dbUpdateCampana(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateCampana(id: string, changes: Partial<Campana>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('tipo' in changes) db.tipo = changes.tipo;
   if ('asunto' in changes) db.asunto = changes.asunto;
@@ -1783,13 +1783,13 @@ export async function dbDeleteCampana(id: string) {
   if (error) reportDbError('[dbDeleteCampana]', error);
 }
 
-export async function dbInsertAutomatizacion(a: any) {
+export async function dbInsertAutomatizacion(a: Automatizacion) {
   const { error } = await supabase.from('automatizaciones').insert(automatizacionToDb(a));
   if (error) reportDbError('[dbInsertAutomatizacion]', error);
 }
 
-export async function dbUpdateAutomatizacion(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateAutomatizacion(id: string, changes: Partial<Automatizacion>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('trigger' in changes) db.trigger = changes.trigger;
   if ('accion' in changes) db.accion = changes.accion;
@@ -1806,13 +1806,13 @@ export async function dbDeleteAutomatizacion(id: string) {
   if (error) reportDbError('[dbDeleteAutomatizacion]', error);
 }
 
-export async function dbInsertVideoOnDemand(v: any) {
+export async function dbInsertVideoOnDemand(v: VideoOnDemand) {
   const { error } = await supabase.from('videos_on_demand').insert(videoOnDemandToDb(v));
   if (error) reportDbError('[dbInsertVideoOnDemand]', error);
 }
 
-export async function dbUpdateVideoOnDemand(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateVideoOnDemand(id: string, changes: Partial<VideoOnDemand>) {
+  const db: Record<string, unknown> = {};
   if ('titulo' in changes) db.titulo = changes.titulo;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('categoria' in changes) db.categoria = changes.categoria;
@@ -1831,13 +1831,13 @@ export async function dbDeleteVideoOnDemand(id: string) {
   if (error) reportDbError('[dbDeleteVideoOnDemand]', error);
 }
 
-export async function dbInsertPostComunidad(p: any) {
+export async function dbInsertPostComunidad(p: PostComunidad) {
   const { error } = await supabase.from('posts_comunidad').insert(postComunidadToDb(p));
   if (error) reportDbError('[dbInsertPostComunidad]', error);
 }
 
-export async function dbUpdatePostComunidad(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdatePostComunidad(id: string, changes: Partial<PostComunidad>) {
+  const db: Record<string, unknown> = {};
   if ('texto' in changes) db.texto = changes.texto;
   if ('likes' in changes) db.likes = changes.likes;
   if ('comentariosCount' in changes) db.comentarios_count = changes.comentariosCount;
@@ -1851,7 +1851,7 @@ export async function dbDeletePostComunidad(id: string) {
   if (error) reportDbError('[dbDeletePostComunidad]', error);
 }
 
-export async function dbUpsertIntegracion(intg: any) {
+export async function dbUpsertIntegracion(intg: Integracion) {
   const row = {
     id: intg.id,
     studio_id: intg.studioId ?? STUDIO_ID,
@@ -1864,7 +1864,7 @@ export async function dbUpsertIntegracion(intg: any) {
   if (error) reportDbError('[dbUpsertIntegracion]', error);
 }
 
-export async function dbInsertTipoClase(t: any) {
+export async function dbInsertTipoClase(t: TipoClase) {
   const row = {
     id: t.id, studio_id: t.studioId ?? STUDIO_ID, nombre: t.nombre, color: t.color,
     duracion_minutos: t.duracionMinutos, descripcion: t.descripcion ?? null, nivel: t.nivel,
@@ -1874,8 +1874,8 @@ export async function dbInsertTipoClase(t: any) {
   if (error) reportDbError('[dbInsertTipoClase]', error);
 }
 
-export async function dbUpdateTipoClase(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('color' in changes) db.color = changes.color;
   if ('duracionMinutos' in changes) db.duracion_minutos = changes.duracionMinutos;
@@ -1891,7 +1891,7 @@ export async function dbDeleteTipoClase(id: string) {
   if (error) reportDbError('[dbDeleteTipoClase]', error);
 }
 
-export async function dbInsertInstructor(i: any) {
+export async function dbInsertInstructor(i: Instructor) {
   const row = {
     id: i.id,
     studio_id: i.studioId ?? STUDIO_ID,
@@ -1908,8 +1908,8 @@ export async function dbInsertInstructor(i: any) {
   if (error) reportDbError('[dbInsertInstructor]', error);
 }
 
-export async function dbUpdateInstructor(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateInstructor(id: string, changes: Partial<Instructor>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('email' in changes) db.email = changes.email;
   if ('telefono' in changes) db.telefono = changes.telefono;
@@ -1938,8 +1938,8 @@ export async function dbClaimInstructorAccount(email: string, authUserId: string
   return data ? mapInstructor(data) : null;
 }
 
-export async function dbUpdateStudio(changes: any) {
-  const db: any = {};
+export async function dbUpdateStudio(changes: Partial<Studio>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('nif' in changes) db.nif = changes.nif;
   if ('razonSocial' in changes) db.razon_social = changes.razonSocial;

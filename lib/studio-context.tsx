@@ -1138,7 +1138,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     setRecibos(prev => prev.map(r =>
       r.id === reciboId ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
     ));
-    dbUpdateRecibo(reciboId, { estado: 'COBRADO', fecha_cobro: fechaCobro });
+    dbUpdateRecibo(reciboId, { estado: 'COBRADO', fechaCobro });
     setFacturas(prev => {
       // Avoid duplicate facturas for same recibo
       if (prev.some(f => f.reciboId === reciboId)) return prev;
@@ -1192,14 +1192,14 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     setRecibos(prev => prev.map(r =>
       r.id === reciboId ? { ...r, estado: 'DEVUELTO' as const, fechaDevolucion: fechaDev } : r
     ));
-    dbUpdateRecibo(reciboId, { estado: 'DEVUELTO', fecha_devolucion: fechaDev });
+    dbUpdateRecibo(reciboId, { estado: 'DEVUELTO', fechaDevolucion: fechaDev });
   }
 
   function reintentar(reciboId: string) {
     setRecibos(prev => prev.map(r => {
       if (r.id !== reciboId) return r;
       const updated = { ...r, estado: 'EN_CURSO' as const, intentosReintento: r.intentosReintento + 1 };
-      dbUpdateRecibo(reciboId, { estado: 'EN_CURSO', intentos_reintento: updated.intentosReintento });
+      dbUpdateRecibo(reciboId, { estado: 'EN_CURSO', intentosReintento: updated.intentosReintento });
       return updated;
     }));
   }
@@ -1650,7 +1650,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     const actualizado = memberCredits.find(m => m.socioId === socioId);
     dbUpsertMemberCredits(actualizado
       ? { ...actualizado, saldo: actualizado.saldo - item.costeCreditos, totalCanjeado: actualizado.totalCanjeado + item.costeCreditos }
-      : { socioId, studioId, saldo: -item.costeCreditos, totalGanado: 0, totalCanjeado: item.costeCreditos });
+      : { socioId, studioId, saldo: -item.costeCreditos, totalGanado: 0, totalCanjeado: item.costeCreditos, actualizadoEn: now });
 
     return { ok: true };
   }
