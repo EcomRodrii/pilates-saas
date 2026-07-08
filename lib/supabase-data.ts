@@ -825,7 +825,14 @@ function mapNotaInterna(r: RowNotasInternas): NotaInterna {
 
 // ─── Fetch all studio data in parallel ───────────────────────────────────────
 
-export async function fetchAllStudioData() {
+// ── Carga en dos olas (Fase C: lazy-load) ────────────────────────────────────
+// El arranque no debe bloquearse esperando tablas de historial/logs que crecen
+// sin límite y solo se muestran (ninguna lógica de negocio las lee). Se dividen:
+//   · fetchCriticalStudioData(): todo lo necesario para pintar y operar.
+//   · fetchDeferredStudioData(): historial/logs, cargado en una 2ª ola.
+// fetchAllStudioData() combina ambas (lo usa el cron, que sí necesita todo).
+
+export async function fetchCriticalStudioData() {
   const [
     studioRes,
     usuariosRes,
@@ -847,7 +854,6 @@ export async function fetchAllStudioData() {
     automatizacionesRes,
     automationRulesRes,
     automationLogsRes,
-    notasProgresoRes,
     codigosDescuentoRes,
     actividadRecienteRes,
     notificacionesRes,
@@ -859,20 +865,15 @@ export async function fetchAllStudioData() {
     preferenciasSocioRes,
     rewardRulesRes,
     rewardActionsRes,
-    rewardHistoryRes,
-    creditTransactionsRes,
     memberCreditsRes,
     rewardCatalogRes,
     rewardRedemptionsRes,
     achievementDefinitionsRes,
     achievementProgressRes,
-    achievementHistoryRes,
     levelDefinitionsRes,
     challengeDefinitionsRes,
     challengeProgressRes,
-    challengeHistoryRes,
     dashboardChartsRes,
-    backupsRes,
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
     supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
@@ -894,7 +895,6 @@ export async function fetchAllStudioData() {
     supabase.from('automatizaciones').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('automation_rules').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('automation_logs').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('notas_progreso').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('codigos_descuento').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('actividad_reciente').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('notificaciones').select('*').eq('studio_id', STUDIO_ID),
@@ -906,20 +906,15 @@ export async function fetchAllStudioData() {
     supabase.from('preferencias_socio').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('reward_rules').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('reward_actions').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('reward_history').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('credit_transactions').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('member_credits').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('reward_catalog').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('reward_redemptions').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('achievement_definitions').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('achievement_progress').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('achievement_history').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('level_definitions').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('challenge_definitions').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('challenge_progress').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('challenge_history').select('*').eq('studio_id', STUDIO_ID),
     supabase.from('dashboard_charts').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('backups').select('id, studio_id, tipo, creado_en').eq('studio_id', STUDIO_ID).order('creado_en', { ascending: false }),
   ]);
 
   return {
@@ -943,7 +938,6 @@ export async function fetchAllStudioData() {
     automatizaciones: (automatizacionesRes.data ?? []).map(mapAutomatizacion),
     automationRules: (automationRulesRes.data ?? []).map(mapAutomationRule),
     automationLogs: (automationLogsRes.data ?? []).map(mapAutomationLog),
-    notasProgreso: (notasProgresoRes.data ?? []).map(mapNotaProgreso),
     codigosDescuento: (codigosDescuentoRes.data ?? []).map(mapCodigoDescuento),
     actividadReciente: (actividadRecienteRes.data ?? []).map(mapActividadReciente),
     notificaciones: (notificacionesRes.data ?? []).map(mapNotificacion),
@@ -955,23 +949,54 @@ export async function fetchAllStudioData() {
     preferenciasSocio: (preferenciasSocioRes.data ?? []).map(mapPreferenciasSocio),
     rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
     rewardActions: (rewardActionsRes.data ?? []).map(mapRewardAction),
-    rewardHistory: (rewardHistoryRes.data ?? []).map(mapRewardHistory),
-    creditTransactions: (creditTransactionsRes.data ?? []).map(mapCreditTransaction),
     memberCredits: (memberCreditsRes.data ?? []).map(mapMemberCredits),
     rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
     rewardRedemptions: (rewardRedemptionsRes.data ?? []).map(mapRewardRedemption),
     achievementDefinitions: (achievementDefinitionsRes.data ?? []).map(mapAchievementDefinition),
     achievementProgress: (achievementProgressRes.data ?? []).map(mapAchievementProgress),
-    achievementHistory: (achievementHistoryRes.data ?? []).map(mapAchievementHistory),
     levelDefinitions: (levelDefinitionsRes.data ?? []).map(mapLevelDefinition),
     challengeDefinitions: (challengeDefinitionsRes.data ?? []).map(mapChallengeDefinition),
     challengeProgress: (challengeProgressRes.data ?? []).map(mapChallengeProgress),
-    challengeHistory: (challengeHistoryRes.data ?? []).map(mapChallengeHistory),
     dashboardCharts: (dashboardChartsRes.data ?? []).map(mapDashboardChart),
+  };
+}
+
+export async function fetchDeferredStudioData() {
+  const [
+    rewardHistoryRes,
+    creditTransactionsRes,
+    achievementHistoryRes,
+    challengeHistoryRes,
+    notasProgresoRes,
+    backupsRes,
+  ] = await Promise.all([
+    supabase.from('reward_history').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('credit_transactions').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('achievement_history').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('challenge_history').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('notas_progreso').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('backups').select('id, studio_id, tipo, creado_en').eq('studio_id', STUDIO_ID).order('creado_en', { ascending: false }),
+  ]);
+
+  return {
+    rewardHistory: (rewardHistoryRes.data ?? []).map(mapRewardHistory),
+    creditTransactions: (creditTransactionsRes.data ?? []).map(mapCreditTransaction),
+    achievementHistory: (achievementHistoryRes.data ?? []).map(mapAchievementHistory),
+    challengeHistory: (challengeHistoryRes.data ?? []).map(mapChallengeHistory),
+    notasProgreso: (notasProgresoRes.data ?? []).map(mapNotaProgreso),
     // La query de backups usa un select estrecho (excluye la columna 'datos'
     // pesada); afirmamos la fila para el mapper.
     backups: (backupsRes.data ?? []).map(r => mapBackupMeta(r as RowBackups)),
   };
+}
+
+// Combina ambas olas. Lo usa el cron de automatizaciones, que necesita todo.
+export async function fetchAllStudioData() {
+  const [critical, deferred] = await Promise.all([
+    fetchCriticalStudioData(),
+    fetchDeferredStudioData(),
+  ]);
+  return { ...critical, ...deferred };
 }
 
 // ─── Mappers: TS (camelCase) → DB (snake_case) ───────────────────────────────

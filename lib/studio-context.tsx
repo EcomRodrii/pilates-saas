@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import {
-  fetchAllStudioData,
+  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion,
@@ -472,7 +472,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       } else {
         setCurrentStudioId('');
       }
-      return fetchAllStudioData();
+      return fetchCriticalStudioData();
     })().then(data => {
       setPlanesTarifa(data.planesTarifa);
       setSalas(data.salas);
@@ -501,25 +501,31 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
-      setRewardHistory(data.rewardHistory ?? []);
-      setCreditTransactions(data.creditTransactions ?? []);
       setMemberCredits(data.memberCredits ?? []);
       setRewardCatalog(data.rewardCatalog ?? []);
       setRewardRedemptions(data.rewardRedemptions ?? []);
       setAchievementDefinitions(data.achievementDefinitions ?? []);
       setAchievementProgress(data.achievementProgress ?? []);
-      setAchievementHistory(data.achievementHistory ?? []);
       setLevelDefinitions(data.levelDefinitions ?? []);
       setChallengeDefinitions(data.challengeDefinitions ?? []);
       setChallengeProgress(data.challengeProgress ?? []);
-      setChallengeHistory(data.challengeHistory ?? []);
       setDashboardCharts(data.dashboardCharts ?? []);
-      setBackups(data.backups ?? []);
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
-      setNotasProgreso(data.notasProgreso);
       setStudio(data.studio);
       setDataLoaded(true);
+
+      // 2ª ola (Fase C): historial/logs. No bloquea el primer pintado; estas
+      // vistas se rellenan un instante después. Ninguna lógica de negocio las
+      // lee, así que el hueco no cambia comportamiento.
+      fetchDeferredStudioData().then(def => {
+        setRewardHistory(def.rewardHistory);
+        setCreditTransactions(def.creditTransactions);
+        setAchievementHistory(def.achievementHistory);
+        setChallengeHistory(def.challengeHistory);
+        setNotasProgreso(def.notasProgreso);
+        setBackups(def.backups);
+      }).catch(err => console.error('Error cargando datos diferidos:', err));
     }).catch(err => {
       console.error('Error fetching Supabase data:', err);
       setDataLoaded(true);
