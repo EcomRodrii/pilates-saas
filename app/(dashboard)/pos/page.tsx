@@ -97,17 +97,17 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         {/* Modal header */}
-        <div className="px-6 py-5 border-b border-[#E7E7E0]">
+        <div className="px-6 py-5 border-b border-border">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-[16px] font-semibold text-[#1A1A1A]">Resumen de caja</h2>
-              <p className="text-[12px] text-[#8E8E86] mt-0.5 capitalize">{fechaLabel}</p>
+              <h2 className="text-[16px] font-semibold text-foreground">Resumen de caja</h2>
+              <p className="text-[12px] text-muted-foreground mt-0.5 capitalize">{fechaLabel}</p>
             </div>
             <button
               onClick={onClose}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#A8A89F] hover:text-[#1A1A1A] hover:bg-[#EEEEE8] transition-colors"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#A8A89F] hover:text-foreground hover:bg-background transition-colors"
             >
               <X size={14} />
             </button>
@@ -115,13 +115,13 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
         </div>
 
         {/* Summary stats */}
-        <div className="px-6 py-4 bg-[#EEEEE8] border-b border-[#E7E7E0]">
+        <div className="px-6 py-4 bg-background border-b border-border">
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white rounded-xl px-4 py-3 border border-[#E7E7E0]">
+            <div className="bg-card rounded-xl px-4 py-3 border border-border">
               <p className="text-[11px] text-[#A8A89F] uppercase tracking-wide mb-1">Transacciones</p>
-              <p className="text-[22px] font-bold text-[#1A1A1A]">{ventasHoy.length}</p>
+              <p className="text-[22px] font-bold text-foreground">{ventasHoy.length}</p>
             </div>
-            <div className="bg-white rounded-xl px-4 py-3 border border-[#E7E7E0]">
+            <div className="bg-card rounded-xl px-4 py-3 border border-border">
               <p className="text-[11px] text-[#A8A89F] uppercase tracking-wide mb-1">Total recaudado</p>
               <p className="text-[22px] font-bold text-[#059669]">{grandTotal.toFixed(2)} €</p>
             </div>
@@ -132,7 +132,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
         <div className="px-6 py-4">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="text-[#A8A89F] border-b border-[#E7E7E0]">
+              <tr className="text-[#A8A89F] border-b border-border">
                 <th className="text-left pb-2 font-medium">Método de pago</th>
                 <th className="text-center pb-2 font-medium">Operaciones</th>
                 <th className="text-right pb-2 font-medium">Total</th>
@@ -140,18 +140,18 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
             </thead>
             <tbody>
               {breakdown.map(row => (
-                <tr key={row.value} className={cn('border-b border-[#E7E7E0] last:border-0', row.count === 0 && 'opacity-40')}>
-                  <td className="py-2.5 text-[#1A1A1A] font-medium">{row.label}</td>
-                  <td className="py-2.5 text-center text-[#8E8E86]">{row.count}</td>
-                  <td className="py-2.5 text-right font-semibold text-[#1A1A1A]">
+                <tr key={row.value} className={cn('border-b border-border last:border-0', row.count === 0 && 'opacity-40')}>
+                  <td className="py-2.5 text-foreground font-medium">{row.label}</td>
+                  <td className="py-2.5 text-center text-muted-foreground">{row.count}</td>
+                  <td className="py-2.5 text-right font-semibold text-foreground">
                     {row.total.toFixed(2)} €
                   </td>
                 </tr>
               ))}
               {/* Grand total */}
               <tr className="border-t-2 border-[#1A1A1A]">
-                <td className="pt-3 pb-1 font-bold text-[#1A1A1A]">Total caja</td>
-                <td className="pt-3 pb-1 text-center font-bold text-[#1A1A1A]">{ventasHoy.length}</td>
+                <td className="pt-3 pb-1 font-bold text-foreground">Total caja</td>
+                <td className="pt-3 pb-1 text-center font-bold text-foreground">{ventasHoy.length}</td>
                 <td className="pt-3 pb-1 text-right font-bold text-[16px] text-[#059669]">
                   {grandTotal.toFixed(2)} €
                 </td>
@@ -161,26 +161,26 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
         </div>
 
         {/* Footer actions */}
-        <div className="px-6 py-4 border-t border-[#E7E7E0] flex gap-2">
+        <div className="px-6 py-4 border-t border-border flex gap-2">
           <div className="relative">
             <button
               disabled
               onMouseEnter={() => setShowPrintTooltip(true)}
               onMouseLeave={() => setShowPrintTooltip(false)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E7E7E0] text-[13px] font-medium text-[#A8A89F] cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-[13px] font-medium text-[#A8A89F] cursor-not-allowed"
             >
               <Printer size={14} />
               Imprimir
             </button>
             {showPrintTooltip && (
-              <div className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 bg-[#FFC8E2] text-[#171717] text-[11px] rounded-lg whitespace-nowrap">
+              <div className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 bg-brand text-brand-foreground text-[11px] rounded-lg whitespace-nowrap">
                 Próximamente
               </div>
             )}
           </div>
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[13px] font-semibold hover:bg-[#F7B3D2] transition-colors"
+            className="flex-1 py-2 rounded-lg bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-colors"
           >
             Cerrar
           </button>
@@ -199,12 +199,12 @@ type SuccessOverlayProps = {
 
 function SuccessOverlay({ total, metodoPago }: SuccessOverlayProps) {
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 text-center bg-white rounded-lg animate-in fade-in duration-200">
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 text-center bg-card rounded-lg animate-in fade-in duration-200">
       <div className="w-16 h-16 rounded-full bg-[#ECFDF5] flex items-center justify-center animate-in zoom-in-50 duration-300">
         <CheckCircle2 size={36} className="text-[#059669]" />
       </div>
-      <p className="text-[16px] font-semibold text-[#1A1A1A]">¡Cobrado!</p>
-      <p className="text-[13px] text-[#8E8E86]">
+      <p className="text-[16px] font-semibold text-foreground">¡Cobrado!</p>
+      <p className="text-[13px] text-muted-foreground">
         {total.toFixed(2)} € · {METODO_LABEL[metodoPago] ?? metodoPago}
       </p>
     </div>
@@ -377,24 +377,24 @@ export default function POSPage() {
   const todayTotal = todayGroup ? todayGroup.ventas.reduce((s, v) => s + v.total, 0) : 0;
 
   return (
-    <div className="fixed inset-0 lg:left-56 top-14 lg:top-0 flex flex-col overflow-hidden" style={{ backgroundColor: '#EEEEE8', zIndex: 10 }}>
+    <div className="fixed inset-0 lg:left-56 top-14 lg:top-0 flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--background)', zIndex: 10 }}>
       {/* Header */}
-      <div className="shrink-0 px-6 py-4 border-b border-[#E7E7E0] bg-[#EEEEE8]">
+      <div className="shrink-0 px-6 py-4 border-b border-border bg-background">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[18px] font-semibold text-[#1A1A1A]">Punto de Venta</h1>
-            <p className="text-[13px] text-[#8E8E86] mt-0.5">Terminal de cobro rápido</p>
+            <h1 className="text-[18px] font-semibold text-foreground">Punto de Venta</h1>
+            <p className="text-[13px] text-muted-foreground mt-0.5">Terminal de cobro rápido</p>
           </div>
           <p className="text-[12px] text-[#A8A89F] hidden sm:block">↵ Enter para cobrar cuando el carrito está listo</p>
         </div>
       </div>
 
       {/* Daily cash summary bar */}
-      <div className="shrink-0 px-6 py-2 border-b border-[#E7E7E0] bg-white flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 text-[12px] text-[#8E8E86]">
+      <div className="shrink-0 px-6 py-2 border-b border-border bg-card flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
           <span>
-            <span className="font-semibold text-[#1A1A1A]">Hoy:</span>{' '}
-            <span className="font-semibold text-[#1A1A1A]">{ventasHoy.length}</span>{' '}
+            <span className="font-semibold text-foreground">Hoy:</span>{' '}
+            <span className="font-semibold text-foreground">{ventasHoy.length}</span>{' '}
             {ventasHoy.length === 1 ? 'venta' : 'ventas'}
           </span>
           <span className="text-[#E7E7E0]">·</span>
@@ -415,23 +415,23 @@ export default function POSPage() {
         </div>
         <button
           onClick={() => setShowCerrarCaja(true)}
-          className="shrink-0 px-3 py-1.5 rounded-lg border border-[#E7E7E0] text-[12px] font-medium text-[#8E8E86] hover:border-[#1A1A1A] hover:text-[#1A1A1A] transition-colors"
+          className="shrink-0 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-muted-foreground hover:border-[#1A1A1A] hover:text-foreground transition-colors"
         >
           Cerrar caja
         </button>
       </div>
 
       {/* Mobile tab switcher - hidden on desktop */}
-      <div className="lg:hidden shrink-0 flex items-center gap-1 px-4 py-2 bg-white border-b border-[#E7E7E0]">
+      <div className="lg:hidden shrink-0 flex items-center gap-1 px-4 py-2 bg-card border-b border-border">
         <button
           onClick={() => setPosView('catalog')}
-          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors ${posView === 'catalog' ? 'bg-[#FFC8E2] text-[#171717]' : 'text-[#8E8E86]'}`}
+          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors ${posView === 'catalog' ? 'bg-brand text-brand-foreground' : 'text-muted-foreground'}`}
         >
           Catálogo
         </button>
         <button
           onClick={() => setPosView('cart')}
-          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors relative ${posView === 'cart' ? 'bg-[#FFC8E2] text-[#171717]' : 'text-[#8E8E86]'}`}
+          className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors relative ${posView === 'cart' ? 'bg-brand text-brand-foreground' : 'text-muted-foreground'}`}
         >
           Carrito
           {carrito.length > 0 && (
@@ -446,7 +446,7 @@ export default function POSPage() {
       <div className="flex-1 flex overflow-hidden">
 
         {/* ── Left: Catalog (60%) ────────────────────────────────────────── */}
-        <div className={`${posView === 'cart' ? 'hidden' : 'flex'} lg:flex w-full lg:w-[60%] flex-col border-r border-[#E7E7E0] overflow-hidden bg-[#EEEEE8]`}>
+        <div className={`${posView === 'cart' ? 'hidden' : 'flex'} lg:flex w-full lg:w-[60%] flex-col border-r border-border overflow-hidden bg-background`}>
           {/* Search */}
           <div className="shrink-0 px-4 pt-4 pb-3">
             <div className="relative">
@@ -456,7 +456,7 @@ export default function POSPage() {
                 placeholder="Buscar producto..."
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 rounded-lg border border-[#E7E7E0] text-[13px] bg-white placeholder:text-[#A8A89F] text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors"
+                className="w-full pl-8 pr-3 py-2 rounded-lg border border-border text-[13px] bg-card placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors"
               />
             </div>
           </div>
@@ -470,8 +470,8 @@ export default function POSPage() {
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors',
                   tab === t.value
-                    ? 'bg-[#FFC8E2] text-[#171717]'
-                    : 'bg-white border border-[#E7E7E0] text-[#8E8E86] hover:text-[#1A1A1A]'
+                    ? 'bg-brand text-brand-foreground'
+                    : 'bg-card border border-border text-muted-foreground hover:text-foreground'
                 )}
               >
                 {t.label}
@@ -486,16 +486,16 @@ export default function POSPage() {
                 <button
                   key={p.id}
                   onClick={() => addToCart(p)}
-                  className="bg-white border border-[#E7E7E0] rounded-xl p-3 text-left hover:border-[#1A1A1A] hover:shadow-sm transition-all group"
+                  className="bg-card border border-border rounded-xl p-3 text-left hover:border-[#1A1A1A] hover:shadow-sm transition-all group"
                 >
-                  <p className="text-[13px] font-medium text-[#1A1A1A] leading-snug mb-2 line-clamp-2">
+                  <p className="text-[13px] font-medium text-foreground leading-snug mb-2 line-clamp-2">
                     {p.nombre}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-semibold text-[#1A1A1A]">
+                    <span className="text-[13px] font-semibold text-foreground">
                       {p.precio.toFixed(2)} €
                     </span>
-                    <span className="w-6 h-6 rounded-full bg-[#EEEEE8] group-hover:bg-[#1A1A1A] group-hover:text-white flex items-center justify-center transition-colors">
+                    <span className="w-6 h-6 rounded-full bg-background group-hover:bg-[#1A1A1A] group-hover:text-white flex items-center justify-center transition-colors">
                       <Plus size={12} />
                     </span>
                   </div>
@@ -512,12 +512,12 @@ export default function POSPage() {
         </div>
 
         {/* ── Right: Cart (40%) ──────────────────────────────────────────── */}
-        <div className={`${posView === 'catalog' ? 'hidden' : 'flex'} lg:flex w-full lg:w-[40%] flex-col bg-white overflow-hidden relative`}>
-          <div className="shrink-0 px-4 py-3 border-b border-[#E7E7E0] flex items-center gap-2">
-            <ShoppingCart size={15} className="text-[#8E8E86]" />
-            <h2 className="text-[14px] font-semibold text-[#1A1A1A]">Ticket actual</h2>
+        <div className={`${posView === 'catalog' ? 'hidden' : 'flex'} lg:flex w-full lg:w-[40%] flex-col bg-card overflow-hidden relative`}>
+          <div className="shrink-0 px-4 py-3 border-b border-border flex items-center gap-2">
+            <ShoppingCart size={15} className="text-muted-foreground" />
+            <h2 className="text-[14px] font-semibold text-foreground">Ticket actual</h2>
             {carrito.length > 0 && (
-              <span className="ml-auto text-[11px] bg-[#FFC8E2] text-[#171717] rounded-full px-2 py-0.5">
+              <span className="ml-auto text-[11px] bg-brand text-brand-foreground rounded-full px-2 py-0.5">
                 {carrito.reduce((s, i) => s + i.cantidad, 0)}
               </span>
             )}
@@ -536,27 +536,27 @@ export default function POSPage() {
               </div>
             ) : (
               carrito.map(item => (
-                <div key={item.producto.id} className="flex items-center gap-2 py-2 border-b border-[#E7E7E0] last:border-0">
+                <div key={item.producto.id} className="flex items-center gap-2 py-2 border-b border-border last:border-0">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-[#1A1A1A] truncate">{item.producto.nombre}</p>
-                    <p className="text-[12px] text-[#8E8E86]">{item.producto.precio.toFixed(2)} € c/u</p>
+                    <p className="text-[13px] font-medium text-foreground truncate">{item.producto.nombre}</p>
+                    <p className="text-[12px] text-muted-foreground">{item.producto.precio.toFixed(2)} € c/u</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => changeQty(item.producto.id, -1)}
-                      className="w-6 h-6 rounded-md border border-[#E7E7E0] flex items-center justify-center hover:bg-[#EEEEE8] transition-colors"
+                      className="w-6 h-6 rounded-md border border-border flex items-center justify-center hover:bg-background transition-colors"
                     >
                       <Minus size={10} />
                     </button>
-                    <span className="w-6 text-center text-[13px] font-medium text-[#1A1A1A]">{item.cantidad}</span>
+                    <span className="w-6 text-center text-[13px] font-medium text-foreground">{item.cantidad}</span>
                     <button
                       onClick={() => changeQty(item.producto.id, 1)}
-                      className="w-6 h-6 rounded-md border border-[#E7E7E0] flex items-center justify-center hover:bg-[#EEEEE8] transition-colors"
+                      className="w-6 h-6 rounded-md border border-border flex items-center justify-center hover:bg-background transition-colors"
                     >
                       <Plus size={10} />
                     </button>
                   </div>
-                  <span className="w-14 text-right text-[13px] font-semibold text-[#1A1A1A] shrink-0">
+                  <span className="w-14 text-right text-[13px] font-semibold text-foreground shrink-0">
                     {(item.producto.precio * item.cantidad).toFixed(2)} €
                   </span>
                   <button
@@ -572,12 +572,12 @@ export default function POSPage() {
 
           {/* Bottom panel */}
           {!showSuccess && (
-            <div className="shrink-0 border-t border-[#E7E7E0] px-4 py-3 space-y-3">
+            <div className="shrink-0 border-t border-border px-4 py-3 space-y-3">
               {/* Client selector */}
               <div className="relative">
                 {clienteSeleccionado ? (
-                  <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-[#E7E7E0] bg-[#EEEEE8]">
-                    <span className="text-[13px] text-[#1A1A1A]">
+                  <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background">
+                    <span className="text-[13px] text-foreground">
                       {clienteSeleccionado.nombre} {clienteSeleccionado.apellidos}
                     </span>
                     <button
@@ -594,15 +594,15 @@ export default function POSPage() {
                       placeholder="Buscar socia... (opcional)"
                       value={busquedaCliente}
                       onChange={e => setBusquedaCliente(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-[#E7E7E0] text-[13px] placeholder:text-[#A8A89F] text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors"
+                      className="w-full px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors"
                     />
                     {sociosFiltrados.length > 0 && (
-                      <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-[#E7E7E0] rounded-lg shadow-md overflow-hidden z-10">
+                      <div className="absolute bottom-full left-0 right-0 mb-1 bg-card border border-border rounded-lg shadow-md overflow-hidden z-10">
                         {sociosFiltrados.map(s => (
                           <button
                             key={s.id}
                             onClick={() => { setClienteId(s.id); setBusquedaCliente(''); }}
-                            className="w-full text-left px-3 py-2 text-[13px] text-[#1A1A1A] hover:bg-[#EEEEE8] transition-colors"
+                            className="w-full text-left px-3 py-2 text-[13px] text-foreground hover:bg-background transition-colors"
                           >
                             {s.nombre} {s.apellidos}
                           </button>
@@ -621,11 +621,11 @@ export default function POSPage() {
                   value={descuento}
                   onChange={e => setDescuento(e.target.value)}
                   min={0}
-                  className="flex-1 px-3 py-2 rounded-lg border border-[#E7E7E0] text-[13px] placeholder:text-[#A8A89F] text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors"
+                  className="flex-1 px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors"
                 />
                 <button
                   onClick={() => setDescuentoTipo(t => t === '€' ? '%' : '€')}
-                  className="px-3 py-2 rounded-lg border border-[#E7E7E0] text-[13px] font-medium text-[#8E8E86] hover:border-[#1A1A1A] hover:text-[#1A1A1A] transition-colors w-12"
+                  className="px-3 py-2 rounded-lg border border-border text-[13px] font-medium text-muted-foreground hover:border-[#1A1A1A] hover:text-foreground transition-colors w-12"
                 >
                   {descuentoTipo}
                 </button>
@@ -633,7 +633,7 @@ export default function POSPage() {
 
               {/* Totals */}
               <div className="space-y-1 text-[13px]">
-                <div className="flex justify-between text-[#8E8E86]">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
                   <span>{subtotal.toFixed(2)} €</span>
                 </div>
@@ -643,7 +643,7 @@ export default function POSPage() {
                     <span>−{descuentoAmt.toFixed(2)} €</span>
                   </div>
                 )}
-                <div className="flex justify-between font-semibold text-[#1A1A1A] text-[15px] pt-1 border-t border-[#E7E7E0]">
+                <div className="flex justify-between font-semibold text-foreground text-[15px] pt-1 border-t border-border">
                   <span>Total</span>
                   <span>{total.toFixed(2)} €</span>
                 </div>
@@ -658,8 +658,8 @@ export default function POSPage() {
                     className={cn(
                       'py-1.5 rounded-lg text-[12px] font-medium border transition-colors',
                       metodoPago === m.value
-                        ? 'bg-[#FFC8E2] text-[#171717] border-[#1A1A1A]'
-                        : 'bg-white border-[#E7E7E0] text-[#8E8E86] hover:border-[#1A1A1A] hover:text-[#1A1A1A]'
+                        ? 'bg-brand text-brand-foreground border-[#1A1A1A]'
+                        : 'bg-card border-border text-muted-foreground hover:border-[#1A1A1A] hover:text-foreground'
                     )}
                   >
                     {m.label}
@@ -671,7 +671,7 @@ export default function POSPage() {
               <div className="flex gap-2">
                 <button
                   onClick={clearCart}
-                  className="flex-1 py-2 rounded-lg border border-[#E7E7E0] bg-white text-[13px] font-medium text-[#8E8E86] hover:text-[#1A1A1A] hover:border-[#1A1A1A] transition-colors"
+                  className="flex-1 py-2 rounded-lg border border-border bg-card text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-[#1A1A1A] transition-colors"
                 >
                   Cancelar
                 </button>
@@ -681,7 +681,7 @@ export default function POSPage() {
                   className={cn(
                     'flex-[2] py-2 rounded-lg text-[13px] font-semibold transition-colors',
                     carrito.length > 0
-                      ? 'bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2]'
+                      ? 'bg-brand text-brand-foreground hover:brightness-95'
                       : 'bg-[#E7E7E0] text-[#A8A89F] cursor-not-allowed'
                   )}
                 >
@@ -694,12 +694,12 @@ export default function POSPage() {
       </div>
 
       {/* ── Recent sales ─────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-[#E7E7E0] bg-white max-h-[220px] flex flex-col">
-        <div className="px-6 py-3 border-b border-[#E7E7E0] flex items-center justify-between shrink-0">
-          <h3 className="text-[13px] font-semibold text-[#1A1A1A]">Ventas recientes</h3>
+      <div className="shrink-0 border-t border-border bg-card max-h-[220px] flex flex-col">
+        <div className="px-6 py-3 border-b border-border flex items-center justify-between shrink-0">
+          <h3 className="text-[13px] font-semibold text-foreground">Ventas recientes</h3>
           <Link
             href="/pagos"
-            className="flex items-center gap-1 text-[12px] text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
+            className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
           >
             Ver todas las ventas
             <ChevronRight size={12} />
@@ -707,8 +707,8 @@ export default function POSPage() {
         </div>
         <div className="overflow-auto flex-1">
           <table className="w-full text-[12px]">
-            <thead className="sticky top-0 bg-white z-10">
-              <tr className="text-[#A8A89F] border-b border-[#E7E7E0]">
+            <thead className="sticky top-0 bg-card z-10">
+              <tr className="text-[#A8A89F] border-b border-border">
                 <th className="text-left px-3 sm:px-6 py-2 font-medium">Fecha / Hora</th>
                 <th className="text-left px-3 py-2 font-medium">Cliente</th>
                 <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Artículos</th>
@@ -728,16 +728,16 @@ export default function POSPage() {
               {dateGroups.map(group => (
                 <React.Fragment key={group.dateKey}>
                   {/* Date separator */}
-                  <tr className="bg-[#EEEEE8] sm:hidden">
-                    <td colSpan={2} className="px-3 py-1.5 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide">
+                  <tr className="bg-background sm:hidden">
+                    <td colSpan={2} className="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                       {group.label}
                     </td>
                     <td colSpan={2} className="px-3 py-1.5 text-right text-[11px] text-[#A8A89F]">
                       {group.ventas.length} {group.ventas.length === 1 ? 'venta' : 'ventas'}
                     </td>
                   </tr>
-                  <tr className="bg-[#EEEEE8] hidden sm:table-row">
-                    <td colSpan={4} className="px-6 py-1.5 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide">
+                  <tr className="bg-background hidden sm:table-row">
+                    <td colSpan={4} className="px-6 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                       {group.label}
                     </td>
                     <td colSpan={2} className="px-6 py-1.5 text-right text-[11px] text-[#A8A89F]">
@@ -752,18 +752,18 @@ export default function POSPage() {
                       : 'Cliente sin registrar';
                     const fechaHora = formatTimeOrDate(new Date(v.realizadaEn), today);
                     return (
-                      <tr key={v.id} className="border-b border-[#E7E7E0] last:border-0 hover:bg-[#EEEEE8] transition-colors">
-                        <td className="px-3 sm:px-6 py-2.5 text-[#8E8E86] font-mono">{fechaHora}</td>
-                        <td className="px-3 py-2.5 text-[#1A1A1A] font-medium">
+                      <tr key={v.id} className="border-b border-border last:border-0 hover:bg-background transition-colors">
+                        <td className="px-3 sm:px-6 py-2.5 text-muted-foreground font-mono">{fechaHora}</td>
+                        <td className="px-3 py-2.5 text-foreground font-medium">
                           {clienteNombre}
                           <p className="text-[10px] text-[#A8A89F] font-normal sm:hidden">
                             {v.items.map(i => `${i.cantidad}× ${i.nombre}`).join(', ')}
                           </p>
                         </td>
-                        <td className="px-3 py-2.5 text-[#8E8E86] hidden sm:table-cell">
+                        <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
                           {v.items.map(i => `${i.cantidad}× ${i.nombre}`).join(', ')}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-semibold text-[#1A1A1A]">
+                        <td className="px-3 py-2.5 text-right font-semibold text-foreground">
                           {v.total.toFixed(2)} €
                         </td>
                         <td className="px-3 py-2.5 hidden sm:table-cell">
@@ -778,7 +778,7 @@ export default function POSPage() {
                           </span>
                         </td>
                         <td className="px-3 sm:px-6 py-2.5 text-center">
-                          <button className="text-[#A8A89F] hover:text-[#1A1A1A] transition-colors">
+                          <button className="text-[#A8A89F] hover:text-foreground transition-colors">
                             <Receipt size={14} />
                           </button>
                         </td>

@@ -62,8 +62,8 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Trophy size={16} className="text-[#B57A8E]" />
-          <h3 className="text-[14px] font-semibold text-[#1A1A1A]">Logros</h3>
+          <Trophy size={16} className="text-brand-secondary" />
+          <h3 className="text-[14px] font-semibold text-foreground">Logros</h3>
         </div>
         <div className="flex gap-2">
           <button onClick={cargarSugeridos} className={btnSecondary}>
@@ -74,27 +74,27 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
           </button>
         </div>
       </div>
-      <p className="text-[12px] text-[#8E8E86]">
+      <p className="text-[12px] text-muted-foreground">
         El umbral de cada logro lo defines tú (5 clases, 10 clases, lo que sea) — nunca está fijo en el código.
       </p>
 
       {achievementDefinitions.length === 0 ? (
         <div className={cn(cardCls, 'p-8 text-center')}>
-          <p className="text-[13px] text-[#8E8E86]">Aún no hay logros configurados.</p>
+          <p className="text-[13px] text-muted-foreground">Aún no hay logros configurados.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {achievementDefinitions.map(a => (
             <div key={a.id} className={cn(cardCls, 'p-4 flex items-start gap-3')}>
-              <div className="w-10 h-10 rounded-xl bg-[#FFF2F7] flex items-center justify-center text-[18px] shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-[18px] shrink-0">
                 {a.icono}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-[#1A1A1A]">{a.nombre}</p>
-                <p className="text-[12px] text-[#8E8E86]">{metricLabel(a.metric)} · umbral {a.umbral}{a.creditosRecompensa > 0 ? ` · +${a.creditosRecompensa} créditos` : ''}</p>
+                <p className="text-[13px] font-semibold text-foreground">{a.nombre}</p>
+                <p className="text-[12px] text-muted-foreground">{metricLabel(a.metric)} · umbral {a.umbral}{a.creditosRecompensa > 0 ? ` · +${a.creditosRecompensa} créditos` : ''}</p>
                 {!a.activo && <span className="text-[10px] font-bold uppercase text-[#A8A89F]">Inactivo</span>}
               </div>
-              <button onClick={() => openEditar(a)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] shrink-0">
+              <button onClick={() => openEditar(a)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
                 <Pencil size={13} />
               </button>
             </div>

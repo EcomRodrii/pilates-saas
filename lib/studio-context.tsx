@@ -355,7 +355,7 @@ interface StudioContextValue {
   // Studio record (propietario) + avatar del admin
   studio: Studio | null;
   updateAvatarAdmin: (avatarId: string | null) => void;
-  updateStudio: (changes: Partial<Studio>) => void;
+  updateStudio: (changes: Partial<Studio>) => Promise<void>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -654,7 +654,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   function updateStudio(changes: Partial<Studio>) {
     setStudio(prev => prev ? { ...prev, ...changes } : prev);
-    dbUpdateStudio(changes);
+    return dbUpdateStudio(changes);
   }
 
   // ── Socios ────────────────────────────────────────────────────────────────────

@@ -35,7 +35,7 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
     return (
       <div className={cn(cardCls, 'p-8 text-center max-w-lg')}>
         <ShieldAlert size={24} className="text-[#A8A89F] mx-auto mb-2" />
-        <p className="text-[13px] text-[#8E8E86]">Solo la propietaria puede gestionar copias de seguridad.</p>
+        <p className="text-[13px] text-muted-foreground">Solo la propietaria puede gestionar copias de seguridad.</p>
       </div>
     );
   }
@@ -88,22 +88,22 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
     <div className="space-y-4 max-w-2xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <DatabaseBackup size={16} className="text-[#B57A8E]" />
-          <h3 className="text-[14px] font-semibold text-[#1A1A1A]">Copias de seguridad</h3>
+          <DatabaseBackup size={16} className="text-brand-secondary" />
+          <h3 className="text-[14px] font-semibold text-foreground">Copias de seguridad</h3>
         </div>
         <button onClick={crearBackup} disabled={creando} className={btnPrimary}>
           {creando ? <Loader2 size={14} className="animate-spin" /> : <DatabaseBackup size={14} />}
           {creando ? 'Creando…' : 'Crear copia ahora'}
         </button>
       </div>
-      <p className="text-[12px] text-[#8E8E86]">
+      <p className="text-[12px] text-muted-foreground">
         Todos los días se crea automáticamente una copia diaria (los lunes también semanal, y el día 1 de cada mes también mensual) — en segundo plano, sin interrumpir la app. Restaurar sobrescribe todos los datos actuales del negocio.
       </p>
       {error && <p className="text-[12px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
       {ordenados.length === 0 ? (
         <div className={cn(cardCls, 'p-8 text-center')}>
-          <p className="text-[13px] text-[#8E8E86]">Todavía no hay copias de seguridad.</p>
+          <p className="text-[13px] text-muted-foreground">Todavía no hay copias de seguridad.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -116,14 +116,14 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: tipo.bg, color: tipo.text }}>
                       {tipo.label}
                     </span>
-                    <p className="text-[13px] font-semibold text-[#1A1A1A]">
+                    <p className="text-[13px] font-semibold text-foreground">
                       {new Date(b.creadoEn).toLocaleString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => { setRestaurando(b); setConfirmText(''); setError(null); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E7E7E0] text-[12px] font-medium text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-[#3A3A34] hover:bg-muted transition-colors shrink-0"
                 >
                   <RotateCcw size={13} /> Restaurar
                 </button>
@@ -144,9 +144,9 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
               {restaurando && new Date(restaurando.creadoEn).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.
               Es irreversible salvo que exista otra copia posterior.
             </p>
-            <p className="text-[12px] text-[#8E8E86]">Escribe <strong>RESTAURAR</strong> para confirmar.</p>
+            <p className="text-[12px] text-muted-foreground">Escribe <strong>RESTAURAR</strong> para confirmar.</p>
             <input
-              className="w-full rounded-lg border border-[#E7E7E0] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200"
               value={confirmText}
               onChange={e => setConfirmText(e.target.value)}
               placeholder="RESTAURAR"

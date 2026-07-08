@@ -65,8 +65,8 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
         onClick={() => setOpen(true)}
         title="Buscar (⌘K)"
         className={collapsed
-          ? cn('flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all', variant === 'dark' ? 'hover:bg-white/10' : 'hover:bg-[#F1F1EC]')
-          : cn('flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all', variant === 'dark' ? 'hover:bg-white/10' : 'bg-[#F5F5F1] hover:bg-[#EEEEE8] w-full max-w-xs')}
+          ? cn('flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'hover:bg-muted')
+          : cn('flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'bg-muted hover:bg-background w-full max-w-xs')}
         style={{ color: variant === 'dark' ? 'rgba(255,255,255,0.45)' : '#8E8E86' }}
       >
         <Search size={15} className="shrink-0" />
@@ -84,7 +84,7 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-[#EBEBF0] overflow-hidden">
+          <div className="relative w-full max-w-lg bg-card rounded-2xl shadow-2xl border border-[#EBEBF0] overflow-hidden">
             {/* Input */}
             <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#EBEBF0]">
               <Search size={16} style={{ color: '#9898A6' }} className="shrink-0" />
@@ -97,7 +97,7 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
                 className="flex-1 text-sm font-medium text-[#1A1A2E] placeholder:text-[#9898A6] focus:outline-none bg-transparent"
               />
               {query ? (
-                <button onClick={() => setQuery('')} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] transition-colors">
+                <button onClick={() => setQuery('')} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
                   <X size={13} style={{ color: '#9898A6' }} />
                 </button>
               ) : (
@@ -115,8 +115,8 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
                   </p>
                   {sociosRes.map(s => (
                     <button key={s.id} onClick={() => go(`/socios/${s.id}`)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F5F5F1] transition-colors text-left group">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: '#FFF2F7', color: '#B57A8E' }}>
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-brand-secondary/10 text-brand-secondary">
                         {s.nombre[0]}{s.apellidos[0]}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -124,7 +124,7 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
                         <p className="text-xs truncate" style={{ color: '#9898A6' }}>{s.email}</p>
                       </div>
                       {(s.tags ?? []).length > 0 && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: '#FFF2F7', color: '#B57A8E' }}>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-brand-secondary/10 text-brand-secondary">
                           {s.tags![0]}
                         </span>
                       )}
@@ -143,7 +143,7 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
                     const d = new Date(s.inicio);
                     return (
                       <button key={s.id} onClick={() => go('/calendario')}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F5F5F1] transition-colors text-left group">
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: tipo?.color ?? '#C8C2E8', opacity: 0.85 }}>
                           <Calendar size={14} style={{ color: '#fff' }} />
                         </div>
@@ -168,7 +168,7 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
                     const s = socios.find(x => x.id === r.socioId);
                     return (
                       <button key={r.id} onClick={() => go('/pagos')}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F5F5F1] transition-colors text-left group">
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#FEF3C7' }}>
                           <CreditCard size={14} style={{ color: '#92400E' }} />
                         </div>

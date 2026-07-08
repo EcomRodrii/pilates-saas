@@ -108,14 +108,14 @@ export default function Transacciones() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-[#1A1A1A] tracking-tight">Transacciones</h1>
-          <p className="text-sm font-medium mt-0.5 text-[#8E8E86]">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Transacciones</h1>
+          <p className="text-sm font-medium mt-0.5 text-muted-foreground">
             Todos los movimientos económicos del estudio
           </p>
         </div>
         <button
           onClick={exportarCSV}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFC8E2] text-[#171717] text-sm font-semibold hover:bg-[#F7B3D2] transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-semibold hover:brightness-95 transition-colors"
         >
           <Download size={14} />
           Exportar CSV
@@ -125,33 +125,33 @@ export default function Transacciones() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total neto', value: fmt(totalNeto) + ' €', icon: TrendingUp, color: '#F7A6C4', bg: '#FFF2F7' },
+          { label: 'Total neto', value: fmt(totalNeto) + ' €', icon: TrendingUp, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, white)' },
           { label: 'Cobros suscripción', value: fmt(totalCobros) + ' €', icon: CreditCard, color: '#15803D', bg: '#DCFCE7' },
           { label: 'Ventas POS', value: fmt(totalPOS) + ' €', icon: ShoppingCart, color: '#1D4ED8', bg: '#DBEAFE' },
           { label: 'Devoluciones', value: fmt(totalDev) + ' €', icon: ArrowLeftRight, color: '#B91C1C', bg: '#FEE2E2' },
         ].map(k => (
-          <div key={k.label} className="bg-white rounded-2xl border border-[#E7E7E0] p-5">
+          <div key={k.label} className="bg-card rounded-2xl border border-border p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#8E8E86]">{k.label}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{k.label}</p>
               <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: k.bg }}>
                 <k.icon size={14} style={{ color: k.color }} />
               </div>
             </div>
-            <p className="text-2xl font-extrabold text-[#1A1A1A]">{k.value}</p>
+            <p className="text-2xl font-extrabold text-foreground">{k.value}</p>
           </div>
         ))}
       </div>
 
       {/* Filtros + búsqueda */}
-      <div className="bg-white rounded-2xl border border-[#E7E7E0] overflow-hidden">
-        <div className="flex flex-wrap items-center gap-3 p-4 border-b border-[#E7E7E0]">
-          <div className="flex items-center gap-2 bg-[#F5F5F1] border border-[#E7E7E0] rounded-xl px-3 py-2 flex-1 min-w-[200px]">
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="flex flex-wrap items-center gap-3 p-4 border-b border-border">
+          <div className="flex items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2 flex-1 min-w-[200px]">
             <Search size={14} className="text-[#A8A89F] shrink-0" />
             <input
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar por concepto o miembro..."
-              className="bg-transparent text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] outline-none flex-1"
+              className="bg-transparent text-sm text-foreground placeholder:text-[#A8A89F] outline-none flex-1"
             />
           </div>
           <div className="flex gap-1 overflow-x-auto flex-nowrap">
@@ -189,12 +189,12 @@ export default function Transacciones() {
                     </span>
                     <span className="text-[11px] text-[#A8A89F] whitespace-nowrap">{fechaCorta(m.fecha)}</span>
                   </div>
-                  <p className="text-[14px] font-semibold text-[#1A1A1A] truncate">{m.concepto}</p>
-                  <p className="text-[12px] text-[#8E8E86] truncate mt-0.5">
+                  <p className="text-[14px] font-semibold text-foreground truncate">{m.concepto}</p>
+                  <p className="text-[12px] text-muted-foreground truncate mt-0.5">
                     {m.miembro}{m.metodo ? ` · ${m.metodo}` : ''}
                   </p>
                   {m.facturaId && (
-                    <Link href="/facturas" className="text-[11px] text-[#F7A6C4] hover:underline inline-flex items-center gap-1 mt-1">
+                    <Link href="/facturas" className="text-[11px] text-brand hover:underline inline-flex items-center gap-1 mt-1">
                       <FileText size={10} /> Ver factura
                     </Link>
                   )}
@@ -207,9 +207,9 @@ export default function Transacciones() {
             );
           })}
           {filtrados.length > 0 && (
-            <div className="px-4 py-3.5 flex items-center justify-between bg-[#F5F5F1]">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#8E8E86]">Total ({filtrados.length})</span>
-              <span className="text-[15px] font-extrabold text-[#1A1A1A]">{fmt(filtrados.reduce((s, m) => s + m.importe, 0))} €</span>
+            <div className="px-4 py-3.5 flex items-center justify-between bg-muted">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total ({filtrados.length})</span>
+              <span className="text-[15px] font-extrabold text-foreground">{fmt(filtrados.reduce((s, m) => s + m.importe, 0))} €</span>
             </div>
           )}
         </div>
@@ -218,9 +218,9 @@ export default function Transacciones() {
         <div className="overflow-x-auto hidden lg:block">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[#F5F5F1] border-b border-[#E7E7E0]">
+              <tr className="bg-muted border-b border-border">
                 {['Fecha', 'Tipo', 'Concepto', 'Miembro', 'Método', 'Importe', ''].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#8E8E86] whitespace-nowrap">
+                  <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -236,8 +236,8 @@ export default function Transacciones() {
               ) : filtrados.map(m => {
                 const badge = TIPO_BADGE[m.tipo];
                 return (
-                  <tr key={m.id} className="hover:bg-[#F5F5F1] transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap text-[#8E8E86] font-medium">
+                  <tr key={m.id} className="hover:bg-muted transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground font-medium">
                       {fechaCorta(m.fecha)}
                     </td>
                     <td className="px-4 py-3">
@@ -246,16 +246,16 @@ export default function Transacciones() {
                         {badge.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-medium text-[#1A1A1A] max-w-[220px] truncate">
+                    <td className="px-4 py-3 font-medium text-foreground max-w-[220px] truncate">
                       {m.concepto}
                     </td>
                     <td className="px-4 py-3">
                       {m.miembroId
-                        ? <Link href={`/socios/${m.miembroId}`} className="text-[#F7A6C4] hover:underline font-medium">{m.miembro}</Link>
-                        : <span className="text-[#8E8E86]">{m.miembro}</span>
+                        ? <Link href={`/socios/${m.miembroId}`} className="text-brand hover:underline font-medium">{m.miembro}</Link>
+                        : <span className="text-muted-foreground">{m.miembro}</span>
                       }
                     </td>
-                    <td className="px-4 py-3 text-[#8E8E86] text-xs">
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
                       {m.metodo ?? '—'}
                     </td>
                     <td className="px-4 py-3 font-extrabold text-right whitespace-nowrap"
@@ -264,7 +264,7 @@ export default function Transacciones() {
                     </td>
                     <td className="px-4 py-3">
                       {m.facturaId && (
-                        <Link href="/facturas" className="text-xs text-[#8E8E86] hover:text-[#1A1A1A] flex items-center gap-1 transition-colors">
+                        <Link href="/facturas" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
                           <FileText size={11} />
                           Factura
                         </Link>
@@ -276,11 +276,11 @@ export default function Transacciones() {
             </tbody>
             {filtrados.length > 0 && (
               <tfoot>
-                <tr className="bg-[#F5F5F1] border-t-2 border-[#E7E7E0]">
-                  <td colSpan={5} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#8E8E86]">
+                <tr className="bg-muted border-t-2 border-border">
+                  <td colSpan={5} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Total ({filtrados.length})
                   </td>
-                  <td className="px-4 py-3 font-extrabold text-right text-[#1A1A1A] text-base">
+                  <td className="px-4 py-3 font-extrabold text-right text-foreground text-base">
                     {fmt(filtrados.reduce((s, m) => s + m.importe, 0))} €
                   </td>
                   <td />

@@ -61,8 +61,8 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Medal size={16} className="text-[#B57A8E]" />
-          <h3 className="text-[14px] font-semibold text-[#1A1A1A]">Niveles</h3>
+          <Medal size={16} className="text-brand-secondary" />
+          <h3 className="text-[14px] font-semibold text-foreground">Niveles</h3>
         </div>
         <div className="flex gap-2">
           <button onClick={cargarSugeridos} className={btnSecondary}>
@@ -73,13 +73,13 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
           </button>
         </div>
       </div>
-      <p className="text-[12px] text-[#8E8E86]">
+      <p className="text-[12px] text-muted-foreground">
         El nivel se calcula sobre el total histórico de créditos ganados por la socia, no sobre su saldo — canjear recompensas nunca le hace bajar de nivel.
       </p>
 
       {ordenados.length === 0 ? (
         <div className={cn(cardCls, 'p-8 text-center')}>
-          <p className="text-[13px] text-[#8E8E86]">Aún no hay niveles configurados.</p>
+          <p className="text-[13px] text-muted-foreground">Aún no hay niveles configurados.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -92,11 +92,11 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
                 {l.icono}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-[#1A1A1A]">{l.nombre}</p>
-                <p className="text-[12px] text-[#8E8E86]">Desde {l.umbralCreditos} créditos ganados</p>
+                <p className="text-[13px] font-semibold text-foreground">{l.nombre}</p>
+                <p className="text-[12px] text-muted-foreground">Desde {l.umbralCreditos} créditos ganados</p>
                 {!l.activo && <span className="text-[10px] font-bold uppercase text-[#A8A89F]">Inactivo</span>}
               </div>
-              <button onClick={() => openEditar(l)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] shrink-0">
+              <button onClick={() => openEditar(l)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
                 <Pencil size={13} />
               </button>
               <button onClick={() => setBorrarId(l.id)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#FFF2F2] text-[#C4695A] shrink-0">
@@ -135,7 +135,7 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
             </div>
             <div>
               <label className={labelCls}>Color</label>
-              <input type="color" className="h-9 w-16 rounded-lg border border-[#EDEDE6] cursor-pointer" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} />
+              <input type="color" className="h-9 w-16 rounded-lg border border-border cursor-pointer" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} />
             </div>
             <div>
               <label className={labelCls}>Beneficios (opcional)</label>

@@ -52,7 +52,7 @@ export default function MiPlanPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight">Mi plan</h1>
         <p className="text-white/50 text-[13px] mt-0.5">{formatEur(totalPagado)} pagado en total</p>
       </div>
@@ -62,7 +62,7 @@ export default function MiPlanPage() {
         {/* Plan card */}
         {plan && suscripcion ? (
           <div className="rounded-3xl overflow-hidden shadow-md" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
-            <div className="p-5" style={{ background: 'linear-gradient(135deg, #1A1A1A, #B57A8E)' }}>
+            <div className="p-5" style={{ background: 'linear-gradient(135deg, #1A1A1A, var(--portal-brand-secondary))' }}>
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-1">
@@ -122,8 +122,8 @@ export default function MiPlanPage() {
           </div>
         ) : (
           <div className="bg-[#F5F5F1] rounded-3xl p-8 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-[#FFF2F7] flex items-center justify-center mx-auto mb-3">
-              <CreditCard size={24} className="text-[#B57A8E]" />
+            <div className="w-14 h-14 rounded-2xl bg-portal-brand/10 flex items-center justify-center mx-auto mb-3">
+              <CreditCard size={24} className="text-portal-brand-secondary" />
             </div>
             <p className="font-bold text-[#171717] text-[16px]">Sin plan activo</p>
             <p className="text-[13px] text-[#8E8E93] mt-1">Habla con tu instructor para contratar un plan</p>
@@ -174,7 +174,7 @@ export default function MiPlanPage() {
                       <p className="text-[14px] font-semibold text-[#171717] truncate">{rec.concepto}</p>
                       <p className="text-[11px] text-[#8E8E93] mt-0.5">
                         {formatDate(rec.fechaCobro ?? rec.fechaVencimiento)}
-                        {factura && <span className="text-[#B57A8E] ml-2 font-semibold">· Factura</span>}
+                        {factura && <span className="text-portal-brand-secondary ml-2 font-semibold">· Factura</span>}
                       </p>
                     </div>
                     <p className="text-[15px] font-extrabold shrink-0" style={{ color: cobrado ? '#059669' : '#8E8E93' }}>

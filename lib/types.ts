@@ -19,6 +19,7 @@ export interface Studio {
   email: string;
   telefono: string;
   colorPrimario: string;
+  temaPortal: string;
   plan: 'BASE' | 'ESTUDIO' | 'CADENA';
   avatarAdmin: string | null;
   ownerAuthUserId: string | null;

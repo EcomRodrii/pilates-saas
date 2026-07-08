@@ -128,7 +128,7 @@ export function AvatarPicker({ value, onChange }: { value: string | null; onChan
                   onClick={() => onChange(selected ? null : a.id)}
                   className={cn(
                     'w-12 h-12 rounded-full overflow-hidden transition-all shrink-0',
-                    selected ? 'ring-2 ring-[#FFC8E2] ring-offset-2' : 'hover:opacity-80',
+                    selected ? 'ring-2 ring-brand ring-offset-2' : 'hover:opacity-80',
                   )}
                 >
                   <AvatarGlyph def={a} />

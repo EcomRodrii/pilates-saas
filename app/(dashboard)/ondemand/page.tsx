@@ -49,7 +49,7 @@ const nivelBadge: Record<NivelClase, string> = {
   PRINCIPIANTE: 'bg-green-100 text-green-700',
   MEDIO: 'bg-amber-100 text-amber-700',
   AVANZADO: 'bg-red-100 text-red-700',
-  TODOS: 'bg-[#F1F1EC] text-[#3A3A34]',
+  TODOS: 'bg-muted text-[#3A3A34]',
 };
 
 const nivelLabel: Record<NivelClase, string> = {
@@ -88,10 +88,10 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white rounded-xl border border-[#E7E7E0] shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#E7E7E0]">
-          <h2 className="text-[16px] font-semibold text-[#1A1A1A]">Subir vídeo</h2>
-          <button onClick={onClose} className="text-[#A8A89F] hover:text-[#1A1A1A] transition-colors">
+      <div className="bg-card rounded-xl border border-border shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h2 className="text-[16px] font-semibold text-foreground">Subir vídeo</h2>
+          <button onClick={onClose} className="text-[#A8A89F] hover:text-foreground transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -103,7 +103,7 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
               value={form.titulo}
               onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
               placeholder="Ej: Reformer para principiantes"
-              className="w-full px-3 py-2 rounded-lg border border-[#E7E7E0] text-[13px] placeholder:text-[#A8A89F] text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors"
+              className="w-full px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors"
             />
           </div>
           <div>
@@ -113,7 +113,7 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
               onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
               placeholder="Describe el contenido del vídeo..."
               rows={3}
-              className="w-full px-3 py-2 rounded-lg border border-[#E7E7E0] text-[13px] placeholder:text-[#A8A89F] text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors resize-none"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -122,7 +122,7 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
               <select
                 value={form.categoria}
                 onChange={e => setForm(f => ({ ...f, categoria: e.target.value as CategoriaVideo }))}
-                className="w-full px-3 py-2 rounded-lg border border-[#E7E7E0] text-[13px] text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors bg-white"
+                className="w-full px-3 py-2 rounded-lg border border-border text-[13px] text-foreground outline-none focus:border-[#1A1A1A] transition-colors bg-card"
               >
                 {CATEGORIAS.filter(c => c.value !== 'TODOS').map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -134,7 +134,7 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
               <select
                 value={form.nivel}
                 onChange={e => setForm(f => ({ ...f, nivel: e.target.value as NivelClase }))}
-                className="w-full px-3 py-2 rounded-lg border border-[#E7E7E0] text-[13px] text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors bg-white"
+                className="w-full px-3 py-2 rounded-lg border border-border text-[13px] text-foreground outline-none focus:border-[#1A1A1A] transition-colors bg-card"
               >
                 {NIVELES.filter(n => n.value !== 'TODOS_NIVOS').map(n => (
                   <option key={n.value} value={n.value}>{n.label}</option>
@@ -151,7 +151,7 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
                 onChange={e => setForm(f => ({ ...f, duracion: e.target.value }))}
                 placeholder="45"
                 min={1}
-                className="w-full px-3 py-2 rounded-lg border border-[#E7E7E0] text-[13px] placeholder:text-[#A8A89F] text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors"
+                className="w-full px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors"
               />
             </div>
             <div>
@@ -159,7 +159,7 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
               <select
                 value={form.instructorId}
                 onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-[#E7E7E0] text-[13px] text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors bg-white"
+                className="w-full px-3 py-2 rounded-lg border border-border text-[13px] text-foreground outline-none focus:border-[#1A1A1A] transition-colors bg-card"
               >
                 {instructores.map(i => (
                   <option key={i.id} value={i.id}>{i.nombre}</option>
@@ -168,10 +168,10 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
             </div>
           </div>
         </div>
-        <div className="flex gap-2 px-5 py-4 border-t border-[#E7E7E0]">
+        <div className="flex gap-2 px-5 py-4 border-t border-border">
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-lg border border-[#E7E7E0] bg-white text-[13px] font-medium text-[#8E8E86] hover:text-[#1A1A1A] hover:border-[#1A1A1A] transition-colors"
+            className="flex-1 py-2 rounded-lg border border-border bg-card text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-[#1A1A1A] transition-colors"
           >
             Cancelar
           </button>
@@ -181,7 +181,7 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
             className={cn(
               'flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors',
               form.titulo.trim()
-                ? 'bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2]'
+                ? 'bg-brand text-brand-foreground hover:brightness-95'
                 : 'bg-[#E7E7E0] text-[#A8A89F] cursor-not-allowed'
             )}
           >
@@ -205,7 +205,7 @@ function VideoCard({
   onToggle: (id: string) => void;
 }) {
   return (
-    <div className="bg-white border border-[#E7E7E0] rounded-xl overflow-hidden hover:shadow-sm transition-shadow">
+    <div className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-sm transition-shadow">
       {/* Thumbnail */}
       <div className={cn('relative h-36 flex items-center justify-center', categoriaBg[video.categoria])}>
         {/* Category badge */}
@@ -213,8 +213,8 @@ function VideoCard({
           {video.categoria}
         </span>
         {/* Play button */}
-        <button className="w-12 h-12 rounded-full bg-white/80 hover:bg-white flex items-center justify-center shadow transition-colors">
-          <Play size={20} className="text-[#1A1A1A] ml-0.5" fill="currentColor" />
+        <button className="w-12 h-12 rounded-full bg-card/80 hover:bg-card flex items-center justify-center shadow transition-colors">
+          <Play size={20} className="text-foreground ml-0.5" fill="currentColor" />
         </button>
         {/* Duration */}
         <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-[11px] font-medium">
@@ -224,11 +224,11 @@ function VideoCard({
 
       {/* Body */}
       <div className="p-3">
-        <h3 className="text-[13px] font-semibold text-[#1A1A1A] leading-snug line-clamp-2 mb-1">
+        <h3 className="text-[13px] font-semibold text-foreground leading-snug line-clamp-2 mb-1">
           {video.titulo}
         </h3>
         {video.descripcion && (
-          <p className="text-[12px] text-[#8E8E86] line-clamp-2 leading-relaxed mb-2">
+          <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed mb-2">
             {video.descripcion}
           </p>
         )}
@@ -242,8 +242,8 @@ function VideoCard({
         </div>
 
         {/* Stats + toggle */}
-        <div className="flex items-center justify-between pt-2 border-t border-[#E7E7E0]">
-          <div className="flex items-center gap-3 text-[12px] text-[#8E8E86]">
+        <div className="flex items-center justify-between pt-2 border-t border-border">
+          <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <Eye size={13} />
               {video.vistas.toLocaleString('es-ES')}
@@ -262,7 +262,7 @@ function VideoCard({
             )}
           >
             <span className={cn(
-              'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
+              'absolute top-0.5 w-4 h-4 rounded-full bg-card shadow transition-transform',
               video.activo ? 'translate-x-4' : 'translate-x-0.5'
             )} />
           </button>
@@ -316,14 +316,14 @@ export default function OnDemandPage() {
         {/* Header */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-[20px] font-semibold text-[#1A1A1A]">Biblioteca on-demand</h1>
-            <span className="px-2 py-0.5 rounded-full bg-white border border-[#E7E7E0] text-[12px] text-[#8E8E86] whitespace-nowrap">
+            <h1 className="text-[20px] font-semibold text-foreground">Biblioteca on-demand</h1>
+            <span className="px-2 py-0.5 rounded-full bg-card border border-border text-[12px] text-muted-foreground whitespace-nowrap">
               {totalVideos} vídeos
             </span>
           </div>
           <button
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[13px] font-medium hover:bg-[#F7B3D2] transition-colors shrink-0"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[13px] font-medium hover:brightness-95 transition-colors shrink-0"
           >
             <Upload size={14} />
             Subir vídeo
@@ -332,17 +332,17 @@ export default function OnDemandPage() {
 
         {/* Stats row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
-          <div className="bg-white border border-[#E7E7E0] rounded-xl px-4 py-3">
-            <p className="text-[12px] text-[#8E8E86] mb-0.5">Total reproducciones</p>
-            <p className="text-[22px] font-semibold text-[#1A1A1A] truncate">{totalVistas.toLocaleString('es-ES')}</p>
+          <div className="bg-card border border-border rounded-xl px-4 py-3">
+            <p className="text-[12px] text-muted-foreground mb-0.5">Total reproducciones</p>
+            <p className="text-[22px] font-semibold text-foreground truncate">{totalVistas.toLocaleString('es-ES')}</p>
           </div>
-          <div className="bg-white border border-[#E7E7E0] rounded-xl px-4 py-3">
-            <p className="text-[12px] text-[#8E8E86] mb-0.5">Vídeos publicados</p>
-            <p className="text-[22px] font-semibold text-[#1A1A1A] truncate">{videos.filter(v => v.activo).length}</p>
+          <div className="bg-card border border-border rounded-xl px-4 py-3">
+            <p className="text-[12px] text-muted-foreground mb-0.5">Vídeos publicados</p>
+            <p className="text-[22px] font-semibold text-foreground truncate">{videos.filter(v => v.activo).length}</p>
           </div>
-          <div className="bg-white border border-[#E7E7E0] rounded-xl px-4 py-3">
-            <p className="text-[12px] text-[#8E8E86] mb-0.5">Categoría más popular</p>
-            <p className="text-[22px] font-semibold text-[#1A1A1A] capitalize truncate">{topCategoria.charAt(0) + topCategoria.slice(1).toLowerCase()}</p>
+          <div className="bg-card border border-border rounded-xl px-4 py-3">
+            <p className="text-[12px] text-muted-foreground mb-0.5">Categoría más popular</p>
+            <p className="text-[22px] font-semibold text-foreground capitalize truncate">{topCategoria.charAt(0) + topCategoria.slice(1).toLowerCase()}</p>
           </div>
         </div>
 
@@ -357,8 +357,8 @@ export default function OnDemandPage() {
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors',
                   categoriaActiva === c.value
-                    ? 'bg-[#FFC8E2] text-[#171717]'
-                    : 'bg-white border border-[#E7E7E0] text-[#8E8E86] hover:text-[#1A1A1A]'
+                    ? 'bg-brand text-brand-foreground'
+                    : 'bg-card border border-border text-muted-foreground hover:text-foreground'
                 )}
               >
                 {c.label}
@@ -371,7 +371,7 @@ export default function OnDemandPage() {
             <select
               value={nivelActivo}
               onChange={e => setNivelActivo(e.target.value as NivelClase | 'TODOS_NIVOS')}
-              className="px-3 py-1.5 rounded-lg border border-[#E7E7E0] bg-white text-[12px] text-[#8E8E86] outline-none focus:border-[#1A1A1A] transition-colors"
+              className="px-3 py-1.5 rounded-lg border border-border bg-card text-[12px] text-muted-foreground outline-none focus:border-[#1A1A1A] transition-colors"
             >
               {NIVELES.map(n => (
                 <option key={n.value} value={n.value}>{n.label}</option>
@@ -386,7 +386,7 @@ export default function OnDemandPage() {
                 placeholder="Buscar..."
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                className="pl-8 pr-3 py-1.5 rounded-lg border border-[#E7E7E0] bg-white text-[12px] placeholder:text-[#A8A89F] text-[#1A1A1A] outline-none focus:border-[#1A1A1A] transition-colors w-44"
+                className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-card text-[12px] placeholder:text-[#A8A89F] text-foreground outline-none focus:border-[#1A1A1A] transition-colors w-44"
               />
             </div>
           </div>

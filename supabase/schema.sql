@@ -18,6 +18,7 @@ create table if not exists studios (
   email text,
   telefono text,
   color_primario text default '#4F46E5',
+  tema_portal text default 'original',
   plan text default 'BASE',
   avatar_admin text,
   owner_auth_user_id uuid references auth.users(id) on delete set null,

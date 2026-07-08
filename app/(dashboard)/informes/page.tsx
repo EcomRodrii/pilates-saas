@@ -371,13 +371,13 @@ export default function Informes() {
         <div className="h-8 w-56 bg-[#E7E7E0] rounded-lg" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-32 bg-white rounded-xl border border-[#E7E7E0]" />
+            <div key={i} className="h-32 bg-card rounded-xl border border-border" />
           ))}
         </div>
-        <div className="h-72 bg-white rounded-xl border border-[#E7E7E0]" />
+        <div className="h-72 bg-card rounded-xl border border-border" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="h-56 bg-white rounded-xl border border-[#E7E7E0]" />
-          <div className="h-56 bg-white rounded-xl border border-[#E7E7E0]" />
+          <div className="h-56 bg-card rounded-xl border border-border" />
+          <div className="h-56 bg-card rounded-xl border border-border" />
         </div>
       </div>
     );
@@ -386,7 +386,7 @@ export default function Informes() {
   const LABEL_SKIP = period === 'month' ? 4 : 1;
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: '#EEEEE8', minHeight: '100%', padding: '0 0 40px' }}>
+    <div className="space-y-6" style={{ backgroundColor: 'var(--background)', minHeight: '100%', padding: '0 0 40px' }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
@@ -425,7 +425,7 @@ export default function Informes() {
       {/* ── Section 1: KPI cards ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Ingresos período */}
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
             style={{ backgroundColor: '#D1FAE5' }}
@@ -440,12 +440,11 @@ export default function Informes() {
         </div>
 
         {/* MRR */}
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5">
           <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-            style={{ backgroundColor: '#FFF2F7' }}
+            className="w-9 h-9 rounded-lg flex items-center justify-center mb-3 bg-brand-secondary/10"
           >
-            <CreditCard size={17} style={{ color: '#B57A8E' }} />
+            <CreditCard size={17} className="text-brand-secondary" />
           </div>
           <p className="text-xs font-semibold mb-1" style={{ color: '#8E8E86' }}>MRR</p>
           <p className="text-2xl font-extrabold leading-none" style={{ color: '#1A1A1A' }}>
@@ -455,7 +454,7 @@ export default function Informes() {
         </div>
 
         {/* Ticket medio */}
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
             style={{ backgroundColor: '#FEF3C7' }}
@@ -470,7 +469,7 @@ export default function Informes() {
         </div>
 
         {/* Retención */}
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
             style={{ backgroundColor: tasaRetencion >= 80 ? '#D1FAE5' : tasaRetencion >= 60 ? '#FEF3C7' : '#FEE2E2' }}
@@ -491,7 +490,7 @@ export default function Informes() {
       </div>
 
       {/* ── Section 2: Revenue bar chart ────────────────────────────────────── */}
-      <div className="bg-white border border-[#E7E7E0] rounded-xl p-6">
+      <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-start justify-between mb-1">
           <div>
             <h2 className="text-base font-extrabold" style={{ color: '#1A1A1A' }}>Evolución de ingresos</h2>
@@ -663,7 +662,7 @@ export default function Informes() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* Left: Ocupación por tipo de clase */}
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-6">
+        <div className="bg-card border border-border rounded-xl p-6">
           <h2 className="text-base font-extrabold mb-0.5" style={{ color: '#1A1A1A' }}>Ocupación por tipo de clase</h2>
           <p className="text-xs mb-5" style={{ color: '#8E8E86' }}>% plazas ocupadas sobre aforo total en el periodo</p>
 
@@ -715,7 +714,7 @@ export default function Informes() {
         </div>
 
         {/* Right: Cohort retention table */}
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-6">
+        <div className="bg-card border border-border rounded-xl p-6">
           <h2 className="text-base font-extrabold mb-0.5" style={{ color: '#1A1A1A' }}>Retención por cohorte</h2>
           <p className="text-xs mb-5" style={{ color: '#8E8E86' }}>Miembros nuevos por mes y su actividad posterior</p>
 
@@ -771,7 +770,7 @@ export default function Informes() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* Top 5 socias */}
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-6">
+        <div className="bg-card border border-border rounded-xl p-6">
           <h2 className="text-base font-extrabold mb-0.5" style={{ color: '#1A1A1A' }}>Top 5 miembros</h2>
           <p className="text-xs mb-5" style={{ color: '#8E8E86' }}>Más sesiones asistidas en el periodo</p>
 
@@ -803,14 +802,14 @@ export default function Informes() {
                       <div className="mt-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#F1F1EC' }}>
                         <div
                           className="h-full rounded-full"
-                          style={{ width: `${pct}%`, backgroundColor: i === 0 ? '#F7A6C4' : '#C6C6BE' }}
+                          style={{ width: `${pct}%`, backgroundColor: i === 0 ? 'var(--brand)' : '#C6C6BE' }}
                         />
                       </div>
                     </div>
 
                     <span
                       className="text-sm font-extrabold tabular-nums flex-shrink-0"
-                      style={{ color: i === 0 ? '#B57A8E' : '#1A1A1A' }}
+                      style={{ color: i === 0 ? 'var(--brand-secondary)' : '#1A1A1A' }}
                     >
                       {s.clases}
                     </span>
@@ -822,7 +821,7 @@ export default function Informes() {
         </div>
 
         {/* Clases más populares */}
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-6">
+        <div className="bg-card border border-border rounded-xl p-6">
           <h2 className="text-base font-extrabold mb-0.5" style={{ color: '#1A1A1A' }}>Clases más populares</h2>
           <p className="text-xs mb-5" style={{ color: '#8E8E86' }}>Por número de reservas en el periodo</p>
 
@@ -868,7 +867,7 @@ export default function Informes() {
       </div>
 
       {/* ── Section 5: Export ────────────────────────────────────────────────── */}
-      <div className="bg-white border border-[#E7E7E0] rounded-xl p-6">
+      <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h2 className="text-base font-extrabold" style={{ color: '#1A1A1A' }}>Exportar datos</h2>

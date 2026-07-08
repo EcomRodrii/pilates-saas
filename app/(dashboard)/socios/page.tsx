@@ -17,7 +17,7 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 
 // ─── Shared style tokens ────────────────────────────────────────────────────
 const inputCls =
-  'w-full rounded-lg border border-[#E7E7E0] bg-white px-3 py-2 text-[13px] font-medium text-[#1A1A1A] focus:outline-none focus:border-[#A8A89F] transition-colors placeholder:text-[#A8A89F]';
+  'w-full rounded-lg border border-border bg-card px-3 py-2 text-[13px] font-medium text-foreground focus:outline-none focus:border-[#A8A89F] transition-colors placeholder:text-[#A8A89F]';
 const selectCls = inputCls + ' appearance-none';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ function formatDate(iso: string) {
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wide text-[#8E8E86]">
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </label>
       {children}
@@ -106,13 +106,13 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="bg-white border border-[#E7E7E0] rounded-xl px-4 py-3 flex items-center gap-3 min-w-0">
+    <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 min-w-0">
       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: color + '1A' }}>
         <Icon size={16} style={{ color }} />
       </div>
       <div className="min-w-0">
-        <p className="text-[22px] font-bold text-[#1A1A1A] leading-tight">{value}</p>
-        <p className="text-[11px] text-[#8E8E86] truncate">{label}</p>
+        <p className="text-[22px] font-bold text-foreground leading-tight">{value}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{label}</p>
       </div>
     </div>
   );
@@ -121,8 +121,8 @@ function StatCard({
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <ChevronsUpDown size={11} className="text-[#D1D5DB] ml-1 inline" />;
   return dir === 'asc'
-    ? <ChevronUp size={11} className="text-[#1A1A1A] ml-1 inline" />
-    : <ChevronDown size={11} className="text-[#1A1A1A] ml-1 inline" />;
+    ? <ChevronUp size={11} className="text-foreground ml-1 inline" />
+    : <ChevronDown size={11} className="text-foreground ml-1 inline" />;
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -399,18 +399,18 @@ export default function Socios() {
   ];
 
   return (
-    <div className="space-y-5 min-h-screen" style={{ backgroundColor: '#EEEEE8' }}>
+    <div className="space-y-5 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-[#1A1A1A] tracking-tight">Miembros</h1>
+          <h1 className="text-xl font-bold text-foreground tracking-tight">Miembros</h1>
           <p className="text-[12px] text-[#A8A89F] mt-0.5">
             Gestiona y haz seguimiento de todos tus miembros
           </p>
         </div>
         <button
           onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors shrink-0 shadow-sm"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:brightness-95 transition-colors shrink-0 shadow-sm"
         >
           <Plus size={14} />
           Nuevo miembro
@@ -435,12 +435,12 @@ export default function Socios() {
             placeholder="Buscar por nombre, email o teléfono…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-10 pr-10 py-2.5 text-[13px] bg-white rounded-xl border border-[#E7E7E0] focus:outline-none focus:border-[#A8A89F] transition-colors placeholder:text-[#A8A89F] shadow-sm"
+            className="w-full pl-10 pr-10 py-2.5 text-[13px] bg-card rounded-xl border border-border focus:outline-none focus:border-[#A8A89F] transition-colors placeholder:text-[#A8A89F] shadow-sm"
           />
           {busqueda && (
             <button
               onClick={() => setBusqueda('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A8A89F] hover:text-[#8E8E86]"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A8A89F] hover:text-muted-foreground"
             >
               <X size={13} />
             </button>
@@ -457,8 +457,8 @@ export default function Socios() {
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border',
                   smartFilter === f.id
-                    ? 'bg-[#FFC8E2] text-[#171717] border-[#1A1A1A] shadow-sm'
-                    : 'bg-white text-[#8E8E86] border-[#E7E7E0] hover:border-[#A8A89F] hover:text-[#3A3A34]',
+                    ? 'bg-brand text-brand-foreground border-[#1A1A1A] shadow-sm'
+                    : 'bg-card text-muted-foreground border-border hover:border-[#A8A89F] hover:text-[#3A3A34]',
                 )}
               >
                 {f.label}
@@ -472,7 +472,7 @@ export default function Socios() {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="rounded-lg border border-[#E7E7E0] bg-white px-3 py-1.5 text-[12px] font-medium text-[#3A3A34] focus:outline-none appearance-none cursor-pointer"
+              className="rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-[#3A3A34] focus:outline-none appearance-none cursor-pointer"
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.key} value={o.key}>{o.label}</option>
@@ -480,12 +480,12 @@ export default function Socios() {
             </select>
             <button
               onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
-              className="p-1.5 rounded-lg border border-[#E7E7E0] bg-white hover:bg-[#F5F5F1] transition-colors"
+              className="p-1.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
               title={sortDir === 'asc' ? 'Ascendente' : 'Descendente'}
             >
               {sortDir === 'asc'
-                ? <ChevronUp size={13} className="text-[#8E8E86]" />
-                : <ChevronDown size={13} className="text-[#8E8E86]" />}
+                ? <ChevronUp size={13} className="text-muted-foreground" />
+                : <ChevronDown size={13} className="text-muted-foreground" />}
             </button>
           </div>
         </div>
@@ -493,21 +493,21 @@ export default function Socios() {
 
       {/* ── Bulk action bar ─────────────────────────────────────────────────── */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 px-4 py-3 bg-[#FFC8E2] text-[#171717] rounded-xl shadow-lg">
+        <div className="flex items-center gap-2 px-4 py-3 bg-brand text-brand-foreground rounded-xl shadow-lg">
           <span className="text-[12px] font-medium text-[#A8A89F] mr-1">
             {selected.size} seleccionada{selected.size !== 1 ? 's' : ''}
           </span>
           <div className="flex-1" />
           <button
             onClick={handleEnviarEmail}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-white/10 hover:bg-white/20 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-card/10 hover:bg-card/20 transition-colors"
           >
             <Mail size={12} />
             Enviar email
           </button>
           <button
             onClick={() => { setAsignarPlanId(''); setShowAsignarPlan(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-white/10 hover:bg-white/20 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-card/10 hover:bg-card/20 transition-colors"
           >
             <Tag size={12} />
             Cambiar plan
@@ -522,19 +522,19 @@ export default function Socios() {
       )}
 
       {/* ── Table ──────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-[#E7E7E0] overflow-x-auto shadow-sm">
+      <div className="bg-card rounded-xl border border-border overflow-x-auto shadow-sm">
         {lista.length === 0 ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#F1F1EC] flex items-center justify-center mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
               <Users size={28} className="text-[#A8A89F]" />
             </div>
-            <h3 className="text-[15px] font-semibold text-[#1A1A1A] mb-1">
+            <h3 className="text-[15px] font-semibold text-foreground mb-1">
               {busqueda || smartFilter !== 'todas'
                 ? 'No hay resultados'
                 : 'Aún no hay miembros'}
             </h3>
-            <p className="text-[13px] text-[#8E8E86] mb-5 max-w-xs">
+            <p className="text-[13px] text-muted-foreground mb-5 max-w-xs">
               {busqueda || smartFilter !== 'todas'
                 ? 'Prueba con otros filtros o términos de búsqueda.'
                 : 'Añade tu primer miembro para empezar a gestionar el estudio.'}
@@ -542,7 +542,7 @@ export default function Socios() {
             {!busqueda && smartFilter === 'todas' && (
               <button
                 onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:brightness-95 transition-colors"
               >
                 <Plus size={14} />
                 Añadir primer miembro
@@ -551,7 +551,7 @@ export default function Socios() {
             {(busqueda || smartFilter !== 'todas') && (
               <button
                 onClick={() => { setBusqueda(''); setSmartFilter('todas'); }}
-                className="text-[12px] font-medium text-[#8E8E86] underline underline-offset-2 hover:text-[#3A3A34] transition-colors"
+                className="text-[12px] font-medium text-muted-foreground underline underline-offset-2 hover:text-[#3A3A34] transition-colors"
               >
                 Limpiar filtros
               </button>
@@ -575,7 +575,7 @@ export default function Socios() {
                 <th className="text-left px-4 py-3">
                   <button
                     onClick={() => toggleSort('nombre')}
-                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#A8A89F] hover:text-[#1A1A1A] transition-colors"
+                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#A8A89F] hover:text-foreground transition-colors"
                   >
                     Miembro
                     <SortIcon active={sortKey === 'nombre'} dir={sortDir} />
@@ -591,7 +591,7 @@ export default function Socios() {
                 <th className="text-left px-4 py-3 hidden md:table-cell">
                   <button
                     onClick={() => toggleSort('sesiones_restantes')}
-                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#A8A89F] hover:text-[#1A1A1A] transition-colors"
+                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#A8A89F] hover:text-foreground transition-colors"
                   >
                     Ses. rest.
                     <SortIcon active={sortKey === 'sesiones_restantes'} dir={sortDir} />
@@ -601,7 +601,7 @@ export default function Socios() {
                 <th className="text-left px-4 py-3 hidden lg:table-cell">
                   <button
                     onClick={() => toggleSort('ultima_visita')}
-                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#A8A89F] hover:text-[#1A1A1A] transition-colors"
+                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-[#A8A89F] hover:text-foreground transition-colors"
                   >
                     Última asistencia
                     <SortIcon active={sortKey === 'ultima_visita'} dir={sortDir} />
@@ -640,8 +640,8 @@ export default function Socios() {
                     key={s.id}
                     onClick={() => router.push(`/socios/${s.id}`)}
                     className={cn(
-                      'hover:bg-[#F5F5F1] transition-colors group cursor-pointer',
-                      isSelected && 'bg-[#FFF2F7]',
+                      'hover:bg-muted transition-colors group cursor-pointer',
+                      isSelected && 'bg-brand/10',
                     )}
                   >
                     {/* Checkbox */}
@@ -659,7 +659,7 @@ export default function Socios() {
                       <div className="flex items-center gap-3">
                         <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarText} size="sm" />
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">
+                          <p className="text-[13px] font-semibold text-foreground truncate">
                             {s.nombre} {s.apellidos}
                           </p>
                           <p className="text-[11px] text-[#A8A89F] truncate">{s.email}</p>
@@ -696,7 +696,7 @@ export default function Socios() {
                     </td>
 
                     {/* Última asistencia */}
-                    <td className="px-4 py-3.5 text-[12px] text-[#8E8E86] hidden lg:table-cell">
+                    <td className="px-4 py-3.5 text-[12px] text-muted-foreground hidden lg:table-cell">
                       {relativeTime(lastVisit)}
                     </td>
 
@@ -708,18 +708,18 @@ export default function Socios() {
                       <div className="flex items-center justify-end gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={(e) => openEdit(s, e)}
-                          className="p-1.5 rounded-md hover:bg-[#F1F1EC] transition-colors"
+                          className="p-1.5 rounded-md hover:bg-muted transition-colors"
                           title="Editar"
                         >
-                          <Pencil size={13} className="text-[#8E8E86]" />
+                          <Pencil size={13} className="text-muted-foreground" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); updateSocio(s.id, { activo: !s.activo }); }}
-                          className="p-1.5 rounded-md hover:bg-[#F1F1EC] transition-colors"
+                          className="p-1.5 rounded-md hover:bg-muted transition-colors"
                           title={s.activo ? 'Desactivar' : 'Activar'}
                         >
                           {s.activo
-                            ? <UserX size={13} className="text-[#8E8E86]" />
+                            ? <UserX size={13} className="text-muted-foreground" />
                             : <UserCheck size={13} className="text-[#059669]" />}
                         </button>
                         <button
@@ -749,13 +749,13 @@ export default function Socios() {
                 <div
                   key={s.id}
                   onClick={() => router.push(`/socios/${s.id}`)}
-                  className="flex items-start gap-3 px-4 py-3.5 active:bg-[#F5F5F1] transition-colors cursor-pointer"
+                  className="flex items-start gap-3 px-4 py-3.5 active:bg-muted transition-colors cursor-pointer"
                 >
                   <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarText} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">{s.nombre} {s.apellidos}</p>
+                        <p className="text-[13px] font-semibold text-foreground truncate">{s.nombre} {s.apellidos}</p>
                         <p className="text-[11px] text-[#A8A89F] truncate">{s.email}</p>
                       </div>
                       <button
@@ -768,7 +768,7 @@ export default function Socios() {
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap mt-2">
                       <EstadoBadge s={s} />
-                      {plan && <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#F1F1EC] text-[#3A3A34]">{plan.nombre}</span>}
+                      {plan && <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-muted text-[#3A3A34]">{plan.nombre}</span>}
                       {sesRest != null && (
                         <span
                           className="text-[11px] font-semibold px-2 py-0.5 rounded-md"
@@ -804,10 +804,10 @@ export default function Socios() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold text-[#1A1A1A] flex items-center gap-2">
+            <DialogTitle className="text-base font-semibold text-foreground flex items-center gap-2">
               {showForm === 'nueva' && formStep === 2 && (
-                <button onClick={() => setFormStep(1)} className="p-0.5 rounded hover:bg-[#F1F1EC]">
-                  <ArrowLeft size={15} className="text-[#8E8E86]" />
+                <button onClick={() => setFormStep(1)} className="p-0.5 rounded hover:bg-muted">
+                  <ArrowLeft size={15} className="text-muted-foreground" />
                 </button>
               )}
               {showForm === 'nueva'
@@ -823,13 +823,13 @@ export default function Socios() {
                 <div key={n} className="flex items-center gap-1.5">
                   <div className={cn(
                     'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors',
-                    formStep >= n ? 'bg-[#FFC8E2] text-[#171717]' : 'bg-[#E7E7E0] text-[#A8A89F]',
+                    formStep >= n ? 'bg-brand text-brand-foreground' : 'bg-[#E7E7E0] text-[#A8A89F]',
                   )}>
                     {formStep > n ? <CheckCircle2 size={11} /> : n}
                   </div>
                   <span className={cn(
                     'text-[11px] font-medium',
-                    formStep >= n ? 'text-[#1A1A1A]' : 'text-[#A8A89F]',
+                    formStep >= n ? 'text-foreground' : 'text-[#A8A89F]',
                   )}>{label}</span>
                   {n < 2 && <div className="w-6 h-px bg-[#E7E7E0] mx-0.5" />}
                 </div>
@@ -916,7 +916,7 @@ export default function Socios() {
               {/* Scrollable policy + terms */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-[#8E8E86] flex items-center gap-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                     <FileText size={11} />
                     Política de privacidad y condiciones
                   </label>
@@ -936,7 +936,7 @@ export default function Socios() {
                     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
                     if (nearBottom) setScrolledToBottom(true);
                   }}
-                  className="h-52 overflow-y-auto rounded-lg border border-[#E7E7E0] bg-[#F5F5F1] p-3 text-[11px] text-[#3A3A34] leading-relaxed whitespace-pre-wrap font-mono"
+                  className="h-52 overflow-y-auto rounded-lg border border-border bg-muted p-3 text-[11px] text-[#3A3A34] leading-relaxed whitespace-pre-wrap font-mono"
                 >
                   {studioConfig.politicaPrivacidad}
                   {'\n\n─────────────────────────────────────\n\n'}
@@ -947,7 +947,7 @@ export default function Socios() {
               {/* Acceptance checkbox */}
               <label className={cn(
                 'flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors',
-                aceptado ? 'border-[#059669] bg-[#F0FDF4]' : 'border-[#E7E7E0] bg-white hover:border-[#A8A89F]',
+                aceptado ? 'border-[#059669] bg-[#F0FDF4]' : 'border-border bg-card hover:border-[#A8A89F]',
               )}>
                 <input
                   type="checkbox"
@@ -979,7 +979,7 @@ export default function Socios() {
                   <ShieldCheck size={14} className="text-[#059669] shrink-0 mt-0.5" />
                   <div>
                     <p className="text-[12px] font-semibold text-[#065F46]">Contrato listo para firmar</p>
-                    <p className="text-[11px] text-[#8E8E86] mt-0.5">
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
                       Firmado digitalmente por <span className="font-medium text-[#3A3A34]">{firma.trim()}</span> —{' '}
                       {new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
@@ -993,7 +993,7 @@ export default function Socios() {
           <div className="flex gap-2 mt-5">
             <button
               onClick={resetModal}
-              className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors"
+              className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
@@ -1001,7 +1001,7 @@ export default function Socios() {
               <button
                 onClick={() => { setScrolledToBottom(false); setFormStep(2); }}
                 disabled={!form.nombre || !form.apellidos || !form.email}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:bg-[#F7B3D2] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:brightness-95 transition-colors"
               >
                 Siguiente — Contrato
               </button>
@@ -1013,7 +1013,7 @@ export default function Socios() {
                     ? !aceptado || !firma.trim()
                     : !form.nombre || !form.apellidos || !form.email
                 }
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:bg-[#F7B3D2] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:brightness-95 transition-colors"
               >
                 {showForm === 'nueva' ? 'Crear miembro y firmar' : 'Guardar cambios'}
               </button>
@@ -1029,7 +1029,7 @@ export default function Socios() {
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold text-[#1A1A1A]">
+            <DialogTitle className="text-base font-semibold text-foreground">
               Cambiar plan — {selected.size} miembro{selected.size !== 1 ? 's' : ''}
             </DialogTitle>
           </DialogHeader>
@@ -1049,14 +1049,14 @@ export default function Socios() {
             <div className="flex gap-2">
               <button
                 onClick={() => { setShowAsignarPlan(false); setAsignarPlanId(''); }}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAsignarPlan}
                 disabled={!asignarPlanId}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:bg-[#F7B3D2] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-[#1A1A1A] disabled:opacity-40 hover:brightness-95 transition-colors"
               >
                 Asignar plan
               </button>
@@ -1076,17 +1076,17 @@ export default function Socios() {
               <AlertTriangle size={22} className="text-[#DC2626]" />
             </div>
             <div>
-              <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">
+              <h3 className="text-[14px] font-semibold text-foreground mb-1">
                 ¿Eliminar miembro?
               </h3>
-              <p className="text-[13px] text-[#8E8E86]">
+              <p className="text-[13px] text-muted-foreground">
                 Se eliminarán todos sus datos. Esta acción no se puede deshacer.
               </p>
             </div>
             <div className="flex gap-2 w-full">
               <button
                 onClick={() => setConfirmEliminar(null)}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-[#E7E7E0] text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors"
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cancelar
               </button>

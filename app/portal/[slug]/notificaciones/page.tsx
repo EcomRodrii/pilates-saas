@@ -63,10 +63,10 @@ export default function NotificacionesPage() {
               <div className="space-y-2">
                 {group.items.map(it => (
                   <div key={it.id} className="bg-white rounded-2xl p-4 flex gap-3" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${it.tipo === 'RESERVA' ? 'bg-green-50' : 'bg-[#FFF2F7]'}`}>
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${it.tipo === 'RESERVA' ? 'bg-green-50' : 'bg-portal-brand/10'}`}>
                       {it.tipo === 'RESERVA'
                         ? <CheckCircle2 size={18} className="text-green-600" />
-                        : <CreditCard size={18} className="text-[#B57A8E]" />}
+                        : <CreditCard size={18} className="text-portal-brand-secondary" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[14px] font-bold text-[#171717] leading-tight">{it.titulo}</p>

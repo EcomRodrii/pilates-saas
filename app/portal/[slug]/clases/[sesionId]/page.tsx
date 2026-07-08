@@ -20,7 +20,7 @@ export default function ClaseDetallePage() {
   const tipo = ses ? tiposClase.find(t => t.id === ses.tipoClaseId) : undefined;
   const sala = ses ? salas.find(s => s.id === ses.salaId) : undefined;
   const instr = ses ? instructores.find(i => i.id === ses.instructorId) : undefined;
-  const color = tipo?.color ?? '#F7A6C4';
+  const color = tipo?.color ?? 'var(--portal-brand)';
 
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
 
@@ -43,7 +43,7 @@ export default function ClaseDetallePage() {
         <p className="font-bold text-[#171717] text-[16px]">Esta clase ya no está disponible</p>
         <button
           onClick={() => router.push(`/portal/${slug}/clases`)}
-          className="mt-4 text-[13px] font-bold text-[#B57A8E]"
+          className="mt-4 text-[13px] font-bold text-portal-brand-secondary"
         >
           Volver a Clases
         </button>

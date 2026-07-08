@@ -38,18 +38,18 @@ export function OnboardingChecklist() {
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7E7E0] bg-white overflow-hidden">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[#F0F0EA]">
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-[#FFF2F7] text-[#B57A8E]">
+          <div className="flex size-7 items-center justify-center rounded-lg bg-brand/10 text-brand-secondary">
             <Rocket size={14} />
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#1A1A1A]">Primeros pasos con tu estudio</p>
-            <p className="text-[11px] text-[#8E8E86]">{steps.length - pendientes} de {steps.length} completados</p>
+            <p className="text-[13px] font-semibold text-foreground">Primeros pasos con tu estudio</p>
+            <p className="text-[11px] text-muted-foreground">{steps.length - pendientes} de {steps.length} completados</p>
           </div>
         </div>
-        <button onClick={handleDismiss} className="shrink-0 p-1 rounded-lg hover:bg-[#F5F5F1] transition-colors" title="Ocultar">
+        <button onClick={handleDismiss} className="shrink-0 p-1 rounded-lg hover:bg-muted transition-colors" title="Ocultar">
           <X size={14} className="text-[#A8A89F]" />
         </button>
       </div>
@@ -61,7 +61,7 @@ export function OnboardingChecklist() {
             className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#FAFAF7] transition-colors"
           >
             {step.done
-              ? <CheckCircle2 size={16} className="text-[#B57A8E] shrink-0" />
+              ? <CheckCircle2 size={16} className="text-brand-secondary shrink-0" />
               : <Circle size={16} className="text-[#D4D4CC] shrink-0" />}
             <span className={`text-[13px] ${step.done ? 'text-[#A8A89F] line-through' : 'text-[#3A3A34] font-medium'}`}>
               {step.label}

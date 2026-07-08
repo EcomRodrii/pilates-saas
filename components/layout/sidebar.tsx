@@ -102,7 +102,7 @@ function NavItem({ href, label, Icon, onClick, collapsed }: { href: string; labe
       className={cn(
         'flex items-center rounded-full text-[13px] font-medium transition-all relative',
         collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
-        active ? 'bg-[#FFC8E2] text-[#131313] font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-white/5'
+        active ? 'bg-brand text-[#131313] font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-card/5'
       )}
     >
       <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
@@ -123,17 +123,17 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
     >
       <div className={cn(
         'w-10 h-7 rounded-full flex items-center justify-center transition-colors',
-        active ? 'bg-[#FFC8E2]' : 'bg-transparent'
+        active ? 'bg-brand' : 'bg-transparent'
       )}>
         <Icon
           size={20}
           strokeWidth={active ? 2.5 : 1.8}
-          className={active ? 'text-[#131313]' : 'text-[#8E8E86]'}
+          className={active ? 'text-[#131313]' : 'text-muted-foreground'}
         />
       </div>
       <span className={cn(
         'text-[10px] font-medium leading-none',
-        active ? 'text-[#1A1A1A] font-semibold' : 'text-[#A8A89F]'
+        active ? 'text-foreground font-semibold' : 'text-[#A8A89F]'
       )}>
         {label}
       </span>
@@ -181,7 +181,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
                   onClick={onClose}
                   className={cn(
                     'flex items-center gap-3.5 px-4 py-3.5 rounded-full text-[15px] font-medium transition-all mb-1',
-                    active ? 'bg-[#FFC8E2] text-[#131313] font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+                    active ? 'bg-brand text-[#131313] font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5'
                   )}
                 >
                   <item.icon size={18} strokeWidth={active ? 2.5 : 2} />
@@ -202,7 +202,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
           <div className="flex-1 min-w-0">
             <p className="text-[14px] font-semibold text-white leading-tight truncate">{userEmail}</p>
           </div>
-          <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+          <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-card/10 transition-colors">
             <LogOut size={16} className="text-white/40" />
           </button>
         </div>
@@ -280,7 +280,7 @@ export function Sidebar() {
           className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
         >
           <div className="w-10 h-7 rounded-full flex items-center justify-center">
-            <Menu size={20} strokeWidth={1.8} className="text-[#8E8E86]" />
+            <Menu size={20} strokeWidth={1.8} className="text-muted-foreground" />
           </div>
           <span className="text-[10px] font-medium text-[#A8A89F] leading-none">Más</span>
         </button>
@@ -314,7 +314,7 @@ export function Sidebar() {
         {/* Modo Esencial / Avanzado */}
         {!collapsed && (
           <div className="px-3 pt-2.5 pb-1">
-            <div className="flex gap-0.5 p-0.5 rounded-full bg-white/5">
+            <div className="flex gap-0.5 p-0.5 rounded-full bg-card/5">
               {([['esencial', 'Esencial'], ['avanzado', 'Todo']] as const).map(([val, label]) => (
                 <button
                   key={val}
@@ -322,7 +322,7 @@ export function Sidebar() {
                   title={val === 'esencial' ? 'Solo lo esencial: Dashboard, Calendario, Miembros, Transacciones, Informes' : 'Todas las funciones'}
                   className={cn(
                     'flex-1 py-1 rounded-full text-[10.5px] font-bold transition-all',
-                    navMode === val ? 'bg-[#FFC8E2] text-[#131313]' : 'text-white/40',
+                    navMode === val ? 'bg-brand text-[#131313]' : 'text-white/40',
                   )}
                 >
                   {label}
@@ -354,7 +354,7 @@ export function Sidebar() {
         {/* External links */}
         {collapsed ? (
           <div className="px-2 pb-2 flex flex-col items-center gap-0.5">
-            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal miembros" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5 text-[#F7A6C4]">
+            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal miembros" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-brand">
               <ExternalLink size={15} />
             </Link>
           </div>
@@ -363,7 +363,7 @@ export function Sidebar() {
             <Link
               href={`/portal/${studioSlug}/login`}
               target="_blank"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#F7A6C4]"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-brand"
             >
               <ExternalLink size={12} className="shrink-0" />
               <span>Portal miembros</span>
@@ -385,7 +385,7 @@ export function Sidebar() {
                 <button
                   onClick={handleSignOut}
                   title="Cerrar sesión"
-                  className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+                  className="p-1.5 rounded-lg transition-colors hover:bg-card/10"
                 >
                   <LogOut size={13} className="text-white/30 hover:text-white/60" />
                 </button>
@@ -398,7 +398,7 @@ export function Sidebar() {
         <button
           onClick={toggleCollapsed}
           title={collapsed ? 'Expandir menú' : 'Contraer menú'}
-          className="flex items-center justify-center h-9 shrink-0 border-t transition-colors hover:bg-white/5 text-white/30 hover:text-white/70"
+          className="flex items-center justify-center h-9 shrink-0 border-t transition-colors hover:bg-card/5 text-white/30 hover:text-white/70"
           style={{ borderColor: 'rgba(255,255,255,0.07)' }}
         >
           {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
