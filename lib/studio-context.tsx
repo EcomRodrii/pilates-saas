@@ -29,9 +29,6 @@ import {
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCampana, dbDeleteCampana, dbUpdateCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
-  dbInsertVideoOnDemand, dbUpdateVideoOnDemand,
-  dbInsertPostComunidad, dbUpdatePostComunidad,
-  dbUpsertIntegracion,
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
@@ -107,6 +104,10 @@ import { calcularMetrica } from '@/lib/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/level-engine';
 import { calcularProgresoReto } from '@/lib/challenge-engine';
+import { uid } from '@/lib/utils';
+import { useContentStore } from '@/lib/stores/use-content-store';
+import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
+import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -155,9 +156,6 @@ La firma de este documento supone la aceptación íntegra de las presentes condi
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function uid() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
 
 // ─── Context shape ────────────────────────────────────────────────────────────
 
@@ -408,12 +406,16 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [ventasPOS, setVentasPOS] = useState<VentaPOS[]>([]);
   const [campanas, setCampanas] = useState<Campana[]>([]);
   const [automatizaciones, setAutomatizaciones] = useState<Automatizacion[]>([]);
-  const [codigosDescuento, setCodigosDescuento] = useState<CodigoDescuento[]>([]);
+  // Dominios extraídos a sus stores (Fase B).
+  const discountCodes = useDiscountCodesStore();
+  const { codigosDescuento } = discountCodes;
+  const integrationsStore = useIntegrationsStore();
+  const { integraciones } = integrationsStore;
   const [actividadReciente, setActividadReciente] = useState<ActividadReciente[]>([]);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
-  const [videosOnDemand, setVideosOnDemand] = useState<VideoOnDemand[]>([]);
-  const [postsComunidad, setPostsComunidad] = useState<PostComunidad[]>([]);
-  const [integraciones, setIntegraciones] = useState<Integracion[]>([]);
+  // Dominio Contenido y Comunidad extraído a su propio store (Fase B).
+  const content = useContentStore();
+  const { videosOnDemand, postsComunidad } = content;
   const [mensajesEquipo, setMensajesEquipo] = useState<MensajeEquipo[]>([]);
   const [preferenciasSocio, setPreferenciasSocio] = useState<PreferenciasSocio[]>([]);
   const [rewardRules, setRewardRules] = useState<RewardRule[]>([]);
@@ -489,12 +491,12 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setVentasPOS(data.ventasPOS);
       setCampanas(data.campanas);
       setAutomatizaciones(data.automatizaciones);
-      setCodigosDescuento(data.codigosDescuento);
+      discountCodes.setCodigosDescuento(data.codigosDescuento);
       setActividadReciente(data.actividadReciente);
       setNotificaciones(data.notificaciones);
-      setVideosOnDemand(data.videosOnDemand);
-      setPostsComunidad(data.postsComunidad);
-      setIntegraciones(data.integraciones ?? []);
+      content.setVideosOnDemand(data.videosOnDemand);
+      content.setPostsComunidad(data.postsComunidad);
+      integrationsStore.setIntegraciones(data.integraciones ?? []);
       setMensajesEquipo(data.mensajesEquipo ?? []);
       setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
@@ -1138,7 +1140,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     setRecibos(prev => prev.map(r =>
       r.id === reciboId ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
     ));
-    dbUpdateRecibo(reciboId, { estado: 'COBRADO', fecha_cobro: fechaCobro });
+    dbUpdateRecibo(reciboId, { estado: 'COBRADO', fechaCobro });
     setFacturas(prev => {
       // Avoid duplicate facturas for same recibo
       if (prev.some(f => f.reciboId === reciboId)) return prev;
@@ -1192,14 +1194,14 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     setRecibos(prev => prev.map(r =>
       r.id === reciboId ? { ...r, estado: 'DEVUELTO' as const, fechaDevolucion: fechaDev } : r
     ));
-    dbUpdateRecibo(reciboId, { estado: 'DEVUELTO', fecha_devolucion: fechaDev });
+    dbUpdateRecibo(reciboId, { estado: 'DEVUELTO', fechaDevolucion: fechaDev });
   }
 
   function reintentar(reciboId: string) {
     setRecibos(prev => prev.map(r => {
       if (r.id !== reciboId) return r;
       const updated = { ...r, estado: 'EN_CURSO' as const, intentosReintento: r.intentosReintento + 1 };
-      dbUpdateRecibo(reciboId, { estado: 'EN_CURSO', intentos_reintento: updated.intentosReintento });
+      dbUpdateRecibo(reciboId, { estado: 'EN_CURSO', intentosReintento: updated.intentosReintento });
       return updated;
     }));
   }
@@ -1455,26 +1457,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   // ── Códigos de descuento ──────────────────────────────────────────────────────
 
-  function addCodigoDescuento(fields: Omit<CodigoDescuento, 'id' | 'studioId' | 'usos' | 'creadoEn'>) {
-    const nuevo: CodigoDescuento = {
-      id: `disc-${uid()}`,
-      studioId: getCurrentStudioId(),
-      usos: 0,
-      creadoEn: new Date().toISOString(),
-      ...fields,
-    };
-    setCodigosDescuento(prev => [nuevo, ...prev]);
-  }
-
-  function toggleCodigoDescuento(codigoId: string) {
-    setCodigosDescuento(prev => prev.map(c =>
-      c.id === codigoId ? { ...c, activo: !c.activo } : c
-    ));
-  }
-
-  function deleteCodigoDescuento(id: string) {
-    setCodigosDescuento(prev => prev.filter(c => c.id !== id));
-  }
+  // Códigos de descuento: extraídos a useDiscountCodesStore (Fase B).
 
   // ── Actividad reciente ────────────────────────────────────────────────────────
 
@@ -1650,7 +1633,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     const actualizado = memberCredits.find(m => m.socioId === socioId);
     dbUpsertMemberCredits(actualizado
       ? { ...actualizado, saldo: actualizado.saldo - item.costeCreditos, totalCanjeado: actualizado.totalCanjeado + item.costeCreditos }
-      : { socioId, studioId, saldo: -item.costeCreditos, totalGanado: 0, totalCanjeado: item.costeCreditos });
+      : { socioId, studioId, saldo: -item.costeCreditos, totalGanado: 0, totalCanjeado: item.costeCreditos, actualizadoEn: now });
 
     return { ok: true };
   }
@@ -1850,73 +1833,12 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   // ── Videos on demand ──────────────────────────────────────────────────────────
 
-  function addVideo(fields: Omit<VideoOnDemand, 'id' | 'studioId' | 'vistas' | 'likes' | 'creadoEn'>) {
-    const nuevo: VideoOnDemand = {
-      id: `vid-${uid()}`,
-      studioId: getCurrentStudioId(),
-      vistas: 0,
-      likes: 0,
-      creadoEn: new Date().toISOString(),
-      ...fields,
-    };
-    setVideosOnDemand(prev => [nuevo, ...prev]);
-    dbInsertVideoOnDemand(nuevo);
-  }
-
-  function toggleVideo(videoId: string) {
-    const actual = videosOnDemand.find(v => v.id === videoId);
-    setVideosOnDemand(prev => prev.map(v =>
-      v.id === videoId ? { ...v, activo: !v.activo } : v
-    ));
-    if (actual) dbUpdateVideoOnDemand(videoId, { activo: !actual.activo });
-  }
-
-  // ── Comunidad ─────────────────────────────────────────────────────────────────
-
-  function addPost(texto: string) {
-    const nuevo: PostComunidad = {
-      id: `post-${uid()}`,
-      studioId: getCurrentStudioId(),
-      autorId: null,
-      autorNombre: 'Tentare',
-      autorInicial: 'TE',
-      texto,
-      likes: 0,
-      comentariosCount: 0,
-      fijado: false,
-      creadoEn: new Date().toISOString(),
-    };
-    setPostsComunidad(prev => [nuevo, ...prev]);
-    dbInsertPostComunidad(nuevo);
-  }
-
-  function toggleLikePost(postId: string) {
-    const actual = postsComunidad.find(p => p.id === postId);
-    setPostsComunidad(prev => prev.map(p =>
-      p.id === postId ? { ...p, likes: p.likes + 1 } : p
-    ));
-    if (actual) dbUpdatePostComunidad(postId, { likes: actual.likes + 1 });
-  }
+  // Vídeos on-demand y Comunidad: extraídos a useContentStore (Fase B).
+  // Se exponen en el value vía `content` (ver más abajo).
 
   // ── Integraciones ─────────────────────────────────────────────────────────────
 
-  function upsertIntegracion(tipo: TipoIntegracion, activo: boolean, config: Record<string, string>) {
-    const existente = integraciones.find(i => i.tipo === tipo);
-    const actualizadoEn = new Date().toISOString();
-    const registro: Integracion = {
-      id: existente?.id ?? `intg-${tipo.toLowerCase()}-${uid()}`,
-      studioId: getCurrentStudioId(),
-      tipo,
-      activo,
-      config,
-      actualizadoEn,
-    };
-    setIntegraciones(prev => {
-      const otras = prev.filter(i => i.tipo !== tipo);
-      return [...otras, registro];
-    });
-    dbUpsertIntegracion(registro);
-  }
+  // Integraciones: extraídas a useIntegrationsStore (Fase B).
 
   // ── Motor de automatización avanzado ─────────────────────────────────────────
 
@@ -2167,22 +2089,22 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     addAutomatizacion,
     toggleAutomatizacion,
     codigosDescuento,
-    addCodigoDescuento,
-    toggleCodigoDescuento,
-    deleteCodigoDescuento,
+    addCodigoDescuento: discountCodes.addCodigoDescuento,
+    toggleCodigoDescuento: discountCodes.toggleCodigoDescuento,
+    deleteCodigoDescuento: discountCodes.deleteCodigoDescuento,
     actividadReciente,
     addActividadReciente,
     notificaciones,
     marcarNotificacionLeida,
     marcarTodasLeidas,
     videosOnDemand,
-    addVideo,
-    toggleVideo,
+    addVideo: content.addVideo,
+    toggleVideo: content.toggleVideo,
     postsComunidad,
-    addPost,
-    toggleLikePost,
+    addPost: content.addPost,
+    toggleLikePost: content.toggleLikePost,
     integraciones,
-    upsertIntegracion,
+    upsertIntegracion: integrationsStore.upsertIntegracion,
     mensajesEquipo,
     addMensajeEquipo,
     preferenciasSocio,
@@ -2264,12 +2186,12 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setVentasPOS(data.ventasPOS);
       setCampanas(data.campanas);
       setAutomatizaciones(data.automatizaciones);
-      setCodigosDescuento(data.codigosDescuento);
+      discountCodes.setCodigosDescuento(data.codigosDescuento);
       setActividadReciente(data.actividadReciente);
       setNotificaciones(data.notificaciones);
-      setVideosOnDemand(data.videosOnDemand);
-      setPostsComunidad(data.postsComunidad);
-      setIntegraciones(data.integraciones ?? []);
+      content.setVideosOnDemand(data.videosOnDemand);
+      content.setPostsComunidad(data.postsComunidad);
+      integrationsStore.setIntegraciones(data.integraciones ?? []);
       setMensajesEquipo(data.mensajesEquipo ?? []);
       setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);

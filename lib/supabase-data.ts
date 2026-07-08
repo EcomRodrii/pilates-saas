@@ -1,4 +1,101 @@
 import { supabase } from '@/lib/supabase';
+import type {
+  RowAchievementDefinitions,
+  RowAchievementHistory,
+  RowAchievementProgress,
+  RowActividadReciente,
+  RowAutomationLogs,
+  RowAutomationRules,
+  RowAutomatizaciones,
+  RowBackups,
+  RowCampanas,
+  RowChallengeDefinitions,
+  RowChallengeHistory,
+  RowChallengeProgress,
+  RowCitas,
+  RowCodigosDescuento,
+  RowCreditTransactions,
+  RowDashboardCharts,
+  RowFacturas,
+  RowInstructores,
+  RowIntegraciones,
+  RowLevelDefinitions,
+  RowMemberCredits,
+  RowMensajesEquipo,
+  RowNotasInternas,
+  RowNotasProgreso,
+  RowNotificaciones,
+  RowPlanesTarifa,
+  RowPostsComunidad,
+  RowPreferenciasSocio,
+  RowProductosPos,
+  RowRecibos,
+  RowReservas,
+  RowRewardActions,
+  RowRewardCatalog,
+  RowRewardHistory,
+  RowRewardRedemptions,
+  RowRewardRules,
+  RowSalas,
+  RowSesiones,
+  RowSocios,
+  RowSpots,
+  RowStudios,
+  RowSuscripciones,
+  RowTiposClase,
+  RowUsuarios,
+  RowVentasPos,
+  RowVideosOnDemand,
+} from '@/lib/db-types';
+import type {
+  AchievementDefinition,
+  AchievementHistory,
+  AchievementProgress,
+  ActividadReciente,
+  AutomationLog,
+  AutomationRule,
+  Automatizacion,
+  BackupMeta,
+  Campana,
+  ChallengeDefinition,
+  ChallengeHistory,
+  ChallengeProgress,
+  Cita,
+  CodigoDescuento,
+  CreditTransaction,
+  DashboardChart,
+  Factura,
+  Instructor,
+  Integracion,
+  LevelDefinition,
+  MemberCredits,
+  MensajeEquipo,
+  NotaInterna,
+  NotaProgreso,
+  Notificacion,
+  PlanTarifa,
+  PostComunidad,
+  PreferenciasSocio,
+  ProductoPOS,
+  Recibo,
+  Reserva,
+  RewardAction,
+  RewardCatalogItem,
+  RewardHistory,
+  RewardRedemption,
+  RewardRule,
+  Sala,
+  Sesion,
+  Socio,
+  Spot,
+  Studio,
+  Suscripcion,
+  TipoClase,
+  Usuario,
+  VentaPOS,
+  VideoOnDemand,
+} from '@/lib/types';
+
 
 // Multi-tenancy: STUDIO_ID is resolved per logged-in user (see
 // resolveStudioId/setCurrentStudioId) and read at call time by every helper
@@ -63,7 +160,7 @@ function reportDbError(tag: string, error: unknown) {
 
 // ─── Mappers: DB (snake_case) → TS (camelCase) ───────────────────────────────
 
-function mapStudio(r: any) {
+function mapStudio(r: RowStudios): Studio {
   return {
     id: r.id,
     nombre: r.nombre,
@@ -81,10 +178,10 @@ function mapStudio(r: any) {
     slug: r.slug ?? null,
     creadoEn: r.creado_en,
     stripeAccountId: r.stripe_account_id ?? null,
-  };
+  } as Studio;
 }
 
-function mapUsuario(r: any) {
+function mapUsuario(r: RowUsuarios): Usuario {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -93,10 +190,10 @@ function mapUsuario(r: any) {
     email: r.email,
     telefono: r.telefono ?? null,
     avatarUrl: r.avatar_url ?? null,
-  };
+  } as Usuario;
 }
 
-function mapSocio(r: any) {
+function mapSocio(r: RowSocios): Socio {
   const aceptacionContrato =
     r.aceptacion_fecha
       ? {
@@ -126,10 +223,10 @@ function mapSocio(r: any) {
     direccion: r.direccion ?? null,
     fotoUrl: r.foto_url ?? null,
     referidoPor: r.referido_por ?? null,
-  };
+  } as Socio;
 }
 
-function mapPreferenciasSocio(r: any) {
+function mapPreferenciasSocio(r: RowPreferenciasSocio): PreferenciasSocio {
   return {
     socioId: r.socio_id,
     studioId: r.studio_id,
@@ -141,10 +238,10 @@ function mapPreferenciasSocio(r: any) {
     notifEmail: r.notif_email ?? true,
     notifWhatsapp: r.notif_whatsapp ?? true,
     actualizadoEn: r.actualizado_en,
-  };
+  } as PreferenciasSocio;
 }
 
-function mapRewardRule(r: any) {
+function mapRewardRule(r: RowRewardRules): RewardRule {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -154,10 +251,10 @@ function mapRewardRule(r: any) {
     creditos: r.creditos,
     activa: r.activa,
     creadoEn: r.creado_en,
-  };
+  } as RewardRule;
 }
 
-function mapRewardAction(r: any) {
+function mapRewardAction(r: RowRewardActions): RewardAction {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -165,10 +262,10 @@ function mapRewardAction(r: any) {
     trigger: r.trigger,
     refId: r.ref_id ?? null,
     creadoEn: r.creado_en,
-  };
+  } as RewardAction;
 }
 
-function mapRewardHistory(r: any) {
+function mapRewardHistory(r: RowRewardHistory): RewardHistory {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -178,10 +275,10 @@ function mapRewardHistory(r: any) {
     creditos: r.creditos,
     descripcion: r.descripcion,
     creadoEn: r.creado_en,
-  };
+  } as RewardHistory;
 }
 
-function mapCreditTransaction(r: any) {
+function mapCreditTransaction(r: RowCreditTransactions): CreditTransaction {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -191,10 +288,10 @@ function mapCreditTransaction(r: any) {
     descripcion: r.descripcion,
     refId: r.ref_id ?? null,
     creadoEn: r.creado_en,
-  };
+  } as CreditTransaction;
 }
 
-function mapMemberCredits(r: any) {
+function mapMemberCredits(r: RowMemberCredits): MemberCredits {
   return {
     socioId: r.socio_id,
     studioId: r.studio_id,
@@ -202,10 +299,10 @@ function mapMemberCredits(r: any) {
     totalGanado: r.total_ganado,
     totalCanjeado: r.total_canjeado,
     actualizadoEn: r.actualizado_en,
-  };
+  } as MemberCredits;
 }
 
-function mapRewardCatalogItem(r: any) {
+function mapRewardCatalogItem(r: RowRewardCatalog): RewardCatalogItem {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -216,10 +313,10 @@ function mapRewardCatalogItem(r: any) {
     activo: r.activo,
     stock: r.stock ?? null,
     creadoEn: r.creado_en,
-  };
+  } as RewardCatalogItem;
 }
 
-function mapRewardRedemption(r: any) {
+function mapRewardRedemption(r: RowRewardRedemptions): RewardRedemption {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -228,10 +325,10 @@ function mapRewardRedemption(r: any) {
     creditosGastados: r.creditos_gastados,
     estado: r.estado,
     creadoEn: r.creado_en,
-  };
+  } as RewardRedemption;
 }
 
-function mapAchievementDefinition(r: any) {
+function mapAchievementDefinition(r: RowAchievementDefinitions): AchievementDefinition {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -243,10 +340,10 @@ function mapAchievementDefinition(r: any) {
     creditosRecompensa: r.creditos_recompensa,
     activo: r.activo,
     creadoEn: r.creado_en,
-  };
+  } as AchievementDefinition;
 }
 
-function mapAchievementProgress(r: any) {
+function mapAchievementProgress(r: RowAchievementProgress): AchievementProgress {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -255,10 +352,10 @@ function mapAchievementProgress(r: any) {
     progresoActual: r.progreso_actual,
     completado: r.completado,
     completadoEn: r.completado_en ?? null,
-  };
+  } as AchievementProgress;
 }
 
-function mapAchievementHistory(r: any) {
+function mapAchievementHistory(r: RowAchievementHistory): AchievementHistory {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -267,10 +364,10 @@ function mapAchievementHistory(r: any) {
     nombre: r.nombre,
     icono: r.icono,
     creadoEn: r.creado_en,
-  };
+  } as AchievementHistory;
 }
 
-function mapLevelDefinition(r: any) {
+function mapLevelDefinition(r: RowLevelDefinitions): LevelDefinition {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -282,10 +379,10 @@ function mapLevelDefinition(r: any) {
     beneficios: r.beneficios ?? null,
     activo: r.activo,
     creadoEn: r.creado_en,
-  };
+  } as LevelDefinition;
 }
 
-function mapChallengeDefinition(r: any) {
+function mapChallengeDefinition(r: RowChallengeDefinitions): ChallengeDefinition {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -299,10 +396,10 @@ function mapChallengeDefinition(r: any) {
     creditosRecompensa: r.creditos_recompensa,
     activo: r.activo,
     creadoEn: r.creado_en,
-  };
+  } as ChallengeDefinition;
 }
 
-function mapChallengeProgress(r: any) {
+function mapChallengeProgress(r: RowChallengeProgress): ChallengeProgress {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -311,10 +408,10 @@ function mapChallengeProgress(r: any) {
     progresoActual: r.progreso_actual,
     completado: r.completado,
     completadoEn: r.completado_en ?? null,
-  };
+  } as ChallengeProgress;
 }
 
-function mapChallengeHistory(r: any) {
+function mapChallengeHistory(r: RowChallengeHistory): ChallengeHistory {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -323,10 +420,10 @@ function mapChallengeHistory(r: any) {
     nombre: r.nombre,
     icono: r.icono,
     creadoEn: r.creado_en,
-  };
+  } as ChallengeHistory;
 }
 
-function mapDashboardChart(r: any) {
+function mapDashboardChart(r: RowDashboardCharts): DashboardChart {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -337,19 +434,19 @@ function mapDashboardChart(r: any) {
     rango: r.rango,
     color: r.color,
     creadoEn: r.creado_en,
-  };
+  } as DashboardChart;
 }
 
-function mapBackupMeta(r: any) {
+function mapBackupMeta(r: RowBackups): BackupMeta {
   return {
     id: r.id,
     studioId: r.studio_id,
     tipo: r.tipo,
     creadoEn: r.creado_en,
-  };
+  } as BackupMeta;
 }
 
-function mapPlanTarifa(r: any) {
+function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -359,10 +456,10 @@ function mapPlanTarifa(r: any) {
     tipo: r.tipo,
     sesiones: r.sesiones ?? null,
     activo: r.activo,
-  };
+  } as PlanTarifa;
 }
 
-function mapSuscripcion(r: any) {
+function mapSuscripcion(r: RowSuscripciones): Suscripcion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -373,20 +470,20 @@ function mapSuscripcion(r: any) {
     fechaFin: r.fecha_fin ?? null,
     sesionesRestantes: r.sesiones_restantes ?? null,
     stripeSubscriptionId: r.stripe_subscription_id ?? null,
-  };
+  } as Suscripcion;
 }
 
-function mapSala(r: any) {
+function mapSala(r: RowSalas): Sala {
   return {
     id: r.id,
     studioId: r.studio_id,
     nombre: r.nombre,
     capacidad: r.capacidad,
     color: r.color,
-  };
+  } as Sala;
 }
 
-function mapSpot(r: any) {
+function mapSpot(r: RowSpots): Spot {
   return {
     id: r.id,
     salaId: r.sala_id,
@@ -397,10 +494,10 @@ function mapSpot(r: any) {
     columna: r.columna,
     tipo: r.tipo,
     activo: r.activo,
-  };
+  } as Spot;
 }
 
-function mapTipoClase(r: any) {
+function mapTipoClase(r: RowTiposClase): TipoClase {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -410,10 +507,10 @@ function mapTipoClase(r: any) {
     descripcion: r.descripcion ?? null,
     nivel: r.nivel,
     fotoUrl: r.foto_url ?? null,
-  };
+  } as TipoClase;
 }
 
-function mapInstructor(r: any) {
+function mapInstructor(r: RowInstructores): Instructor {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -425,10 +522,10 @@ function mapInstructor(r: any) {
     avatar: r.avatar ?? null,
     rol: r.rol ?? 'INSTRUCTOR',
     authUserId: r.auth_user_id ?? null,
-  };
+  } as Instructor;
 }
 
-function mapSesion(r: any) {
+function mapSesion(r: RowSesiones): Sesion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -441,10 +538,10 @@ function mapSesion(r: any) {
     cancelada: r.cancelada,
     notas: r.notas ?? null,
     precioPuntual: r.precio_puntual ?? null,
-  };
+  } as Sesion;
 }
 
-function mapReserva(r: any) {
+function mapReserva(r: RowReservas): Reserva {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -455,10 +552,10 @@ function mapReserva(r: any) {
     posicionEspera: r.posicion_espera ?? null,
     checkInEn: r.check_in_en ?? null,
     creadoEn: r.creado_en,
-  };
+  } as Reserva;
 }
 
-function mapRecibo(r: any) {
+function mapRecibo(r: RowRecibos): Recibo {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -471,10 +568,10 @@ function mapRecibo(r: any) {
     fechaCobro: r.fecha_cobro ?? null,
     fechaDevolucion: r.fecha_devolucion ?? null,
     intentosReintento: r.intentos_reintento,
-  };
+  } as Recibo;
 }
 
-function mapFactura(r: any) {
+function mapFactura(r: RowFacturas): Factura {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -488,10 +585,10 @@ function mapFactura(r: any) {
     cuotaIVA: r.cuota_iva,
     total: r.total,
     verifactuHash: r.verifactu_hash ?? null,
-  };
+  } as Factura;
 }
 
-function mapCita(r: any) {
+function mapCita(r: RowCitas): Cita {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -504,10 +601,10 @@ function mapCita(r: any) {
     estado: r.estado,
     precio: r.precio ?? null,
     creadoEn: r.creado_en,
-  };
+  } as Cita;
 }
 
-function mapProductoPOS(r: any) {
+function mapProductoPOS(r: RowProductosPos): ProductoPOS {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -515,10 +612,10 @@ function mapProductoPOS(r: any) {
     categoria: r.categoria,
     precio: r.precio,
     activo: r.activo,
-  };
+  } as ProductoPOS;
 }
 
-function mapVentaPOS(r: any) {
+function mapVentaPOS(r: RowVentasPos): VentaPOS {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -530,10 +627,10 @@ function mapVentaPOS(r: any) {
     metodoPago: r.metodo_pago,
     notas: r.notas ?? null,
     realizadaEn: r.realizada_en,
-  };
+  } as VentaPOS;
 }
 
-function mapIntegracion(r: any) {
+function mapIntegracion(r: RowIntegraciones): Integracion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -541,10 +638,10 @@ function mapIntegracion(r: any) {
     activo: r.activo,
     config: r.config ?? {},
     actualizadoEn: r.actualizado_en,
-  };
+  } as Integracion;
 }
 
-function mapCampana(r: any) {
+function mapCampana(r: RowCampanas): Campana {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -560,10 +657,10 @@ function mapCampana(r: any) {
     creadaEn: r.creada_en,
     enviadaEn: r.enviada_en ?? null,
     programadaEn: r.programada_en ?? null,
-  };
+  } as Campana;
 }
 
-function mapAutomatizacion(r: any) {
+function mapAutomatizacion(r: RowAutomatizaciones): Automatizacion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -575,10 +672,10 @@ function mapAutomatizacion(r: any) {
     activa: r.activa,
     ejecutadas: r.ejecutadas,
     creadaEn: r.creada_en,
-  };
+  } as Automatizacion;
 }
 
-function mapAutomationRule(r: any) {
+function mapAutomationRule(r: RowAutomationRules): AutomationRule {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -592,10 +689,10 @@ function mapAutomationRule(r: any) {
     ejecutadaVeces: r.ejecutada_veces,
     ultimaEjecucion: r.ultima_ejecucion ?? null,
     creadaEn: r.creada_en,
-  };
+  } as AutomationRule;
 }
 
-function mapAutomationLog(r: any) {
+function mapAutomationLog(r: RowAutomationLogs): AutomationLog {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -610,10 +707,10 @@ function mapAutomationLog(r: any) {
     ejecutadoEn: r.ejecutado_en,
     proximaAccionEn: r.proxima_accion_en ?? null,
     reciboId: r.recibo_id ?? null,
-  };
+  } as AutomationLog;
 }
 
-function mapNotaProgreso(r: any) {
+function mapNotaProgreso(r: RowNotasProgreso): NotaProgreso {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -626,10 +723,10 @@ function mapNotaProgreso(r: any) {
     planProximaSesion: r.plan_proxima_sesion ?? null,
     ejerciciosCasa: r.ejercicios_casa ?? null,
     creadaEn: r.creada_en,
-  };
+  } as NotaProgreso;
 }
 
-function mapCodigoDescuento(r: any) {
+function mapCodigoDescuento(r: RowCodigosDescuento): CodigoDescuento {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -642,10 +739,10 @@ function mapCodigoDescuento(r: any) {
     expira: r.expira ?? null,
     activo: r.activo,
     creadoEn: r.creado_en,
-  };
+  } as CodigoDescuento;
 }
 
-function mapActividadReciente(r: any) {
+function mapActividadReciente(r: RowActividadReciente): ActividadReciente {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -655,10 +752,10 @@ function mapActividadReciente(r: any) {
     enlace: r.enlace ?? null,
     creadoEn: r.creado_en,
     actorNombre: r.actor_nombre ?? null,
-  };
+  } as ActividadReciente;
 }
 
-function mapMensajeEquipo(r: any) {
+function mapMensajeEquipo(r: RowMensajesEquipo): MensajeEquipo {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -666,10 +763,10 @@ function mapMensajeEquipo(r: any) {
     autorNombre: r.autor_nombre,
     texto: r.texto,
     creadoEn: r.creado_en,
-  };
+  } as MensajeEquipo;
 }
 
-function mapNotificacion(r: any) {
+function mapNotificacion(r: RowNotificaciones): Notificacion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -679,10 +776,10 @@ function mapNotificacion(r: any) {
     tipo: r.tipo,
     enlace: r.enlace ?? null,
     creadaEn: r.creada_en,
-  };
+  } as Notificacion;
 }
 
-function mapVideoOnDemand(r: any) {
+function mapVideoOnDemand(r: RowVideosOnDemand): VideoOnDemand {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -696,10 +793,10 @@ function mapVideoOnDemand(r: any) {
     likes: r.likes,
     activo: r.activo,
     creadoEn: r.creado_en,
-  };
+  } as VideoOnDemand;
 }
 
-function mapPostComunidad(r: any) {
+function mapPostComunidad(r: RowPostsComunidad): PostComunidad {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -711,10 +808,10 @@ function mapPostComunidad(r: any) {
     comentariosCount: r.comentarios_count,
     fijado: r.fijado,
     creadoEn: r.creado_en,
-  };
+  } as PostComunidad;
 }
 
-function mapNotaInterna(r: any) {
+function mapNotaInterna(r: RowNotasInternas): NotaInterna {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -722,7 +819,7 @@ function mapNotaInterna(r: any) {
     texto: r.texto,
     tipo: r.tipo,
     creadoEn: r.creado_en,
-  };
+  } as NotaInterna;
 }
 
 // ─── Fetch all studio data in parallel ───────────────────────────────────────
@@ -870,13 +967,15 @@ export async function fetchAllStudioData() {
     challengeProgress: (challengeProgressRes.data ?? []).map(mapChallengeProgress),
     challengeHistory: (challengeHistoryRes.data ?? []).map(mapChallengeHistory),
     dashboardCharts: (dashboardChartsRes.data ?? []).map(mapDashboardChart),
-    backups: (backupsRes.data ?? []).map(mapBackupMeta),
+    // La query de backups usa un select estrecho (excluye la columna 'datos'
+    // pesada); afirmamos la fila para el mapper.
+    backups: (backupsRes.data ?? []).map(r => mapBackupMeta(r as RowBackups)),
   };
 }
 
 // ─── Mappers: TS (camelCase) → DB (snake_case) ───────────────────────────────
 
-function socioToDb(socio: any) {
+function socioToDb(socio: Socio) {
   const {
     aceptacionContrato, studioId, fechaAlta, leadStage,
     stripeCustomerId, stripePaymentMethodId, fechaNacimiento, fotoUrl, referidoPor,
@@ -898,7 +997,7 @@ function socioToDb(socio: any) {
   };
 }
 
-function planTarifaToDb(plan: any) {
+function planTarifaToDb(plan: PlanTarifa) {
   return {
     id: plan.id,
     studio_id: plan.studioId ?? STUDIO_ID,
@@ -911,7 +1010,7 @@ function planTarifaToDb(plan: any) {
   };
 }
 
-function suscripcionToDb(sus: any) {
+function suscripcionToDb(sus: Suscripcion) {
   return {
     id: sus.id,
     studio_id: sus.studioId ?? STUDIO_ID,
@@ -925,7 +1024,7 @@ function suscripcionToDb(sus: any) {
   };
 }
 
-function sesionToDb(ses: any) {
+function sesionToDb(ses: Sesion) {
   return {
     id: ses.id,
     studio_id: ses.studioId ?? STUDIO_ID,
@@ -941,7 +1040,7 @@ function sesionToDb(ses: any) {
   };
 }
 
-function reservaToDb(res: any) {
+function reservaToDb(res: Reserva) {
   return {
     id: res.id,
     studio_id: res.studioId ?? STUDIO_ID,
@@ -955,7 +1054,7 @@ function reservaToDb(res: any) {
   };
 }
 
-function reciboToDb(rec: any) {
+function reciboToDb(rec: Recibo) {
   return {
     id: rec.id,
     studio_id: rec.studioId ?? STUDIO_ID,
@@ -971,7 +1070,7 @@ function reciboToDb(rec: any) {
   };
 }
 
-function facturaToDb(fac: any) {
+function facturaToDb(fac: Factura) {
   return {
     id: fac.id,
     studio_id: fac.studioId ?? STUDIO_ID,
@@ -988,7 +1087,7 @@ function facturaToDb(fac: any) {
   };
 }
 
-function citaToDb(cita: any) {
+function citaToDb(cita: Cita) {
   return {
     id: cita.id,
     studio_id: cita.studioId ?? STUDIO_ID,
@@ -1004,7 +1103,7 @@ function citaToDb(cita: any) {
   };
 }
 
-function ventaPOSToDb(venta: any) {
+function ventaPOSToDb(venta: VentaPOS) {
   return {
     id: venta.id,
     studio_id: venta.studioId ?? STUDIO_ID,
@@ -1019,7 +1118,7 @@ function ventaPOSToDb(venta: any) {
   };
 }
 
-function actividadRecienteToDb(act: any) {
+function actividadRecienteToDb(act: ActividadReciente) {
   return {
     id: act.id,
     studio_id: act.studioId ?? STUDIO_ID,
@@ -1032,7 +1131,7 @@ function actividadRecienteToDb(act: any) {
   };
 }
 
-function mensajeEquipoToDb(m: any) {
+function mensajeEquipoToDb(m: MensajeEquipo) {
   return {
     id: m.id,
     studio_id: m.studioId ?? STUDIO_ID,
@@ -1043,7 +1142,7 @@ function mensajeEquipoToDb(m: any) {
   };
 }
 
-function notaInternaToDb(nota: any) {
+function notaInternaToDb(nota: NotaInterna) {
   return {
     id: nota.id,
     studio_id: nota.studioId ?? STUDIO_ID,
@@ -1054,7 +1153,7 @@ function notaInternaToDb(nota: any) {
   };
 }
 
-function campanaToDb(c: any) {
+function campanaToDb(c: Campana) {
   return {
     id: c.id,
     studio_id: c.studioId ?? STUDIO_ID,
@@ -1073,7 +1172,7 @@ function campanaToDb(c: any) {
   };
 }
 
-function automatizacionToDb(a: any) {
+function automatizacionToDb(a: Automatizacion) {
   return {
     id: a.id,
     studio_id: a.studioId ?? STUDIO_ID,
@@ -1088,7 +1187,7 @@ function automatizacionToDb(a: any) {
   };
 }
 
-function videoOnDemandToDb(v: any) {
+function videoOnDemandToDb(v: VideoOnDemand) {
   return {
     id: v.id,
     studio_id: v.studioId ?? STUDIO_ID,
@@ -1105,7 +1204,7 @@ function videoOnDemandToDb(v: any) {
   };
 }
 
-function postComunidadToDb(p: any) {
+function postComunidadToDb(p: PostComunidad) {
   return {
     id: p.id,
     studio_id: p.studioId ?? STUDIO_ID,
@@ -1122,13 +1221,13 @@ function postComunidadToDb(p: any) {
 
 // ─── Write functions (fire-and-forget, errors logged to console) ──────────────
 
-export async function dbInsertSocio(socio: any) {
+export async function dbInsertSocio(socio: Socio) {
   const { error } = await supabase.from('socios').insert(socioToDb(socio));
   if (error) reportDbError('[dbInsertSocio]', error);
 }
 
-export async function dbUpdateSocio(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateSocio(id: string, changes: Partial<Socio>) {
+  const db: Record<string, unknown> = {};
   if ('studioId' in changes) db.studio_id = changes.studioId;
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('apellidos' in changes) db.apellidos = changes.apellidos;
@@ -1160,13 +1259,13 @@ export async function dbDeleteSocio(id: string) {
   if (error) reportDbError('[dbDeleteSocio]', error);
 }
 
-export async function dbInsertPlanTarifa(plan: any) {
+export async function dbInsertPlanTarifa(plan: PlanTarifa) {
   const { error } = await supabase.from('planes_tarifa').insert(planTarifaToDb(plan));
   if (error) reportDbError('[dbInsertPlanTarifa]', error);
 }
 
-export async function dbUpdatePlanTarifa(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('precio' in changes) db.precio = changes.precio;
@@ -1183,7 +1282,7 @@ export async function dbDeletePlanTarifa(id: string) {
 }
 
 // ── Productos POS ──────────────────────────────────────────────────────────────
-export async function dbInsertProductoPOS(prod: any) {
+export async function dbInsertProductoPOS(prod: ProductoPOS) {
   const { error } = await supabase.from('productos_pos').insert({
     id: prod.id,
     studio_id: prod.studioId ?? STUDIO_ID,
@@ -1194,8 +1293,8 @@ export async function dbInsertProductoPOS(prod: any) {
   });
   if (error) reportDbError('[dbInsertProductoPOS]', error);
 }
-export async function dbUpdateProductoPOS(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateProductoPOS(id: string, changes: Partial<ProductoPOS>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('categoria' in changes) db.categoria = changes.categoria;
   if ('precio' in changes) db.precio = changes.precio;
@@ -1208,13 +1307,13 @@ export async function dbDeleteProductoPOS(id: string) {
   if (error) reportDbError('[dbDeleteProductoPOS]', error);
 }
 
-export async function dbInsertSuscripcion(sus: any) {
+export async function dbInsertSuscripcion(sus: Suscripcion) {
   const { error } = await supabase.from('suscripciones').insert(suscripcionToDb(sus));
   if (error) reportDbError('[dbInsertSuscripcion]', error);
 }
 
-export async function dbUpdateSuscripcion(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateSuscripcion(id: string, changes: Partial<Suscripcion>) {
+  const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('planId' in changes) db.plan_id = changes.planId;
   if ('estado' in changes) db.estado = changes.estado;
@@ -1226,13 +1325,13 @@ export async function dbUpdateSuscripcion(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateSuscripcion]', error);
 }
 
-export async function dbInsertSesion(ses: any) {
+export async function dbInsertSesion(ses: Sesion) {
   const { error } = await supabase.from('sesiones').insert(sesionToDb(ses));
   if (error) reportDbError('[dbInsertSesion]', error);
 }
 
-export async function dbUpdateSesion(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateSesion(id: string, changes: Partial<Sesion>) {
+  const db: Record<string, unknown> = {};
   if ('tipoClaseId' in changes) db.tipo_clase_id = changes.tipoClaseId;
   if ('salaId' in changes) db.sala_id = changes.salaId;
   if ('instructorId' in changes) db.instructor_id = changes.instructorId;
@@ -1251,13 +1350,13 @@ export async function dbDeleteSesion(id: string) {
   if (error) reportDbError('[dbDeleteSesion]', error);
 }
 
-export async function dbInsertReserva(res: any) {
+export async function dbInsertReserva(res: Reserva) {
   const { error } = await supabase.from('reservas').insert(reservaToDb(res));
   if (error) reportDbError('[dbInsertReserva]', error);
 }
 
-export async function dbUpdateReserva(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
+  const db: Record<string, unknown> = {};
   if ('sesionId' in changes) db.sesion_id = changes.sesionId;
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('estado' in changes) db.estado = changes.estado;
@@ -1268,13 +1367,13 @@ export async function dbUpdateReserva(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateReserva]', error);
 }
 
-export async function dbInsertRecibo(rec: any) {
+export async function dbInsertRecibo(rec: Recibo) {
   const { error } = await supabase.from('recibos').insert(reciboToDb(rec));
   if (error) reportDbError('[dbInsertRecibo]', error);
 }
 
-export async function dbUpdateRecibo(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>) {
+  const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('suscripcionId' in changes) db.suscripcion_id = changes.suscripcionId;
   if ('concepto' in changes) db.concepto = changes.concepto;
@@ -1293,18 +1392,18 @@ export async function dbDeleteRecibo(id: string) {
   if (error) reportDbError('[dbDeleteRecibo]', error);
 }
 
-export async function dbInsertFactura(fac: any) {
+export async function dbInsertFactura(fac: Factura) {
   const { error } = await supabase.from('facturas').insert(facturaToDb(fac));
   if (error) reportDbError('[dbInsertFactura]', error);
 }
 
-export async function dbInsertCita(cita: any) {
+export async function dbInsertCita(cita: Cita) {
   const { error } = await supabase.from('citas').insert(citaToDb(cita));
   if (error) reportDbError('[dbInsertCita]', error);
 }
 
-export async function dbUpdateCita(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateCita(id: string, changes: Partial<Cita>) {
+  const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('instructorId' in changes) db.instructor_id = changes.instructorId;
   if ('tipo' in changes) db.tipo = changes.tipo;
@@ -1317,22 +1416,22 @@ export async function dbUpdateCita(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateCita]', error);
 }
 
-export async function dbInsertVentaPOS(venta: any) {
+export async function dbInsertVentaPOS(venta: VentaPOS) {
   const { error } = await supabase.from('ventas_pos').insert(ventaPOSToDb(venta));
   if (error) reportDbError('[dbInsertVentaPOS]', error);
 }
 
-export async function dbInsertActividadReciente(act: any) {
+export async function dbInsertActividadReciente(act: ActividadReciente) {
   const { error } = await supabase.from('actividad_reciente').insert(actividadRecienteToDb(act));
   if (error) reportDbError('[dbInsertActividadReciente]', error);
 }
 
-export async function dbInsertMensajeEquipo(m: any) {
+export async function dbInsertMensajeEquipo(m: MensajeEquipo) {
   const { error } = await supabase.from('mensajes_equipo').insert(mensajeEquipoToDb(m));
   if (error) reportDbError('[dbInsertMensajeEquipo]', error);
 }
 
-export async function dbUpsertPreferenciasSocio(p: any) {
+export async function dbUpsertPreferenciasSocio(p: PreferenciasSocio) {
   const row = {
     socio_id: p.socioId,
     studio_id: p.studioId ?? STUDIO_ID,
@@ -1351,7 +1450,7 @@ export async function dbUpsertPreferenciasSocio(p: any) {
 
 // ─── Gamificación: créditos y recompensas ────────────────────────────────────
 
-export async function dbInsertRewardRule(r: any) {
+export async function dbInsertRewardRule(r: RewardRule) {
   const row = {
     id: r.id, studio_id: r.studioId ?? STUDIO_ID, trigger: r.trigger, nombre: r.nombre,
     descripcion: r.descripcion ?? null, creditos: r.creditos, activa: r.activa, creado_en: r.creadoEn,
@@ -1360,8 +1459,8 @@ export async function dbInsertRewardRule(r: any) {
   if (error) reportDbError('[dbInsertRewardRule]', error);
 }
 
-export async function dbUpdateRewardRule(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('creditos' in changes) db.creditos = changes.creditos;
@@ -1370,7 +1469,7 @@ export async function dbUpdateRewardRule(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateRewardRule]', error);
 }
 
-export async function dbInsertRewardAction(a: any) {
+export async function dbInsertRewardAction(a: RewardAction) {
   const row = {
     id: a.id, studio_id: a.studioId ?? STUDIO_ID, socio_id: a.socioId, trigger: a.trigger,
     ref_id: a.refId ?? null, creado_en: a.creadoEn,
@@ -1380,7 +1479,7 @@ export async function dbInsertRewardAction(a: any) {
   return !error;
 }
 
-export async function dbInsertRewardHistory(h: any) {
+export async function dbInsertRewardHistory(h: RewardHistory) {
   const row = {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, rule_id: h.ruleId,
     action_id: h.actionId, creditos: h.creditos, descripcion: h.descripcion, creado_en: h.creadoEn,
@@ -1389,7 +1488,7 @@ export async function dbInsertRewardHistory(h: any) {
   if (error) reportDbError('[dbInsertRewardHistory]', error);
 }
 
-export async function dbInsertCreditTransaction(t: any) {
+export async function dbInsertCreditTransaction(t: CreditTransaction) {
   const row = {
     id: t.id, studio_id: t.studioId ?? STUDIO_ID, socio_id: t.socioId, tipo: t.tipo,
     creditos: t.creditos, descripcion: t.descripcion, ref_id: t.refId ?? null, creado_en: t.creadoEn,
@@ -1398,7 +1497,7 @@ export async function dbInsertCreditTransaction(t: any) {
   if (error) reportDbError('[dbInsertCreditTransaction]', error);
 }
 
-export async function dbUpsertMemberCredits(m: any) {
+export async function dbUpsertMemberCredits(m: MemberCredits) {
   const row = {
     socio_id: m.socioId, studio_id: m.studioId ?? STUDIO_ID, saldo: m.saldo,
     total_ganado: m.totalGanado, total_canjeado: m.totalCanjeado, actualizado_en: new Date().toISOString(),
@@ -1407,7 +1506,7 @@ export async function dbUpsertMemberCredits(m: any) {
   if (error) reportDbError('[dbUpsertMemberCredits]', error);
 }
 
-export async function dbInsertRewardCatalogItem(c: any) {
+export async function dbInsertRewardCatalogItem(c: RewardCatalogItem) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
     coste_creditos: c.costeCreditos, icono: c.icono, activo: c.activo, stock: c.stock ?? null, creado_en: c.creadoEn,
@@ -1416,8 +1515,8 @@ export async function dbInsertRewardCatalogItem(c: any) {
   if (error) reportDbError('[dbInsertRewardCatalogItem]', error);
 }
 
-export async function dbUpdateRewardCatalogItem(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateRewardCatalogItem(id: string, changes: Partial<RewardCatalogItem>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('costeCreditos' in changes) db.coste_creditos = changes.costeCreditos;
@@ -1433,7 +1532,7 @@ export async function dbDeleteRewardCatalogItem(id: string) {
   if (error) reportDbError('[dbDeleteRewardCatalogItem]', error);
 }
 
-export async function dbInsertRewardRedemption(r: any) {
+export async function dbInsertRewardRedemption(r: RewardRedemption) {
   const row = {
     id: r.id, studio_id: r.studioId ?? STUDIO_ID, socio_id: r.socioId, catalog_item_id: r.catalogItemId,
     creditos_gastados: r.creditosGastados, estado: r.estado, creado_en: r.creadoEn,
@@ -1442,8 +1541,8 @@ export async function dbInsertRewardRedemption(r: any) {
   if (error) reportDbError('[dbInsertRewardRedemption]', error);
 }
 
-export async function dbUpdateRewardRedemption(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateRewardRedemption(id: string, changes: Partial<RewardRedemption>) {
+  const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
   const { error } = await supabase.from('reward_redemptions').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateRewardRedemption]', error);
@@ -1451,7 +1550,7 @@ export async function dbUpdateRewardRedemption(id: string, changes: any) {
 
 // ─── Gamificación: logros ─────────────────────────────────────────────────────
 
-export async function dbInsertAchievementDefinition(a: any) {
+export async function dbInsertAchievementDefinition(a: AchievementDefinition) {
   const row = {
     id: a.id, studio_id: a.studioId ?? STUDIO_ID, metric: a.metric, nombre: a.nombre,
     descripcion: a.descripcion ?? null, umbral: a.umbral, icono: a.icono,
@@ -1461,8 +1560,8 @@ export async function dbInsertAchievementDefinition(a: any) {
   if (error) reportDbError('[dbInsertAchievementDefinition]', error);
 }
 
-export async function dbUpdateAchievementDefinition(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateAchievementDefinition(id: string, changes: Partial<AchievementDefinition>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('umbral' in changes) db.umbral = changes.umbral;
@@ -1473,7 +1572,7 @@ export async function dbUpdateAchievementDefinition(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateAchievementDefinition]', error);
 }
 
-export async function dbUpsertAchievementProgress(p: any) {
+export async function dbUpsertAchievementProgress(p: AchievementProgress) {
   const row = {
     id: p.id, studio_id: p.studioId ?? STUDIO_ID, socio_id: p.socioId, achievement_id: p.achievementId,
     progreso_actual: p.progresoActual, completado: p.completado, completado_en: p.completadoEn ?? null,
@@ -1482,7 +1581,7 @@ export async function dbUpsertAchievementProgress(p: any) {
   if (error) reportDbError('[dbUpsertAchievementProgress]', error);
 }
 
-export async function dbInsertAchievementHistory(h: any) {
+export async function dbInsertAchievementHistory(h: AchievementHistory) {
   const row = {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, achievement_id: h.achievementId,
     nombre: h.nombre, icono: h.icono, creado_en: h.creadoEn,
@@ -1504,7 +1603,7 @@ export async function dbInsertSoporteSolicitud(s: { id: string; tipo: string; me
   if (error) reportDbError('[dbInsertSoporteSolicitud]', error);
 }
 
-export async function dbInsertLevelDefinition(l: any) {
+export async function dbInsertLevelDefinition(l: LevelDefinition) {
   const row = {
     id: l.id, studio_id: l.studioId ?? STUDIO_ID, nombre: l.nombre, orden: l.orden,
     umbral_creditos: l.umbralCreditos, color: l.color, icono: l.icono,
@@ -1514,8 +1613,8 @@ export async function dbInsertLevelDefinition(l: any) {
   if (error) reportDbError('[dbInsertLevelDefinition]', error);
 }
 
-export async function dbUpdateLevelDefinition(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateLevelDefinition(id: string, changes: Partial<LevelDefinition>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('orden' in changes) db.orden = changes.orden;
   if ('umbralCreditos' in changes) db.umbral_creditos = changes.umbralCreditos;
@@ -1534,7 +1633,7 @@ export async function dbDeleteLevelDefinition(id: string) {
 
 // ─── Gamificación: retos ────────────────────────────────────────────────────────
 
-export async function dbInsertChallengeDefinition(c: any) {
+export async function dbInsertChallengeDefinition(c: ChallengeDefinition) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
     icono: c.icono, metric: c.metric, objetivo: c.objetivo, fecha_inicio: c.fechaInicio, fecha_fin: c.fechaFin,
@@ -1544,8 +1643,8 @@ export async function dbInsertChallengeDefinition(c: any) {
   if (error) reportDbError('[dbInsertChallengeDefinition]', error);
 }
 
-export async function dbUpdateChallengeDefinition(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateChallengeDefinition(id: string, changes: Partial<ChallengeDefinition>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('icono' in changes) db.icono = changes.icono;
@@ -1564,7 +1663,7 @@ export async function dbDeleteChallengeDefinition(id: string) {
   if (error) reportDbError('[dbDeleteChallengeDefinition]', error);
 }
 
-export async function dbUpsertChallengeProgress(p: any) {
+export async function dbUpsertChallengeProgress(p: ChallengeProgress) {
   const row = {
     id: p.id, studio_id: p.studioId ?? STUDIO_ID, socio_id: p.socioId, challenge_id: p.challengeId,
     progreso_actual: p.progresoActual, completado: p.completado, completado_en: p.completadoEn ?? null,
@@ -1573,7 +1672,7 @@ export async function dbUpsertChallengeProgress(p: any) {
   if (error) reportDbError('[dbUpsertChallengeProgress]', error);
 }
 
-export async function dbInsertChallengeHistory(h: any) {
+export async function dbInsertChallengeHistory(h: ChallengeHistory) {
   const row = {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, challenge_id: h.challengeId,
     nombre: h.nombre, icono: h.icono, creado_en: h.creadoEn,
@@ -1584,7 +1683,7 @@ export async function dbInsertChallengeHistory(h: any) {
 
 // ─── Dashboard: gráficos personalizados ────────────────────────────────────────
 
-export async function dbInsertDashboardChart(c: any) {
+export async function dbInsertDashboardChart(c: DashboardChart) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, tipo: c.tipo,
     metrica: c.metrica, agrupacion: c.agrupacion, rango: c.rango, color: c.color, creado_en: c.creadoEn,
@@ -1598,7 +1697,7 @@ export async function dbDeleteDashboardChart(id: string) {
   if (error) reportDbError('[dbDeleteDashboardChart]', error);
 }
 
-export async function dbInsertAutomationLog(log: any) {
+export async function dbInsertAutomationLog(log: AutomationLog) {
   const row = {
     id: log.id,
     studio_id: log.studioId ?? STUDIO_ID,
@@ -1618,8 +1717,8 @@ export async function dbInsertAutomationLog(log: any) {
   if (error) reportDbError('[dbInsertAutomationLog]', error);
 }
 
-export async function dbUpdateAutomationLog(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateAutomationLog(id: string, changes: Partial<AutomationLog>) {
+  const db: Record<string, unknown> = {};
   if ('resultado' in changes) db.resultado = changes.resultado;
   if ('detalle' in changes) db.detalle = changes.detalle;
   if ('proximaAccionEn' in changes) db.proxima_accion_en = changes.proximaAccionEn;
@@ -1627,7 +1726,7 @@ export async function dbUpdateAutomationLog(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateAutomationLog]', error);
 }
 
-export async function dbInsertAutomationRule(r: any) {
+export async function dbInsertAutomationRule(r: AutomationRule) {
   const row = {
     id: r.id, studio_id: r.studioId ?? STUDIO_ID, nombre: r.nombre, descripcion: r.descripcion,
     icono: r.icono, trigger: r.trigger, condicion: r.condicion ?? {}, pasos: r.pasos ?? [],
@@ -1638,8 +1737,8 @@ export async function dbInsertAutomationRule(r: any) {
   if (error) reportDbError('[dbInsertAutomationRule]', error);
 }
 
-export async function dbUpdateAutomationRule(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateAutomationRule(id: string, changes: Partial<AutomationRule>) {
+  const db: Record<string, unknown> = {};
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadaVeces' in changes) db.ejecutada_veces = changes.ejecutadaVeces;
   if ('ultimaEjecucion' in changes) db.ultima_ejecucion = changes.ultimaEjecucion;
@@ -1647,7 +1746,7 @@ export async function dbUpdateAutomationRule(id: string, changes: any) {
   if (error) reportDbError('[dbUpdateAutomationRule]', error);
 }
 
-export async function dbInsertNotaInterna(nota: any) {
+export async function dbInsertNotaInterna(nota: NotaInterna) {
   const { error } = await supabase.from('notas_internas').insert(notaInternaToDb(nota));
   if (error) reportDbError('[dbInsertNotaInterna]', error);
 }
@@ -1657,13 +1756,13 @@ export async function dbDeleteNotaInterna(id: string) {
   if (error) reportDbError('[dbDeleteNotaInterna]', error);
 }
 
-export async function dbInsertCampana(c: any) {
+export async function dbInsertCampana(c: Campana) {
   const { error } = await supabase.from('campanas').insert(campanaToDb(c));
   if (error) reportDbError('[dbInsertCampana]', error);
 }
 
-export async function dbUpdateCampana(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateCampana(id: string, changes: Partial<Campana>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('tipo' in changes) db.tipo = changes.tipo;
   if ('asunto' in changes) db.asunto = changes.asunto;
@@ -1684,13 +1783,13 @@ export async function dbDeleteCampana(id: string) {
   if (error) reportDbError('[dbDeleteCampana]', error);
 }
 
-export async function dbInsertAutomatizacion(a: any) {
+export async function dbInsertAutomatizacion(a: Automatizacion) {
   const { error } = await supabase.from('automatizaciones').insert(automatizacionToDb(a));
   if (error) reportDbError('[dbInsertAutomatizacion]', error);
 }
 
-export async function dbUpdateAutomatizacion(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateAutomatizacion(id: string, changes: Partial<Automatizacion>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('trigger' in changes) db.trigger = changes.trigger;
   if ('accion' in changes) db.accion = changes.accion;
@@ -1707,13 +1806,13 @@ export async function dbDeleteAutomatizacion(id: string) {
   if (error) reportDbError('[dbDeleteAutomatizacion]', error);
 }
 
-export async function dbInsertVideoOnDemand(v: any) {
+export async function dbInsertVideoOnDemand(v: VideoOnDemand) {
   const { error } = await supabase.from('videos_on_demand').insert(videoOnDemandToDb(v));
   if (error) reportDbError('[dbInsertVideoOnDemand]', error);
 }
 
-export async function dbUpdateVideoOnDemand(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateVideoOnDemand(id: string, changes: Partial<VideoOnDemand>) {
+  const db: Record<string, unknown> = {};
   if ('titulo' in changes) db.titulo = changes.titulo;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('categoria' in changes) db.categoria = changes.categoria;
@@ -1732,13 +1831,13 @@ export async function dbDeleteVideoOnDemand(id: string) {
   if (error) reportDbError('[dbDeleteVideoOnDemand]', error);
 }
 
-export async function dbInsertPostComunidad(p: any) {
+export async function dbInsertPostComunidad(p: PostComunidad) {
   const { error } = await supabase.from('posts_comunidad').insert(postComunidadToDb(p));
   if (error) reportDbError('[dbInsertPostComunidad]', error);
 }
 
-export async function dbUpdatePostComunidad(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdatePostComunidad(id: string, changes: Partial<PostComunidad>) {
+  const db: Record<string, unknown> = {};
   if ('texto' in changes) db.texto = changes.texto;
   if ('likes' in changes) db.likes = changes.likes;
   if ('comentariosCount' in changes) db.comentarios_count = changes.comentariosCount;
@@ -1752,7 +1851,7 @@ export async function dbDeletePostComunidad(id: string) {
   if (error) reportDbError('[dbDeletePostComunidad]', error);
 }
 
-export async function dbUpsertIntegracion(intg: any) {
+export async function dbUpsertIntegracion(intg: Integracion) {
   const row = {
     id: intg.id,
     studio_id: intg.studioId ?? STUDIO_ID,
@@ -1765,7 +1864,7 @@ export async function dbUpsertIntegracion(intg: any) {
   if (error) reportDbError('[dbUpsertIntegracion]', error);
 }
 
-export async function dbInsertTipoClase(t: any) {
+export async function dbInsertTipoClase(t: TipoClase) {
   const row = {
     id: t.id, studio_id: t.studioId ?? STUDIO_ID, nombre: t.nombre, color: t.color,
     duracion_minutos: t.duracionMinutos, descripcion: t.descripcion ?? null, nivel: t.nivel,
@@ -1775,8 +1874,8 @@ export async function dbInsertTipoClase(t: any) {
   if (error) reportDbError('[dbInsertTipoClase]', error);
 }
 
-export async function dbUpdateTipoClase(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('color' in changes) db.color = changes.color;
   if ('duracionMinutos' in changes) db.duracion_minutos = changes.duracionMinutos;
@@ -1792,7 +1891,7 @@ export async function dbDeleteTipoClase(id: string) {
   if (error) reportDbError('[dbDeleteTipoClase]', error);
 }
 
-export async function dbInsertInstructor(i: any) {
+export async function dbInsertInstructor(i: Instructor) {
   const row = {
     id: i.id,
     studio_id: i.studioId ?? STUDIO_ID,
@@ -1809,8 +1908,8 @@ export async function dbInsertInstructor(i: any) {
   if (error) reportDbError('[dbInsertInstructor]', error);
 }
 
-export async function dbUpdateInstructor(id: string, changes: any) {
-  const db: any = {};
+export async function dbUpdateInstructor(id: string, changes: Partial<Instructor>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('email' in changes) db.email = changes.email;
   if ('telefono' in changes) db.telefono = changes.telefono;
@@ -1839,8 +1938,8 @@ export async function dbClaimInstructorAccount(email: string, authUserId: string
   return data ? mapInstructor(data) : null;
 }
 
-export async function dbUpdateStudio(changes: any) {
-  const db: any = {};
+export async function dbUpdateStudio(changes: Partial<Studio>) {
+  const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('nif' in changes) db.nif = changes.nif;
   if ('razonSocial' in changes) db.razon_social = changes.razonSocial;
