@@ -292,15 +292,14 @@ export function Sidebar() {
       {/* ── Desktop logo (fuera de la píldora del menú) ─────────────────────── */}
       <div
         className={cn(
-          'hidden lg:flex fixed top-4 left-4 z-20 items-center h-16 shrink-0 rounded-[22px] bg-white shadow-sm transition-[width] duration-200',
-          collapsed ? 'w-16 justify-center' : 'w-56 px-4 gap-2.5',
+          'hidden lg:flex fixed top-4 left-4 z-20 items-center h-16 shrink-0 transition-[width] duration-200',
+          collapsed ? 'w-16 justify-center' : 'w-56 px-2',
         )}
-        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
       >
         {collapsed ? (
-          <Image src="/logo-icon.png" alt="Tentare" width={34} height={34} className="w-9 h-9 object-contain" />
+          <Image src="/logo-icon.png" alt="Tentare" width={48} height={48} className="w-12 h-12 object-contain" />
         ) : (
-          <Image src="/logo-horizontal.png" alt="Tentare" width={140} height={64} className="h-8 w-auto object-contain" />
+          <Image src="/logo-horizontal.png" alt="Tentare" width={220} height={100} className="h-14 w-auto object-contain" />
         )}
       </div>
 
