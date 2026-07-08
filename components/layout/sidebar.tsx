@@ -5,10 +5,10 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Calendar, Users, CreditCard,
-  FileText, Settings, BarChart2, ChevronRight, ChevronLeft, X,
+  FileText, Settings, BarChart2, X,
   Clock, ShoppingCart, MessageCircle, Megaphone, Play, Bell,
   Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
-  LogOut, UserCog, Users2,
+  LogOut, UserCog, Users2, Check, PanelLeft,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -213,12 +213,18 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
 
 // ─── Sidebar (desktop) + bottom nav (mobile) ──────────────────────────────────
 
-const SIDEBAR_W_EXPANDED = '256px';
-const SIDEBAR_W_COLLAPSED = '96px';
+type SidebarSize = 'compacto' | 'normal' | 'grande';
+
+const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label: string }> = {
+  compacto: { aside: 'w-16', cssVar: '96px', label: 'Pequeño' },
+  normal: { aside: 'w-56', cssVar: '256px', label: 'Normal' },
+  grande: { aside: 'w-72', cssVar: '320px', label: 'Grande' },
+};
 
 export function Sidebar() {
   const [masOpen, setMasOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [size, setSize] = useState<SidebarSize>('normal');
+  const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { studio } = useStudio();
   const studioSlug = studio?.slug ?? 'tentare';
@@ -226,27 +232,30 @@ export function Sidebar() {
   const router = useRouter();
   const { mode: navMode, setNavMode } = useNavMode();
 
+  const collapsed = size === 'compacto';
+
   const seccionesVisibles = navSections
     .map(s => ({ ...s, items: s.items.filter(i => puedeVer(i.href) && (navMode === 'avanzado' || ESSENTIAL_HREFS.includes(i.href))) }))
     .filter(s => s.items.length > 0);
   const bottomNavVisibles = bottomNavItems.filter(i => puedeVer(i.href));
 
-  // Restore the collapsed preference and keep the shared --sidebar-w CSS var
-  // (read by the dashboard layout's <main> padding) in sync with it.
-  useEffect(() => {
-    const stored = localStorage.getItem('sidebar-collapsed') === '1';
-    setCollapsed(stored);
-    document.documentElement.style.setProperty('--sidebar-w', stored ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED);
-  }, []);
-
-  function toggleCollapsed() {
-    setCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('sidebar-collapsed', next ? '1' : '0');
-      document.documentElement.style.setProperty('--sidebar-w', next ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED);
-      return next;
-    });
+  function applySize(next: SidebarSize) {
+    setSize(next);
+    localStorage.setItem('sidebar-size', next);
+    document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[next].cssVar);
   }
+
+  // Restore the size preference (migrating the old binary "collapsed" flag if
+  // present) and keep the shared --sidebar-w CSS var (read by the dashboard
+  // layout's <main> padding) in sync with it.
+  useEffect(() => {
+    const storedSize = localStorage.getItem('sidebar-size') as SidebarSize | null;
+    const legacyCollapsed = localStorage.getItem('sidebar-collapsed');
+    const initial: SidebarSize = storedSize ?? (legacyCollapsed === '1' ? 'compacto' : 'normal');
+    setSize(initial);
+    document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[initial].cssVar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSignOut() {
     await signOut();
@@ -293,7 +302,7 @@ export function Sidebar() {
       <div
         className={cn(
           'hidden lg:flex fixed top-4 left-4 z-20 items-center justify-center h-20 shrink-0 transition-[width] duration-200',
-          collapsed ? 'w-16' : 'w-56',
+          SIDEBAR_SIZES[size].aside,
         )}
       >
         {collapsed ? (
@@ -307,7 +316,7 @@ export function Sidebar() {
       <aside
         className={cn(
           'hidden lg:flex fixed top-[104px] left-4 bottom-4 z-20 flex-col rounded-[28px] overflow-hidden transition-[width] duration-200',
-          collapsed ? 'w-16' : 'w-56',
+          SIDEBAR_SIZES[size].aside,
         )}
         style={{ backgroundColor: '#0A0A0A' }}
       >
@@ -394,15 +403,37 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* Collapse / expand toggle */}
-        <button
-          onClick={toggleCollapsed}
-          title={collapsed ? 'Expandir menú' : 'Contraer menú'}
-          className="flex items-center justify-center h-9 shrink-0 border-t transition-colors hover:bg-card/5 text-white/30 hover:text-white/70"
-          style={{ borderColor: 'rgba(255,255,255,0.07)' }}
-        >
-          {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-        </button>
+        {/* Size menu: Pequeño / Normal / Grande */}
+        <div className="relative shrink-0 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+          {sizeMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setSizeMenuOpen(false)} />
+              <div className="absolute bottom-full left-2 right-2 z-20 mb-1.5 rounded-xl overflow-hidden shadow-lg border" style={{ backgroundColor: '#171717', borderColor: 'rgba(255,255,255,0.08)' }}>
+                {(Object.keys(SIDEBAR_SIZES) as SidebarSize[]).map(key => (
+                  <button
+                    key={key}
+                    onClick={() => { applySize(key); setSizeMenuOpen(false); }}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-[12px] font-semibold text-white/70 hover:bg-card/5 hover:text-white transition-colors text-left"
+                  >
+                    {SIDEBAR_SIZES[key].label}
+                    {size === key && <Check size={13} className="text-brand shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <button
+            onClick={() => setSizeMenuOpen(v => !v)}
+            title="Tamaño del menú"
+            className={cn(
+              'flex items-center h-9 w-full transition-colors hover:bg-card/5 text-white/30 hover:text-white/70',
+              collapsed ? 'justify-center' : 'justify-center gap-2',
+            )}
+          >
+            <PanelLeft size={14} />
+            {!collapsed && <span className="text-[11px] font-semibold">{SIDEBAR_SIZES[size].label}</span>}
+          </button>
+        </div>
       </aside>
     </>
   );
