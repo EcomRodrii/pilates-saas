@@ -125,7 +125,7 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mt-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
         <div className="rounded-xl bg-white/10 px-4 py-3">
           <div className="text-2xl font-bold">{ejecutadas}</div>
           <div className="text-white/50 text-xs mt-0.5">Acciones hoy</div>
