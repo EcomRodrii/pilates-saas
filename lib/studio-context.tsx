@@ -101,6 +101,11 @@ import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/level-engine';
 import { calcularProgresoReto } from '@/lib/challenge-engine';
 import { uid } from '@/lib/utils';
+import {
+  decidirReservaNueva,
+  siguienteEnEspera,
+  decidirPremioReferido,
+} from '@/lib/booking-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -949,26 +954,11 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
   }
 
-  // Ocupación real de una sesión: solo cuentan las plazas que ocupan un sitio
-  // (confirmadas o ya asistidas). La lista de espera NO consume aforo.
-  function plazasOcupadas(sesionId: string, lista: Reserva[] = reservas) {
-    return lista.filter(
-      r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')
-    ).length;
-  }
-
   function addReserva(sesionId: string, socioId: string): EstadoReserva {
     const esPrimeraReserva = !reservas.some(r => r.socioId === socioId);
     const sesion = sesiones.find(s => s.id === sesionId);
-    const aforo = sesion?.aforoMaximo ?? Number.POSITIVE_INFINITY;
-    const ocupadas = plazasOcupadas(sesionId);
-    const hayHueco = ocupadas < aforo;
-
-    // Si no hay hueco, entra en lista de espera con su posición correspondiente.
-    const enEspera = reservas.filter(
-      r => r.sesionId === sesionId && r.estado === 'LISTA_ESPERA'
-    ).length;
-    const estado: EstadoReserva = hayHueco ? 'CONFIRMADA' : 'LISTA_ESPERA';
+    // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
+    const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
 
     const nueva: Reserva = {
       id: `res-${uid()}`,
@@ -977,7 +967,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       socioId,
       estado,
       spotId: null,
-      posicionEspera: hayHueco ? null : enEspera + 1,
+      posicionEspera,
       checkInEn: null,
       creadoEn: new Date().toISOString(),
     };
@@ -1010,9 +1000,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       dbUpdateReserva(reservaId, { estado: 'CANCELADA' });
       // Auto-promociona la primera de la LISTA_ESPERA (por posición) de la sesión
       if (!cancelada) return updated;
-      const espera = updated
-        .filter(r => r.sesionId === cancelada.sesionId && r.estado === 'LISTA_ESPERA')
-        .sort((a, b) => (a.posicionEspera ?? 0) - (b.posicionEspera ?? 0))[0];
+      const espera = siguienteEnEspera(cancelada.sesionId, updated);
       if (!espera) return updated;
       promotedSocioId = espera.socioId;
       promotedSesionId = espera.sesionId;
@@ -1051,30 +1039,17 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   // UNIQUE(studio_id, trigger, ref_id): refId = id de la referida, así una
   // persona traída premia una única vez aunque asista muchas veces.
   function premiarReferidoSiProcede(socioId: string, reservasActuales: Reserva[]) {
-    const asistidas = reservasActuales.filter(
-      r => r.socioId === socioId && r.estado === 'ASISTIDA'
-    ).length;
-    if (asistidas !== 1) return; // solo en la PRIMERA asistencia
-
-    const socia = socios.find(s => s.id === socioId);
-    if (!socia?.referidoPor) return;
-    const referidorId = socia.referidoPor;
-
-    // Tope mensual de la regla (null = sin tope). Invitar es ilimitado; lo que
-    // se acota es cuántos referidos se PREMIAN al mes por quien invita.
+    // Decisión pura y testeada (booking-logic): primera asistencia + referidoPor
+    // + tope mensual de la regla no superado.
     const regla = reglaActivaPara(rewardRules, 'REFERIDO_AMIGO');
-    const tope = regla?.topeMensual ?? null;
-    if (tope != null) {
-      const ahora = new Date();
-      const premiadosEsteMes = rewardActions.filter(a => {
-        if (a.trigger !== 'REFERIDO_AMIGO' || a.socioId !== referidorId) return false;
-        const d = new Date(a.creadoEn);
-        return d.getFullYear() === ahora.getFullYear() && d.getMonth() === ahora.getMonth();
-      }).length;
-      if (premiadosEsteMes >= tope) return; // tope del mes alcanzado
-    }
-
-    otorgarCreditos(referidorId, 'REFERIDO_AMIGO', socioId);
+    const { premiar, referidorId } = decidirPremioReferido({
+      socia: socios.find(s => s.id === socioId),
+      reservasTrasCheckin: reservasActuales,
+      rewardActions,
+      topeMensual: regla?.topeMensual ?? null,
+      ahora: new Date(),
+    });
+    if (premiar && referidorId) otorgarCreditos(referidorId, 'REFERIDO_AMIGO', socioId);
   }
 
   function checkin(reservaId: string) {
