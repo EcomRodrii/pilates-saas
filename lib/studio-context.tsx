@@ -95,7 +95,7 @@ import type {
 import { enviarEmailCampana } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
-import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos } from '@/lib/reward-engine';
+import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
 import { calcularMetrica } from '@/lib/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/level-engine';
@@ -1586,10 +1586,10 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   function canjearRecompensa(socioId: string, catalogItemId: string): { ok: true } | { error: string } {
     const item = rewardCatalog.find(c => c.id === catalogItemId);
-    if (!item || !item.activo) return { error: 'Esta recompensa ya no está disponible.' };
-    if (item.stock != null && item.stock <= 0) return { error: 'Sin stock disponible.' };
-    const saldo = saldoCreditos(socioId);
-    if (saldo < item.costeCreditos) return { error: 'No tienes créditos suficientes todavía.' };
+    // Validación pura y testeada (reward-engine): disponibilidad, stock y saldo.
+    const validacion = validarCanje(item, saldoCreditos(socioId));
+    if ('error' in validacion) return validacion;
+    if (!item) return { error: 'Esta recompensa ya no está disponible.' };
 
     const studioId = getCurrentStudioId();
     const now = new Date().toISOString();
@@ -1605,7 +1605,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     setRewardRedemptions(prev => [redemption, ...prev]);
     setCreditTransactions(prev => [transaccion, ...prev]);
     setMemberCredits(prev => prev.map(m => m.socioId === socioId
-      ? { ...m, saldo: m.saldo - item.costeCreditos, totalCanjeado: m.totalCanjeado + item.costeCreditos, actualizadoEn: now }
+      ? aplicarCanjeCreditos(m, socioId, studioId, item.costeCreditos, now)
       : m));
     if (item.stock != null) {
       setRewardCatalog(prev => prev.map(c => c.id === catalogItemId ? { ...c, stock: (c.stock ?? 1) - 1 } : c));
@@ -1615,9 +1615,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     dbInsertRewardRedemption(redemption);
     dbInsertCreditTransaction(transaccion);
     const actualizado = memberCredits.find(m => m.socioId === socioId);
-    dbUpsertMemberCredits(actualizado
-      ? { ...actualizado, saldo: actualizado.saldo - item.costeCreditos, totalCanjeado: actualizado.totalCanjeado + item.costeCreditos }
-      : { socioId, studioId, saldo: -item.costeCreditos, totalGanado: 0, totalCanjeado: item.costeCreditos, actualizadoEn: now });
+    dbUpsertMemberCredits(aplicarCanjeCreditos(actualizado, socioId, studioId, item.costeCreditos, now));
 
     return { ok: true };
   }

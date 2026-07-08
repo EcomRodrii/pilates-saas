@@ -1,12 +1,14 @@
 // Tests de la lógica de recompensas/créditos. Runner nativo de Node: `npm test`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { RewardRule, RewardAction, MemberCredits } from '@/lib/types';
+import type { RewardRule, RewardAction, MemberCredits, RewardCatalogItem } from '@/lib/types';
 import {
   reglaActivaPara,
   yaOtorgado,
   decidirOtorgarCreditos,
   aplicarGananciaCreditos,
+  validarCanje,
+  aplicarCanjeCreditos,
 } from './reward-engine.ts';
 
 let n = 0;
@@ -68,4 +70,34 @@ test('aplicarGananciaCreditos suma al saldo y al total ganado, sin tocar el canj
   const existente: MemberCredits = { socioId: 's1', studioId: 'e1', saldo: 30, totalGanado: 50, totalCanjeado: 20, actualizadoEn: '2026-02-01' };
   const r = aplicarGananciaCreditos(existente, 's1', 'e1', 10, '2026-03-01');
   assert.deepEqual(r, { socioId: 's1', studioId: 'e1', saldo: 40, totalGanado: 60, totalCanjeado: 20, actualizadoEn: '2026-03-01' });
+});
+
+// ── validarCanje ─────────────────────────────────────────────────────────────
+function item(p: Partial<RewardCatalogItem> & Pick<RewardCatalogItem, 'costeCreditos'>): RewardCatalogItem {
+  return { id: 'cat-1', studioId: 'e1', nombre: 'Toalla', descripcion: null, icono: '🎁', activo: true, stock: null, creadoEn: '2026-01-01', ...p };
+}
+
+test('validarCanje: ok con saldo suficiente, activa y con stock', () => {
+  assert.deepEqual(validarCanje(item({ costeCreditos: 100 }), 100), { ok: true });
+});
+
+test('validarCanje: error si la recompensa no existe o está inactiva', () => {
+  assert.ok('error' in validarCanje(undefined, 999));
+  assert.ok('error' in validarCanje(item({ costeCreditos: 10, activo: false }), 999));
+});
+
+test('validarCanje: error si sin stock', () => {
+  assert.ok('error' in validarCanje(item({ costeCreditos: 10, stock: 0 }), 999));
+});
+
+test('validarCanje: error si saldo insuficiente', () => {
+  const r = validarCanje(item({ costeCreditos: 100 }), 99);
+  assert.ok('error' in r && r.error.includes('créditos'));
+});
+
+// ── aplicarCanjeCreditos ─────────────────────────────────────────────────────
+test('aplicarCanjeCreditos descuenta del saldo y suma al total canjeado', () => {
+  const existente: MemberCredits = { socioId: 's1', studioId: 'e1', saldo: 100, totalGanado: 100, totalCanjeado: 0, actualizadoEn: '2026-02-01' };
+  const r = aplicarCanjeCreditos(existente, 's1', 'e1', 30, '2026-03-01');
+  assert.deepEqual(r, { socioId: 's1', studioId: 'e1', saldo: 70, totalGanado: 100, totalCanjeado: 30, actualizadoEn: '2026-03-01' });
 });
