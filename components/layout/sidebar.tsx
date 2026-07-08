@@ -292,21 +292,21 @@ export function Sidebar() {
       {/* ── Desktop logo (fuera de la píldora del menú) ─────────────────────── */}
       <div
         className={cn(
-          'hidden lg:flex fixed top-4 left-4 z-20 items-center h-16 shrink-0 transition-[width] duration-200',
-          collapsed ? 'w-16 justify-center' : 'w-56 px-2',
+          'hidden lg:flex fixed top-4 left-4 z-20 items-center justify-center h-20 shrink-0 transition-[width] duration-200',
+          collapsed ? 'w-16' : 'w-56',
         )}
       >
         {collapsed ? (
-          <Image src="/logo-icon.png" alt="Tentare" width={48} height={48} className="w-12 h-12 object-contain" />
+          <Image src="/logo-icon.png" alt="Tentare" width={56} height={56} className="w-14 h-14 object-contain" />
         ) : (
-          <Image src="/logo-horizontal.png" alt="Tentare" width={220} height={100} className="h-14 w-auto object-contain" />
+          <Image src="/logo-horizontal.png" alt="Tentare" width={260} height={120} className="h-16 w-auto object-contain" />
         )}
       </div>
 
       {/* ── Desktop sidebar (floating black pill — Midbox) ─────────────────── */}
       <aside
         className={cn(
-          'hidden lg:flex fixed top-[88px] left-4 bottom-4 z-20 flex-col rounded-[28px] overflow-hidden transition-[width] duration-200',
+          'hidden lg:flex fixed top-[104px] left-4 bottom-4 z-20 flex-col rounded-[28px] overflow-hidden transition-[width] duration-200',
           collapsed ? 'w-16' : 'w-56',
         )}
         style={{ backgroundColor: '#0A0A0A' }}
