@@ -775,17 +775,24 @@ end $$;
 -- ═══════════════════════════════════════════════════════════════════
 
 create or replace function current_rol() returns text as $$
+  -- Rol del usuario: el de su ficha de instructora, o PROPIETARIO si es la
+  -- dueña del negocio (studios.owner_auth_user_id). SIN fallback general: antes
+  -- devolvía 'PROPIETARIO' a CUALQUIER usuario autenticado sin ficha —una
+  -- escalada de privilegios—. Ahora un usuario no vinculado obtiene NULL.
   select coalesce(
     (select rol from instructores where auth_user_id = auth.uid() limit 1),
-    'PROPIETARIO'
+    (select 'PROPIETARIO' from studios where owner_auth_user_id = auth.uid() limit 1)
   );
 $$ language sql stable security definer;
 
 create or replace function current_studio_id() returns text as $$
+  -- Resuelve el estudio del usuario autenticado: primero como instructora
+  -- vinculada, luego como propietaria. SIN fallback: si no resuelve devuelve
+  -- NULL, y `studio_id = null` no casa ninguna fila (antes caía a 'studio-1',
+  -- filtrando los datos de ese negocio a cualquier usuario no resuelto).
   select coalesce(
     (select studio_id from instructores where auth_user_id = auth.uid() limit 1),
-    (select id from studios where owner_auth_user_id = auth.uid() limit 1),
-    'studio-1'
+    (select id from studios where owner_auth_user_id = auth.uid() limit 1)
   );
 $$ language sql stable security definer;
 
