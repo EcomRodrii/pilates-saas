@@ -1,5 +1,9 @@
 import { supabase } from '@/lib/supabase';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { uid } from '@/lib/utils';
+import { decidirReservaNueva, siguienteEnEspera } from '@/lib/booking-logic';
+import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono } from '@/lib/bono-logic';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
   RowAchievementHistory,
@@ -1107,6 +1111,115 @@ export async function fetchPublicStudioData(
       rewardHistory: (histRes.data ?? []).map(mapRewardHistory),
     },
   };
+}
+
+// ─── Escrituras públicas scopeadas (service-role + validación) ───────────────
+// Cada operación valida que la socia (id + email) pertenece al estudio antes de
+// tocar nada, y usa la lógica pura ya testeada (booking-logic/bono-logic).
+
+// Prueba mínima de identidad: el id de socia existe en ese estudio y su email
+// coincide. Devuelve la fila de la socia o null.
+async function validarSociaPublica(
+  admin: SupabaseClient, studioId: string, socioId: string, email: string,
+): Promise<RowSocios | null> {
+  const { data } = await admin
+    .from('socios').select('*').eq('id', socioId).eq('studio_id', studioId).maybeSingle();
+  if (!data) return null;
+  const ok = (data.email ?? '').trim().toLowerCase() === email.trim().toLowerCase();
+  return ok ? (data as RowSocios) : null;
+}
+
+// Descuenta una sesión del bono activo de la socia (si aplica) usando bono-logic.
+// Si el bono se agota, genera el recibo de renovación PENDIENTE.
+async function consumirBonoServidor(admin: SupabaseClient, studioId: string, socioId: string) {
+  const [{ data: susRows }, { data: planRows }] = await Promise.all([
+    admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
+    admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
+  ]);
+  const suscripciones = (susRows ?? []).map(mapSuscripcion);
+  const planes = (planRows ?? []).map(mapPlanTarifa);
+  const consumible = bonoConsumible(socioId, suscripciones, planes);
+  if (!consumible) return;
+  const { suscripcion: sus, plan, sesionesRestantes } = consumible;
+  const { nuevasRestantes, agotado } = calcularConsumoBono(sesionesRestantes);
+  await admin.from('suscripciones').update({ sesiones_restantes: nuevasRestantes }).eq('id', sus.id);
+  if (agotado) {
+    const hoy = new Date().toISOString().slice(0, 10);
+    await admin.from('recibos').insert({
+      id: `rec-renov-${uid()}`, studio_id: studioId, socio_id: socioId, suscripcion_id: sus.id,
+      concepto: `Renovación ${plan.nombre}`, importe: plan.precio, estado: 'PENDIENTE',
+      fecha_vencimiento: hoy, fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0,
+    });
+  }
+}
+
+async function devolverBonoServidor(admin: SupabaseClient, studioId: string, socioId: string) {
+  const [{ data: susRows }, { data: planRows }] = await Promise.all([
+    admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
+    admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
+  ]);
+  const consumible = bonoConsumible(socioId, (susRows ?? []).map(mapSuscripcion), (planRows ?? []).map(mapPlanTarifa));
+  if (!consumible) return;
+  const { suscripcion: sus, plan, sesionesRestantes } = consumible;
+  const nuevas = calcularDevolucionBono(sesionesRestantes, plan.sesiones);
+  await admin.from('suscripciones').update({ sesiones_restantes: nuevas }).eq('id', sus.id);
+}
+
+// Crea una reserva respetando aforo/lista de espera (booking-logic) y consume
+// bono si queda CONFIRMADA. Valida identidad de la socia.
+export async function crearReservaPublica(params: {
+  studioId: string; sesionId: string; socioId: string; email: string;
+}) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  const [{ data: sesRow }, { data: resRows }] = await Promise.all([
+    admin.from('sesiones').select('*').eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle(),
+    admin.from('reservas').select('*').eq('studio_id', params.studioId),
+  ]);
+  if (!sesRow) return { error: 'Sesión no encontrada' as const };
+  const reservas = (resRows ?? []).map(mapReserva);
+  const { estado, posicionEspera } = decidirReservaNueva((sesRow as RowSesiones).aforo_maximo, params.sesionId, reservas);
+
+  const nueva = {
+    id: `res-${uid()}`, studio_id: params.studioId, sesion_id: params.sesionId, socio_id: params.socioId,
+    estado, spot_id: null, posicion_espera: posicionEspera, check_in_en: null, creado_en: new Date().toISOString(),
+  };
+  const { error } = await admin.from('reservas').insert(nueva);
+  if (error) return { error: error.message };
+
+  if (estado === 'CONFIRMADA') await consumirBonoServidor(admin, params.studioId, params.socioId);
+  return { ok: true as const, reserva: mapReserva(nueva as RowReservas) };
+}
+
+// Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.
+export async function cancelarReservaPublica(params: {
+  studioId: string; reservaId: string; socioId: string; email: string;
+}) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  const { data: resRow } = await admin
+    .from('reservas').select('*').eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
+  if (!resRow || resRow.socio_id !== params.socioId) return { error: 'No autorizado' as const };
+  const cancelada = mapReserva(resRow as RowReservas);
+
+  await admin.from('reservas').update({ estado: 'CANCELADA' }).eq('id', params.reservaId);
+  if (cancelada.estado === 'CONFIRMADA') await devolverBonoServidor(admin, params.studioId, params.socioId);
+
+  // Promoción de lista de espera (menor posición).
+  const { data: allRows } = await admin.from('reservas').select('*').eq('studio_id', params.studioId);
+  const actuales = (allRows ?? []).map(mapReserva);
+  const espera = siguienteEnEspera(cancelada.sesionId, actuales);
+  if (espera) {
+    await admin.from('reservas').update({ estado: 'CONFIRMADA', posicion_espera: null }).eq('id', espera.id);
+    await consumirBonoServidor(admin, params.studioId, espera.socioId);
+  }
+  return { ok: true as const };
 }
 
 // ─── Mappers: TS (camelCase) → DB (snake_case) ───────────────────────────────
