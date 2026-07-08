@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronDown, Search, Send, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -69,34 +70,34 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div
-        className="relative w-full lg:w-[420px] bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl flex flex-col"
+        className="relative w-full lg:w-[420px] bg-card rounded-t-3xl lg:rounded-3xl shadow-2xl flex flex-col"
         style={{ maxHeight: '85vh' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#EDEDE6]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
-            <p className="text-[15px] font-extrabold text-[#171717]">Preguntas frecuentes</p>
-            <p className="text-[12px] text-[#8E8E86]">Y contacto directo con {studio?.nombre ?? 'Tentare'}</p>
+            <p className="text-[15px] font-extrabold text-foreground">Preguntas frecuentes</p>
+            <p className="text-[12px] text-muted-foreground">Y contacto directo con {studio?.nombre ?? 'Tentare'}</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F5F5F1]">
-            <X size={16} className="text-[#8E8E86]" />
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted">
+            <X size={16} className="text-muted-foreground" />
           </button>
         </div>
 
             <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
               {/* FAQ search */}
               <div>
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#F5F5F1] mb-3">
-                  <Search size={14} className="text-[#A8A89F] shrink-0" />
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted mb-3">
+                  <Search size={14} className="text-muted-foreground shrink-0" />
                   <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     placeholder="Busca en las preguntas frecuentes…"
-                    className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-[#A8A89F]"
+                    className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-muted-foreground"
                   />
                 </div>
 
@@ -106,22 +107,22 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                     if (items.length === 0) return null;
                     return (
                       <div key={cat}>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#B57A8E] mb-1.5">{cat}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">{cat}</p>
                         <div className="space-y-1.5">
                           {items.map((f, i) => {
                             const key = `${cat}-${i}`;
                             const isOpen = openFaq === FAQS.indexOf(f);
                             return (
-                              <div key={key} className="rounded-xl border border-[#EDEDE6] overflow-hidden">
+                              <div key={key} className="rounded-xl border border-border overflow-hidden">
                                 <button
                                   onClick={() => setOpenFaq(isOpen ? null : FAQS.indexOf(f))}
                                   className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left"
                                 >
-                                  <span className="text-[13px] font-semibold text-[#1A1A1A]">{f.pregunta}</span>
-                                  <ChevronDown size={14} className={cn('shrink-0 text-[#A8A89F] transition-transform', isOpen && 'rotate-180')} />
+                                  <span className="text-[13px] font-semibold text-foreground">{f.pregunta}</span>
+                                  <ChevronDown size={14} className={cn('shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
                                 </button>
                                 {isOpen && (
-                                  <p className="px-3 pb-3 text-[12.5px] text-[#5A5A52] leading-relaxed">{f.respuesta}</p>
+                                  <p className="px-3 pb-3 text-[12.5px] text-muted-foreground leading-relaxed">{f.respuesta}</p>
                                 )}
                               </div>
                             );
@@ -131,15 +132,15 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                     );
                   })}
                   {faqsFiltrados.length === 0 && (
-                    <p className="text-[13px] text-[#8E8E86] text-center py-6">Sin resultados para "{query}"</p>
+                    <p className="text-[13px] text-muted-foreground text-center py-6">Sin resultados para "{query}"</p>
                   )}
                 </div>
               </div>
 
               {/* Contact form */}
-              <div className="border-t border-[#EDEDE6] pt-4">
-                <p className="text-[13px] font-bold text-[#1A1A1A] mb-2">¿No encuentras lo que buscas?</p>
-                <p className="text-[12px] text-[#8E8E86] mb-3">Cuéntanos tu duda, sugerencia de mejora o un problema — nos llega directamente.</p>
+              <div className="border-t border-border pt-4">
+                <p className="text-[13px] font-bold text-foreground mb-2">¿No encuentras lo que buscas?</p>
+                <p className="text-[12px] text-muted-foreground mb-3">Cuéntanos tu duda, sugerencia de mejora o un problema — nos llega directamente.</p>
 
                 {enviado ? (
                   <div className="flex items-center gap-2 px-3 py-3 rounded-xl bg-[#EFFAF3] text-[#2E7D4F]">
@@ -155,7 +156,7 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                           onClick={() => setTipo(val)}
                           className={cn(
                             'px-3 py-1.5 rounded-full text-[11px] font-bold transition-all',
-                            tipo === val ? 'bg-[#171717] text-white' : 'bg-[#F1F1EC] text-[#8E8E86]'
+                            tipo === val ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                           )}
                         >
                           {label}
@@ -167,18 +168,18 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                       onChange={e => setMensaje(e.target.value)}
                       placeholder="Escribe aquí..."
                       rows={3}
-                      className="w-full px-3 py-2.5 rounded-xl border border-[#EDEDE6] text-[13px] focus:outline-none focus:border-[#B57A8E] resize-none"
+                      className="w-full px-3 py-2.5 rounded-xl border border-border text-[13px] focus:outline-none focus:border-brand-secondary resize-none"
                     />
                     <input
                       value={contacto}
                       onChange={e => setContacto(e.target.value)}
                       placeholder="Email de contacto (opcional)"
-                      className="w-full px-3 py-2.5 rounded-xl border border-[#EDEDE6] text-[13px] focus:outline-none focus:border-[#B57A8E]"
+                      className="w-full px-3 py-2.5 rounded-xl border border-border text-[13px] focus:outline-none focus:border-brand-secondary"
                     />
                     <button
                       onClick={enviarSolicitud}
                       disabled={!mensaje.trim() || enviando}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#171717] text-white text-[13px] font-bold disabled:opacity-40"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-[13px] font-bold disabled:opacity-40"
                     >
                       <Send size={14} />
                       {enviando ? 'Enviando…' : 'Enviar'}
@@ -188,6 +189,7 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
               </div>
             </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

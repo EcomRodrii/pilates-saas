@@ -180,6 +180,7 @@ function mapStudio(r: RowStudios): Studio {
     email: r.email,
     telefono: r.telefono,
     colorPrimario: r.color_primario,
+    temaPortal: r.tema_portal ?? 'original',
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     ownerAuthUserId: r.owner_auth_user_id ?? null,
@@ -1720,6 +1721,7 @@ function postComunidadToDb(p: PostComunidad) {
 export async function dbInsertSocio(socio: Socio) {
   const { error } = await supabase.from('socios').insert(socioToDb(socio));
   if (error) reportDbError('[dbInsertSocio]', error);
+  return !error;
 }
 
 export async function dbUpdateSocio(id: string, changes: Partial<Socio>) {
@@ -2447,6 +2449,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('email' in changes) db.email = changes.email;
   if ('telefono' in changes) db.telefono = changes.telefono;
   if ('colorPrimario' in changes) db.color_primario = changes.colorPrimario;
+  if ('temaPortal' in changes) db.tema_portal = changes.temaPortal;
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);

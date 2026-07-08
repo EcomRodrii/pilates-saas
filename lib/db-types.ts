@@ -13,6 +13,7 @@ export interface RowStudios {
   email: string | null;
   telefono: string | null;
   color_primario: string | null;
+  tema_portal: string | null;
   plan: string | null;
   avatar_admin: string | null;
   owner_auth_user_id: string | null;
@@ -565,8 +566,6 @@ export interface RowSoporteSolicitudes {
   contacto: string | null;
   creado_en: string;
 }
-// Tabla 'usuarios' no está en schema.sql (deuda: consultada en fetchAll pero
-// sin CREATE TABLE). Row derivada del mapper mapUsuario.
 export interface RowUsuarios {
   id: string;
   studio_id: string | null;

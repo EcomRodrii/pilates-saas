@@ -361,7 +361,7 @@ interface StudioContextValue {
   // Studio record (propietario) + avatar del admin
   studio: Studio | null;
   updateAvatarAdmin: (avatarId: string | null) => void;
-  updateStudio: (changes: Partial<Studio>) => void;
+  updateStudio: (changes: Partial<Studio>) => Promise<void>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -729,7 +729,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   function updateStudio(changes: Partial<Studio>) {
     setStudio(prev => prev ? { ...prev, ...changes } : prev);
-    dbUpdateStudio(changes);
+    return dbUpdateStudio(changes);
   }
 
   // ── Socios ────────────────────────────────────────────────────────────────────
@@ -745,8 +745,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ...socioFields,
     };
     setSocios(prev => [...prev, nuevaSocia]);
-    dbInsertSocio(nuevaSocia);
-    addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+    dbInsertSocio(nuevaSocia).then(ok => {
+      if (ok) addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+    });
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
       if (plan) {

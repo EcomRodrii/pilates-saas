@@ -5,10 +5,10 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Calendar, Users, CreditCard,
-  FileText, Settings, BarChart2, ChevronRight, ChevronLeft, X,
+  FileText, Settings, BarChart2, X,
   Clock, ShoppingCart, MessageCircle, Megaphone, Play, Bell,
   Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
-  LogOut, UserCog, Users2,
+  LogOut, UserCog, Users2, Check, PanelLeft,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -105,7 +105,7 @@ function NavItem({ href, label, Icon, onClick, collapsed }: { href: string; labe
       className={cn(
         'flex items-center rounded-full text-[13px] font-medium transition-all relative',
         collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
-        active ? 'bg-[#FFC8E2] text-[#131313] font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-white/5'
+        active ? 'bg-brand text-[#131313] font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-card/5'
       )}
     >
       <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
@@ -126,17 +126,17 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
     >
       <div className={cn(
         'w-10 h-7 rounded-full flex items-center justify-center transition-colors',
-        active ? 'bg-[#FFC8E2]' : 'bg-transparent'
+        active ? 'bg-brand' : 'bg-transparent'
       )}>
         <Icon
           size={20}
           strokeWidth={active ? 2.5 : 1.8}
-          className={active ? 'text-[#131313]' : 'text-[#8E8E86]'}
+          className={active ? 'text-[#131313]' : 'text-muted-foreground'}
         />
       </div>
       <span className={cn(
         'text-[10px] font-medium leading-none',
-        active ? 'text-[#1A1A1A] font-semibold' : 'text-[#A8A89F]'
+        active ? 'text-foreground font-semibold' : 'text-muted-foreground'
       )}>
         {label}
       </span>
@@ -184,7 +184,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
                   onClick={onClose}
                   className={cn(
                     'flex items-center gap-3.5 px-4 py-3.5 rounded-full text-[15px] font-medium transition-all mb-1',
-                    active ? 'bg-[#FFC8E2] text-[#131313] font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+                    active ? 'bg-brand text-[#131313] font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5'
                   )}
                 >
                   <item.icon size={18} strokeWidth={active ? 2.5 : 2} />
@@ -205,7 +205,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
           <div className="flex-1 min-w-0">
             <p className="text-[14px] font-semibold text-white leading-tight truncate">{userEmail}</p>
           </div>
-          <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+          <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-card/10 transition-colors">
             <LogOut size={16} className="text-white/40" />
           </button>
         </div>
@@ -216,12 +216,18 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
 
 // ─── Sidebar (desktop) + bottom nav (mobile) ──────────────────────────────────
 
-const SIDEBAR_W_EXPANDED = '256px';
-const SIDEBAR_W_COLLAPSED = '96px';
+type SidebarSize = 'compacto' | 'normal' | 'grande';
+
+const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label: string }> = {
+  compacto: { aside: 'w-16', cssVar: '96px', label: 'Pequeño' },
+  normal: { aside: 'w-56', cssVar: '256px', label: 'Normal' },
+  grande: { aside: 'w-72', cssVar: '320px', label: 'Grande' },
+};
 
 export function Sidebar() {
   const [masOpen, setMasOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [size, setSize] = useState<SidebarSize>('normal');
+  const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { studio } = useStudio();
   const studioSlug = studio?.slug ?? 'tentare';
@@ -229,27 +235,30 @@ export function Sidebar() {
   const router = useRouter();
   const { mode: navMode, setNavMode } = useNavMode();
 
+  const collapsed = size === 'compacto';
+
   const seccionesVisibles = navSections
     .map(s => ({ ...s, items: s.items.filter(i => puedeVer(i.href) && (navMode === 'avanzado' || ESSENTIAL_HREFS.includes(i.href))) }))
     .filter(s => s.items.length > 0);
   const bottomNavVisibles = bottomNavItems.filter(i => puedeVer(i.href));
 
-  // Restore the collapsed preference and keep the shared --sidebar-w CSS var
-  // (read by the dashboard layout's <main> padding) in sync with it.
-  useEffect(() => {
-    const stored = localStorage.getItem('sidebar-collapsed') === '1';
-    setCollapsed(stored);
-    document.documentElement.style.setProperty('--sidebar-w', stored ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED);
-  }, []);
-
-  function toggleCollapsed() {
-    setCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('sidebar-collapsed', next ? '1' : '0');
-      document.documentElement.style.setProperty('--sidebar-w', next ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED);
-      return next;
-    });
+  function applySize(next: SidebarSize) {
+    setSize(next);
+    localStorage.setItem('sidebar-size', next);
+    document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[next].cssVar);
   }
+
+  // Restore the size preference (migrating the old binary "collapsed" flag if
+  // present) and keep the shared --sidebar-w CSS var (read by the dashboard
+  // layout's <main> padding) in sync with it.
+  useEffect(() => {
+    const storedSize = localStorage.getItem('sidebar-size') as SidebarSize | null;
+    const legacyCollapsed = localStorage.getItem('sidebar-collapsed');
+    const initial: SidebarSize = storedSize ?? (legacyCollapsed === '1' ? 'compacto' : 'normal');
+    setSize(initial);
+    document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[initial].cssVar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSignOut() {
     await signOut();
@@ -264,7 +273,7 @@ export function Sidebar() {
       {/* ── Mobile top bar ─────────────────────────────────────────────────── */}
       <div
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
-        style={{ backgroundColor: '#ffffff', borderColor: '#E7E7E0' }}
+        style={{ backgroundColor: '#ffffff', borderColor: 'var(--border)' }}
       >
         <Image src="/logo-horizontal.png" alt="Tentare" width={100} height={69} className="h-9 w-auto object-contain" />
       </div>
@@ -272,7 +281,7 @@ export function Sidebar() {
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
       <nav
         className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around px-2 border-t"
-        style={{ backgroundColor: '#ffffff', borderColor: '#E7E7E0', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+        style={{ backgroundColor: '#ffffff', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
         {bottomNavVisibles.map(item => (
           <BottomNavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} />
@@ -283,48 +292,41 @@ export function Sidebar() {
           className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
         >
           <div className="w-10 h-7 rounded-full flex items-center justify-center">
-            <Menu size={20} strokeWidth={1.8} className="text-[#8E8E86]" />
+            <Menu size={20} strokeWidth={1.8} className="text-muted-foreground" />
           </div>
-          <span className="text-[10px] font-medium text-[#A8A89F] leading-none">Más</span>
+          <span className="text-[10px] font-medium text-muted-foreground leading-none">Más</span>
         </button>
       </nav>
 
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
       {masOpen && <MasDrawer onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />}
 
+      {/* ── Desktop logo (fuera de la píldora del menú) ─────────────────────── */}
+      <div
+        className={cn(
+          'hidden lg:flex fixed top-4 left-4 z-20 items-center justify-center h-20 shrink-0 transition-[width] duration-200',
+          SIDEBAR_SIZES[size].aside,
+        )}
+      >
+        {collapsed ? (
+          <Image src="/logo-icon.png" alt="Tentare" width={56} height={56} className="w-14 h-14 object-contain" />
+        ) : (
+          <Image src="/logo-horizontal.png" alt="Tentare" width={260} height={120} className="h-16 w-auto object-contain" />
+        )}
+      </div>
+
       {/* ── Desktop sidebar (floating black pill — Midbox) ─────────────────── */}
       <aside
         className={cn(
-          'hidden lg:flex fixed top-4 left-4 bottom-4 z-20 flex-col rounded-[28px] overflow-hidden transition-[width] duration-200',
-          collapsed ? 'w-16' : 'w-56',
+          'hidden lg:flex fixed top-[104px] left-4 bottom-4 z-20 flex-col rounded-[28px] overflow-hidden transition-[width] duration-200',
+          SIDEBAR_SIZES[size].aside,
         )}
         style={{ backgroundColor: '#0A0A0A' }}
       >
-        {/* Logo */}
-        <div
-          className={cn('flex items-center h-14 shrink-0 border-b', collapsed ? 'justify-center px-2' : 'gap-2.5 px-4')}
-          style={{ borderColor: 'rgba(255,255,255,0.07)' }}
-        >
-          {collapsed ? (
-            <div className="w-11 h-11 rounded-full bg-[#FFC8E2] flex items-center justify-center p-1">
-              <Image src="/logo-icon.png" alt="Tentare" width={36} height={36} className="w-full h-full object-contain" />
-            </div>
-          ) : (
-            <>
-              {/* El icono del logo tiene tinta oscura (ilegible directamente sobre este fondo
-                  casi negro) — se apoya sobre el círculo rosa para mantener contraste. */}
-              <div className="w-11 h-11 shrink-0 rounded-full bg-[#FFC8E2] flex items-center justify-center p-1">
-                <Image src="/logo-icon.png" alt="Tentare" width={36} height={36} className="w-full h-full object-contain" />
-              </div>
-              <span className="text-white text-[15px] font-bold tracking-tight">Tentare</span>
-            </>
-          )}
-        </div>
-
         {/* Modo Esencial / Avanzado */}
         {!collapsed && (
           <div className="px-3 pt-2.5 pb-1">
-            <div className="flex gap-0.5 p-0.5 rounded-full bg-white/5">
+            <div className="flex gap-0.5 p-0.5 rounded-full bg-card/5">
               {([['esencial', 'Esencial'], ['avanzado', 'Todo']] as const).map(([val, label]) => (
                 <button
                   key={val}
@@ -332,7 +334,7 @@ export function Sidebar() {
                   title={val === 'esencial' ? 'Solo lo esencial: Dashboard, Calendario, Miembros, Transacciones, Informes' : 'Todas las funciones'}
                   className={cn(
                     'flex-1 py-1 rounded-full text-[10.5px] font-bold transition-all',
-                    navMode === val ? 'bg-[#FFC8E2] text-[#131313]' : 'text-white/40',
+                    navMode === val ? 'bg-brand text-[#131313]' : 'text-white/40',
                   )}
                 >
                   {label}
@@ -364,7 +366,7 @@ export function Sidebar() {
         {/* External links */}
         {collapsed ? (
           <div className="px-2 pb-2 flex flex-col items-center gap-0.5">
-            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal miembros" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-white/5 text-[#F7A6C4]">
+            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal miembros" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-brand">
               <ExternalLink size={15} />
             </Link>
           </div>
@@ -373,7 +375,7 @@ export function Sidebar() {
             <Link
               href={`/portal/${studioSlug}/login`}
               target="_blank"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5 text-[#F7A6C4]"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-brand"
             >
               <ExternalLink size={12} className="shrink-0" />
               <span>Portal miembros</span>
@@ -395,7 +397,7 @@ export function Sidebar() {
                 <button
                   onClick={handleSignOut}
                   title="Cerrar sesión"
-                  className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+                  className="p-1.5 rounded-lg transition-colors hover:bg-card/10"
                 >
                   <LogOut size={13} className="text-white/30 hover:text-white/60" />
                 </button>
@@ -404,15 +406,37 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* Collapse / expand toggle */}
-        <button
-          onClick={toggleCollapsed}
-          title={collapsed ? 'Expandir menú' : 'Contraer menú'}
-          className="flex items-center justify-center h-9 shrink-0 border-t transition-colors hover:bg-white/5 text-white/30 hover:text-white/70"
-          style={{ borderColor: 'rgba(255,255,255,0.07)' }}
-        >
-          {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-        </button>
+        {/* Size menu: Pequeño / Normal / Grande */}
+        <div className="relative shrink-0 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+          {sizeMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setSizeMenuOpen(false)} />
+              <div className="absolute bottom-full left-2 right-2 z-20 mb-1.5 rounded-xl overflow-hidden shadow-lg border" style={{ backgroundColor: '#171717', borderColor: 'rgba(255,255,255,0.08)' }}>
+                {(Object.keys(SIDEBAR_SIZES) as SidebarSize[]).map(key => (
+                  <button
+                    key={key}
+                    onClick={() => { applySize(key); setSizeMenuOpen(false); }}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-[12px] font-semibold text-white/70 hover:bg-card/5 hover:text-white transition-colors text-left"
+                  >
+                    {SIDEBAR_SIZES[key].label}
+                    {size === key && <Check size={13} className="text-brand shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <button
+            onClick={() => setSizeMenuOpen(v => !v)}
+            title="Tamaño del menú"
+            className={cn(
+              'flex items-center h-9 w-full transition-colors hover:bg-card/5 text-white/30 hover:text-white/70',
+              collapsed ? 'justify-center' : 'justify-center gap-2',
+            )}
+          >
+            <PanelLeft size={14} />
+            {!collapsed && <span className="text-[11px] font-semibold">{SIDEBAR_SIZES[size].label}</span>}
+          </button>
+        </div>
       </aside>
     </>
   );

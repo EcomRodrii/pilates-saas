@@ -47,7 +47,7 @@ const resultadoConfig: Record<ResultadoLog, { label: string; color: string; bg: 
   EJECUTADO:       { label: 'Ejecutado', color: '#16A34A', bg: '#DCFCE7', icon: CheckCircle2 },
   ESPERANDO:       { label: 'Esperando', color: '#D97706', bg: '#FEF3C7', icon: Clock },
   FALLIDO:         { label: 'Fallido', color: '#DC2626', bg: '#FEE2E2', icon: XCircle },
-  PENDIENTE_ADMIN: { label: 'Acción humana', color: '#B57A8E', bg: '#FFF2F7', icon: AlertTriangle },
+  PENDIENTE_ADMIN: { label: 'Acción humana', color: 'var(--brand-secondary)', bg: 'color-mix(in srgb, var(--brand) 12%, var(--card))', icon: AlertTriangle },
 };
 
 const triggerLabels: Record<string, string> = {
@@ -120,21 +120,21 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
             </p>
           )}
         </div>
-        <div className="shrink-0 w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center">
+        <div className="shrink-0 w-14 h-14 rounded-2xl bg-card/10 flex items-center justify-center">
           <Zap size={28} className="text-white/80" />
         </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
-        <div className="rounded-xl bg-white/10 px-4 py-3">
+        <div className="rounded-xl bg-card/10 px-4 py-3">
           <div className="text-2xl font-bold">{ejecutadas}</div>
           <div className="text-white/50 text-xs mt-0.5">Acciones hoy</div>
         </div>
-        <div className="rounded-xl bg-white/10 px-4 py-3">
+        <div className="rounded-xl bg-card/10 px-4 py-3">
           <div className="text-2xl font-bold text-amber-300">{esperando}</div>
           <div className="text-white/50 text-xs mt-0.5">Esperando resp.</div>
         </div>
-        <div className="rounded-xl bg-white/10 px-4 py-3">
+        <div className="rounded-xl bg-card/10 px-4 py-3">
           <div className={cn('text-2xl font-bold', pendingAdmin.length > 0 ? 'text-red-300' : 'text-green-300')}>
             {pendingAdmin.length}
           </div>
@@ -158,41 +158,41 @@ function RuleCard({
 
   return (
     <div className={cn(
-      'rounded-xl border bg-white transition-all',
-      rule.activa ? 'border-[#E7E7E0]' : 'border-[#F1F1EC] opacity-60'
+      'rounded-xl border bg-card transition-all',
+      rule.activa ? 'border-border' : 'border-muted opacity-60'
     )}>
       <div className="flex items-center gap-3 p-4">
         <div className="text-2xl">{rule.icono}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-[#1A1A1A] text-sm truncate">{rule.nombre}</span>
+            <span className="font-semibold text-foreground text-sm truncate">{rule.nombre}</span>
             {rule.ultimaEjecucion && (
-              <span className="text-[10px] text-[#A8A89F] shrink-0">
+              <span className="text-[10px] text-muted-foreground shrink-0">
                 Última: {formatFecha(rule.ultimaEjecucion)}
               </span>
             )}
           </div>
-          <p className="text-xs text-[#8E8E86] mt-0.5 truncate">{rule.descripcion}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{rule.descripcion}</p>
           <div className="flex items-center gap-3 mt-1">
-            <span className="text-[10px] text-[#A8A89F] bg-[#F5F5F1] px-2 py-0.5 rounded-full border">
+            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border">
               {triggerLabels[rule.trigger] ?? rule.trigger}
             </span>
-            <span className="text-[10px] text-[#A8A89F]">{rule.ejecutadaVeces} ejecuciones</span>
+            <span className="text-[10px] text-muted-foreground">{rule.ejecutadaVeces} ejecuciones</span>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setExpanded(p => !p)}
-            className="p-1.5 text-[#A8A89F] hover:text-[#3A3A34] rounded-lg hover:bg-[#F5F5F1] transition-colors"
+            className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors"
           >
             <ChevronRight size={14} className={cn('transition-transform', expanded && 'rotate-90')} />
           </button>
           <button
             onClick={onToggle}
-            className="text-[#A8A89F] hover:text-[#3A3A34] transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
           >
             {rule.activa
-              ? <ToggleRight size={28} className="text-[#1A1A1A]" />
+              ? <ToggleRight size={28} className="text-foreground" />
               : <ToggleLeft size={28} />
             }
           </button>
@@ -200,8 +200,8 @@ function RuleCard({
       </div>
 
       {expanded && (
-        <div className="border-t border-[#F1F1EC] px-4 py-3">
-          <p className="text-xs font-semibold text-[#8E8E86] mb-2 uppercase tracking-wide">Pasos del flujo</p>
+        <div className="border-t border-muted px-4 py-3">
+          <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Pasos del flujo</p>
           <div className="space-y-2">
             {rule.pasos.map((paso, i) => {
               const cfg = accionConfig[paso.accion];
@@ -215,15 +215,15 @@ function RuleCard({
                     <Icon size={12} style={{ color: cfg.color }} />
                   </div>
                   <div>
-                    <span className="text-xs font-medium text-[#1A1A1A]">{cfg.label}</span>
+                    <span className="text-xs font-medium text-foreground">{cfg.label}</span>
                     {paso.esperarHoras && (
-                      <span className="text-[10px] text-[#A8A89F] ml-1.5">
+                      <span className="text-[10px] text-muted-foreground ml-1.5">
                         → espera {paso.esperarHoras}h
                         {paso.condicion === 'SIN_RESPUESTA' ? ' si sin respuesta' : ''}
                       </span>
                     )}
                     {paso.parametros.mensaje && (
-                      <p className="text-[11px] text-[#8E8E86] mt-0.5 italic">
+                      <p className="text-[11px] text-muted-foreground mt-0.5 italic">
                         &ldquo;{String(paso.parametros.mensaje)}&rdquo;
                       </p>
                     )}
@@ -257,8 +257,8 @@ function LogItem({
   return (
     <div className={cn(
       'flex items-start gap-3 p-3 rounded-xl border',
-      log.resultado === 'PENDIENTE_ADMIN' && 'border-[#E7E7E0] bg-[#F8FBEE]',
-      log.resultado === 'EJECUTADO' && 'border-[#F1F1EC] bg-white',
+      log.resultado === 'PENDIENTE_ADMIN' && 'border-border bg-brand/10',
+      log.resultado === 'EJECUTADO' && 'border-muted bg-card',
       log.resultado === 'ESPERANDO' && 'border-amber-100 bg-amber-50',
       log.resultado === 'FALLIDO' && 'border-red-100 bg-red-50',
     )}>
@@ -270,7 +270,7 @@ function LogItem({
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-[#1A1A1A]">{log.socioNombre ?? 'Sistema'}</span>
+          <span className="text-sm font-semibold text-foreground">{log.socioNombre ?? 'Sistema'}</span>
           <span
             className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
             style={{ color: cfg.color, background: cfg.bg }}
@@ -279,10 +279,10 @@ function LogItem({
             {cfg.label}
           </span>
         </div>
-        <p className="text-xs text-[#3A3A34] mt-0.5">{log.detalle}</p>
+        <p className="text-xs text-foreground mt-0.5">{log.detalle}</p>
         <div className="flex items-center gap-3 mt-1">
-          <span className="text-[10px] text-[#A8A89F]">{log.ruleName}</span>
-          <span className="text-[10px] text-[#A8A89F]">{formatFecha(log.ejecutadoEn)}</span>
+          <span className="text-[10px] text-muted-foreground">{log.ruleName}</span>
+          <span className="text-[10px] text-muted-foreground">{formatFecha(log.ejecutadoEn)}</span>
           {log.proximaAccionEn && log.resultado === 'ESPERANDO' && (
             <span className="text-[10px] text-amber-600 font-medium">
               Próxima acción en {horasRestantes(log.proximaAccionEn)}
@@ -294,7 +294,7 @@ function LogItem({
         <button
           onClick={onApproveCharge}
           disabled={approving}
-          className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#1A1A1A] text-white hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
         >
           {approving ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
           {approving ? 'Cobrando…' : 'Aprobar y cobrar'}
@@ -304,7 +304,7 @@ function LogItem({
         <button
           onClick={onSendOffer}
           disabled={approving}
-          className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#1A1A1A] text-white hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
         >
           {approving ? <Loader2 size={12} className="animate-spin" /> : <Gift size={12} />}
           {approving ? 'Enviando…' : 'Enviar oferta'}
@@ -312,7 +312,7 @@ function LogItem({
       )}
       <button
         onClick={onDismiss}
-        className="text-[#C6C6BE] hover:text-[#8E8E86] transition-colors shrink-0 mt-0.5"
+        className="text-muted-foreground hover:text-muted-foreground transition-colors shrink-0 mt-0.5"
         title="Descartar"
       >
         <X size={14} />
@@ -412,11 +412,11 @@ export default function AutomatizacionesPage() {
 
       {/* Pending admin actions */}
       {pendingAdmin.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-[#E7E7E0] bg-[#F8FBEE] p-4">
+        <div className="mb-6 rounded-2xl border border-border bg-brand/10 p-4">
           <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle size={16} className="text-[#B57A8E]" />
-            <h2 className="font-semibold text-[#B57A8E] text-sm">Requiere tu intervención</h2>
-            <span className="ml-auto text-xs text-[#B57A8E] bg-[#FFF2F7] px-2 py-0.5 rounded-full font-medium">
+            <AlertTriangle size={16} className="text-brand-secondary" />
+            <h2 className="font-semibold text-brand-secondary text-sm">Requiere tu intervención</h2>
+            <span className="ml-auto text-xs text-brand-secondary bg-brand/10 px-2 py-0.5 rounded-full font-medium">
               {pendingAdmin.length}
             </span>
           </div>
@@ -437,14 +437,14 @@ export default function AutomatizacionesPage() {
 
       {/* Run now button */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex bg-[#F1F1EC] rounded-xl p-1 gap-1">
+        <div className="flex bg-muted rounded-xl p-1 gap-1">
           {(['log', 'reglas'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={cn(
                 'px-4 py-1.5 rounded-lg text-sm font-medium transition-all',
-                tab === t ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#8E8E86] hover:text-[#3A3A34]'
+                tab === t ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
               )}
             >
               {t === 'log' ? 'Registro de acciones' : 'Reglas activas'}
@@ -454,7 +454,7 @@ export default function AutomatizacionesPage() {
         <button
           onClick={handleRunNow}
           disabled={running}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-white rounded-xl text-sm font-medium hover:bg-[#2A2A24] disabled:opacity-50 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-[#2A2A24] disabled:opacity-50 transition-colors"
         >
           {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
           {running ? 'Evaluando...' : 'Ejecutar ahora'}
@@ -466,14 +466,14 @@ export default function AutomatizacionesPage() {
           <div className="flex justify-end">
             <button
               onClick={handleCargarSugeridas}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#E7E7E0] text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
             >
               <Zap size={12} />
               Cargar reglas sugeridas
             </button>
           </div>
           {automationRules.length === 0 && (
-            <div className="text-center py-12 text-[#A8A89F]">
+            <div className="text-center py-12 text-muted-foreground">
               <Bot size={32} className="mx-auto mb-2 opacity-30" />
               <p className="text-sm">Todavía no tienes ninguna automatización activa</p>
             </div>
@@ -498,8 +498,8 @@ export default function AutomatizacionesPage() {
                 className={cn(
                   'px-3 py-1 rounded-full text-xs font-medium border transition-all',
                   filterResultado === f.value
-                    ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
-                    : 'bg-white text-[#3A3A34] border-[#E7E7E0] hover:border-[#A8A89F]'
+                    ? 'bg-primary text-primary-foreground border-foreground'
+                    : 'bg-card text-foreground border-border hover:border-muted-foreground'
                 )}
               >
                 {f.label}
@@ -507,7 +507,7 @@ export default function AutomatizacionesPage() {
             ))}
           </div>
           {filteredLogs.length === 0 ? (
-            <div className="text-center py-12 text-[#A8A89F]">
+            <div className="text-center py-12 text-muted-foreground">
               <Bot size={32} className="mx-auto mb-2 opacity-30" />
               <p className="text-sm">No hay registros para este filtro</p>
             </div>

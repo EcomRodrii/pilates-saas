@@ -5,22 +5,32 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { Clock, MapPin, User, CheckCircle, AlertCircle, Users, BarChart2 } from 'lucide-react';
+import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
+import { Clock, MapPin, BarChart2, CheckCircle, AlertCircle, Users } from 'lucide-react';
 
 type Tab = 'proximas' | 'mis-reservas';
 
 const NIVEL_LABEL: Record<string, string> = {
   TODOS: 'Todos los niveles', PRINCIPIANTE: 'Iniciación', MEDIO: 'Intermedio', AVANZADO: 'Avanzado',
 };
+const NIVEL_COLOR: Record<string, string> = {
+  TODOS: '#8E8E93', PRINCIPIANTE: '#059669', MEDIO: '#D97706', AVANZADO: '#DC2626',
+};
 
 export default function ClasesPage() {
   const { slug } = useParams<{ slug: string }>();
   const { session } = usePortalAuth();
-  const { sesiones, reservas, tiposClase, salas, instructores, planesTarifa, addReserva, cancelarReserva } = useStudio();
+  const { sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, addReserva, cancelarReserva } = useStudio();
   const [tab, setTab] = useState<Tab>('proximas');
   const now = new Date();
 
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
+
+  const activeSus = useMemo(() =>
+    suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA') ?? null,
+  [suscripciones, session?.socioId]);
+  const planActivo = activeSus ? planesTarifa.find(p => p.id === activeSus.planId) ?? null : null;
+  const cubierta = tieneCoberturaPlan(activeSus, planActivo);
 
   const sesionesActivas = useMemo(() =>
     sesiones
@@ -71,7 +81,7 @@ export default function ClasesPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight leading-tight">Clases</h1>
         <p className="text-white/50 text-[13px] mt-0.5">{totalReservas} reservas activas</p>
 
@@ -97,8 +107,8 @@ export default function ClasesPage() {
       <div className="px-4 pt-4 pb-4 space-y-6">
         {groupedByDay.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 rounded-3xl bg-[#FFF2F7] flex items-center justify-center mb-4">
-              <Clock size={28} className="text-[#B57A8E]" />
+            <div className="w-16 h-16 rounded-3xl bg-portal-brand/10 flex items-center justify-center mb-4">
+              <Clock size={28} className="text-portal-brand-secondary" />
             </div>
             <p className="font-bold text-[#171717] text-[16px]">
               {tab === 'mis-reservas' ? 'Sin reservas activas' : 'Sin clases disponibles'}
@@ -118,7 +128,7 @@ export default function ClasesPage() {
                   const instr = instructores.find(i => i.id === ses.instructorId);
                   const libres = getLibres(ses.id, ses.aforoMaximo);
                   const miReserva = getMiReserva(ses.id);
-                  const color = tipo?.color ?? '#F7A6C4';
+                  const color = tipo?.color ?? 'var(--portal-brand)';
 
                   return (
                     <div key={ses.id} className="bg-white rounded-3xl overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.08)' }}>
@@ -133,7 +143,7 @@ export default function ClasesPage() {
                               <BarChart2 size={28} className="text-white/40" />
                             </div>
                           )}
-                          {precioClaseSuelta != null && (
+                          {!cubierta && precioClaseSuelta != null && (
                             <span className="absolute top-3 left-3 bg-black/70 text-white text-[12px] font-bold px-3 py-1 rounded-full">
                               {precioClaseSuelta} €
                             </span>
@@ -153,35 +163,50 @@ export default function ClasesPage() {
                         </div>
 
                         <div className="px-4 pt-4">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="font-extrabold text-[#171717] text-[16px] leading-tight">{tipo?.nombre ?? 'Clase'}</p>
-                            <span className="text-[11px] font-bold text-[#B57A8E] shrink-0">{NIVEL_LABEL[tipo?.nivel ?? 'TODOS']}</span>
+                          <p className="text-[13px] font-semibold text-[#8E8E93] mb-1">
+                            {formatTime(ses.inicio)} – {formatTime(ses.fin)}
+                          </p>
+                          <p className="font-extrabold text-[#171717] text-[19px] leading-tight mb-3">{tipo?.nombre ?? 'Clase'}</p>
+
+                          <div className="flex flex-wrap items-center gap-2 mb-4">
+                            <span
+                              className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-full"
+                              style={{
+                                backgroundColor: libres === 0 ? '#FEE2E2' : libres <= 2 ? '#FEF3C7' : '#F1F1EC',
+                                color: libres === 0 ? '#DC2626' : libres <= 2 ? '#B45309' : '#3A3A32',
+                              }}
+                            >
+                              <Users size={13} />
+                              {libres > 0 ? `${libres} ${libres === 1 ? 'plaza' : 'plazas'}` : 'Completo'}
+                            </span>
+                            {sala && (
+                              <span className="flex items-center gap-1.5 bg-[#F1F1EC] text-[#3A3A32] text-[12.5px] font-semibold px-3 py-1.5 rounded-full">
+                                <MapPin size={13} />
+                                {sala.nombre}
+                              </span>
+                            )}
+                            <span
+                              className="text-[12.5px] font-bold text-white px-3 py-1.5 rounded-full"
+                              style={{ backgroundColor: NIVEL_COLOR[tipo?.nivel ?? 'TODOS'] }}
+                            >
+                              {NIVEL_LABEL[tipo?.nivel ?? 'TODOS']}
+                            </span>
                           </div>
+
                           {instr && (
-                            <div className="flex items-center gap-1 mb-2">
-                              <User size={11} className="text-[#8E8E93]" />
-                              <p className="text-[12px] text-[#8E8E86]">{instr.nombre}{sala ? ` · ${sala.nombre}` : ''}</p>
+                            <div className="flex items-center gap-2.5 pb-4 mb-1 border-b border-[#F5F5F5]">
+                              <div
+                                className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold text-white shrink-0"
+                                style={{ backgroundColor: instr.color }}
+                              >
+                                {instr.nombre.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[13.5px] font-bold text-[#171717] leading-tight truncate">{instr.nombre}</p>
+                                <p className="text-[11.5px] text-[#8E8E93]">{instr.rol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}</p>
+                              </div>
                             </div>
                           )}
-
-                          <div className="flex items-center gap-4 py-3 border-y border-[#F5F5F5]">
-                            <div className="flex items-center gap-1.5">
-                              <Clock size={13} className="text-[#8E8E93]" />
-                              <span className="text-[12.5px] font-semibold text-[#3A3A32]">{formatTime(ses.inicio)}–{formatTime(ses.fin)}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <Users size={13} className="text-[#8E8E93]" />
-                              <span className="text-[12.5px] font-semibold" style={{ color: libres <= 2 && libres > 0 ? '#D97706' : libres === 0 ? '#EF4444' : '#3A3A32' }}>
-                                {libres > 0 ? `${libres} libre${libres !== 1 ? 's' : ''}` : 'Completo'}
-                              </span>
-                            </div>
-                            {sala && (
-                              <div className="flex items-center gap-1.5">
-                                <MapPin size={12} className="text-[#8E8E93]" />
-                                <span className="text-[12.5px] text-[#8E8E86]">{sala.nombre}</span>
-                              </div>
-                            )}
-                          </div>
                         </div>
                       </Link>
 
@@ -200,7 +225,9 @@ export default function ClasesPage() {
                             className="w-full text-[14px] font-bold py-2.5 rounded-2xl text-white transition-opacity active:opacity-70 disabled:opacity-40"
                             style={{ backgroundColor: libres > 0 ? '#171717' : '#C7C7CC' }}
                           >
-                            {libres > 0 ? 'Reservar' : 'Lista de espera'}
+                            {libres > 0
+                              ? (cubierta || precioClaseSuelta == null ? 'Reservar' : `Reservar · ${precioClaseSuelta} €`)
+                              : 'Lista de espera'}
                           </button>
                         )}
                       </div>

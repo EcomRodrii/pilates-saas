@@ -20,13 +20,13 @@ import { subirFotoClase, eliminarFotoClase } from '@/lib/portal-storage';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
-  'rounded-lg border border-[#E7E7E0] px-3 py-2 text-[13px] w-full focus:outline-none focus:ring-2 focus:ring-black/10';
-export const labelCls = 'text-[12px] font-medium text-[#3A3A34] block mb-1';
+  'rounded-lg border border-border px-3 py-2 text-[13px] w-full focus:outline-none focus:ring-2 focus:ring-black/10';
+export const labelCls = 'text-[12px] font-medium text-foreground block mb-1';
 export const btnPrimary =
-  'bg-[#FFC8E2] text-[#171717] rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 hover:bg-[#F7B3D2] transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
+  'bg-brand text-brand-foreground rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
 export const btnSecondary =
-  'bg-white border border-[#E7E7E0] rounded-lg px-4 py-2 text-[13px] text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors';
-export const cardCls = 'bg-white border border-[#E7E7E0] rounded-xl';
+  'bg-card border border-border rounded-lg px-4 py-2 text-[13px] text-foreground hover:bg-muted transition-colors';
+export const cardCls = 'bg-card border border-border rounded-xl';
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
 
@@ -47,12 +47,12 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
       aria-pressed={on}
       className={cn(
         'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
-        on ? 'bg-[#1A1A1A]' : 'bg-[#D1D5DB]'
+        on ? 'bg-primary' : 'bg-muted-foreground/40'
       )}
     >
       <span
         className={cn(
-          'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow ring-0 transition-transform duration-200',
+          'pointer-events-none inline-block h-4 w-4 rounded-full bg-card shadow ring-0 transition-transform duration-200',
           on ? 'translate-x-4' : 'translate-x-0'
         )}
       />
@@ -73,7 +73,7 @@ function ColorInput({
         type="color"
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-9 h-9 rounded-lg border border-[#E7E7E0] cursor-pointer p-0.5 shrink-0"
+        className="w-9 h-9 rounded-lg border border-border cursor-pointer p-0.5 shrink-0"
       />
       <input
         className={cn(inputCls, 'flex-1')}
@@ -117,8 +117,8 @@ function ConfirmDialog({
             <AlertTriangle size={20} className="text-[#DC2626]" />
           </div>
           <div>
-            <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">{title}</h3>
-            <p className="text-[13px] text-[#8E8E86]">{description}</p>
+            <h3 className="text-[14px] font-semibold text-foreground mb-1">{title}</h3>
+            <p className="text-[13px] text-muted-foreground">{description}</p>
           </div>
           <div className="flex gap-2 w-full">
             <button
@@ -149,7 +149,7 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
   }, [onDismiss]);
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-[#FFC8E2] text-[#171717] text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-lg pointer-events-none">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-brand text-brand-foreground text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-lg pointer-events-none">
       <Check size={14} className="text-[#34D399]" />
       {message}
     </div>
@@ -169,7 +169,7 @@ function TipoPlanBadge({ tipo }: { tipo: PlanTarifa['tipo'] }) {
   const map: Record<string, string> = {
     MENSUAL: 'bg-purple-50 text-purple-700',
     BONO: 'bg-blue-50 text-blue-700',
-    PUNTUAL: 'bg-[#EEEEE8] text-[#8E8E86]',
+    PUNTUAL: 'bg-background text-muted-foreground',
   };
   return (
     <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium', map[tipo])}>
@@ -180,7 +180,7 @@ function TipoPlanBadge({ tipo }: { tipo: PlanTarifa['tipo'] }) {
 
 function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
   const map: Record<string, string> = {
-    TODOS: 'bg-[#EEEEE8] text-[#8E8E86]',
+    TODOS: 'bg-background text-muted-foreground',
     PRINCIPIANTE: 'bg-green-50 text-green-700',
     MEDIO: 'bg-amber-50 text-amber-700',
     AVANZADO: 'bg-red-50 text-red-600',
@@ -203,7 +203,7 @@ function EstadoBadge({ activo }: { activo: boolean }) {
     <span
       className={cn(
         'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium',
-        activo ? 'bg-[#D1FAE5] text-[#059669]' : 'bg-[#EEEEE8] text-[#8E8E86]'
+        activo ? 'bg-[#D1FAE5] text-[#059669]' : 'bg-background text-muted-foreground'
       )}
     >
       {activo ? 'Activo' : 'Inactivo'}
@@ -250,14 +250,14 @@ export default function ConfiguracionPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-[22px] font-bold text-[#1A1A1A]">Configuración</h1>
-        <p className="text-[13px] text-[#8E8E86] mt-0.5">
+        <h1 className="text-[22px] font-bold text-foreground">Configuración</h1>
+        <p className="text-[13px] text-muted-foreground mt-0.5">
           Gestiona los planes, clases, salas, instructores e integraciones de tu estudio
         </p>
       </div>
 
       {/* Tab nav */}
-      <div className="flex gap-1 p-1 bg-white border border-[#E7E7E0] rounded-xl overflow-x-auto">
+      <div className="flex gap-1 p-1 bg-card border border-border rounded-xl overflow-x-auto">
         {TABS.map(tab => (
           <button
             key={tab.id}
@@ -265,8 +265,8 @@ export default function ConfiguracionPage() {
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all whitespace-nowrap',
               activeTab === tab.id
-                ? 'bg-[#FFC8E2] text-[#171717]'
-                : 'text-[#8E8E86] hover:text-[#1A1A1A] hover:bg-[#EEEEE8]'
+                ? 'bg-brand text-brand-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background'
             )}
           >
             {tab.label}
@@ -390,7 +390,7 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8E8E86]">{planesTarifa.length} planes configurados</p>
+        <p className="text-[13px] text-muted-foreground">{planesTarifa.length} planes configurados</p>
         <button className={btnPrimary} onClick={openNuevo}>
           <Plus size={13} />
           Nuevo plan
@@ -399,7 +399,7 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
 
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         {planesTarifa.length === 0 ? (
-          <div className="px-5 py-10 text-center text-[13px] text-[#8E8E86]">
+          <div className="px-5 py-10 text-center text-[13px] text-muted-foreground">
             No hay planes creados. Haz clic en &quot;Nuevo plan&quot; para empezar.
           </div>
         ) : (
@@ -407,11 +407,11 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
             {/* Desktop table */}
             <table className="w-full text-[13px] hidden sm:table">
               <thead>
-                <tr className="border-b border-[#E7E7E0]">
+                <tr className="border-b border-border">
                   {['Nombre', 'Tipo', 'Precio', 'Sesiones', 'Estado', 'Acciones'].map(h => (
                     <th
                       key={h}
-                      className="text-left px-5 py-3 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide"
+                      className="text-left px-5 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide"
                     >
                       {h}
                     </th>
@@ -423,16 +423,16 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                   <tr
                     key={plan.id}
                     className={cn(
-                      'border-b border-[#EEEEE8] last:border-0 hover:bg-[#F5F5F1] transition-colors',
+                      'border-b border-background last:border-0 hover:bg-muted transition-colors',
                       !plan.activo && 'opacity-50'
                     )}
                   >
-                    <td className="px-5 py-3 font-medium text-[#1A1A1A]">{plan.nombre}</td>
+                    <td className="px-5 py-3 font-medium text-foreground">{plan.nombre}</td>
                     <td className="px-5 py-3">
                       <TipoPlanBadge tipo={plan.tipo} />
                     </td>
-                    <td className="px-5 py-3 font-semibold text-[#1A1A1A]">{plan.precio} €</td>
-                    <td className="px-5 py-3 text-[#8E8E86]">
+                    <td className="px-5 py-3 font-semibold text-foreground">{plan.precio} €</td>
+                    <td className="px-5 py-3 text-muted-foreground">
                       {plan.sesiones !== null ? plan.sesiones : '—'}
                     </td>
                     <td className="px-5 py-3">
@@ -445,14 +445,14 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => openEditar(plan)}
-                          className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
                           aria-label="Editar plan"
                         >
                           <Pencil size={13} />
                         </button>
                         <button
                           onClick={() => setConfirmDel(plan.id)}
-                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86] hover:text-[#DC2626] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground hover:text-[#DC2626] transition-colors"
                           aria-label="Eliminar plan"
                         >
                           <Trash2 size={13} />
@@ -465,26 +465,26 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
             </table>
 
             {/* Mobile cards */}
-            <div className="sm:hidden divide-y divide-[#EEEEE8]">
+            <div className="sm:hidden divide-y divide-background">
               {planesTarifa.map(plan => (
                 <div key={plan.id} className={cn('p-4 space-y-2', !plan.activo && 'opacity-50')}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-[#1A1A1A] text-[14px]">{plan.nombre}</p>
+                      <p className="font-medium text-foreground text-[14px]">{plan.nombre}</p>
                       <div className="mt-1"><TipoPlanBadge tipo={plan.tipo} /></div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => openEditar(plan)} className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86]" aria-label="Editar plan">
+                      <button onClick={() => openEditar(plan)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground" aria-label="Editar plan">
                         <Pencil size={13} />
                       </button>
-                      <button onClick={() => setConfirmDel(plan.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86]" aria-label="Eliminar plan">
+                      <button onClick={() => setConfirmDel(plan.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground" aria-label="Eliminar plan">
                         <Trash2 size={13} />
                       </button>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-[13px] text-[#8E8E86]">
-                      <span className="font-semibold text-[#1A1A1A]">{plan.precio} €</span>
+                    <p className="text-[13px] text-muted-foreground">
+                      <span className="font-semibold text-foreground">{plan.precio} €</span>
                       {plan.sesiones !== null && ` · ${plan.sesiones} sesiones`}
                     </p>
                     <Toggle on={plan.activo} onChange={() => toggleActivo(plan.id, plan.activo)} />
@@ -500,7 +500,7 @@ function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
       <Dialog open={modal !== null} onOpenChange={open => !open && closeModal()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[15px] font-semibold text-[#1A1A1A]">
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
               {modal === 'nuevo' ? 'Nuevo plan' : 'Editar plan'}
             </DialogTitle>
           </DialogHeader>
@@ -708,7 +708,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8E8E86]">{tiposClase.length} tipos de clase configurados</p>
+        <p className="text-[13px] text-muted-foreground">{tiposClase.length} tipos de clase configurados</p>
         <button className={btnPrimary} onClick={openNueva}>
           <Plus size={13} />
           Nueva clase
@@ -716,7 +716,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
       </div>
 
       {tiposClase.length === 0 && (
-        <div className={cn(cardCls, 'p-10 text-center text-[13px] text-[#8E8E86]')}>
+        <div className={cn(cardCls, 'p-10 text-center text-[13px] text-muted-foreground')}>
           No hay tipos de clase creados. Haz clic en &quot;Nueva clase&quot; para empezar.
         </div>
       )}
@@ -728,30 +728,30 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
             <div className="flex items-center gap-3">
               <ColorSwatch color={tc.color} size="md" />
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">{tc.nombre}</p>
-                <p className="text-[11px] text-[#8E8E86]">{tc.duracionMinutos} min</p>
+                <p className="text-[13px] font-semibold text-foreground truncate">{tc.nombre}</p>
+                <p className="text-[11px] text-muted-foreground">{tc.duracionMinutos} min</p>
               </div>
             </div>
             <div className="flex items-center justify-between">
               <NivelBadge nivel={tc.nivel} />
               {tc.descripcion && (
-                <p className="text-[11px] text-[#A8A89F] truncate ml-2 flex-1 text-right">
+                <p className="text-[11px] text-muted-foreground truncate ml-2 flex-1 text-right">
                   {tc.descripcion}
                 </p>
               )}
             </div>
             {/* Actions */}
-            <div className="flex items-center gap-1 pt-1 border-t border-[#EEEEE8]">
+            <div className="flex items-center gap-1 pt-1 border-t border-background">
               <button
                 onClick={() => openEditar(tc)}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-[#8E8E86] hover:bg-[#EEEEE8] hover:text-[#1A1A1A] transition-colors"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-muted-foreground hover:bg-background hover:text-foreground transition-colors"
               >
                 <Pencil size={11} />
                 Editar
               </button>
               <button
                 onClick={() => setConfirmDel(tc.id)}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-[#8E8E86] hover:bg-[#FEE2E2] hover:text-[#DC2626] transition-colors ml-auto"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-muted-foreground hover:bg-[#FEE2E2] hover:text-[#DC2626] transition-colors ml-auto"
               >
                 <Trash2 size={11} />
                 Eliminar
@@ -765,7 +765,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
       <Dialog open={modal !== null} onOpenChange={open => !open && closeModal()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[15px] font-semibold text-[#1A1A1A]">
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
               {modal === 'nueva' ? 'Nueva clase' : 'Editar clase'}
             </DialogTitle>
           </DialogHeader>
@@ -781,7 +781,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
             <Field label="Foto de la clase">
               {editId ? (
                 <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#F1F1EC] flex items-center justify-center shrink-0">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted flex items-center justify-center shrink-0">
                     {editando?.fotoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={editando.fotoUrl} alt={form.nombre} className="w-full h-full object-cover" />
@@ -794,12 +794,12 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
                       type="button"
                       onClick={() => fotoInputRef.current?.click()}
                       disabled={subiendoFoto}
-                      className="text-[12px] font-semibold text-[#B57A8E] underline underline-offset-2 disabled:opacity-50"
+                      className="text-[12px] font-semibold text-brand-secondary underline underline-offset-2 disabled:opacity-50"
                     >
                       {subiendoFoto ? 'Subiendo…' : editando?.fotoUrl ? 'Cambiar foto' : 'Subir foto'}
                     </button>
                     {editando?.fotoUrl && (
-                      <button type="button" onClick={handleEliminarFoto} className="text-[12px] text-[#8E8E86] text-left">
+                      <button type="button" onClick={handleEliminarFoto} className="text-[12px] text-muted-foreground text-left">
                         Quitar foto
                       </button>
                     )}
@@ -807,7 +807,7 @@ function TabClases({ showToast }: { showToast: (m: string) => void }) {
                   <input ref={fotoInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
                 </div>
               ) : (
-                <p className="text-[12px] text-[#A8A89F]">Podrás añadir una foto una vez creada la clase.</p>
+                <p className="text-[12px] text-muted-foreground">Podrás añadir una foto una vez creada la clase.</p>
               )}
             </Field>
             <div className="grid grid-cols-2 gap-3">
@@ -948,7 +948,7 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8E8E86]">{salas.length} salas configuradas</p>
+        <p className="text-[13px] text-muted-foreground">{salas.length} salas configuradas</p>
         <button className={btnPrimary} onClick={openNueva}>
           <Plus size={13} />
           Nueva sala
@@ -957,7 +957,7 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
 
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         {salas.length === 0 ? (
-          <div className="px-5 py-10 text-center text-[13px] text-[#8E8E86]">
+          <div className="px-5 py-10 text-center text-[13px] text-muted-foreground">
             No hay salas creadas. Haz clic en &quot;Nueva sala&quot; para empezar.
           </div>
         ) : (
@@ -965,11 +965,11 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
             {/* Desktop table */}
             <table className="w-full text-[13px] hidden sm:table">
               <thead>
-                <tr className="border-b border-[#E7E7E0]">
+                <tr className="border-b border-border">
                   {['Nombre', 'Capacidad', 'Color', 'Acciones'].map(h => (
                     <th
                       key={h}
-                      className="text-left px-5 py-3 text-[11px] font-semibold text-[#8E8E86] uppercase tracking-wide"
+                      className="text-left px-5 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide"
                     >
                       {h}
                     </th>
@@ -980,28 +980,28 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                 {salas.map(sala => (
                   <tr
                     key={sala.id}
-                    className="border-b border-[#EEEEE8] last:border-0 hover:bg-[#F5F5F1] transition-colors"
+                    className="border-b border-background last:border-0 hover:bg-muted transition-colors"
                   >
-                    <td className="px-5 py-3 font-medium text-[#1A1A1A]">{sala.nombre}</td>
-                    <td className="px-5 py-3 text-[#8E8E86]">{sala.capacidad} personas</td>
+                    <td className="px-5 py-3 font-medium text-foreground">{sala.nombre}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{sala.capacidad} personas</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
                         <ColorSwatch color={sala.color} size="sm" />
-                        <span className="text-[12px] text-[#8E8E86] font-mono">{sala.color}</span>
+                        <span className="text-[12px] text-muted-foreground font-mono">{sala.color}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => openEditar(sala)}
-                          className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
                           aria-label="Editar sala"
                         >
                           <Pencil size={13} />
                         </button>
                         <button
                           onClick={() => setConfirmDel(sala.id)}
-                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86] hover:text-[#DC2626] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground hover:text-[#DC2626] transition-colors"
                           aria-label="Eliminar sala"
                         >
                           <Trash2 size={13} />
@@ -1014,21 +1014,21 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
             </table>
 
             {/* Mobile cards */}
-            <div className="sm:hidden divide-y divide-[#EEEEE8]">
+            <div className="sm:hidden divide-y divide-background">
               {salas.map(sala => (
                 <div key={sala.id} className="p-4 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <ColorSwatch color={sala.color} size="sm" />
                     <div className="min-w-0">
-                      <p className="font-medium text-[#1A1A1A] text-[14px] truncate">{sala.nombre}</p>
-                      <p className="text-[12px] text-[#8E8E86]">{sala.capacidad} personas</p>
+                      <p className="font-medium text-foreground text-[14px] truncate">{sala.nombre}</p>
+                      <p className="text-[12px] text-muted-foreground">{sala.capacidad} personas</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => openEditar(sala)} className="p-1.5 rounded-lg hover:bg-[#EEEEE8] text-[#8E8E86]" aria-label="Editar sala">
+                    <button onClick={() => openEditar(sala)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground" aria-label="Editar sala">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => setConfirmDel(sala.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-[#8E8E86]" aria-label="Eliminar sala">
+                    <button onClick={() => setConfirmDel(sala.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground" aria-label="Eliminar sala">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -1043,7 +1043,7 @@ function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       <Dialog open={modal !== null} onOpenChange={open => !open && closeModal()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[15px] font-semibold text-[#1A1A1A]">
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
               {modal === 'nueva' ? 'Nueva sala' : 'Editar sala'}
             </DialogTitle>
           </DialogHeader>
@@ -1132,7 +1132,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     nombre: 'Resend',
     descripcion: 'Envía emails de bienvenida, recibos y campañas desde tu propio dominio.',
     Icon: ResendIcon,
-    color: '#1A1A1A',
+    color: 'var(--foreground)',
     bg: '#F5F5F5',
     campos: [
       { key: 'fromEmail', label: 'Email remitente', placeholder: 'hola@tentare.es' },
@@ -1394,8 +1394,8 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-3xl">
       <div>
-        <h3 className="text-[14px] font-semibold text-[#1A1A1A]">Integraciones del negocio</h3>
-        <p className="text-[12px] text-[#8E8E86] mt-0.5">
+        <h3 className="text-[14px] font-semibold text-foreground">Integraciones del negocio</h3>
+        <p className="text-[12px] text-muted-foreground mt-0.5">
           Conecta Tentare con las herramientas que ya usas. Cada negocio configura las suyas.
         </p>
       </div>
@@ -1412,7 +1412,7 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-[14px] font-semibold text-[#1A1A1A]">{cat.nombre}</p>
+                    <p className="text-[14px] font-semibold text-foreground">{cat.nombre}</p>
                     {cat.proximamente ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FFF7ED] text-[#B45309]">
                         Próximamente
@@ -1420,15 +1420,15 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                     ) : cat.accion !== 'exportar' && (
                       <span className={cn(
                         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
-                        conectado ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-[#F1F1EC] text-[#8E8E86]',
+                        conectado ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-muted text-muted-foreground',
                       )}>
-                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-[#059669]' : 'bg-[#A8A89F]')} />
+                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-[#059669]' : 'bg-muted-foreground')} />
                         {conectado ? 'Conectado' : 'No conectado'}
                       </span>
                     )}
                   </div>
                   {cat.categoria && <p className="text-[10px] font-bold uppercase tracking-wide text-[#B8B8AE] mt-0.5">{cat.categoria}</p>}
-                  <p className="text-[12px] text-[#8E8E86] mt-1 leading-snug">{cat.descripcion}</p>
+                  <p className="text-[12px] text-muted-foreground mt-1 leading-snug">{cat.descripcion}</p>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-[#F1F1F4] flex items-center gap-2">
@@ -1450,8 +1450,8 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                   ) : stripeConnectUrl ? (
                     <a href={stripeConnectUrl} className={cn(btnPrimary, 'no-underline')}>Conectar con Stripe</a>
                   ) : (
-                    <p className="text-[11px] text-[#8E8E86]">
-                      Falta configurar <code className="font-mono bg-[#F1F1EC] px-1 rounded">NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID</code>
+                    <p className="text-[11px] text-muted-foreground">
+                      Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID</code>
                     </p>
                   )
                 ) : (
@@ -1461,7 +1461,7 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                     </button>
                     {cat.docsUrl && (
                       <a href={cat.docsUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-[12px] text-[#8E8E86] hover:text-[#1A1A1A] inline-flex items-center gap-1">
+                        className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                         Docs <ExternalLink size={11} />
                       </a>
                     )}
@@ -1574,7 +1574,7 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
     <div className="space-y-5 max-w-2xl">
       {/* Studio info — editable */}
       <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-4">Información del estudio</h3>
+        <h3 className="text-[14px] font-semibold text-foreground mb-4">Información del estudio</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p className={labelCls}>Nombre del estudio</p>
@@ -1609,60 +1609,60 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
             <input className={inputCls} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           </div>
         </div>
-        <button onClick={guardarEstudio} className="mt-4 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[12px] font-medium hover:bg-[#F7B3D2] transition-colors">
+        <button onClick={guardarEstudio} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
           Guardar datos del estudio
         </button>
       </div>
 
       {/* Enlaces públicos */}
       <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">Enlaces públicos</h3>
-        <p className="text-[12px] text-[#8E8E86] mb-3">
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Enlaces públicos</h3>
+        <p className="text-[12px] text-muted-foreground mb-3">
           Páginas de tu estudio para compartir con clientas o usar en tablet.
         </p>
         <div className="space-y-2">
           <a
             href={`/reservar/${studio?.slug ?? ''}`}
             target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] hover:bg-[#F5F5F1] transition-colors"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-border hover:bg-muted transition-colors"
           >
-            <CalendarLinkIcon size={15} className="text-[#8E8E86] shrink-0" />
+            <CalendarLinkIcon size={15} className="text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-[#1A1A1A]">Portal de reservas</p>
-              <p className="text-[11px] text-[#A8A89F]">Página pública para que cualquiera reserve una clase</p>
+              <p className="text-[13px] font-semibold text-foreground">Portal de reservas</p>
+              <p className="text-[11px] text-muted-foreground">Página pública para que cualquiera reserve una clase</p>
             </div>
-            <ExternalLink size={13} className="text-[#A8A89F] shrink-0" />
+            <ExternalLink size={13} className="text-muted-foreground shrink-0" />
           </a>
           <a
             href={`/kiosk/${studio?.slug ?? ''}`}
             target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] hover:bg-[#F5F5F1] transition-colors"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-border hover:bg-muted transition-colors"
           >
-            <Monitor size={15} className="text-[#8E8E86] shrink-0" />
+            <Monitor size={15} className="text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-[#1A1A1A]">Modo quiosco</p>
-              <p className="text-[11px] text-[#A8A89F]">Pantalla de check-in para dejar en una tablet en recepción</p>
+              <p className="text-[13px] font-semibold text-foreground">Modo quiosco</p>
+              <p className="text-[11px] text-muted-foreground">Pantalla de check-in para dejar en una tablet en recepción</p>
             </div>
-            <ExternalLink size={13} className="text-[#A8A89F] shrink-0" />
+            <ExternalLink size={13} className="text-muted-foreground shrink-0" />
           </a>
         </div>
       </div>
 
       {/* Privacy policy */}
       <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">Política de privacidad</h3>
-        <p className="text-[12px] text-[#8E8E86] mb-3">
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Política de privacidad</h3>
+        <p className="text-[12px] text-muted-foreground mb-3">
           Este texto se muestra a las socias al registrarse y deben aceptarlo antes de completar la inscripción.
         </p>
         <textarea
           rows={8}
-          className="w-full rounded-lg border border-[#E7E7E0] bg-white px-3 py-2 text-[12px] font-mono text-[#3A3A34] focus:outline-none focus:border-[#A8A89F] transition-colors resize-y"
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-mono text-foreground focus:outline-none focus:border-muted-foreground transition-colors resize-y"
           value={politica}
           onChange={(e) => setPolitica(e.target.value)}
         />
         <button
           onClick={() => { updateStudioConfig({ politicaPrivacidad: politica }); showToast('Política de privacidad guardada'); }}
-          className="mt-3 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[12px] font-medium hover:bg-[#F7B3D2] transition-colors"
+          className="mt-3 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors"
         >
           Guardar política
         </button>
@@ -1670,19 +1670,19 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
 
       {/* Terms of service */}
       <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">Términos y condiciones</h3>
-        <p className="text-[12px] text-[#8E8E86] mb-3">
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Términos y condiciones</h3>
+        <p className="text-[12px] text-muted-foreground mb-3">
           Contrato que acepta cada socia al inscribirse. Queda registrado con su firma digital.
         </p>
         <textarea
           rows={8}
-          className="w-full rounded-lg border border-[#E7E7E0] bg-white px-3 py-2 text-[12px] font-mono text-[#3A3A34] focus:outline-none focus:border-[#A8A89F] transition-colors resize-y"
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-mono text-foreground focus:outline-none focus:border-muted-foreground transition-colors resize-y"
           value={terminos}
           onChange={(e) => setTerminos(e.target.value)}
         />
         <button
           onClick={() => { updateStudioConfig({ terminosServicio: terminos }); showToast('Términos y condiciones guardados'); }}
-          className="mt-3 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[12px] font-medium hover:bg-[#F7B3D2] transition-colors"
+          className="mt-3 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors"
         >
           Guardar términos
         </button>
@@ -1691,13 +1691,13 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
       {/* Danger zone */}
       <div className={cn(cardCls, 'p-6 border-[#FCA5A5]')}>
         <h3 className="text-[14px] font-semibold text-[#DC2626] mb-1">Zona de riesgo</h3>
-        <p className="text-[13px] text-[#8E8E86] mb-4">
+        <p className="text-[13px] text-muted-foreground mb-4">
           Las acciones de esta sección son irreversibles. Procede con precaución.
         </p>
         <div className="flex items-center justify-between p-4 bg-[#FEF2F2] border border-[#FCA5A5] rounded-xl">
           <div>
-            <p className="text-[13px] font-semibold text-[#1A1A1A]">Restablecer datos de demo</p>
-            <p className="text-[12px] text-[#8E8E86] mt-0.5">
+            <p className="text-[13px] font-semibold text-foreground">Restablecer datos de demo</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
               Borra todos los cambios y vuelve al estado inicial de demostración.
             </p>
           </div>
@@ -1719,10 +1719,10 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
               <AlertTriangle size={20} className="text-[#D97706]" />
             </div>
             <div>
-              <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-1">
+              <h3 className="text-[14px] font-semibold text-foreground mb-1">
                 ¿Restablecer datos de demo?
               </h3>
-              <p className="text-[13px] text-[#8E8E86]">
+              <p className="text-[13px] text-muted-foreground">
                 Todos los socios, sesiones, pagos y configuraciones que hayas creado se perderán.
                 Esta acción no se puede deshacer.
               </p>
@@ -1797,8 +1797,8 @@ function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
         <div className="flex items-center gap-4 mb-1">
           <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={form.nombre || 'Admin'} size="xl" />
           <div>
-            <p className="text-[15px] font-bold text-[#1A1A1A]">{form.nombre || 'Sin nombre'}</p>
-            <p className="text-[12px] text-[#8E8E86]">{form.email}</p>
+            <p className="text-[15px] font-bold text-foreground">{form.nombre || 'Sin nombre'}</p>
+            <p className="text-[12px] text-muted-foreground">{form.email}</p>
             <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: rolInfo.bg, color: rolInfo.text }}>
               {rolInfo.label}
             </span>
@@ -1820,15 +1820,15 @@ function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
             { v: proximaClase ? new Date(proximaClase.inicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '—', l: 'Próxima clase' },
           ].map(({ v, l }) => (
             <div key={l} className={cn(cardCls, 'p-4 text-center')}>
-              <p className="text-[20px] font-extrabold text-[#1A1A1A] leading-none">{v}</p>
-              <p className="text-[10px] font-bold text-[#A8A89F] mt-1.5 uppercase tracking-wider">{l}</p>
+              <p className="text-[20px] font-extrabold text-foreground leading-none">{v}</p>
+              <p className="text-[10px] font-bold text-muted-foreground mt-1.5 uppercase tracking-wider">{l}</p>
             </div>
           ))}
         </div>
       )}
 
       <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-[#1A1A1A] mb-4">Tus datos</h3>
+        <h3 className="text-[14px] font-semibold text-foreground mb-4">Tus datos</h3>
         {yo ? (
           <>
             <div className="space-y-3.5">
@@ -1845,13 +1845,13 @@ function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
                 <input type="tel" className={inputCls} value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
               </div>
             </div>
-            <button onClick={guardar} className="mt-4 px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-[12px] font-medium hover:bg-[#F7B3D2] transition-colors flex items-center gap-1.5">
+            <button onClick={guardar} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors flex items-center gap-1.5">
               {guardado && <Check size={13} />}
               {guardado ? 'Guardado' : 'Guardar cambios'}
             </button>
           </>
         ) : (
-          <p className="text-[12px] text-[#8E8E86]">
+          <p className="text-[12px] text-muted-foreground">
             Cuenta: {form.email}. Tu nombre y datos de contacto de propietaria se gestionan en Configuración &gt; Estudio.
           </p>
         )}

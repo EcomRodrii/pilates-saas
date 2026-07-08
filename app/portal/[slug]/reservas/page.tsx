@@ -62,7 +62,7 @@ export default function MisReservasPage() {
   return (
     <div className="bg-white min-h-full">
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight">Mis reservas</h1>
         <p className="text-white/50 text-[13px] mt-0.5">Historial completo de tus clases</p>
       </div>

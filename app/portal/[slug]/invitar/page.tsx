@@ -47,7 +47,7 @@ export default function InvitarPage() {
   return (
     <div className="bg-white min-h-full">
       {/* Header */}
-      <div className="px-5 pt-6 pb-8" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}>
+      <div className="px-5 pt-6 pb-8" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
         <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center mb-3">
           <UserPlus size={22} className="text-white" />
         </div>
@@ -79,9 +79,9 @@ export default function InvitarPage() {
         </div>
 
         {/* Stats */}
-        <div className="flex items-center gap-3 rounded-2xl p-4 bg-[#FFF2F7]">
+        <div className="flex items-center gap-3 rounded-2xl p-4 bg-portal-brand/10">
           <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shrink-0">
-            <Users size={18} className="text-[#B57A8E]" />
+            <Users size={18} className="text-portal-brand-secondary" />
           </div>
           <div>
             <p className="text-[20px] font-extrabold text-[#171717] leading-none">{amigasReferidas.length}</p>
@@ -98,7 +98,7 @@ export default function InvitarPage() {
             <div className="space-y-2">
               {amigasReferidas.map(a => (
                 <div key={a.id} className="flex items-center gap-3 rounded-xl p-3 border border-[#EDEDE6]">
-                  <div className="w-9 h-9 rounded-full bg-[#FFF2F7] flex items-center justify-center text-[12px] font-bold text-[#B57A8E] shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-portal-brand/10 flex items-center justify-center text-[12px] font-bold text-portal-brand-secondary shrink-0">
                     {a.nombre[0]?.toUpperCase() ?? '?'}
                   </div>
                   <div className="min-w-0">

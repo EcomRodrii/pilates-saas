@@ -86,10 +86,10 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
       {/* Reglas de créditos */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <Coins size={16} className="text-[#B57A8E]" />
-          <h3 className="text-[14px] font-semibold text-[#1A1A1A]">Créditos por acción</h3>
+          <Coins size={16} className="text-brand-secondary" />
+          <h3 className="text-[14px] font-semibold text-foreground">Créditos por acción</h3>
         </div>
-        <p className="text-[12px] text-[#8E8E86] mb-3">
+        <p className="text-[12px] text-muted-foreground mb-3">
           Cuántos créditos gana una socia por cada acción. Cambia cualquier valor o desactívalo — nunca están fijos en el código.
         </p>
         <div className={cn(cardCls, 'divide-y divide-[#F1F1F4]')}>
@@ -100,8 +100,8 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             return (
               <div key={def.trigger} className="flex items-center gap-3 p-4">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-[#1A1A1A]">{def.nombre}</p>
-                  <p className="text-[11px] text-[#8E8E86] mt-0.5">{def.descripcion}</p>
+                  <p className="text-[13px] font-semibold text-foreground">{def.nombre}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{def.descripcion}</p>
                 </div>
                 {def.trigger === 'REFERIDO_AMIGO' && (
                   <div className="flex flex-col items-center shrink-0">
@@ -131,10 +131,10 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                   type="button"
                   onClick={() => handleToggleActiva(def.trigger, def.nombre, def.descripcion)}
                   className="w-11 h-6 rounded-full transition-colors relative shrink-0"
-                  style={{ backgroundColor: activa ? '#171717' : '#E7E7E0' }}
+                  style={{ backgroundColor: activa ? 'var(--foreground)' : 'var(--border)' }}
                 >
                   <span
-                    className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+                    className="absolute top-0.5 w-5 h-5 rounded-full bg-card transition-transform"
                     style={{ transform: activa ? 'translateX(22px)' : 'translateX(2px)' }}
                   />
                 </button>
@@ -148,36 +148,36 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
       <div>
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <Gift size={16} className="text-[#B57A8E]" />
-            <h3 className="text-[14px] font-semibold text-[#1A1A1A]">Catálogo de recompensas</h3>
+            <Gift size={16} className="text-brand-secondary" />
+            <h3 className="text-[14px] font-semibold text-foreground">Catálogo de recompensas</h3>
           </div>
           <button onClick={openNuevo} className={btnPrimary}>
             <Plus size={14} /> Nueva recompensa
           </button>
         </div>
-        <p className="text-[12px] text-[#8E8E86] mb-3">Lo que las socias pueden canjear con sus créditos.</p>
+        <p className="text-[12px] text-muted-foreground mb-3">Lo que las socias pueden canjear con sus créditos.</p>
 
         {rewardCatalog.length === 0 ? (
           <div className={cn(cardCls, 'p-8 text-center')}>
-            <p className="text-[13px] text-[#8E8E86]">Aún no hay recompensas en el catálogo.</p>
+            <p className="text-[13px] text-muted-foreground">Aún no hay recompensas en el catálogo.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {rewardCatalog.map(item => (
               <div key={item.id} className={cn(cardCls, 'p-4 flex items-start gap-3')}>
-                <div className="w-10 h-10 rounded-xl bg-[#FFF2F7] flex items-center justify-center text-[18px] shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-[18px] shrink-0">
                   {item.icono}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-[#1A1A1A]">{item.nombre}</p>
-                  <p className="text-[12px] text-[#8E8E86]">{item.costeCreditos} créditos{item.stock != null ? ` · ${item.stock} en stock` : ''}</p>
-                  {!item.activo && <span className="text-[10px] font-bold uppercase text-[#A8A89F]">Inactiva</span>}
+                  <p className="text-[13px] font-semibold text-foreground">{item.nombre}</p>
+                  <p className="text-[12px] text-muted-foreground">{item.costeCreditos} créditos{item.stock != null ? ` · ${item.stock} en stock` : ''}</p>
+                  {!item.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactiva</span>}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button onClick={() => openEditar(item)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86]">
+                  <button onClick={() => openEditar(item)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
                     <Pencil size={13} />
                   </button>
-                  <button onClick={() => setConfirmDel(item)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-[#8E8E86] hover:text-red-500">
+                  <button onClick={() => setConfirmDel(item)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -223,7 +223,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
               </div>
             </div>
             <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 text-[13px] text-[#3A3A34]">
+              <label className="flex items-center gap-2 text-[13px] text-foreground">
                 <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} />
                 Activa
               </label>
@@ -244,8 +244,8 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
           <DialogHeader>
             <DialogTitle>Eliminar recompensa</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-[#8E8E86]">
-            ¿Eliminar <strong className="text-[#1A1A1A]">{confirmDel?.nombre}</strong> del catálogo? Las socias ya no podrán canjearla.
+          <p className="text-[13px] text-muted-foreground">
+            ¿Eliminar <strong className="text-foreground">{confirmDel?.nombre}</strong> del catálogo? Las socias ya no podrán canjearla.
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <button onClick={() => setConfirmDel(null)} className={btnSecondary}>Cancelar</button>

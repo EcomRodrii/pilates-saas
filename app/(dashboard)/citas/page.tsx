@@ -26,7 +26,7 @@ const ESTADO_BADGE: Record<EstadoCita, { label: string; cls: string }> = {
   PENDIENTE:   { label: 'Pendiente',    cls: 'bg-[#FEF3C7] text-[#92400E]' },
   CONFIRMADA:  { label: 'Confirmada',   cls: 'bg-[#DBEAFE] text-[#1D4ED8]' },
   COMPLETADA:  { label: 'Completada',   cls: 'bg-[#D1FAE5] text-[#065F46]' },
-  CANCELADA:   { label: 'Cancelada',    cls: 'bg-[#F1F1EC] text-[#8E8E86]' },
+  CANCELADA:   { label: 'Cancelada',    cls: 'bg-muted text-muted-foreground' },
   NO_ASISTIO:  { label: 'No asistió',   cls: 'bg-[#FEE2E2] text-[#B91C1C]' },
 };
 
@@ -62,14 +62,14 @@ function isSameMonth(iso: string, ref: Date): boolean {
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-[#1A1A1A]">{label}</label>
+      <label className="text-sm font-medium text-foreground">{label}</label>
       {children}
     </div>
   );
 }
 
 const inputCls =
-  'w-full rounded-lg border border-[#E7E7E0] px-3 py-2 text-sm text-[#1A1A1A] outline-none focus:border-[#1A1A1A] focus:ring-1 focus:ring-[#1A1A1A] bg-white placeholder:text-[#A8A89F]';
+  'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground outline-none focus:border-foreground focus:ring-1 focus:ring-foreground bg-card placeholder:text-muted-foreground';
 
 // ─── Cita card ────────────────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ function CitaCard({
 
   return (
     <div
-      className="bg-white border border-[#E7E7E0] rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4 transition-shadow hover:shadow-sm"
+      className="bg-card border border-border rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4 transition-shadow hover:shadow-sm"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -118,35 +118,35 @@ function CitaCard({
 
       {/* Client */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="w-9 h-9 rounded-full bg-[#F1F1EC] flex items-center justify-center shrink-0">
-          <span className="text-xs font-semibold text-[#8E8E86] uppercase">{socioInitials}</span>
+        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+          <span className="text-xs font-semibold text-muted-foreground uppercase">{socioInitials}</span>
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-[#1A1A1A] truncate">{socioNombre}</p>
-          <p className="text-xs text-[#8E8E86] truncate">{socioEmail}</p>
+          <p className="text-sm font-medium text-foreground truncate">{socioNombre}</p>
+          <p className="text-xs text-muted-foreground truncate">{socioEmail}</p>
         </div>
       </div>
 
       {/* Instructor */}
-      <div className="flex items-center gap-1.5 text-sm text-[#8E8E86] shrink-0">
+      <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
         <User size={13} className="shrink-0" />
         <span className="truncate max-w-[120px]">{instructorNombre}</span>
       </div>
 
       {/* Date & duration */}
-      <div className="flex items-center gap-1.5 text-sm text-[#8E8E86] shrink-0">
+      <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
         <Calendar size={13} className="shrink-0" />
         <span>{formatFecha(cita.inicio)}</span>
       </div>
 
-      <div className="flex items-center gap-1 text-sm text-[#8E8E86] shrink-0">
+      <div className="flex items-center gap-1 text-sm text-muted-foreground shrink-0">
         <Clock size={13} className="shrink-0" />
         <span>{mins} min</span>
       </div>
 
       {/* Price */}
       {verPrecio && (
-        <span className="text-sm font-medium text-[#1A1A1A] shrink-0 w-14 text-right">
+        <span className="text-sm font-medium text-foreground shrink-0 w-14 text-right">
           {cita.precio != null ? `${cita.precio} €` : '—'}
         </span>
       )}
@@ -284,14 +284,14 @@ export default function CitasPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-[#1A1A1A]">Citas</h1>
-          <p className="text-sm text-[#8E8E86] mt-1">
+          <h1 className="text-xl font-semibold text-foreground">Citas</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             {upcoming.length} próximas · {thisMonth.length} este mes
           </p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 bg-[#FFC8E2] text-[#171717] rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-[#F7B3D2] transition-colors shrink-0"
+          className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2.5 text-sm font-medium hover:brightness-95 transition-colors shrink-0"
         >
           <Plus size={16} />
           Nueva cita
@@ -300,17 +300,17 @@ export default function CitasPage() {
 
       {/* Revenue banner */}
       {verPrecio && (
-        <div className="bg-white border border-[#E7E7E0] rounded-xl px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-[#8E8E86]">
+        <div className="bg-card border border-border rounded-xl px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 size={16} className="text-[#059669]" />
             <span>Ingresos completadas este mes</span>
           </div>
-          <span className="text-xl font-bold text-[#1A1A1A]">{ingresosMes} €</span>
+          <span className="text-xl font-bold text-foreground">{ingresosMes} €</span>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white border border-[#E7E7E0] rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit">
         {(['proximas', 'historial'] as const).map((t) => (
           <button
             key={t}
@@ -318,8 +318,8 @@ export default function CitasPage() {
             className={cn(
               'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
               tab === t
-                ? 'bg-[#FFC8E2] text-[#171717]'
-                : 'text-[#8E8E86] hover:text-[#1A1A1A]'
+                ? 'bg-brand text-brand-foreground'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             {t === 'proximas' ? 'Próximas' : 'Historial'}
@@ -329,7 +329,7 @@ export default function CitasPage() {
 
       {/* Instructor filter */}
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-1.5 text-xs text-[#8E8E86]">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Filter size={13} />
           <span>Instructor</span>
         </div>
@@ -338,8 +338,8 @@ export default function CitasPage() {
           className={cn(
             'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
             filterInstructor === 'all'
-              ? 'bg-[#FFC8E2] text-[#171717] border-[#1A1A1A]'
-              : 'bg-white border-[#E7E7E0] text-[#8E8E86] hover:text-[#1A1A1A]'
+              ? 'bg-brand text-brand-foreground border-foreground'
+              : 'bg-card border-border text-muted-foreground hover:text-foreground'
           )}
         >
           Todas
@@ -351,8 +351,8 @@ export default function CitasPage() {
             className={cn(
               'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
               filterInstructor === ins.id
-                ? 'bg-[#FFC8E2] text-[#171717] border-[#1A1A1A]'
-                : 'bg-white border-[#E7E7E0] text-[#8E8E86] hover:text-[#1A1A1A]'
+                ? 'bg-brand text-brand-foreground border-foreground'
+                : 'bg-card border-border text-muted-foreground hover:text-foreground'
             )}
           >
             {ins.nombre}
@@ -364,9 +364,9 @@ export default function CitasPage() {
       <div className="space-y-3">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Calendar size={40} className="text-[#D1D5DB] mb-3" />
-            <p className="text-[#8E8E86] text-sm">No hay citas que mostrar</p>
-            <p className="text-[#A8A89F] text-xs mt-1">
+            <Calendar size={40} className="text-muted-foreground mb-3" />
+            <p className="text-muted-foreground text-sm">No hay citas que mostrar</p>
+            <p className="text-muted-foreground text-xs mt-1">
               Prueba a cambiar el filtro o crear una nueva cita
             </p>
           </div>
@@ -404,7 +404,7 @@ export default function CitasPage() {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-lg w-full">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-[#1A1A1A]">Nueva cita</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-foreground">Nueva cita</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
@@ -518,13 +518,13 @@ export default function CitasPage() {
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 rounded-lg border border-[#E7E7E0] bg-white text-sm font-medium text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
+                className="px-4 py-2 rounded-lg border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-lg bg-[#FFC8E2] text-[#171717] text-sm font-medium hover:bg-[#F7B3D2] transition-colors"
+                className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-sm font-medium hover:brightness-95 transition-colors"
               >
                 Guardar cita
               </button>

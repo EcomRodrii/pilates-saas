@@ -45,7 +45,7 @@ export default function PortalLogin() {
       {/* Hero con la identidad del estudio */}
       <div
         className="flex-1 flex flex-col justify-end px-6 pb-12 pt-20 min-h-[45vh]"
-        style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}
+        style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}
       >
         <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center text-white font-extrabold text-[22px] mb-4">
           {inicial}
@@ -90,7 +90,7 @@ export default function PortalLogin() {
           <button
             type="submit"
             disabled={loading || !email}
-            className="w-full py-3.5 rounded-2xl bg-[#FFC8E2] text-[#171717] font-bold text-sm transition-all disabled:opacity-50 hover:bg-[#F7B3D2] active:scale-[0.98]"
+            className="w-full py-3.5 rounded-2xl bg-portal-brand text-[#171717] font-bold text-sm transition-all disabled:opacity-50 hover:bg-[#F7B3D2] active:scale-[0.98]"
           >
             {loading ? 'Comprobando...' : 'Entrar'}
           </button>
