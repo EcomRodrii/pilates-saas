@@ -1247,6 +1247,20 @@ export async function cancelarReservaPublica(params: {
   return { ok: true as const };
 }
 
+// Login del portal: resuelve email → socia dentro del estudio (service-role).
+// Sustituye la lectura anónima directa sobre socios en la página de login.
+export async function resolverLoginSocia(slug: string, email: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const { data: studio } = await admin.from('studios').select('id').eq('slug', slug).maybeSingle();
+  if (!studio) return null;
+  const { data } = await admin
+    .from('socios').select('id, nombre, apellidos, email')
+    .ilike('email', email.trim()).eq('studio_id', studio.id).maybeSingle();
+  if (!data) return null;
+  return { socioId: data.id, nombre: `${data.nombre} ${data.apellidos}`.trim(), email: data.email };
+}
+
 // Registra una socia nueva desde el portal/reserva (alta pública). Valida que
 // el estudio existe; el id lo genera el cliente (primera reserva).
 export async function registrarSociaPublica(params: {

@@ -1,15 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { supabase } from '@/lib/supabase';
-import { getCurrentStudioId } from '@/lib/supabase-data';
 import { Mail, AlertCircle } from 'lucide-react';
 
 export default function PortalLogin() {
   const { login } = usePortalAuth();
-  const { studio } = useStudio();
+  const { studio, recargarPublico } = useStudio();
+  const params = useParams();
+  const slug = String(params?.slug ?? '');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,24 +20,22 @@ export default function PortalLogin() {
     setError('');
     setLoading(true);
 
-    const { data, error: dbError } = await supabase
-      .from('socios')
-      .select('id, nombre, apellidos, email')
-      .ilike('email', email.trim())
-      .eq('studio_id', getCurrentStudioId())
-      .maybeSingle();
-
-    if (dbError || !data) {
-      setError(dbError ? `Error DB: ${dbError.message}` : 'Email no encontrado en la base de datos.');
+    // Login vía endpoint de servidor (service-role); ya no lee socios por anon.
+    const res = await fetch('/api/public/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, email: email.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data?.error ?? 'No se pudo iniciar sesión.');
       setLoading(false);
       return;
     }
 
-    login({
-      socioId: data.id,
-      nombre: `${data.nombre} ${data.apellidos}`,
-      email: data.email,
-    });
+    login({ socioId: data.socioId, nombre: data.nombre, email: data.email });
+    // Recarga los datos ahora que sabemos quién es (trae sus reservas, plan, etc.)
+    recargarPublico();
   }
 
   const inicial = studio?.nombre?.trim()?.[0]?.toUpperCase() ?? 'T';
