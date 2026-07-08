@@ -238,7 +238,7 @@ export default function EquipoPage() {
 
       {/* Create/edit modal */}
       <Dialog open={modal !== null} onOpenChange={open => !open && setModal(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{modal === 'nuevo' ? 'Nuevo miembro del equipo' : 'Editar miembro'}</DialogTitle>
           </DialogHeader>
