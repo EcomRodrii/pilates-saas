@@ -14,10 +14,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
 
-  // NOTE: Auth gate temporarily disabled again (petición explícita del usuario para probar sin login)
-  // useEffect(() => {
-  //   if (!loading && !session) router.replace('/login');
-  // }, [loading, session, router]);
+  useEffect(() => {
+    if (!loading && !session) router.replace('/login');
+  }, [loading, session, router]);
 
   const autorizado = puedeVer(pathname);
   useEffect(() => {
