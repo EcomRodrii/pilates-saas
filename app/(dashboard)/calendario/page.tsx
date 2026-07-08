@@ -42,6 +42,15 @@ function toISO(fecha: string, hora: string) {
   return new Date(`${fecha}T${hora}:00`).toISOString();
 }
 
+function hexToRgba(hex: string, alpha: number) {
+  const clean = hex.replace('#', '');
+  if (clean.length < 6) return `rgba(200,200,200,${alpha})`;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function isDark(hex: string) {
   const clean = hex.replace('#', '');
   if (clean.length < 6) return true;
@@ -141,42 +150,49 @@ const DIA_PILLS: { label: string; day: number }[] = [
 
 // ─── StatsBar ────────────────────────────────────────────────────────────────
 
-function StatsBar({ sesiones, reservas, todayStr }: {
+function ocupColorFor(ratio: number) {
+  if (ratio >= 1) return '#E23B4E';
+  if (ratio >= 0.85) return '#E0733E';
+  if (ratio >= 0.6) return '#C98A2E';
+  return '#3E9E6B';
+}
+
+function StatsBar({ sesiones, todayStr }: {
   sesiones: SesionEnr[];
-  reservas: { sesionId: string; estado: string }[];
   todayStr: string;
 }) {
   const hoy = sesiones.filter(s => !s.cancelada && localDate(s.inicio) === todayStr);
-  const totalPlazas = hoy.reduce((acc, s) => acc + s.aforoMaximo, 0);
-  const ocupadas = hoy.reduce((acc, s) => acc + s.confirmadas, 0);
-  const asistidas = hoy.reduce((acc, s) => acc + s.asistidas, 0);
-  const checkinRate = ocupadas > 0 ? Math.round((asistidas / ocupadas) * 100) : 0;
-
-  const ocupPct = totalPlazas > 0 ? Math.round((ocupadas / totalPlazas) * 100) : 0;
-
-  const stats = [
-    { icon: CalendarDays, label: 'Clases hoy', value: hoy.length, sub: hoy.length === 1 ? 'sesión' : 'sesiones', color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))' },
-    { icon: Users, label: 'Plazas totales', value: totalPlazas, sub: 'disponibles hoy', color: 'var(--foreground)', bg: 'var(--muted)' },
-    { icon: TrendingUp, label: 'Ocupación', value: `${ocupPct}%`, sub: `${ocupadas} de ${totalPlazas} reservadas`, color: '#D97706', bg: '#FEF3C7' },
-    { icon: CheckCircle2, label: 'Check-in', value: `${checkinRate}%`, sub: `${asistidas} asistidas`, color: '#059669', bg: '#DCFCE7' },
-  ];
+  const aforo = hoy.reduce((acc, s) => acc + s.aforoMaximo, 0);
+  const reservas = hoy.reduce((acc, s) => acc + s.confirmadas, 0);
+  const libres = Math.max(0, aforo - reservas);
+  const ocupPct = aforo > 0 ? Math.round((reservas / aforo) * 100) : 0;
+  const ocupColor = ocupColorFor(ocupPct / 100);
+  const ocupLabel = ocupPct >= 85 ? 'Muy ocupado' : ocupPct >= 60 ? 'Buen ritmo' : 'Tranquilo';
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {stats.map(({ icon: Icon, label, value, sub, color, bg }) => (
-        <div key={label} className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-2.5 hover:shadow-sm transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: bg }}>
-              <Icon size={15} color={color} />
-            </div>
-          </div>
-          <div>
-            <p className="text-[26px] font-extrabold text-foreground leading-none tracking-tight tabular-nums">{value}</p>
-            <p className="text-[11px] text-muted-foreground mt-1 truncate">{sub}</p>
-          </div>
+    <div className="flex gap-3 flex-wrap sm:flex-nowrap">
+      <div className="flex-1 min-w-[130px] bg-muted/60 border border-border rounded-2xl px-4 py-3.5">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Clases hoy</div>
+        <div className="text-[26px] font-extrabold text-foreground leading-none tabular-nums mt-1.5">{hoy.length}</div>
+      </div>
+      <div className="flex-1 min-w-[130px] bg-muted/60 border border-border rounded-2xl px-4 py-3.5">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Ocupación media</div>
+        <div className="flex items-baseline gap-2 mt-1.5">
+          <span className="text-[26px] font-extrabold leading-none tabular-nums" style={{ color: ocupColor }}>{ocupPct}%</span>
+          <span className="text-xs font-bold" style={{ color: ocupColor }}>{ocupLabel}</span>
         </div>
-      ))}
+      </div>
+      <div className="flex-1 min-w-[130px] bg-muted/60 border border-border rounded-2xl px-4 py-3.5">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reservas hoy</div>
+        <div className="flex items-baseline gap-1.5 mt-1.5">
+          <span className="text-[26px] font-extrabold text-foreground leading-none tabular-nums">{reservas}</span>
+          <span className="text-sm font-bold text-muted-foreground">/ {aforo}</span>
+        </div>
+      </div>
+      <div className="flex-1 min-w-[130px] bg-muted/60 border border-border rounded-2xl px-4 py-3.5">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Plazas libres</div>
+        <div className="text-[26px] font-extrabold text-foreground leading-none tabular-nums mt-1.5">{libres}</div>
+      </div>
     </div>
   );
 }
@@ -285,27 +301,25 @@ function SessionSidebar({
   const spotsActuales = spots.filter(sp => sp.salaId === sesion.salaId);
 
   return (
-    <div className="w-full lg:w-[380px] shrink-0 bg-card lg:border-l border-border flex flex-col h-full overflow-hidden">
+    <div className="relative w-full lg:w-[400px] shrink-0 bg-card flex flex-col h-full overflow-hidden shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)]">
       {/* Header with class color accent */}
-      <div
-        className="px-5 pt-4 pb-3 border-b border-border"
-        style={{ borderTop: `3px solid ${sesion.tipoClase.color}` }}
-      >
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span
-              className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5"
-              style={{ backgroundColor: sesion.tipoClase.color }}
-            />
-            <h2 className="text-base font-bold text-foreground leading-tight">{sesion.tipoClase.nombre}</h2>
-          </div>
+      <div className="h-2" style={{ backgroundColor: sesion.tipoClase.color }} />
+      <div className="px-5 pt-4 pb-3 border-b border-border">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <span
+            className="inline-block text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full"
+            style={{ color: sesion.tipoClase.color, backgroundColor: hexToRgba(sesion.tipoClase.color, 0.14) }}
+          >
+            {sesion.tipoClase.nombre}
+          </span>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors ml-2 shrink-0"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors shrink-0"
           >
             <X size={15} />
           </button>
         </div>
+        <h2 className="text-base font-bold text-foreground leading-tight mb-1">{sesion.tipoClase.nombre}</h2>
 
         <p className="text-xs font-semibold text-muted-foreground capitalize mb-3">{fechaLabel}</p>
 
@@ -772,15 +786,17 @@ function SessionBlock({ s, isSelected, onClick, startHour }: {
 }) {
   const startMin = minutesFromRangeStart(s.inicio, startHour);
   const durMin = Math.max(20, (new Date(s.fin).getTime() - new Date(s.inicio).getTime()) / 60000);
-  const dark = isDark(s.tipoClase.color);
   const libres = s.aforoMaximo - s.confirmadas;
   const isFull = libres <= 0;
+  const ratio = s.aforoMaximo > 0 ? s.confirmadas / s.aforoMaximo : 0;
+  const occColor = ocupColorFor(ratio);
+  const showCap = durMin >= 45;
 
   return (
     <button
       onClick={() => onClick(s.id)}
       className={cn(
-        'absolute rounded-lg px-2 py-1 text-left overflow-hidden transition-shadow z-10',
+        'absolute rounded-[10px] pl-2.5 pr-2 py-1.5 text-left overflow-hidden transition-shadow z-10 flex flex-col shadow-[0_1px_4px_rgba(0,0,0,0.06)]',
         isSelected ? 'ring-2 ring-foreground shadow-md' : 'hover:shadow-md',
         s.cancelada && 'opacity-45 line-through',
       )}
@@ -789,17 +805,23 @@ function SessionBlock({ s, isSelected, onClick, startHour }: {
         height: `${Math.max(20, (durMin / 60) * HOUR_HEIGHT - 2)}px`,
         left: `calc(${(s.col / s.cols) * 100}% + 2px)`,
         width: `calc(${100 / s.cols}% - 4px)`,
-        backgroundColor: s.tipoClase.color,
-        color: dark ? '#fff' : '#171717',
+        backgroundColor: hexToRgba(s.tipoClase.color, 0.14),
+        borderLeft: `3px solid ${s.tipoClase.color}`,
+        color: 'var(--foreground)',
       }}
       title={`${s.tipoClase.nombre} · ${formatHora(s.inicio)}–${formatHora(s.fin)} · ${s.instructor.nombre}`}
     >
-      <p className="text-[11px] font-bold leading-tight truncate">{s.tipoClase.nombre}</p>
-      <p className="text-[10px] opacity-80 leading-tight truncate">{formatHora(s.inicio)} · {s.instructor.nombre}</p>
-      {durMin >= 50 && (
-        <p className="text-[10px] opacity-70 leading-tight truncate mt-0.5">
-          {isFull ? 'Completo' : `${libres} libre${libres !== 1 ? 's' : ''}`} · {s.sala.nombre}
-        </p>
+      <p className="text-[11.5px] font-extrabold leading-tight truncate">{s.tipoClase.nombre}</p>
+      <p className="text-[10px] leading-tight truncate mt-0.5 text-muted-foreground">{formatHora(s.inicio)} · {s.instructor.nombre}</p>
+      {showCap && (
+        <div className="mt-auto pt-1 flex items-center gap-1.5">
+          <div className="flex-1 h-[5px] rounded-full bg-black/[0.08] overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${Math.round(ratio * 100)}%`, backgroundColor: occColor }} />
+          </div>
+          <span className="text-[10px] font-extrabold shrink-0" style={{ color: occColor }}>
+            {isFull ? 'Lleno' : `${s.confirmadas}/${s.aforoMaximo}`}
+          </span>
+        </div>
       )}
     </button>
   );
@@ -893,13 +915,14 @@ function WeekGrid({
             <div
               key={str}
               className={cn(
-                'flex-1 min-w-0 py-2 text-center border-l border-muted',
+                'flex-1 min-w-0 py-3 text-center border-l border-muted',
                 str === mobileDia ? 'block' : 'hidden lg:block',
+                isToday && 'bg-brand/[0.06]',
               )}
             >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{DIAS_CORTOS[d.getDay()]}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{DIAS_CORTOS[d.getDay()]}</p>
               <p className={cn(
-                'text-[15px] font-extrabold mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full',
+                'text-[16px] font-extrabold mt-1.5 inline-flex items-center justify-center w-8 h-8 rounded-full',
                 isToday ? 'bg-brand text-brand-foreground' : 'text-foreground',
               )}>
                 {d.getDate()}
@@ -936,7 +959,7 @@ function WeekGrid({
                 onClick={e => handleColClick(e, str)}
                 className={cn(
                   'flex-1 min-w-0 relative border-l border-muted cursor-pointer',
-                  isToday && 'bg-[#FBFDF3]',
+                  isToday && 'bg-brand/[0.06]',
                   str === mobileDia ? 'block' : 'hidden lg:block',
                 )}
               >
@@ -1177,11 +1200,28 @@ export default function Calendario() {
     <div className="flex flex-col gap-4 h-full">
       {/* ── Top header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3 flex-wrap shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Calendario</h1>
-          <p className="text-sm font-medium mt-0.5 capitalize text-muted-foreground">{mesLabel}</p>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-brand flex items-center justify-center shrink-0">
+            <CalendarDays size={18} className="text-brand-foreground" />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-foreground tracking-tight leading-tight">Agenda</h1>
+            <p className="text-xs font-semibold mt-0.5 capitalize text-muted-foreground">{mesLabel}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Type legend */}
+          {tiposClase.length > 0 && (
+            <div className="hidden lg:flex items-center gap-3 mr-1">
+              {tiposClase.slice(0, 4).map(t => (
+                <div key={t.id} className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: t.color }} />
+                  <span className="text-xs font-semibold text-muted-foreground">{t.nombre}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Week navigation */}
           <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
             <button
@@ -1244,7 +1284,7 @@ export default function Calendario() {
       </div>
 
       {/* ── Stats bar ──────────────────────────────────────────────────────────── */}
-      <StatsBar sesiones={sesionesEnriquecidas} reservas={reservas} todayStr={todayStr} />
+      <StatsBar sesiones={sesionesEnriquecidas} todayStr={todayStr} />
 
       {/* ── Filter bar ─────────────────────────────────────────────────────────── */}
       <FilterBar
@@ -1302,17 +1342,10 @@ export default function Calendario() {
           />
         </div>
 
-        {/* Session detail — inline panel on desktop, full-screen overlay on mobile */}
-        <div
-          className={cn(
-            'shrink-0 overflow-hidden',
-            sesionId && sesionActual
-              ? 'fixed inset-0 z-50 lg:static lg:z-auto lg:w-[380px] lg:ml-4 lg:h-full lg:transition-all lg:duration-200'
-              : 'hidden lg:block lg:w-0 lg:ml-0'
-          )}
-          style={{ minHeight: 0 }}
-        >
-          {sesionId && sesionActual && !showForm && (
+        {/* Session detail — slide-over panel from the right */}
+        {sesionId && sesionActual && !showForm && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            <div className="absolute inset-0 bg-foreground/20" onClick={() => setSesionId(null)} />
             <SessionSidebar
               sesion={sesionActual}
               reservas={reservasActuales}
@@ -1328,102 +1361,110 @@ export default function Calendario() {
               onLiberarSpot={liberarSpot}
               onAsignarSpot={asignarSpot}
             />
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Modal crear / editar ────────────────────────────────────────────────── */}
-      <Dialog open={showForm !== null} onOpenChange={open => !open && setShowForm(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-foreground">
-              {showForm === 'nueva' ? 'Nueva clase' : 'Editar clase'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Tipo de clase">
-                <select className={selectCls} value={form.tipoClaseId} onChange={e => setForm(f => ({ ...f, tipoClaseId: e.target.value }))}>
-                  {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+      {/* ── Panel lateral crear / editar ────────────────────────────────────────── */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-foreground/20" onClick={() => setShowForm(null)} />
+          <div className="relative w-full lg:w-[420px] bg-card h-full flex flex-col shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)]">
+            <div className="px-6 py-5 flex items-center justify-between border-b border-border shrink-0">
+              <h2 className="text-lg font-extrabold text-foreground tracking-tight">
+                {showForm === 'nueva' ? 'Nueva clase' : 'Editar clase'}
+              </h2>
+              <button onClick={() => setShowForm(null)} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-border transition-colors">
+                <X size={16} className="text-foreground" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Tipo de clase">
+                  <select className={selectCls} value={form.tipoClaseId} onChange={e => setForm(f => ({ ...f, tipoClaseId: e.target.value }))}>
+                    {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                  </select>
+                </FormField>
+                <FormField label="Sala">
+                  <select className={selectCls} value={form.salaId} onChange={e => setForm(f => ({ ...f, salaId: e.target.value }))}>
+                    {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                  </select>
+                </FormField>
+              </div>
+              <FormField label="Instructora">
+                <select className={selectCls} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
+                  {instructores.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
                 </select>
               </FormField>
-              <FormField label="Sala">
-                <select className={selectCls} value={form.salaId} onChange={e => setForm(f => ({ ...f, salaId: e.target.value }))}>
-                  {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                </select>
+              <FormField label="Fecha">
+                <input type="date" className={inputCls} value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} />
               </FormField>
-            </div>
-            <FormField label="Instructora">
-              <select className={selectCls} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
-                {instructores.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Fecha">
-              <input type="date" className={inputCls} value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} />
-            </FormField>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Hora inicio">
-                <input type="time" className={inputCls} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Hora inicio">
+                  <input type="time" className={inputCls} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
+                </FormField>
+                <FormField label="Hora fin">
+                  <input type="time" className={inputCls} value={form.horaFin} onChange={e => setForm(f => ({ ...f, horaFin: e.target.value }))} />
+                </FormField>
+              </div>
+              <FormField label="Aforo máximo">
+                <input type="number" min={1} max={50} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
               </FormField>
-              <FormField label="Hora fin">
-                <input type="time" className={inputCls} value={form.horaFin} onChange={e => setForm(f => ({ ...f, horaFin: e.target.value }))} />
-              </FormField>
-            </div>
-            <FormField label="Aforo máximo">
-              <input type="number" min={1} max={50} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
-            </FormField>
-            {showForm === 'nueva' && (
-              <div className="rounded-xl border border-border p-4 space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.repetir}
-                    onChange={e => setForm(f => ({ ...f, repetir: e.target.checked }))}
-                    className="w-4 h-4 rounded accent-brand"
-                  />
+              {showForm === 'nueva' && (
+                <label className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-muted/60 border border-border cursor-pointer">
                   <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <RefreshCw size={14} className="text-brand" />
                     Repetir semanalmente
                   </span>
-                </label>
-                {form.repetir && (
-                  <div className="flex items-center gap-3 pl-7">
-                    <span className="text-sm text-muted-foreground">durante</span>
-                    <input
-                      type="number" min={2} max={52}
-                      className="w-20 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground text-center"
-                      value={form.repetirSemanas}
-                      onChange={e => setForm(f => ({ ...f, repetirSemanas: Math.max(2, Number(e.target.value)) }))}
+                  <span
+                    className="w-11 h-6 rounded-full flex items-center px-0.5 transition-colors shrink-0"
+                    style={{ backgroundColor: form.repetir ? 'var(--primary)' : 'var(--muted-foreground)' }}
+                    onClick={e => { e.preventDefault(); setForm(f => ({ ...f, repetir: !f.repetir })); }}
+                  >
+                    <span
+                      className="w-5 h-5 bg-card rounded-full shadow transition-transform"
+                      style={{ transform: form.repetir ? 'translateX(20px)' : 'translateX(0)' }}
                     />
-                    <span className="text-sm text-muted-foreground">semanas</span>
-                  </div>
-                )}
-              </div>
-            )}
-            <FormField label="Notas (opcional)">
-              <textarea
-                className={inputCls + ' resize-none h-20'}
-                value={form.notas}
-                onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
-                placeholder="Indicaciones especiales, material necesario..."
-              />
-            </FormField>
+                  </span>
+                </label>
+              )}
+              {showForm === 'nueva' && form.repetir && (
+                <div className="flex items-center gap-3 pl-1">
+                  <span className="text-sm text-muted-foreground">durante</span>
+                  <input
+                    type="number" min={2} max={52}
+                    className="w-20 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground text-center"
+                    value={form.repetirSemanas}
+                    onChange={e => setForm(f => ({ ...f, repetirSemanas: Math.max(2, Number(e.target.value)) }))}
+                  />
+                  <span className="text-sm text-muted-foreground">semanas</span>
+                </div>
+              )}
+              <FormField label="Notas (opcional)">
+                <textarea
+                  className={inputCls + ' resize-none h-20'}
+                  value={form.notas}
+                  onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
+                  placeholder="Indicaciones especiales, material necesario..."
+                />
+              </FormField>
+            </div>
+            <div className="px-6 py-5 border-t border-border flex gap-3 shrink-0">
+              <button onClick={() => setShowForm(null)} className="flex-1 py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={showForm === 'nueva' ? crearSesion : editarSesion}
+                className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand"
+              >
+                {showForm === 'nueva'
+                  ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'
+                  : 'Guardar cambios'}
+              </button>
+            </div>
           </div>
-          <div className="flex gap-3 mt-6">
-            <button onClick={() => setShowForm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
-              Cancelar
-            </button>
-            <button
-              onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 bg-primary"
-            >
-              {showForm === 'nueva'
-                ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'
-                : 'Guardar cambios'}
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* ── Modal clases recurrentes ────────────────────────────────────────────── */}
       <ModalClasesRecurrentes
@@ -1437,8 +1478,8 @@ export default function Calendario() {
 
       {/* ── Toast ──────────────────────────────────────────────────────────────── */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-brand text-brand-foreground px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
-          <CheckCircle2 size={16} className="text-green-400 shrink-0" />
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 bg-primary text-primary-foreground px-5 py-3 rounded-full shadow-xl text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
+          <CheckCircle2 size={15} className="text-[#3EC38A] shrink-0" />
           {toast}
         </div>
       )}
