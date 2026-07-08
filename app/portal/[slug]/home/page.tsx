@@ -205,13 +205,15 @@ export default function PortalHome() {
                 const miReserva = getMiReserva(ses.id);
                 return (
                   <div key={ses.id} className="flex items-center gap-3 py-2 border-b border-[#F5F5F5] last:border-0">
-                    <p className="text-[13px] font-bold text-[#171717] w-12 shrink-0">{formatTime(ses.inicio)}</p>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13.5px] font-bold text-[#171717] truncate">{tipo?.nombre ?? 'Clase'}</p>
-                      <p className="text-[11.5px] text-[#8E8E93] truncate">
-                        {instr?.nombre ?? ''}{instr ? ' · ' : ''}{libres > 0 ? `${libres} libre${libres !== 1 ? 's' : ''}` : 'Completo'}
-                      </p>
-                    </div>
+                    <Link href={`/portal/${slug}/clases/${ses.id}`} className="flex items-center gap-3 flex-1 min-w-0 active:opacity-70">
+                      <p className="text-[13px] font-bold text-[#171717] w-12 shrink-0">{formatTime(ses.inicio)}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13.5px] font-bold text-[#171717] truncate">{tipo?.nombre ?? 'Clase'}</p>
+                        <p className="text-[11.5px] text-[#8E8E93] truncate">
+                          {instr?.nombre ?? ''}{instr ? ' · ' : ''}{libres > 0 ? `${libres} libre${libres !== 1 ? 's' : ''}` : 'Completo'}
+                        </p>
+                      </div>
+                    </Link>
                     {miReserva ? (
                       <span className="shrink-0 text-[11px] font-bold text-green-700 bg-green-50 px-3 py-1.5 rounded-xl">Reservada</span>
                     ) : (
