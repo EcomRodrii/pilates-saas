@@ -3,7 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { uid } from '@/lib/utils';
 import { decidirReservaNueva, siguienteEnEspera } from '@/lib/booking-logic';
 import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono } from '@/lib/bono-logic';
-import { validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
+import { validarCanje, aplicarCanjeCreditos, decidirOtorgarCreditos, aplicarGananciaCreditos } from '@/lib/reward-engine';
+import { decidirPremioReferido } from '@/lib/booking-logic';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -90,6 +91,7 @@ import type {
   RewardHistory,
   RewardRedemption,
   RewardRule,
+  RewardTrigger,
   Sala,
   Sesion,
   Socio,
@@ -1043,17 +1045,25 @@ export async function fetchPublicStudioData(
   const studioId: string = studioRow.id;
 
   // Catálogo público (nada de PII): clases, horarios, salas, instructoras,
-  // planes, spots y vídeos activos.
-  const [sesionesRes, tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes] =
-    await Promise.all([
-      admin.from('sesiones').select('*').eq('studio_id', studioId),
-      admin.from('tipos_clase').select('*').eq('studio_id', studioId),
-      admin.from('salas').select('*').eq('studio_id', studioId),
-      admin.from('instructores').select('*').eq('studio_id', studioId),
-      admin.from('spots').select('*').eq('studio_id', studioId),
-      admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
-      admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
-    ]);
+  // planes, spots, vídeos y la configuración de gamificación (niveles, logros,
+  // retos, recompensas y sus reglas) — el portal la necesita para pintar.
+  const [
+    sesionesRes, tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
+    rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
+  ] = await Promise.all([
+    admin.from('sesiones').select('*').eq('studio_id', studioId),
+    admin.from('tipos_clase').select('*').eq('studio_id', studioId),
+    admin.from('salas').select('*').eq('studio_id', studioId),
+    admin.from('instructores').select('*').eq('studio_id', studioId),
+    admin.from('spots').select('*').eq('studio_id', studioId),
+    admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
+    admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
+    admin.from('reward_rules').select('*').eq('studio_id', studioId),
+    admin.from('reward_catalog').select('*').eq('studio_id', studioId),
+    admin.from('level_definitions').select('*').eq('studio_id', studioId),
+    admin.from('achievement_definitions').select('*').eq('studio_id', studioId),
+    admin.from('challenge_definitions').select('*').eq('studio_id', studioId),
+  ]);
 
   // Aforo: para pintar plazas libres se necesita el conteo de reservas por
   // sesión, pero SIN exponer quién reservó. Devolvemos solo id/sesion/estado.
@@ -1069,6 +1079,11 @@ export async function fetchPublicStudioData(
     spots: (spotsRes.data ?? []).map(mapSpot),
     planesTarifa: (planesRes.data ?? []).map(mapPlanTarifa),
     videosOnDemand: (videosRes.data ?? []).map(mapVideoOnDemand),
+    rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
+    rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
+    levelDefinitions: (levelDefsRes.data ?? []).map(mapLevelDefinition),
+    achievementDefinitions: (achDefsRes.data ?? []).map(mapAchievementDefinition),
+    challengeDefinitions: (chalDefsRes.data ?? []).map(mapChallengeDefinition),
     aforoReservas: (reservasAforo ?? []) as { id: string; sesion_id: string; estado: string }[],
   };
 
@@ -1085,15 +1100,20 @@ export async function fetchPublicStudioData(
   if (!socioRow || !emailOk) return { ...base, socia: null };
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, facRes, prefRes, credRes, histRes] = await Promise.all([
-    admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
-    admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
-    admin.from('recibos').select('*').eq('studio_id', studioId).eq('socio_id', sid),
-    admin.from('facturas').select('*').eq('studio_id', studioId),
-    admin.from('preferencias_socio').select('*').eq('studio_id', studioId).eq('socio_id', sid),
-    admin.from('member_credits').select('*').eq('studio_id', studioId).eq('socio_id', sid),
-    admin.from('reward_history').select('*').eq('studio_id', studioId).eq('socio_id', sid),
-  ]);
+  const [susRes, resRes, recRes, facRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes] =
+    await Promise.all([
+      admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('recibos').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('facturas').select('*').eq('studio_id', studioId),
+      admin.from('preferencias_socio').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('member_credits').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('reward_history').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('reward_redemptions').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('achievement_progress').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('challenge_progress').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('credit_transactions').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+    ]);
 
   // Facturas de recibos de la socia (facturas no tiene socio_id directo).
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
@@ -1110,6 +1130,10 @@ export async function fetchPublicStudioData(
       preferenciasSocio: (prefRes.data ?? []).map(mapPreferenciasSocio),
       memberCredits: (credRes.data ?? []).map(mapMemberCredits),
       rewardHistory: (histRes.data ?? []).map(mapRewardHistory),
+      rewardRedemptions: (redRes.data ?? []).map(mapRewardRedemption),
+      achievementProgress: (achProgRes.data ?? []).map(mapAchievementProgress),
+      challengeProgress: (chalProgRes.data ?? []).map(mapChallengeProgress),
+      creditTransactions: (txRes.data ?? []).map(mapCreditTransaction),
     },
   };
 }
@@ -1342,6 +1366,91 @@ export async function canjearRecompensaPublica(params: {
   ]);
   if (item.stock != null) {
     await admin.from('reward_catalog').update({ stock: item.stock - 1 }).eq('id', params.catalogItemId);
+  }
+  return { ok: true as const };
+}
+
+// Otorga créditos server-side (misma decisión pura que el contexto): si la regla
+// está activa y no se otorgó ya para ese refId, inserta action/history/tx y
+// actualiza el saldo. El UNIQUE(studio,trigger,ref_id) es el cerrojo real.
+async function otorgarCreditosServidor(
+  admin: SupabaseClient, studioId: string, socioId: string,
+  trigger: RewardTrigger, refId: string | null,
+) {
+  const [{ data: rulesRows }, { data: actionRows }, { data: credRow }] = await Promise.all([
+    admin.from('reward_rules').select('*').eq('studio_id', studioId),
+    admin.from('reward_actions').select('*').eq('studio_id', studioId),
+    admin.from('member_credits').select('*').eq('socio_id', socioId).maybeSingle(),
+  ]);
+  const rules = (rulesRows ?? []).map(mapRewardRule);
+  const actions = (actionRows ?? []).map(mapRewardAction);
+  const { otorgar, regla } = decidirOtorgarCreditos(rules, actions, trigger, refId);
+  if (!otorgar || !regla) return;
+
+  const now = new Date().toISOString();
+  const actionId = `rwa-${uid()}`;
+  const { error } = await admin.from('reward_actions').insert({
+    id: actionId, studio_id: studioId, socio_id: socioId, trigger, ref_id: refId, creado_en: now,
+  });
+  if (error) return; // choque con el UNIQUE → ya otorgado, no seguimos
+
+  const actualizado = aplicarGananciaCreditos(
+    credRow ? mapMemberCredits(credRow as RowMemberCredits) : undefined,
+    socioId, studioId, regla.creditos, now,
+  );
+  await Promise.all([
+    admin.from('reward_history').insert({
+      id: `rwh-${uid()}`, studio_id: studioId, socio_id: socioId, rule_id: regla.id, action_id: actionId,
+      creditos: regla.creditos, descripcion: regla.nombre, creado_en: now,
+    }),
+    admin.from('credit_transactions').insert({
+      id: `ctx-${uid()}`, studio_id: studioId, socio_id: socioId, tipo: 'GANANCIA', creditos: regla.creditos,
+      descripcion: regla.nombre, ref_id: refId, creado_en: now,
+    }),
+    admin.from('member_credits').upsert({
+      socio_id: actualizado.socioId, studio_id: actualizado.studioId, saldo: actualizado.saldo,
+      total_ganado: actualizado.totalGanado, total_canjeado: actualizado.totalCanjeado, actualizado_en: now,
+    }, { onConflict: 'socio_id' }),
+  ]);
+}
+
+// Check-in de kiosk: marca la reserva ASISTIDA, otorga créditos de asistencia y,
+// si es la primera clase de una socia referida, premia a quien la invitó (con
+// tope mensual). La reserva debe pertenecer al estudio.
+export async function checkinPublico(params: { studioId: string; reservaId: string }) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const { data: resRow } = await admin
+    .from('reservas').select('*').eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
+  if (!resRow) return { error: 'Reserva no encontrada' as const };
+  const reserva = mapReserva(resRow as RowReservas);
+  if (reserva.estado === 'ASISTIDA') return { ok: true as const }; // idempotente
+
+  await admin.from('reservas').update({ estado: 'ASISTIDA', check_in_en: new Date().toISOString() }).eq('id', params.reservaId);
+
+  // Créditos por asistencia (dedup por reservaId).
+  await otorgarCreditosServidor(admin, params.studioId, reserva.socioId, 'ASISTENCIA_CLASE', params.reservaId);
+
+  // Premio de referido si es su primera clase asistida.
+  const { data: todasRes } = await admin.from('reservas').select('*').eq('studio_id', params.studioId).eq('socio_id', reserva.socioId);
+  const reservasTrasCheckin = (todasRes ?? []).map(mapReserva)
+    .map(r => r.id === reserva.id ? { ...r, estado: 'ASISTIDA' as const } : r);
+  const [{ data: sociaRow }, { data: rulesRows }, { data: actionRows }] = await Promise.all([
+    admin.from('socios').select('*').eq('id', reserva.socioId).maybeSingle(),
+    admin.from('reward_rules').select('*').eq('studio_id', params.studioId),
+    admin.from('reward_actions').select('*').eq('studio_id', params.studioId),
+  ]);
+  const regla = (rulesRows ?? []).map(mapRewardRule).find(r => r.trigger === 'REFERIDO_AMIGO' && r.activa) ?? null;
+  const { premiar, referidorId } = decidirPremioReferido({
+    socia: sociaRow ? mapSocio(sociaRow as RowSocios) : undefined,
+    reservasTrasCheckin,
+    rewardActions: (actionRows ?? []).map(mapRewardAction),
+    topeMensual: regla?.topeMensual ?? null,
+    ahora: new Date(),
+  });
+  if (premiar && referidorId) {
+    await otorgarCreditosServidor(admin, params.studioId, referidorId, 'REFERIDO_AMIGO', reserva.socioId);
   }
   return { ok: true as const };
 }
