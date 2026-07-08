@@ -1,4 +1,101 @@
 import { supabase } from '@/lib/supabase';
+import type {
+  RowAchievementDefinitions,
+  RowAchievementHistory,
+  RowAchievementProgress,
+  RowActividadReciente,
+  RowAutomationLogs,
+  RowAutomationRules,
+  RowAutomatizaciones,
+  RowBackups,
+  RowCampanas,
+  RowChallengeDefinitions,
+  RowChallengeHistory,
+  RowChallengeProgress,
+  RowCitas,
+  RowCodigosDescuento,
+  RowCreditTransactions,
+  RowDashboardCharts,
+  RowFacturas,
+  RowInstructores,
+  RowIntegraciones,
+  RowLevelDefinitions,
+  RowMemberCredits,
+  RowMensajesEquipo,
+  RowNotasInternas,
+  RowNotasProgreso,
+  RowNotificaciones,
+  RowPlanesTarifa,
+  RowPostsComunidad,
+  RowPreferenciasSocio,
+  RowProductosPos,
+  RowRecibos,
+  RowReservas,
+  RowRewardActions,
+  RowRewardCatalog,
+  RowRewardHistory,
+  RowRewardRedemptions,
+  RowRewardRules,
+  RowSalas,
+  RowSesiones,
+  RowSocios,
+  RowSpots,
+  RowStudios,
+  RowSuscripciones,
+  RowTiposClase,
+  RowUsuarios,
+  RowVentasPos,
+  RowVideosOnDemand,
+} from '@/lib/db-types';
+import type {
+  AchievementDefinition,
+  AchievementHistory,
+  AchievementProgress,
+  ActividadReciente,
+  AutomationLog,
+  AutomationRule,
+  Automatizacion,
+  BackupMeta,
+  Campana,
+  ChallengeDefinition,
+  ChallengeHistory,
+  ChallengeProgress,
+  Cita,
+  CodigoDescuento,
+  CreditTransaction,
+  DashboardChart,
+  Factura,
+  Instructor,
+  Integracion,
+  LevelDefinition,
+  MemberCredits,
+  MensajeEquipo,
+  NotaInterna,
+  NotaProgreso,
+  Notificacion,
+  PlanTarifa,
+  PostComunidad,
+  PreferenciasSocio,
+  ProductoPOS,
+  Recibo,
+  Reserva,
+  RewardAction,
+  RewardCatalogItem,
+  RewardHistory,
+  RewardRedemption,
+  RewardRule,
+  Sala,
+  Sesion,
+  Socio,
+  Spot,
+  Studio,
+  Suscripcion,
+  TipoClase,
+  Usuario,
+  VentaPOS,
+  VideoOnDemand,
+} from '@/lib/types';
+
 
 // Multi-tenancy: STUDIO_ID is resolved per logged-in user (see
 // resolveStudioId/setCurrentStudioId) and read at call time by every helper
@@ -63,7 +160,7 @@ function reportDbError(tag: string, error: unknown) {
 
 // ─── Mappers: DB (snake_case) → TS (camelCase) ───────────────────────────────
 
-function mapStudio(r: any) {
+function mapStudio(r: RowStudios): Studio {
   return {
     id: r.id,
     nombre: r.nombre,
@@ -81,10 +178,10 @@ function mapStudio(r: any) {
     slug: r.slug ?? null,
     creadoEn: r.creado_en,
     stripeAccountId: r.stripe_account_id ?? null,
-  };
+  } as Studio;
 }
 
-function mapUsuario(r: any) {
+function mapUsuario(r: RowUsuarios): Usuario {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -93,10 +190,10 @@ function mapUsuario(r: any) {
     email: r.email,
     telefono: r.telefono ?? null,
     avatarUrl: r.avatar_url ?? null,
-  };
+  } as Usuario;
 }
 
-function mapSocio(r: any) {
+function mapSocio(r: RowSocios): Socio {
   const aceptacionContrato =
     r.aceptacion_fecha
       ? {
@@ -126,10 +223,10 @@ function mapSocio(r: any) {
     direccion: r.direccion ?? null,
     fotoUrl: r.foto_url ?? null,
     referidoPor: r.referido_por ?? null,
-  };
+  } as Socio;
 }
 
-function mapPreferenciasSocio(r: any) {
+function mapPreferenciasSocio(r: RowPreferenciasSocio): PreferenciasSocio {
   return {
     socioId: r.socio_id,
     studioId: r.studio_id,
@@ -141,10 +238,10 @@ function mapPreferenciasSocio(r: any) {
     notifEmail: r.notif_email ?? true,
     notifWhatsapp: r.notif_whatsapp ?? true,
     actualizadoEn: r.actualizado_en,
-  };
+  } as PreferenciasSocio;
 }
 
-function mapRewardRule(r: any) {
+function mapRewardRule(r: RowRewardRules): RewardRule {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -154,10 +251,10 @@ function mapRewardRule(r: any) {
     creditos: r.creditos,
     activa: r.activa,
     creadoEn: r.creado_en,
-  };
+  } as RewardRule;
 }
 
-function mapRewardAction(r: any) {
+function mapRewardAction(r: RowRewardActions): RewardAction {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -165,10 +262,10 @@ function mapRewardAction(r: any) {
     trigger: r.trigger,
     refId: r.ref_id ?? null,
     creadoEn: r.creado_en,
-  };
+  } as RewardAction;
 }
 
-function mapRewardHistory(r: any) {
+function mapRewardHistory(r: RowRewardHistory): RewardHistory {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -178,10 +275,10 @@ function mapRewardHistory(r: any) {
     creditos: r.creditos,
     descripcion: r.descripcion,
     creadoEn: r.creado_en,
-  };
+  } as RewardHistory;
 }
 
-function mapCreditTransaction(r: any) {
+function mapCreditTransaction(r: RowCreditTransactions): CreditTransaction {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -191,10 +288,10 @@ function mapCreditTransaction(r: any) {
     descripcion: r.descripcion,
     refId: r.ref_id ?? null,
     creadoEn: r.creado_en,
-  };
+  } as CreditTransaction;
 }
 
-function mapMemberCredits(r: any) {
+function mapMemberCredits(r: RowMemberCredits): MemberCredits {
   return {
     socioId: r.socio_id,
     studioId: r.studio_id,
@@ -202,10 +299,10 @@ function mapMemberCredits(r: any) {
     totalGanado: r.total_ganado,
     totalCanjeado: r.total_canjeado,
     actualizadoEn: r.actualizado_en,
-  };
+  } as MemberCredits;
 }
 
-function mapRewardCatalogItem(r: any) {
+function mapRewardCatalogItem(r: RowRewardCatalog): RewardCatalogItem {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -216,10 +313,10 @@ function mapRewardCatalogItem(r: any) {
     activo: r.activo,
     stock: r.stock ?? null,
     creadoEn: r.creado_en,
-  };
+  } as RewardCatalogItem;
 }
 
-function mapRewardRedemption(r: any) {
+function mapRewardRedemption(r: RowRewardRedemptions): RewardRedemption {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -228,10 +325,10 @@ function mapRewardRedemption(r: any) {
     creditosGastados: r.creditos_gastados,
     estado: r.estado,
     creadoEn: r.creado_en,
-  };
+  } as RewardRedemption;
 }
 
-function mapAchievementDefinition(r: any) {
+function mapAchievementDefinition(r: RowAchievementDefinitions): AchievementDefinition {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -243,10 +340,10 @@ function mapAchievementDefinition(r: any) {
     creditosRecompensa: r.creditos_recompensa,
     activo: r.activo,
     creadoEn: r.creado_en,
-  };
+  } as AchievementDefinition;
 }
 
-function mapAchievementProgress(r: any) {
+function mapAchievementProgress(r: RowAchievementProgress): AchievementProgress {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -255,10 +352,10 @@ function mapAchievementProgress(r: any) {
     progresoActual: r.progreso_actual,
     completado: r.completado,
     completadoEn: r.completado_en ?? null,
-  };
+  } as AchievementProgress;
 }
 
-function mapAchievementHistory(r: any) {
+function mapAchievementHistory(r: RowAchievementHistory): AchievementHistory {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -267,10 +364,10 @@ function mapAchievementHistory(r: any) {
     nombre: r.nombre,
     icono: r.icono,
     creadoEn: r.creado_en,
-  };
+  } as AchievementHistory;
 }
 
-function mapLevelDefinition(r: any) {
+function mapLevelDefinition(r: RowLevelDefinitions): LevelDefinition {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -282,10 +379,10 @@ function mapLevelDefinition(r: any) {
     beneficios: r.beneficios ?? null,
     activo: r.activo,
     creadoEn: r.creado_en,
-  };
+  } as LevelDefinition;
 }
 
-function mapChallengeDefinition(r: any) {
+function mapChallengeDefinition(r: RowChallengeDefinitions): ChallengeDefinition {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -299,10 +396,10 @@ function mapChallengeDefinition(r: any) {
     creditosRecompensa: r.creditos_recompensa,
     activo: r.activo,
     creadoEn: r.creado_en,
-  };
+  } as ChallengeDefinition;
 }
 
-function mapChallengeProgress(r: any) {
+function mapChallengeProgress(r: RowChallengeProgress): ChallengeProgress {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -311,10 +408,10 @@ function mapChallengeProgress(r: any) {
     progresoActual: r.progreso_actual,
     completado: r.completado,
     completadoEn: r.completado_en ?? null,
-  };
+  } as ChallengeProgress;
 }
 
-function mapChallengeHistory(r: any) {
+function mapChallengeHistory(r: RowChallengeHistory): ChallengeHistory {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -323,10 +420,10 @@ function mapChallengeHistory(r: any) {
     nombre: r.nombre,
     icono: r.icono,
     creadoEn: r.creado_en,
-  };
+  } as ChallengeHistory;
 }
 
-function mapDashboardChart(r: any) {
+function mapDashboardChart(r: RowDashboardCharts): DashboardChart {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -337,19 +434,19 @@ function mapDashboardChart(r: any) {
     rango: r.rango,
     color: r.color,
     creadoEn: r.creado_en,
-  };
+  } as DashboardChart;
 }
 
-function mapBackupMeta(r: any) {
+function mapBackupMeta(r: RowBackups): BackupMeta {
   return {
     id: r.id,
     studioId: r.studio_id,
     tipo: r.tipo,
     creadoEn: r.creado_en,
-  };
+  } as BackupMeta;
 }
 
-function mapPlanTarifa(r: any) {
+function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -359,10 +456,10 @@ function mapPlanTarifa(r: any) {
     tipo: r.tipo,
     sesiones: r.sesiones ?? null,
     activo: r.activo,
-  };
+  } as PlanTarifa;
 }
 
-function mapSuscripcion(r: any) {
+function mapSuscripcion(r: RowSuscripciones): Suscripcion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -373,20 +470,20 @@ function mapSuscripcion(r: any) {
     fechaFin: r.fecha_fin ?? null,
     sesionesRestantes: r.sesiones_restantes ?? null,
     stripeSubscriptionId: r.stripe_subscription_id ?? null,
-  };
+  } as Suscripcion;
 }
 
-function mapSala(r: any) {
+function mapSala(r: RowSalas): Sala {
   return {
     id: r.id,
     studioId: r.studio_id,
     nombre: r.nombre,
     capacidad: r.capacidad,
     color: r.color,
-  };
+  } as Sala;
 }
 
-function mapSpot(r: any) {
+function mapSpot(r: RowSpots): Spot {
   return {
     id: r.id,
     salaId: r.sala_id,
@@ -397,10 +494,10 @@ function mapSpot(r: any) {
     columna: r.columna,
     tipo: r.tipo,
     activo: r.activo,
-  };
+  } as Spot;
 }
 
-function mapTipoClase(r: any) {
+function mapTipoClase(r: RowTiposClase): TipoClase {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -410,10 +507,10 @@ function mapTipoClase(r: any) {
     descripcion: r.descripcion ?? null,
     nivel: r.nivel,
     fotoUrl: r.foto_url ?? null,
-  };
+  } as TipoClase;
 }
 
-function mapInstructor(r: any) {
+function mapInstructor(r: RowInstructores): Instructor {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -425,10 +522,10 @@ function mapInstructor(r: any) {
     avatar: r.avatar ?? null,
     rol: r.rol ?? 'INSTRUCTOR',
     authUserId: r.auth_user_id ?? null,
-  };
+  } as Instructor;
 }
 
-function mapSesion(r: any) {
+function mapSesion(r: RowSesiones): Sesion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -441,10 +538,10 @@ function mapSesion(r: any) {
     cancelada: r.cancelada,
     notas: r.notas ?? null,
     precioPuntual: r.precio_puntual ?? null,
-  };
+  } as Sesion;
 }
 
-function mapReserva(r: any) {
+function mapReserva(r: RowReservas): Reserva {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -455,10 +552,10 @@ function mapReserva(r: any) {
     posicionEspera: r.posicion_espera ?? null,
     checkInEn: r.check_in_en ?? null,
     creadoEn: r.creado_en,
-  };
+  } as Reserva;
 }
 
-function mapRecibo(r: any) {
+function mapRecibo(r: RowRecibos): Recibo {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -471,10 +568,10 @@ function mapRecibo(r: any) {
     fechaCobro: r.fecha_cobro ?? null,
     fechaDevolucion: r.fecha_devolucion ?? null,
     intentosReintento: r.intentos_reintento,
-  };
+  } as Recibo;
 }
 
-function mapFactura(r: any) {
+function mapFactura(r: RowFacturas): Factura {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -488,10 +585,10 @@ function mapFactura(r: any) {
     cuotaIVA: r.cuota_iva,
     total: r.total,
     verifactuHash: r.verifactu_hash ?? null,
-  };
+  } as Factura;
 }
 
-function mapCita(r: any) {
+function mapCita(r: RowCitas): Cita {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -504,10 +601,10 @@ function mapCita(r: any) {
     estado: r.estado,
     precio: r.precio ?? null,
     creadoEn: r.creado_en,
-  };
+  } as Cita;
 }
 
-function mapProductoPOS(r: any) {
+function mapProductoPOS(r: RowProductosPos): ProductoPOS {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -515,10 +612,10 @@ function mapProductoPOS(r: any) {
     categoria: r.categoria,
     precio: r.precio,
     activo: r.activo,
-  };
+  } as ProductoPOS;
 }
 
-function mapVentaPOS(r: any) {
+function mapVentaPOS(r: RowVentasPos): VentaPOS {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -530,10 +627,10 @@ function mapVentaPOS(r: any) {
     metodoPago: r.metodo_pago,
     notas: r.notas ?? null,
     realizadaEn: r.realizada_en,
-  };
+  } as VentaPOS;
 }
 
-function mapIntegracion(r: any) {
+function mapIntegracion(r: RowIntegraciones): Integracion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -541,10 +638,10 @@ function mapIntegracion(r: any) {
     activo: r.activo,
     config: r.config ?? {},
     actualizadoEn: r.actualizado_en,
-  };
+  } as Integracion;
 }
 
-function mapCampana(r: any) {
+function mapCampana(r: RowCampanas): Campana {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -560,10 +657,10 @@ function mapCampana(r: any) {
     creadaEn: r.creada_en,
     enviadaEn: r.enviada_en ?? null,
     programadaEn: r.programada_en ?? null,
-  };
+  } as Campana;
 }
 
-function mapAutomatizacion(r: any) {
+function mapAutomatizacion(r: RowAutomatizaciones): Automatizacion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -575,10 +672,10 @@ function mapAutomatizacion(r: any) {
     activa: r.activa,
     ejecutadas: r.ejecutadas,
     creadaEn: r.creada_en,
-  };
+  } as Automatizacion;
 }
 
-function mapAutomationRule(r: any) {
+function mapAutomationRule(r: RowAutomationRules): AutomationRule {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -592,10 +689,10 @@ function mapAutomationRule(r: any) {
     ejecutadaVeces: r.ejecutada_veces,
     ultimaEjecucion: r.ultima_ejecucion ?? null,
     creadaEn: r.creada_en,
-  };
+  } as AutomationRule;
 }
 
-function mapAutomationLog(r: any) {
+function mapAutomationLog(r: RowAutomationLogs): AutomationLog {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -610,10 +707,10 @@ function mapAutomationLog(r: any) {
     ejecutadoEn: r.ejecutado_en,
     proximaAccionEn: r.proxima_accion_en ?? null,
     reciboId: r.recibo_id ?? null,
-  };
+  } as AutomationLog;
 }
 
-function mapNotaProgreso(r: any) {
+function mapNotaProgreso(r: RowNotasProgreso): NotaProgreso {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -626,10 +723,10 @@ function mapNotaProgreso(r: any) {
     planProximaSesion: r.plan_proxima_sesion ?? null,
     ejerciciosCasa: r.ejercicios_casa ?? null,
     creadaEn: r.creada_en,
-  };
+  } as NotaProgreso;
 }
 
-function mapCodigoDescuento(r: any) {
+function mapCodigoDescuento(r: RowCodigosDescuento): CodigoDescuento {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -642,10 +739,10 @@ function mapCodigoDescuento(r: any) {
     expira: r.expira ?? null,
     activo: r.activo,
     creadoEn: r.creado_en,
-  };
+  } as CodigoDescuento;
 }
 
-function mapActividadReciente(r: any) {
+function mapActividadReciente(r: RowActividadReciente): ActividadReciente {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -655,10 +752,10 @@ function mapActividadReciente(r: any) {
     enlace: r.enlace ?? null,
     creadoEn: r.creado_en,
     actorNombre: r.actor_nombre ?? null,
-  };
+  } as ActividadReciente;
 }
 
-function mapMensajeEquipo(r: any) {
+function mapMensajeEquipo(r: RowMensajesEquipo): MensajeEquipo {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -666,10 +763,10 @@ function mapMensajeEquipo(r: any) {
     autorNombre: r.autor_nombre,
     texto: r.texto,
     creadoEn: r.creado_en,
-  };
+  } as MensajeEquipo;
 }
 
-function mapNotificacion(r: any) {
+function mapNotificacion(r: RowNotificaciones): Notificacion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -679,10 +776,10 @@ function mapNotificacion(r: any) {
     tipo: r.tipo,
     enlace: r.enlace ?? null,
     creadaEn: r.creada_en,
-  };
+  } as Notificacion;
 }
 
-function mapVideoOnDemand(r: any) {
+function mapVideoOnDemand(r: RowVideosOnDemand): VideoOnDemand {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -696,10 +793,10 @@ function mapVideoOnDemand(r: any) {
     likes: r.likes,
     activo: r.activo,
     creadoEn: r.creado_en,
-  };
+  } as VideoOnDemand;
 }
 
-function mapPostComunidad(r: any) {
+function mapPostComunidad(r: RowPostsComunidad): PostComunidad {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -711,10 +808,10 @@ function mapPostComunidad(r: any) {
     comentariosCount: r.comentarios_count,
     fijado: r.fijado,
     creadoEn: r.creado_en,
-  };
+  } as PostComunidad;
 }
 
-function mapNotaInterna(r: any) {
+function mapNotaInterna(r: RowNotasInternas): NotaInterna {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -722,7 +819,7 @@ function mapNotaInterna(r: any) {
     texto: r.texto,
     tipo: r.tipo,
     creadoEn: r.creado_en,
-  };
+  } as NotaInterna;
 }
 
 // ─── Fetch all studio data in parallel ───────────────────────────────────────
@@ -870,7 +967,9 @@ export async function fetchAllStudioData() {
     challengeProgress: (challengeProgressRes.data ?? []).map(mapChallengeProgress),
     challengeHistory: (challengeHistoryRes.data ?? []).map(mapChallengeHistory),
     dashboardCharts: (dashboardChartsRes.data ?? []).map(mapDashboardChart),
-    backups: (backupsRes.data ?? []).map(mapBackupMeta),
+    // La query de backups usa un select estrecho (excluye la columna 'datos'
+    // pesada); afirmamos la fila para el mapper.
+    backups: (backupsRes.data ?? []).map(r => mapBackupMeta(r as RowBackups)),
   };
 }
 
