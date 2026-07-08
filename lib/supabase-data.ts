@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import type {
   RowAchievementDefinitions,
   RowAchievementHistory,
@@ -997,6 +998,115 @@ export async function fetchAllStudioData() {
     fetchDeferredStudioData(),
   ]);
   return { ...critical, ...deferred };
+}
+
+// ─── Acceso público scopeado (proxy de servidor, service-role) ───────────────
+// Reemplaza el acceso anónimo directo de las páginas públicas (reserva/portal/
+// kiosk). Devuelve SOLO el catálogo público del estudio y, si se pasa una socia
+// validada por email, los datos de ESA socia — nunca la PII de las demás.
+// Se ejecuta en el servidor (usa la Service Role Key); NO importar en cliente.
+
+// Campos del estudio seguros para exponer públicamente (nada de NIF/razón
+// social/owner). El resto de la ficha fiscal no sale de aquí.
+function studioPublico(r: RowStudios) {
+  return {
+    id: r.id,
+    nombre: r.nombre,
+    ciudad: r.ciudad,
+    direccion: r.direccion,
+    email: r.email,
+    telefono: r.telefono,
+    colorPrimario: r.color_primario,
+    plan: r.plan,
+    avatarAdmin: r.avatar_admin ?? null,
+    slug: r.slug ?? null,
+  };
+}
+
+export type PublicStudioData = Awaited<ReturnType<typeof fetchPublicStudioData>>;
+
+export async function fetchPublicStudioData(
+  slug: string,
+  member?: { socioId: string; email: string },
+) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada (SUPABASE_SERVICE_ROLE_KEY)');
+
+  const { data: studioRow } = await admin
+    .from('studios').select('*').eq('slug', slug).maybeSingle();
+  if (!studioRow) return null;
+  const studioId: string = studioRow.id;
+
+  // Catálogo público (nada de PII): clases, horarios, salas, instructoras,
+  // planes, spots y vídeos activos.
+  const [sesionesRes, tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes] =
+    await Promise.all([
+      admin.from('sesiones').select('*').eq('studio_id', studioId),
+      admin.from('tipos_clase').select('*').eq('studio_id', studioId),
+      admin.from('salas').select('*').eq('studio_id', studioId),
+      admin.from('instructores').select('*').eq('studio_id', studioId),
+      admin.from('spots').select('*').eq('studio_id', studioId),
+      admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
+      admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
+    ]);
+
+  // Aforo: para pintar plazas libres se necesita el conteo de reservas por
+  // sesión, pero SIN exponer quién reservó. Devolvemos solo id/sesion/estado.
+  const { data: reservasAforo } = await admin
+    .from('reservas').select('id, sesion_id, estado').eq('studio_id', studioId);
+
+  const base = {
+    studio: studioPublico(studioRow as RowStudios),
+    sesiones: (sesionesRes.data ?? []).map(mapSesion),
+    tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
+    salas: (salasRes.data ?? []).map(mapSala),
+    instructores: (instructoresRes.data ?? []).map(mapInstructor),
+    spots: (spotsRes.data ?? []).map(mapSpot),
+    planesTarifa: (planesRes.data ?? []).map(mapPlanTarifa),
+    videosOnDemand: (videosRes.data ?? []).map(mapVideoOnDemand),
+    aforoReservas: (reservasAforo ?? []) as { id: string; sesion_id: string; estado: string }[],
+  };
+
+  if (!member) return { ...base, socia: null };
+
+  // Datos de la socia: SOLO si el id existe en ese estudio Y el email coincide
+  // (prueba mínima de identidad). Si no valida, no se devuelve nada suyo.
+  const { data: socioRow } = await admin
+    .from('socios').select('*')
+    .eq('id', member.socioId).eq('studio_id', studioId).maybeSingle();
+
+  const emailOk = socioRow &&
+    (socioRow.email ?? '').trim().toLowerCase() === member.email.trim().toLowerCase();
+  if (!socioRow || !emailOk) return { ...base, socia: null };
+
+  const sid = member.socioId;
+  const [susRes, resRes, recRes, facRes, prefRes, credRes, histRes] = await Promise.all([
+    admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+    admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+    admin.from('recibos').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+    admin.from('facturas').select('*').eq('studio_id', studioId),
+    admin.from('preferencias_socio').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+    admin.from('member_credits').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+    admin.from('reward_history').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+  ]);
+
+  // Facturas de recibos de la socia (facturas no tiene socio_id directo).
+  const misRecibos = (recRes.data ?? []).map(mapRecibo);
+  const misReciboIds = new Set(misRecibos.map(r => r.id));
+
+  return {
+    ...base,
+    socia: {
+      socio: mapSocio(socioRow as RowSocios),
+      suscripciones: (susRes.data ?? []).map(mapSuscripcion),
+      reservas: (resRes.data ?? []).map(mapReserva),
+      recibos: misRecibos,
+      facturas: (facRes.data ?? []).map(mapFactura).filter(f => f.reciboId && misReciboIds.has(f.reciboId)),
+      preferenciasSocio: (prefRes.data ?? []).map(mapPreferenciasSocio),
+      memberCredits: (credRes.data ?? []).map(mapMemberCredits),
+      rewardHistory: (histRes.data ?? []).map(mapRewardHistory),
+    },
+  };
 }
 
 // ─── Mappers: TS (camelCase) → DB (snake_case) ───────────────────────────────
