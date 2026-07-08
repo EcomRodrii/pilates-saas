@@ -29,8 +29,6 @@ import {
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCampana, dbDeleteCampana, dbUpdateCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
-  dbInsertVideoOnDemand, dbUpdateVideoOnDemand,
-  dbInsertPostComunidad, dbUpdatePostComunidad,
   dbUpsertIntegracion,
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
@@ -107,6 +105,8 @@ import { calcularMetrica } from '@/lib/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/level-engine';
 import { calcularProgresoReto } from '@/lib/challenge-engine';
+import { uid } from '@/lib/utils';
+import { useContentStore } from '@/lib/stores/use-content-store';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -155,9 +155,6 @@ La firma de este documento supone la aceptación íntegra de las presentes condi
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function uid() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
 
 // ─── Context shape ────────────────────────────────────────────────────────────
 
@@ -411,8 +408,9 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
   const [codigosDescuento, setCodigosDescuento] = useState<CodigoDescuento[]>([]);
   const [actividadReciente, setActividadReciente] = useState<ActividadReciente[]>([]);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
-  const [videosOnDemand, setVideosOnDemand] = useState<VideoOnDemand[]>([]);
-  const [postsComunidad, setPostsComunidad] = useState<PostComunidad[]>([]);
+  // Dominio Contenido y Comunidad extraído a su propio store (Fase B).
+  const content = useContentStore();
+  const { videosOnDemand, postsComunidad } = content;
   const [integraciones, setIntegraciones] = useState<Integracion[]>([]);
   const [mensajesEquipo, setMensajesEquipo] = useState<MensajeEquipo[]>([]);
   const [preferenciasSocio, setPreferenciasSocio] = useState<PreferenciasSocio[]>([]);
@@ -492,8 +490,8 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setCodigosDescuento(data.codigosDescuento);
       setActividadReciente(data.actividadReciente);
       setNotificaciones(data.notificaciones);
-      setVideosOnDemand(data.videosOnDemand);
-      setPostsComunidad(data.postsComunidad);
+      content.setVideosOnDemand(data.videosOnDemand);
+      content.setPostsComunidad(data.postsComunidad);
       setIntegraciones(data.integraciones ?? []);
       setMensajesEquipo(data.mensajesEquipo ?? []);
       setPreferenciasSocio(data.preferenciasSocio ?? []);
@@ -1850,53 +1848,8 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   // ── Videos on demand ──────────────────────────────────────────────────────────
 
-  function addVideo(fields: Omit<VideoOnDemand, 'id' | 'studioId' | 'vistas' | 'likes' | 'creadoEn'>) {
-    const nuevo: VideoOnDemand = {
-      id: `vid-${uid()}`,
-      studioId: getCurrentStudioId(),
-      vistas: 0,
-      likes: 0,
-      creadoEn: new Date().toISOString(),
-      ...fields,
-    };
-    setVideosOnDemand(prev => [nuevo, ...prev]);
-    dbInsertVideoOnDemand(nuevo);
-  }
-
-  function toggleVideo(videoId: string) {
-    const actual = videosOnDemand.find(v => v.id === videoId);
-    setVideosOnDemand(prev => prev.map(v =>
-      v.id === videoId ? { ...v, activo: !v.activo } : v
-    ));
-    if (actual) dbUpdateVideoOnDemand(videoId, { activo: !actual.activo });
-  }
-
-  // ── Comunidad ─────────────────────────────────────────────────────────────────
-
-  function addPost(texto: string) {
-    const nuevo: PostComunidad = {
-      id: `post-${uid()}`,
-      studioId: getCurrentStudioId(),
-      autorId: null,
-      autorNombre: 'Tentare',
-      autorInicial: 'TE',
-      texto,
-      likes: 0,
-      comentariosCount: 0,
-      fijado: false,
-      creadoEn: new Date().toISOString(),
-    };
-    setPostsComunidad(prev => [nuevo, ...prev]);
-    dbInsertPostComunidad(nuevo);
-  }
-
-  function toggleLikePost(postId: string) {
-    const actual = postsComunidad.find(p => p.id === postId);
-    setPostsComunidad(prev => prev.map(p =>
-      p.id === postId ? { ...p, likes: p.likes + 1 } : p
-    ));
-    if (actual) dbUpdatePostComunidad(postId, { likes: actual.likes + 1 });
-  }
+  // Vídeos on-demand y Comunidad: extraídos a useContentStore (Fase B).
+  // Se exponen en el value vía `content` (ver más abajo).
 
   // ── Integraciones ─────────────────────────────────────────────────────────────
 
@@ -2176,11 +2129,11 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     marcarNotificacionLeida,
     marcarTodasLeidas,
     videosOnDemand,
-    addVideo,
-    toggleVideo,
+    addVideo: content.addVideo,
+    toggleVideo: content.toggleVideo,
     postsComunidad,
-    addPost,
-    toggleLikePost,
+    addPost: content.addPost,
+    toggleLikePost: content.toggleLikePost,
     integraciones,
     upsertIntegracion,
     mensajesEquipo,
@@ -2267,8 +2220,8 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
       setCodigosDescuento(data.codigosDescuento);
       setActividadReciente(data.actividadReciente);
       setNotificaciones(data.notificaciones);
-      setVideosOnDemand(data.videosOnDemand);
-      setPostsComunidad(data.postsComunidad);
+      content.setVideosOnDemand(data.videosOnDemand);
+      content.setPostsComunidad(data.postsComunidad);
       setIntegraciones(data.integraciones ?? []);
       setMensajesEquipo(data.mensajesEquipo ?? []);
       setPreferenciasSocio(data.preferenciasSocio ?? []);
