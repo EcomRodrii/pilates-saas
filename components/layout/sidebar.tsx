@@ -74,11 +74,14 @@ const bottomNavItems = [
 const ESSENTIAL_HREFS = ['/dashboard', '/calendario', '/socios', '/transacciones', '/informes', '/configuracion'];
 
 export function useNavMode() {
-  const [mode, setMode] = useState<'esencial' | 'avanzado'>('avanzado');
+  // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
+  // ahoga entre 19 opciones, y en móvil la barra inferior cubre casi todo sin
+  // enterrar nada en "Más". Quien ya eligió "Todo" a mano se respeta.
+  const [mode, setMode] = useState<'esencial' | 'avanzado'>('esencial');
 
   useEffect(() => {
     const stored = localStorage.getItem('nav-mode');
-    if (stored === 'esencial') setMode('esencial');
+    if (stored === 'avanzado') setMode('avanzado');
   }, []);
 
   function setNavMode(next: 'esencial' | 'avanzado') {
