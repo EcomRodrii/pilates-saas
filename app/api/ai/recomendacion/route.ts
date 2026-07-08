@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
+import { verificarSesionStaff } from '@/lib/auth-server';
 
 const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   try {
     const body = await req.json() as RecomendacionInput;
     if (body.tipo !== 'REACTIVACION' && body.tipo !== 'CLASE_LLENA') {

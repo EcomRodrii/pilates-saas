@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useStudio } from '@/lib/studio-context';
+import { authHeader } from '@/lib/api-client';
 import {
   Inbox, Bell, MessageCircle, Send, Search, Check, CheckCheck,
   Info, AlertTriangle, CheckCircle, XCircle, Users, Heart, ChevronRight,
@@ -45,7 +46,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
       try {
         const res = await fetch('/api/emails/send', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
           body: JSON.stringify({ tipo: 'automatizacion', to: s.email, toName: s.nombre, data: { titulo: asunto, mensaje } }),
         });
         return res.ok;

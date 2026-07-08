@@ -5,8 +5,14 @@ import { ReciboEmail } from '@/lib/emails/recibo-template';
 import { BienvenidaEmail } from '@/lib/emails/bienvenida-template';
 import { ReservaEmail } from '@/lib/emails/reserva-template';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { verificarSesionStaff } from '@/lib/auth-server';
 
 export async function POST(req: NextRequest) {
+  // SEGURIDAD: solo staff autenticado. Evita que cualquiera use la cuenta de
+  // Resend del estudio para enviar correos (spam / phishing).
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) {
     return NextResponse.json({ error: 'Resend no configurado. Añade RESEND_API_KEY en .env.local' }, { status: 503 });

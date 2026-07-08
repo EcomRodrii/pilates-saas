@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { supabase } from '@/lib/supabase';
 import { dbUpdateRecibo, dbUpdateAutomationLog } from '@/lib/supabase-data';
+import { verificarSesionStaff } from '@/lib/auth-server';
 
 // Cobra un recibo pendiente usando la tarjeta ya guardada de la socia, sin
 // que ella tenga que hacer nada. Solo se llama cuando alguien del estudio
 // aprueba la propuesta de cobro con un toque desde Automatizaciones — nunca
 // se dispara en automático sin esa aprobación humana explícita.
 export async function POST(req: NextRequest) {
+  // SEGURIDAD: solo staff autenticado, y solo puede cobrar recibos de SU estudio.
+  // Sin esto, cualquiera podía cargar una tarjeta guardada pasando IDs.
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
     return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
@@ -15,6 +23,10 @@ export async function POST(req: NextRequest) {
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
 
   const body = await req.json() as { logId: string; reciboId: string; socioId: string; studioId: string };
+
+  if (body.studioId !== sesion.studioId) {
+    return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
+  }
 
   const [{ data: recibo, error: reciboError }, { data: socio, error: socioError }, { data: studio, error: studioError }] = await Promise.all([
     supabase.from('recibos').select('*').eq('id', body.reciboId).single(),

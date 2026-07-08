@@ -3,6 +3,7 @@
 import { use, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
+import { authHeader } from '@/lib/api-client';
 import { useRol } from '@/lib/permisos';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -398,7 +399,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     try {
       const res = await fetch('/api/ai/instructor-note', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({
           texto: aiNoteText,
           socioId: id,

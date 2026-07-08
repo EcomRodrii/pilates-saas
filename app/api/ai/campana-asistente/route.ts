@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { verificarSesionStaff } from '@/lib/auth-server';
 
 const client = new Anthropic();
 
@@ -22,6 +23,8 @@ Responde SIEMPRE con un JSON válido con esta estructura exacta:
 Responde SOLO con el JSON, sin texto adicional.`;
 
 export async function POST(req: NextRequest) {
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   try {
     const body = await req.json();
     const { objetivo, tipo, segmentos } = body as {

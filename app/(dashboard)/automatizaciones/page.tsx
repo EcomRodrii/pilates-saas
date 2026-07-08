@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useStudio } from '@/lib/studio-context';
+import { authHeader } from '@/lib/api-client';
 import {
   Bot, Zap, CheckCircle2, Clock, AlertTriangle, XCircle,
   Play, ToggleLeft, ToggleRight, ChevronRight, Loader2,
@@ -377,7 +378,7 @@ export default function AutomatizacionesPage() {
     try {
       const res = await fetch('/api/emails/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({
           tipo: 'automatizacion',
           to: socio.email,
