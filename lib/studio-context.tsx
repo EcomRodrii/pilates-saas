@@ -95,7 +95,7 @@ import type {
 import { enviarEmailCampana } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
-import { reglaActivaPara, yaOtorgado } from '@/lib/reward-engine';
+import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos } from '@/lib/reward-engine';
 import { calcularMetrica } from '@/lib/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/level-engine';
@@ -1513,9 +1513,10 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
 
   function otorgarCreditos(socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) {
     const studioId = getCurrentStudioId();
-    const regla = reglaActivaPara(rewardRules, trigger);
-    if (!regla || regla.creditos <= 0) return;
-    if (yaOtorgado(rewardActions, trigger, refId)) return;
+    // Decisión pura y testeada (reward-engine): regla activa con créditos > 0 y
+    // no otorgado ya para este refId (idempotencia).
+    const { otorgar, regla } = decidirOtorgarCreditos(rewardRules, rewardActions, trigger, refId);
+    if (!otorgar || !regla) return;
 
     const now = new Date().toISOString();
     const action: RewardAction = { id: `rwa-${uid()}`, studioId, socioId, trigger, refId, creadoEn: now };
@@ -1533,9 +1534,7 @@ export function StudioProvider({ children, studioIdOverride }: { children: React
     setCreditTransactions(prev => [transaccion, ...prev]);
     setMemberCredits(prev => {
       const existente = prev.find(m => m.socioId === socioId);
-      const actualizado: MemberCredits = existente
-        ? { ...existente, saldo: existente.saldo + regla.creditos, totalGanado: existente.totalGanado + regla.creditos, actualizadoEn: now }
-        : { socioId, studioId, saldo: regla.creditos, totalGanado: regla.creditos, totalCanjeado: 0, actualizadoEn: now };
+      const actualizado = aplicarGananciaCreditos(existente, socioId, studioId, regla.creditos, now);
       dbUpsertMemberCredits(actualizado);
       return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
     });
