@@ -21,6 +21,10 @@ export interface RowStudios {
   creado_en: string | null;
   stripe_account_id: string | null;
   google_calendar_email: string | null;
+  stripe_customer_id: string | null;
+  subscription_id: string | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
 }
 
 export interface RowSocios {

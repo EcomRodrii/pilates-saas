@@ -537,6 +537,14 @@ alter table automation_logs add column if not exists recibo_id text;
 -- ninguna API key.
 alter table studios add column if not exists stripe_account_id text;
 
+-- Migración: suscripción de la PLATAFORMA (el SaaS cobra al estudio vía Stripe
+-- Billing). Distinto de stripe_account_id, que es Connect (el estudio cobra a
+-- sus socias). Sin subscription_status activo, el producto queda bloqueado.
+alter table studios add column if not exists stripe_customer_id text;
+alter table studios add column if not exists subscription_id text;
+alter table studios add column if not exists subscription_status text;
+alter table studios add column if not exists current_period_end timestamptz;
+
 -- Migración: registro de auditoría (quién hizo cada acción) y chat de equipo
 alter table actividad_reciente add column if not exists actor_nombre text;
 
