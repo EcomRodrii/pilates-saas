@@ -1045,6 +1045,7 @@ create or replace function reservar_plaza(
   p_studio_id text, p_sesion_id text, p_socio_id text, p_reserva_id text
 ) returns table(estado text, posicion_espera int)
 language plpgsql security definer as $$
+#variable_conflict use_column
 declare
   v_aforo int;
   v_ocupadas int;
