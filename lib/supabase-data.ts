@@ -595,6 +595,9 @@ function mapFactura(r: RowFacturas): Factura {
     cuotaIVA: r.cuota_iva,
     total: r.total,
     verifactuHash: r.verifactu_hash ?? null,
+    verifactuPrevHash: r.verifactu_prev_hash ?? null,
+    verifactuTs: r.verifactu_ts ?? null,
+    verifactuSeq: r.verifactu_seq ?? null,
   } as Factura;
 }
 
@@ -1581,6 +1584,9 @@ function facturaToDb(fac: Factura) {
     cuota_iva: fac.cuotaIVA,
     total: fac.total,
     verifactu_hash: fac.verifactuHash ?? null,
+    verifactu_prev_hash: fac.verifactuPrevHash ?? null,
+    verifactu_ts: fac.verifactuTs ?? null,
+    verifactu_seq: fac.verifactuSeq ?? null,
   };
 }
 
@@ -1890,10 +1896,9 @@ export async function dbDeleteRecibo(id: string) {
   if (error) reportDbError('[dbDeleteRecibo]', error);
 }
 
-export async function dbInsertFactura(fac: Factura) {
-  const { error } = await supabase.from('facturas').insert(facturaToDb(fac));
-  if (error) reportDbError('[dbInsertFactura]', error);
-}
+// NOTA: las facturas se crean y sellan (huella Veri*Factu) en el servidor vía
+// /api/facturas/sellar. No insertar facturas directamente desde el cliente: se
+// saltaría la huella encadenada. facturaToDb se conserva para los backups.
 
 export async function dbInsertCita(cita: Cita) {
   const { error } = await supabase.from('citas').insert(citaToDb(cita));
