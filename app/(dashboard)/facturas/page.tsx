@@ -6,6 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import { Search, Download, FileText, TrendingUp, Euro, ChevronDown, ChevronRight, X, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
+import { qrSvgMarkup } from '@/lib/qr-svg';
 
 function fecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -151,12 +152,16 @@ export default function Facturas() {
     if (!f) return;
     const fmt = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const cotejo = urlCotejo(f);
+    const qrSvg = cotejo ? qrSvgMarkup(cotejo) : '';
     const bloqueVerifactu = f.verifactuHash ? `
-<div style="margin-top:32px;padding:16px;border:1px solid #E7E7E0;border-radius:8px;background:#FAFAF7;font-size:11px;color:#5A5A52">
-  <div style="font-weight:700;color:#1A1A1A;margin-bottom:6px">Sistema de facturación verificable (Veri*Factu)</div>
-  <div style="margin-bottom:4px">Huella: <span style="font-family:monospace;word-break:break-all">${f.verifactuHash}</span></div>
-  ${cotejo ? `<div>QR de cotejo AEAT: <a href="${cotejo}" style="color:#7AA80E;word-break:break-all">${cotejo}</a></div>` : ''}
-  ${entornoProduccion ? '' : '<div style="margin-top:6px;color:#B57A8E">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</div>'}
+<div style="margin-top:32px;padding:16px;border:1px solid #E7E7E0;border-radius:8px;background:#FAFAF7;font-size:11px;color:#5A5A52;display:flex;gap:16px;align-items:flex-start">
+  ${qrSvg ? `<div style="flex:0 0 96px;width:96px;height:96px">${qrSvg}</div>` : ''}
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:700;color:#1A1A1A;margin-bottom:6px">Sistema de facturación verificable (Veri*Factu)</div>
+    <div style="margin-bottom:4px">Huella: <span style="font-family:monospace;word-break:break-all">${f.verifactuHash}</span></div>
+    ${cotejo ? `<div>QR de cotejo AEAT: <a href="${cotejo}" style="color:#7AA80E;word-break:break-all">${cotejo}</a></div>` : ''}
+    ${entornoProduccion ? '' : '<div style="margin-top:6px;color:#B57A8E">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</div>'}
+  </div>
 </div>` : '';
     const html = `<!DOCTYPE html>
 <html lang="es">
@@ -556,25 +561,33 @@ ${bloqueVerifactu}
               </div>
 
               {previewFactura.verifactuHash && (
-                <div className="mt-6 rounded-xl border border-border bg-muted/40 p-4 text-xs">
-                  <div className="flex items-center gap-1.5 font-bold text-foreground mb-1.5">
-                    <ShieldCheck size={13} className="text-brand" />
-                    Sistema de facturación verificable (Veri*Factu)
-                  </div>
-                  <p className="text-muted-foreground break-all">
-                    Huella: <span className="font-mono text-foreground">{previewFactura.verifactuHash}</span>
-                  </p>
+                <div className="mt-6 rounded-xl border border-border bg-muted/40 p-4 text-xs flex gap-4 items-start">
                   {urlCotejo(previewFactura) && (
-                    <p className="text-muted-foreground break-all mt-1">
-                      QR de cotejo AEAT:{' '}
-                      <a href={urlCotejo(previewFactura)!} target="_blank" rel="noopener noreferrer" className="text-brand underline">
-                        {urlCotejo(previewFactura)}
-                      </a>
+                    <div
+                      className="shrink-0 w-24 h-24 bg-white rounded-md p-1"
+                      dangerouslySetInnerHTML={{ __html: qrSvgMarkup(urlCotejo(previewFactura)!) }}
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 font-bold text-foreground mb-1.5">
+                      <ShieldCheck size={13} className="text-brand" />
+                      Sistema de facturación verificable (Veri*Factu)
+                    </div>
+                    <p className="text-muted-foreground break-all">
+                      Huella: <span className="font-mono text-foreground">{previewFactura.verifactuHash}</span>
                     </p>
-                  )}
-                  {!entornoProduccion && (
-                    <p className="text-brand-secondary mt-1.5">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</p>
-                  )}
+                    {urlCotejo(previewFactura) && (
+                      <p className="text-muted-foreground break-all mt-1">
+                        QR de cotejo AEAT:{' '}
+                        <a href={urlCotejo(previewFactura)!} target="_blank" rel="noopener noreferrer" className="text-brand underline">
+                          {urlCotejo(previewFactura)}
+                        </a>
+                      </p>
+                    )}
+                    {!entornoProduccion && (
+                      <p className="text-brand-secondary mt-1.5">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</p>
+                    )}
+                  </div>
                 </div>
               )}
 
