@@ -106,7 +106,9 @@ export async function POST(req: NextRequest) {
       idEmisorFactura: nifEmisor,
       numSerieFactura: f.numeroCompleto,
       fechaExpedicionFactura: fechaExpedicionDesdeISO(f.fechaEmision),
-      tipoFactura: 'F1', // factura completa
+      // F1 = factura completa (receptor identificado con NIF); F2 = factura
+      // simplificada / ticket (venta de mostrador sin NIF del cliente).
+      tipoFactura: f.receptorNIF ? 'F1' : 'F2',
       cuotaTotal: f.cuotaIVA,
       importeTotal: f.total,
       fechaHoraHusoGenRegistro: ts,

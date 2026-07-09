@@ -621,7 +621,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       reciboId: recibo.id,
       numeroCompleto: nextFacturaNumero(currentFacturas),
       fechaEmision: new Date().toISOString(),
-      receptorNombre: socio ? `${socio.nombre} ${socio.apellidos}` : 'Desconocido',
+      receptorNombre: socio ? `${socio.nombre} ${socio.apellidos}` : 'Cliente de mostrador',
       receptorNIF: socio?.nif ?? null,
       baseImponible,
       tipoIVA: 21,
@@ -1350,10 +1350,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       addActividadReciente(
         'COBRO_MANUAL',
         `${actorNombre ?? 'Alguien'} marcó como cobrado "${recibo.concepto}" (${recibo.importe} €) de ${socio?.nombre ?? 'una socia'}`,
-        recibo.socioId,
-        `/socios/${recibo.socioId}`
+        recibo.socioId ?? undefined,
+        recibo.socioId ? `/socios/${recibo.socioId}` : undefined
       );
-      if (recibo.concepto.startsWith('Renovación')) {
+      if (recibo.concepto.startsWith('Renovación') && recibo.socioId) {
         otorgarCreditos(recibo.socioId, 'RENOVACION_PLAN', reciboId);
       }
     }
@@ -1487,8 +1487,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setVentasPOS(prev => [...prev, nueva]);
     dbInsertVentaPOS(nueva);
 
-    // When a named client buys, create a COBRADO recibo so it appears in Pagos/Facturas
-    if (fields.socioId && fields.total > 0) {
+    // Toda venta con importe genera un recibo COBRADO + su factura (aparece en
+    // Pagos/Facturas). Sin socia es una venta de mostrador → factura
+    // simplificada (F2, sin NIF); con socia y NIF, factura completa (F1).
+    if (fields.total > 0) {
       const concepto = fields.items.length > 0
         ? fields.items.map(i => i.nombre).join(', ')
         : 'Venta POS';
@@ -1496,7 +1498,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const nuevoRecibo: Recibo = {
         id: `rec-pos-${uid()}`,
         studioId: getCurrentStudioId(),
-        socioId: fields.socioId,
+        socioId: fields.socioId ?? null,
         suscripcionId: null,
         concepto,
         importe: fields.total,

@@ -207,7 +207,7 @@ export interface Reserva {
 export interface Recibo {
   id: string;
   studioId: string;
-  socioId: string;
+  socioId: string | null; // null = venta de mostrador sin socia (factura simplificada)
   suscripcionId: string | null;
   concepto: string;
   importe: number;
