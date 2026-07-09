@@ -182,12 +182,14 @@ export default function Pagos() {
 
   // ── Lookups ──────────────────────────────────────────────────────────────────
 
-  const socioName = useCallback((socioId: string) => {
+  const socioName = useCallback((socioId: string | null) => {
+    if (!socioId) return 'Cliente de mostrador';
     const s = socios.find(s => s.id === socioId);
     return s ? `${s.nombre} ${s.apellidos}` : 'Socia eliminada';
   }, [socios]);
 
-  const socioInitials = useCallback((socioId: string) => {
+  const socioInitials = useCallback((socioId: string | null) => {
+    if (!socioId) return '🛒'; // venta de mostrador (sin socia)
     const s = socios.find(s => s.id === socioId);
     if (!s) return '?';
     return `${s.nombre[0] ?? ''}${s.apellidos[0] ?? ''}`.toUpperCase();
@@ -337,7 +339,7 @@ export default function Pagos() {
 
   async function cobrarOnline(reciboId: string) {
     const r = recibos.find(x => x.id === reciboId);
-    if (!r || !studio) return;
+    if (!r || !studio || !r.socioId) return; // sin socia (venta de mostrador) no hay cobro online
     const socio = socios.find(s => s.id === r.socioId);
     setStripeLoading(reciboId);
     const result = await crearCheckoutStripe({
