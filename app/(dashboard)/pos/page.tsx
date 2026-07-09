@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ShoppingCart, X, Plus, Minus, Receipt, CheckCircle2, Search, Printer, ChevronRight } from 'lucide-react';
+import { ShoppingCart, X, Plus, Minus, Receipt, CheckCircle2, Search, Printer, ChevronRight, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -666,6 +666,19 @@ export default function POSPage() {
                   </button>
                 ))}
               </div>
+
+              {/* Aviso factura simplificada: por encima de 400 € sin socia,
+                  Hacienda exige factura completa con los datos del cliente. */}
+              {total > 400 && !clienteId && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                  <span>
+                    Venta de <strong>{total.toFixed(2)} €</strong> sin socia: se emitirá como <strong>ticket
+                    simplificado</strong>. Por encima de 400 € Hacienda exige factura completa — asigna una socia
+                    (con NIF) arriba para incluir sus datos.
+                  </span>
+                </div>
+              )}
 
               {/* Action buttons */}
               <div className="flex gap-2">
