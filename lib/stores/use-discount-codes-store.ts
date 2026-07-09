@@ -4,15 +4,11 @@
 // Store de dominio: Códigos de descuento (Fase B).
 //
 // Autocontenido: solo su propio estado + helpers de módulo. Sin hubs cruzados.
-//
-// NOTA (deuda preexistente preservada): estas acciones NO persisten en BD —
-// operan solo en memoria, igual que antes de la extracción. Cuando exista un
-// db* para codigos_descuento se añadirán aquí sin tocar los consumidores.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react';
 import { uid } from '@/lib/utils';
-import { getCurrentStudioId } from '@/lib/supabase-data';
+import { getCurrentStudioId, dbInsertCodigoDescuento, dbUpdateCodigoDescuento, dbDeleteCodigoDescuento } from '@/lib/supabase-data';
 import type { CodigoDescuento } from '@/lib/types';
 
 export function useDiscountCodesStore() {
@@ -27,16 +23,22 @@ export function useDiscountCodesStore() {
       ...fields,
     };
     setCodigosDescuento(prev => [nuevo, ...prev]);
+    dbInsertCodigoDescuento(nuevo);
   }
 
   function toggleCodigoDescuento(codigoId: string) {
-    setCodigosDescuento(prev => prev.map(c =>
-      c.id === codigoId ? { ...c, activo: !c.activo } : c
-    ));
+    let nuevoActivo = false;
+    setCodigosDescuento(prev => prev.map(c => {
+      if (c.id !== codigoId) return c;
+      nuevoActivo = !c.activo;
+      return { ...c, activo: nuevoActivo };
+    }));
+    dbUpdateCodigoDescuento(codigoId, { activo: nuevoActivo });
   }
 
   function deleteCodigoDescuento(id: string) {
     setCodigosDescuento(prev => prev.filter(c => c.id !== id));
+    dbDeleteCodigoDescuento(id);
   }
 
   return {

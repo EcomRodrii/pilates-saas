@@ -7,7 +7,7 @@ import {
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion,
-  dbInsertReserva, dbUpdateReserva,
+  dbCrearReservaAtomica, dbUpdateReserva,
   dbInsertRecibo, dbUpdateRecibo, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
   dbInsertVentaPOS,
@@ -1085,9 +1085,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return estado;
     }
 
+    const id = `res-${uid()}`;
+    const studioId = getCurrentStudioId();
     const nueva: Reserva = {
-      id: `res-${uid()}`,
-      studioId: getCurrentStudioId(),
+      id,
+      studioId,
       sesionId,
       socioId,
       estado,
@@ -1098,14 +1100,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     };
     const reservasActualizadas = [...reservas, nueva];
     setReservas(reservasActualizadas);
-    dbInsertReserva(nueva);
 
-    // La sesión del bono se descuenta al confirmar la plaza, no en el check-in.
-    if (estado === 'CONFIRMADA') consumirSesionBono(socioId);
+    // La inserción real pasa por una función Postgres atómica (bloquea la fila
+    // de la sesión mientras decide) — la estimación de arriba es solo para
+    // pintar algo al instante. Si dos altas concurrentes compiten por la
+    // última plaza, la decisión de la base de datos manda: se corrige el
+    // estado local y los efectos (bono/créditos/logros) se disparan sobre
+    // ese resultado autoritativo, no sobre la estimación.
+    dbCrearReservaAtomica({ id, studioId, sesionId, socioId }).then(real => {
+      if (!real) return;
+      if (real.estado !== estado) {
+        setReservas(prev => prev.map(r => r.id === id ? { ...r, estado: real.estado, posicionEspera: real.posicionEspera } : r));
+      }
+      if (real.estado === 'CONFIRMADA') consumirSesionBono(socioId);
+      if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
+      evaluarLogrosSocio(socioId, reservasActualizadas);
+      evaluarRetosSocio(socioId, reservasActualizadas);
+    });
 
-    if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
-    evaluarLogrosSocio(socioId, reservasActualizadas);
-    evaluarRetosSocio(socioId, reservasActualizadas);
     return estado;
   }
 

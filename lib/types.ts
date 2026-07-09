@@ -26,6 +26,7 @@ export interface Studio {
   slug: string | null;
   creadoEn: string;
   stripeAccountId: string | null;
+  googleCalendarEmail: string | null;
 }
 
 // ─── Integraciones por negocio ───────────────────────────────────────────────
@@ -188,6 +189,7 @@ export interface Sesion {
   cancelada: boolean;
   notas: string | null;
   precioPuntual: number | null;
+  googleEventId?: string | null;
 }
 
 export interface Reserva {

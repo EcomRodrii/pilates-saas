@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { uid } from '@/lib/utils';
-import { decidirReservaNueva, siguienteEnEspera } from '@/lib/booking-logic';
+import { siguienteEnEspera } from '@/lib/booking-logic';
 import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono } from '@/lib/bono-logic';
 import { validarCanje, aplicarCanjeCreditos, decidirOtorgarCreditos, aplicarGananciaCreditos } from '@/lib/reward-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
@@ -187,6 +187,7 @@ function mapStudio(r: RowStudios): Studio {
     slug: r.slug ?? null,
     creadoEn: r.creado_en,
     stripeAccountId: r.stripe_account_id ?? null,
+    googleCalendarEmail: r.google_calendar_email ?? null,
   } as Studio;
 }
 
@@ -548,6 +549,7 @@ function mapSesion(r: RowSesiones): Sesion {
     cancelada: r.cancelada,
     notas: r.notas ?? null,
     precioPuntual: r.precio_puntual ?? null,
+    googleEventId: r.google_event_id ?? null,
   } as Sesion;
 }
 
@@ -1204,23 +1206,20 @@ export async function crearReservaPublica(params: {
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
 
-  const [{ data: sesRow }, { data: resRows }] = await Promise.all([
-    admin.from('sesiones').select('*').eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle(),
-    admin.from('reservas').select('*').eq('studio_id', params.studioId),
-  ]);
-  if (!sesRow) return { error: 'Sesión no encontrada' as const };
-  const reservas = (resRows ?? []).map(mapReserva);
-  const { estado, posicionEspera } = decidirReservaNueva((sesRow as RowSesiones).aforo_maximo, params.sesionId, reservas);
+  const { data: row, error } = await admin.rpc('crear_reserva_atomica', {
+    p_id: `res-${uid()}`,
+    p_studio_id: params.studioId,
+    p_sesion_id: params.sesionId,
+    p_socio_id: params.socioId,
+  });
+  if (error) {
+    if (error.message.includes('SESION_NO_ENCONTRADA')) return { error: 'Sesión no encontrada' as const };
+    return { error: error.message };
+  }
 
-  const nueva = {
-    id: `res-${uid()}`, studio_id: params.studioId, sesion_id: params.sesionId, socio_id: params.socioId,
-    estado, spot_id: null, posicion_espera: posicionEspera, check_in_en: null, creado_en: new Date().toISOString(),
-  };
-  const { error } = await admin.from('reservas').insert(nueva);
-  if (error) return { error: error.message };
-
-  if (estado === 'CONFIRMADA') await consumirBonoServidor(admin, params.studioId, params.socioId);
-  return { ok: true as const, reserva: mapReserva(nueva as RowReservas) };
+  const reserva = mapReserva(row as RowReservas);
+  if (reserva.estado === 'CONFIRMADA') await consumirBonoServidor(admin, params.studioId, params.socioId);
+  return { ok: true as const, reserva };
 }
 
 // Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.
@@ -1656,6 +1655,38 @@ function notaInternaToDb(nota: NotaInterna) {
   };
 }
 
+function codigoDescuentoToDb(c: CodigoDescuento) {
+  return {
+    id: c.id,
+    studio_id: c.studioId ?? STUDIO_ID,
+    codigo: c.codigo,
+    descripcion: c.descripcion,
+    tipo: c.tipo,
+    valor: c.valor,
+    usos: c.usos,
+    usos_max: c.usosMax,
+    expira: c.expira,
+    activo: c.activo,
+    creado_en: c.creadoEn,
+  };
+}
+
+function notaProgresoToDb(n: NotaProgreso) {
+  return {
+    id: n.id,
+    studio_id: n.studioId ?? STUDIO_ID,
+    socio_id: n.socioId,
+    instructor_id: n.instructorId,
+    sesion_id: n.sesionId,
+    texto_libre: n.textoLibre,
+    progreso: n.progreso,
+    alertas: n.alertas,
+    plan_proxima_sesion: n.planProximaSesion,
+    ejercicios_casa: n.ejerciciosCasa,
+    creada_en: n.creadaEn,
+  };
+}
+
 function campanaToDb(c: Campana) {
   return {
     id: c.id,
@@ -1845,6 +1876,7 @@ export async function dbUpdateSesion(id: string, changes: Partial<Sesion>) {
   if ('cancelada' in changes) db.cancelada = changes.cancelada;
   if ('notas' in changes) db.notas = changes.notas;
   if ('precioPuntual' in changes) db.precio_puntual = changes.precioPuntual;
+  if ('googleEventId' in changes) db.google_event_id = changes.googleEventId;
   const { error } = await supabase.from('sesiones').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateSesion]', error);
 }
@@ -1857,6 +1889,28 @@ export async function dbDeleteSesion(id: string) {
 export async function dbInsertReserva(res: Reserva) {
   const { error } = await supabase.from('reservas').insert(reservaToDb(res));
   if (error) reportDbError('[dbInsertReserva]', error);
+}
+
+// Reserva atómica desde el panel (staff): misma función Postgres que usa el
+// portal público, para que dos altas concurrentes a la última plaza (dos
+// empleadas, o una empleada y una socia desde el portal) no sobrevendan el
+// aforo. Devuelve la decisión autoritativa de la base de datos (CONFIRMADA o
+// LISTA_ESPERA) — puede diferir de la estimación optimista calculada en el
+// cliente antes de esta llamada.
+export async function dbCrearReservaAtomica(params: {
+  id: string; studioId: string; sesionId: string; socioId: string;
+}): Promise<Reserva | null> {
+  const { data, error } = await supabase.rpc('crear_reserva_atomica', {
+    p_id: params.id,
+    p_studio_id: params.studioId,
+    p_sesion_id: params.sesionId,
+    p_socio_id: params.socioId,
+  });
+  if (error) {
+    reportDbError('[dbCrearReservaAtomica]', error);
+    return null;
+  }
+  return mapReserva(data as RowReservas);
 }
 
 export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
@@ -2251,6 +2305,29 @@ export async function dbUpdateAutomationRule(id: string, changes: Partial<Automa
   if (error) reportDbError('[dbUpdateAutomationRule]', error);
 }
 
+export async function dbInsertNotaProgreso(nota: NotaProgreso) {
+  const { error } = await supabase.from('notas_progreso').insert(notaProgresoToDb(nota));
+  if (error) reportDbError('[dbInsertNotaProgreso]', error);
+}
+
+export async function dbInsertCodigoDescuento(c: CodigoDescuento) {
+  const { error } = await supabase.from('codigos_descuento').insert(codigoDescuentoToDb(c));
+  if (error) reportDbError('[dbInsertCodigoDescuento]', error);
+}
+
+export async function dbUpdateCodigoDescuento(id: string, changes: Partial<CodigoDescuento>) {
+  const db: Record<string, unknown> = {};
+  if ('activo' in changes) db.activo = changes.activo;
+  if ('usos' in changes) db.usos = changes.usos;
+  const { error } = await supabase.from('codigos_descuento').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateCodigoDescuento]', error);
+}
+
+export async function dbDeleteCodigoDescuento(id: string) {
+  const { error } = await supabase.from('codigos_descuento').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteCodigoDescuento]', error);
+}
+
 export async function dbInsertNotaInterna(nota: NotaInterna) {
   const { error } = await supabase.from('notas_internas').insert(notaInternaToDb(nota));
   if (error) reportDbError('[dbInsertNotaInterna]', error);
@@ -2465,6 +2542,57 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
 export async function dbSetStripeAccountId(studioId: string, stripeAccountId: string | null) {
   const { error } = await supabase.from('studios').update({ stripe_account_id: stripeAccountId }).eq('id', studioId);
   if (error) reportDbError('[dbSetStripeAccountId]', error);
+}
+
+// Igual que el callback de Stripe: sin sesión de usuario, así que hace falta
+// la service role (el cliente anon no tiene permiso de escritura sobre
+// `studios` fuera de una sesión autenticada).
+export async function dbSetGoogleCalendarEmail(studioId: string, email: string | null) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('studios').update({ google_calendar_email: email }).eq('id', studioId);
+  if (error) reportDbError('[dbSetGoogleCalendarEmail]', error);
+}
+
+export interface GoogleCalendarCredenciales {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+}
+
+export async function dbGetGoogleCalendarCredenciales(studioId: string): Promise<GoogleCalendarCredenciales | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from('integracion_credenciales')
+    .select('access_token, refresh_token, expires_at')
+    .eq('studio_id', studioId)
+    .eq('provider', 'google_calendar')
+    .maybeSingle();
+  if (error) { reportDbError('[dbGetGoogleCalendarCredenciales]', error); return null; }
+  if (!data || !data.refresh_token) return null;
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+}
+
+export async function dbSaveGoogleCalendarCredenciales(studioId: string, c: GoogleCalendarCredenciales) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').upsert({
+    studio_id: studioId,
+    provider: 'google_calendar',
+    access_token: c.accessToken,
+    refresh_token: c.refreshToken,
+    expires_at: c.expiresAt,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'studio_id,provider' });
+  if (error) reportDbError('[dbSaveGoogleCalendarCredenciales]', error);
+}
+
+export async function dbDeleteGoogleCalendarCredenciales(studioId: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'google_calendar');
+  if (error) reportDbError('[dbDeleteGoogleCalendarCredenciales]', error);
 }
 
 function slugify(nombre: string): string {
