@@ -166,6 +166,9 @@ export interface RowFacturas {
   cuota_iva: number | null;
   total: number | null;
   verifactu_hash: string | null;
+  verifactu_prev_hash: string | null;
+  verifactu_ts: string | null;
+  verifactu_seq: number | null;
 }
 
 export interface RowCitas {
@@ -566,6 +569,9 @@ export interface RowSoporteSolicitudes {
   contacto: string | null;
   creado_en: string;
 }
+
+// NOTA: usuarios no está en schema.sql (lo consume supabase-data). Se mantiene a
+// mano hasta reconciliar el modelo; el generador no lo produce.
 export interface RowUsuarios {
   id: string;
   studio_id: string | null;

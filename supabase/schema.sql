@@ -173,8 +173,21 @@ create table if not exists facturas (
   tipo_iva numeric(5,2) default 21,
   cuota_iva numeric(10,2),
   total numeric(10,2),
-  verifactu_hash text
+  verifactu_hash text,
+  -- Veri*Factu: cadena de huellas encadenadas por estudio (art. 7 RD 1007/2023).
+  -- prev_hash = huella del registro anterior de la cadena; ts = FechaHoraHusoGen
+  -- exacta usada en la huella (imprescindible para reverificar); seq = orden
+  -- monotónico por estudio para localizar el extremo de la cadena.
+  verifactu_prev_hash text,
+  verifactu_ts text,
+  verifactu_seq bigint
 );
+
+-- Migración idempotente para estudios existentes (la tabla ya existía sin estas
+-- columnas). Ejecutable sobre la BD de producción sin recrear la tabla.
+alter table facturas add column if not exists verifactu_prev_hash text;
+alter table facturas add column if not exists verifactu_ts text;
+alter table facturas add column if not exists verifactu_seq bigint;
 
 -- ─── Citas privadas ───────────────────────────────────────────────────────────
 create table if not exists citas (
