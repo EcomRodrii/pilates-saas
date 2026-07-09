@@ -390,32 +390,28 @@ export default function POSPage() {
       </div>
 
       {/* Daily cash summary bar */}
-      <div className="shrink-0 px-6 py-2 border-b border-border bg-card flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
-          <span>
-            <span className="font-semibold text-foreground">Hoy:</span>{' '}
-            <span className="font-semibold text-foreground">{ventasHoy.length}</span>{' '}
-            {ventasHoy.length === 1 ? 'venta' : 'ventas'}
-          </span>
-          <span className="text-border">·</span>
-          <span>
-            <span className="font-semibold text-[#059669]">{totalHoy.toFixed(2)} €</span>{' '}
-            total
-          </span>
-          <span className="text-border">·</span>
-          <span className="hidden sm:inline">
-            <span className="font-medium text-[#059669]">{efectivoHoy.toFixed(2)} €</span>
-            {' '}efectivo
-          </span>
-          <span className="hidden sm:inline text-border">/</span>
-          <span className="hidden sm:inline">
-            <span className="font-medium text-[#1D4ED8]">{tarjetaHoy.toFixed(2)} €</span>
-            {' '}tarjeta
-          </span>
+      <div className="shrink-0 px-4 sm:px-6 py-2.5 border-b border-border bg-card flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto">
+          <div className="shrink-0 rounded-lg border border-border bg-background px-3 py-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Ventas hoy</p>
+            <p className="text-[15px] font-bold text-foreground leading-tight mt-0.5">{ventasHoy.length}</p>
+          </div>
+          <div className="shrink-0 rounded-lg border border-border bg-background px-3 py-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Total caja</p>
+            <p className="text-[15px] font-bold text-[#059669] leading-tight mt-0.5">{totalHoy.toFixed(2)} €</p>
+          </div>
+          <div className="shrink-0 hidden sm:block rounded-lg border border-border bg-background px-3 py-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Efectivo</p>
+            <p className="text-[15px] font-bold text-[#059669] leading-tight mt-0.5">{efectivoHoy.toFixed(2)} €</p>
+          </div>
+          <div className="shrink-0 hidden sm:block rounded-lg border border-border bg-background px-3 py-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Tarjeta</p>
+            <p className="text-[15px] font-bold text-[#1D4ED8] leading-tight mt-0.5">{tarjetaHoy.toFixed(2)} €</p>
+          </div>
         </div>
         <button
           onClick={() => setShowCerrarCaja(true)}
-          className="shrink-0 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+          className="shrink-0 px-3 py-2 rounded-lg border border-border text-[12px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
         >
           Cerrar caja
         </button>
@@ -530,9 +526,14 @@ export default function POSPage() {
             )}
 
             {carrito.length === 0 && !showSuccess ? (
-              <div className="flex flex-col items-center justify-center h-full text-center gap-2 text-muted-foreground">
-                <ShoppingCart size={28} strokeWidth={1.5} />
-                <p className="text-[13px]">Añade productos del catálogo</p>
+              <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-muted-foreground px-6">
+                <div className="w-14 h-14 rounded-full bg-background border border-border flex items-center justify-center">
+                  <ShoppingCart size={24} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <p className="text-[14px] font-medium text-foreground">Ticket vacío</p>
+                  <p className="text-[12px] mt-1">Toca un producto del catálogo para empezar la venta.</p>
+                </div>
               </div>
             ) : (
               carrito.map(item => (
@@ -570,10 +571,11 @@ export default function POSPage() {
             )}
           </div>
 
-          {/* Bottom panel */}
-          {!showSuccess && (
+          {/* Bottom panel — solo cuando hay algo que cobrar */}
+          {!showSuccess && carrito.length > 0 && (
             <div className="shrink-0 border-t border-border px-4 py-3 space-y-3">
               {/* Client selector */}
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">¿A nombre de quién?</p>
               <div className="relative">
                 {clienteSeleccionado ? (
                   <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background">
@@ -643,13 +645,14 @@ export default function POSPage() {
                     <span>−{descuentoAmt.toFixed(2)} €</span>
                   </div>
                 )}
-                <div className="flex justify-between font-semibold text-foreground text-[15px] pt-1 border-t border-border">
-                  <span>Total</span>
-                  <span>{total.toFixed(2)} €</span>
+                <div className="flex items-center justify-between rounded-lg bg-background border border-border px-3 py-2 mt-1">
+                  <span className="text-[13px] font-semibold text-foreground">Total</span>
+                  <span className="text-[20px] font-extrabold text-foreground tabular-nums">{total.toFixed(2)} €</span>
                 </div>
               </div>
 
               {/* Payment method */}
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Método de pago</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 {METODOS.map(m => (
                   <button
@@ -692,13 +695,13 @@ export default function POSPage() {
                   onClick={cobrar}
                   disabled={carrito.length === 0}
                   className={cn(
-                    'flex-[2] py-2 rounded-lg text-[13px] font-semibold transition-colors',
+                    'flex-[2] py-3 rounded-lg text-[14px] font-bold transition-colors flex items-center justify-center gap-2',
                     carrito.length > 0
                       ? 'bg-brand text-brand-foreground hover:brightness-95'
                       : 'bg-border text-muted-foreground cursor-not-allowed'
                   )}
                 >
-                  Cobrar {carrito.length > 0 ? `${total.toFixed(2)} €` : ''}
+                  <Receipt size={15} /> Cobrar {total.toFixed(2)} €
                 </button>
               </div>
             </div>
