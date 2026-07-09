@@ -8,13 +8,17 @@ import {
   construirCadenaAnulacion,
   calcularHuellaAlta,
   sha256Hex,
+  type RegistroAltaVerifactu,
+} from './verifactu.ts';
+import {
   formatImporte,
   formatFechaExpedicion,
+  fechaExpedicionDesdeISO,
+  fechaHoraHusoMadrid,
   urlQrVerifactu,
   QR_ENDPOINT_PRODUCCION,
   QR_ENDPOINT_PRUEBAS,
-  type RegistroAltaVerifactu,
-} from './verifactu.ts';
+} from './verifactu-qr.ts';
 
 // Registro de ejemplo con los MISMOS valores que el documento oficial de la AEAT.
 const ejemplo: RegistroAltaVerifactu = {
@@ -93,6 +97,18 @@ test('formatImporte usa punto y 2 decimales', () => {
 test('formatFechaExpedicion devuelve dd-mm-yyyy', () => {
   assert.equal(formatFechaExpedicion(new Date(2024, 0, 1)), '01-01-2024');
   assert.equal(formatFechaExpedicion(new Date(2026, 11, 9)), '09-12-2026');
+});
+
+test('fechaExpedicionDesdeISO convierte ISO a dd-mm-yyyy sin desplazar por huso', () => {
+  assert.equal(fechaExpedicionDesdeISO('2024-01-01'), '01-01-2024');
+  assert.equal(fechaExpedicionDesdeISO('2026-07-09T22:30:00.000Z'), '09-07-2026');
+});
+
+test('fechaHoraHusoMadrid usa +02:00 en verano y +01:00 en invierno', () => {
+  // 09-jul-2026 12:00Z → 14:00 en Madrid, huso de verano +02:00.
+  assert.equal(fechaHoraHusoMadrid(new Date('2026-07-09T12:00:00Z')), '2026-07-09T14:00:00+02:00');
+  // 09-ene-2026 12:00Z → 13:00 en Madrid, huso de invierno +01:00.
+  assert.equal(fechaHoraHusoMadrid(new Date('2026-01-09T12:00:00Z')), '2026-01-09T13:00:00+01:00');
 });
 
 // ── QR ────────────────────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Veri*Factu — motor de huella (SHA-256 encadenado) y QR (Orden HAC/1177/2024,
-// art. 7 RD 1007/2023). Lógica pura y determinista, verificable contra el
-// ejemplo oficial de la AEAT (ver verifactu.test.ts). Se ejecuta en servidor
-// (usa node:crypto); NO importar en cliente.
+// Veri*Factu — motor de huella (SHA-256 encadenado). Lógica pura y determinista,
+// verificable contra el ejemplo oficial de la AEAT (ver verifactu.test.ts). Usa
+// node:crypto → SOLO servidor. Los formateadores, fechas y el QR (cliente-seguro)
+// viven en verifactu-qr.ts y se re-exportan aquí por comodidad.
 //
 // ⚠️ AVISO: esto es el CIMIENTO (registro + huella + QR). NO incluye el envío a
 // la AEAT ni la firma XAdES (modalidad No-Veri*Factu). Antes de producción, el
@@ -13,21 +13,12 @@
 
 import { createHash } from 'node:crypto';
 
-// Endpoints oficiales del servicio de cotejo (QR) de la AEAT.
-export const QR_ENDPOINT_PRODUCCION = 'https://www2.agenciatributaria.es/wlpl/TIKE-CONT/ValidarQR';
-export const QR_ENDPOINT_PRUEBAS = 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR';
-
 // Importe con punto decimal y 2 decimales (formato de la cadena de huella AEAT).
-export function formatImporte(n: number): string {
+// Se duplica (una línea) para que este módulo no tenga imports relativos y sea
+// resoluble tanto por el runner de Node como por el bundler. Los formateadores
+// cliente-seguros y el QR viven en verifactu-qr.ts.
+function formatImporte(n: number): string {
   return n.toFixed(2);
-}
-
-// Fecha de expedición en formato dd-mm-yyyy exigido por la AEAT.
-export function formatFechaExpedicion(fecha: Date): string {
-  const dd = String(fecha.getDate()).padStart(2, '0');
-  const mm = String(fecha.getMonth() + 1).padStart(2, '0');
-  const yyyy = fecha.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
 }
 
 // ── Registro de ALTA ─────────────────────────────────────────────────────────
@@ -88,25 +79,4 @@ export function calcularHuellaAlta(r: RegistroAltaVerifactu, huellaAnterior: str
 
 export function calcularHuellaAnulacion(r: RegistroAnulacionVerifactu, huellaAnterior: string): string {
   return sha256Hex(construirCadenaAnulacion(r, huellaAnterior));
-}
-
-// ── Código QR ────────────────────────────────────────────────────────────────
-export interface DatosQrVerifactu {
-  nif: string;
-  numSerie: string;      // número + serie
-  fecha: string;         // dd-mm-yyyy
-  importeTotal: number;
-}
-
-// URL HTTPS del QR de cotejo de la AEAT. La AEAT admite '/' sin codificar en
-// numserie (así aparece en su ejemplo oficial); el resto de valores se codifican.
-export function urlQrVerifactu(d: DatosQrVerifactu, opciones?: { produccion?: boolean }): string {
-  const base = opciones?.produccion === false ? QR_ENDPOINT_PRUEBAS : QR_ENDPOINT_PRODUCCION;
-  const enc = (v: string) => encodeURIComponent(v).replace(/%2F/g, '/');
-  const qs =
-    `nif=${enc(d.nif)}` +
-    `&numserie=${enc(d.numSerie)}` +
-    `&fecha=${enc(d.fecha)}` +
-    `&importe=${formatImporte(d.importeTotal)}`;
-  return `${base}?${qs}`;
 }
