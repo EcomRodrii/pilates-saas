@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { registrarSociaPublica, actualizarSociaPublica, guardarPreferenciasPublica } from '@/lib/supabase-data';
+import { registrarSociaPublica, actualizarSociaPublica, guardarPreferenciasPublica, socioAutenticado } from '@/lib/supabase-data';
+import { verificarUsuarioSupabase } from '@/lib/auth-server';
 
 // Operaciones de la propia socia desde el portal/reserva (service-role +
 // validación). Sustituye las escrituras anónimas directas sobre socios/prefs.
@@ -42,7 +43,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(r);
     }
     if (body.accion === 'preferencias') {
-      const r = await guardarPreferenciasPublica(common);
+      // Preferencias: solo desde el portal con sesión real de socia (JWT). La
+      // identidad sale del token, no del body (que aquí se ignora).
+      const user = await verificarUsuarioSupabase(req);
+      if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      const sid = await socioAutenticado(user.userId, body.studioId);
+      if (!sid) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      const r = await guardarPreferenciasPublica({ studioId: body.studioId, socioId: sid, email: user.email, cambios: body.cambios ?? {} });
       if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
       return NextResponse.json(r);
     }

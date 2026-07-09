@@ -367,10 +367,13 @@ export default function ReservarPage() {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // El importe/concepto NO se envían: los deriva el servidor del plan en
+        // la BD (validando que sea de este estudio y esté activo). Ver
+        // app/api/stripe/checkout/route.ts.
         body: JSON.stringify({
-          reciboId: `portal-${plan.id}-${Date.now()}`,
-          concepto: plan.nombre,
-          importe: plan.precio,
+          studioId: studio?.id,
+          planId: plan.id,
+          socioId: socia?.socioId ?? null,
           socioEmail: socia?.email ?? null,
           socioNombre: socia?.nombre ?? 'Socia',
         }),

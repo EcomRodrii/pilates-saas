@@ -441,6 +441,14 @@ alter table instructores add column if not exists auth_user_id uuid references a
 -- Migración: multi-tenancy — cada negocio tiene su propia propietaria
 alter table studios add column if not exists owner_auth_user_id uuid references auth.users(id) on delete set null;
 
+-- Migración: portal de socias con Supabase Auth (login por magic link / OTP).
+-- Vincula cada socia a su usuario de auth. El vínculo se hace en el primer
+-- login por email (claim), igual que instructores.auth_user_id para el equipo.
+-- NO es único global: un mismo email puede ser socia de varios estudios, así
+-- que el vínculo es por (socia de un estudio) → usuario de auth.
+alter table socios add column if not exists auth_user_id uuid references auth.users(id) on delete set null;
+create index if not exists idx_socios_auth_user_id on socios(auth_user_id);
+
 -- Migración: slug público para /reservar/[slug], /kiosk/[slug], /portal/[slug]
 alter table studios add column if not exists slug text unique;
 update studios set slug = 'tentare' where id = 'studio-1' and slug is null;

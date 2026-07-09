@@ -92,7 +92,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, authHeader, cargarDatosPublicos, leerSociaLocal } from '@/lib/api-client';
+import { enviarEmailCampana, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
@@ -801,7 +801,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
   async function postPublico(url: string, body: Record<string, unknown>) {
     try {
-      await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      // Si hay sesión de socia (portal, magic link) se manda su Bearer: los
+      // endpoints que ya exigen sesión real (canje, preferencias) derivan la
+      // identidad del JWT en vez de fiarse del body. En /reservar (sin sesión
+      // Supabase) no se manda, y esos endpoints siguen con el modelo antiguo.
+      const auth = await portalAuthHeader();
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...auth },
+        body: JSON.stringify(body),
+      });
     } finally {
       cargarPublico(); // re-sincroniza el estado desde el servidor
     }

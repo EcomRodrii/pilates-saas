@@ -1,12 +1,21 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
+import { supabasePortal } from '@/lib/supabase-portal';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
 // si no hay sesión (la ruta responderá 401).
 export async function authHeader(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
+
+// Cabecera Authorization con el JWT de la SOCIA (portal, magic link). La validan
+// verificarUsuarioSupabase + socioAutenticado en los endpoints públicos que ya
+// exigen sesión real. Devuelve {} si no hay sesión de socia.
+export async function portalAuthHeader(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabasePortal.auth.getSession();
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 

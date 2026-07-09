@@ -1261,6 +1261,48 @@ export async function resolverLoginSocia(slug: string, email: string) {
   return { socioId: data.id, nombre: `${data.nombre} ${data.apellidos}`.trim(), email: data.email };
 }
 
+// Resuelve la socia de un usuario autenticado con Supabase Auth (portal con
+// magic link / OTP). A diferencia de resolverLoginSocia —que solo comprueba que
+// el email exista, sin ninguna prueba de control—, aquí el usuario YA demostró
+// que controla ese email al validar el JWT. Vincula la fila de la socia a su
+// usuario de auth la primera vez (claim), igual que el equipo con instructores.
+// Devuelve la misma forma que resolverLoginSocia para poder sustituirlo 1:1.
+export async function resolverSociaAutenticada(slug: string, authUserId: string, email: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const { data: studio } = await admin.from('studios').select('id').eq('slug', slug).maybeSingle();
+  if (!studio) return null;
+
+  // 1) Ya vinculada: la socia de este estudio cuyo auth_user_id es este usuario.
+  const { data: linked } = await admin
+    .from('socios').select('id, nombre, apellidos, email')
+    .eq('auth_user_id', authUserId).eq('studio_id', studio.id).maybeSingle();
+  if (linked) {
+    return { socioId: linked.id, nombre: `${linked.nombre} ${linked.apellidos}`.trim(), email: linked.email };
+  }
+
+  // 2) Claim: una socia de este estudio con este email y aún sin vincular. El
+  //    email del JWT es de confianza (Supabase lo verificó), así que enlazamos.
+  const { data: claimable } = await admin
+    .from('socios').select('id, nombre, apellidos, email')
+    .ilike('email', email.trim()).eq('studio_id', studio.id).is('auth_user_id', null).maybeSingle();
+  if (!claimable) return null;
+  await admin.from('socios').update({ auth_user_id: authUserId }).eq('id', claimable.id);
+  return { socioId: claimable.id, nombre: `${claimable.nombre} ${claimable.apellidos}`.trim(), email: claimable.email };
+}
+
+// Devuelve el id de la socia vinculada a un usuario de Supabase Auth dentro de
+// un estudio (por auth_user_id), o null. Se usa en los endpoints que exigen
+// sesión real de socia: la identidad sale del JWT verificado, NUNCA del body.
+export async function socioAutenticado(authUserId: string, studioId: string): Promise<string | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data } = await admin
+    .from('socios').select('id')
+    .eq('auth_user_id', authUserId).eq('studio_id', studioId).maybeSingle();
+  return data?.id ?? null;
+}
+
 // Registra una socia nueva desde el portal/reserva (alta pública). Valida que
 // el estudio existe; el id lo genera el cliente (primera reserva).
 export async function registrarSociaPublica(params: {
