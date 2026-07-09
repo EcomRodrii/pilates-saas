@@ -62,6 +62,24 @@ async function mockBackend(page: Page, opts: {
   sessionStatus?: number;
   onCheckout?: (body: unknown) => void;
 } = {}) {
+  // Resolución del slug → estudio (studio-slug-gate hace un
+  // supabase.from('studios') real, cross-origin a Supabase). Sin este mock la
+  // E2E depende de una Supabase real y de que 'tentare' exista (rompe en CI con
+  // env dummy). Devolvemos el estudio del fixture y respondemos el preflight CORS.
+  await page.route('**/rest/v1/studios*', route => {
+    if (route.request().method() === 'OPTIONS') {
+      return route.fulfill({ status: 204, headers: {
+        'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*',
+      } });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ id: 'studio-test' }),
+    });
+  });
+
   await page.route('**/api/public/studio-data', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(studioDataFixture(opts.socia ?? undefined)) }));
 
