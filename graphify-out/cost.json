@@ -1,0 +1,13 @@
+{
+  "runs": [
+    {
+      "root": "/Users/marcosrocarodriguez/Desktop/o/pilates-saas",
+      "files": 184,
+      "input_tokens": 559000,
+      "output_tokens": 0,
+      "note": "approximate - summed from subagent usage.subagent_tokens, precise input/output split unavailable"
+    }
+  ],
+  "total_input_tokens": 559000,
+  "total_output_tokens": 0
+}

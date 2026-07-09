@@ -21,6 +21,15 @@ const TABS: { label: string; value: TabCategoria }[] = [
   { label: 'Producto', value: 'PRODUCTO' },
   { label: 'Otro', value: 'OTRO' },
 ];
+// Color por categoría para las fichas del catálogo (acento + etiqueta).
+const CAT_STYLE: Record<string, { accent: string; tagBg: string; tagText: string }> = {
+  SESION:   { accent: '#1D9E75', tagBg: '#E1F5EE', tagText: '#0F6E56' },
+  PACK:     { accent: '#7F77DD', tagBg: '#EEEDFE', tagText: '#534AB7' },
+  PRODUCTO: { accent: '#EF9F27', tagBg: '#FAEEDA', tagText: '#854F0B' },
+  OTRO:     { accent: '#888780', tagBg: '#F1EFE8', tagText: '#5F5E5A' },
+};
+const catStyle = (c: string) => CAT_STYLE[c] ?? CAT_STYLE.OTRO;
+
 const METODOS: { label: string; value: MetodoPago }[] = [
   { label: 'Efectivo', value: 'EFECTIVO' },
   { label: 'Tarjeta', value: 'TARJETA' },
@@ -477,29 +486,41 @@ export default function POSPage() {
 
           {/* Grid */}
           <div className="flex-1 overflow-y-auto px-4 pb-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              {productosFiltrados.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => addToCart(p)}
-                  className="bg-card border border-border rounded-xl p-3 text-left hover:border-foreground hover:shadow-sm transition-all group"
-                >
-                  <p className="text-[13px] font-medium text-foreground leading-snug mb-2 line-clamp-2">
-                    {p.nombre}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-semibold text-foreground">
-                      {p.precio.toFixed(2)} €
+            <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-2.5">
+              {productosFiltrados.map(p => {
+                const cs = catStyle(p.categoria);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => addToCart(p)}
+                    style={{ borderLeftColor: cs.accent }}
+                    className="bg-card border border-border border-l-[3px] rounded-r-xl rounded-l-sm p-3 text-left hover:border-foreground hover:shadow-sm transition-all group flex flex-col"
+                  >
+                    <span
+                      className="inline-block self-start text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 mb-1.5"
+                      style={{ backgroundColor: cs.tagBg, color: cs.tagText }}
+                    >
+                      {p.categoria}
                     </span>
-                    <span className="w-6 h-6 rounded-full bg-background group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center transition-colors">
-                      <Plus size={12} />
-                    </span>
-                  </div>
-                  <span className="mt-1.5 inline-block text-[10px] text-muted-foreground">{p.categoria}</span>
-                </button>
-              ))}
+                    <p className="text-[13px] font-medium text-foreground leading-snug mb-2 line-clamp-2 flex-1">
+                      {p.nombre}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[15px] font-bold text-foreground tabular-nums">
+                        {p.precio.toFixed(2)} €
+                      </span>
+                      <span
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105"
+                        style={{ backgroundColor: cs.tagBg, color: cs.tagText }}
+                      >
+                        <Plus size={14} />
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
               {productosFiltrados.length === 0 && (
-                <div className="col-span-3 py-12 text-center text-[13px] text-muted-foreground">
+                <div className="col-span-full py-12 text-center text-[13px] text-muted-foreground">
                   Sin resultados
                 </div>
               )}
