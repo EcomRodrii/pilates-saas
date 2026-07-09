@@ -188,6 +188,10 @@ function mapStudio(r: RowStudios): Studio {
     creadoEn: r.creado_en,
     stripeAccountId: r.stripe_account_id ?? null,
     googleCalendarEmail: r.google_calendar_email ?? null,
+    stripeCustomerId: r.stripe_customer_id ?? null,
+    subscriptionId: r.subscription_id ?? null,
+    subscriptionStatus: r.subscription_status ?? null,
+    currentPeriodEnd: r.current_period_end ?? null,
   } as Studio;
 }
 
