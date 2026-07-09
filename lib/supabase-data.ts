@@ -1206,20 +1206,24 @@ export async function crearReservaPublica(params: {
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
 
-  const { data: row, error } = await admin.rpc('crear_reserva_atomica', {
-    p_id: `res-${uid()}`,
-    p_studio_id: params.studioId,
-    p_sesion_id: params.sesionId,
-    p_socio_id: params.socioId,
+  // Aforo transaccional: la decisión (CONFIRMADA vs LISTA_ESPERA) y la inserción
+  // ocurren atómicamente en la BD (SELECT ... FOR UPDATE en la sesión), no en
+  // JS — evita la sobreventa por reservas concurrentes de la última plaza.
+  const reservaId = `res-${uid()}`;
+  const { data, error } = await admin.rpc('reservar_plaza', {
+    p_studio_id: params.studioId, p_sesion_id: params.sesionId,
+    p_socio_id: params.socioId, p_reserva_id: reservaId,
   });
   if (error) {
+    if (error.message.includes('YA_RESERVADA')) return { error: 'Ya tienes una reserva en esta clase' as const };
     if (error.message.includes('SESION_NO_ENCONTRADA')) return { error: 'Sesión no encontrada' as const };
     return { error: error.message };
   }
+  const row = Array.isArray(data) ? data[0] : data;
+  const estado: string = row?.estado ?? 'CONFIRMADA';
 
-  const reserva = mapReserva(row as RowReservas);
-  if (reserva.estado === 'CONFIRMADA') await consumirBonoServidor(admin, params.studioId, params.socioId);
-  return { ok: true as const, reserva };
+  if (estado === 'CONFIRMADA') await consumirBonoServidor(admin, params.studioId, params.socioId);
+  return { ok: true as const, estado, reservaId };
 }
 
 // Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.
@@ -1231,22 +1235,20 @@ export async function cancelarReservaPublica(params: {
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
 
-  const { data: resRow } = await admin
-    .from('reservas').select('*').eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
-  if (!resRow || resRow.socio_id !== params.socioId) return { error: 'No autorizado' as const };
-  const cancelada = mapReserva(resRow as RowReservas);
-
-  await admin.from('reservas').update({ estado: 'CANCELADA' }).eq('id', params.reservaId);
-  if (cancelada.estado === 'CONFIRMADA') await devolverBonoServidor(admin, params.studioId, params.socioId);
-
-  // Promoción de lista de espera (menor posición).
-  const { data: allRows } = await admin.from('reservas').select('*').eq('studio_id', params.studioId);
-  const actuales = (allRows ?? []).map(mapReserva);
-  const espera = siguienteEnEspera(cancelada.sesionId, actuales);
-  if (espera) {
-    await admin.from('reservas').update({ estado: 'CONFIRMADA', posicion_espera: null }).eq('id', espera.id);
-    await consumirBonoServidor(admin, params.studioId, espera.socioId);
+  // Cancelación + promoción de la lista de espera, atómicas en la BD.
+  const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
+    p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
+  });
+  if (error) {
+    if (error.message.includes('NO_AUTORIZADO')) return { error: 'No autorizado' as const };
+    if (error.message.includes('RESERVA_NO_ENCONTRADA')) return { error: 'Reserva no encontrada' as const };
+    return { error: error.message };
   }
+  const row = Array.isArray(data) ? data[0] : data;
+  // Bonos fuera de la transacción de aforo: se devuelve a quien cancela (si era
+  // confirmada) y se consume a quien asciende de la lista de espera.
+  if (row?.era_confirmada) await devolverBonoServidor(admin, params.studioId, params.socioId);
+  if (row?.promovida_socio_id) await consumirBonoServidor(admin, params.studioId, row.promovida_socio_id as string);
   return { ok: true as const };
 }
 
@@ -1264,10 +1266,53 @@ export async function resolverLoginSocia(slug: string, email: string) {
   return { socioId: data.id, nombre: `${data.nombre} ${data.apellidos}`.trim(), email: data.email };
 }
 
+// Resuelve la socia de un usuario autenticado con Supabase Auth (portal con
+// magic link / OTP). A diferencia de resolverLoginSocia —que solo comprueba que
+// el email exista, sin ninguna prueba de control—, aquí el usuario YA demostró
+// que controla ese email al validar el JWT. Vincula la fila de la socia a su
+// usuario de auth la primera vez (claim), igual que el equipo con instructores.
+// Devuelve la misma forma que resolverLoginSocia para poder sustituirlo 1:1.
+export async function resolverSociaAutenticada(slug: string, authUserId: string, email: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const { data: studio } = await admin.from('studios').select('id').eq('slug', slug).maybeSingle();
+  if (!studio) return null;
+
+  // 1) Ya vinculada: la socia de este estudio cuyo auth_user_id es este usuario.
+  const { data: linked } = await admin
+    .from('socios').select('id, nombre, apellidos, email')
+    .eq('auth_user_id', authUserId).eq('studio_id', studio.id).maybeSingle();
+  if (linked) {
+    return { socioId: linked.id, nombre: `${linked.nombre} ${linked.apellidos}`.trim(), email: linked.email };
+  }
+
+  // 2) Claim: una socia de este estudio con este email y aún sin vincular. El
+  //    email del JWT es de confianza (Supabase lo verificó), así que enlazamos.
+  const { data: claimable } = await admin
+    .from('socios').select('id, nombre, apellidos, email')
+    .ilike('email', email.trim()).eq('studio_id', studio.id).is('auth_user_id', null).maybeSingle();
+  if (!claimable) return null;
+  await admin.from('socios').update({ auth_user_id: authUserId }).eq('id', claimable.id);
+  return { socioId: claimable.id, nombre: `${claimable.nombre} ${claimable.apellidos}`.trim(), email: claimable.email };
+}
+
+// Devuelve el id de la socia vinculada a un usuario de Supabase Auth dentro de
+// un estudio (por auth_user_id), o null. Se usa en los endpoints que exigen
+// sesión real de socia: la identidad sale del JWT verificado, NUNCA del body.
+export async function socioAutenticado(authUserId: string, studioId: string): Promise<string | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data } = await admin
+    .from('socios').select('id')
+    .eq('auth_user_id', authUserId).eq('studio_id', studioId).maybeSingle();
+  return data?.id ?? null;
+}
+
 // Registra una socia nueva desde el portal/reserva (alta pública). Valida que
 // el estudio existe; el id lo genera el cliente (primera reserva).
 export async function registrarSociaPublica(params: {
   studioId: string; id: string; nombre: string; email: string;
+  authUserId?: string;
   aceptacion?: { fecha: string; firma: string; versionTexto: string };
   referidoPor?: string | null;
 }) {
@@ -1275,6 +1320,13 @@ export async function registrarSociaPublica(params: {
   if (!admin) throw new Error('Service role no configurada');
   const { data: studio } = await admin.from('studios').select('id').eq('id', params.studioId).maybeSingle();
   if (!studio) return { error: 'Estudio no encontrado' as const };
+
+  // Idempotencia: si este usuario de auth ya tiene socia en el estudio (p. ej.
+  // reintento tras registrarse), no creamos una duplicada — devolvemos la suya.
+  if (params.authUserId) {
+    const yaSocia = await socioAutenticado(params.authUserId, params.studioId);
+    if (yaSocia) return { ok: true as const, socioId: yaSocia };
+  }
 
   // El referido solo es válido si existe una socia con ese id en el estudio.
   let referido: string | null = null;
@@ -1286,6 +1338,7 @@ export async function registrarSociaPublica(params: {
   const { error } = await admin.from('socios').insert({
     id: params.id, studio_id: params.studioId, nombre: params.nombre, apellidos: '',
     email: params.email, activo: true, fecha_alta: new Date().toISOString(),
+    auth_user_id: params.authUserId ?? null,
     aceptacion_fecha: params.aceptacion?.fecha ?? null,
     aceptacion_firma: params.aceptacion?.firma ?? null,
     aceptacion_version: params.aceptacion?.versionTexto ?? null,
@@ -1891,26 +1944,30 @@ export async function dbInsertReserva(res: Reserva) {
   if (error) reportDbError('[dbInsertReserva]', error);
 }
 
-// Reserva atómica desde el panel (staff): misma función Postgres que usa el
-// portal público, para que dos altas concurrentes a la última plaza (dos
-// empleadas, o una empleada y una socia desde el portal) no sobrevendan el
-// aforo. Devuelve la decisión autoritativa de la base de datos (CONFIRMADA o
-// LISTA_ESPERA) — puede diferir de la estimación optimista calculada en el
-// cliente antes de esta llamada.
-export async function dbCrearReservaAtomica(params: {
-  id: string; studioId: string; sesionId: string; socioId: string;
-}): Promise<Reserva | null> {
-  const { data, error } = await supabase.rpc('crear_reserva_atomica', {
-    p_id: params.id,
-    p_studio_id: params.studioId,
-    p_sesion_id: params.sesionId,
-    p_socio_id: params.socioId,
+// Reserva ATÓMICA desde el panel (sesión autenticada de staff): la RPC decide
+// aforo/lista de espera con bloqueo de fila y aísla por estudio. Sustituye al
+// insert directo (read-decide-insert no atómico → sobreventa).
+export async function dbReservarPlaza(
+  studioId: string, sesionId: string, socioId: string, reservaId: string,
+): Promise<{ estado: string; posicionEspera: number | null } | { error: string }> {
+  const { data, error } = await supabase.rpc('reservar_plaza', {
+    p_studio_id: studioId, p_sesion_id: sesionId, p_socio_id: socioId, p_reserva_id: reservaId,
   });
-  if (error) {
-    reportDbError('[dbCrearReservaAtomica]', error);
-    return null;
-  }
-  return mapReserva(data as RowReservas);
+  if (error) { reportDbError('[dbReservarPlaza]', error); return { error: error.message }; }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { estado: row?.estado ?? 'CONFIRMADA', posicionEspera: row?.posicion_espera ?? null };
+}
+
+// Cancelación + promoción de lista de espera ATÓMICAS desde el panel.
+export async function dbCancelarReservaPlaza(
+  studioId: string, reservaId: string,
+): Promise<{ eraConfirmada: boolean; promovidaSocioId: string | null } | { error: string }> {
+  const { data, error } = await supabase.rpc('cancelar_reserva_plaza', {
+    p_studio_id: studioId, p_reserva_id: reservaId, p_socio_id: null,
+  });
+  if (error) { reportDbError('[dbCancelarReservaPlaza]', error); return { error: error.message }; }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { eraConfirmada: !!row?.era_confirmada, promovidaSocioId: row?.promovida_socio_id ?? null };
 }
 
 export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {

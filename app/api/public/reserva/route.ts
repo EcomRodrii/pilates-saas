@@ -1,28 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { crearReservaPublica, cancelarReservaPublica } from '@/lib/supabase-data';
+import { crearReservaPublica, cancelarReservaPublica, socioAutenticado } from '@/lib/supabase-data';
+import { verificarUsuarioSupabase } from '@/lib/auth-server';
 
-// Crear o cancelar una reserva desde las páginas públicas (reserva/portal),
-// con service-role y validación de identidad de la socia (id + email). Sustituye
-// las escrituras anónimas directas sobre la tabla reservas.
+// Crear o cancelar una reserva desde las páginas públicas (reserva/portal).
+// SEGURIDAD: exige sesión real de socia (JWT de Supabase Auth) y deriva su id
+// del token verificado — ya NO se acepta {socioId,email} del body, así nadie
+// puede reservar/cancelar en nombre de otra socia conociendo su id+email.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null) as {
     accion?: 'crear' | 'cancelar';
     studioId?: string;
     sesionId?: string;
     reservaId?: string;
-    socioId?: string;
-    email?: string;
   } | null;
 
-  if (!body?.studioId || !body?.socioId || !body?.email) {
-    return NextResponse.json({ error: 'Faltan datos de la socia' }, { status: 400 });
+  if (!body?.studioId) {
+    return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
   }
+
+  const user = await verificarUsuarioSupabase(req);
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const socioId = await socioAutenticado(user.userId, body.studioId);
+  if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   try {
     if (body.accion === 'crear') {
       if (!body.sesionId) return NextResponse.json({ error: 'Falta la sesión' }, { status: 400 });
       const r = await crearReservaPublica({
-        studioId: body.studioId, sesionId: body.sesionId, socioId: body.socioId, email: body.email,
+        studioId: body.studioId, sesionId: body.sesionId, socioId, email: user.email,
       });
       if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
       return NextResponse.json(r);
@@ -30,7 +35,7 @@ export async function POST(req: NextRequest) {
     if (body.accion === 'cancelar') {
       if (!body.reservaId) return NextResponse.json({ error: 'Falta la reserva' }, { status: 400 });
       const r = await cancelarReservaPublica({
-        studioId: body.studioId, reservaId: body.reservaId, socioId: body.socioId, email: body.email,
+        studioId: body.studioId, reservaId: body.reservaId, socioId, email: user.email,
       });
       if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
       return NextResponse.json(r);

@@ -1,6 +1,7 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
+import { supabasePortal } from '@/lib/supabase-portal';
 import type { Factura } from '@/lib/types';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
@@ -11,17 +12,24 @@ export async function authHeader(): Promise<Record<string, string>> {
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
+// Cabecera Authorization con el JWT de la SOCIA (portal, magic link). La validan
+// verificarUsuarioSupabase + socioAutenticado en los endpoints públicos que ya
+// exigen sesión real. Devuelve {} si no hay sesión de socia.
+export async function portalAuthHeader(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabasePortal.auth.getSession();
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
+
 // ── Datos públicos (proxy scopeado) ─────────────────────────────────────────
 // Carga el catálogo del estudio + (si hay socia en sesión) sus datos, vía el
 // endpoint de servidor con service-role. Sustituye el acceso anónimo directo.
-export async function cargarDatosPublicos(
-  slug: string,
-  member?: { socioId: string; email: string },
-) {
+export async function cargarDatosPublicos(slug: string) {
+  // La identidad de la socia va en el JWT (Bearer), no en el body: el servidor
+  // deriva sus datos del token. Sin sesión → solo catálogo público.
   const res = await fetch('/api/public/studio-data', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ slug, member }),
+    headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+    body: JSON.stringify({ slug }),
   });
   if (!res.ok) return null;
   return res.json();

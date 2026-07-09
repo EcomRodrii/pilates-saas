@@ -19,7 +19,7 @@ export default async function PortalLayout({ children, params }: { children: Rea
   const { slug } = await params;
   return (
     <StudioSlugGate slug={slug}>
-      <PortalAuthProvider>
+      <PortalAuthProvider slug={slug}>
         <PortalShell>{children}</PortalShell>
       </PortalAuthProvider>
     </StudioSlugGate>
