@@ -116,7 +116,7 @@ export default function PerfilPage() {
   return (
     <div className="bg-white min-h-full">
       {/* Header */}
-      <div className="px-5 pt-6 pb-8" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}>
+      <div className="px-5 pt-6 pb-8" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight mb-6">Tu perfil</h1>
 
         {/* Foto */}
@@ -181,14 +181,14 @@ export default function PerfilPage() {
               <Trophy size={13} className="text-[#8E8E86]" />
               <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest">Logros</p>
             </div>
-            <span className="text-[11px] font-semibold text-[#B57A8E] flex items-center gap-0.5">Ver todos <ChevronRight size={12} /></span>
+            <span className="text-[11px] font-semibold text-portal-brand-secondary flex items-center gap-0.5">Ver todos <ChevronRight size={12} /></span>
           </Link>
           <div className="grid grid-cols-4 gap-2">
             {logrosPreview.map(({ def, completado }) => (
               <div
                 key={def.id}
                 className="rounded-2xl p-2.5 flex flex-col items-center gap-1 text-center"
-                style={{ backgroundColor: completado ? '#FFF2F7' : '#F5F5F1', opacity: completado ? 1 : 0.45 }}
+                style={{ backgroundColor: completado ? 'color-mix(in srgb, var(--portal-brand) 10%, white)' : '#F5F5F1', opacity: completado ? 1 : 0.45 }}
               >
                 <span className="text-[22px] leading-none">{def.icono}</span>
               </div>
@@ -235,7 +235,7 @@ export default function PerfilPage() {
           </div>
           <button
             onClick={handleGuardar}
-            className="w-full mt-5 py-3 rounded-2xl bg-[#FFC8E2] text-[#171717] font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            className="w-full mt-5 py-3 rounded-2xl bg-portal-brand text-[#171717] font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
             {guardado ? <><Check size={15} />Guardado</> : 'Guardar cambios'}
           </button>

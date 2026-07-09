@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { uid } from '@/lib/utils';
-import { decidirReservaNueva, siguienteEnEspera } from '@/lib/booking-logic';
+import { siguienteEnEspera } from '@/lib/booking-logic';
 import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono } from '@/lib/bono-logic';
 import { validarCanje, aplicarCanjeCreditos, decidirOtorgarCreditos, aplicarGananciaCreditos } from '@/lib/reward-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
@@ -180,12 +180,14 @@ function mapStudio(r: RowStudios): Studio {
     email: r.email,
     telefono: r.telefono,
     colorPrimario: r.color_primario,
+    temaPortal: r.tema_portal ?? 'original',
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     ownerAuthUserId: r.owner_auth_user_id ?? null,
     slug: r.slug ?? null,
     creadoEn: r.creado_en,
     stripeAccountId: r.stripe_account_id ?? null,
+    googleCalendarEmail: r.google_calendar_email ?? null,
   } as Studio;
 }
 
@@ -547,6 +549,7 @@ function mapSesion(r: RowSesiones): Sesion {
     cancelada: r.cancelada,
     notas: r.notas ?? null,
     precioPuntual: r.precio_puntual ?? null,
+    googleEventId: r.google_event_id ?? null,
   } as Sesion;
 }
 
@@ -594,6 +597,9 @@ function mapFactura(r: RowFacturas): Factura {
     cuotaIVA: r.cuota_iva,
     total: r.total,
     verifactuHash: r.verifactu_hash ?? null,
+    verifactuPrevHash: r.verifactu_prev_hash ?? null,
+    verifactuTs: r.verifactu_ts ?? null,
+    verifactuSeq: r.verifactu_seq ?? null,
   } as Factura;
 }
 
@@ -1630,6 +1636,9 @@ function facturaToDb(fac: Factura) {
     cuota_iva: fac.cuotaIVA,
     total: fac.total,
     verifactu_hash: fac.verifactuHash ?? null,
+    verifactu_prev_hash: fac.verifactuPrevHash ?? null,
+    verifactu_ts: fac.verifactuTs ?? null,
+    verifactu_seq: fac.verifactuSeq ?? null,
   };
 }
 
@@ -1696,6 +1705,38 @@ function notaInternaToDb(nota: NotaInterna) {
     texto: nota.texto,
     tipo: nota.tipo,
     creado_en: nota.creadoEn,
+  };
+}
+
+function codigoDescuentoToDb(c: CodigoDescuento) {
+  return {
+    id: c.id,
+    studio_id: c.studioId ?? STUDIO_ID,
+    codigo: c.codigo,
+    descripcion: c.descripcion,
+    tipo: c.tipo,
+    valor: c.valor,
+    usos: c.usos,
+    usos_max: c.usosMax,
+    expira: c.expira,
+    activo: c.activo,
+    creado_en: c.creadoEn,
+  };
+}
+
+function notaProgresoToDb(n: NotaProgreso) {
+  return {
+    id: n.id,
+    studio_id: n.studioId ?? STUDIO_ID,
+    socio_id: n.socioId,
+    instructor_id: n.instructorId,
+    sesion_id: n.sesionId,
+    texto_libre: n.textoLibre,
+    progreso: n.progreso,
+    alertas: n.alertas,
+    plan_proxima_sesion: n.planProximaSesion,
+    ejercicios_casa: n.ejerciciosCasa,
+    creada_en: n.creadaEn,
   };
 }
 
@@ -1770,6 +1811,7 @@ function postComunidadToDb(p: PostComunidad) {
 export async function dbInsertSocio(socio: Socio) {
   const { error } = await supabase.from('socios').insert(socioToDb(socio));
   if (error) reportDbError('[dbInsertSocio]', error);
+  return !error;
 }
 
 export async function dbUpdateSocio(id: string, changes: Partial<Socio>) {
@@ -1887,6 +1929,7 @@ export async function dbUpdateSesion(id: string, changes: Partial<Sesion>) {
   if ('cancelada' in changes) db.cancelada = changes.cancelada;
   if ('notas' in changes) db.notas = changes.notas;
   if ('precioPuntual' in changes) db.precio_puntual = changes.precioPuntual;
+  if ('googleEventId' in changes) db.google_event_id = changes.googleEventId;
   const { error } = await supabase.from('sesiones').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateSesion]', error);
 }
@@ -1964,10 +2007,9 @@ export async function dbDeleteRecibo(id: string) {
   if (error) reportDbError('[dbDeleteRecibo]', error);
 }
 
-export async function dbInsertFactura(fac: Factura) {
-  const { error } = await supabase.from('facturas').insert(facturaToDb(fac));
-  if (error) reportDbError('[dbInsertFactura]', error);
-}
+// NOTA: las facturas se crean y sellan (huella Veri*Factu) en el servidor vía
+// /api/facturas/sellar. No insertar facturas directamente desde el cliente: se
+// saltaría la huella encadenada. facturaToDb se conserva para los backups.
 
 export async function dbInsertCita(cita: Cita) {
   const { error } = await supabase.from('citas').insert(citaToDb(cita));
@@ -2320,6 +2362,29 @@ export async function dbUpdateAutomationRule(id: string, changes: Partial<Automa
   if (error) reportDbError('[dbUpdateAutomationRule]', error);
 }
 
+export async function dbInsertNotaProgreso(nota: NotaProgreso) {
+  const { error } = await supabase.from('notas_progreso').insert(notaProgresoToDb(nota));
+  if (error) reportDbError('[dbInsertNotaProgreso]', error);
+}
+
+export async function dbInsertCodigoDescuento(c: CodigoDescuento) {
+  const { error } = await supabase.from('codigos_descuento').insert(codigoDescuentoToDb(c));
+  if (error) reportDbError('[dbInsertCodigoDescuento]', error);
+}
+
+export async function dbUpdateCodigoDescuento(id: string, changes: Partial<CodigoDescuento>) {
+  const db: Record<string, unknown> = {};
+  if ('activo' in changes) db.activo = changes.activo;
+  if ('usos' in changes) db.usos = changes.usos;
+  const { error } = await supabase.from('codigos_descuento').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateCodigoDescuento]', error);
+}
+
+export async function dbDeleteCodigoDescuento(id: string) {
+  const { error } = await supabase.from('codigos_descuento').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteCodigoDescuento]', error);
+}
+
 export async function dbInsertNotaInterna(nota: NotaInterna) {
   const { error } = await supabase.from('notas_internas').insert(notaInternaToDb(nota));
   if (error) reportDbError('[dbInsertNotaInterna]', error);
@@ -2523,6 +2588,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('email' in changes) db.email = changes.email;
   if ('telefono' in changes) db.telefono = changes.telefono;
   if ('colorPrimario' in changes) db.color_primario = changes.colorPrimario;
+  if ('temaPortal' in changes) db.tema_portal = changes.temaPortal;
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);
@@ -2533,6 +2599,57 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
 export async function dbSetStripeAccountId(studioId: string, stripeAccountId: string | null) {
   const { error } = await supabase.from('studios').update({ stripe_account_id: stripeAccountId }).eq('id', studioId);
   if (error) reportDbError('[dbSetStripeAccountId]', error);
+}
+
+// Igual que el callback de Stripe: sin sesión de usuario, así que hace falta
+// la service role (el cliente anon no tiene permiso de escritura sobre
+// `studios` fuera de una sesión autenticada).
+export async function dbSetGoogleCalendarEmail(studioId: string, email: string | null) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('studios').update({ google_calendar_email: email }).eq('id', studioId);
+  if (error) reportDbError('[dbSetGoogleCalendarEmail]', error);
+}
+
+export interface GoogleCalendarCredenciales {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+}
+
+export async function dbGetGoogleCalendarCredenciales(studioId: string): Promise<GoogleCalendarCredenciales | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from('integracion_credenciales')
+    .select('access_token, refresh_token, expires_at')
+    .eq('studio_id', studioId)
+    .eq('provider', 'google_calendar')
+    .maybeSingle();
+  if (error) { reportDbError('[dbGetGoogleCalendarCredenciales]', error); return null; }
+  if (!data || !data.refresh_token) return null;
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+}
+
+export async function dbSaveGoogleCalendarCredenciales(studioId: string, c: GoogleCalendarCredenciales) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').upsert({
+    studio_id: studioId,
+    provider: 'google_calendar',
+    access_token: c.accessToken,
+    refresh_token: c.refreshToken,
+    expires_at: c.expiresAt,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'studio_id,provider' });
+  if (error) reportDbError('[dbSaveGoogleCalendarCredenciales]', error);
+}
+
+export async function dbDeleteGoogleCalendarCredenciales(studioId: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'google_calendar');
+  if (error) reportDbError('[dbDeleteGoogleCalendarCredenciales]', error);
 }
 
 function slugify(nombre: string): string {

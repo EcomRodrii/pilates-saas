@@ -1,12 +1,11 @@
 'use client';
 
 // Store de dominio: Notas de progreso de la socia (Fase B).
-// Autocontenido. NOTA (deuda preexistente preservada): addNotaProgreso NO
-// persiste en BD — opera solo en memoria, igual que antes de la extracción.
+// Autocontenido.
 
 import { useState } from 'react';
 import { uid } from '@/lib/utils';
-import { getCurrentStudioId } from '@/lib/supabase-data';
+import { getCurrentStudioId, dbInsertNotaProgreso } from '@/lib/supabase-data';
 import type { NotaProgreso } from '@/lib/types';
 
 export function useProgressNotesStore() {
@@ -20,6 +19,7 @@ export function useProgressNotesStore() {
       ...nota,
     };
     setNotasProgreso(prev => [nueva, ...prev]);
+    dbInsertNotaProgreso(nueva);
   }
 
   return { notasProgreso, setNotasProgreso, addNotaProgreso };

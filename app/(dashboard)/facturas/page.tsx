@@ -3,8 +3,10 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import { Search, Download, FileText, TrendingUp, Euro, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { Search, Download, FileText, TrendingUp, Euro, ChevronDown, ChevronRight, X, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
+import { qrSvgMarkup } from '@/lib/qr-svg';
 
 function fecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -37,6 +39,17 @@ export default function Facturas() {
     const recibo = recibos.find(r => r.id === reciboId);
     if (!recibo) return null;
     return socios.find(s => s.id === recibo.socioId) ?? null;
+  }
+
+  // URL de cotejo (QR) Veri*Factu de una factura ya sellada. En producción se
+  // apunta al endpoint real con NEXT_PUBLIC_VERIFACTU_ENTORNO=produccion.
+  const entornoProduccion = process.env.NEXT_PUBLIC_VERIFACTU_ENTORNO === 'produccion';
+  function urlCotejo(f: { numeroCompleto: string; fechaEmision: string; total: number; verifactuHash: string | null }): string | null {
+    if (!f.verifactuHash || !studio?.nif) return null;
+    return urlQrVerifactu(
+      { nif: studio.nif, numSerie: f.numeroCompleto, fecha: fechaExpedicionDesdeISO(f.fechaEmision), importeTotal: f.total },
+      { produccion: entornoProduccion },
+    );
   }
 
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -138,6 +151,18 @@ export default function Facturas() {
   function descargarPDF(f: typeof previewFactura, socio: typeof previewSocio) {
     if (!f) return;
     const fmt = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const cotejo = urlCotejo(f);
+    const qrSvg = cotejo ? qrSvgMarkup(cotejo) : '';
+    const bloqueVerifactu = f.verifactuHash ? `
+<div style="margin-top:32px;padding:16px;border:1px solid #E7E7E0;border-radius:8px;background:#FAFAF7;font-size:11px;color:#5A5A52;display:flex;gap:16px;align-items:flex-start">
+  ${qrSvg ? `<div style="flex:0 0 96px;width:96px;height:96px">${qrSvg}</div>` : ''}
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:700;color:#1A1A1A;margin-bottom:6px">Sistema de facturación verificable (Veri*Factu)</div>
+    <div style="margin-bottom:4px">Huella: <span style="font-family:monospace;word-break:break-all">${f.verifactuHash}</span></div>
+    ${cotejo ? `<div>QR de cotejo AEAT: <a href="${cotejo}" style="color:#7AA80E;word-break:break-all">${cotejo}</a></div>` : ''}
+    ${entornoProduccion ? '' : '<div style="margin-top:6px;color:#B57A8E">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</div>'}
+  </div>
+</div>` : '';
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -216,6 +241,7 @@ export default function Facturas() {
     <tr class="total-row"><td>TOTAL</td><td>${fmt(f.total)} €</td></tr>
   </tfoot>
 </table>
+${bloqueVerifactu}
 <div class="footer">Documento generado el ${new Date().toLocaleDateString('es-ES')} · ${emisorNombre} · ${emisorNif}</div>
 <script>window.onload = function(){ window.print(); }<\/script>
 </body></html>`;
@@ -236,14 +262,14 @@ export default function Facturas() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-[#1A1A1A] tracking-tight">Facturas</h1>
-          <p className="text-sm font-medium mt-0.5 text-[#8E8E86]">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Facturas</h1>
+          <p className="text-sm font-medium mt-0.5 text-muted-foreground">
             {facturas.length} facturas · {kpi(totalGeneral)} € total
           </p>
         </div>
         <button
           onClick={() => exportarCSV()}
-          className="flex items-center gap-2 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors bg-[#1A1A1A] hover:bg-[#F7B3D2]"
+          className="flex items-center gap-2 text-primary-foreground font-bold px-4 py-2.5 rounded-xl text-sm transition-colors bg-primary hover:brightness-95"
         >
           <Download size={14} />
           Exportar CSV
@@ -252,39 +278,39 @@ export default function Facturas() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#8E8E86]">Este mes</p>
-          <p className="text-2xl font-extrabold text-[#1A1A1A] mt-1">{kpi(totalMes)} €</p>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Este mes</p>
+          <p className="text-2xl font-extrabold text-foreground mt-1">{kpi(totalMes)} €</p>
           {totalMesAnterior > 0 && (
             <p className={cn('text-xs font-semibold mt-1', variacion >= 0 ? 'text-[#059669]' : 'text-[#DC2626]')}>
               {variacion >= 0 ? '+' : ''}{variacion.toFixed(1)}% vs mes anterior
             </p>
           )}
         </div>
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#8E8E86]">Base imponible</p>
-          <p className="text-2xl font-extrabold text-[#1A1A1A] mt-1">{kpi(baseTotal)} €</p>
-          <p className="text-xs font-medium text-[#8E8E86] mt-1">sin IVA</p>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Base imponible</p>
+          <p className="text-2xl font-extrabold text-foreground mt-1">{kpi(baseTotal)} €</p>
+          <p className="text-xs font-medium text-muted-foreground mt-1">sin IVA</p>
         </div>
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#8E8E86]">IVA repercutido</p>
-          <p className="text-2xl font-extrabold text-[#1A1A1A] mt-1">{kpi(ivaTotal)} €</p>
-          <p className="text-xs font-medium text-[#8E8E86] mt-1">21% tipo general</p>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">IVA repercutido</p>
+          <p className="text-2xl font-extrabold text-foreground mt-1">{kpi(ivaTotal)} €</p>
+          <p className="text-xs font-medium text-muted-foreground mt-1">21% tipo general</p>
         </div>
-        <div className="bg-white border border-[#E7E7E0] rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#8E8E86]">Total emitido</p>
-          <p className="text-2xl font-extrabold text-[#1A1A1A] mt-1">{kpi(totalGeneral)} €</p>
-          <p className="text-xs font-medium text-[#8E8E86] mt-1">{filtradas.length} facturas</p>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total emitido</p>
+          <p className="text-2xl font-extrabold text-foreground mt-1">{kpi(totalGeneral)} €</p>
+          <p className="text-xs font-medium text-muted-foreground mt-1">{filtradas.length} facturas</p>
         </div>
       </div>
 
       {/* Verifactu banner */}
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-[#FFF2F7] border border-[#BFDBFE]">
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-brand/10 border border-[#BFDBFE]">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-[#BFDBFE]">
           <FileText size={15} className="text-[#7AA80E]" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold text-[#1A1A1A]">Verifactu — Próximamente</p>
+          <p className="text-sm font-bold text-foreground">Verifactu — Próximamente</p>
           <p className="text-xs font-medium mt-0.5 text-[#7AA80E]">
             Integración con AEAT en desarrollo. Las facturas se generan automáticamente al cobrar un recibo.
           </p>
@@ -294,23 +320,23 @@ export default function Facturas() {
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8E8E86]" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Buscar por número, receptor o NIF..."
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-sm bg-white rounded-xl border border-[#E7E7E0] focus:outline-none focus:border-[#1A1A1A] placeholder:text-[#A8A89F] text-[#1A1A1A] transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 text-sm bg-card rounded-xl border border-border focus:outline-none focus:border-foreground placeholder:text-muted-foreground text-foreground transition-colors"
           />
         </div>
-        <div className="flex bg-white border border-[#E7E7E0] rounded-xl overflow-hidden">
+        <div className="flex bg-card border border-border rounded-xl overflow-hidden">
           {(['mes', 'cliente'] as const).map(opt => (
             <button
               key={opt}
               onClick={() => setAgrupador(opt)}
               className={cn(
                 'px-4 py-2.5 text-sm font-semibold transition-colors capitalize',
-                agrupador === opt ? 'bg-[#FFC8E2] text-[#171717]' : 'text-[#8E8E86] hover:bg-[#F5F5F1]'
+                agrupador === opt ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:bg-muted'
               )}
             >
               Por {opt === 'mes' ? 'mes' : 'cliente'}
@@ -320,104 +346,104 @@ export default function Facturas() {
       </div>
 
       {/* Table grouped */}
-      <div className="bg-white rounded-xl border border-[#E7E7E0] overflow-hidden">
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
         {grupos.length === 0 ? (
-          <div className="text-center py-16 text-sm text-[#8E8E86]">No se encontraron facturas.</div>
+          <div className="text-center py-16 text-sm text-muted-foreground">No se encontraron facturas.</div>
         ) : grupos.map(grupo => {
           const isOpen = expanded.has(grupo.key);
           return (
-            <div key={grupo.key} className="border-b border-[#E7E7E0] last:border-b-0">
+            <div key={grupo.key} className="border-b border-border last:border-b-0">
               {/* Group header */}
               <div
                 onClick={() => toggleGrupo(grupo.key)}
-                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-[#F5F5F1] transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  {isOpen ? <ChevronDown size={14} className="text-[#8E8E86]" /> : <ChevronRight size={14} className="text-[#8E8E86]" />}
-                  <span className="text-sm font-bold text-[#1A1A1A] capitalize">{grupo.label}</span>
-                  <span className="text-xs font-semibold text-[#8E8E86]">{grupo.items.length} facturas</span>
+                  {isOpen ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />}
+                  <span className="text-sm font-bold text-foreground capitalize">{grupo.label}</span>
+                  <span className="text-xs font-semibold text-muted-foreground">{grupo.items.length} facturas</span>
                 </div>
                 <div className="flex items-center gap-4" onClick={e => e.stopPropagation()}>
                   <button
                     onClick={() => exportarCSV(grupo.items)}
-                    className="text-xs font-semibold text-[#8E8E86] hover:text-[#1A1A1A] flex items-center gap-1 transition-colors"
+                    className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
                   >
                     <Download size={11} />
                     CSV
                   </button>
-                  <span className="text-sm font-extrabold text-[#1A1A1A]">{kpi(grupo.total)} €</span>
+                  <span className="text-sm font-extrabold text-foreground">{kpi(grupo.total)} €</span>
                 </div>
               </div>
 
               {/* Rows */}
               {isOpen && (
                 <>
-                <div className="lg:hidden divide-y divide-[#F1F1EC] border-t border-[#F1F1EC]">
+                <div className="lg:hidden divide-y divide-muted border-t border-muted">
                   {grupo.items.map(f => {
                     const socio = socioParaFactura(f.reciboId);
                     return (
                       <div key={f.id} className="px-4 py-3.5 flex items-start gap-3">
                         <div className="flex-1 min-w-0">
                           <p className="font-mono text-[12px] font-bold text-[#7AA80E]">{f.numeroCompleto}</p>
-                          <p className="text-[14px] font-semibold text-[#1A1A1A] truncate mt-0.5">{f.receptorNombre}</p>
-                          <p className="text-[12px] text-[#8E8E86] mt-0.5">{fecha(f.fechaEmision)} · IVA {f.tipoIVA}%</p>
+                          <p className="text-[14px] font-semibold text-foreground truncate mt-0.5">{f.receptorNombre}</p>
+                          <p className="text-[12px] text-muted-foreground mt-0.5">{fecha(f.fechaEmision)} · IVA {f.tipoIVA}%</p>
                           <div className="flex items-center gap-4 mt-1.5">
-                            <button onClick={() => setPreview(f.id)} className="text-[12px] font-semibold text-[#8E8E86]">Ver</button>
-                            <button onClick={() => descargarPDF(f, socio)} className="text-[12px] font-semibold text-[#F7A6C4] inline-flex items-center gap-1">
+                            <button onClick={() => setPreview(f.id)} className="text-[12px] font-semibold text-muted-foreground">Ver</button>
+                            <button onClick={() => descargarPDF(f, socio)} className="text-[12px] font-semibold text-brand inline-flex items-center gap-1">
                               <Download size={11} /> PDF
                             </button>
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-[15px] font-extrabold text-[#1A1A1A] whitespace-nowrap">{kpi(f.total)} €</p>
-                          <p className="text-[11px] text-[#A8A89F] whitespace-nowrap">base {kpi(f.baseImponible)} €</p>
+                          <p className="text-[15px] font-extrabold text-foreground whitespace-nowrap">{kpi(f.total)} €</p>
+                          <p className="text-[11px] text-muted-foreground whitespace-nowrap">base {kpi(f.baseImponible)} €</p>
                         </div>
                       </div>
                     );
                   })}
-                  <div className="px-4 py-3 flex items-center justify-between bg-[#F5F5F1]">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#8E8E86]">Subtotal ({grupo.items.length})</span>
-                    <span className="text-[15px] font-extrabold text-[#1A1A1A]">{kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €</span>
+                  <div className="px-4 py-3 flex items-center justify-between bg-muted">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Subtotal ({grupo.items.length})</span>
+                    <span className="text-[15px] font-extrabold text-foreground">{kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €</span>
                   </div>
                 </div>
 
                 <div className="overflow-x-auto hidden lg:block">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-t border-[#F1F1EC] bg-[#F5F5F1]">
+                      <tr className="border-t border-muted bg-muted">
                         {['Número', 'Fecha', 'Receptor', 'NIF', 'Base', 'IVA', 'Total', ''].map(h => (
-                          <th key={h} className="text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap text-[#8E8E86]">{h}</th>
+                          <th key={h} className="text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap text-muted-foreground">{h}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#F1F1EC]">
+                    <tbody className="divide-y divide-muted">
                       {grupo.items.map(f => {
                         const socio = socioParaFactura(f.reciboId);
                         return (
-                          <tr key={f.id} className="hover:bg-[#F5F5F1] transition-colors">
+                          <tr key={f.id} className="hover:bg-muted transition-colors">
                             <td className="px-4 py-3 font-mono text-xs font-bold text-[#7AA80E]">{f.numeroCompleto}</td>
-                            <td className="px-4 py-3 whitespace-nowrap font-medium text-[#8E8E86]">{fecha(f.fechaEmision)}</td>
-                            <td className="px-4 py-3 font-semibold text-[#1A1A1A]">
+                            <td className="px-4 py-3 whitespace-nowrap font-medium text-muted-foreground">{fecha(f.fechaEmision)}</td>
+                            <td className="px-4 py-3 font-semibold text-foreground">
                               {socio
                                 ? <Link href={`/socios/${socio.id}`} className="hover:text-[#7AA80E] hover:underline transition-colors">{f.receptorNombre}</Link>
                                 : f.receptorNombre
                               }
                             </td>
-                            <td className="px-4 py-3 font-mono text-xs text-[#8E8E86]">{f.receptorNIF ?? '—'}</td>
-                            <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{kpi(f.baseImponible)} €</td>
-                            <td className="px-4 py-3 text-right text-[#8E8E86]">{f.tipoIVA}%</td>
-                            <td className="px-4 py-3 font-extrabold text-right text-[#1A1A1A]">{kpi(f.total)} €</td>
+                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{f.receptorNIF ?? '—'}</td>
+                            <td className="px-4 py-3 text-right font-medium text-foreground">{kpi(f.baseImponible)} €</td>
+                            <td className="px-4 py-3 text-right text-muted-foreground">{f.tipoIVA}%</td>
+                            <td className="px-4 py-3 font-extrabold text-right text-foreground">{kpi(f.total)} €</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
                                 <button
                                   onClick={() => setPreview(f.id)}
-                                  className="text-xs font-semibold text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
+                                  className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
                                 >
                                   Ver
                                 </button>
                                 <button
                                   onClick={() => descargarPDF(f, socio)}
-                                  className="text-xs font-semibold text-[#F7A6C4] hover:text-[#6E9E0A] transition-colors flex items-center gap-1"
+                                  className="text-xs font-semibold text-brand hover:text-[#6E9E0A] transition-colors flex items-center gap-1"
                                 >
                                   <Download size={11} />
                                   PDF
@@ -429,13 +455,13 @@ export default function Facturas() {
                       })}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-[#E7E7E0] bg-[#F5F5F1]">
-                        <td colSpan={4} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#8E8E86]">Subtotal ({grupo.items.length})</td>
-                        <td className="px-4 py-3 text-right font-semibold text-[#1A1A1A]">
+                      <tr className="border-t-2 border-border bg-muted">
+                        <td colSpan={4} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Subtotal ({grupo.items.length})</td>
+                        <td className="px-4 py-3 text-right font-semibold text-foreground">
                           {kpi(grupo.items.reduce((s, f) => s + f.baseImponible, 0))} €
                         </td>
                         <td />
-                        <td className="px-4 py-3 text-right font-extrabold text-[#1A1A1A]">
+                        <td className="px-4 py-3 text-right font-extrabold text-foreground">
                           {kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €
                         </td>
                         <td />
@@ -451,12 +477,12 @@ export default function Facturas() {
 
         {/* Total footer */}
         {filtradas.length > 0 && (
-          <div className="border-t-2 border-[#E7E7E0] bg-[#F5F5F1] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-5 py-3.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#8E8E86]">TOTAL ({filtradas.length} facturas)</span>
+          <div className="border-t-2 border-border bg-muted flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-5 py-3.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">TOTAL ({filtradas.length} facturas)</span>
             <div className="flex items-center gap-4 sm:gap-8 text-sm flex-wrap">
-              <span className="text-[#8E8E86] font-medium">Base: <strong className="text-[#1A1A1A]">{kpi(baseTotal)} €</strong></span>
-              <span className="text-[#8E8E86] font-medium">IVA: <strong className="text-[#1A1A1A]">{kpi(ivaTotal)} €</strong></span>
-              <span className="text-[#8E8E86] font-bold">Total: <strong className="text-[#1A1A1A] text-base">{kpi(totalGeneral)} €</strong></span>
+              <span className="text-muted-foreground font-medium">Base: <strong className="text-foreground">{kpi(baseTotal)} €</strong></span>
+              <span className="text-muted-foreground font-medium">IVA: <strong className="text-foreground">{kpi(ivaTotal)} €</strong></span>
+              <span className="text-muted-foreground font-bold">Total: <strong className="text-foreground text-base">{kpi(totalGeneral)} €</strong></span>
             </div>
           </div>
         )}
@@ -465,17 +491,17 @@ export default function Facturas() {
       {/* Invoice preview modal */}
       {previewFactura && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-card rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             {/* Mock invoice */}
             <div className="p-8">
               <div className="flex items-start justify-between mb-8">
                 <div>
-                  <p className="text-2xl font-extrabold text-[#1A1A1A]">FACTURA</p>
-                  <p className="text-sm font-mono font-bold text-[#B57A8E] mt-1">{previewFactura.numeroCompleto}</p>
+                  <p className="text-2xl font-extrabold text-foreground">FACTURA</p>
+                  <p className="text-sm font-mono font-bold text-brand-secondary mt-1">{previewFactura.numeroCompleto}</p>
                 </div>
                 <button
                   onClick={() => setPreview(null)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] text-[#8E8E86] transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
                 >
                   <X size={16} />
                 </button>
@@ -483,75 +509,106 @@ export default function Facturas() {
 
               <div className="grid grid-cols-2 gap-6 mb-8 text-sm">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#8E8E86] mb-2">Emisor</p>
-                  <p className="font-bold text-[#1A1A1A]">{emisorNombre}</p>
-                  <p className="text-[#8E8E86]">{emisorNif}</p>
-                  <p className="text-[#8E8E86]">{emisorDireccion}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Emisor</p>
+                  <p className="font-bold text-foreground">{emisorNombre}</p>
+                  <p className="text-muted-foreground">{emisorNif}</p>
+                  <p className="text-muted-foreground">{emisorDireccion}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#8E8E86] mb-2">Receptor</p>
-                  <p className="font-bold text-[#1A1A1A]">{previewFactura.receptorNombre}</p>
-                  {previewFactura.receptorNIF && <p className="text-[#8E8E86]">{previewFactura.receptorNIF}</p>}
-                  {previewSocio?.telefono && <p className="text-[#8E8E86]">{previewSocio.telefono}</p>}
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Receptor</p>
+                  <p className="font-bold text-foreground">{previewFactura.receptorNombre}</p>
+                  {previewFactura.receptorNIF && <p className="text-muted-foreground">{previewFactura.receptorNIF}</p>}
+                  {previewSocio?.telefono && <p className="text-muted-foreground">{previewSocio.telefono}</p>}
                 </div>
               </div>
 
-              <div className="text-sm mb-1 text-[#8E8E86]">
-                Fecha de emisión: <strong className="text-[#1A1A1A]">{fecha(previewFactura.fechaEmision)}</strong>
+              <div className="text-sm mb-1 text-muted-foreground">
+                Fecha de emisión: <strong className="text-foreground">{fecha(previewFactura.fechaEmision)}</strong>
               </div>
 
-              <div className="mt-6 border border-[#E7E7E0] rounded-xl overflow-hidden">
+              <div className="mt-6 border border-border rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-[#F5F5F1] border-b border-[#E7E7E0]">
-                      <th className="text-left px-4 py-3 text-xs font-bold uppercase text-[#8E8E86]">Concepto</th>
-                      <th className="text-right px-4 py-3 text-xs font-bold uppercase text-[#8E8E86]">Importe</th>
+                    <tr className="bg-muted border-b border-border">
+                      <th className="text-left px-4 py-3 text-xs font-bold uppercase text-muted-foreground">Concepto</th>
+                      <th className="text-right px-4 py-3 text-xs font-bold uppercase text-muted-foreground">Importe</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-[#E7E7E0]">
+                    <tr className="border-b border-border">
                       <td className="px-4 py-4">
-                        <p className="font-semibold text-[#1A1A1A]">Servicios de pilates</p>
-                        <p className="text-xs text-[#8E8E86] mt-0.5">Cuota mensual / bono</p>
+                        <p className="font-semibold text-foreground">Servicios de pilates</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Cuota mensual / bono</p>
                       </td>
-                      <td className="px-4 py-4 text-right font-semibold text-[#1A1A1A]">{kpi(previewFactura.baseImponible)} €</td>
+                      <td className="px-4 py-4 text-right font-semibold text-foreground">{kpi(previewFactura.baseImponible)} €</td>
                     </tr>
                   </tbody>
-                  <tfoot className="bg-[#F5F5F1]">
-                    <tr className="border-t border-[#E7E7E0]">
-                      <td className="px-4 py-2.5 text-[#8E8E86] text-sm">Base imponible</td>
-                      <td className="px-4 py-2.5 text-right text-sm text-[#1A1A1A]">{kpi(previewFactura.baseImponible)} €</td>
+                  <tfoot className="bg-muted">
+                    <tr className="border-t border-border">
+                      <td className="px-4 py-2.5 text-muted-foreground text-sm">Base imponible</td>
+                      <td className="px-4 py-2.5 text-right text-sm text-foreground">{kpi(previewFactura.baseImponible)} €</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2.5 text-[#8E8E86] text-sm">IVA ({previewFactura.tipoIVA}%)</td>
-                      <td className="px-4 py-2.5 text-right text-sm text-[#1A1A1A]">{kpi(previewFactura.cuotaIVA)} €</td>
+                      <td className="px-4 py-2.5 text-muted-foreground text-sm">IVA ({previewFactura.tipoIVA}%)</td>
+                      <td className="px-4 py-2.5 text-right text-sm text-foreground">{kpi(previewFactura.cuotaIVA)} €</td>
                     </tr>
-                    <tr className="border-t-2 border-[#E7E7E0]">
-                      <td className="px-4 py-3 font-extrabold text-[#1A1A1A]">TOTAL</td>
-                      <td className="px-4 py-3 text-right font-extrabold text-[#1A1A1A] text-base">{kpi(previewFactura.total)} €</td>
+                    <tr className="border-t-2 border-border">
+                      <td className="px-4 py-3 font-extrabold text-foreground">TOTAL</td>
+                      <td className="px-4 py-3 text-right font-extrabold text-foreground text-base">{kpi(previewFactura.total)} €</td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
 
+              {previewFactura.verifactuHash && (
+                <div className="mt-6 rounded-xl border border-border bg-muted/40 p-4 text-xs flex gap-4 items-start">
+                  {urlCotejo(previewFactura) && (
+                    <div
+                      className="shrink-0 w-24 h-24 bg-white rounded-md p-1"
+                      dangerouslySetInnerHTML={{ __html: qrSvgMarkup(urlCotejo(previewFactura)!) }}
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 font-bold text-foreground mb-1.5">
+                      <ShieldCheck size={13} className="text-brand" />
+                      Sistema de facturación verificable (Veri*Factu)
+                    </div>
+                    <p className="text-muted-foreground break-all">
+                      Huella: <span className="font-mono text-foreground">{previewFactura.verifactuHash}</span>
+                    </p>
+                    {urlCotejo(previewFactura) && (
+                      <p className="text-muted-foreground break-all mt-1">
+                        QR de cotejo AEAT:{' '}
+                        <a href={urlCotejo(previewFactura)!} target="_blank" rel="noopener noreferrer" className="text-brand underline">
+                          {urlCotejo(previewFactura)}
+                        </a>
+                      </p>
+                    )}
+                    {!entornoProduccion && (
+                      <p className="text-brand-secondary mt-1.5">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => exportarCSV([previewFactura])}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#8E8E86] hover:bg-[#F5F5F1] transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors"
                 >
                   <Download size={14} />
                   CSV
                 </button>
                 <button
                   onClick={() => descargarPDF(previewFactura, previewSocio)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#F7A6C4] text-white text-sm font-semibold hover:bg-[#6E9E0A] transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-[#6E9E0A] transition-colors"
                 >
                   <Download size={14} />
                   Descargar PDF
                 </button>
                 <button
                   onClick={() => setPreview(null)}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFC8E2] text-[#171717] text-sm font-semibold hover:bg-[#F7B3D2] transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-semibold hover:brightness-95 transition-colors"
                 >
                   Cerrar
                 </button>

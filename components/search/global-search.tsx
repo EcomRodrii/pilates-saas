@@ -65,9 +65,9 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
         onClick={() => setOpen(true)}
         title="Buscar (⌘K)"
         className={collapsed
-          ? cn('flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all', variant === 'dark' ? 'hover:bg-white/10' : 'hover:bg-[#F1F1EC]')
-          : cn('flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all', variant === 'dark' ? 'hover:bg-white/10' : 'bg-[#F5F5F1] hover:bg-[#EEEEE8] w-full max-w-xs')}
-        style={{ color: variant === 'dark' ? 'rgba(255,255,255,0.45)' : '#8E8E86' }}
+          ? cn('flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'hover:bg-muted')
+          : cn('flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'bg-muted hover:bg-background w-full max-w-xs')}
+        style={{ color: variant === 'dark' ? 'rgba(255,255,255,0.45)' : 'var(--muted-foreground)' }}
       >
         <Search size={15} className="shrink-0" />
         {!collapsed && <span className="hidden md:inline text-xs">Buscar</span>}
@@ -76,7 +76,7 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
             className="hidden md:inline ml-auto text-[10px] px-1.5 py-0.5 rounded font-mono leading-none"
             style={variant === 'dark'
               ? { backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }
-              : { backgroundColor: '#E7E7E0', color: '#A8A89F' }}
+              : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
           >⌘K</kbd>
         )}
       </button>
@@ -84,24 +84,24 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-[#EBEBF0] overflow-hidden">
+          <div className="relative w-full max-w-lg bg-card rounded-2xl shadow-2xl border border-border overflow-hidden">
             {/* Input */}
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#EBEBF0]">
-              <Search size={16} style={{ color: '#9898A6' }} className="shrink-0" />
+            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
+              <Search size={16} style={{ color: 'var(--muted-foreground)' }} className="shrink-0" />
               <input
                 ref={inputRef}
                 type="text"
                 placeholder="Buscar socias, clases, pagos…"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                className="flex-1 text-sm font-medium text-[#1A1A2E] placeholder:text-[#9898A6] focus:outline-none bg-transparent"
+                className="flex-1 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none bg-transparent"
               />
               {query ? (
-                <button onClick={() => setQuery('')} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-[#F1F1EC] transition-colors">
-                  <X size={13} style={{ color: '#9898A6' }} />
+                <button onClick={() => setQuery('')} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
+                  <X size={13} style={{ color: 'var(--muted-foreground)' }} />
                 </button>
               ) : (
-                <kbd className="shrink-0 text-[10px] px-1.5 py-0.5 rounded border border-[#EBEBF0] font-mono" style={{ color: '#9898A6' }}>Esc</kbd>
+                <kbd className="shrink-0 text-[10px] px-1.5 py-0.5 rounded border border-border font-mono" style={{ color: 'var(--muted-foreground)' }}>Esc</kbd>
               )}
             </div>
 
@@ -110,25 +110,25 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
               {/* Socias */}
               {sociosRes.length > 0 && (
                 <div className="mb-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: '#9898A6' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>
                     {q ? 'Socias' : 'Socias activas'}
                   </p>
                   {sociosRes.map(s => (
                     <button key={s.id} onClick={() => go(`/socios/${s.id}`)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F5F5F1] transition-colors text-left group">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: '#FFF2F7', color: '#B57A8E' }}>
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-brand-secondary/10 text-brand-secondary">
                         {s.nombre[0]}{s.apellidos[0]}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-[#1A1A2E] truncate">{s.nombre} {s.apellidos}</p>
-                        <p className="text-xs truncate" style={{ color: '#9898A6' }}>{s.email}</p>
+                        <p className="text-sm font-semibold text-foreground truncate">{s.nombre} {s.apellidos}</p>
+                        <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>{s.email}</p>
                       </div>
                       {(s.tags ?? []).length > 0 && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: '#FFF2F7', color: '#B57A8E' }}>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-brand-secondary/10 text-brand-secondary">
                           {s.tags![0]}
                         </span>
                       )}
-                      <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#9898A6' }} />
+                      <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                     </button>
                   ))}
                 </div>
@@ -137,23 +137,23 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
               {/* Sesiones próximas */}
               {sesionesRes.length > 0 && (
                 <div className="mb-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: '#9898A6' }}>Próximas clases</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>Próximas clases</p>
                   {sesionesRes.map(s => {
                     const tipo = tiposClase.find(t => t.id === s.tipoClaseId);
                     const d = new Date(s.inicio);
                     return (
                       <button key={s.id} onClick={() => go('/calendario')}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F5F5F1] transition-colors text-left group">
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: tipo?.color ?? '#C8C2E8', opacity: 0.85 }}>
                           <Calendar size={14} style={{ color: '#fff' }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#1A1A2E] truncate">{tipo?.nombre ?? 'Clase'}</p>
-                          <p className="text-xs truncate" style={{ color: '#9898A6' }}>
+                          <p className="text-sm font-semibold text-foreground truncate">{tipo?.nombre ?? 'Clase'}</p>
+                          <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>
                             {d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} · {d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
-                        <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#9898A6' }} />
+                        <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                       </button>
                     );
                   })}
@@ -163,22 +163,22 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
               {/* Pagos pendientes */}
               {recibosRes.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: '#9898A6' }}>Pagos pendientes</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>Pagos pendientes</p>
                   {recibosRes.map(r => {
                     const s = socios.find(x => x.id === r.socioId);
                     return (
                       <button key={r.id} onClick={() => go('/pagos')}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F5F5F1] transition-colors text-left group">
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#FEF3C7' }}>
                           <CreditCard size={14} style={{ color: '#92400E' }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#1A1A2E] truncate">{r.concepto}</p>
-                          <p className="text-xs truncate" style={{ color: '#9898A6' }}>
+                          <p className="text-sm font-semibold text-foreground truncate">{r.concepto}</p>
+                          <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>
                             {s ? `${s.nombre} ${s.apellidos}` : '—'} · {r.importe} €
                           </p>
                         </div>
-                        <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#9898A6' }} />
+                        <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                       </button>
                     );
                   })}
@@ -187,18 +187,18 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
 
               {!hasResults && q.length > 0 && (
                 <div className="py-12 text-center">
-                  <p className="text-sm font-medium" style={{ color: '#9898A6' }}>Sin resultados para "{query}"</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--muted-foreground)' }}>Sin resultados para "{query}"</p>
                 </div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="border-t border-[#EBEBF0] px-4 py-2 flex items-center gap-4">
-              <span className="text-[10px] font-medium" style={{ color: '#C6C6BE' }}>
-                <kbd className="border border-[#EBEBF0] rounded px-1 mr-1 font-mono">↵</kbd>abrir
+            <div className="border-t border-border px-4 py-2 flex items-center gap-4">
+              <span className="text-[10px] font-medium" style={{ color: 'var(--muted-foreground)' }}>
+                <kbd className="border border-border rounded px-1 mr-1 font-mono">↵</kbd>abrir
               </span>
-              <span className="text-[10px] font-medium" style={{ color: '#C6C6BE' }}>
-                <kbd className="border border-[#EBEBF0] rounded px-1 mr-1 font-mono">Esc</kbd>cerrar
+              <span className="text-[10px] font-medium" style={{ color: 'var(--muted-foreground)' }}>
+                <kbd className="border border-border rounded px-1 mr-1 font-mono">Esc</kbd>cerrar
               </span>
             </div>
           </div>

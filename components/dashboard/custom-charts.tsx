@@ -8,8 +8,8 @@ import type { DashboardChart, TipoGraficoDashboard, MetricaGraficoDashboard, Agr
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
-const inputCls = 'w-full rounded-lg border border-[#E7E7E0] px-3 py-2 text-sm text-[#1A1A1A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/10';
-const labelCls = 'text-[11px] font-semibold uppercase tracking-wide text-[#8E8E86] mb-1.5 block';
+const inputCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-foreground/10';
+const labelCls = 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block';
 
 const COLORES = ['#F7A6C4', '#7AA80E', '#0369A1', '#D97706', '#7C3AED', '#DC2626'];
 
@@ -60,21 +60,21 @@ function ChartCard({ chart, onDelete }: { chart: DashboardChart; onDelete: () =>
   const metricaLabel = METRICAS_GRAFICO.find(m => m.metric === chart.metrica)?.nombre ?? chart.metrica;
 
   return (
-    <div className="bg-white rounded-xl border border-[#E7E7E0] p-4 group relative">
+    <div className="bg-card rounded-xl border border-border p-4 group relative">
       <button
         onClick={onDelete}
-        className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[#FEE2E2] text-[#8E8E86] hover:text-[#DC2626] transition-all"
+        className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[#FEE2E2] text-muted-foreground hover:text-[#DC2626] transition-all"
         title="Eliminar gráfico"
       >
         <Trash2 size={13} />
       </button>
-      <p className="text-[13px] font-semibold text-[#1A1A1A] pr-6">{chart.nombre}</p>
-      <p className="text-[11px] text-[#A8A89F] mb-2">{metricaLabel}</p>
-      <p className="text-[20px] font-bold text-[#1A1A1A] mb-2">{total.toLocaleString('es-ES')}</p>
+      <p className="text-[13px] font-semibold text-foreground pr-6">{chart.nombre}</p>
+      <p className="text-[11px] text-muted-foreground mb-2">{metricaLabel}</p>
+      <p className="text-[20px] font-bold text-foreground mb-2">{total.toLocaleString('es-ES')}</p>
       {chart.tipo === 'LINEA' ? <ChartLine points={serie} color={chart.color} /> : <ChartBars points={serie} color={chart.color} />}
       <div className="flex justify-between mt-1">
-        <span className="text-[10px] text-[#C6C6BE]">{serie[0]?.label}</span>
-        <span className="text-[10px] text-[#C6C6BE]">{serie[serie.length - 1]?.label}</span>
+        <span className="text-[10px] text-muted-foreground">{serie[0]?.label}</span>
+        <span className="text-[10px] text-muted-foreground">{serie[serie.length - 1]?.label}</span>
       </div>
     </div>
   );
@@ -102,20 +102,20 @@ export function CustomChartsSection() {
     <div>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <BarChart3 size={14} className="text-[#8E8E86]" />
-          <h2 className="text-[13px] font-semibold text-[#1A1A1A]">Gráficos personalizados</h2>
+          <BarChart3 size={14} className="text-muted-foreground" />
+          <h2 className="text-[13px] font-semibold text-foreground">Gráficos personalizados</h2>
         </div>
         <button
           onClick={() => setModalOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FFC8E2] text-[#171717] text-[12px] font-medium hover:bg-[#F7B3D2] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors"
         >
           <Plus size={13} /> Crear gráfico
         </button>
       </div>
 
       {dashboardCharts.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#E7E7E0] p-8 text-center">
-          <p className="text-[13px] text-[#8E8E86]">Aún no has creado ningún gráfico. Elige qué métrica quieres seguir y cómo verla.</p>
+        <div className="bg-card rounded-xl border border-border p-8 text-center">
+          <p className="text-[13px] text-muted-foreground">Aún no has creado ningún gráfico. Elige qué métrica quieres seguir y cómo verla.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -167,17 +167,17 @@ export function CustomChartsSection() {
                   <button
                     key={c}
                     onClick={() => setForm(f => ({ ...f, color: c }))}
-                    className={cn('w-7 h-7 rounded-full transition-all', form.color === c && 'ring-2 ring-offset-2 ring-[#1A1A1A]')}
+                    className={cn('w-7 h-7 rounded-full transition-all', form.color === c && 'ring-2 ring-offset-2 ring-foreground')}
                     style={{ backgroundColor: c }}
                   />
                 ))}
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm rounded-lg bg-white border border-[#E7E7E0] text-[#1A1A1A] hover:bg-[#F5F5F1] transition-colors">
+              <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm rounded-lg bg-card border border-border text-foreground hover:bg-muted transition-colors">
                 Cancelar
               </button>
-              <button onClick={crear} className="px-4 py-2 text-sm rounded-lg bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2] transition-colors font-medium">
+              <button onClick={crear} className="px-4 py-2 text-sm rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors font-medium">
                 Crear gráfico
               </button>
             </div>

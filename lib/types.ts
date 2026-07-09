@@ -19,12 +19,14 @@ export interface Studio {
   email: string;
   telefono: string;
   colorPrimario: string;
+  temaPortal: string;
   plan: 'BASE' | 'ESTUDIO' | 'CADENA';
   avatarAdmin: string | null;
   ownerAuthUserId: string | null;
   slug: string | null;
   creadoEn: string;
   stripeAccountId: string | null;
+  googleCalendarEmail: string | null;
 }
 
 // ─── Integraciones por negocio ───────────────────────────────────────────────
@@ -187,6 +189,7 @@ export interface Sesion {
   cancelada: boolean;
   notas: string | null;
   precioPuntual: number | null;
+  googleEventId?: string | null;
 }
 
 export interface Reserva {
@@ -204,7 +207,7 @@ export interface Reserva {
 export interface Recibo {
   id: string;
   studioId: string;
-  socioId: string;
+  socioId: string | null; // null = venta de mostrador sin socia (factura simplificada)
   suscripcionId: string | null;
   concepto: string;
   importe: number;
@@ -228,6 +231,9 @@ export interface Factura {
   cuotaIVA: number;
   total: number;
   verifactuHash: string | null;
+  verifactuPrevHash: string | null;
+  verifactuTs: string | null;
+  verifactuSeq: number | null;
 }
 
 // ─── Enriched (joined) types ──────────────────────────────────────────────────

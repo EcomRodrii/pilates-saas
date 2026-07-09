@@ -2,6 +2,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { supabasePortal } from '@/lib/supabase-portal';
+import type { Factura } from '@/lib/types';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -83,6 +84,45 @@ export async function aprobarCobroAutonomo(params: {
   const data = await res.json();
   if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
   return { ok: true };
+}
+
+// ── Facturas (Veri*Factu) ──────────────────────────────────────────────────────
+// Sella y persiste una factura en el servidor: calcula la huella encadenada por
+// estudio (SHA-256, node:crypto) y la guarda. Devuelve los campos sellados para
+// refrescar el estado local. Si falla, la factura queda en memoria sin huella.
+export interface FacturaSellada {
+  verifactuHash: string | null;
+  verifactuPrevHash: string | null;
+  verifactuTs: string | null;
+  verifactuSeq: number | null;
+  qrUrl?: string;
+  entorno?: 'produccion' | 'pruebas';
+}
+
+export async function sellarFactura(fac: Factura): Promise<{ ok: boolean; sellada?: boolean; aviso?: string | null; factura?: FacturaSellada }> {
+  try {
+    const res = await fetch('/api/facturas/sellar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({
+        id: fac.id,
+        studioId: fac.studioId,
+        reciboId: fac.reciboId,
+        numeroCompleto: fac.numeroCompleto,
+        fechaEmision: fac.fechaEmision,
+        receptorNombre: fac.receptorNombre,
+        receptorNIF: fac.receptorNIF,
+        baseImponible: fac.baseImponible,
+        tipoIVA: fac.tipoIVA,
+        cuotaIVA: fac.cuotaIVA,
+        total: fac.total,
+      }),
+    });
+    if (!res.ok) return { ok: false };
+    return await res.json();
+  } catch {
+    return { ok: false };
+  }
 }
 
 // ── Emails ────────────────────────────────────────────────────────────────────

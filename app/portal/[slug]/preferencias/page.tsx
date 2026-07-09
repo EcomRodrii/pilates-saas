@@ -47,7 +47,7 @@ export default function PreferenciasPage() {
 
   return (
     <div className="bg-white min-h-full">
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight">Preferencias</h1>
         <p className="text-white/50 text-[13px] mt-0.5">Cuéntanos cómo te gusta entrenar</p>
       </div>
@@ -80,7 +80,7 @@ export default function PreferenciasPage() {
                       key={franja.id}
                       onClick={() => toggleFranja(dia.id, franja.id)}
                       className="mx-auto w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
-                      style={{ backgroundColor: activo ? '#FFC8E2' : '#F5F5F1' }}
+                      style={{ backgroundColor: activo ? 'var(--portal-brand)' : '#F5F5F1' }}
                       aria-label={`${dia.label} ${franja.label}`}
                     >
                       {activo && <Check size={15} className="text-[#171717]" />}

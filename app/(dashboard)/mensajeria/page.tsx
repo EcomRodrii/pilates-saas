@@ -72,7 +72,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
         <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: huboFallos ? '#FEF3C7' : '#DCFCE7' }}>
           <CheckCheck size={24} style={{ color: huboFallos ? '#D97706' : '#15803D' }} />
         </div>
-        <p className="font-bold text-[#1A1A1A]">
+        <p className="font-bold text-foreground">
           {resultado.ok > 0 ? `Enviado a ${resultado.ok} miembro${resultado.ok !== 1 ? 's' : ''}` : 'No se pudo enviar'}
         </p>
         {huboFallos && (
@@ -81,7 +81,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
             {resultado.ok === 0 ? ' — revisa que Resend esté configurado (RESEND_API_KEY) en .env.local' : ''}
           </p>
         )}
-        <button onClick={reset} className="text-xs font-semibold text-[#F7A6C4] hover:underline mt-2">Enviar otro mensaje</button>
+        <button onClick={reset} className="text-xs font-semibold text-brand hover:underline mt-2">Enviar otro mensaje</button>
       </div>
     );
   }
@@ -89,11 +89,11 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
   return (
     <div className="space-y-5 max-w-2xl">
       <div>
-        <label className="text-xs font-bold uppercase tracking-wide text-[#8E8E86] mb-1.5 block">Destinatario</label>
+        <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Destinatario</label>
         <select
           value={destinatario}
           onChange={e => setDestinatario(e.target.value)}
-          className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] bg-white outline-none focus:border-[#F7A6C4]"
+          className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
         >
           <option value="todos">Todos los miembros ({socios.length})</option>
           {socios.map(s => (
@@ -102,27 +102,27 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
         </select>
       </div>
       <div>
-        <label className="text-xs font-bold uppercase tracking-wide text-[#8E8E86] mb-1.5 block">Asunto</label>
+        <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Asunto</label>
         <input
           value={asunto}
           onChange={e => setAsunto(e.target.value)}
           placeholder="Ej. Nuevo horario de verano"
-          className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4]"
+          className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
         />
       </div>
       <div>
-        <label className="text-xs font-bold uppercase tracking-wide text-[#8E8E86] mb-1.5 block">Mensaje</label>
+        <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Mensaje</label>
         <textarea
           value={mensaje}
           onChange={e => setMensaje(e.target.value)}
           rows={6}
           placeholder="Escribe el mensaje que recibirán tus miembros..."
-          className="w-full border border-[#E7E7E0] rounded-xl px-3 py-2.5 text-sm text-[#1A1A1A] outline-none focus:border-[#F7A6C4] resize-none"
+          className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand resize-none"
         />
       </div>
 
       <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-2 text-xs text-[#A8A89F]">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Info size={12} />
           <span>Se envía por email a través de Resend</span>
         </div>
@@ -130,7 +130,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
           onClick={enviar}
           disabled={enviando || !asunto.trim() || !mensaje.trim()}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-bold transition-all disabled:opacity-40"
-          style={{ backgroundColor: '#F7A6C4' }}
+          style={{ backgroundColor: 'var(--brand)' }}
         >
           <Send size={14} />
           {enviando ? 'Enviando…' : 'Enviar mensaje'}
@@ -175,26 +175,26 @@ export default function Mensajeria() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-[#1A1A1A] tracking-tight">Mensajería</h1>
-          <p className="text-sm font-medium mt-0.5 text-[#8E8E86]">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Mensajería</h1>
+          <p className="text-sm font-medium mt-0.5 text-muted-foreground">
             Notificaciones, comunidad y comunicación con miembros
           </p>
         </div>
         <Link href="/socios"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#E7E7E0] text-sm font-semibold text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors">
           <Users size={14} />
           Ver miembros
         </Link>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#F1F1EC] p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
         {TABS.map(t => (
           <button key={t.id} onClick={() => { setTab(t.id); setBusqueda(''); }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
             style={tab === t.id
-              ? { backgroundColor: '#fff', color: '#1A1A1A', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
-              : { color: '#8E8E86' }}>
+              ? { backgroundColor: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+              : { color: 'var(--muted-foreground)' }}>
             <t.icon size={14} />
             {t.label}
             {t.count > 0 && (
@@ -208,48 +208,48 @@ export default function Mensajeria() {
 
       {/* ── NOTIFICACIONES ── */}
       {tab === 'notificaciones' && (
-        <div className="bg-white rounded-2xl border border-[#E7E7E0] overflow-hidden">
-          <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#E7E7E0]">
-            <div className="flex items-center gap-2 bg-[#F5F5F1] border border-[#E7E7E0] rounded-xl px-3 py-2 flex-1">
-              <Search size={13} className="text-[#A8A89F] shrink-0" />
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
+            <div className="flex items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2 flex-1">
+              <Search size={13} className="text-muted-foreground shrink-0" />
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar notificaciones..."
-                className="bg-transparent text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] outline-none flex-1" />
+                className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1" />
             </div>
             {noLeidas > 0 && (
               <button onClick={() => setLeidas(new Set(notificaciones.map(n => n.id)))}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#8E8E86] hover:bg-[#F5F5F1] border border-[#E7E7E0] transition-colors shrink-0">
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted border border-border transition-colors shrink-0">
                 <Check size={12} />
                 Marcar todas leídas
               </button>
             )}
           </div>
           {notifFiltradas.length === 0 ? (
-            <div className="py-16 text-center text-sm text-[#A8A89F]">No hay notificaciones</div>
+            <div className="py-16 text-center text-sm text-muted-foreground">No hay notificaciones</div>
           ) : (
-            <ul className="divide-y divide-[#F1F1EC]">
+            <ul className="divide-y divide-muted">
               {notifFiltradas.map(n => {
                 const isRead = n.leida || leidas.has(n.id);
                 const { Icon, color, bg } = TIPO_ICON[n.tipo] ?? TIPO_ICON.INFO;
                 return (
                   <li key={n.id}
                     onClick={() => setLeidas(prev => new Set([...prev, n.id]))}
-                    className="flex items-start gap-4 px-5 py-4 hover:bg-[#F5F5F1] transition-colors cursor-pointer"
+                    className="flex items-start gap-4 px-5 py-4 hover:bg-muted transition-colors cursor-pointer"
                     style={{ backgroundColor: isRead ? undefined : '#FAFBFF' }}>
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: bg }}>
                       <Icon size={14} style={{ color }} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-[#F7A6C4] shrink-0" />}
-                        <p className={`text-sm leading-tight ${isRead ? 'font-medium text-[#3A3A34]' : 'font-bold text-[#1A1A1A]'}`}>
+                        {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-brand shrink-0" />}
+                        <p className={`text-sm leading-tight ${isRead ? 'font-medium text-foreground' : 'font-bold text-foreground'}`}>
                           {n.titulo}
                         </p>
-                        <span className="ml-auto text-[11px] text-[#A8A89F] shrink-0">{timeAgo(n.creadaEn)}</span>
+                        <span className="ml-auto text-[11px] text-muted-foreground shrink-0">{timeAgo(n.creadaEn)}</span>
                       </div>
-                      <p className="text-xs text-[#8E8E86] mt-1 leading-relaxed">{n.texto}</p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.texto}</p>
                       {n.enlace && (
-                        <Link href={n.enlace} className="inline-flex items-center gap-1 text-xs text-[#F7A6C4] mt-1.5 hover:underline">
+                        <Link href={n.enlace} className="inline-flex items-center gap-1 text-xs text-brand mt-1.5 hover:underline">
                           Ver más <ChevronRight size={10} />
                         </Link>
                       )}
@@ -266,39 +266,39 @@ export default function Mensajeria() {
       {tab === 'comunidad' && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white border border-[#E7E7E0] rounded-xl px-3 py-2 flex-1">
-              <Search size={13} className="text-[#A8A89F] shrink-0" />
+            <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 flex-1">
+              <Search size={13} className="text-muted-foreground shrink-0" />
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar en comunidad..."
-                className="bg-transparent text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] outline-none flex-1" />
+                className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1" />
             </div>
-            <span className="text-xs text-[#A8A89F]">{postsFiltrados.length} posts</span>
+            <span className="text-xs text-muted-foreground">{postsFiltrados.length} posts</span>
           </div>
 
           {postsFiltrados.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#E7E7E0] py-16 text-center text-sm text-[#A8A89F]">
+            <div className="bg-card rounded-2xl border border-border py-16 text-center text-sm text-muted-foreground">
               No hay posts en la comunidad
             </div>
           ) : (
             postsFiltrados.map(post => (
-              <div key={post.id} className="bg-white rounded-2xl border border-[#E7E7E0] p-5">
+              <div key={post.id} className="bg-card rounded-2xl border border-border p-5">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
-                    style={{ backgroundColor: '#F7A6C4' }}>
+                    style={{ backgroundColor: 'var(--brand)' }}>
                     {post.autorInicial}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-[#1A1A1A]">{post.autorNombre}</p>
-                    <p className="text-[11px] text-[#A8A89F]">{timeAgo(post.creadoEn)}</p>
+                    <p className="text-sm font-bold text-foreground">{post.autorNombre}</p>
+                    <p className="text-[11px] text-muted-foreground">{timeAgo(post.creadoEn)}</p>
                   </div>
                 </div>
-                <p className="text-sm text-[#3A3A34] leading-relaxed">{post.texto}</p>
-                <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#F1F1EC]">
-                  <button className="flex items-center gap-1.5 text-xs text-[#8E8E86] hover:text-red-500 transition-colors">
+                <p className="text-sm text-foreground leading-relaxed">{post.texto}</p>
+                <div className="flex items-center gap-4 mt-4 pt-3 border-t border-muted">
+                  <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-500 transition-colors">
                     <Heart size={13} />
                     <span>{post.likes}</span>
                   </button>
-                  <button className="flex items-center gap-1.5 text-xs text-[#8E8E86] hover:text-[#F7A6C4] transition-colors">
+                  <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-brand transition-colors">
                     <MessageCircle size={13} />
                     <span>{post.comentariosCount} comentarios</span>
                   </button>
@@ -311,7 +311,7 @@ export default function Mensajeria() {
 
       {/* ── ENVIAR MENSAJE ── */}
       {tab === 'enviar' && (
-        <div className="bg-white rounded-2xl border border-[#E7E7E0] p-6">
+        <div className="bg-card rounded-2xl border border-border p-6">
           <Compositor socios={socios} />
         </div>
       )}

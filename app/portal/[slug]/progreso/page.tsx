@@ -94,7 +94,7 @@ export default function ProgresoPage() {
   return (
     <div className="bg-white min-h-full">
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}>
+      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white font-extrabold text-[16px]">
             {initials}
@@ -236,7 +236,7 @@ function ResumenTab({ nivel, semanas, maxSem }: {
                     className="w-full rounded-t-xl transition-all"
                     style={{
                       height: s.count === 0 ? 4 : Math.max(8, Math.round((s.count / maxSem) * 52)),
-                      backgroundColor: s.count === 0 ? '#F1F1EC' : '#F7A6C4',
+                      backgroundColor: s.count === 0 ? '#F1F1EC' : 'var(--portal-brand)',
                     }}
                   />
                 </div>
@@ -282,7 +282,7 @@ function LogrosTab({ socioId, achievementDefinitions, achievementProgress, achie
 
   return (
     <div className="space-y-5">
-      <p className="text-[12px] font-bold text-[#B57A8E]">{desbloqueados} de {misLogros.length} desbloqueados</p>
+      <p className="text-[12px] font-bold text-portal-brand-secondary">{desbloqueados} de {misLogros.length} desbloqueados</p>
 
       {misLogros.length === 0 ? (
         <div className="rounded-2xl bg-[#F5F5F1] p-8 text-center">
@@ -303,7 +303,7 @@ function LogrosTab({ socioId, achievementDefinitions, achievementProgress, achie
               >
                 <div
                   className="w-14 h-14 rounded-2xl flex items-center justify-center text-[26px]"
-                  style={{ backgroundColor: completado ? '#FFF2F7' : '#F5F5F1', filter: completado ? 'none' : 'grayscale(0.6)' }}
+                  style={{ backgroundColor: completado ? 'color-mix(in srgb, var(--portal-brand) 10%, white)' : '#F5F5F1', filter: completado ? 'none' : 'grayscale(0.6)' }}
                 >
                   {def.icono}
                 </div>
@@ -311,7 +311,7 @@ function LogrosTab({ socioId, achievementDefinitions, achievementProgress, achie
                 {!completado && (
                   <div className="w-full">
                     <div className="h-1.5 bg-[#F1F1EC] rounded-full overflow-hidden">
-                      <div className="h-full rounded-full bg-[#FFC8E2]" style={{ width: `${porcentaje}%` }} />
+                      <div className="h-full rounded-full bg-portal-brand" style={{ width: `${porcentaje}%` }} />
                     </div>
                     <p className="text-[10px] text-[#A8A89E] mt-1">{actual}/{def.umbral}</p>
                   </div>
@@ -329,7 +329,7 @@ function LogrosTab({ socioId, achievementDefinitions, achievementProgress, achie
           <div className="space-y-2">
             {historial.map(h => (
               <div key={h.id} className="bg-white rounded-2xl px-4 py-3 flex items-center gap-3 border border-black/[0.05]">
-                <div className="w-9 h-9 rounded-xl bg-[#FFF2F7] flex items-center justify-center text-[16px] shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-portal-brand/10 flex items-center justify-center text-[16px] shrink-0">
                   {h.icono}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -403,7 +403,7 @@ function RetosTab({ socioId, socio, socios, sesiones, misReservas, challengeDefi
             style={{ opacity: estado === 'CADUCADO' ? 0.6 : 1, boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}
           >
             <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-xl bg-[#FFF2F7] flex items-center justify-center text-[20px] shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-portal-brand/10 flex items-center justify-center text-[20px] shrink-0">
                 {def.icono}
               </div>
               <div className="flex-1 min-w-0">
@@ -423,12 +423,12 @@ function RetosTab({ socioId, socio, socios, sesiones, misReservas, challengeDefi
             <div className="mt-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] font-semibold text-[#5A5A52]">{Math.min(valor, def.objetivo)} / {def.objetivo}</span>
-                <span className="text-[11px] font-bold text-[#B57A8E]">{pct}%</span>
+                <span className="text-[11px] font-bold text-portal-brand-secondary">{pct}%</span>
               </div>
               <div className="w-full h-2 rounded-full bg-[#F1F1EC] overflow-hidden">
                 <div
                   className="h-full rounded-full"
-                  style={{ width: `${pct}%`, backgroundColor: estado === 'COMPLETADO' ? '#059669' : '#F7A6C4' }}
+                  style={{ width: `${pct}%`, backgroundColor: estado === 'COMPLETADO' ? '#059669' : 'var(--portal-brand)' }}
                 />
               </div>
             </div>
@@ -523,7 +523,7 @@ function RecompensasTab({ socioId, rewardCatalog, rewardRedemptions, rewardHisto
                   className="bg-white rounded-2xl border border-black/[0.06] p-4 flex flex-col items-start gap-2 text-left active:scale-[0.97] transition-transform disabled:active:scale-100"
                   style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)', opacity: bloqueada ? 0.55 : 1 }}
                 >
-                  <div className="w-11 h-11 rounded-2xl bg-[#FFF2F7] flex items-center justify-center text-[20px]">
+                  <div className="w-11 h-11 rounded-2xl bg-portal-brand/10 flex items-center justify-center text-[20px]">
                     {item.icono}
                   </div>
                   <p className="text-[14px] font-bold text-[#171717] leading-tight">{item.nombre}</p>
@@ -534,7 +534,7 @@ function RecompensasTab({ socioId, rewardCatalog, rewardRedemptions, rewardHisto
                     ) : bloqueada ? (
                       <span className="text-[11px] font-bold text-[#A8A89E] flex items-center gap-1"><Lock size={11} />{item.costeCreditos} créditos</span>
                     ) : (
-                      <span className="text-[11px] font-bold text-[#B57A8E] flex items-center gap-1"><Coins size={11} />{item.costeCreditos} créditos</span>
+                      <span className="text-[11px] font-bold text-portal-brand-secondary flex items-center gap-1"><Coins size={11} />{item.costeCreditos} créditos</span>
                     )}
                   </div>
                 </button>
@@ -568,7 +568,7 @@ function RecompensasTab({ socioId, rewardCatalog, rewardRedemptions, rewardHisto
           <div className="absolute inset-0 bg-black/40" onClick={() => setCanjeando(null)} />
           <div className="relative w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-6">
             <div className="flex flex-col items-center text-center mb-4">
-              <div className="w-14 h-14 rounded-2xl bg-[#FFF2F7] flex items-center justify-center text-[26px] mb-3">
+              <div className="w-14 h-14 rounded-2xl bg-portal-brand/10 flex items-center justify-center text-[26px] mb-3">
                 {canjeando.icono}
               </div>
               <h2 className="text-[17px] font-bold text-[#171717]">¿Canjear {canjeando.nombre}?</h2>
@@ -579,7 +579,7 @@ function RecompensasTab({ socioId, rewardCatalog, rewardRedemptions, rewardHisto
               <button onClick={() => setCanjeando(null)} className="flex-1 py-3 rounded-2xl border border-[#E7E7E0] text-[#3A3A34] text-[14px] font-semibold">
                 Cancelar
               </button>
-              <button onClick={confirmarCanje} className="flex-1 py-3 rounded-2xl bg-[#FFC8E2] text-[#171717] text-[14px] font-bold active:scale-[0.98] transition-transform">
+              <button onClick={confirmarCanje} className="flex-1 py-3 rounded-2xl bg-portal-brand text-[#171717] text-[14px] font-bold active:scale-[0.98] transition-transform">
                 Confirmar
               </button>
             </div>

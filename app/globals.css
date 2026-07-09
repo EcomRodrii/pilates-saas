@@ -33,6 +33,12 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-portal-brand: var(--portal-brand);
+  --color-portal-brand-foreground: var(--portal-brand-foreground);
+  --color-portal-brand-secondary: var(--portal-brand-secondary);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -78,6 +84,39 @@
   --lime: #FFC8E2;
   --lime-dark: #F7A6C4;
   --lime-bg: #FFF2F7;
+
+  /* Marca del panel — sobreescrito en tiempo real por lib/panel-theme.tsx según
+     la paleta elegida por cada usuario (personal, localStorage). El valor de
+     aquí es la paleta "Original". */
+  --brand: #FFC8E2;
+  --brand-foreground: #131313;
+  --brand-secondary: #B57A8E;
+
+  /* Marca de la app de socias — sobreescrito por lib/portal-theme.tsx según
+     studio.temaPortal (compartido, Supabase, solo editable por el propietario). */
+  --portal-brand: #FFC8E2;
+  --portal-brand-foreground: #131313;
+  --portal-brand-secondary: #B57A8E;
+}
+
+/* Modo oscuro del panel — personal, activado por lib/panel-theme.tsx añadiendo
+   la clase .dark al contenedor del panel (nunca a <html>, para no afectar a la
+   app de socias). Los tokens --brand* no cambian entre claro/oscuro. */
+.dark {
+  --background: #16161A;
+  --foreground: #EDEDE8;
+  --card: #1E1E22;
+  --card-foreground: #EDEDE8;
+  --popover: #1E1E22;
+  --popover-foreground: #EDEDE8;
+  --secondary: #26262B;
+  --secondary-foreground: #EDEDE8;
+  --muted: #232327;
+  --muted-foreground: #9A9A98;
+  --accent: #2A2226;
+  --accent-foreground: var(--brand-secondary);
+  --border: #303035;
+  --input: #303035;
 }
 
 @layer base {

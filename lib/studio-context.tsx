@@ -9,7 +9,6 @@ import {
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbDeleteRecibo,
-  dbInsertFactura,
   dbInsertCita, dbUpdateCita,
   dbInsertVentaPOS,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
@@ -92,7 +91,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal } from '@/lib/api-client';
+import { enviarEmailCampana, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
@@ -361,7 +360,7 @@ interface StudioContextValue {
   // Studio record (propietario) + avatar del admin
   studio: Studio | null;
   updateAvatarAdmin: (avatarId: string | null) => void;
-  updateStudio: (changes: Partial<Studio>) => void;
+  updateStudio: (changes: Partial<Studio>) => Promise<void>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -623,14 +622,34 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       reciboId: recibo.id,
       numeroCompleto: nextFacturaNumero(currentFacturas),
       fechaEmision: new Date().toISOString(),
-      receptorNombre: socio ? `${socio.nombre} ${socio.apellidos}` : 'Desconocido',
+      receptorNombre: socio ? `${socio.nombre} ${socio.apellidos}` : 'Cliente de mostrador',
       receptorNIF: socio?.nif ?? null,
       baseImponible,
       tipoIVA: 21,
       cuotaIVA,
       total: recibo.importe,
       verifactuHash: null,
+      verifactuPrevHash: null,
+      verifactuTs: null,
+      verifactuSeq: null,
     };
+  }
+
+  // Persiste + sella la factura en el servidor (huella Veri*Factu encadenada por
+  // estudio) y refresca el estado local con la huella devuelta. Sustituye al
+  // insert directo en cliente: el sellado usa node:crypto y debe ir en servidor.
+  async function sellarFacturaYActualizar(fac: Factura) {
+    const r = await sellarFactura(fac);
+    if (r.ok && r.factura) {
+      const s = r.factura;
+      setFacturas(prev => prev.map(f => f.id === fac.id ? {
+        ...f,
+        verifactuHash: s.verifactuHash,
+        verifactuPrevHash: s.verifactuPrevHash,
+        verifactuTs: s.verifactuTs,
+        verifactuSeq: s.verifactuSeq,
+      } : f));
+    }
   }
 
   // ── Socios ───────────────────────────────────────────────────────────────────
@@ -730,7 +749,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   function updateStudio(changes: Partial<Studio>) {
     setStudio(prev => prev ? { ...prev, ...changes } : prev);
-    dbUpdateStudio(changes);
+    return dbUpdateStudio(changes);
   }
 
   // ── Socios ────────────────────────────────────────────────────────────────────
@@ -746,8 +765,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ...socioFields,
     };
     setSocios(prev => [...prev, nuevaSocia]);
-    dbInsertSocio(nuevaSocia);
-    addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+    dbInsertSocio(nuevaSocia).then(ok => {
+      if (ok) addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+    });
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
       if (plan) {
@@ -785,7 +805,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         dbInsertRecibo(reciboCobrado);
         setFacturas(prev => {
           const fac = buildFactura(reciboCobrado, prev);
-          dbInsertFactura(fac);
+          void sellarFacturaYActualizar(fac);
           return [...prev, fac];
         });
       }
@@ -1089,23 +1109,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     };
     const reservasActualizadas = [...reservas, nueva];
     setReservas(reservasActualizadas);
-    // Inserción ATÓMICA en BD (decide aforo/espera con bloqueo de fila). El
-    // estado de arriba es la estimación optimista; se reconcilia con el real.
+    // La inserción real pasa por la función Postgres atómica reservar_plaza
+    // (bloquea la fila de la sesión mientras decide) — la estimación de arriba
+    // es solo para pintar algo al instante. Si dos altas concurrentes compiten
+    // por la última plaza, la decisión de la base de datos manda: se corrige el
+    // estado local y los efectos (bono/créditos/logros) se disparan sobre ese
+    // resultado autoritativo, no sobre la estimación.
     dbReservarPlaza(getCurrentStudioId(), sesionId, socioId, reservaId).then(r => {
-      if (r && !('error' in r) && r.estado && r.estado !== estado) {
+      if (!r || 'error' in r) return;
+      if (r.estado !== estado) {
         setReservas(prev => prev.map(x => x.id === reservaId
           ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera } : x));
-        // Si acabó en espera (no ocupa plaza), revertir el bono descontado.
-        if (estado === 'CONFIRMADA' && r.estado !== 'CONFIRMADA') devolverSesionBono(socioId);
       }
+      if (r.estado === 'CONFIRMADA') consumirSesionBono(socioId);
+      if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
+      evaluarLogrosSocio(socioId, reservasActualizadas);
+      evaluarRetosSocio(socioId, reservasActualizadas);
     });
 
-    // La sesión del bono se descuenta al confirmar la plaza, no en el check-in.
-    if (estado === 'CONFIRMADA') consumirSesionBono(socioId);
-
-    if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
-    evaluarLogrosSocio(socioId, reservasActualizadas);
-    evaluarRetosSocio(socioId, reservasActualizadas);
     return estado;
   }
 
@@ -1308,7 +1329,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
       const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro: new Date().toISOString() };
       const fac = buildFactura(updatedRecibo, prev);
-      dbInsertFactura(fac);
+      void sellarFacturaYActualizar(fac);
       return [...prev, fac];
     });
     // Refill bono or extend mensual when renewal payment is collected
@@ -1340,10 +1361,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       addActividadReciente(
         'COBRO_MANUAL',
         `${actorNombre ?? 'Alguien'} marcó como cobrado "${recibo.concepto}" (${recibo.importe} €) de ${socio?.nombre ?? 'una socia'}`,
-        recibo.socioId,
-        `/socios/${recibo.socioId}`
+        recibo.socioId ?? undefined,
+        recibo.socioId ? `/socios/${recibo.socioId}` : undefined
       );
-      if (recibo.concepto.startsWith('Renovación')) {
+      if (recibo.concepto.startsWith('Renovación') && recibo.socioId) {
         otorgarCreditos(recibo.socioId, 'RENOVACION_PLAN', reciboId);
       }
     }
@@ -1387,7 +1408,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         if (!current.some(f => f.reciboId === recibo.id)) {
           const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
           const fac = buildFactura(cobrado, current);
-          dbInsertFactura(fac);
+          void sellarFacturaYActualizar(fac);
           current = [...current, fac];
         }
       }
@@ -1477,8 +1498,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setVentasPOS(prev => [...prev, nueva]);
     dbInsertVentaPOS(nueva);
 
-    // When a named client buys, create a COBRADO recibo so it appears in Pagos/Facturas
-    if (fields.socioId && fields.total > 0) {
+    // Toda venta con importe genera un recibo COBRADO + su factura (aparece en
+    // Pagos/Facturas). Sin socia es una venta de mostrador → factura
+    // simplificada (F2, sin NIF); con socia y NIF, factura completa (F1).
+    if (fields.total > 0) {
       const concepto = fields.items.length > 0
         ? fields.items.map(i => i.nombre).join(', ')
         : 'Venta POS';
@@ -1486,7 +1509,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const nuevoRecibo: Recibo = {
         id: `rec-pos-${uid()}`,
         studioId: getCurrentStudioId(),
-        socioId: fields.socioId,
+        socioId: fields.socioId ?? null,
         suscripcionId: null,
         concepto,
         importe: fields.total,
@@ -1500,7 +1523,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       dbInsertRecibo(nuevoRecibo);
       setFacturas(prev => {
         const fac = buildFactura(nuevoRecibo, prev);
-        dbInsertFactura(fac);
+        void sellarFacturaYActualizar(fac);
         return [...prev, fac];
       });
     }

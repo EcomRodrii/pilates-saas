@@ -1,5 +1,15 @@
-import type { Reserva, Sesion, Suscripcion, TipoClase, Sala, Instructor } from '@/lib/types';
+import type { Reserva, Sesion, Suscripcion, PlanTarifa, TipoClase, Sala, Instructor } from '@/lib/types';
 import type { RachaInfo } from '@/lib/streak-engine';
+
+// ¿Esta socia puede reservar sin pagar por clase suelta ahora mismo? — true si
+// tiene una suscripción activa que cubre la sesión: mensual ilimitado, o bono
+// con sesiones restantes. Si no, se le debe mostrar el precio de clase suelta.
+export function tieneCoberturaPlan(activeSus: Suscripcion | null, plan: PlanTarifa | null): boolean {
+  if (!activeSus || !plan) return false;
+  if (plan.tipo === 'MENSUAL') return true;
+  if (plan.tipo === 'BONO') return (activeSus.sesionesRestantes ?? 0) > 0;
+  return false;
+}
 
 // Decide qué tarjeta principal mostrar en el Home del portal de miembros.
 // Función pura y reutilizable — sin JSX, sin estado — para que la lógica de

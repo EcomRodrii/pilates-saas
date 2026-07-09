@@ -13,12 +13,14 @@ export interface RowStudios {
   email: string | null;
   telefono: string | null;
   color_primario: string | null;
+  tema_portal: string | null;
   plan: string | null;
   avatar_admin: string | null;
   owner_auth_user_id: string | null;
   slug: string | null;
   creado_en: string | null;
   stripe_account_id: string | null;
+  google_calendar_email: string | null;
 }
 
 export interface RowSocios {
@@ -124,6 +126,7 @@ export interface RowSesiones {
   cancelada: boolean | null;
   notas: string | null;
   precio_puntual: number | null;
+  google_event_id: string | null;
 }
 
 export interface RowReservas {
@@ -165,6 +168,9 @@ export interface RowFacturas {
   cuota_iva: number | null;
   total: number | null;
   verifactu_hash: string | null;
+  verifactu_prev_hash: string | null;
+  verifactu_ts: string | null;
+  verifactu_seq: number | null;
 }
 
 export interface RowCitas {
@@ -565,8 +571,9 @@ export interface RowSoporteSolicitudes {
   contacto: string | null;
   creado_en: string;
 }
-// Tabla 'usuarios' no está en schema.sql (deuda: consultada en fetchAll pero
-// sin CREATE TABLE). Row derivada del mapper mapUsuario.
+
+// NOTA: usuarios no está en schema.sql (lo consume supabase-data). Se mantiene a
+// mano hasta reconciliar el modelo; el generador no lo produce.
 export interface RowUsuarios {
   id: string;
   studio_id: string | null;

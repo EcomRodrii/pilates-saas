@@ -16,7 +16,7 @@ const CATEGORIAS: { value: CategoriaVideo | 'TODOS'; label: string; emoji: strin
 ];
 
 const GRADIENTS: Record<CategoriaVideo, string> = {
-  REFORMER: 'linear-gradient(135deg, #1A1A1A, #B57A8E)',
+  REFORMER: 'linear-gradient(135deg, #1A1A1A, var(--portal-brand-secondary))',
   MAT: 'linear-gradient(135deg, #059669, #10B981)',
   BARRE: 'linear-gradient(135deg, #EC4899, #F472B6)',
   CARDIO: 'linear-gradient(135deg, #EF4444, #F97316)',
@@ -50,7 +50,7 @@ export default function VideosPage() {
     <div className="bg-white min-h-full">
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-4" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, #F7A6C4 100%)' }}>
+      <div className="px-5 pt-6 pb-4" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
         <h1 className="text-white text-[28px] font-extrabold tracking-tight">Videos</h1>
         <p className="text-white/50 text-[13px] mt-0.5">{videosOnDemand.filter(v => v.activo).length} videos · {totalVistas} visualizaciones</p>
 

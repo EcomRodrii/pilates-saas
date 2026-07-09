@@ -47,7 +47,7 @@ const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'S
 
 const actividadConfig: Record<TipoActividad, { color: string; bg: string; label: string }> = {
   NUEVA_SOCIA:        { color: '#059669', bg: '#ECFDF5', label: 'Alta' },
-  NUEVA_RESERVA:      { color: '#7AA80E', bg: '#FFF2F7', label: 'Reserva' },
+  NUEVA_RESERVA:      { color: '#7AA80E', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', label: 'Reserva' },
   CANCELACION:        { color: '#DC2626', bg: '#FEF2F2', label: 'Cancelación' },
   PAGO_COBRADO:       { color: '#059669', bg: '#ECFDF5', label: 'Cobro' },
   PAGO_PENDIENTE:     { color: '#D97706', bg: '#FFFBEB', label: 'Pendiente' },
@@ -56,7 +56,7 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   CITA_CREADA:        { color: '#0891B2', bg: '#ECFEFF', label: 'Cita' },
   CITA_COMPLETADA:    { color: '#059669', bg: '#ECFDF5', label: 'Cita ✓' },
   VENTA_POS:          { color: '#059669', bg: '#ECFDF5', label: 'Venta' },
-  MENSAJE_ENVIADO:    { color: '#8E8E86', bg: '#F5F5F1', label: 'Email' },
+  MENSAJE_ENVIADO:    { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Email' },
   SOCIA_EDITADA:      { color: '#0891B2', bg: '#ECFEFF', label: 'Edición' },
   SOCIA_ELIMINADA:    { color: '#DC2626', bg: '#FEF2F2', label: 'Baja' },
   PLAN_CREADO:        { color: '#7C3AED', bg: '#EDE9FE', label: 'Plan nuevo' },
@@ -67,7 +67,7 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   EQUIPO_ALTA:        { color: '#059669', bg: '#ECFDF5', label: 'Alta equipo' },
   EQUIPO_EDITADO:     { color: '#0891B2', bg: '#ECFEFF', label: 'Equipo editado' },
   EQUIPO_BAJA:        { color: '#DC2626', bg: '#FEF2F2', label: 'Baja equipo' },
-  AUTOMATIZACION_CAMBIO: { color: '#8E8E86', bg: '#F5F5F1', label: 'Automatización' },
+  AUTOMATIZACION_CAMBIO: { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Automatización' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────
@@ -113,8 +113,8 @@ function RevenueSparkline({
     >
       <defs>
         <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#F7A6C4" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#F7A6C4" stopOpacity="0" />
+          <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="var(--brand)" stopOpacity="0" />
         </linearGradient>
       </defs>
 
@@ -122,7 +122,7 @@ function RevenueSparkline({
       <path d={areaD} fill="url(#spark-grad)" />
 
       {/* Line */}
-      <path d={pathD} fill="none" stroke="#F7A6C4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
       {/* Data points */}
       {pts.map((p, i) => (
@@ -131,7 +131,7 @@ function RevenueSparkline({
             cx={p.x}
             cy={p.y}
             r={i === currentIdx ? 5 : 3}
-            fill={i === currentIdx ? "#F7A6C4" : "#fff"} stroke="#F7A6C4"
+            fill={i === currentIdx ? "var(--brand)" : "var(--card)"} stroke="var(--brand)"
             strokeWidth="2"
           />
           <text
@@ -139,7 +139,7 @@ function RevenueSparkline({
             y={H - 6}
             textAnchor="middle"
             fontSize="11"
-            fill={i === currentIdx ? '#1A1A1A' : '#A8A89F'}
+            fill={i === currentIdx ? 'var(--foreground)' : 'var(--muted-foreground)'}
             fontWeight={i === currentIdx ? '700' : '400'}
           >
             {p.label}
@@ -150,7 +150,7 @@ function RevenueSparkline({
               y={p.y - 9}
               textAnchor="middle"
               fontSize="10"
-              fill={i === currentIdx ? '#1A1A1A' : '#8E8E86'}
+              fill={i === currentIdx ? 'var(--foreground)' : 'var(--muted-foreground)'}
               fontWeight={i === currentIdx ? '700' : '400'}
             >
               {p.v >= 1000 ? `${(p.v / 1000).toFixed(1)}k` : p.v.toFixed(0)}
@@ -168,7 +168,7 @@ function OcupacionBar({ pct }: { pct: number }) {
   const color = pct >= 85 ? '#DC2626' : pct >= 60 ? '#D97706' : '#059669';
   return (
     <div className="flex items-center gap-2 flex-1">
-      <div className="flex-1 h-1.5 rounded-full bg-[#F1F1EC] overflow-hidden">
+      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}
@@ -243,13 +243,13 @@ function ClaseHoyCard({
   return (
     <div
       className={cn(
-        'rounded-xl border overflow-hidden bg-white',
-        isNow ? 'border-[#1A1A1A] shadow-sm' : 'border-[#E7E7E0]'
+        'rounded-xl border overflow-hidden bg-card',
+        isNow ? 'border-foreground shadow-sm' : 'border-border'
       )}
     >
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-[#F5F5F1] transition-colors"
+        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted transition-colors"
       >
         {isNow && (
           <span className="shrink-0 w-2 h-2 rounded-full bg-[#059669] animate-pulse" />
@@ -260,14 +260,14 @@ function ClaseHoyCard({
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">{sesion.tipoNombre}</p>
+            <p className="text-[13px] font-semibold text-foreground truncate">{sesion.tipoNombre}</p>
             {isNow && (
               <span className="text-[10px] font-bold text-[#059669] bg-[#ECFDF5] px-1.5 py-0.5 rounded-full shrink-0">
                 AHORA
               </span>
             )}
           </div>
-          <p className="text-[11px] text-[#A8A89F] truncate">
+          <p className="text-[11px] text-muted-foreground truncate">
             {formatHora(sesion.inicio)}–{formatHora(sesion.fin)} · {sesion.salaNombre} ·{' '}
             {sesion.instructorNombre}
           </p>
@@ -276,29 +276,29 @@ function ClaseHoyCard({
           {asistidas > 0 && (
             <span className="text-[11px] font-bold text-[#059669]">{asistidas}✓</span>
           )}
-          <span className="text-[12px] font-semibold text-[#3A3A34]">
+          <span className="text-[12px] font-semibold text-foreground">
             {reservasSesion.length}/{sesion.aforoMaximo}
           </span>
-          <div className="w-16 h-1.5 rounded-full bg-[#F1F1EC] overflow-hidden">
+          <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
             <div
               className="h-full rounded-full"
               style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: fillColor }}
             />
           </div>
           {expanded ? (
-            <ChevronUp size={14} className="text-[#A8A89F]" />
+            <ChevronUp size={14} className="text-muted-foreground" />
           ) : (
-            <ChevronDown size={14} className="text-[#A8A89F]" />
+            <ChevronDown size={14} className="text-muted-foreground" />
           )}
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-[#F1F1EC]">
+        <div className="border-t border-muted">
           {reservasSesion.length === 0 ? (
-            <p className="text-[12px] text-[#A8A89F] px-4 py-3">Sin reservas aún</p>
+            <p className="text-[12px] text-muted-foreground px-4 py-3">Sin reservas aún</p>
           ) : (
-            <div className="divide-y divide-[#F5F5F1]">
+            <div className="divide-y divide-muted">
               {reservasSesion.map(r => {
                 const asistida = r.estado === 'ASISTIDA';
                 return (
@@ -308,7 +308,7 @@ function ClaseHoyCard({
                         'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
                         asistida
                           ? 'bg-[#ECFDF5] text-[#059669]'
-                          : 'bg-[#F1F1EC] text-[#3A3A34]'
+                          : 'bg-muted text-foreground'
                       )}
                     >
                       {r.socio!.nombre[0]}
@@ -318,7 +318,7 @@ function ClaseHoyCard({
                       href={`/socios/${r.socioId}`}
                       className="flex-1 min-w-0 hover:underline"
                     >
-                      <p className="text-[12px] font-medium text-[#1A1A1A] truncate">
+                      <p className="text-[12px] font-medium text-foreground truncate">
                         {r.socio!.nombre} {r.socio!.apellidos}
                       </p>
                     </Link>
@@ -330,13 +330,13 @@ function ClaseHoyCard({
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => checkin(r.id)}
-                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2] transition-colors"
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors"
                         >
                           Check-in
                         </button>
                         <button
                           onClick={() => cancelarReserva(r.id)}
-                          className="text-[10px] font-medium px-2 py-1 rounded-lg text-[#A8A89F] hover:bg-[#FEF2F2] hover:text-[#DC2626] transition-colors"
+                          className="text-[10px] font-medium px-2 py-1 rounded-lg text-muted-foreground hover:bg-[#FEF2F2] hover:text-[#DC2626] transition-colors"
                         >
                           ✕
                         </button>
@@ -347,7 +347,7 @@ function ClaseHoyCard({
               })}
             </div>
           )}
-          <div className="px-4 py-2.5 border-t border-[#F5F5F1]">
+          <div className="px-4 py-2.5 border-t border-muted">
             <Link
               href="/calendario"
               className="text-[11px] font-medium text-[#7AA80E] hover:underline"
@@ -499,7 +499,7 @@ export default function Dashboard() {
         .map(s => ({
           ...s,
           tipoNombre: tiposClase.find(t => t.id === s.tipoClaseId)?.nombre ?? 'Clase',
-          tipoColor: tiposClase.find(t => t.id === s.tipoClaseId)?.color ?? '#8E8E86',
+          tipoColor: tiposClase.find(t => t.id === s.tipoClaseId)?.color ?? 'var(--muted-foreground)',
           salaNombre: salas.find(x => x.id === s.salaId)?.nombre ?? '',
           instructorNombre: instructores.find(i => i.id === s.instructorId)?.nombre ?? '',
         })),
@@ -554,9 +554,9 @@ export default function Dashboard() {
   const TrendIcon =
     pctChange > 0 ? TrendingUp : pctChange < 0 ? TrendingDown : Minus;
   const trendColor =
-    pctChange > 0 ? '#059669' : pctChange < 0 ? '#DC2626' : '#8E8E86';
+    pctChange > 0 ? '#059669' : pctChange < 0 ? '#DC2626' : 'var(--muted-foreground)';
   const trendBg =
-    pctChange > 0 ? '#ECFDF5' : pctChange < 0 ? '#FEF2F2' : '#F5F5F1';
+    pctChange > 0 ? '#ECFDF5' : pctChange < 0 ? '#FEF2F2' : 'var(--muted)';
 
   if (!mounted) return null;
 
@@ -596,12 +596,15 @@ export default function Dashboard() {
             <Link
               key={label}
               href={href}
-              className="rounded-xl border p-3.5 transition-colors hover:bg-[#F5F5F1]"
-              style={{ backgroundColor: alert ? '#FEF2F2' : 'white', borderColor: alert ? '#FCA5A5' : '#E7E7E0' }}
+              className="rounded-xl border p-3.5 transition-colors hover:bg-muted"
+              style={{
+                backgroundColor: alert ? 'color-mix(in srgb, #DC2626 12%, var(--card))' : 'var(--card)',
+                borderColor: alert ? '#FCA5A5' : 'var(--border)',
+              }}
             >
-              <Icon size={15} style={{ color: alert ? '#DC2626' : '#8E8E86' }} />
-              <p className="text-[22px] font-bold leading-none mt-2" style={{ color: alert ? '#DC2626' : '#1A1A1A' }}>{value}</p>
-              <p className="text-[10.5px] font-medium text-[#8E8E86] mt-1 leading-tight">{label}</p>
+              <Icon size={15} style={{ color: alert ? '#DC2626' : 'var(--muted-foreground)' }} />
+              <p className="text-[22px] font-bold leading-none mt-2" style={{ color: alert ? '#DC2626' : 'var(--foreground)' }}>{value}</p>
+              <p className="text-[10.5px] font-medium text-muted-foreground mt-1 leading-tight">{label}</p>
             </Link>
           ))}
         </div>
@@ -619,7 +622,7 @@ export default function Dashboard() {
               href="/automatizaciones"
               className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-card/10">
                 <Bot className="size-4 text-primary-foreground/80" />
               </div>
               <div className="min-w-0 flex-1">
@@ -673,18 +676,18 @@ export default function Dashboard() {
 
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard label="Miembros activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-[#B57A8E]" tintBg="bg-[#FFF2F7]" />
+          <KpiCard label="Miembros activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
           <Card size="sm" className="gap-2.5">
             <CardContent className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
-              <span className="flex size-7 items-center justify-center rounded-lg bg-[#FFF2F7]"><Activity className="size-3.5 text-[#B57A8E]" /></span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-brand/10"><Activity className="size-3.5 text-brand-secondary" /></span>
             </CardContent>
             <CardContent>
               <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? '#DC2626' : ocupacionMedia >= 60 ? '#D97706' : '#059669' }}>{ocupacionMedia}%</p>
               <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
             </CardContent>
           </Card>
-          <KpiCard label="Reservas hoy" value={reservasHoy} sub={`${clasesHoy.length} clase${clasesHoy.length !== 1 ? 's' : ''} programada${clasesHoy.length !== 1 ? 's' : ''}`} Icon={Calendar} tint="text-[#B57A8E]" tintBg="bg-[#FFF2F7]" />
+          <KpiCard label="Reservas hoy" value={reservasHoy} sub={`${clasesHoy.length} clase${clasesHoy.length !== 1 ? 's' : ''} programada${clasesHoy.length !== 1 ? 's' : ''}`} Icon={Calendar} tint="text-brand-secondary" tintBg="bg-brand/10" />
           <KpiCard
             label="Renovaciones 30d"
             value={renovacionesProximas.length}
@@ -704,28 +707,28 @@ export default function Dashboard() {
           <div className="lg:col-span-2 space-y-5">
 
             {/* Clases de hoy */}
-            <div className="bg-white rounded-xl border border-[#E7E7E0]">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F1EC]">
+            <div className="bg-card rounded-xl border border-border">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-muted">
                 <div className="flex items-center gap-2">
-                  <Clock size={14} className="text-[#8E8E86]" />
-                  <h2 className="text-[13px] font-semibold text-[#1A1A1A]">
+                  <Clock size={14} className="text-muted-foreground" />
+                  <h2 className="text-[13px] font-semibold text-foreground">
                     Clases de hoy
                   </h2>
-                  <span className="text-[11px] font-medium text-[#A8A89F]">
+                  <span className="text-[11px] font-medium text-muted-foreground">
                     {clasesHoy.length} sesiones
                   </span>
                 </div>
                 <Link
                   href="/calendario"
-                  className="flex items-center gap-1 text-[11px] font-medium text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
+                  className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <CalendarPlus size={12} /> Ver calendario
                 </Link>
               </div>
               {clasesHoy.length === 0 ? (
                 <div className="py-12 flex flex-col items-center gap-2">
-                  <Calendar size={28} className="text-[#E7E7E0]" />
-                  <p className="text-[13px] text-[#A8A89F]">Sin clases hoy</p>
+                  <Calendar size={28} className="text-border" />
+                  <p className="text-[13px] text-muted-foreground">Sin clases hoy</p>
                   <Link
                     href="/calendario"
                     className="text-[12px] font-medium text-[#7AA80E] hover:underline"
@@ -744,11 +747,11 @@ export default function Dashboard() {
 
             {/* Pagos pendientes */}
             {pendientes.length > 0 && (
-              <div className="bg-white rounded-xl border border-[#E7E7E0]">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-[#F1F1EC]">
+              <div className="bg-card rounded-xl border border-border">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-muted">
                   <div className="flex items-center gap-2">
-                    <CreditCard size={14} className="text-[#8E8E86]" />
-                    <h2 className="text-[13px] font-semibold text-[#1A1A1A]">
+                    <CreditCard size={14} className="text-muted-foreground" />
+                    <h2 className="text-[13px] font-semibold text-foreground">
                       Pagos pendientes
                     </h2>
                     <span className="text-[10px] font-bold text-[#DC2626] bg-[#FEF2F2] px-1.5 py-0.5 rounded-full">
@@ -764,7 +767,7 @@ export default function Dashboard() {
                     </button>
                   )}
                 </div>
-                <div className="divide-y divide-[#F5F5F1]">
+                <div className="divide-y divide-muted">
                   {pendientes.map(r => (
                     <div key={r.id} className="flex items-center gap-3 px-5 py-3">
                       <Link
@@ -775,18 +778,18 @@ export default function Dashboard() {
                         {r.socio!.apellidos[0]}
                       </Link>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-semibold text-[#1A1A1A] truncate">
+                        <p className="text-[13px] font-semibold text-foreground truncate">
                           {r.socio!.nombre} {r.socio!.apellidos}
                         </p>
-                        <p className="text-[11px] text-[#A8A89F] truncate">{r.concepto}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{r.concepto}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[13px] font-bold text-[#1A1A1A]">
+                        <span className="text-[13px] font-bold text-foreground">
                           {r.importe} €
                         </span>
                         <button
                           onClick={() => marcarCobrado(r.id)}
-                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#FFC8E2] text-[#171717] hover:bg-[#F7B3D2] transition-colors"
+                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors"
                         >
                           Cobrar
                         </button>
@@ -795,7 +798,7 @@ export default function Dashboard() {
                   ))}
                 </div>
                 {recibos.filter(r => r.estado === 'PENDIENTE').length > 5 && (
-                  <div className="px-5 py-3 border-t border-[#F5F5F1]">
+                  <div className="px-5 py-3 border-t border-muted">
                     <Link
                       href="/pagos"
                       className="text-[11px] font-medium text-[#7AA80E] hover:underline"
@@ -812,32 +815,32 @@ export default function Dashboard() {
           <div className="space-y-5">
 
             {/* Quick actions */}
-            <div className="bg-white rounded-xl border border-[#E7E7E0] p-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#A8A89F] mb-3">
+            <div className="bg-card rounded-xl border border-border p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
                 Acciones rápidas
               </p>
               <div className="space-y-2">
                 <Link
                   href="/socios?nuevo=1"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-[#1A1A1A] hover:bg-[#F7B3D2] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                 >
                   <UserPlus size={14} /> Nuevo miembro
                 </Link>
                 <Link
                   href="/calendario"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#3A3A34] bg-[#EEEEE8] hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
                 >
                   <CalendarPlus size={14} /> Nueva reserva
                 </Link>
                 <Link
                   href="/pagos"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#3A3A34] bg-[#EEEEE8] hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
                 >
                   <CreditCard size={14} /> Cobrar
                 </Link>
                 <Link
                   href="/pos"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-[#3A3A34] bg-[#EEEEE8] hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
                 >
                   <ShoppingCart size={14} /> Punto de venta
                 </Link>
@@ -846,17 +849,17 @@ export default function Dashboard() {
 
             {/* Renovaciones próximas */}
             {renovacionesProximas.length > 0 && (
-              <div className="bg-white rounded-xl border border-[#E7E7E0]">
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F1F1EC]">
+              <div className="bg-card rounded-xl border border-border">
+                <div className="flex items-center justify-between px-4 py-3.5 border-b border-muted">
                   <div className="flex items-center gap-2">
                     <RefreshCw size={13} className="text-[#059669]" />
-                    <h2 className="text-[13px] font-semibold text-[#1A1A1A]">
+                    <h2 className="text-[13px] font-semibold text-foreground">
                       Renovaciones
                     </h2>
                   </div>
-                  <span className="text-[10px] font-bold text-[#8E8E86]">30 días</span>
+                  <span className="text-[10px] font-bold text-muted-foreground">30 días</span>
                 </div>
-                <div className="divide-y divide-[#F5F5F1]">
+                <div className="divide-y divide-muted">
                   {renovacionesProximas.map(r => {
                     const diasRestantes = Math.round(
                       (new Date(r.fechaFin!).getTime() - now.getTime()) / 86400000
@@ -866,27 +869,27 @@ export default function Dashboard() {
                       <Link
                         key={r.id}
                         href={`/socios/${r.socioId}`}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F5F5F1] transition-colors"
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted transition-colors"
                       >
                         <div className="w-7 h-7 rounded-full bg-[#DBEAFE] text-[#7AA80E] text-[10px] font-bold flex items-center justify-center shrink-0">
                           {r.socio!.nombre[0]}
                           {r.socio!.apellidos[0]}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-semibold text-[#1A1A1A] truncate">
+                          <p className="text-[12px] font-semibold text-foreground truncate">
                             {r.socio!.nombre} {r.socio!.apellidos}
                           </p>
-                          <p className="text-[11px] text-[#A8A89F] truncate">
+                          <p className="text-[11px] text-muted-foreground truncate">
                             {r.plan!.nombre}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-[11px] font-bold text-[#1A1A1A]">
+                          <p className="text-[11px] font-bold text-foreground">
                             {r.plan!.precio} €
                           </p>
                           <p
                             className="text-[10px] font-semibold"
-                            style={{ color: isUrgent ? '#DC2626' : '#A8A89F' }}
+                            style={{ color: isUrgent ? '#DC2626' : 'var(--muted-foreground)' }}
                           >
                             {diasRestantes}d
                           </p>
@@ -899,22 +902,22 @@ export default function Dashboard() {
             )}
 
             {/* Activity feed */}
-            <div className="bg-white rounded-xl border border-[#E7E7E0]">
-              <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F1F1EC]">
+            <div className="bg-card rounded-xl border border-border">
+              <div className="flex items-center justify-between px-4 py-3.5 border-b border-muted">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-[13px] font-semibold text-[#1A1A1A]">Actividad</h2>
+                  <h2 className="text-[13px] font-semibold text-foreground">Actividad</h2>
                   <span className="w-1.5 h-1.5 rounded-full bg-[#059669] animate-pulse" />
                 </div>
                 <Link
                   href="/notificaciones"
-                  className="flex items-center gap-1 text-[11px] font-medium text-[#8E8E86] hover:text-[#1A1A1A] transition-colors"
+                  className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Bell size={11} /> Ver todo
                 </Link>
               </div>
-              <div className="divide-y divide-[#F5F5F1]">
+              <div className="divide-y divide-muted">
                 {actividadReciente.length === 0 ? (
-                  <p className="text-[12px] text-[#A8A89F] px-4 py-6 text-center">
+                  <p className="text-[12px] text-muted-foreground px-4 py-6 text-center">
                     Sin actividad reciente
                   </p>
                 ) : (
@@ -928,10 +931,10 @@ export default function Dashboard() {
                         >
                           {cfg.label}
                         </span>
-                        <p className="flex-1 text-[12px] text-[#3A3A34] min-w-0 truncate">
+                        <p className="flex-1 text-[12px] text-foreground min-w-0 truncate">
                           {act.texto}
                         </p>
-                        <span className="text-[10px] text-[#A8A89F] shrink-0">
+                        <span className="text-[10px] text-muted-foreground shrink-0">
                           {timeAgo(act.creadoEn, now)}
                         </span>
                       </>
@@ -940,7 +943,7 @@ export default function Dashboard() {
                       <Link
                         key={act.id}
                         href={act.enlace}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F5F5F1] transition-colors"
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted transition-colors"
                       >
                         {inner}
                       </Link>

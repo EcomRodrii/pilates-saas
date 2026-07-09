@@ -5,6 +5,8 @@ import { usePathname, useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home, Calendar, CreditCard, Play, TrendingUp } from 'lucide-react';
 import { usePortalAuth } from '@/lib/portal-auth';
+import { useStudio } from '@/lib/studio-context';
+import { portalThemeStyle } from '@/lib/portal-theme';
 
 const NAV = [
   { seg: 'clases', icon: Calendar, label: 'Clases' },
@@ -16,10 +18,12 @@ const NAV = [
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
+  const { studio } = useStudio();
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
+  const themeStyle = portalThemeStyle(studio?.temaPortal);
 
   const isLoginPage = pathname === `/portal/${slug}` || pathname === `/portal/${slug}/login`;
 
@@ -39,12 +43,12 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
 
   if (!session && !isLoginPage) return null;
   if (session && isLoginPage) return null;
-  if (isLoginPage) return <>{children}</>;
+  if (isLoginPage) return <div style={themeStyle}>{children}</div>;
 
   return (
     <div
       className="fixed inset-0 flex flex-col bg-white overflow-hidden"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      style={{ paddingTop: 'env(safe-area-inset-top)', ...themeStyle }}
     >
       {/* Scrollable content */}
       <main
@@ -73,11 +77,11 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                 href={href}
                 className="flex-1 flex flex-col items-center justify-center gap-[3px]"
               >
-                <span className={active ? 'flex items-center justify-center w-8 h-6 rounded-full bg-[#FFC8E2]' : 'flex items-center justify-center w-8 h-6'}>
+                <span className={active ? 'flex items-center justify-center w-8 h-6 rounded-full bg-portal-brand' : 'flex items-center justify-center w-8 h-6'}>
                   <Icon
                     size={19}
                     strokeWidth={active ? 2.5 : 1.8}
-                    className={active ? 'text-[#171717]' : 'text-[#C7C7CC]'}
+                    className={active ? 'text-portal-brand-foreground' : 'text-[#C7C7CC]'}
                   />
                 </span>
                 <span
