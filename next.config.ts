@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   /* config options here */
 };
 
-export default nextConfig;
+// Sentry envuelve la config de build. La subida de source maps solo ocurre si
+// hay SENTRY_AUTH_TOKEN + org/project; si no, se omite sin romper el build.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+});
