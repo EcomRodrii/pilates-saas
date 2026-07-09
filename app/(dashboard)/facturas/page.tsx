@@ -3,8 +3,9 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import { Search, Download, FileText, TrendingUp, Euro, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { Search, Download, FileText, TrendingUp, Euro, ChevronDown, ChevronRight, X, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
 
 function fecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -37,6 +38,17 @@ export default function Facturas() {
     const recibo = recibos.find(r => r.id === reciboId);
     if (!recibo) return null;
     return socios.find(s => s.id === recibo.socioId) ?? null;
+  }
+
+  // URL de cotejo (QR) Veri*Factu de una factura ya sellada. En producción se
+  // apunta al endpoint real con NEXT_PUBLIC_VERIFACTU_ENTORNO=produccion.
+  const entornoProduccion = process.env.NEXT_PUBLIC_VERIFACTU_ENTORNO === 'produccion';
+  function urlCotejo(f: { numeroCompleto: string; fechaEmision: string; total: number; verifactuHash: string | null }): string | null {
+    if (!f.verifactuHash || !studio?.nif) return null;
+    return urlQrVerifactu(
+      { nif: studio.nif, numSerie: f.numeroCompleto, fecha: fechaExpedicionDesdeISO(f.fechaEmision), importeTotal: f.total },
+      { produccion: entornoProduccion },
+    );
   }
 
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -138,6 +150,14 @@ export default function Facturas() {
   function descargarPDF(f: typeof previewFactura, socio: typeof previewSocio) {
     if (!f) return;
     const fmt = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const cotejo = urlCotejo(f);
+    const bloqueVerifactu = f.verifactuHash ? `
+<div style="margin-top:32px;padding:16px;border:1px solid #E7E7E0;border-radius:8px;background:#FAFAF7;font-size:11px;color:#5A5A52">
+  <div style="font-weight:700;color:#1A1A1A;margin-bottom:6px">Sistema de facturación verificable (Veri*Factu)</div>
+  <div style="margin-bottom:4px">Huella: <span style="font-family:monospace;word-break:break-all">${f.verifactuHash}</span></div>
+  ${cotejo ? `<div>QR de cotejo AEAT: <a href="${cotejo}" style="color:#7AA80E;word-break:break-all">${cotejo}</a></div>` : ''}
+  ${entornoProduccion ? '' : '<div style="margin-top:6px;color:#B57A8E">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</div>'}
+</div>` : '';
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -216,6 +236,7 @@ export default function Facturas() {
     <tr class="total-row"><td>TOTAL</td><td>${fmt(f.total)} €</td></tr>
   </tfoot>
 </table>
+${bloqueVerifactu}
 <div class="footer">Documento generado el ${new Date().toLocaleDateString('es-ES')} · ${emisorNombre} · ${emisorNif}</div>
 <script>window.onload = function(){ window.print(); }<\/script>
 </body></html>`;
@@ -533,6 +554,29 @@ export default function Facturas() {
                   </tfoot>
                 </table>
               </div>
+
+              {previewFactura.verifactuHash && (
+                <div className="mt-6 rounded-xl border border-border bg-muted/40 p-4 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-foreground mb-1.5">
+                    <ShieldCheck size={13} className="text-brand" />
+                    Sistema de facturación verificable (Veri*Factu)
+                  </div>
+                  <p className="text-muted-foreground break-all">
+                    Huella: <span className="font-mono text-foreground">{previewFactura.verifactuHash}</span>
+                  </p>
+                  {urlCotejo(previewFactura) && (
+                    <p className="text-muted-foreground break-all mt-1">
+                      QR de cotejo AEAT:{' '}
+                      <a href={urlCotejo(previewFactura)!} target="_blank" rel="noopener noreferrer" className="text-brand underline">
+                        {urlCotejo(previewFactura)}
+                      </a>
+                    </p>
+                  )}
+                  {!entornoProduccion && (
+                    <p className="text-brand-secondary mt-1.5">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</p>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3 mt-6">
                 <button
