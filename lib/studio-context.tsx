@@ -9,7 +9,6 @@ import {
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion,
   dbInsertReserva, dbUpdateReserva,
   dbInsertRecibo, dbUpdateRecibo, dbDeleteRecibo,
-  dbInsertFactura,
   dbInsertCita, dbUpdateCita,
   dbInsertVentaPOS,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
@@ -92,7 +91,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, authHeader, cargarDatosPublicos, leerSociaLocal } from '@/lib/api-client';
+import { enviarEmailCampana, authHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
@@ -629,7 +628,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       cuotaIVA,
       total: recibo.importe,
       verifactuHash: null,
+      verifactuPrevHash: null,
+      verifactuTs: null,
+      verifactuSeq: null,
     };
+  }
+
+  // Persiste + sella la factura en el servidor (huella Veri*Factu encadenada por
+  // estudio) y refresca el estado local con la huella devuelta. Sustituye al
+  // insert directo en cliente: el sellado usa node:crypto y debe ir en servidor.
+  async function sellarFacturaYActualizar(fac: Factura) {
+    const r = await sellarFactura(fac);
+    if (r.ok && r.factura) {
+      const s = r.factura;
+      setFacturas(prev => prev.map(f => f.id === fac.id ? {
+        ...f,
+        verifactuHash: s.verifactuHash,
+        verifactuPrevHash: s.verifactuPrevHash,
+        verifactuTs: s.verifactuTs,
+        verifactuSeq: s.verifactuSeq,
+      } : f));
+    }
   }
 
   // ── Socios ───────────────────────────────────────────────────────────────────
@@ -785,7 +804,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         dbInsertRecibo(reciboCobrado);
         setFacturas(prev => {
           const fac = buildFactura(reciboCobrado, prev);
-          dbInsertFactura(fac);
+          void sellarFacturaYActualizar(fac);
           return [...prev, fac];
         });
       }
@@ -1287,7 +1306,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
       const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro: new Date().toISOString() };
       const fac = buildFactura(updatedRecibo, prev);
-      dbInsertFactura(fac);
+      void sellarFacturaYActualizar(fac);
       return [...prev, fac];
     });
     // Refill bono or extend mensual when renewal payment is collected
@@ -1366,7 +1385,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         if (!current.some(f => f.reciboId === recibo.id)) {
           const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
           const fac = buildFactura(cobrado, current);
-          dbInsertFactura(fac);
+          void sellarFacturaYActualizar(fac);
           current = [...current, fac];
         }
       }
@@ -1479,7 +1498,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       dbInsertRecibo(nuevoRecibo);
       setFacturas(prev => {
         const fac = buildFactura(nuevoRecibo, prev);
-        dbInsertFactura(fac);
+        void sellarFacturaYActualizar(fac);
         return [...prev, fac];
       });
     }

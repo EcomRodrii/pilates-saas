@@ -229,6 +229,9 @@ export interface Factura {
   cuotaIVA: number;
   total: number;
   verifactuHash: string | null;
+  verifactuPrevHash: string | null;
+  verifactuTs: string | null;
+  verifactuSeq: number | null;
 }
 
 // ─── Enriched (joined) types ──────────────────────────────────────────────────
