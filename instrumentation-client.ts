@@ -1,0 +1,14 @@
+import * as Sentry from '@sentry/nextjs';
+
+// Sentry (navegador). Se activa solo con DSN. Sin session replay por defecto
+// (privacidad de las socias); solo captura replay cuando hay un error.
+Sentry.init({
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
+  tracesSampleRate: 0.1,
+  replaysSessionSampleRate: 0,
+  replaysOnErrorSampleRate: 1.0,
+  sendDefaultPii: false,
+});
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
