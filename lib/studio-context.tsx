@@ -7,7 +7,7 @@ import {
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion,
-  dbInsertReserva, dbUpdateReserva,
+  dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbDeleteRecibo,
   dbInsertFactura,
   dbInsertCita, dbUpdateCita,
@@ -1075,8 +1075,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return estado;
     }
 
+    const reservaId = `res-${uid()}`;
     const nueva: Reserva = {
-      id: `res-${uid()}`,
+      id: reservaId,
       studioId: getCurrentStudioId(),
       sesionId,
       socioId,
@@ -1088,7 +1089,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     };
     const reservasActualizadas = [...reservas, nueva];
     setReservas(reservasActualizadas);
-    dbInsertReserva(nueva);
+    // Inserción ATÓMICA en BD (decide aforo/espera con bloqueo de fila). El
+    // estado de arriba es la estimación optimista; se reconcilia con el real.
+    dbReservarPlaza(getCurrentStudioId(), sesionId, socioId, reservaId).then(r => {
+      if (r && !('error' in r) && r.estado && r.estado !== estado) {
+        setReservas(prev => prev.map(x => x.id === reservaId
+          ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera } : x));
+        // Si acabó en espera (no ocupa plaza), revertir el bono descontado.
+        if (estado === 'CONFIRMADA' && r.estado !== 'CONFIRMADA') devolverSesionBono(socioId);
+      }
+    });
 
     // La sesión del bono se descuenta al confirmar la plaza, no en el check-in.
     if (estado === 'CONFIRMADA') consumirSesionBono(socioId);
@@ -1119,18 +1129,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const updated = prev.map(r =>
         r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r
       );
-      dbUpdateReserva(reservaId, { estado: 'CANCELADA' });
-      // Auto-promociona la primera de la LISTA_ESPERA (por posición) de la sesión
+      // Promoción optimista de la primera de la LISTA_ESPERA (la BD la ejecuta
+      // atómica en dbCancelarReservaPlaza; esto solo adelanta la UI).
       if (!cancelada) return updated;
       const espera = siguienteEnEspera(cancelada.sesionId, updated);
       if (!espera) return updated;
       promotedSocioId = espera.socioId;
       promotedSesionId = espera.sesionId;
-      dbUpdateReserva(espera.id, { estado: 'CONFIRMADA', posicionEspera: null });
       return updated.map(r =>
         r.id === espera.id ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r
       );
     });
+    // Cancelación + promoción de espera ATÓMICAS en la BD (una transacción con
+    // bloqueo de fila) — sustituye a los dos updates sueltos no atómicos.
+    dbCancelarReservaPlaza(getCurrentStudioId(), reservaId);
 
     // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
     if (promotedSocioId) consumirSesionBono(promotedSocioId);

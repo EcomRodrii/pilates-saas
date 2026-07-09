@@ -1200,23 +1200,24 @@ export async function crearReservaPublica(params: {
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
 
-  const [{ data: sesRow }, { data: resRows }] = await Promise.all([
-    admin.from('sesiones').select('*').eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle(),
-    admin.from('reservas').select('*').eq('studio_id', params.studioId),
-  ]);
-  if (!sesRow) return { error: 'Sesión no encontrada' as const };
-  const reservas = (resRows ?? []).map(mapReserva);
-  const { estado, posicionEspera } = decidirReservaNueva((sesRow as RowSesiones).aforo_maximo, params.sesionId, reservas);
-
-  const nueva = {
-    id: `res-${uid()}`, studio_id: params.studioId, sesion_id: params.sesionId, socio_id: params.socioId,
-    estado, spot_id: null, posicion_espera: posicionEspera, check_in_en: null, creado_en: new Date().toISOString(),
-  };
-  const { error } = await admin.from('reservas').insert(nueva);
-  if (error) return { error: error.message };
+  // Aforo transaccional: la decisión (CONFIRMADA vs LISTA_ESPERA) y la inserción
+  // ocurren atómicamente en la BD (SELECT ... FOR UPDATE en la sesión), no en
+  // JS — evita la sobreventa por reservas concurrentes de la última plaza.
+  const reservaId = `res-${uid()}`;
+  const { data, error } = await admin.rpc('reservar_plaza', {
+    p_studio_id: params.studioId, p_sesion_id: params.sesionId,
+    p_socio_id: params.socioId, p_reserva_id: reservaId,
+  });
+  if (error) {
+    if (error.message.includes('YA_RESERVADA')) return { error: 'Ya tienes una reserva en esta clase' as const };
+    if (error.message.includes('SESION_NO_ENCONTRADA')) return { error: 'Sesión no encontrada' as const };
+    return { error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  const estado: string = row?.estado ?? 'CONFIRMADA';
 
   if (estado === 'CONFIRMADA') await consumirBonoServidor(admin, params.studioId, params.socioId);
-  return { ok: true as const, reserva: mapReserva(nueva as RowReservas) };
+  return { ok: true as const, estado, reservaId };
 }
 
 // Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.
@@ -1228,22 +1229,20 @@ export async function cancelarReservaPublica(params: {
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
 
-  const { data: resRow } = await admin
-    .from('reservas').select('*').eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
-  if (!resRow || resRow.socio_id !== params.socioId) return { error: 'No autorizado' as const };
-  const cancelada = mapReserva(resRow as RowReservas);
-
-  await admin.from('reservas').update({ estado: 'CANCELADA' }).eq('id', params.reservaId);
-  if (cancelada.estado === 'CONFIRMADA') await devolverBonoServidor(admin, params.studioId, params.socioId);
-
-  // Promoción de lista de espera (menor posición).
-  const { data: allRows } = await admin.from('reservas').select('*').eq('studio_id', params.studioId);
-  const actuales = (allRows ?? []).map(mapReserva);
-  const espera = siguienteEnEspera(cancelada.sesionId, actuales);
-  if (espera) {
-    await admin.from('reservas').update({ estado: 'CONFIRMADA', posicion_espera: null }).eq('id', espera.id);
-    await consumirBonoServidor(admin, params.studioId, espera.socioId);
+  // Cancelación + promoción de la lista de espera, atómicas en la BD.
+  const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
+    p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
+  });
+  if (error) {
+    if (error.message.includes('NO_AUTORIZADO')) return { error: 'No autorizado' as const };
+    if (error.message.includes('RESERVA_NO_ENCONTRADA')) return { error: 'Reserva no encontrada' as const };
+    return { error: error.message };
   }
+  const row = Array.isArray(data) ? data[0] : data;
+  // Bonos fuera de la transacción de aforo: se devuelve a quien cancela (si era
+  // confirmada) y se consume a quien asciende de la lista de espera.
+  if (row?.era_confirmada) await devolverBonoServidor(admin, params.studioId, params.socioId);
+  if (row?.promovida_socio_id) await consumirBonoServidor(admin, params.studioId, row.promovida_socio_id as string);
   return { ok: true as const };
 }
 
@@ -1900,6 +1899,32 @@ export async function dbDeleteSesion(id: string) {
 export async function dbInsertReserva(res: Reserva) {
   const { error } = await supabase.from('reservas').insert(reservaToDb(res));
   if (error) reportDbError('[dbInsertReserva]', error);
+}
+
+// Reserva ATÓMICA desde el panel (sesión autenticada de staff): la RPC decide
+// aforo/lista de espera con bloqueo de fila y aísla por estudio. Sustituye al
+// insert directo (read-decide-insert no atómico → sobreventa).
+export async function dbReservarPlaza(
+  studioId: string, sesionId: string, socioId: string, reservaId: string,
+): Promise<{ estado: string; posicionEspera: number | null } | { error: string }> {
+  const { data, error } = await supabase.rpc('reservar_plaza', {
+    p_studio_id: studioId, p_sesion_id: sesionId, p_socio_id: socioId, p_reserva_id: reservaId,
+  });
+  if (error) { reportDbError('[dbReservarPlaza]', error); return { error: error.message }; }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { estado: row?.estado ?? 'CONFIRMADA', posicionEspera: row?.posicion_espera ?? null };
+}
+
+// Cancelación + promoción de lista de espera ATÓMICAS desde el panel.
+export async function dbCancelarReservaPlaza(
+  studioId: string, reservaId: string,
+): Promise<{ eraConfirmada: boolean; promovidaSocioId: string | null } | { error: string }> {
+  const { data, error } = await supabase.rpc('cancelar_reserva_plaza', {
+    p_studio_id: studioId, p_reserva_id: reservaId, p_socio_id: null,
+  });
+  if (error) { reportDbError('[dbCancelarReservaPlaza]', error); return { error: error.message }; }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { eraConfirmada: !!row?.era_confirmada, promovidaSocioId: row?.promovida_socio_id ?? null };
 }
 
 export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
