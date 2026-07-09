@@ -1148,9 +1148,11 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     Icon: GoogleCalendarIcon,
     color: '#4285F4',
     bg: '#F5F5F5',
-    categoria: 'Calendario',
-    campos: [],
-    proximamente: true,
+    campos: [
+      { key: 'calendarId', label: 'ID del calendario', placeholder: 'estudio@group.calendar.google.com' },
+    ],
+    secretoEnv: 'GOOGLE_SERVICE_ACCOUNT_JSON',
+    docsUrl: 'https://calendar.google.com/',
   },
   {
     tipo: 'WHATSAPP',
