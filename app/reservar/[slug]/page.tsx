@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
+import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa } from '@/lib/types';
 import {
   ChevronLeft, ChevronRight, Clock, Users, MapPin,
   CheckCircle2, X, Calendar, Search, Zap, Award, Heart, Star,
-  CreditCard, Pen, FileText, Download, ExternalLink,
+  CreditCard, Pen, FileText, Download, ExternalLink, Mail,
 } from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -161,19 +162,6 @@ function CanvasSignature({ onHasDrawing }: { onHasDrawing: (v: boolean) => void 
   );
 }
 
-// ─── Local socia session ──────────────────────────────────────────────────────
-
-interface LocalSocia { nombre: string; email: string; socioId?: string }
-
-function useLocalSocia() {
-  const [socia, setSocia] = useState<LocalSocia | null>(null);
-  useEffect(() => {
-    try { const r = localStorage.getItem('ps_portal_socia'); if (r) setSocia(JSON.parse(r)); } catch { /* */ }
-  }, []);
-  function login(data: LocalSocia) { setSocia(data); localStorage.setItem('ps_portal_socia', JSON.stringify(data)); }
-  function logout() { setSocia(null); localStorage.removeItem('ps_portal_socia'); }
-  return { socia, login, logout };
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -212,7 +200,7 @@ function PlazasDots({ taken, total }: { taken: number; total: number }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type Tab = 'clases' | 'misreservas' | 'estudio';
-type Step = 'login' | 'contrato' | 'confirm' | 'done' | 'espera';
+type Step = 'login' | 'registro' | 'contrato' | 'confirm' | 'done' | 'espera';
 
 export default function ReservarPage() {
   const {
@@ -224,7 +212,9 @@ export default function ReservarPage() {
   const estudioDireccion = [studio?.ciudad, studio?.direccion].filter(Boolean).join(' · ') || 'Málaga · Calle Larios 12';
   const estudioEmail = studio?.email ?? 'hola@tentare.es';
   const estudioTelefono = studio?.telefono ?? '+34 951 000 000';
-  const { socia, login, logout } = useLocalSocia();
+  const params = useParams();
+  const slug = String(params?.slug ?? '');
+  const { socia, usuarioEmail, autenticado, enviarEnlace, logout, refrescar } = useSociaSession(slug);
   const searchParams = useSearchParams();
   const refCode = searchParams.get('ref');
 
@@ -241,6 +231,8 @@ export default function ReservarPage() {
   const [bookingSesionId, setBookingSesionId] = useState<string | null>(null);
   const [loginForm, setLoginForm] = useState({ nombre: '', email: '' });
   const [loginStep, setLoginStep] = useState<Step>('login');
+  const [enlaceEnviado, setEnlaceEnviado] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   // Contract
   const [canvasSigned, setCanvasSigned] = useState(false);
@@ -295,24 +287,36 @@ export default function ReservarPage() {
   function openBooking(sesionId: string) {
     setBookingSesionId(sesionId);
     setCanvasSigned(false);
-    if (!socia) {
+    setEnlaceEnviado(false);
+    setLoginError('');
+    if (!autenticado) {
       setLoginStep('login');
-    } else {
-      const found = socia.socioId ? socios.find(s => s.id === socia.socioId) : null;
+    } else if (socia) {
+      const found = socios.find(s => s.id === socia.socioId);
       const needsContract = !found?.aceptacionContrato;
       setLoginStep(needsContract ? 'contrato' : 'confirm');
+    } else {
+      // Autenticada por magic link pero aún sin ficha (walk-in): pedir nombre.
+      setLoginStep('registro');
     }
   }
 
-  function closeBooking() { setBookingSesionId(null); setLoginStep('login'); setCanvasSigned(false); }
+  function closeBooking() { setBookingSesionId(null); setLoginStep('login'); setCanvasSigned(false); setEnlaceEnviado(false); }
 
-  function handleLogin() {
-    if (!loginForm.nombre.trim() || !loginForm.email.trim()) return;
-    const found = socios.find(s => s.email?.toLowerCase() === loginForm.email.trim().toLowerCase());
-    login({ nombre: loginForm.nombre.trim(), email: loginForm.email.trim(), socioId: found?.id });
-    // New guests and existing socias without a signed contract go to contrato step
-    const needsContract = !found || !found.aceptacionContrato;
-    setLoginStep(needsContract ? 'contrato' : 'confirm');
+  // Magic link: envía el enlace de acceso al email (ya no mete dentro con solo
+  // nombre+email). La socia entra al pulsar el enlace del correo.
+  async function handleEnviarEnlace() {
+    if (!loginForm.email.trim()) return;
+    setLoginError('');
+    const r = await enviarEnlace(loginForm.email);
+    if ('error' in r) { setLoginError(r.error); return; }
+    setEnlaceEnviado(true);
+  }
+
+  // Walk-in ya autenticado: solo falta el nombre antes de firmar el contrato.
+  function handleRegistroNombre() {
+    if (!loginForm.nombre.trim()) return;
+    setLoginStep('contrato');
   }
 
   function handleSignContract() {
@@ -329,34 +333,34 @@ export default function ReservarPage() {
   }
 
   async function handleConfirm() {
-    if (!bookingSesionId || !socia) return;
+    if (!bookingSesionId) return;
     const sesion = sesionesRich.find(s => s.id === bookingSesionId);
     if (!sesion) return;
 
-    let socioId = socia.socioId;
-    if (!socioId) {
-      // First-time booking: register guest as a real socia with contract accepted
-      socioId = `soc-${Date.now()}`;
-      const referidoValido = refCode && refCode !== socioId && socios.some(s => s.id === refCode) ? refCode : null;
-      // Se AWAITea el alta para que la reserva encuentre la socia ya creada
-      // (en modo público el alta va por endpoint de servidor).
-      login({ nombre: socia.nombre, email: socia.email, socioId });
+    if (!socia) {
+      // Walk-in: alta de la ficha. El servidor la vincula a su auth_user_id a
+      // partir del JWT (magic link) y usa el email del token; el nombre lo puso
+      // en el paso "registro". Se AWAITea para que la reserva la encuentre.
+      const nuevoId = `soc-${Date.now()}`;
+      const referidoValido = refCode && refCode !== nuevoId && socios.some(s => s.id === refCode) ? refCode : null;
       await addSocioFromPortal({
-        id: socioId,
-        nombre: socia.nombre,
-        email: socia.email,
+        id: nuevoId,
+        nombre: loginForm.nombre.trim(),
+        email: usuarioEmail ?? '',
         aceptacionContrato: {
           fecha: new Date().toISOString(),
-          firma: socia.nombre,
+          firma: loginForm.nombre.trim(),
           versionTexto: 'v1.1',
         },
         referidoPor: referidoValido,
       });
+      await refrescar(); // re-resuelve la socia recién creada (por auth_user_id)
     }
 
-    // El estado real lo decide addReserva según el aforo en ese momento
-    // (evita depender de un cálculo previo que podría estar desactualizado).
-    const estado = addReserva(bookingSesionId, socioId);
+    // El id de la socia lo deriva el servidor del JWT; el que pasamos aquí solo
+    // alimenta la actualización optimista de la UI. El estado (confirmada/espera)
+    // lo decide addReserva según el aforo del momento.
+    const estado = addReserva(bookingSesionId, socia?.socioId ?? '');
     setLoginStep(estado === 'LISTA_ESPERA' ? 'espera' : 'done');
   }
 
@@ -367,10 +371,13 @@ export default function ReservarPage() {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // El importe/concepto NO se envían: los deriva el servidor del plan en
+        // la BD (validando que sea de este estudio y esté activo). Ver
+        // app/api/stripe/checkout/route.ts.
         body: JSON.stringify({
-          reciboId: `portal-${plan.id}-${Date.now()}`,
-          concepto: plan.nombre,
-          importe: plan.precio,
+          studioId: studio?.id,
+          planId: plan.id,
+          socioId: socia?.socioId ?? null,
           socioEmail: socia?.email ?? null,
           socioNombre: socia?.nombre ?? 'Socia',
         }),
@@ -861,23 +868,59 @@ export default function ReservarPage() {
               </div>
             )}
 
-            {/* ── LOGIN ── */}
+            {/* ── LOGIN (magic link) ── */}
             {loginStep === 'login' && (
               <>
-                <h2 className="text-[#1A1A1A] font-bold text-lg mb-1">Identificarte</h2>
-                <p className="text-[#8E8E86] text-sm mb-5">Introduce tu nombre y email para reservar.</p>
-                <div className="space-y-2.5 mb-5">
-                  {(['nombre', 'email'] as const).map(field => (
-                    <input key={field} type={field === 'email' ? 'email' : 'text'}
-                      placeholder={field === 'nombre' ? 'Tu nombre completo' : 'Tu email'}
-                      value={loginForm[field]}
-                      onChange={e => setLoginForm(f => ({ ...f, [field]: e.target.value }))}
-                      onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                      className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors"
+                {!enlaceEnviado ? (
+                  <>
+                    <h2 className="text-[#1A1A1A] font-bold text-lg mb-1">Entra para reservar</h2>
+                    <p className="text-[#8E8E86] text-sm mb-5">Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
+                    <input type="email"
+                      placeholder="Tu email"
+                      value={loginForm.email}
+                      onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setLoginError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handleEnviarEnlace()}
+                      autoFocus
+                      className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors mb-3"
                       style={{ backgroundColor: '#F5F5F1' }} />
-                  ))}
-                </div>
-                <button onClick={handleLogin} disabled={!loginForm.nombre || !loginForm.email}
+                    {loginError && <p className="text-rose-600 text-sm mb-3">{loginError}</p>}
+                    <button onClick={handleEnviarEnlace} disabled={!loginForm.email}
+                      className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                      style={{ backgroundColor: PRIMARY }}>
+                      Enviar enlace de acceso →
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center text-center py-4 gap-4">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFF2F7' }}>
+                      <Mail size={28} style={{ color: PRIMARY }} />
+                    </div>
+                    <div>
+                      <p className="text-[#1A1A1A] font-extrabold text-xl">Revisa tu email</p>
+                      <p className="text-[#8E8E86] text-sm mt-1">
+                        Te enviamos un enlace a <span className="font-semibold text-[#1A1A1A]">{loginForm.email}</span>.
+                        Ábrelo en este dispositivo para entrar y vuelve a reservar tu clase.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── REGISTRO (walk-in ya autenticado: nombre) ── */}
+            {loginStep === 'registro' && (
+              <>
+                <h2 className="text-[#1A1A1A] font-bold text-lg mb-1">¿Cómo te llamas?</h2>
+                <p className="text-[#8E8E86] text-sm mb-5">Completa tu nombre para tu primera reserva.</p>
+                <input type="text"
+                  placeholder="Tu nombre completo"
+                  value={loginForm.nombre}
+                  onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
+                  autoFocus
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors mb-5"
+                  style={{ backgroundColor: '#F5F5F1' }} />
+                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre}
                   className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                   style={{ backgroundColor: PRIMARY }}>
                   Continuar →
@@ -939,11 +982,11 @@ export default function ReservarPage() {
                 <div className="flex items-center gap-2.5 mb-5 px-1">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                     style={{ backgroundColor: PRIMARY }}>
-                    {socia?.nombre[0]}
+                    {(socia?.nombre ?? loginForm.nombre ?? '·')[0]}
                   </div>
                   <p className="text-[#8E8E86] text-sm">
-                    <span className="text-[#1A1A1A] font-semibold">{socia?.nombre}</span>
-                    <span className="mx-1">·</span>{socia?.email}
+                    <span className="text-[#1A1A1A] font-semibold">{socia?.nombre ?? loginForm.nombre}</span>
+                    <span className="mx-1">·</span>{socia?.email ?? usuarioEmail}
                   </p>
                 </div>
                 <button onClick={handleConfirm}

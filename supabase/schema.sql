@@ -513,6 +513,14 @@ alter table instructores add column if not exists auth_user_id uuid references a
 -- Migración: multi-tenancy — cada negocio tiene su propia propietaria
 alter table studios add column if not exists owner_auth_user_id uuid references auth.users(id) on delete set null;
 
+-- Migración: portal de socias con Supabase Auth (login por magic link / OTP).
+-- Vincula cada socia a su usuario de auth. El vínculo se hace en el primer
+-- login por email (claim), igual que instructores.auth_user_id para el equipo.
+-- NO es único global: un mismo email puede ser socia de varios estudios, así
+-- que el vínculo es por (socia de un estudio) → usuario de auth.
+alter table socios add column if not exists auth_user_id uuid references auth.users(id) on delete set null;
+create index if not exists idx_socios_auth_user_id on socios(auth_user_id);
+
 -- Migración: slug público para /reservar/[slug], /kiosk/[slug], /portal/[slug]
 alter table studios add column if not exists slug text unique;
 update studios set slug = 'tentare' where id = 'studio-1' and slug is null;
@@ -1108,3 +1116,128 @@ create table if not exists integracion_credenciales (
 );
 alter table integracion_credenciales enable row level security;
 drop policy if exists "public_update_challenge_history" on challenge_history;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- AFORO TRANSACCIONAL (Fase 1) — no sobrevender + lista de espera real
+--
+-- El problema: crear una reserva era leer-decidir-insertar en dos pasos, así
+-- que dos reservas concurrentes de la última plaza podían confirmarse ambas
+-- (sobreventa). Estas funciones hacen la decisión (CONFIRMADA vs LISTA_ESPERA)
+-- y la inserción DENTRO de una transacción que serializa por sesión con
+-- SELECT ... FOR UPDATE. Las llaman tanto el proxy público (service-role) como
+-- el panel (sesión autenticada); en el panel se exige que el estudio coincida.
+-- ═══════════════════════════════════════════════════════════════════
+
+-- Defensa en profundidad: una socia no puede tener dos reservas ACTIVAS en la
+-- misma sesión aunque la lógica de la app fallara.
+create unique index if not exists uq_reserva_activa_socio_sesion
+  on reservas (sesion_id, socio_id)
+  where estado in ('CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA');
+
+create or replace function reservar_plaza(
+  p_studio_id text, p_sesion_id text, p_socio_id text, p_reserva_id text
+) returns table(estado text, posicion_espera int)
+language plpgsql security definer as $$
+#variable_conflict use_column
+declare
+  v_aforo int;
+  v_ocupadas int;
+  v_espera int;
+  v_estado text;
+  v_pos int;
+begin
+  -- Aislamiento por negocio en llamadas autenticadas (panel). Las de
+  -- service-role (endpoints públicos) no tienen auth.uid() y se saltan el check.
+  if auth.uid() is not null and p_studio_id is distinct from current_studio_id() then
+    raise exception 'STUDIO_MISMATCH';
+  end if;
+
+  -- Serializa las reservas concurrentes de ESTA sesión.
+  select aforo_maximo into v_aforo
+    from sesiones where id = p_sesion_id and studio_id = p_studio_id
+    for update;
+  if not found then
+    raise exception 'SESION_NO_ENCONTRADA';
+  end if;
+
+  if exists (
+    select 1 from reservas
+    where sesion_id = p_sesion_id and socio_id = p_socio_id
+      and estado in ('CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA')
+  ) then
+    raise exception 'YA_RESERVADA';
+  end if;
+
+  select count(*) into v_ocupadas
+    from reservas
+    where sesion_id = p_sesion_id and estado in ('CONFIRMADA', 'ASISTIDA');
+
+  if v_aforo is null or v_ocupadas < v_aforo then
+    v_estado := 'CONFIRMADA';
+    v_pos := null;
+  else
+    select count(*) into v_espera
+      from reservas where sesion_id = p_sesion_id and estado = 'LISTA_ESPERA';
+    v_estado := 'LISTA_ESPERA';
+    v_pos := v_espera + 1;
+  end if;
+
+  insert into reservas (id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, check_in_en, creado_en)
+    values (p_reserva_id, p_studio_id, p_sesion_id, p_socio_id, v_estado, null, v_pos, null, now());
+
+  return query select v_estado, v_pos;
+end;
+$$;
+
+-- Cancela una reserva y, si liberó una plaza confirmada, promociona atómicamente
+-- a la primera de la lista de espera. Devuelve si la cancelada era confirmada
+-- (para devolver bono) y a quién se promovió (para consumirle el bono).
+create or replace function cancelar_reserva_plaza(
+  p_studio_id text, p_reserva_id text, p_socio_id text
+) returns table(era_confirmada boolean, promovida_socio_id text)
+language plpgsql security definer as $$
+declare
+  v_sesion_id text;
+  v_estado text;
+  v_res_socio text;
+  v_promo_id text;
+  v_promo_socio text;
+begin
+  if auth.uid() is not null and p_studio_id is distinct from current_studio_id() then
+    raise exception 'STUDIO_MISMATCH';
+  end if;
+
+  select sesion_id, estado, socio_id into v_sesion_id, v_estado, v_res_socio
+    from reservas where id = p_reserva_id and studio_id = p_studio_id
+    for update;
+  if not found then raise exception 'RESERVA_NO_ENCONTRADA'; end if;
+  if p_socio_id is not null and v_res_socio is distinct from p_socio_id then
+    raise exception 'NO_AUTORIZADO';
+  end if;
+  if v_estado = 'CANCELADA' then
+    return query select false, null::text;
+    return;
+  end if;
+
+  -- Serializa con nuevas reservas / otras cancelaciones de la misma sesión.
+  perform 1 from sesiones where id = v_sesion_id for update;
+
+  update reservas set estado = 'CANCELADA', posicion_espera = null where id = p_reserva_id;
+
+  if v_estado in ('CONFIRMADA', 'ASISTIDA') then
+    select id, socio_id into v_promo_id, v_promo_socio
+      from reservas
+      where sesion_id = v_sesion_id and estado = 'LISTA_ESPERA'
+      order by posicion_espera asc nulls last
+      limit 1 for update;
+    if found then
+      update reservas set estado = 'CONFIRMADA', posicion_espera = null where id = v_promo_id;
+    end if;
+  end if;
+
+  return query select (v_estado in ('CONFIRMADA', 'ASISTIDA')), v_promo_socio;
+end;
+$$;
+
+grant execute on function reservar_plaza(text, text, text, text) to authenticated, service_role;
+grant execute on function cancelar_reserva_plaza(text, text, text) to authenticated, service_role;

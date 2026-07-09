@@ -7,7 +7,7 @@ import {
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion,
-  dbCrearReservaAtomica, dbUpdateReserva,
+  dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
   dbInsertVentaPOS,
@@ -91,7 +91,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, authHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
+import { enviarEmailCampana, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
@@ -474,8 +474,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   function cargarPublico() {
     if (!publicSlug) return;
     setCurrentStudioId(studioIdOverride ?? '');
-    const member = leerSociaLocal();
-    cargarDatosPublicos(publicSlug, member ?? undefined).then(pub => {
+    // La socia se deriva del JWT en el servidor (cargarDatosPublicos manda el
+    // Bearer); ya no se pasa {socioId,email} desde el cliente.
+    cargarDatosPublicos(publicSlug).then(pub => {
       if (!pub || pub.error) { setDataLoaded(true); return; }
       setStudio(pub.studio ?? null);
       setSesiones(pub.sesiones ?? []);
@@ -821,7 +822,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
   async function postPublico(url: string, body: Record<string, unknown>) {
     try {
-      await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      // Si hay sesión de socia (portal, magic link) se manda su Bearer: los
+      // endpoints que ya exigen sesión real (canje, preferencias) derivan la
+      // identidad del JWT en vez de fiarse del body. En /reservar (sin sesión
+      // Supabase) no se manda, y esos endpoints siguen con el modelo antiguo.
+      const auth = await portalAuthHeader();
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...auth },
+        body: JSON.stringify(body),
+      });
     } finally {
       cargarPublico(); // re-sincroniza el estado desde el servidor
     }
@@ -1085,11 +1095,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return estado;
     }
 
-    const id = `res-${uid()}`;
-    const studioId = getCurrentStudioId();
+    const reservaId = `res-${uid()}`;
     const nueva: Reserva = {
-      id,
-      studioId,
+      id: reservaId,
+      studioId: getCurrentStudioId(),
       sesionId,
       socioId,
       estado,
@@ -1100,19 +1109,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     };
     const reservasActualizadas = [...reservas, nueva];
     setReservas(reservasActualizadas);
-
-    // La inserción real pasa por una función Postgres atómica (bloquea la fila
-    // de la sesión mientras decide) — la estimación de arriba es solo para
-    // pintar algo al instante. Si dos altas concurrentes compiten por la
-    // última plaza, la decisión de la base de datos manda: se corrige el
-    // estado local y los efectos (bono/créditos/logros) se disparan sobre
-    // ese resultado autoritativo, no sobre la estimación.
-    dbCrearReservaAtomica({ id, studioId, sesionId, socioId }).then(real => {
-      if (!real) return;
-      if (real.estado !== estado) {
-        setReservas(prev => prev.map(r => r.id === id ? { ...r, estado: real.estado, posicionEspera: real.posicionEspera } : r));
+    // La inserción real pasa por la función Postgres atómica reservar_plaza
+    // (bloquea la fila de la sesión mientras decide) — la estimación de arriba
+    // es solo para pintar algo al instante. Si dos altas concurrentes compiten
+    // por la última plaza, la decisión de la base de datos manda: se corrige el
+    // estado local y los efectos (bono/créditos/logros) se disparan sobre ese
+    // resultado autoritativo, no sobre la estimación.
+    dbReservarPlaza(getCurrentStudioId(), sesionId, socioId, reservaId).then(r => {
+      if (!r || 'error' in r) return;
+      if (r.estado !== estado) {
+        setReservas(prev => prev.map(x => x.id === reservaId
+          ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera } : x));
       }
-      if (real.estado === 'CONFIRMADA') consumirSesionBono(socioId);
+      if (r.estado === 'CONFIRMADA') consumirSesionBono(socioId);
       if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
       evaluarLogrosSocio(socioId, reservasActualizadas);
       evaluarRetosSocio(socioId, reservasActualizadas);
@@ -1141,18 +1150,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const updated = prev.map(r =>
         r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r
       );
-      dbUpdateReserva(reservaId, { estado: 'CANCELADA' });
-      // Auto-promociona la primera de la LISTA_ESPERA (por posición) de la sesión
+      // Promoción optimista de la primera de la LISTA_ESPERA (la BD la ejecuta
+      // atómica en dbCancelarReservaPlaza; esto solo adelanta la UI).
       if (!cancelada) return updated;
       const espera = siguienteEnEspera(cancelada.sesionId, updated);
       if (!espera) return updated;
       promotedSocioId = espera.socioId;
       promotedSesionId = espera.sesionId;
-      dbUpdateReserva(espera.id, { estado: 'CONFIRMADA', posicionEspera: null });
       return updated.map(r =>
         r.id === espera.id ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r
       );
     });
+    // Cancelación + promoción de espera ATÓMICAS en la BD (una transacción con
+    // bloqueo de fila) — sustituye a los dos updates sueltos no atómicos.
+    dbCancelarReservaPlaza(getCurrentStudioId(), reservaId);
 
     // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
     if (promotedSocioId) consumirSesionBono(promotedSocioId);

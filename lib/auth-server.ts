@@ -39,3 +39,20 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
 
   return null;
 }
+
+// Verifica el JWT de una SOCIA (portal de miembros con Supabase Auth) y
+// devuelve su usuario de auth. No resuelve a qué estudio/socia pertenece —de
+// eso se encarga resolverSociaAutenticada() con el slug del portal, porque un
+// mismo email puede ser socia de varios estudios. Devuelve null si no hay token
+// válido o el usuario no tiene email.
+export async function verificarUsuarioSupabase(
+  req: NextRequest,
+): Promise<{ userId: string; email: string } | null> {
+  const token = req.headers.get('authorization')?.replace(/^Bearer /, '');
+  if (!token) return null;
+
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user?.email) return null;
+
+  return { userId: user.id, email: user.email };
+}

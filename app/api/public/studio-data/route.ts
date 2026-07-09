@@ -1,24 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchPublicStudioData } from '@/lib/supabase-data';
+import { fetchPublicStudioData, resolveStudioIdBySlug, socioAutenticado } from '@/lib/supabase-data';
+import { verificarUsuarioSupabase } from '@/lib/auth-server';
 
-// Datos para las páginas públicas (reserva/portal/kiosk) servidos con
-// service-role y scopeados: catálogo público del estudio + (opcional) los
-// datos de UNA socia validada por email. Sustituye el acceso anónimo directo,
-// que exponía la PII de todas las socias.
+// Datos para las páginas públicas (reserva/portal/kiosk): catálogo público del
+// estudio + (si hay socia autenticada) SUS datos.
+// SEGURIDAD: la identidad de la socia se deriva del JWT de Supabase Auth, NUNCA
+// de {socioId,email} del body. Sin token válido se devuelve solo el catálogo
+// (clases, salas, planes…), sin ningún dato personal/financiero.
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null) as {
-    slug?: string;
-    member?: { socioId?: string; email?: string };
-  } | null;
-
+  const body = await req.json().catch(() => null) as { slug?: string } | null;
   const slug = body?.slug?.trim();
   if (!slug) {
     return NextResponse.json({ error: 'Falta el slug del estudio' }, { status: 400 });
   }
 
-  const member = body?.member?.socioId && body?.member?.email
-    ? { socioId: body.member.socioId, email: body.member.email }
-    : undefined;
+  let member: { socioId: string; email: string } | undefined;
+  const user = await verificarUsuarioSupabase(req);
+  if (user) {
+    const studioId = await resolveStudioIdBySlug(slug);
+    if (studioId) {
+      const socioId = await socioAutenticado(user.userId, studioId);
+      if (socioId) member = { socioId, email: user.email };
+    }
+  }
 
   try {
     const data = await fetchPublicStudioData(slug, member);
