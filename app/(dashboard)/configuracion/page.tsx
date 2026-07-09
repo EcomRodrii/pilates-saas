@@ -17,6 +17,7 @@ import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, PayPalIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
 import { useAuth } from '@/lib/auth-context';
 import { subirFotoClase, eliminarFotoClase } from '@/lib/portal-storage';
+import { authHeader } from '@/lib/api-client';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -1144,15 +1145,12 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'GOOGLE_CALENDAR',
     nombre: 'Google Calendar',
-    descripcion: 'Sincroniza las clases y citas del estudio con un calendario de Google.',
+    descripcion: 'Sincroniza las clases del estudio con el calendario de Google de la propietaria. Conexión OAuth — no necesitas pegar ninguna clave.',
     Icon: GoogleCalendarIcon,
     color: '#4285F4',
     bg: '#F5F5F5',
-    campos: [
-      { key: 'calendarId', label: 'ID del calendario', placeholder: 'estudio@group.calendar.google.com' },
-    ],
-    secretoEnv: 'GOOGLE_SERVICE_ACCOUNT_JSON',
-    docsUrl: 'https://calendar.google.com/',
+    categoria: 'Calendario',
+    campos: [],
   },
   {
     tipo: 'WHATSAPP',
@@ -1319,6 +1317,50 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
     showToast('Stripe desconectado');
   };
 
+  // Google Calendar: OAuth real (ver lib/google-calendar.ts). A diferencia de
+  // Stripe, desconectar y sincronizar pasan por rutas de servidor
+  // autenticadas (no solo estado local) — ver app/api/integrations/google-calendar/*.
+  const googleConectado = !!studio?.googleCalendarEmail;
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const googleConnectUrl = googleClientId && studio
+    ? `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(`${appUrl}/api/integrations/google-calendar/callback`)}&response_type=code&scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email')}&access_type=offline&prompt=consent&state=${studio.id}`
+    : null;
+  const [sincronizando, setSincronizando] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('google_calendar_connected')) {
+      showToast('Google Calendar conectado');
+      window.history.replaceState({}, '', '/configuracion');
+    } else if (params.get('google_calendar_error')) {
+      showToast(`Error al conectar Google Calendar: ${params.get('google_calendar_error')}`);
+      window.history.replaceState({}, '', '/configuracion');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const desconectarGoogle = async () => {
+    const res = await fetch('/api/integrations/google-calendar/disconnect', { method: 'POST', headers: await authHeader() });
+    if (res.ok) {
+      updateStudio({ googleCalendarEmail: null });
+      showToast('Google Calendar desconectado');
+    } else {
+      const data = await res.json().catch(() => null);
+      showToast(`No se pudo desconectar: ${data?.error ?? 'error desconocido'}`);
+    }
+  };
+
+  const sincronizarGoogle = async () => {
+    setSincronizando(true);
+    try {
+      const res = await fetch('/api/integrations/google-calendar/sync', { method: 'POST', headers: await authHeader() });
+      const data = await res.json();
+      if (!res.ok) { showToast(`Error al sincronizar: ${data.error}`); return; }
+      showToast(`Sincronizado: ${data.creadas} clases nuevas, ${data.actualizadas} actualizadas, ${data.borradas} eliminadas`);
+    } finally {
+      setSincronizando(false);
+    }
+  };
+
   const abrirConfig = (cat: CatalogoIntegracion) => {
     const actual = getIntegracion(cat.tipo);
     setForm(actual?.config ?? {});
@@ -1396,7 +1438,7 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CATALOGO_INTEGRACIONES.map(cat => {
           const intg = getIntegracion(cat.tipo);
-          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : !!intg?.activo;
+          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : !!intg?.activo;
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
               <div className="flex items-start gap-3">
@@ -1445,6 +1487,21 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                   ) : (
                     <p className="text-[11px] text-muted-foreground">
                       Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID</code>
+                    </p>
+                  )
+                ) : cat.tipo === 'GOOGLE_CALENDAR' ? (
+                  googleConectado ? (
+                    <>
+                      <button onClick={sincronizarGoogle} disabled={sincronizando} className={cn(btnPrimary, sincronizando && 'opacity-50')}>
+                        {sincronizando ? 'Sincronizando…' : 'Sincronizar ahora'}
+                      </button>
+                      <button onClick={desconectarGoogle} className={btnSecondary}>Desconectar</button>
+                    </>
+                  ) : googleConnectUrl ? (
+                    <a href={googleConnectUrl} className={cn(btnPrimary, 'no-underline')}>Conectar con Google</a>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
                     </p>
                   )
                 ) : (

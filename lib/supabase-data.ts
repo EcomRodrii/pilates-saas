@@ -187,6 +187,7 @@ function mapStudio(r: RowStudios): Studio {
     slug: r.slug ?? null,
     creadoEn: r.creado_en,
     stripeAccountId: r.stripe_account_id ?? null,
+    googleCalendarEmail: r.google_calendar_email ?? null,
   } as Studio;
 }
 
@@ -548,6 +549,7 @@ function mapSesion(r: RowSesiones): Sesion {
     cancelada: r.cancelada,
     notas: r.notas ?? null,
     precioPuntual: r.precio_puntual ?? null,
+    googleEventId: r.google_event_id ?? null,
   } as Sesion;
 }
 
@@ -1868,6 +1870,7 @@ export async function dbUpdateSesion(id: string, changes: Partial<Sesion>) {
   if ('cancelada' in changes) db.cancelada = changes.cancelada;
   if ('notas' in changes) db.notas = changes.notas;
   if ('precioPuntual' in changes) db.precio_puntual = changes.precioPuntual;
+  if ('googleEventId' in changes) db.google_event_id = changes.googleEventId;
   const { error } = await supabase.from('sesiones').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateSesion]', error);
 }
@@ -2534,6 +2537,57 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
 export async function dbSetStripeAccountId(studioId: string, stripeAccountId: string | null) {
   const { error } = await supabase.from('studios').update({ stripe_account_id: stripeAccountId }).eq('id', studioId);
   if (error) reportDbError('[dbSetStripeAccountId]', error);
+}
+
+// Igual que el callback de Stripe: sin sesión de usuario, así que hace falta
+// la service role (el cliente anon no tiene permiso de escritura sobre
+// `studios` fuera de una sesión autenticada).
+export async function dbSetGoogleCalendarEmail(studioId: string, email: string | null) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('studios').update({ google_calendar_email: email }).eq('id', studioId);
+  if (error) reportDbError('[dbSetGoogleCalendarEmail]', error);
+}
+
+export interface GoogleCalendarCredenciales {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+}
+
+export async function dbGetGoogleCalendarCredenciales(studioId: string): Promise<GoogleCalendarCredenciales | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from('integracion_credenciales')
+    .select('access_token, refresh_token, expires_at')
+    .eq('studio_id', studioId)
+    .eq('provider', 'google_calendar')
+    .maybeSingle();
+  if (error) { reportDbError('[dbGetGoogleCalendarCredenciales]', error); return null; }
+  if (!data || !data.refresh_token) return null;
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+}
+
+export async function dbSaveGoogleCalendarCredenciales(studioId: string, c: GoogleCalendarCredenciales) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').upsert({
+    studio_id: studioId,
+    provider: 'google_calendar',
+    access_token: c.accessToken,
+    refresh_token: c.refreshToken,
+    expires_at: c.expiresAt,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'studio_id,provider' });
+  if (error) reportDbError('[dbSaveGoogleCalendarCredenciales]', error);
+}
+
+export async function dbDeleteGoogleCalendarCredenciales(studioId: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'google_calendar');
+  if (error) reportDbError('[dbDeleteGoogleCalendarCredenciales]', error);
 }
 
 function slugify(nombre: string): string {

@@ -1073,4 +1073,25 @@ drop policy if exists "public_update_challenge_definitions" on challenge_definit
 drop policy if exists "public_write_challenge_progress" on challenge_progress;
 drop policy if exists "public_update_challenge_progress" on challenge_progress;
 drop policy if exists "public_write_challenge_history" on challenge_history;
+
+-- Migración: Google Calendar (OAuth real) — mismo patrón que Stripe Connect:
+-- una sola app de Google para toda la plataforma, cada estudio conecta su
+-- propia cuenta. `google_calendar_email` es solo la referencia visible (no
+-- sensible) que usa la UI para mostrar "Conectado" — el access/refresh token
+-- de verdad vive en `integracion_credenciales`, una tabla sin ninguna policy
+-- para anon/authenticated a propósito: solo rutas de servidor con la service
+-- role key pueden leerla o escribirla, nunca el navegador del estudio.
+alter table studios add column if not exists google_calendar_email text;
+alter table sesiones add column if not exists google_event_id text;
+
+create table if not exists integracion_credenciales (
+  studio_id text references studios(id) on delete cascade,
+  provider text not null,
+  access_token text,
+  refresh_token text,
+  expires_at timestamptz,
+  actualizado_en timestamptz default now(),
+  primary key (studio_id, provider)
+);
+alter table integracion_credenciales enable row level security;
 drop policy if exists "public_update_challenge_history" on challenge_history;

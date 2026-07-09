@@ -20,6 +20,7 @@ export interface RowStudios {
   slug: string | null;
   creado_en: string | null;
   stripe_account_id: string | null;
+  google_calendar_email: string | null;
 }
 
 export interface RowSocios {
@@ -125,6 +126,7 @@ export interface RowSesiones {
   cancelada: boolean | null;
   notas: string | null;
   precio_puntual: number | null;
+  google_event_id: string | null;
 }
 
 export interface RowReservas {
