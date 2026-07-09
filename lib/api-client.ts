@@ -22,14 +22,13 @@ export async function portalAuthHeader(): Promise<Record<string, string>> {
 // ── Datos públicos (proxy scopeado) ─────────────────────────────────────────
 // Carga el catálogo del estudio + (si hay socia en sesión) sus datos, vía el
 // endpoint de servidor con service-role. Sustituye el acceso anónimo directo.
-export async function cargarDatosPublicos(
-  slug: string,
-  member?: { socioId: string; email: string },
-) {
+export async function cargarDatosPublicos(slug: string) {
+  // La identidad de la socia va en el JWT (Bearer), no en el body: el servidor
+  // deriva sus datos del token. Sin sesión → solo catálogo público.
   const res = await fetch('/api/public/studio-data', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ slug, member }),
+    headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+    body: JSON.stringify({ slug }),
   });
   if (!res.ok) return null;
   return res.json();

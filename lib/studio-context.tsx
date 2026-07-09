@@ -475,8 +475,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   function cargarPublico() {
     if (!publicSlug) return;
     setCurrentStudioId(studioIdOverride ?? '');
-    const member = leerSociaLocal();
-    cargarDatosPublicos(publicSlug, member ?? undefined).then(pub => {
+    // La socia se deriva del JWT en el servidor (cargarDatosPublicos manda el
+    // Bearer); ya no se pasa {socioId,email} desde el cliente.
+    cargarDatosPublicos(publicSlug).then(pub => {
       if (!pub || pub.error) { setDataLoaded(true); return; }
       setStudio(pub.studio ?? null);
       setSesiones(pub.sesiones ?? []);

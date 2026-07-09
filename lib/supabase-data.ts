@@ -1307,6 +1307,7 @@ export async function socioAutenticado(authUserId: string, studioId: string): Pr
 // el estudio existe; el id lo genera el cliente (primera reserva).
 export async function registrarSociaPublica(params: {
   studioId: string; id: string; nombre: string; email: string;
+  authUserId?: string;
   aceptacion?: { fecha: string; firma: string; versionTexto: string };
   referidoPor?: string | null;
 }) {
@@ -1314,6 +1315,13 @@ export async function registrarSociaPublica(params: {
   if (!admin) throw new Error('Service role no configurada');
   const { data: studio } = await admin.from('studios').select('id').eq('id', params.studioId).maybeSingle();
   if (!studio) return { error: 'Estudio no encontrado' as const };
+
+  // Idempotencia: si este usuario de auth ya tiene socia en el estudio (p. ej.
+  // reintento tras registrarse), no creamos una duplicada — devolvemos la suya.
+  if (params.authUserId) {
+    const yaSocia = await socioAutenticado(params.authUserId, params.studioId);
+    if (yaSocia) return { ok: true as const, socioId: yaSocia };
+  }
 
   // El referido solo es válido si existe una socia con ese id en el estudio.
   let referido: string | null = null;
@@ -1325,6 +1333,7 @@ export async function registrarSociaPublica(params: {
   const { error } = await admin.from('socios').insert({
     id: params.id, studio_id: params.studioId, nombre: params.nombre, apellidos: '',
     email: params.email, activo: true, fecha_alta: new Date().toISOString(),
+    auth_user_id: params.authUserId ?? null,
     aceptacion_fecha: params.aceptacion?.fecha ?? null,
     aceptacion_firma: params.aceptacion?.firma ?? null,
     aceptacion_version: params.aceptacion?.versionTexto ?? null,
