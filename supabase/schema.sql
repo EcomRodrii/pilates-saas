@@ -1293,6 +1293,39 @@ grant execute on function reservar_plaza(text, text, text, text) to authenticate
 grant execute on function cancelar_reserva_plaza(text, text, text) to authenticated, service_role;
 
 -- ═══════════════════════════════════════════════════════════════════
+-- P0-20 · Ajuste ATÓMICO del saldo de créditos (gamificación).
+--
+-- Antes el saldo se actualizaba leer-calcular-sobrescribir en JS + upsert de la
+-- fila entera: dos canjes/otorgamientos concurrentes de la misma socia leían el
+-- mismo saldo inicial y el último upsert pisaba al otro (transacción perdida o
+-- canje por encima del saldo). Aquí el incremento es atómico (on conflict do
+-- update sobre la propia fila) y se prohíbe el saldo negativo.
+-- ═══════════════════════════════════════════════════════════════════
+create or replace function ajustar_creditos(
+  p_socio_id text, p_studio_id text,
+  p_delta_saldo int, p_delta_ganado int, p_delta_canjeado int
+) returns int
+language plpgsql security definer as $$
+declare v_saldo int;
+begin
+  insert into member_credits (socio_id, studio_id, saldo, total_ganado, total_canjeado, actualizado_en)
+    values (p_socio_id, p_studio_id, p_delta_saldo, p_delta_ganado, p_delta_canjeado, now())
+  on conflict (socio_id) do update set
+    saldo = member_credits.saldo + p_delta_saldo,
+    total_ganado = member_credits.total_ganado + p_delta_ganado,
+    total_canjeado = member_credits.total_canjeado + p_delta_canjeado,
+    actualizado_en = now()
+  returning saldo into v_saldo;
+  if v_saldo < 0 then
+    raise exception 'SALDO_INSUFICIENTE';
+  end if;
+  return v_saldo;
+end;
+$$;
+
+grant execute on function ajustar_creditos(text, text, int, int, int) to authenticated, anon, service_role;
+
+-- ═══════════════════════════════════════════════════════════════════
 -- P0-1 · ÍNDICES multi-tenant. Sin esto, cada query por studio_id es un
 -- sequential scan de la tabla entera (todas las filas de todos los
 -- tenants mezcladas). Índices B-tree (studio_id, ...) según el patrón de
@@ -1353,3 +1386,59 @@ create index if not exists idx_recibos_studio_estado_venc on recibos(studio_id, 
 create index if not exists idx_recibos_studio_socio on recibos(studio_id, socio_id);
 create index if not exists idx_spots_studio_sala on spots(studio_id, sala_id);
 create index if not exists idx_socios_studio_email on socios(studio_id, lower(email));
+
+-- ═══════════════════════════════════════════════════════════════════
+-- P0-6 · studio_id NOT NULL en las 45 tablas tenant.
+--
+-- La invariante del multi-tenant (toda fila pertenece a un negocio) no la
+-- garantizaba la BD, solo la disciplina del código. Un insert sin studio_id
+-- creaba filas huérfanas invisibles para siempre. Esto lo prohíbe la BD.
+-- REQUISITO: no puede haber filas con studio_id NULL (backfill antes). Si
+-- algún ALTER falla, esa tabla tiene huérfanos que hay que resolver.
+-- ═══════════════════════════════════════════════════════════════════
+alter table achievement_definitions alter column studio_id set not null;
+alter table achievement_history alter column studio_id set not null;
+alter table achievement_progress alter column studio_id set not null;
+alter table actividad_reciente alter column studio_id set not null;
+alter table automation_logs alter column studio_id set not null;
+alter table automation_rules alter column studio_id set not null;
+alter table automatizaciones alter column studio_id set not null;
+alter table backups alter column studio_id set not null;
+alter table campanas alter column studio_id set not null;
+alter table challenge_definitions alter column studio_id set not null;
+alter table challenge_history alter column studio_id set not null;
+alter table challenge_progress alter column studio_id set not null;
+alter table citas alter column studio_id set not null;
+alter table codigos_descuento alter column studio_id set not null;
+alter table credit_transactions alter column studio_id set not null;
+alter table dashboard_charts alter column studio_id set not null;
+alter table facturas alter column studio_id set not null;
+alter table instructores alter column studio_id set not null;
+alter table integracion_credenciales alter column studio_id set not null;
+alter table integraciones alter column studio_id set not null;
+alter table level_definitions alter column studio_id set not null;
+alter table member_credits alter column studio_id set not null;
+alter table mensajes_equipo alter column studio_id set not null;
+alter table notas_internas alter column studio_id set not null;
+alter table notas_progreso alter column studio_id set not null;
+alter table notificaciones alter column studio_id set not null;
+alter table planes_tarifa alter column studio_id set not null;
+alter table posts_comunidad alter column studio_id set not null;
+alter table preferencias_socio alter column studio_id set not null;
+alter table productos_pos alter column studio_id set not null;
+alter table recibos alter column studio_id set not null;
+alter table reservas alter column studio_id set not null;
+alter table reward_actions alter column studio_id set not null;
+alter table reward_catalog alter column studio_id set not null;
+alter table reward_history alter column studio_id set not null;
+alter table reward_redemptions alter column studio_id set not null;
+alter table reward_rules alter column studio_id set not null;
+alter table salas alter column studio_id set not null;
+alter table sesiones alter column studio_id set not null;
+alter table socios alter column studio_id set not null;
+alter table soporte_solicitudes alter column studio_id set not null;
+alter table spots alter column studio_id set not null;
+alter table suscripciones alter column studio_id set not null;
+alter table tipos_clase alter column studio_id set not null;
+alter table ventas_pos alter column studio_id set not null;
+alter table videos_on_demand alter column studio_id set not null;

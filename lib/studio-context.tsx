@@ -14,7 +14,7 @@ import {
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
   dbInsertRewardRule, dbUpdateRewardRule,
-  dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbUpsertMemberCredits,
+  dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem,
   dbInsertRewardRedemption, dbUpdateRewardRedemption,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
@@ -1850,9 +1850,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setMemberCredits(prev => {
       const existente = prev.find(m => m.socioId === socioId);
       const actualizado = aplicarGananciaCreditos(existente, socioId, studioId, regla.creditos, now);
-      dbUpsertMemberCredits(actualizado);
       return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
     });
+    // P0-20: incremento atómico en la BD (fuera del updater para no doblarlo).
+    dbAjustarCreditos(socioId, studioId, regla.creditos, regla.creditos, 0);
 
     (async () => {
       const ok = await dbInsertRewardAction(action);
@@ -1937,8 +1938,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     dbInsertRewardRedemption(redemption);
     dbInsertCreditTransaction(transaccion);
-    const actualizado = memberCredits.find(m => m.socioId === socioId);
-    dbUpsertMemberCredits(aplicarCanjeCreditos(actualizado, socioId, studioId, item.costeCreditos, now));
+    // P0-20: descuento atómico del saldo (la validación de saldo suficiente ya se
+    // hizo arriba con validarCanje; el RPC es el cerrojo real ante concurrencia).
+    dbAjustarCreditos(socioId, studioId, -item.costeCreditos, 0, item.costeCreditos);
 
     return { ok: true };
   }
@@ -2009,9 +2011,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           const actualizado: MemberCredits = existente
             ? { ...existente, saldo: existente.saldo + def.creditosRecompensa, totalGanado: existente.totalGanado + def.creditosRecompensa, actualizadoEn: now.toISOString() }
             : { socioId, studioId, saldo: def.creditosRecompensa, totalGanado: def.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
-          dbUpsertMemberCredits(actualizado);
           return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
         });
+        dbAjustarCreditos(socioId, studioId, def.creditosRecompensa, def.creditosRecompensa, 0); // P0-20 atómico
       }
     });
   }
@@ -2104,9 +2106,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
             const actualizado: MemberCredits = existente
               ? { ...existente, saldo: existente.saldo + reto.creditosRecompensa, totalGanado: existente.totalGanado + reto.creditosRecompensa, actualizadoEn: now.toISOString() }
               : { socioId, studioId, saldo: reto.creditosRecompensa, totalGanado: reto.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
-            dbUpsertMemberCredits(actualizado);
             return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
           });
+          dbAjustarCreditos(socioId, studioId, reto.creditosRecompensa, reto.creditosRecompensa, 0); // P0-20 atómico
         }
       });
   }
