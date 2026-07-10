@@ -162,7 +162,10 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
   {
     id: 'automatizaciones-estudio',
     triggers: [{ event: EVENTS.AUTOMATIZACIONES_ESTUDIO }],
-    concurrency: { limit: 10 },
+    // Máximo del plan free de Inngest (5). Limita cuántos estudios se procesan
+    // a la vez para no reventar Resend/Anthropic/PostgREST. Al subir de plan se
+    // puede elevar.
+    concurrency: { limit: 5 },
     retries: 3,
   },
   async ({ event, step }) => {
