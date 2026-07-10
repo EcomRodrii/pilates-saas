@@ -44,17 +44,22 @@ export function claveBackup(studioId: string, backupId: string): string {
 // Sube el snapshot como JSON a R2. Devuelve la clave guardada.
 export async function subirSnapshot(studioId: string, backupId: string, snapshot: BackupSnapshot): Promise<string> {
   const key = claveBackup(studioId, backupId);
-  // Body como Uint8Array (no string): R2 exige Content-Length en el PUT, y en
-  // el runtime de Vercel un body string se envía sin él (chunked) → 411
-  // MissingContentLength. Con longitud de bytes conocida, fetch pone el header
-  // Content-Length solo. (En Node local el string sí lo ponía; solo fallaba en
-  // producción — por eso hay que probar de verdad en prod.)
+  const url = `${endpointBase()}/${key}`;
   const body = new TextEncoder().encode(JSON.stringify(snapshot));
-  const res = await client().fetch(`${endpointBase()}/${key}`, {
+
+  // R2 exige Content-Length en el PUT. aws4fetch, al hacer su propio fetch(),
+  // pasa un objeto Request cuyo body SIEMPRE es un stream → undici (runtime de
+  // Vercel) lo envía chunked, sin Content-Length → R2 responde 411
+  // MissingContentLength. La solución: usar aws4fetch solo para FIRMAR y hacer
+  // nosotros el fetch pasando el body por init (Uint8Array de longitud
+  // conocida), así undici pone Content-Length. Content-Length no va firmado
+  // (aws4fetch lo excluye), así que añadirlo no rompe la firma.
+  const signed = await client().sign(url, {
     method: 'PUT',
     body,
     headers: { 'Content-Type': 'application/json' },
   });
+  const res = await fetch(url, { method: 'PUT', body, headers: signed.headers });
   if (!res.ok) {
     throw new Error(`R2 PUT falló (${res.status}): ${await res.text().catch(() => '')}`);
   }
