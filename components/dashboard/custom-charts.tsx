@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { BarChart3, Plus, Trash2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { computeSerieGrafico, METRICAS_GRAFICO, AGRUPACIONES_GRAFICO } from '@/lib/dashboard-chart-engine';
@@ -54,8 +54,13 @@ function ChartBars({ points, color }: { points: { label: string; value: number }
 
 function ChartCard({ chart, onDelete }: { chart: DashboardChart; onDelete: () => void }) {
   const { recibos, socios, reservas, sesiones, creditTransactions } = useStudio();
-  const now = new Date();
-  const serie = computeSerieGrafico(chart, { recibos, socios, reservas, sesiones, creditTransactions }, now);
+  // P0-21: `now` estable (una vez por montaje) + serie memoizada, para no
+  // recalcular el gráfico entero en cada re-render en cascada del contexto.
+  const now = useMemo(() => new Date(), []);
+  const serie = useMemo(
+    () => computeSerieGrafico(chart, { recibos, socios, reservas, sesiones, creditTransactions }, now),
+    [chart, recibos, socios, reservas, sesiones, creditTransactions, now],
+  );
   const total = serie.reduce((a, p) => a + p.value, 0);
   const metricaLabel = METRICAS_GRAFICO.find(m => m.metric === chart.metrica)?.nombre ?? chart.metrica;
 
