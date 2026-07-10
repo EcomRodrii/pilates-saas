@@ -134,6 +134,10 @@ export default function Socios() {
   // Filter & sort state
   const [busqueda, setBusqueda] = useState('');
   const [smartFilter, setSmartFilter] = useState<SmartFilter>('todas');
+  // P0-34: paginación — no montar miles de filas (× 2 variantes responsive) a la
+  // vez en el DOM. Se muestran de PAGE en PAGE con "Ver más".
+  const PAGE = 50;
+  const [visibles, setVisibles] = useState(PAGE);
   const [sortKey, setSortKey] = useState<SortKey>('nombre');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
@@ -168,11 +172,38 @@ export default function Socios() {
     }
   }, []);
 
-  // ── Derived helpers ────────────────────────────────────────────────────────
+  // ── Índices precomputados (P0-34) ──────────────────────────────────────────
+  // Antes cada helper escaneaba suscripciones/reservas/sesiones ENTERAS, y se
+  // llamaban por cada socio en stats, en el filtro y en el comparador del sort:
+  // O(socios² × reservas × sesiones). Ahora todo es O(1) por socio.
+  const sesionById = useMemo(() => new Map(sesiones.map((s) => [s.id, s])), [sesiones]);
+  const activeSusPorSocio = useMemo(() => {
+    const m = new Map<string, typeof suscripciones[number]>();
+    for (const s of suscripciones) {
+      if ((s.estado === 'ACTIVA' || s.estado === 'PAUSADA') && !m.has(s.socioId)) m.set(s.socioId, s);
+    }
+    return m;
+  }, [suscripciones]);
+  const expiradaPorSocio = useMemo(() => {
+    const m = new Set<string>();
+    for (const s of suscripciones) if (s.estado === 'EXPIRADA') m.add(s.socioId);
+    return m;
+  }, [suscripciones]);
+  const ultimaVisitaPorSocio = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of reservas) {
+      if (r.estado !== 'ASISTIDA') continue;
+      const ses = sesionById.get(r.sesionId);
+      if (!ses) continue;
+      const prev = m.get(r.socioId);
+      if (!prev || ses.inicio > prev) m.set(r.socioId, ses.inicio);
+    }
+    return m;
+  }, [reservas, sesionById]);
+
+  // ── Derived helpers (O(1) por socio con los índices de arriba) ─────────────
   function getActiveSus(socioId: string) {
-    return suscripciones.find(
-      (s) => s.socioId === socioId && (s.estado === 'ACTIVA' || s.estado === 'PAUSADA'),
-    );
+    return activeSusPorSocio.get(socioId);
   }
 
   function getPlan(planId: string | undefined) {
@@ -181,16 +212,7 @@ export default function Socios() {
   }
 
   function getLastVisit(socioId: string): string | null {
-    // Find the most recent "ASISTIDA" reservation date
-    const attended = reservas
-      .filter((r) => r.socioId === socioId && r.estado === 'ASISTIDA')
-      .map((r) => {
-        const ses = sesiones.find((s) => s.id === r.sesionId);
-        return ses?.inicio ?? null;
-      })
-      .filter(Boolean) as string[];
-    if (attended.length === 0) return null;
-    return attended.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+    return ultimaVisitaPorSocio.get(socioId) ?? null;
   }
 
   function isInactiva30d(socioId: string): boolean {
@@ -200,11 +222,7 @@ export default function Socios() {
   }
 
   function isBonoExpirado(socioId: string): boolean {
-    const sus = suscripciones.find(
-      (s) => s.socioId === socioId && s.estado === 'EXPIRADA',
-    );
-    const active = getActiveSus(socioId);
-    return !!sus && !active;
+    return expiradaPorSocio.has(socioId) && !getActiveSus(socioId);
   }
 
   function estadoBadgeInfo(s: Socio): { label: string; bg: string; color: string; Icon?: typeof AlertCircle } {
@@ -280,8 +298,13 @@ export default function Socios() {
     else { setSortKey(key); setSortDir('asc'); }
   }
 
+  // Al cambiar filtros/búsqueda/orden, volver a la primera página.
+  useEffect(() => { setVisibles(PAGE); }, [busqueda, smartFilter, sortKey, sortDir]);
+  const listaVisible = useMemo(() => lista.slice(0, visibles), [lista, visibles]);
+
   // ── Bulk helpers ───────────────────────────────────────────────────────────
-  const allVisible = lista.map((s) => s.id);
+  // "Seleccionar todo" opera sobre lo VISIBLE (lo montado en el DOM).
+  const allVisible = listaVisible.map((s) => s.id);
   const allSelected = allVisible.length > 0 && allVisible.every((id) => selected.has(id));
 
   function toggleSelectAll() {
@@ -619,7 +642,7 @@ export default function Socios() {
             </thead>
 
             <tbody className="divide-y divide-muted">
-              {lista.map((s) => {
+              {listaVisible.map((s) => {
                 const sus = getActiveSus(s.id);
                 const plan = getPlan(sus?.planId);
                 const lastVisit = getLastVisit(s.id);
@@ -739,7 +762,7 @@ export default function Socios() {
 
           {/* Mobile card list */}
           <div className="sm:hidden divide-y divide-muted">
-            {lista.map(s => {
+            {listaVisible.map(s => {
               const sus = getActiveSus(s.id);
               const plan = getPlan(sus?.planId);
               const lastVisit = getLastVisit(s.id);
@@ -787,12 +810,21 @@ export default function Socios() {
           </>
         )}
 
-        {/* Table footer */}
+        {/* Table footer — paginación (P0-34) */}
         {lista.length > 0 && (
-          <div className="px-5 py-3 border-t border-muted bg-[#FAFAFA]">
+          <div className="px-5 py-3 border-t border-muted bg-[#FAFAFA] flex items-center justify-between gap-3 flex-wrap">
             <p className="text-[11px] text-muted-foreground">
-              Mostrando {lista.length} de {socios.length} miembros
+              Mostrando {listaVisible.length} de {lista.length}
+              {lista.length !== socios.length ? ` (de ${socios.length})` : ''} miembros
             </p>
+            {visibles < lista.length && (
+              <button
+                onClick={() => setVisibles((v) => v + PAGE)}
+                className="text-[12px] font-semibold text-brand hover:underline"
+              >
+                Ver más ({Math.min(PAGE, lista.length - visibles)})
+              </button>
+            )}
           </div>
         )}
       </div>

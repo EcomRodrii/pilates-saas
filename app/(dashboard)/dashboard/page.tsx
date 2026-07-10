@@ -224,13 +224,15 @@ function ClaseHoyCard({
   const { reservas, socios, checkin, cancelarReserva } = useStudio();
   const [expanded, setExpanded] = useState(isNow);
 
+  // P0-27: Map por id en vez de socios.find() por cada reserva de la sesión.
+  const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
   const reservasSesion = useMemo(
     () =>
       reservas
         .filter(r => r.sesionId === sesion.id && r.estado !== 'CANCELADA')
-        .map(r => ({ ...r, socio: socios.find(s => s.id === r.socioId) }))
+        .map(r => ({ ...r, socio: socioById.get(r.socioId) }))
         .filter(r => r.socio),
-    [reservas, socios, sesion.id]
+    [reservas, socioById, sesion.id]
   );
 
   const asistidas = reservasSesion.filter(r => r.estado === 'ASISTIDA').length;
@@ -390,6 +392,15 @@ export default function Dashboard() {
 
   const hoyStr = localDate(now);
   const saludo = now.getHours() < 13 ? 'Buenos días' : now.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches';
+
+  // P0-27: índices compartidos por sesión y del conjunto de sesiones de hoy, para
+  // no hacer sesiones.find() dentro de bucles sobre reservas/socios (cuadrático).
+  const sesionById = useMemo(() => new Map(sesiones.map(s => [s.id, s])), [sesiones]);
+  const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
+  const sesionesHoyIds = useMemo(
+    () => new Set(sesiones.filter(s => localDate(s.inicio) === hoyStr).map(s => s.id)),
+    [sesiones, hoyStr],
+  );
   const mesFecha = now.toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
@@ -430,9 +441,9 @@ export default function Dashboard() {
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
   const sociasActivas = socios.filter(s => s.activo).length;
-  const reservasHoy = reservas.filter(
-    r => r.estado !== 'CANCELADA' && sesiones.find(s => s.id === r.sesionId && localDate(s.inicio) === hoyStr)
-  ).length;
+  const reservasHoy = useMemo(() => reservas.filter(
+    r => r.estado !== 'CANCELADA' && sesionesHoyIds.has(r.sesionId)
+  ).length, [reservas, sesionesHoyIds]);
 
   // Ocupación media de la semana
   const ocupacionMedia = useMemo(() => {
@@ -518,10 +529,10 @@ export default function Dashboard() {
     () =>
       recibos
         .filter(r => r.estado === 'PENDIENTE')
-        .map(r => ({ ...r, socio: socios.find(s => s.id === r.socioId) }))
+        .map(r => ({ ...r, socio: socioById.get(r.socioId ?? '') }))
         .filter(r => r.socio)
         .slice(0, 5),
-    [recibos, socios]
+    [recibos, socioById]
   );
 
   const pendientesTotal = useMemo(() => recibos.filter(r => r.estado === 'PENDIENTE').length, [recibos]);
@@ -530,25 +541,31 @@ export default function Dashboard() {
   const resumenHoy = useMemo(() => {
     const alumnosHoyIds = new Set(
       reservas
-        .filter(r => r.estado !== 'CANCELADA' && sesiones.find(s => s.id === r.sesionId && localDate(s.inicio) === hoyStr))
+        .filter(r => r.estado !== 'CANCELADA' && sesionesHoyIds.has(r.sesionId))
         .map(r => r.socioId)
     );
     const bonosCaducanHoy = suscripciones.filter(s => s.estado === 'ACTIVA' && s.fechaFin === hoyStr).length;
 
+    // P0-27: última asistencia por socia en UNA pasada (antes: por cada socia,
+    // filtrar+ordenar todas las reservas + sesiones.find → O(socios×reservas×sesiones)).
+    const ultimaAsistidaISO = new Map<string, string>();
+    for (const r of reservas) {
+      if (r.estado !== 'ASISTIDA') continue;
+      const ses = sesionById.get(r.sesionId);
+      if (!ses) continue;
+      const prev = ultimaAsistidaISO.get(r.socioId);
+      if (!prev || ses.inicio > prev) ultimaAsistidaISO.set(r.socioId, ses.inicio);
+    }
+    const nowMs = now.getTime();
     const inactivas30d = socios.filter(s => {
       if (!s.activo) return false;
-      const ultimaAsistida = reservas
-        .filter(r => r.socioId === s.id && r.estado === 'ASISTIDA')
-        .map(r => sesiones.find(x => x.id === r.sesionId))
-        .filter((x): x is typeof sesiones[number] => !!x)
-        .sort((a, b) => b.inicio.localeCompare(a.inicio))[0];
-      if (!ultimaAsistida) return false;
-      const dias = Math.floor((now.getTime() - new Date(ultimaAsistida.inicio).getTime()) / 86400000);
-      return dias >= 30;
+      const ultima = ultimaAsistidaISO.get(s.id);
+      if (!ultima) return false;
+      return Math.floor((nowMs - new Date(ultima).getTime()) / 86400000) >= 30;
     }).length;
 
     return { alumnosHoy: alumnosHoyIds.size, bonosCaducanHoy, inactivas30d };
-  }, [reservas, sesiones, hoyStr, suscripciones, socios, now]);
+  }, [reservas, sesionById, sesionesHoyIds, hoyStr, suscripciones, socios, now]);
 
   // ── Trend direction ──────────────────────────────────────────────────────────
   const TrendIcon =
