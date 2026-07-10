@@ -20,8 +20,9 @@ export function calcularProgresoReto(
 ): number {
   const desde = new Date(reto.fechaInicio);
   const hasta = new Date(reto.fechaFin);
+  const sesionById = new Map(sesiones.map(s => [s.id, s])); // P0-22
   const reservasEnVentana = reservas.filter(r => {
-    const s = sesiones.find(x => x.id === r.sesionId);
+    const s = sesionById.get(r.sesionId);
     if (!s) return false;
     const d = new Date(s.inicio);
     return d >= desde && d <= hasta;

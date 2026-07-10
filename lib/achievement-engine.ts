@@ -20,9 +20,10 @@ export function metricaDef(metric: AchievementMetric): AchievementMetricDef | un
 function asistioEnCumpleanos(reservas: Reserva[], sesiones: Sesion[], socio: Socio | undefined): boolean {
   if (!socio?.fechaNacimiento) return false;
   const nacimiento = new Date(socio.fechaNacimiento);
+  const sesionById = new Map(sesiones.map(s => [s.id, s])); // P0-22
   return reservas
     .filter(r => r.estado === 'ASISTIDA')
-    .map(r => sesiones.find(s => s.id === r.sesionId))
+    .map(r => sesionById.get(r.sesionId))
     .filter((s): s is Sesion => !!s)
     .some(s => {
       const d = new Date(s.inicio);
@@ -33,8 +34,9 @@ function asistioEnCumpleanos(reservas: Reserva[], sesiones: Sesion[], socio: Soc
 function asistenciaMensualCompleta(reservas: Reserva[], sesiones: Sesion[], now: Date): boolean {
   const mes = now.getMonth();
   const año = now.getFullYear();
+  const sesionById = new Map(sesiones.map(s => [s.id, s])); // P0-22
   const delMes = reservas.filter(r => {
-    const s = sesiones.find(x => x.id === r.sesionId);
+    const s = sesionById.get(r.sesionId);
     if (!s) return false;
     const d = new Date(s.inicio);
     return d.getMonth() === mes && d.getFullYear() === año && d <= now;

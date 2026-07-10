@@ -58,25 +58,49 @@ export default function KioskPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuccess, setShowSuccess] = useState<{ nombre: string } | null>(null);
 
-  // Today's sessions sorted by start time
+  // Today's sessions sorted by start time.
   const hoy = now ? localDate(now) : '';
-  const sesionesHoy = useMemo(() => {
+  // P0-31: la parte cara (recorrer todas las sesiones + agregar todas las
+  // reservas) solo depende de los datos y del DÍA (string estable), NO del reloj
+  // que cambia cada segundo — así no se recalcula 60 veces por minuto para
+  // siempre en un dispositivo encendido 24/7.
+  const sesionesHoyBase = useMemo(() => {
     if (!hoy) return [];
+    const tiposById = new Map(tiposClase.map(t => [t.id, t]));
+    const salasById = new Map(salas.map(x => [x.id, x]));
+    const ocupadas = new Map<string, number>();
+    for (const r of reservas) {
+      if (r.estado === 'CANCELADA') continue;
+      ocupadas.set(r.sesionId, (ocupadas.get(r.sesionId) ?? 0) + 1);
+    }
     return sesiones
       .filter(s => s.inicio.startsWith(hoy))
       .sort((a, b) => a.inicio.localeCompare(b.inicio))
       .map(s => {
-        const tipo = tiposClase.find(t => t.id === s.tipoClaseId);
-        const sala = salas.find(x => x.id === s.salaId);
-        const reservasSesion = reservas.filter(r => r.sesionId === s.id && r.estado !== 'CANCELADA');
-        const confirmadas = reservasSesion.length;
         const inicio = new Date(s.inicio);
         const fin = new Date(s.fin);
-        const isNow = now ? now >= inicio && now <= fin : false;
-        const isPast = now ? now > fin : false;
-        return { ...s, tipo, sala, confirmadas, isNow, isPast, inicioFmt: `${pad2(inicio.getHours())}:${pad2(inicio.getMinutes())}`, finFmt: `${pad2(fin.getHours())}:${pad2(fin.getMinutes())}` };
+        return {
+          ...s,
+          tipo: tiposById.get(s.tipoClaseId),
+          sala: salasById.get(s.salaId),
+          confirmadas: ocupadas.get(s.id) ?? 0,
+          inicioDate: inicio,
+          finDate: fin,
+          inicioFmt: `${pad2(inicio.getHours())}:${pad2(inicio.getMinutes())}`,
+          finFmt: `${pad2(fin.getHours())}:${pad2(fin.getMinutes())}`,
+        };
       });
-  }, [sesiones, hoy, tiposClase, salas, reservas, now]);
+  }, [sesiones, hoy, tiposClase, salas, reservas]);
+
+  // El tick por segundo solo recalcula isNow/isPast — O(clases del día), trivial.
+  const sesionesHoy = useMemo(() =>
+    sesionesHoyBase.map(s => ({
+      ...s,
+      isNow: now ? now >= s.inicioDate && now <= s.finDate : false,
+      isPast: now ? now > s.finDate : false,
+    })),
+    [sesionesHoyBase, now]
+  );
 
   // Auto-select first active/upcoming class
   useEffect(() => {
