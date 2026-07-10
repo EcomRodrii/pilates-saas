@@ -92,6 +92,7 @@ import type {
   TipoIntegracion,
 } from '@/lib/types';
 import { enviarEmailCampana, enviarEmailPromocion, enviarEmailCancelacionClase, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
+import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
@@ -1737,16 +1738,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const destinatarias = resolverDestinatariasCampana(campana.destinatarios)
       .filter(s => s.email && s.email.includes('@'));
 
-    let enviados = 0;
-    for (const socio of destinatarias) {
-      const ok = await enviarEmailCampana({
-        to: socio.email,
-        toName: `${socio.nombre} ${socio.apellidos}`.trim(),
-        asunto: campana.asunto,
-        contenido: campana.contenido,
-      });
-      if (ok) enviados++;
-    }
+    // P0-24: antes era un for...await secuencial (un round-trip a la vez → horas
+    // con muchas destinatarias). Concurrencia acotada: más rápido y sin saturar.
+    // (El fix definitivo a escala masiva es una cola en servidor.)
+    const resultados = await mapLimit(destinatarias, 8, socio => enviarEmailCampana({
+      to: socio.email,
+      toName: `${socio.nombre} ${socio.apellidos}`.trim(),
+      asunto: campana.asunto,
+      contenido: campana.contenido,
+    }));
+    const enviados = resultados.filter(Boolean).length;
 
     const enviadaEn = new Date().toISOString();
     setCampanas(prev => prev.map(c =>
@@ -2205,7 +2206,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // a la espera de que alguien los apruebe con un toque desde
     // Automatizaciones. NOTIFICAR_ADMIN es un insight de negocio (sin socia
     // asociada) que tampoco requiere ninguna acción automática.
-    const nuevosLogs: AutomationLog[] = await Promise.all(candidatos.map(async (c): Promise<AutomationLog> => {
+    // P0-25: concurrencia acotada (antes Promise.all sin límite disparaba miles
+    // de fetch a IA/emails a la vez desde una pestaña — DoS accidental al backend).
+    const nuevosLogs: AutomationLog[] = await mapLimit(candidatos, 6, async (c): Promise<AutomationLog> => {
       const base = {
         id: `log-${uid()}`,
         studioId: getCurrentStudioId(),
@@ -2288,7 +2291,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       } catch (err) {
         return { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: err instanceof Error ? err.message : 'Error de red al enviar el email' };
       }
-    }));
+    });
 
     setAutomationLogs(prev => [...nuevosLogs, ...prev]);
     nuevosLogs.forEach(l => dbInsertAutomationLog(l));

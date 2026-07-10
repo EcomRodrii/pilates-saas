@@ -23,13 +23,17 @@ export function buildPortalNotifications(params: {
 }): PortalNotifItem[] {
   const { socioId, reservas, recibos, sesiones, tiposClase, instructores } = params;
   const items: PortalNotifItem[] = [];
+  // P0-22: Maps por id en vez de .find() lineal dentro del bucle de reservas.
+  const sesionById = new Map(sesiones.map(s => [s.id, s]));
+  const tipoById = new Map(tiposClase.map(t => [t.id, t]));
+  const instrById = new Map(instructores.map(i => [i.id, i]));
 
   for (const r of reservas) {
     if (r.socioId !== socioId || r.estado !== 'CONFIRMADA') continue;
-    const ses = sesiones.find(s => s.id === r.sesionId);
+    const ses = sesionById.get(r.sesionId);
     if (!ses) continue;
-    const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
-    const instr = instructores.find(i => i.id === ses.instructorId);
+    const tipo = tipoById.get(ses.tipoClaseId);
+    const instr = instrById.get(ses.instructorId);
     const hora = new Date(ses.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     const dia = new Date(ses.inicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
     items.push({

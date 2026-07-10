@@ -268,13 +268,26 @@ export default function ReservarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, autenticado, sesiones, searchParams]);
 
-  const sesionesRich = useMemo(() => sesiones.map(s => {
-    const tipo = tiposClase.find(t => t.id === s.tipoClaseId);
-    const sala = salas.find(x => x.id === s.salaId);
-    const instructor = instructores.find(i => i.id === s.instructorId);
-    const ocupadas = reservas.filter(r => r.sesionId === s.id && r.estado !== 'CANCELADA').length;
-    return { ...s, tipo, sala, instructor, ocupadas };
-  }), [sesiones, tiposClase, salas, instructores, reservas]);
+  // P0-30: se agregan las plazas ocupadas por sesión en UNA pasada y se
+  // resuelven tipo/sala/instructora por Map — antes era O(sesiones × reservas)
+  // en cada visita (tráfico anónimo, la ruta de mayor impacto en conversión).
+  const sesionesRich = useMemo(() => {
+    const tiposById = new Map(tiposClase.map(t => [t.id, t]));
+    const salasById = new Map(salas.map(x => [x.id, x]));
+    const instrById = new Map(instructores.map(i => [i.id, i]));
+    const ocupadasPorSesion = new Map<string, number>();
+    for (const r of reservas) {
+      if (r.estado === 'CANCELADA') continue;
+      ocupadasPorSesion.set(r.sesionId, (ocupadasPorSesion.get(r.sesionId) ?? 0) + 1);
+    }
+    return sesiones.map(s => ({
+      ...s,
+      tipo: tiposById.get(s.tipoClaseId),
+      sala: salasById.get(s.salaId),
+      instructor: instrById.get(s.instructorId),
+      ocupadas: ocupadasPorSesion.get(s.id) ?? 0,
+    }));
+  }, [sesiones, tiposClase, salas, instructores, reservas]);
 
   const sesionesDelDia = useMemo(() => {
     if (!selectedDay) return [];

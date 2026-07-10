@@ -197,14 +197,20 @@ export default function Informes() {
 
   // ─── Ocupación por tipo de clase ────────────────────────────────────────────
   const ocupacionPorTipo = useMemo(() => {
+    // P0-28: ocupadas por sesión en UNA pasada, en vez de reservas.filter() por
+    // cada sesión de cada tipo (O(tipos × sesiones × reservas)).
+    const ocupadasPorSesion = new Map<string, number>();
+    for (const r of reservas) {
+      if (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA') {
+        ocupadasPorSesion.set(r.sesionId, (ocupadasPorSesion.get(r.sesionId) ?? 0) + 1);
+      }
+    }
     return tiposClase.map(tc => {
       const sesionesTipo = sesiones.filter(
         s => s.tipoClaseId === tc.id && !s.cancelada && new Date(s.inicio) >= periodStart
       );
       const totalAforo = sesionesTipo.reduce((s, ses) => s + ses.aforoMaximo, 0);
-      const totalOcupadas = sesionesTipo.reduce((sum, ses) =>
-        sum + reservas.filter(r => r.sesionId === ses.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')).length, 0
-      );
+      const totalOcupadas = sesionesTipo.reduce((sum, ses) => sum + (ocupadasPorSesion.get(ses.id) ?? 0), 0);
       return {
         id: tc.id,
         nombre: tc.nombre,
@@ -237,15 +243,19 @@ export default function Informes() {
       const sesionIds30 = new Set(sesiones.filter(s => new Date(s.inicio) >= cohortStart && new Date(s.inicio) <= d30).map(s => s.id));
       const sesionIds90 = new Set(sesiones.filter(s => new Date(s.inicio) >= cohortStart && new Date(s.inicio) <= d90).map(s => s.id));
 
-      const active30 = cohortSocios.filter(s =>
-        reservas.some(r => r.socioId === s.id && sesionIds30.has(r.sesionId) && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
-      ).length;
+      // P0-28: socias con reserva activa en la ventana, en UNA pasada sobre
+      // reservas, en vez de reservas.some() por cada socia de la cohorte
+      // (O(cohortes × socias × reservas)).
+      const activos30 = new Set<string>();
+      const activos90 = new Set<string>();
+      for (const r of reservas) {
+        if (r.estado !== 'CONFIRMADA' && r.estado !== 'ASISTIDA') continue;
+        if (sesionIds30.has(r.sesionId)) activos30.add(r.socioId);
+        if (sesionIds90.has(r.sesionId)) activos90.add(r.socioId);
+      }
 
-      const active90 = d90 <= now
-        ? cohortSocios.filter(s =>
-            reservas.some(r => r.socioId === s.id && sesionIds90.has(r.sesionId) && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
-          ).length
-        : -1;
+      const active30 = cohortSocios.filter(s => activos30.has(s.id)).length;
+      const active90 = d90 <= now ? cohortSocios.filter(s => activos90.has(s.id)).length : -1;
 
       rows.push({
         mes: label,

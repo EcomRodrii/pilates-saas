@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useRef } from 'react';
+import { use, useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
@@ -248,6 +248,25 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
   const socio = socios.find(s => s.id === id);
 
+  // P0-34: las derivaciones que escanean arrays estudio-wide se memoizan (y van
+  // ANTES del early return, por las reglas de hooks). Antes se recalculaban en
+  // CADA render —cada tecla en cualquier campo de la página—, incluido un sort
+  // con sesiones.find() en el comparador (O(reservas·log·sesiones)).
+  const sesionById = useMemo(() => new Map(sesiones.map(s => [s.id, s])), [sesiones]);
+  const misReservas = useMemo(() =>
+    reservas.filter(r => r.socioId === id).sort((a, b) => {
+      const sa = sesionById.get(a.sesionId);
+      const sb = sesionById.get(b.sesionId);
+      return (sb?.inicio ?? '').localeCompare(sa?.inicio ?? '');
+    }),
+    [reservas, sesionById, id]);
+  const misRecibos = useMemo(() =>
+    recibos.filter(r => r.socioId === id).sort((a, b) => b.fechaVencimiento.localeCompare(a.fechaVencimiento)),
+    [recibos, id]);
+  const misNotas = useMemo(() =>
+    notasInternas.filter(n => n.socioId === id).sort((a, b) => b.creadoEn.localeCompare(a.creadoEn)),
+    [notasInternas, id]);
+
   if (!socio) {
     return (
       <div className="text-center py-20">
@@ -263,22 +282,15 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const suscripcion = suscripciones.find(s => s.socioId === id && (s.estado === 'ACTIVA' || s.estado === 'PAUSADA'));
   const plan = suscripcion ? planesTarifa.find(p => p.id === suscripcion.planId) : null;
   const tags = socio.tags ?? [];
-  const misNotas = notasInternas.filter(n => n.socioId === id).sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
-  const misRecibos = recibos.filter(r => r.socioId === id).sort((a, b) => b.fechaVencimiento.localeCompare(a.fechaVencimiento));
-  const misReservas = reservas.filter(r => r.socioId === id).sort((a, b) => {
-    const sa = sesiones.find(s => s.id === a.sesionId);
-    const sb = sesiones.find(s => s.id === b.sesionId);
-    return (sb?.inicio ?? '').localeCompare(sa?.inicio ?? '');
-  });
 
   const proximasReservas = misReservas.filter(r => {
-    const ses = sesiones.find(s => s.id === r.sesionId);
+    const ses = sesionById.get(r.sesionId);
     return ses && new Date(ses.inicio) > now && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA');
   }).slice(0, 3);
 
   const asistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
   const estesMes = misReservas.filter(r => {
-    const ses = sesiones.find(s => s.id === r.sesionId);
+    const ses = sesionById.get(r.sesionId);
     if (!ses) return false;
     const d = new Date(ses.inicio);
     return r.estado === 'ASISTIDA' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
@@ -290,7 +302,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // ── Ficha rápida (CRM) ──────────────────────────────────────────────────────
   const ultimaAsistidaFecha = misReservas
     .filter(r => r.estado === 'ASISTIDA')
-    .map(r => sesiones.find(s => s.id === r.sesionId))
+    .map(r => sesionById.get(r.sesionId))
     .filter((s): s is typeof sesiones[number] => !!s)
     .sort((a, b) => b.inicio.localeCompare(a.inicio))[0]?.inicio ?? null;
   const diasSinVenir = ultimaAsistidaFecha ? Math.floor((now.getTime() - new Date(ultimaAsistidaFecha).getTime()) / 86400000) : null;
@@ -310,7 +322,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 7);
     return misReservas.some(r => {
-      const ses = sesiones.find(s => s.id === r.sesionId);
+      const ses = sesionById.get(r.sesionId);
       if (!ses) return false;
       const d = new Date(ses.inicio);
       return r.estado === 'ASISTIDA' && d >= weekStart && d < weekEnd;
@@ -330,7 +342,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const tagsDisponibles = TAGS_OPTIONS.filter(t => !tags.includes(t.label));
 
   function getReservaInfo(r: typeof misReservas[0]) {
-    const ses = sesiones.find(x => x.id === r.sesionId);
+    const ses = sesionById.get(r.sesionId);
     if (!ses) return { label: 'Clase eliminada', color: '#BFDBFE', date: '', time: '', sala: '', instructor: '' };
     const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
     const sala = salas.find(x => x.id === ses.salaId);

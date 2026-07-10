@@ -44,9 +44,10 @@ export function getHomeCardContext({
   activeSus: Suscripcion | null;
   racha: RachaInfo;
 }): HomeCardContext {
+  const sesionById = new Map(sesiones.map(s => [s.id, s])); // P0-22
   const proxima = misReservas
     .filter(r => r.estado === 'CONFIRMADA')
-    .map(r => ({ r, s: sesiones.find(s => s.id === r.sesionId) }))
+    .map(r => ({ r, s: sesionById.get(r.sesionId) }))
     .filter((x): x is { r: Reserva; s: Sesion } => !!x.s && new Date(x.s.inicio) > now)
     .sort((a, b) => new Date(a.s.inicio).getTime() - new Date(b.s.inicio).getTime())[0] ?? null;
 
@@ -73,7 +74,7 @@ export function getHomeCardContext({
   // CASO D — lleva más de 10 días sin asistir (y no tiene nada reservado).
   const ultimaAsistida = misReservas
     .filter(r => r.estado === 'ASISTIDA')
-    .map(r => sesiones.find(s => s.id === r.sesionId))
+    .map(r => sesionById.get(r.sesionId))
     .filter((s): s is Sesion => !!s)
     .sort((a, b) => new Date(b.inicio).getTime() - new Date(a.inicio).getTime())[0] ?? null;
 

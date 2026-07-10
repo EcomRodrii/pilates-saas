@@ -1149,18 +1149,35 @@ export default function Calendario() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [semana]);
 
-  const sesionesEnriquecidas = useMemo<SesionEnr[]>(() =>
-    sesiones.map(s => ({
-      ...s,
-      tipoClase: tiposClase.find(t => t.id === s.tipoClaseId) ?? { nombre: '?', color: 'var(--muted-foreground)' },
-      sala: salas.find(x => x.id === s.salaId) ?? { nombre: '?' },
-      instructor: instructores.find(i => i.id === s.instructorId) ?? { nombre: '?' },
-      confirmadas: reservas.filter(r => r.sesionId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')).length,
-      asistidas: reservas.filter(r => r.sesionId === s.id && r.estado === 'ASISTIDA').length,
-      reservadoIds: reservas.filter(r => r.sesionId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')).map(r => r.socioId),
-    })),
-    [sesiones, reservas, tiposClase, salas, instructores]
-  );
+  // P0-29: en vez de 3 .filter() sobre TODAS las reservas por cada sesión
+  // (O(sesiones × reservas)), se agregan las reservas por sesión en UNA pasada y
+  // se resuelven tipo/sala/instructora por Map — O(sesiones + reservas).
+  const sesionesEnriquecidas = useMemo<SesionEnr[]>(() => {
+    const tiposById = new Map(tiposClase.map(t => [t.id, t]));
+    const salasById = new Map(salas.map(x => [x.id, x]));
+    const instrById = new Map(instructores.map(i => [i.id, i]));
+    const agg = new Map<string, { confirmadas: number; asistidas: number; reservadoIds: string[] }>();
+    for (const r of reservas) {
+      if (r.estado !== 'CONFIRMADA' && r.estado !== 'ASISTIDA') continue;
+      let a = agg.get(r.sesionId);
+      if (!a) { a = { confirmadas: 0, asistidas: 0, reservadoIds: [] }; agg.set(r.sesionId, a); }
+      a.confirmadas++;
+      if (r.estado === 'ASISTIDA') a.asistidas++;
+      a.reservadoIds.push(r.socioId);
+    }
+    return sesiones.map(s => {
+      const a = agg.get(s.id);
+      return {
+        ...s,
+        tipoClase: tiposById.get(s.tipoClaseId) ?? { nombre: '?', color: 'var(--muted-foreground)' },
+        sala: salasById.get(s.salaId) ?? { nombre: '?' },
+        instructor: instrById.get(s.instructorId) ?? { nombre: '?' },
+        confirmadas: a?.confirmadas ?? 0,
+        asistidas: a?.asistidas ?? 0,
+        reservadoIds: a?.reservadoIds ?? [],
+      };
+    });
+  }, [sesiones, reservas, tiposClase, salas, instructores]);
 
   const sesionesFiltered = useMemo(() =>
     sesionesEnriquecidas.filter(s => {

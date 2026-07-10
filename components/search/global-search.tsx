@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { Search, ArrowRight, Calendar, CreditCard, X } from 'lucide-react';
@@ -29,31 +29,39 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
     if (open) { setTimeout(() => inputRef.current?.focus(), 40); setQuery(''); }
   }, [open]);
 
-  const q = query.toLowerCase();
-  const now = new Date();
+  // P0-32: debounce del texto (no filtrar en cada tecla) + resultados memoizados
+  // + Map socio por id (antes: socios.find() por cada recibo, en cada pulsación).
+  const [debouncedQ, setDebouncedQ] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(query.trim().toLowerCase()), 150);
+    return () => clearTimeout(t);
+  }, [query]);
 
-  const sociosRes = q.length >= 1
+  const q = debouncedQ;
+  const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
+  const tipoById = useMemo(() => new Map(tiposClase.map(t => [t.id, t])), [tiposClase]);
+
+  const sociosRes = useMemo(() => q.length >= 1
     ? socios.filter(s => `${s.nombre} ${s.apellidos} ${s.email}`.toLowerCase().includes(q)).slice(0, 5)
-    : socios.filter(s => s.activo).slice(0, 4);
+    : socios.filter(s => s.activo).slice(0, 4),
+    [socios, q]);
 
-  const sesionesRes = (() => {
-    const futuras = sesiones.filter(s => !s.cancelada && new Date(s.inicio) > now)
+  const sesionesRes = useMemo(() => {
+    const nowMs = Date.now();
+    const futuras = sesiones.filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
       .sort((a, b) => a.inicio.localeCompare(b.inicio));
     if (q.length < 1) return futuras.slice(0, 3);
-    return futuras.filter(s => {
-      const tipo = tiposClase.find(t => t.id === s.tipoClaseId);
-      return tipo?.nombre.toLowerCase().includes(q);
-    }).slice(0, 4);
-  })();
+    return futuras.filter(s => tipoById.get(s.tipoClaseId)?.nombre.toLowerCase().includes(q)).slice(0, 4);
+  }, [sesiones, tipoById, q]);
 
-  const recibosRes = (() => {
+  const recibosRes = useMemo(() => {
     const pend = recibos.filter(r => r.estado === 'PENDIENTE');
     if (q.length < 1) return pend.slice(0, 3);
     return pend.filter(r => {
-      const s = socios.find(x => x.id === r.socioId);
+      const s = socioById.get(r.socioId ?? '');
       return `${s?.nombre} ${s?.apellidos} ${r.concepto}`.toLowerCase().includes(q);
     }).slice(0, 4);
-  })();
+  }, [recibos, socioById, q]);
 
   const hasResults = sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0;
 
@@ -139,7 +147,7 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
                 <div className="mb-1">
                   <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>Próximas clases</p>
                   {sesionesRes.map(s => {
-                    const tipo = tiposClase.find(t => t.id === s.tipoClaseId);
+                    const tipo = tipoById.get(s.tipoClaseId);
                     const d = new Date(s.inicio);
                     return (
                       <button key={s.id} onClick={() => go('/calendario')}
@@ -165,7 +173,7 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>Pagos pendientes</p>
                   {recibosRes.map(r => {
-                    const s = socios.find(x => x.id === r.socioId);
+                    const s = socioById.get(r.socioId ?? '');
                     return (
                       <button key={r.id} onClick={() => go('/pagos')}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
+import { mapLimit } from '@/lib/concurrency';
 import {
   Inbox, Bell, MessageCircle, Send, Search, Check, CheckCheck,
   Info, AlertTriangle, CheckCircle, XCircle, Users, Heart, ChevronRight,
@@ -42,7 +43,10 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
     if (!asunto.trim() || !mensaje.trim()) return;
     setEnviando(true);
     const destinatarios = destinatario === 'todos' ? socios : socios.filter(s => s.id === destinatario);
-    const resultados = await Promise.all(destinatarios.map(async s => {
+    // P0-33: concurrencia acotada en vez de un fetch por socio simultáneo (con
+    // 200k socios, cientos de miles de promesas en vuelo cuelgan la pestaña y
+    // saturan el backend de envío).
+    const resultados = await mapLimit(destinatarios, 8, async s => {
       try {
         const res = await fetch('/api/emails/send', {
           method: 'POST',
@@ -53,7 +57,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
       } catch {
         return false;
       }
-    }));
+    });
     setResultado({ ok: resultados.filter(Boolean).length, fallidos: resultados.filter(r => !r).length });
     setEnviando(false);
   }

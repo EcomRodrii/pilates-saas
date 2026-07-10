@@ -24,9 +24,11 @@ function claveSemana(lunes: Date): string {
 }
 
 export function calcularRacha(reservas: Reserva[], sesiones: Sesion[], now: Date): RachaInfo {
+  // P0-22: Map por id en vez de .find() lineal por cada reserva (O(reservas)).
+  const sesionById = new Map(sesiones.map(s => [s.id, s]));
   const asistidas = reservas
     .filter(r => r.estado === 'ASISTIDA')
-    .map(r => sesiones.find(s => s.id === r.sesionId))
+    .map(r => sesionById.get(r.sesionId))
     .filter((s): s is Sesion => !!s)
     .map(s => new Date(s.inicio));
 
