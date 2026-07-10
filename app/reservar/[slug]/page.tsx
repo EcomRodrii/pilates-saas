@@ -10,7 +10,7 @@ import { contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking
 import {
   ChevronLeft, ChevronRight, Clock, Users, MapPin,
   CheckCircle2, X, Calendar, Search, Zap, Award, Heart, Star,
-  CreditCard, Pen, FileText, Download, ExternalLink, Mail,
+  CreditCard, FileText, Download, ExternalLink, Mail,
 } from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -93,78 +93,6 @@ function downloadICS(s: SesionRich, estudioNombre: string, estudioDireccion: str
   URL.revokeObjectURL(url);
 }
 
-// ─── Canvas Signature ─────────────────────────────────────────────────────────
-
-function CanvasSignature({ onHasDrawing }: { onHasDrawing: (v: boolean) => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef(false);
-  const lastPos = useRef<{ x: number; y: number } | null>(null);
-
-  function getPos(e: React.MouseEvent | React.TouchEvent): { x: number; y: number } {
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    if ('touches' in e) {
-      return {
-        x: (e.touches[0].clientX - rect.left) * scaleX,
-        y: (e.touches[0].clientY - rect.top) * scaleY,
-      };
-    }
-    const me = e as React.MouseEvent;
-    return { x: (me.clientX - rect.left) * scaleX, y: (me.clientY - rect.top) * scaleY };
-  }
-
-  function startDraw(e: React.MouseEvent | React.TouchEvent) {
-    e.preventDefault();
-    drawing.current = true;
-    lastPos.current = getPos(e);
-  }
-
-  function draw(e: React.MouseEvent | React.TouchEvent) {
-    e.preventDefault();
-    if (!drawing.current || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d')!;
-    const pos = getPos(e);
-    if (lastPos.current) {
-      ctx.beginPath();
-      ctx.strokeStyle = '#171717';
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.moveTo(lastPos.current.x, lastPos.current.y);
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-    }
-    lastPos.current = pos;
-    onHasDrawing(true);
-  }
-
-  function endDraw() { drawing.current = false; lastPos.current = null; }
-
-  function clear() {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
-    onHasDrawing(false);
-  }
-
-  return (
-    <div>
-      <canvas ref={canvasRef} width={560} height={140}
-        className="w-full rounded-xl touch-none cursor-crosshair"
-        style={{ backgroundColor: '#fff', border: '1.5px solid rgba(255,255,255,0.15)', height: '100px' }}
-        onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
-        onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
-      />
-      <button onClick={clear} className="text-[11px] text-white/35 hover:text-white/60 mt-1.5 transition-colors">
-        Limpiar firma
-      </button>
-    </div>
-  );
-}
-
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function LevelBadge({ nivel }: { nivel?: string }) {
@@ -237,8 +165,12 @@ export default function ReservarPage() {
   const [loginError, setLoginError] = useState('');
   const [gateError, setGateError] = useState('');
 
-  // Contract
-  const [canvasSigned, setCanvasSigned] = useState(false);
+  // Aceptación del contrato (clickwrap: checkbox + fecha + versión).
+  const [terminosAceptados, setTerminosAceptados] = useState(false);
+
+  // Documento legal a mostrar en modal (texto renderizado por React → escapado;
+  // sustituye al document.write con HTML sin escapar, que era un vector XSS).
+  const [legalDoc, setLegalDoc] = useState<{ label: string; text: string } | null>(null);
 
   // Stripe
   const [stripeLoading, setStripeLoading] = useState<string | null>(null);
@@ -323,7 +255,7 @@ export default function ReservarPage() {
 
   function openBooking(sesionId: string) {
     setBookingSesionId(sesionId);
-    setCanvasSigned(false);
+    setTerminosAceptados(false);
     setEnlaceEnviado(false);
     setLoginError('');
     setGateError('');
@@ -339,7 +271,7 @@ export default function ReservarPage() {
     }
   }
 
-  function closeBooking() { setBookingSesionId(null); setLoginStep('login'); setCanvasSigned(false); setEnlaceEnviado(false); }
+  function closeBooking() { setBookingSesionId(null); setLoginStep('login'); setTerminosAceptados(false); setEnlaceEnviado(false); }
 
   // Magic link: envía el enlace de acceso al email (ya no mete dentro con solo
   // nombre+email). La socia entra al pulsar el enlace del correo.
@@ -853,10 +785,7 @@ export default function ReservarPage() {
                 { label: 'Términos de servicio', text: studioConfig.terminosServicio },
               ].map(({ label, text }) => (
                 <button key={label}
-                  onClick={() => {
-                    const w = window.open('', '_blank');
-                    if (w) { w.document.write(`<pre style="font-family:sans-serif;padding:2rem;max-width:700px;margin:auto;white-space:pre-wrap">${text}</pre>`); w.document.title = label; }
-                  }}
+                  onClick={() => setLegalDoc({ label, text })}
                   className="flex items-center gap-1.5 text-xs text-[#A8A89F] hover:text-[#3A3A34] transition-colors">
                   <FileText size={12} />{label}
                 </button>
@@ -984,35 +913,40 @@ export default function ReservarPage() {
               </>
             )}
 
-            {/* ── CONTRATO ── */}
+            {/* ── CONTRATO (aceptación clickwrap) ── */}
             {loginStep === 'contrato' && (
               <>
                 <div className="flex items-center gap-2 mb-1">
-                  <Pen size={16} style={{ color: PRIMARY }} className="shrink-0" />
-                  <h2 className="text-[#1A1A1A] font-bold text-lg">Firma el contrato</h2>
+                  <FileText size={16} style={{ color: PRIMARY }} className="shrink-0" />
+                  <h2 className="text-[#1A1A1A] font-bold text-lg">Acepta los términos</h2>
                 </div>
                 <p className="text-[#8E8E86] text-sm mb-4">
-                  Antes de tu primera reserva, lee y firma los términos de servicio.
+                  Antes de tu primera reserva, lee y acepta los términos de servicio.
                 </p>
                 <div className="rounded-xl p-3 mb-4 text-[11px] text-[#8E8E86] leading-relaxed overflow-y-auto bg-[#F5F5F1] border border-[#E7E7E0]"
-                  style={{ maxHeight: '140px', whiteSpace: 'pre-wrap' }}>
+                  style={{ maxHeight: '160px', whiteSpace: 'pre-wrap' }}>
                   {studioConfig.terminosServicio}
                 </div>
-                <div className="mb-4">
-                  <p className="text-[#3A3A34] text-xs font-semibold mb-2">
-                    Firma aquí abajo <span className="text-[#A8A89F] font-normal">(dibuja tu firma)</span>
-                  </p>
-                  <CanvasSignature onHasDrawing={setCanvasSigned} />
-                </div>
+                <label className="flex items-start gap-2.5 mb-4 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={terminosAceptados}
+                    onChange={e => setTerminosAceptados(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[#1A1A1A]"
+                  />
+                  <span className="text-[#3A3A34] text-xs leading-relaxed">
+                    He leído y acepto los términos de servicio y la política de privacidad.
+                  </span>
+                </label>
                 <div className="flex gap-2">
                   <button onClick={() => setLoginStep('login')}
                     className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all">
                     Volver
                   </button>
-                  <button onClick={handleSignContract} disabled={!canvasSigned}
+                  <button onClick={handleSignContract} disabled={!terminosAceptados}
                     className="flex-[2] py-3 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-40"
                     style={{ backgroundColor: PRIMARY }}>
-                    Firmar y continuar →
+                    Aceptar y continuar →
                   </button>
                 </div>
               </>
@@ -1062,6 +996,29 @@ export default function ReservarPage() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL DOCUMENTO LEGAL ────────────────────────────────────────────── */}
+      {legalDoc && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
+          style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setLegalDoc(null)}>
+          <div className="bg-white w-full max-w-lg rounded-3xl relative shadow-2xl flex flex-col"
+            style={{ maxHeight: '85vh' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#F1F1EC]">
+              <h2 className="text-[#1A1A1A] font-bold text-base">{legalDoc.label}</h2>
+              <button onClick={() => setLegalDoc(null)} className="text-[#A8A89F] hover:text-[#3A3A34] transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            {/* El texto lo edita el dueño del estudio; se renderiza como texto
+                (React escapa), nunca como HTML. */}
+            <div className="px-6 py-5 overflow-y-auto text-[13px] text-[#3A3A34] leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>
+              {legalDoc.text}
+            </div>
           </div>
         </div>
       )}

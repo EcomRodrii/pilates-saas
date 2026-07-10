@@ -1579,6 +1579,15 @@ export async function actualizarSociaPublica(params: {
   for (const [camel, snake] of Object.entries(CAMPOS_SOCIA_EDITABLES)) {
     if (camel in params.cambios) db[snake] = params.cambios[camel];
   }
+  // Aceptación del contrato (clickwrap): objeto anidado → columnas de registro.
+  // Sin esto, la aceptación se perdía y no quedaba evidencia (C-7).
+  const ac = params.cambios.aceptacionContrato as
+    { fecha?: string; firma?: string; versionTexto?: string } | undefined;
+  if (ac && typeof ac === 'object') {
+    db.aceptacion_fecha = ac.fecha ?? null;
+    db.aceptacion_firma = ac.firma ?? null;
+    db.aceptacion_version = ac.versionTexto ?? null;
+  }
   if (Object.keys(db).length === 0) return { ok: true as const };
   const { error } = await admin.from('socios').update(db).eq('id', params.socioId);
   if (error) return { error: error.message };
