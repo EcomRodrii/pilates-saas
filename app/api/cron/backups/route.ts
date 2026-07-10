@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { crearSnapshot, podarBackupsAntiguos, type TipoBackup } from '@/lib/backup-engine';
+import { uid } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
-
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
 
 // Backup automático diario para todos los negocios — lo dispara Vercel Cron
 // (ver vercel.json) contra esta ruta con el CRON_SECRET como autenticación.

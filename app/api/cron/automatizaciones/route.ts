@@ -7,6 +7,7 @@ import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
+import { uid } from '@/lib/utils';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic();
@@ -28,10 +29,6 @@ async function redactarConIA(input: RecomendacionInput, fallback: string): Promi
 }
 
 export const dynamic = 'force-dynamic';
-
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
 
 // Ejecuta el motor de automatizaciones para todos los estudios, sin depender
 // de que nadie tenga el dashboard abierto. Lo dispara Vercel Cron (ver
