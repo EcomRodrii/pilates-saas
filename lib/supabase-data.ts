@@ -1364,6 +1364,18 @@ export async function crearReservaPublica(params: {
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
 
+  // No se puede reservar una clase ya empezada/pasada (I-17). La UI lo bloquea,
+  // pero la API también debe: evita datos basura y gamificación explotable.
+  {
+    const { data: ses } = await admin
+      .from('sesiones').select('inicio, cancelada').eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
+    if (!ses) return { error: 'Sesión no encontrada' as const };
+    if (ses.cancelada) return { error: 'Esta clase está cancelada' as const };
+    if (new Date(ses.inicio as string).getTime() <= Date.now()) {
+      return { error: 'Esta clase ya ha empezado' as const };
+    }
+  }
+
   // Gate de derechos (C-4): autoritativo en servidor. Solo aplica a la reserva
   // self-service; el panel (recepción) puede añadir a cualquiera sin plan.
   const pol = await cargarPoliticaEstudio(admin, params.studioId);

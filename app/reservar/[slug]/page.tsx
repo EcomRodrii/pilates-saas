@@ -7,6 +7,7 @@ import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa } from '@/lib/types';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
+import { colorOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import {
   ChevronLeft, ChevronRight, Clock, Users, MapPin,
   CheckCircle2, X, Calendar, Search, Zap, Award, Heart, Star,
@@ -74,9 +75,15 @@ function makeGoogleCalUrl(s: SesionRich, estudioNombre: string, estudioDireccion
 }
 
 function downloadICS(s: SesionRich, estudioNombre: string, estudioDireccion: string) {
+  // UID y DTSTAMP son obligatorios en RFC 5545 (sin ellos Outlook puede rechazar
+  // el evento). UID estable por sesión para que re-importar actualice, no duplique.
+  const dtstamp = toCalDate(new Date().toISOString());
+  const slug = estudioNombre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'estudio';
   const lines = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${estudioNombre}//ES`, 'CALSCALE:GREGORIAN',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${estudioNombre}//Reservas//ES`, 'CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
+    `UID:${s.id}@${slug}`,
+    `DTSTAMP:${dtstamp}`,
     `DTSTART:${toCalDate(s.inicio)}`,
     `DTEND:${toCalDate(s.fin)}`,
     `SUMMARY:${s.tipo?.nombre ?? 'Clase Pilates'}`,
@@ -89,7 +96,8 @@ function downloadICS(s: SesionRich, estudioNombre: string, estudioDireccion: str
   const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'clase-pilates.ics'; a.click();
+  const nombreArchivo = (s.tipo?.nombre ?? 'clase').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  a.href = url; a.download = `${nombreArchivo || 'clase'}-${s.inicio.slice(0, 10)}.ics`; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -102,17 +110,20 @@ function LevelBadge({ nivel }: { nivel?: string }) {
     </span>
   );
   const c = NIVEL_COLOR[nivel] ?? { bg: '#F1F1EC', text: '#8E8E86' };
-  const emoji = nivel === 'PRINCIPIANTE' ? '🟢' : nivel === 'MEDIO' ? '🟡' : '🔴';
+  // Punto de color en vez de emoji (🟢🟡🔴): coherente con el lenguaje visual
+  // del resto del producto, que no usa emojis.
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: c.bg, color: c.text }}>
-      {emoji} {NIVEL_LABEL[nivel] ?? nivel}
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: c.bg, color: c.text }}>
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: c.text }} />
+      {NIVEL_LABEL[nivel] ?? nivel}
     </span>
   );
 }
 
 function PlazasDots({ taken, total }: { taken: number; total: number }) {
   const left = Math.max(0, total - taken);
-  const color = left === 0 ? '#EF4444' : left <= 2 ? '#F59E0B' : '#10B981';
+  // Semántica única de ocupación (I-13): mismo criterio que el calendario.
+  const color = colorOcupacion(ratioOcupacion(taken, total));
   const label = left === 0 ? 'Clase llena' : left === 1 ? '1 plaza libre' : `${left} plazas libres`;
   return (
     <div className="flex items-center gap-1.5">
@@ -215,6 +226,9 @@ export default function ReservarPage() {
 
   // Sitio (reformer) elegido por la socia al reservar (I-12). null = sin elegir.
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
+
+  // Posición estimada en lista de espera al reservar una clase llena (I-11).
+  const [esperaPos, setEsperaPos] = useState<number | null>(null);
 
   // Stripe
   const [stripeLoading, setStripeLoading] = useState<string | null>(null);
@@ -384,6 +398,11 @@ export default function ReservarPage() {
     // lo decide addReserva según el aforo del momento. El sitio elegido (I-12)
     // solo se asigna si la reserva queda confirmada (lo valida el servidor).
     const estado = addReserva(bookingSesionId, socia?.socioId ?? '', selectedSpot);
+    if (estado === 'LISTA_ESPERA') {
+      // Posición estimada: nº de personas ya en espera + 1 (I-11).
+      const enEspera = reservas.filter(r => r.sesionId === bookingSesionId && r.estado === 'LISTA_ESPERA').length;
+      setEsperaPos(enEspera + 1);
+    }
     setLoginStep(estado === 'LISTA_ESPERA' ? 'espera' : 'done');
   }
 
@@ -448,7 +467,7 @@ export default function ReservarPage() {
                     {socia.nombre[0]}
                   </div>
                   <span className="text-[#3A3A34] text-sm font-medium">{socia.nombre.split(' ')[0]}</span>
-                  <button onClick={logout} className="text-[#A8A89F] hover:text-[#3A3A34] ml-0.5"><X size={12} /></button>
+                  <button onClick={logout} aria-label="Cerrar sesión" className="text-[#A8A89F] hover:text-[#3A3A34] ml-0.5"><X size={12} /></button>
                 </div>
               </div>
             ) : (
@@ -486,7 +505,7 @@ export default function ReservarPage() {
             {/* Date selector */}
             <div className="bg-white rounded-2xl p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
-                <button onClick={() => setWeekOffset(o => o - 1)}
+                <button onClick={() => setWeekOffset(o => o - 1)} aria-label="Semana anterior"
                   className="p-1.5 rounded-lg text-[#A8A89F] hover:text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
                   <ChevronLeft size={18} />
                 </button>
@@ -509,7 +528,7 @@ export default function ReservarPage() {
                     );
                   })}
                 </div>
-                <button onClick={() => setWeekOffset(o => o + 1)}
+                <button onClick={() => setWeekOffset(o => o + 1)} aria-label="Semana siguiente"
                   className="p-1.5 rounded-lg text-[#A8A89F] hover:text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
                   <ChevronRight size={18} />
                 </button>
@@ -630,7 +649,7 @@ export default function ReservarPage() {
                 </div>
                 <div>
                   <h2 className="text-[#1A1A1A] font-bold text-lg">Identifícate para ver tus reservas</h2>
-                  <p className="text-[#8E8E86] text-sm mt-1">Introduce tu nombre y email para acceder</p>
+                  <p className="text-[#8E8E86] text-sm mt-1">Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
                 </div>
                 <button onClick={() => { setBookingSesionId(''); setLoginStep('login'); }}
                   className="px-6 py-3 rounded-xl font-bold text-white text-sm"
@@ -674,7 +693,7 @@ export default function ReservarPage() {
                               ? { backgroundColor: '#FEF3C7', color: '#92400E' }
                               : isPast ? { backgroundColor: '#F1F1EC', color: '#A8A89E' }
                               : { backgroundColor: '#FFF2F7', color: PRIMARY }}>
-                            {r.estado === 'ASISTIDA' ? '✓ Asistida' : r.estado === 'LISTA_ESPERA' ? '⏳ En espera' : isPast ? 'Finalizada' : '✅ Confirmada'}
+                            {r.estado === 'ASISTIDA' ? 'Asistida' : r.estado === 'LISTA_ESPERA' ? (r.posicionEspera ? `En espera · nº ${r.posicionEspera}` : 'En espera') : isPast ? 'Finalizada' : 'Confirmada'}
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 text-sm text-[#8E8E86]">
@@ -847,7 +866,7 @@ export default function ReservarPage() {
           style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
             style={{ maxHeight: '90vh', overflowY: 'auto' }}>
-            <button onClick={closeBooking}
+            <button onClick={closeBooking} aria-label="Cerrar"
               className="absolute top-4 right-4 text-[#A8A89F] hover:text-[#3A3A34] transition-colors">
               <X size={18} />
             </button>
@@ -890,6 +909,9 @@ export default function ReservarPage() {
                 </div>
                 <div>
                   <p className="text-[#1A1A1A] font-extrabold text-xl">¡En lista de espera!</p>
+                  {esperaPos && (
+                    <p className="text-[#8E8E86] text-sm mt-1">Eres la <span className="font-bold text-[#1A1A1A]">nº {esperaPos}</span> en la lista.</p>
+                  )}
                   <p className="text-[#8E8E86] text-sm mt-1">Si se libera una plaza, te avisaremos por email.</p>
                 </div>
                 <button onClick={closeBooking}
@@ -1084,7 +1106,7 @@ export default function ReservarPage() {
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#F1F1EC]">
               <h2 className="text-[#1A1A1A] font-bold text-base">{legalDoc.label}</h2>
-              <button onClick={() => setLegalDoc(null)} className="text-[#A8A89F] hover:text-[#3A3A34] transition-colors">
+              <button onClick={() => setLegalDoc(null)} aria-label="Cerrar" className="text-[#A8A89F] hover:text-[#3A3A34] transition-colors">
                 <X size={18} />
               </button>
             </div>

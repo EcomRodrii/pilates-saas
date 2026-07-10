@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { enviarEmailCancelacionClase } from '@/lib/api-client';
 import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
+import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import type { Socio, Spot } from '@/lib/types';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -112,7 +113,7 @@ type RecurringFormData = {
   instructorId: string;
   salaId: string;
   horaInicio: string;
-  duracion: 45 | 60 | 90;
+  duracion: number;
   diasSemana: number[];
   fechaInicio: string;
   fechaFin: string;
@@ -154,12 +155,8 @@ const DIA_PILLS: { label: string; day: number }[] = [
 
 // ─── StatsBar ────────────────────────────────────────────────────────────────
 
-function ocupColorFor(ratio: number) {
-  if (ratio >= 1) return '#E23B4E';
-  if (ratio >= 0.85) return '#E0733E';
-  if (ratio >= 0.6) return '#C98A2E';
-  return '#3E9E6B';
-}
+// Semántica única de ocupación (I-13): ver lib/ocupacion.ts.
+const ocupColorFor = colorOcupacion;
 
 function StatsBar({ sesiones, todayStr }: {
   sesiones: SesionEnr[];
@@ -171,7 +168,7 @@ function StatsBar({ sesiones, todayStr }: {
   const libres = Math.max(0, aforo - reservas);
   const ocupPct = aforo > 0 ? Math.round((reservas / aforo) * 100) : 0;
   const ocupColor = ocupColorFor(ocupPct / 100);
-  const ocupLabel = ocupPct >= 85 ? 'Muy ocupado' : ocupPct >= 60 ? 'Buen ritmo' : 'Tranquilo';
+  const ocupLabel = etiquetaOcupacion(ocupPct / 100);
 
   return (
     <div className="flex gap-3 flex-wrap sm:flex-nowrap">
@@ -304,7 +301,7 @@ function SessionSidebar({
   if (!sesion) return null;
 
   const pct = sesion.aforoMaximo > 0 ? Math.round((sesion.confirmadas / sesion.aforoMaximo) * 100) : 0;
-  const barColor = pct >= 100 ? '#EF4444' : pct >= 70 ? '#F59E0B' : '#10B981';
+  const barColor = colorOcupacion(ratioOcupacion(sesion.confirmadas, sesion.aforoMaximo));
   const dark = isDark(sesion.tipoClase.color);
   const fechaLabel = new Date(sesion.inicio).toLocaleDateString('es-ES', {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -333,6 +330,7 @@ function SessionSidebar({
           </div>
           <button
             onClick={onClose}
+            aria-label="Cerrar panel"
             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors shrink-0"
           >
             <X size={15} />
@@ -644,7 +642,8 @@ function SessionSidebar({
       {/* Footer: kiosk link */}
       <div className="px-5 py-3 border-t border-border">
         <a
-          href={`/kiosk/${studio?.slug ?? 'tentare'}`}
+          href={studio?.slug ? `/kiosk/${studio.slug}` : '#'}
+          aria-disabled={!studio?.slug}
           className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowUpRight size={13} />Ver en modo kiosk
@@ -781,12 +780,10 @@ function ModalClasesRecurrentes({
               <input type="time" className={f2} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Duración</label>
-              <select className={s2} value={form.duracion} onChange={e => setForm(f => ({ ...f, duracion: Number(e.target.value) as 45 | 60 | 90 }))}>
-                <option value={45}>45 min</option>
-                <option value={60}>60 min</option>
-                <option value={90}>90 min</option>
-              </select>
+              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Duración (min)</label>
+              <input type="number" min={15} max={300} step={5} className={f2}
+                value={form.duracion}
+                onChange={e => setForm(f => ({ ...f, duracion: Math.max(15, Number(e.target.value)) }))} />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -810,7 +807,7 @@ function ModalClasesRecurrentes({
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground uppercase tracking-wider">Aforo máximo</label>
-            <input type="number" min={1} max={50} className={f2} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
+            <input type="number" min={1} max={300} className={f2} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
           </div>
           {estimatedCount > 0 && (
             <div className="rounded-xl bg-muted px-4 py-3 flex items-center gap-2">
@@ -1407,7 +1404,7 @@ export default function Calendario() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Type legend */}
+          {/* Type legend (con indicador +N si hay más tipos que los mostrados) */}
           {tiposClase.length > 0 && (
             <div className="hidden lg:flex items-center gap-3 mr-1">
               {tiposClase.slice(0, 4).map(t => (
@@ -1416,6 +1413,11 @@ export default function Calendario() {
                   <span className="text-xs font-semibold text-muted-foreground">{t.nombre}</span>
                 </div>
               ))}
+              {tiposClase.length > 4 && (
+                <span className="text-xs font-semibold text-muted-foreground" title={tiposClase.slice(4).map(t => t.nombre).join(', ')}>
+                  +{tiposClase.length - 4}
+                </span>
+              )}
             </div>
           )}
 
@@ -1423,6 +1425,7 @@ export default function Calendario() {
           <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
             <button
               onClick={() => cambiarSemana(-1)}
+              aria-label="Semana anterior"
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <ChevronLeft size={16} />
@@ -1435,6 +1438,7 @@ export default function Calendario() {
             </button>
             <button
               onClick={() => cambiarSemana(1)}
+              aria-label="Semana siguiente"
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <ChevronRight size={16} />
@@ -1452,6 +1456,7 @@ export default function Calendario() {
               </button>
               <button
                 onClick={() => setShowNuevaMenu(v => !v)}
+                aria-label="Más opciones para crear clase"
                 className="px-2 py-2 text-white hover:bg-card/10 transition-colors border-l border-white/20"
               >
                 <ChevronDown size={14} />
@@ -1580,7 +1585,7 @@ export default function Calendario() {
               <h2 className="text-lg font-extrabold text-foreground tracking-tight">
                 {showForm === 'nueva' ? 'Nueva clase' : 'Editar clase'}
               </h2>
-              <button onClick={() => setShowForm(null)} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-border transition-colors">
+              <button onClick={() => setShowForm(null)} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-border transition-colors">
                 <X size={16} className="text-foreground" />
               </button>
             </div>
@@ -1614,7 +1619,7 @@ export default function Calendario() {
                 </FormField>
               </div>
               <FormField label="Aforo máximo">
-                <input type="number" min={1} max={50} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
+                <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
               </FormField>
               {showForm === 'nueva' && (
                 <label className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-muted/60 border border-border cursor-pointer">
