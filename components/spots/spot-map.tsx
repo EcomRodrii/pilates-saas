@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Spot, ReservaEnriquecida, Socio } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { User, Check } from 'lucide-react';
@@ -17,12 +17,27 @@ interface SpotMapProps {
 
 export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQuitarSpot, onCheckin }: SpotMapProps) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [buscarSocia, setBuscarSocia] = useState('');
 
   const filas = [...new Set(spots.map(s => s.fila))].sort((a, b) => a - b);
   const columnas = [...new Set(spots.map(s => s.columna))].sort((a, b) => a - b);
 
+  // P0-26: reserva activa por spot y socias ya en clase, indexadas en UNA pasada
+  // (antes: reservas.find() por cada spot del grid y por cada socia del panel).
+  const reservaPorSpot = useMemo(() => {
+    const m = new Map<string, ReservaEnriquecida>();
+    for (const r of reservas) {
+      if (r.spotId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')) m.set(r.spotId, r);
+    }
+    return m;
+  }, [reservas]);
+  const sociosEnClaseIds = useMemo(
+    () => new Set(reservas.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').map(r => r.socioId)),
+    [reservas],
+  );
+
   function getReserva(spotId: string) {
-    return reservas.find(r => r.spotId === spotId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'));
+    return reservaPorSpot.get(spotId);
   }
 
   const selectedSpot = spots.find(s => s.id === selected);
@@ -126,16 +141,32 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
           ) : onAsignarSpot ? (
             <div>
               <p className="text-xs text-muted-foreground mb-2 font-medium">Asignar socia a este reformer:</p>
+              {/* P0-26: buscador + límite de resultados, en vez de renderizar la
+                  lista completa de socias (con 200.000, colgaba el navegador). */}
+              <input
+                autoFocus
+                value={buscarSocia}
+                onChange={e => setBuscarSocia(e.target.value)}
+                placeholder="Buscar socia…"
+                className="w-full mb-2 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-brand"
+              />
               <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
-                {socios.filter(s => s.activo && !reservas.find(r => r.socioId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))).map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => { onAsignarSpot(selectedSpot.id, s.id); setSelected(null); }}
-                    className="text-left px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-border text-foreground hover:border-brand hover:bg-brand/10 transition-colors"
-                  >
-                    {s.nombre} {s.apellidos}
-                  </button>
-                ))}
+                {socios
+                  .filter(s => {
+                    if (!s.activo || sociosEnClaseIds.has(s.id)) return false;
+                    const q = buscarSocia.trim().toLowerCase();
+                    return !q || `${s.nombre} ${s.apellidos}`.toLowerCase().includes(q);
+                  })
+                  .slice(0, 20)
+                  .map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => { onAsignarSpot(selectedSpot.id, s.id); setSelected(null); setBuscarSocia(''); }}
+                      className="text-left px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-border text-foreground hover:border-brand hover:bg-brand/10 transition-colors"
+                    >
+                      {s.nombre} {s.apellidos}
+                    </button>
+                  ))}
               </div>
             </div>
           ) : null}

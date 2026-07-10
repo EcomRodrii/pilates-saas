@@ -1395,14 +1395,23 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
 
   const exportarExcel = () => {
     const fmtEur = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // P0-35: índices por socio en UNA pasada, en vez de suscripciones.find/filter
+    // por cada socio y socios.find por cada recibo (doble bucle O(N×M)).
+    const planById = new Map(planesTarifa.map(p => [p.id, p]));
+    const susPorSocio = new Map<string, typeof suscripciones>();
+    for (const x of suscripciones) {
+      const arr = susPorSocio.get(x.socioId);
+      if (arr) arr.push(x); else susPorSocio.set(x.socioId, [x]);
+    }
+    const socioById = new Map(socios.map(s => [s.id, s]));
     // Hoja socias con su plan y estado de suscripción
     const rows: (string | number | null)[][] = [
       ['Nombre', 'Apellidos', 'Email', 'Teléfono', 'NIF', 'Alta', 'Activa', 'Plan', 'Estado suscripción', 'Sesiones restantes'],
     ];
     for (const s of socios) {
-      const sus = suscripciones.find(x => x.socioId === s.id && x.estado === 'ACTIVA')
-        ?? suscripciones.filter(x => x.socioId === s.id).slice(-1)[0] ?? null;
-      const plan = sus ? planesTarifa.find(p => p.id === sus.planId) ?? null : null;
+      const lista = susPorSocio.get(s.id) ?? [];
+      const sus = lista.find(x => x.estado === 'ACTIVA') ?? lista[lista.length - 1] ?? null;
+      const plan = sus ? planById.get(sus.planId) ?? null : null;
       rows.push([
         s.nombre, s.apellidos, s.email, s.telefono ?? '', s.nif ?? '',
         s.fechaAlta?.slice(0, 10) ?? '', s.activo ? 'Sí' : 'No',
@@ -1416,7 +1425,7 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
       ['Concepto', 'Socia', 'Importe (€)', 'Estado', 'Vencimiento', 'Cobro'],
     ];
     for (const r of recibos) {
-      const s = socios.find(x => x.id === r.socioId);
+      const s = r.socioId ? socioById.get(r.socioId) : undefined;
       rRows.push([
         r.concepto, s ? `${s.nombre} ${s.apellidos}` : '', fmtEur(r.importe),
         r.estado, r.fechaVencimiento?.slice(0, 10) ?? '', r.fechaCobro?.slice(0, 10) ?? '',
@@ -1555,8 +1564,9 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                   <div className="flex items-start gap-2 bg-[#FFFBEB] border border-[#FDE68A] rounded-lg p-3">
                     <AlertTriangle size={14} className="text-[#D97706] shrink-0 mt-0.5" />
                     <p className="text-[11px] text-[#92400E] leading-snug">
-                      Por seguridad, la clave secreta no se guarda aquí. Añádela como variable de entorno{' '}
-                      <code className="font-mono bg-[#FEF3C7] px-1 rounded">{cat.secretoEnv}</code> en tu proveedor de despliegue (Vercel).
+                      El proveedor de envío lo gestiona Tentare a nivel de plataforma — aquí solo
+                      configuras tu remitente. Para enviar desde tu propio dominio, verifícalo con
+                      nosotros primero; te avisamos cuando esté listo.
                     </p>
                   </div>
                 )}
