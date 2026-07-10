@@ -37,6 +37,9 @@ export interface Studio {
   cancelacionDevolverBonoTardia: boolean;
   reservaExigirPlan: boolean;
   reservaMaxSimultaneas: number | null;
+  // Stripe Terminal (datáfono físico) emparejado con el estudio.
+  stripeTerminalReaderId: string | null;
+  stripeTerminalLocationId: string | null;
 }
 
 // ─── Integraciones por negocio ───────────────────────────────────────────────
@@ -288,7 +291,7 @@ export interface Cita {
 }
 
 export type CategoriaPOS = 'SESION' | 'PACK' | 'PRODUCTO' | 'OTRO';
-export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'BIZUM' | 'TRANSFERENCIA';
+export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'BIZUM' | 'TRANSFERENCIA' | 'DATAFONO';
 
 export interface ProductoPOS {
   id: string;
