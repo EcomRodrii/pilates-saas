@@ -303,12 +303,15 @@ export default function Socios() {
   const listaVisible = useMemo(() => lista.slice(0, visibles), [lista, visibles]);
 
   // ── Bulk helpers ───────────────────────────────────────────────────────────
-  // "Seleccionar todo" opera sobre lo VISIBLE (lo montado en el DOM).
-  const allVisible = listaVisible.map((s) => s.id);
-  const allSelected = allVisible.length > 0 && allVisible.every((id) => selected.has(id));
+  // "Seleccionar todo" opera sobre TODA la lista filtrada (no solo la página
+  // montada): la selección es un Set de ids independiente del render, y las
+  // acciones masivas (email, asignar plan) deben cubrir todo lo filtrado, no
+  // saltarse en silencio lo que aún no se ha paginado.
+  const allFiltradosIds = useMemo(() => lista.map((s) => s.id), [lista]);
+  const allSelected = allFiltradosIds.length > 0 && allFiltradosIds.every((id) => selected.has(id));
 
   function toggleSelectAll() {
-    setSelected(allSelected ? new Set() : new Set(allVisible));
+    setSelected(allSelected ? new Set() : new Set(allFiltradosIds));
   }
 
   function toggleSelect(id: string) {
