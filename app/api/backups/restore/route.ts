@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { restaurarSnapshot, type BackupSnapshot } from '@/lib/backup-engine';
+import { restaurarSnapshot, cargarSnapshot, type BackupRow } from '@/lib/backup-engine';
 
 // Restaurar sobrescribe TODOS los datos actuales del negocio con los del
 // backup elegido — irreversible salvo que exista otro backup posterior.
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   const { data: backup, error: readError } = await admin
     .from('backups')
-    .select('id, studio_id, datos')
+    .select('id, studio_id, storage_key, datos')
     .eq('id', backupId)
     .eq('studio_id', sesion.studioId) // nunca restaurar un backup de otro negocio
     .maybeSingle();
@@ -39,7 +39,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await restaurarSnapshot(admin, sesion.studioId, backup.datos as BackupSnapshot);
+    // El snapshot sale de R2 (backups nuevos) o de la columna datos (antiguos).
+    const snapshot = await cargarSnapshot(backup as BackupRow);
+    await restaurarSnapshot(admin, sesion.studioId, snapshot);
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error desconocido';

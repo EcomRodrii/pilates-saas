@@ -803,7 +803,10 @@ create table if not exists backups (
   id text primary key,
   studio_id text references studios(id) on delete cascade,
   tipo text not null check (tipo in ('DIARIO', 'SEMANAL', 'MENSUAL', 'MANUAL')),
-  datos jsonb not null,
+  -- Snapshot: en R2 (storage_key, backups nuevos) o inline (datos, antiguos).
+  -- 'datos' es nullable desde la migración 0002 (P0-13/14, backups fuera de Postgres).
+  datos jsonb,
+  storage_key text,
   creado_en timestamptz not null default now()
 );
 alter table backups enable row level security;
