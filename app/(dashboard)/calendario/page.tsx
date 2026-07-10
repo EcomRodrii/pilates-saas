@@ -1083,8 +1083,11 @@ export default function Calendario() {
   } = useStudio();
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
+  // Antes de montar se devuelve null (no se pinta el grid), así que este valor
+  // no se renderiza: solo evita new Date() en SSR (mismatch de hidratación). Su
+  // valor concreto es irrelevante.
   const [mounted, setMounted] = useState(false);
-  const FALLBACK = new Date('2026-06-29');
+  const FALLBACK = new Date('2026-01-01T12:00:00');
 
   // ── Week state ────────────────────────────────────────────────────────────────
   const [semana, setSemana] = useState(() => weekStart(FALLBACK));

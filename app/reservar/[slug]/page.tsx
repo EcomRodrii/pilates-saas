@@ -16,6 +16,11 @@ import {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Fecha fija usada SOLO en los cálculos previos al montaje (el render real
+// muestra un esqueleto). Su valor concreto es irrelevante: existe únicamente
+// para no llamar a new Date() durante el SSR y evitar mismatches de hidratación.
+const FECHA_PLACEHOLDER_SSR = new Date('2026-01-01T12:00:00');
+
 function pad2(n: number) { return String(n).padStart(2, '0'); }
 function localDate(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -151,7 +156,7 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
   const columnas = [...new Set(spots.map(s => s.columna))].sort((a, b) => a - b);
   return (
     <div>
-      <div className="rounded-lg py-1.5 text-center text-[9px] font-bold uppercase tracking-widest bg-[#F1F1EC] text-[#A8A89F] mb-2">
+      <div className="rounded-lg py-1.5 text-center text-[9px] font-bold uppercase tracking-widest bg-[#F1F1EC] text-[#767670] mb-2">
         Parte frontal · Instructora
       </div>
       <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))` }}>
@@ -230,11 +235,17 @@ export default function ReservarPage() {
   // Posición estimada en lista de espera al reservar una clase llena (I-11).
   const [esperaPos, setEsperaPos] = useState<number | null>(null);
 
+  // Confirmación de cancelación de plaza (modal estilizado, sustituye al
+  // confirm() nativo — que rompía el diseño y no era traducible).
+  const [cancelConfirm, setCancelConfirm] = useState<{ reservaId: string; pierdeBono: boolean; ventana: number } | null>(null);
+
   // Stripe
   const [stripeLoading, setStripeLoading] = useState<string | null>(null);
   const [stripeError, setStripeError] = useState<string | null>(null);
 
-  const now = mounted ? new Date() : new Date('2026-06-29');
+  // Antes de montar se renderiza el esqueleto, así que este valor no llega a
+  // pintarse: solo evita usar new Date() en SSR (divergencia de hidratación).
+  const now = mounted ? new Date() : FECHA_PLACEHOLDER_SSR;
   const weekStart = useMemo(() => addDays(monday(now), weekOffset * 7), [weekOffset, mounted]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
@@ -437,7 +448,30 @@ export default function ReservarPage() {
     }
   }
 
-  if (!mounted) return null;
+  // Antes de montar (SSR / primer paint) mostramos un esqueleto de marca en vez
+  // de una pantalla en blanco (I-9): el estudio y su nombre ya se conocen del
+  // servidor, así que el header se pinta al instante.
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#EEEEE8]">
+        <header className="sticky top-0 z-30 bg-white border-b border-[#F1F1EC]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div className="max-w-2xl mx-auto px-4">
+            <div className="flex items-center gap-3 py-3">
+              <div className="w-9 h-9 rounded-xl bg-[#E7E7E0] shrink-0" />
+              <div className="space-y-1.5">
+                <div className="h-3 w-28 rounded bg-[#E7E7E0]" />
+                <div className="h-2.5 w-40 rounded bg-[#EFEFEA]" />
+              </div>
+            </div>
+          </div>
+        </header>
+        <div className="max-w-2xl mx-auto px-4 py-16 flex flex-col items-center gap-3 text-center">
+          <span className="w-6 h-6 border-2 border-[#D9D9D2] border-t-[#1A1A1A] rounded-full animate-spin" />
+          <p className="text-[#8E8E86] text-sm">Cargando horario…</p>
+        </div>
+      </div>
+    );
+  }
 
   const bookingSesion = bookingSesionId ? sesionesRich.find(s => s.id === bookingSesionId) : null;
 
@@ -456,7 +490,7 @@ export default function ReservarPage() {
                 style={{ backgroundColor: PRIMARY }}>{estudioNombre[0]}</div>
               <div>
                 <p className="font-bold text-[#1A1A1A] text-sm leading-tight">{estudioNombre}</p>
-                <p className="text-[#A8A89F] text-[11px]">{estudioDireccion}</p>
+                <p className="text-[#767670] text-[11px]">{estudioDireccion}</p>
               </div>
             </div>
             {socia ? (
@@ -467,7 +501,7 @@ export default function ReservarPage() {
                     {socia.nombre[0]}
                   </div>
                   <span className="text-[#3A3A34] text-sm font-medium">{socia.nombre.split(' ')[0]}</span>
-                  <button onClick={logout} aria-label="Cerrar sesión" className="text-[#A8A89F] hover:text-[#3A3A34] ml-0.5"><X size={12} /></button>
+                  <button onClick={logout} aria-label="Cerrar sesión" className="text-[#767670] hover:text-[#3A3A34] ml-0.5"><X size={12} /></button>
                 </div>
               </div>
             ) : (
@@ -487,7 +521,7 @@ export default function ReservarPage() {
                 className="px-4 py-2.5 text-sm font-semibold border-b-2 transition-all"
                 style={tab === t
                   ? { color: PRIMARY, borderColor: PRIMARY }
-                  : { color: '#A8A89E', borderColor: 'transparent' }}>
+                  : { color: '#767670', borderColor: 'transparent' }}>
                 {label}
               </button>
             ))}
@@ -506,7 +540,7 @@ export default function ReservarPage() {
             <div className="bg-white rounded-2xl p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <button onClick={() => setWeekOffset(o => o - 1)} aria-label="Semana anterior"
-                  className="p-1.5 rounded-lg text-[#A8A89F] hover:text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
+                  className="p-1.5 rounded-lg text-[#767670] hover:text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
                   <ChevronLeft size={18} />
                 </button>
                 <div className="flex-1 flex gap-1 overflow-x-auto">
@@ -520,7 +554,7 @@ export default function ReservarPage() {
                         className="flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl transition-all shrink-0 min-w-[42px]"
                         style={isSel
                           ? { backgroundColor: PRIMARY, color: '#fff' }
-                          : { color: isToday ? '#171717' : '#A8A89E' }}>
+                          : { color: isToday ? '#171717' : '#767670' }}>
                         <span className="text-[9px] font-semibold uppercase">{fmtShort(d).split(' ')[0]}</span>
                         <span className={`text-base font-bold leading-none ${isToday && !isSel ? 'underline decoration-dotted' : ''}`}>{d.getDate()}</span>
                         {hasSess && <div className="w-1 h-1 rounded-full mt-0.5" style={{ backgroundColor: isSel ? 'rgba(255,255,255,0.7)' : PRIMARY }} />}
@@ -529,7 +563,7 @@ export default function ReservarPage() {
                   })}
                 </div>
                 <button onClick={() => setWeekOffset(o => o + 1)} aria-label="Semana siguiente"
-                  className="p-1.5 rounded-lg text-[#A8A89F] hover:text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
+                  className="p-1.5 rounded-lg text-[#767670] hover:text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
                   <ChevronRight size={18} />
                 </button>
               </div>
@@ -584,7 +618,7 @@ export default function ReservarPage() {
                         <div className="flex items-baseline justify-between mb-2">
                           <div className="flex items-baseline gap-1.5">
                             <span className="text-[#1A1A1A] font-extrabold text-2xl leading-none">{fmtTime(s.inicio)}</span>
-                            <span className="text-[#A8A89F] text-sm">→ {fmtTime(s.fin)}</span>
+                            <span className="text-[#767670] text-sm">→ {fmtTime(s.fin)}</span>
                             <span className="text-[#C6C6BE] text-xs">{s.tipo?.duracionMinutos} min</span>
                           </div>
                           <LevelBadge nivel={s.tipo?.nivel} />
@@ -604,7 +638,7 @@ export default function ReservarPage() {
                             </div>
                           )}
                           {s.sala && (
-                            <div className="flex items-center gap-1 text-[#A8A89F] text-sm">
+                            <div className="flex items-center gap-1 text-[#767670] text-sm">
                               <MapPin size={12} />{s.sala.nombre}
                             </div>
                           )}
@@ -613,7 +647,7 @@ export default function ReservarPage() {
                           </div>
                         </div>
                         {isPast ? (
-                          <div className="py-2.5 text-center text-sm text-[#A8A89F] bg-[#F5F5F1] rounded-xl">Clase finalizada</div>
+                          <div className="py-2.5 text-center text-sm text-[#767670] bg-[#F5F5F1] rounded-xl">Clase finalizada</div>
                         ) : reservado ? (
                           <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-100">
                             <CheckCircle2 size={15} />¡Ya estás apuntada!
@@ -669,7 +703,7 @@ export default function ReservarPage() {
               <>
                 <div className="flex items-center justify-between px-1 mb-1">
                   <h2 className="text-[#1A1A1A] font-bold text-base">Mis clases</h2>
-                  <span className="text-[#A8A89F] text-sm">{misReservas.length} reserva{misReservas.length !== 1 ? 's' : ''}</span>
+                  <span className="text-[#767670] text-sm">{misReservas.length} reserva{misReservas.length !== 1 ? 's' : ''}</span>
                 </div>
                 {misReservas.map(r => {
                   const s = r.sesion!;
@@ -691,13 +725,13 @@ export default function ReservarPage() {
                               ? { backgroundColor: '#D1FAE5', color: '#065F46' }
                               : r.estado === 'LISTA_ESPERA'
                               ? { backgroundColor: '#FEF3C7', color: '#92400E' }
-                              : isPast ? { backgroundColor: '#F1F1EC', color: '#A8A89E' }
+                              : isPast ? { backgroundColor: '#F1F1EC', color: '#767670' }
                               : { backgroundColor: '#FFF2F7', color: PRIMARY }}>
                             {r.estado === 'ASISTIDA' ? 'Asistida' : r.estado === 'LISTA_ESPERA' ? (r.posicionEspera ? `En espera · nº ${r.posicionEspera}` : 'En espera') : isPast ? 'Finalizada' : 'Confirmada'}
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 text-sm text-[#8E8E86]">
-                          <span className="font-bold text-[#1A1A1A] text-xl">{fmtTime(s.inicio)}<span className="text-[#A8A89F] text-sm font-normal ml-1">→ {fmtTime(s.fin)}</span></span>
+                          <span className="font-bold text-[#1A1A1A] text-xl">{fmtTime(s.inicio)}<span className="text-[#767670] text-sm font-normal ml-1">→ {fmtTime(s.fin)}</span></span>
                           {s.instructor && <span>{s.instructor.nombre}</span>}
                           {s.sala && <span>{s.sala.nombre}</span>}
                           <LevelBadge nivel={s.tipo?.nivel} />
@@ -714,17 +748,13 @@ export default function ReservarPage() {
                             </button>
                             <button onClick={() => {
                               // Aviso de cancelación tardía (C-2): si está dentro de la
-                              // ventana y el estudio no devuelve bono, se advierte de que
-                              // perderá la sesión antes de confirmar.
+                              // ventana y el estudio no devuelve bono, el modal lo advierte.
                               const ventana = studio?.cancelacionVentanaHoras ?? 0;
                               const tardia = r.estado === 'CONFIRMADA' && esCancelacionTardia(s.inicio, now, ventana);
                               const pierdeBono = tardia && !(studio?.cancelacionDevolverBonoTardia ?? false);
-                              const msg = pierdeBono
-                                ? `Estás cancelando con menos de ${ventana}h de antelación: no se te devolverá la sesión del bono. ¿Cancelar igualmente?`
-                                : '¿Cancelar esta reserva?';
-                              if (confirm(msg)) cancelarReserva(r.id);
+                              setCancelConfirm({ reservaId: r.id, pierdeBono, ventana });
                             }}
-                              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors">
+                              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
                               <X size={12} /> Cancelar plaza
                             </button>
                           </div>
@@ -785,7 +815,7 @@ export default function ReservarPage() {
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
                         <p className="text-[#1A1A1A] font-extrabold text-xl leading-none">{p.precio}€</p>
-                        {p.tipo === 'MENSUAL' && <p className="text-[#A8A89F] text-[10px]">/mes</p>}
+                        {p.tipo === 'MENSUAL' && <p className="text-[#767670] text-[10px]">/mes</p>}
                       </div>
                       <button onClick={() => handleContratarPlan(p)}
                         disabled={stripeLoading === p.id}
@@ -799,7 +829,7 @@ export default function ReservarPage() {
                   </div>
                 ))}
               </div>
-              <p className="text-[#A8A89F] text-xs mt-3 text-center">Pago seguro con Stripe · IVA incluido</p>
+              <p className="text-[#767670] text-xs mt-3 text-center">Pago seguro con Stripe · IVA incluido</p>
             </div>
 
             {/* Class types */}
@@ -815,7 +845,7 @@ export default function ReservarPage() {
                     </div>
                     <p className="text-[#8E8E86] text-xs">{t.descripcion}</p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[10px] text-[#A8A89F]">{t.duracionMinutos} min</span>
+                      <span className="text-[10px] text-[#767670]">{t.duracionMinutos} min</span>
                       <LevelBadge nivel={t.nivel} />
                     </div>
                   </div>
@@ -836,7 +866,7 @@ export default function ReservarPage() {
                     </div>
                     <div>
                       <p className="text-[#1A1A1A] font-semibold text-sm">{i.nombre}</p>
-                      {i.email != null && <p className="text-[#A8A89F] text-xs mt-0.5">{i.email}</p>}
+                      {i.email != null && <p className="text-[#767670] text-xs mt-0.5">{i.email}</p>}
                     </div>
                   </div>
                 ))}
@@ -851,7 +881,7 @@ export default function ReservarPage() {
               ].map(({ label, text }) => (
                 <button key={label}
                   onClick={() => setLegalDoc({ label, text })}
-                  className="flex items-center gap-1.5 text-xs text-[#A8A89F] hover:text-[#3A3A34] transition-colors">
+                  className="flex items-center gap-1.5 text-xs text-[#767670] hover:text-[#3A3A34] transition-colors">
                   <FileText size={12} />{label}
                 </button>
               ))}
@@ -867,7 +897,7 @@ export default function ReservarPage() {
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
             style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <button onClick={closeBooking} aria-label="Cerrar"
-              className="absolute top-4 right-4 text-[#A8A89F] hover:text-[#3A3A34] transition-colors">
+              className="absolute top-4 right-4 text-[#767670] hover:text-[#3A3A34] transition-colors">
               <X size={18} />
             </button>
 
@@ -884,7 +914,7 @@ export default function ReservarPage() {
                   </p>
                 </div>
                 <div className="w-full space-y-2.5 mt-1">
-                  <p className="text-[#A8A89F] text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
+                  <p className="text-[#767670] text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
                   <a href={makeGoogleCalUrl(bookingSesion, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-white transition-all"
                     style={{ backgroundColor: '#4285F4' }}>
@@ -895,7 +925,7 @@ export default function ReservarPage() {
                     <Download size={14} />Descargar .ics (Apple / Outlook)
                   </button>
                 </div>
-                <button onClick={closeBooking} className="text-[#A8A89F] text-sm hover:text-[#3A3A34] transition-colors mt-1">
+                <button onClick={closeBooking} className="text-[#767670] text-sm hover:text-[#3A3A34] transition-colors mt-1">
                   Cerrar
                 </button>
               </div>
@@ -934,7 +964,7 @@ export default function ReservarPage() {
                       onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setLoginError(''); }}
                       onKeyDown={e => e.key === 'Enter' && handleEnviarEnlace()}
                       autoFocus
-                      className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors mb-3"
+                      className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#767670] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors mb-3"
                       style={{ backgroundColor: '#F5F5F1' }} />
                     {loginError && <p className="text-rose-600 text-sm mb-3">{loginError}</p>}
                     <button onClick={handleEnviarEnlace} disabled={!loginForm.email}
@@ -971,7 +1001,7 @@ export default function ReservarPage() {
                   onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
                   autoFocus
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#A8A89F] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors mb-5"
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#767670] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors mb-5"
                   style={{ backgroundColor: '#F5F5F1' }} />
                 <button onClick={handleRegistroNombre} disabled={!loginForm.nombre}
                   className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
@@ -1037,7 +1067,7 @@ export default function ReservarPage() {
                     </p>
                   )}
                   {studio && studio.cancelacionVentanaHoras > 0 && (
-                    <p className="text-[#A8A89F] text-xs mt-2">
+                    <p className="text-[#767670] text-xs mt-2">
                       Cancela con al menos {studio.cancelacionVentanaHoras}h de antelación para recuperar tu sesión.
                     </p>
                   )}
@@ -1057,7 +1087,7 @@ export default function ReservarPage() {
                   return (
                     <div className="mb-4">
                       <p className="text-[#3A3A34] text-xs font-semibold mb-2">
-                        Elige tu sitio <span className="text-[#A8A89F] font-normal">(opcional)</span>
+                        Elige tu sitio <span className="text-[#767670] font-normal">(opcional)</span>
                       </p>
                       <SpotPickerPublico
                         spots={spotsSala}
@@ -1096,6 +1126,32 @@ export default function ReservarPage() {
         </div>
       )}
 
+      {/* ── MODAL CANCELAR PLAZA (sustituye al confirm() nativo) ─────────────── */}
+      {cancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
+          style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setCancelConfirm(null)}>
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h2 className="text-[#1A1A1A] font-bold text-lg mb-1">¿Cancelar tu plaza?</h2>
+            <p className="text-[#6E6E66] text-sm mb-5">
+              {cancelConfirm.pierdeBono
+                ? `Estás cancelando con menos de ${cancelConfirm.ventana}h de antelación: no se te devolverá la sesión del bono.`
+                : 'Liberarás tu plaza para otra persona.'}
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setCancelConfirm(null)}
+                className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1A1A]/20">
+                Volver
+              </button>
+              <button onClick={() => { cancelarReserva(cancelConfirm.reservaId); setCancelConfirm(null); }}
+                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-rose-500 hover:bg-rose-600 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
+                Cancelar plaza
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL DOCUMENTO LEGAL ────────────────────────────────────────────── */}
       {legalDoc && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
@@ -1106,7 +1162,7 @@ export default function ReservarPage() {
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#F1F1EC]">
               <h2 className="text-[#1A1A1A] font-bold text-base">{legalDoc.label}</h2>
-              <button onClick={() => setLegalDoc(null)} aria-label="Cerrar" className="text-[#A8A89F] hover:text-[#3A3A34] transition-colors">
+              <button onClick={() => setLegalDoc(null)} aria-label="Cerrar" className="text-[#767670] hover:text-[#3A3A34] transition-colors">
                 <X size={18} />
               </button>
             </div>
