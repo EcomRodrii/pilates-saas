@@ -220,3 +220,51 @@ export async function enviarEmailReserva(params: {
     }),
   });
 }
+
+// Datos de clase compartidos por los emails transaccionales de calendario.
+export interface DatosClaseEmailCliente {
+  claseNombre: string;
+  fecha: string;
+  hora: string;
+  sala: string;
+  instructor: string;
+}
+
+// Aviso a una socia ascendida de la lista de espera (disparo desde el panel al
+// cancelar el admin una reserva y promocionarse la siguiente).
+export async function enviarEmailPromocion(params: DatosClaseEmailCliente & {
+  to: string; toName: string; bonoConsumido?: boolean;
+}) {
+  await fetch('/api/emails/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({
+      tipo: 'promocion',
+      to: params.to,
+      toName: params.toName,
+      data: {
+        claseNombre: params.claseNombre, fecha: params.fecha, hora: params.hora,
+        sala: params.sala, instructor: params.instructor, bonoConsumido: params.bonoConsumido ?? false,
+      },
+    }),
+  });
+}
+
+// Aviso a una socia de que su clase reservada ha sido cancelada por el estudio.
+export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente & {
+  to: string; toName: string;
+}) {
+  await fetch('/api/emails/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({
+      tipo: 'cancelacion',
+      to: params.to,
+      toName: params.toName,
+      data: {
+        claseNombre: params.claseNombre, fecha: params.fecha, hora: params.hora,
+        sala: params.sala, instructor: params.instructor,
+      },
+    }),
+  });
+}

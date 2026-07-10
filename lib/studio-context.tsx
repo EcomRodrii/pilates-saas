@@ -91,7 +91,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
+import { enviarEmailCampana, enviarEmailPromocion, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
@@ -207,6 +207,8 @@ interface StudioContextValue {
   addReserva: (sesionId: string, socioId: string) => EstadoReserva;
   cancelarReserva: (reservaId: string) => void;
   checkin: (reservaId: string) => void;
+  marcarNoShow: (reservaId: string) => void;
+  revertirNoShow: (reservaId: string) => void;
   liberarSpot: (reservaId: string) => void;
   asignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
 
@@ -1175,6 +1177,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const tipo = sesion ? tiposClase.find(t => t.id === sesion.tipoClaseId) : null;
       const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
       const clase = tipo?.nombre ?? 'la clase';
+      // Email a la socia ascendida: ahora "te avisaremos si se libera una plaza"
+      // es cierto también por la vía admin. Best-effort (Resend puede no estar).
+      if (socio?.email && sesion) {
+        const sala = salas.find(x => x.id === sesion.salaId);
+        const instructor = instructores.find(i => i.id === sesion.instructorId);
+        const inicio = new Date(sesion.inicio);
+        enviarEmailPromocion({
+          to: socio.email,
+          toName: socio.nombre,
+          claseNombre: clase,
+          fecha: inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }),
+          hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          sala: sala?.nombre ?? '',
+          instructor: instructor?.nombre ?? '',
+          bonoConsumido: true,
+        });
+      }
       setNotificaciones(prev => [{
         id: `notif-promo-${uid()}`,
         studioId: getCurrentStudioId(),
@@ -1237,6 +1256,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Nota: la sesión del bono ya se descuenta al confirmar la reserva
     // (ver consumirSesionBono en addReserva), no en el check-in, para evitar
     // el doble cobro y para que el saldo refleje las plazas ya comprometidas.
+  }
+
+  // Marca manualmente una reserva como NO_ASISTIO (recepción, cuando la socia no
+  // se presenta). No devuelve bono: la sesión ya se consumió al reservar. El
+  // barrido automático (cron no-shows) hace lo mismo para las que se olvidan.
+  function marcarNoShow(reservaId: string) {
+    setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'NO_ASISTIO' as const, checkInEn: null } : r));
+    dbUpdateReserva(reservaId, { estado: 'NO_ASISTIO', checkInEn: null });
+  }
+
+  // Deshacer un NO_ASISTIO (marcado por error) → vuelve a CONFIRMADA.
+  function revertirNoShow(reservaId: string) {
+    setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CONFIRMADA' as const, checkInEn: null } : r));
+    dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
   }
 
   // Detectar planes MENSUAL caducados al cargar (una vez por sesión)
@@ -2200,6 +2233,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addReserva,
     cancelarReserva,
     checkin,
+    marcarNoShow,
+    revertirNoShow,
     liberarSpot,
     asignarSpot,
     addRecibo,

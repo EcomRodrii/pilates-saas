@@ -249,6 +249,21 @@ export default function ReservarPage() {
     if (mounted && !selectedDay) setSelectedDay(localDate(now));
   }, [mounted]);
 
+  // Deep-link del enlace mágico: si volvemos con ?sesion=<id> y ya estamos
+  // autenticadas, abrimos la reserva de ESA clase (una sola vez) en cuanto sus
+  // datos estén cargados. Cierra el bucle de conversión que rompía el magic link.
+  const deepLinkHecho = useRef(false);
+  useEffect(() => {
+    if (!mounted || deepLinkHecho.current) return;
+    const sesionDeepLink = searchParams.get('sesion');
+    if (!sesionDeepLink || !autenticado) return;
+    if (!sesiones.some(s => s.id === sesionDeepLink)) return; // esperar a que carguen
+    deepLinkHecho.current = true;
+    setTab('clases');
+    openBooking(sesionDeepLink);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, autenticado, sesiones, searchParams]);
+
   const sesionesRich = useMemo(() => sesiones.map(s => {
     const tipo = tiposClase.find(t => t.id === s.tipoClaseId);
     const sala = salas.find(x => x.id === s.salaId);
@@ -308,7 +323,9 @@ export default function ReservarPage() {
   async function handleEnviarEnlace() {
     if (!loginForm.email.trim()) return;
     setLoginError('');
-    const r = await enviarEnlace(loginForm.email);
+    // Propaga la clase elegida al enlace mágico (si la hay) para volver directa
+    // a su confirmación — evita la fuga de conversión de re-buscar la clase.
+    const r = await enviarEnlace(loginForm.email, bookingSesionId || undefined);
     if ('error' in r) { setLoginError(r.error); return; }
     setEnlaceEnviado(true);
   }
@@ -859,7 +876,7 @@ export default function ReservarPage() {
                 </div>
                 <div>
                   <p className="text-[#1A1A1A] font-extrabold text-xl">¡En lista de espera!</p>
-                  <p className="text-[#8E8E86] text-sm mt-1">Te avisaremos si se libera una plaza.</p>
+                  <p className="text-[#8E8E86] text-sm mt-1">Si se libera una plaza, te avisaremos por email.</p>
                 </div>
                 <button onClick={closeBooking}
                   className="w-full py-3 rounded-2xl text-sm font-bold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all">

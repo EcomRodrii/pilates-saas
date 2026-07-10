@@ -63,10 +63,14 @@ export function useSociaSession(slug: string) {
     return () => sub.subscription.unsubscribe();
   }, [resolver]);
 
-  const enviarEnlace = useCallback(async (email: string): Promise<{ ok: true } | { error: string }> => {
+  // `sesionId` opcional: si la socia venía de pulsar "Reservar" en una clase
+  // concreta, lo propagamos al enlace mágico (?sesion=…) para aterrizar directa
+  // en la confirmación de ESA clase al volver del correo, sin re-buscarla.
+  const enviarEnlace = useCallback(async (email: string, sesionId?: string): Promise<{ ok: true } | { error: string }> => {
+    const query = sesionId ? `?sesion=${encodeURIComponent(sesionId)}` : '';
     const { error } = await supabasePortal.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/reservar/${slug}` },
+      options: { emailRedirectTo: `${window.location.origin}/reservar/${slug}${query}` },
     });
     return error ? { error: error.message } : { ok: true };
   }, [slug]);

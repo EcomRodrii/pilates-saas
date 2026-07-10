@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { uid } from '@/lib/utils';
 import { siguienteEnEspera } from '@/lib/booking-logic';
 import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono } from '@/lib/bono-logic';
@@ -1166,7 +1167,10 @@ async function validarSociaPublica(
 
 // Descuenta una sesión del bono activo de la socia (si aplica) usando bono-logic.
 // Si el bono se agota, genera el recibo de renovación PENDIENTE.
-async function consumirBonoServidor(admin: SupabaseClient, studioId: string, socioId: string) {
+// Devuelve true si realmente descontó una sesión de un bono (false si la socia
+// no tenía bono consumible — p. ej. plan mensual). Lo usa el email de promoción
+// para no afirmar "se descontó una sesión" cuando no fue así.
+async function consumirBonoServidor(admin: SupabaseClient, studioId: string, socioId: string): Promise<boolean> {
   const [{ data: susRows }, { data: planRows }] = await Promise.all([
     admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
     admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
@@ -1174,7 +1178,7 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
   const suscripciones = (susRows ?? []).map(mapSuscripcion);
   const planes = (planRows ?? []).map(mapPlanTarifa);
   const consumible = bonoConsumible(socioId, suscripciones, planes);
-  if (!consumible) return;
+  if (!consumible) return false;
   const { suscripcion: sus, plan, sesionesRestantes } = consumible;
   const { nuevasRestantes, agotado } = calcularConsumoBono(sesionesRestantes);
   await admin.from('suscripciones').update({ sesiones_restantes: nuevasRestantes }).eq('id', sus.id);
@@ -1186,6 +1190,7 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
       fecha_vencimiento: hoy, fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0,
     });
   }
+  return true;
 }
 
 async function devolverBonoServidor(admin: SupabaseClient, studioId: string, socioId: string) {
@@ -1198,6 +1203,127 @@ async function devolverBonoServidor(admin: SupabaseClient, studioId: string, soc
   const { suscripcion: sus, plan, sesionesRestantes } = consumible;
   const nuevas = calcularDevolucionBono(sesionesRestantes, plan.sesiones);
   await admin.from('suscripciones').update({ sesiones_restantes: nuevas }).eq('id', sus.id);
+}
+
+// Reúne los datos de una clase para un email transaccional (nombre de clase,
+// fecha/hora en hora de España, sala e instructora, nombre del estudio). Formato
+// legible para la socia; devuelve null si la sesión no existe.
+async function datosClaseParaEmail(
+  admin: SupabaseClient, studioId: string, sesionId: string,
+): Promise<(DatosClaseEmail & { inicioISO: string }) | null> {
+  const { data: ses } = await admin
+    .from('sesiones')
+    .select('inicio, tipo_clase_id, sala_id, instructor_id')
+    .eq('id', sesionId).eq('studio_id', studioId).maybeSingle();
+  if (!ses) return null;
+  const [{ data: tipo }, { data: sala }, { data: inst }, { data: studio }] = await Promise.all([
+    admin.from('tipos_clase').select('nombre').eq('id', ses.tipo_clase_id).maybeSingle(),
+    ses.sala_id ? admin.from('salas').select('nombre').eq('id', ses.sala_id).maybeSingle() : Promise.resolve({ data: null }),
+    ses.instructor_id ? admin.from('instructores').select('nombre').eq('id', ses.instructor_id).maybeSingle() : Promise.resolve({ data: null }),
+    admin.from('studios').select('nombre').eq('id', studioId).maybeSingle(),
+  ]);
+  const inicio = new Date(ses.inicio as string);
+  const fecha = inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+  const hora = inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  return {
+    inicioISO: ses.inicio as string,
+    claseNombre: tipo?.nombre ?? 'Clase',
+    fecha, hora,
+    sala: sala?.nombre ?? '',
+    instructor: inst?.nombre ?? '',
+    estudioNombre: studio?.nombre ?? 'Tentare',
+  };
+}
+
+// Envía a una socia el email de promoción de lista de espera (fire-and-forget:
+// no bloquea la respuesta de la reserva; si falla o Resend no está, no rompe).
+async function notificarPromocionEspera(
+  admin: SupabaseClient, studioId: string, socioId: string, sesionId: string, bonoConsumido: boolean,
+) {
+  const { data: socia } = await admin
+    .from('socios').select('nombre, email').eq('id', socioId).eq('studio_id', studioId).maybeSingle();
+  if (!socia?.email) return;
+  const datos = await datosClaseParaEmail(admin, studioId, sesionId);
+  if (!datos) return;
+  await enviarEmailTransaccional({
+    tipo: 'promocion', to: socia.email, toName: socia.nombre ?? 'Socia',
+    data: { ...datos, bonoConsumido },
+  });
+}
+
+// Barrido de no-shows: marca NO_ASISTIO toda reserva que siga CONFIRMADA en una
+// sesión ya terminada (fin < ahora) y no cancelada. Sin esto, las reservas sin
+// check-in se quedan CONFIRMADA para siempre y las métricas de ausencias mienten.
+// Lo dispara un cron (ver /api/cron/no-shows). No toca bonos: la sesión ya se
+// consumió al reservar; un no-show no se reembolsa (esa es la penalización).
+export async function barrerNoShows(nowISO: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const { data: sesiones, error } = await admin
+    .from('sesiones')
+    .select('id')
+    .eq('cancelada', false)
+    .lt('fin', nowISO);
+  if (error) throw new Error(error.message);
+
+  const ids = (sesiones ?? []).map(s => s.id as string);
+  let marcadas = 0;
+  // Actualiza por lotes para no exceder límites de longitud del filtro `in`.
+  for (let i = 0; i < ids.length; i += 200) {
+    const lote = ids.slice(i, i + 200);
+    const { data: upd, error: updErr } = await admin
+      .from('reservas')
+      .update({ estado: 'NO_ASISTIO' })
+      .in('sesion_id', lote)
+      .eq('estado', 'CONFIRMADA')
+      .select('id');
+    if (updErr) throw new Error(updErr.message);
+    marcadas += (upd ?? []).length;
+  }
+  return { sesionesRevisadas: ids.length, reservasMarcadas: marcadas };
+}
+
+// Recordatorios de clase: para cada sesión no cancelada cuyo inicio cae en la
+// ventana [desdeISO, hastaISO), envía un email a cada socia CONFIRMADA/ASISTIDA.
+// Lo dispara un cron (ver /api/cron/recordatorios). Devuelve un resumen.
+export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaISO: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const { data: sesiones, error } = await admin
+    .from('sesiones')
+    .select('id, studio_id')
+    .eq('cancelada', false)
+    .gte('inicio', desdeISO)
+    .lt('inicio', hastaISO);
+  if (error) throw new Error(error.message);
+
+  let enviados = 0;
+  let fallidos = 0;
+  let sinEmail = 0;
+
+  for (const ses of sesiones ?? []) {
+    const datos = await datosClaseParaEmail(admin, ses.studio_id as string, ses.id as string);
+    if (!datos) continue;
+    const { data: reservas } = await admin
+      .from('reservas')
+      .select('socio_id')
+      .eq('sesion_id', ses.id)
+      .in('estado', ['CONFIRMADA', 'ASISTIDA']);
+    for (const r of reservas ?? []) {
+      const { data: socia } = await admin
+        .from('socios').select('nombre, email').eq('id', r.socio_id).maybeSingle();
+      if (!socia?.email) { sinEmail++; continue; }
+      const res = await enviarEmailTransaccional({
+        tipo: 'recordatorio', to: socia.email, toName: socia.nombre ?? 'Socia', data: datos,
+      });
+      if (res.ok) enviados++;
+      else if ('error' in res) fallidos++;
+    }
+  }
+
+  return { sesiones: (sesiones ?? []).length, enviados, fallidos, sinEmail };
 }
 
 // Crea una reserva respetando aforo/lista de espera (booking-logic) y consume
@@ -1252,7 +1378,18 @@ export async function cancelarReservaPublica(params: {
   // Bonos fuera de la transacción de aforo: se devuelve a quien cancela (si era
   // confirmada) y se consume a quien asciende de la lista de espera.
   if (row?.era_confirmada) await devolverBonoServidor(admin, params.studioId, params.socioId);
-  if (row?.promovida_socio_id) await consumirBonoServidor(admin, params.studioId, row.promovida_socio_id as string);
+  if (row?.promovida_socio_id) {
+    const promSocioId = row.promovida_socio_id as string;
+    const bonoConsumido = await consumirBonoServidor(admin, params.studioId, promSocioId);
+    // Avisar a la socia ascendida de que su plaza está confirmada (indicando si
+    // se le ha consumido una sesión del bono — solo si realmente ocurrió).
+    // Cierra la mentira "te avisaremos si se libera una plaza". No bloquea.
+    const { data: cancelada } = await admin
+      .from('reservas').select('sesion_id').eq('id', params.reservaId).maybeSingle();
+    if (cancelada?.sesion_id) {
+      await notificarPromocionEspera(admin, params.studioId, promSocioId, cancelada.sesion_id as string, bonoConsumido);
+    }
+  }
   return { ok: true as const };
 }
 

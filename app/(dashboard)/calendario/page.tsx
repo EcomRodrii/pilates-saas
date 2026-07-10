@@ -11,6 +11,7 @@ import {
   Clock, MapPin, Users, UserPlus, Pencil, Trash2, ArrowUpRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { enviarEmailCancelacionClase } from '@/lib/api-client';
 import type { Socio, Spot } from '@/lib/types';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -255,6 +256,8 @@ function SessionSidebar({
   spots,
   onClose,
   onCheckin,
+  onMarcarNoShow,
+  onRevertirNoShow,
   onCancelarReserva,
   onAddReserva,
   onOpenEdit,
@@ -269,6 +272,8 @@ function SessionSidebar({
   spots: Spot[];
   onClose: () => void;
   onCheckin: (reservaId: string) => void;
+  onMarcarNoShow: (reservaId: string) => void;
+  onRevertirNoShow: (reservaId: string) => void;
   onCancelarReserva: (reservaId: string) => void;
   onAddReserva: (sesionId: string, socioId: string) => void;
   onOpenEdit: () => void;
@@ -391,7 +396,7 @@ function SessionSidebar({
             <p className="text-sm text-muted-foreground">
               {showConfirm === 'eliminar'
                 ? 'Se eliminará la clase y todas las reservas. Esta acción no se puede deshacer.'
-                : 'La clase quedará marcada como cancelada. Las socias serán notificadas.'}
+                : 'La clase quedará marcada como cancelada. Las socias con plaza recibirán un email de aviso.'}
             </p>
           </div>
           <div className="flex gap-3 w-full">
@@ -425,7 +430,7 @@ function SessionSidebar({
                 : 'border-transparent text-muted-foreground hover:text-muted-foreground'
             )}
           >
-            {tab === 'asistentes' ? `Asistentes (${reservas.filter(r => r.estado !== 'LISTA_ESPERA' && r.estado !== 'CANCELADA').length})` : 'Mapa'}
+            {tab === 'asistentes' ? `Asistentes (${reservas.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length})` : 'Mapa'}
           </button>
         ))}
       </div>
@@ -500,6 +505,8 @@ function SessionSidebar({
                           ? { backgroundColor: '#D1FAE5', color: '#065F46' }
                           : r.estado === 'LISTA_ESPERA'
                           ? { backgroundColor: '#FEF3C7', color: '#92400E' }
+                          : r.estado === 'NO_ASISTIO'
+                          ? { backgroundColor: '#FEE2E2', color: '#B91C1C' }
                           : { backgroundColor: 'color-mix(in srgb, var(--brand) 10%, var(--card))', color: 'var(--brand)' }
                       }
                     >
@@ -512,27 +519,50 @@ function SessionSidebar({
                           ? `Espera #${r.posicionEspera}`
                           : r.estado === 'ASISTIDA'
                           ? 'Asistida'
+                          : r.estado === 'NO_ASISTIO'
+                          ? 'No asistió'
                           : 'Confirmada'}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {r.estado === 'CONFIRMADA' && (
-                        <button
-                          onClick={() => onCheckin(r.id)}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
-                          style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
-                        >
-                          <CheckCircle2 size={11} />Check-in
-                        </button>
+                        <>
+                          <button
+                            onClick={() => onCheckin(r.id)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                            style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
+                          >
+                            <CheckCircle2 size={11} />Check-in
+                          </button>
+                          <button
+                            onClick={() => onMarcarNoShow(r.id)}
+                            title="Marcar que no se presentó"
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                            style={{ backgroundColor: '#FEE2E2', color: '#B91C1C' }}
+                          >
+                            No vino
+                          </button>
+                        </>
                       )}
                       {r.estado === 'ASISTIDA' && (
                         <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
                           <CheckCircle2 size={11} />OK
                         </span>
                       )}
+                      {r.estado === 'NO_ASISTIO' && (
+                        <button
+                          onClick={() => onRevertirNoShow(r.id)}
+                          title="Deshacer: volver a confirmada"
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                          style={{ backgroundColor: '#FEE2E2', color: '#B91C1C' }}
+                        >
+                          <RefreshCw size={11} />Deshacer
+                        </button>
+                      )}
                       <button
                         onClick={() => onCancelarReserva(r.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        aria-label="Quitar reserva"
+                        className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-400 transition-colors opacity-60 group-hover:opacity-100"
                       >
                         <X size={12} />
                       </button>
@@ -641,16 +671,18 @@ function ModalClasesRecurrentes({
     const cursor = new Date(start);
     while (cursor <= end) {
       if (form.diasSemana.includes(cursor.getDay())) {
-        const dateStr = cursor.toISOString().slice(0, 10);
-        const inicioISO = `${dateStr}T${form.horaInicio}:00`;
-        const finDate = new Date(inicioISO);
-        finDate.setMinutes(finDate.getMinutes() + form.duracion);
+        // Mismo formato que la clase única: fecha local (localDate, NO toISOString
+        // —que desplazaría el día en husos UTC+) e instantes en UTC ISO con Z
+        // (toISO), para que inicio y fin sean coherentes y no queden invertidos.
+        const dateStr = localDate(cursor);
+        const inicio = new Date(`${dateStr}T${form.horaInicio}:00`);
+        const fin = new Date(inicio.getTime() + form.duracion * 60000);
         sesionesFields.push({
           tipoClaseId: form.tipoClaseId,
           instructorId: form.instructorId,
           salaId: form.salaId,
-          inicio: inicioISO,
-          fin: finDate.toISOString().slice(0, 19),
+          inicio: inicio.toISOString(),
+          fin: fin.toISOString(),
           aforoMaximo: form.aforoMaximo,
           cancelada: false,
           notas: null,
@@ -988,7 +1020,8 @@ function WeekGrid({
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
-    addSesion, updateSesion, deleteSesion, addReserva, cancelarReserva, checkin, liberarSpot, asignarSpot,
+    addSesion, updateSesion, deleteSesion, addReserva, cancelarReserva, checkin,
+    marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
   } = useStudio();
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
@@ -1170,9 +1203,32 @@ export default function Calendario() {
 
   function cancelarSesion() {
     if (!sesionId) return;
+    // Avisar por email a cada socia con plaza (confirmada/asistida) ANTES de
+    // limpiar la selección: la promesa "las socias serán notificadas" ahora se
+    // cumple. Best-effort (si Resend no está, no bloquea la cancelación).
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    if (sesion) {
+      const inicio = new Date(sesion.inicio);
+      const fecha = inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+      const hora = inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      reservas
+        .filter(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
+        .forEach(r => {
+          const socia = socios.find(s => s.id === r.socioId);
+          if (!socia?.email) return;
+          enviarEmailCancelacionClase({
+            to: socia.email,
+            toName: socia.nombre,
+            claseNombre: sesion.tipoClase.nombre,
+            fecha, hora,
+            sala: sesion.sala.nombre,
+            instructor: sesion.instructor.nombre,
+          });
+        });
+    }
     updateSesion(sesionId, { cancelada: true });
     setSesionId(null);
-    setToast('Clase cancelada');
+    setToast('Clase cancelada · socias avisadas');
   }
 
   function eliminarSesion() {
@@ -1358,6 +1414,8 @@ export default function Calendario() {
               spots={spots}
               onClose={() => setSesionId(null)}
               onCheckin={checkin}
+              onMarcarNoShow={marcarNoShow}
+              onRevertirNoShow={revertirNoShow}
               onCancelarReserva={cancelarReserva}
               onAddReserva={addReserva}
               onOpenEdit={openEdit}

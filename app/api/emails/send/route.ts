@@ -5,6 +5,9 @@ import { ReciboEmail } from '@/lib/emails/recibo-template';
 import { BienvenidaEmail } from '@/lib/emails/bienvenida-template';
 import { ReservaEmail } from '@/lib/emails/reserva-template';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
+import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
+import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
 
 export async function POST(req: NextRequest) {
@@ -20,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   const resend = new Resend(apiKey);
   const body = await req.json() as {
-    tipo: 'recibo' | 'bienvenida' | 'reserva' | 'automatizacion';
+    tipo: 'recibo' | 'bienvenida' | 'reserva' | 'automatizacion' | 'promocion' | 'cancelacion' | 'recordatorio';
     to: string;
     toName: string;
     data: Record<string, unknown>;
@@ -51,6 +54,27 @@ export async function POST(req: NextRequest) {
     const d = body.data as { titulo: string; mensaje: string; estudioNombre?: string };
     html = await render(AutomatizacionEmail({ socioNombre: body.toName, ...d }));
     subject = d.titulo;
+  } else if (body.tipo === 'promocion') {
+    const d = body.data as {
+      claseNombre: string; fecha: string; hora: string;
+      sala: string; instructor: string; estudioNombre?: string; bonoConsumido?: boolean;
+    };
+    html = await render(PromocionEsperaEmail({ socioNombre: body.toName, ...d }));
+    subject = `Se ha liberado tu plaza — ${d.claseNombre}`;
+  } else if (body.tipo === 'cancelacion') {
+    const d = body.data as {
+      claseNombre: string; fecha: string; hora: string;
+      sala: string; instructor: string; estudioNombre?: string; bonoDevuelto?: boolean;
+    };
+    html = await render(CancelacionClaseEmail({ socioNombre: body.toName, ...d }));
+    subject = `Clase cancelada — ${d.claseNombre}`;
+  } else if (body.tipo === 'recordatorio') {
+    const d = body.data as {
+      claseNombre: string; fecha: string; hora: string;
+      sala: string; instructor: string; estudioNombre?: string;
+    };
+    html = await render(RecordatorioEmail({ socioNombre: body.toName, ...d }));
+    subject = `Recordatorio — ${d.claseNombre}`;
   } else {
     return NextResponse.json({ error: 'Tipo de email desconocido' }, { status: 400 });
   }
