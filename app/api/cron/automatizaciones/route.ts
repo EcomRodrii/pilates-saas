@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { supabase } from '@/lib/supabase';
-import { fetchAllStudioData, setCurrentStudioId, dbInsertAutomationLog, dbUpdateAutomationRule } from '@/lib/supabase-data';
+import { fetchAllStudioData, dbInsertAutomationLog, dbUpdateAutomationRule } from '@/lib/supabase-data';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
@@ -63,8 +63,10 @@ export async function GET(req: NextRequest) {
   const resumen: { studioId: string; emailsEnviados: number; fallidos: number; cobrosPropuestos: number }[] = [];
 
   for (const studio of studios ?? []) {
-    setCurrentStudioId(studio.id);
-    const data = await fetchAllStudioData();
+    // P0-8: studioId explícito, sin depender del STUDIO_ID global mutable. Los
+    // writes del bucle (dbInsertAutomationLog) ya llevan el studioId en el objeto,
+    // así que este bucle puede paralelizarse sin mezclar datos entre tenants.
+    const data = await fetchAllStudioData(studio.id);
 
     const candidatos = computeAutomationCandidatos(
       {

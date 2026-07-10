@@ -4,7 +4,7 @@ import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/sen
 import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
-import { validarCanje, aplicarCanjeCreditos, decidirOtorgarCreditos, aplicarGananciaCreditos } from '@/lib/reward-engine';
+import { validarCanje, decidirOtorgarCreditos } from '@/lib/reward-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -856,7 +856,8 @@ function mapNotaInterna(r: RowNotasInternas): NotaInterna {
 //   · fetchDeferredStudioData(): historial/logs, cargado en una 2ª ola.
 // fetchAllStudioData() combina ambas (lo usa el cron, que sí necesita todo).
 
-export async function fetchCriticalStudioData() {
+export async function fetchCriticalStudioData(studioId?: string) {
+  const sid = studioId ?? STUDIO_ID;
   const [
     studioRes,
     usuariosRes,
@@ -899,46 +900,46 @@ export async function fetchCriticalStudioData() {
     challengeProgressRes,
     dashboardChartsRes,
   ] = await Promise.all([
-    supabase.from('studios').select('*').eq('id', STUDIO_ID).single(),
-    supabase.from('usuarios').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('socios').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('planes_tarifa').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('suscripciones').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('salas').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('spots').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('tipos_clase').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('instructores').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('sesiones').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('reservas').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('recibos').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('facturas').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('citas').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('productos_pos').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('ventas_pos').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('campanas').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('automatizaciones').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('automation_rules').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('automation_logs').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('codigos_descuento').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('actividad_reciente').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('notificaciones').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('videos_on_demand').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('posts_comunidad').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('notas_internas').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('integraciones').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('mensajes_equipo').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('preferencias_socio').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('reward_rules').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('reward_actions').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('member_credits').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('reward_catalog').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('reward_redemptions').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('achievement_definitions').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('achievement_progress').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('level_definitions').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('challenge_definitions').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('challenge_progress').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('dashboard_charts').select('*').eq('studio_id', STUDIO_ID),
+    supabase.from('studios').select('*').eq('id', sid).single(),
+    supabase.from('usuarios').select('*').eq('studio_id', sid),
+    supabase.from('socios').select('*').eq('studio_id', sid),
+    supabase.from('planes_tarifa').select('*').eq('studio_id', sid),
+    supabase.from('suscripciones').select('*').eq('studio_id', sid),
+    supabase.from('salas').select('*').eq('studio_id', sid),
+    supabase.from('spots').select('*').eq('studio_id', sid),
+    supabase.from('tipos_clase').select('*').eq('studio_id', sid),
+    supabase.from('instructores').select('*').eq('studio_id', sid),
+    supabase.from('sesiones').select('*').eq('studio_id', sid),
+    supabase.from('reservas').select('*').eq('studio_id', sid),
+    supabase.from('recibos').select('*').eq('studio_id', sid),
+    supabase.from('facturas').select('*').eq('studio_id', sid),
+    supabase.from('citas').select('*').eq('studio_id', sid),
+    supabase.from('productos_pos').select('*').eq('studio_id', sid),
+    supabase.from('ventas_pos').select('*').eq('studio_id', sid),
+    supabase.from('campanas').select('*').eq('studio_id', sid),
+    supabase.from('automatizaciones').select('*').eq('studio_id', sid),
+    supabase.from('automation_rules').select('*').eq('studio_id', sid),
+    supabase.from('automation_logs').select('*').eq('studio_id', sid),
+    supabase.from('codigos_descuento').select('*').eq('studio_id', sid),
+    supabase.from('actividad_reciente').select('*').eq('studio_id', sid),
+    supabase.from('notificaciones').select('*').eq('studio_id', sid),
+    supabase.from('videos_on_demand').select('*').eq('studio_id', sid),
+    supabase.from('posts_comunidad').select('*').eq('studio_id', sid),
+    supabase.from('notas_internas').select('*').eq('studio_id', sid),
+    supabase.from('integraciones').select('*').eq('studio_id', sid),
+    supabase.from('mensajes_equipo').select('*').eq('studio_id', sid),
+    supabase.from('preferencias_socio').select('*').eq('studio_id', sid),
+    supabase.from('reward_rules').select('*').eq('studio_id', sid),
+    supabase.from('reward_actions').select('*').eq('studio_id', sid),
+    supabase.from('member_credits').select('*').eq('studio_id', sid),
+    supabase.from('reward_catalog').select('*').eq('studio_id', sid),
+    supabase.from('reward_redemptions').select('*').eq('studio_id', sid),
+    supabase.from('achievement_definitions').select('*').eq('studio_id', sid),
+    supabase.from('achievement_progress').select('*').eq('studio_id', sid),
+    supabase.from('level_definitions').select('*').eq('studio_id', sid),
+    supabase.from('challenge_definitions').select('*').eq('studio_id', sid),
+    supabase.from('challenge_progress').select('*').eq('studio_id', sid),
+    supabase.from('dashboard_charts').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -985,7 +986,8 @@ export async function fetchCriticalStudioData() {
   };
 }
 
-export async function fetchDeferredStudioData() {
+export async function fetchDeferredStudioData(studioId?: string) {
+  const sid = studioId ?? STUDIO_ID;
   const [
     rewardHistoryRes,
     creditTransactionsRes,
@@ -994,12 +996,12 @@ export async function fetchDeferredStudioData() {
     notasProgresoRes,
     backupsRes,
   ] = await Promise.all([
-    supabase.from('reward_history').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('credit_transactions').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('achievement_history').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('challenge_history').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('notas_progreso').select('*').eq('studio_id', STUDIO_ID),
-    supabase.from('backups').select('id, studio_id, tipo, creado_en').eq('studio_id', STUDIO_ID).order('creado_en', { ascending: false }),
+    supabase.from('reward_history').select('*').eq('studio_id', sid),
+    supabase.from('credit_transactions').select('*').eq('studio_id', sid),
+    supabase.from('achievement_history').select('*').eq('studio_id', sid),
+    supabase.from('challenge_history').select('*').eq('studio_id', sid),
+    supabase.from('notas_progreso').select('*').eq('studio_id', sid),
+    supabase.from('backups').select('id, studio_id, tipo, creado_en').eq('studio_id', sid).order('creado_en', { ascending: false }),
   ]);
 
   return {
@@ -1015,10 +1017,10 @@ export async function fetchDeferredStudioData() {
 }
 
 // Combina ambas olas. Lo usa el cron de automatizaciones, que necesita todo.
-export async function fetchAllStudioData() {
+export async function fetchAllStudioData(studioId?: string) {
   const [critical, deferred] = await Promise.all([
-    fetchCriticalStudioData(),
-    fetchDeferredStudioData(),
+    fetchCriticalStudioData(studioId),
+    fetchDeferredStudioData(studioId),
   ]);
   return { ...critical, ...deferred };
 }
@@ -1681,10 +1683,17 @@ export async function canjearRecompensaPublica(params: {
 
   const now = new Date().toISOString();
   const redemptionId = `rwd-${uid()}`;
-  const actualizado = aplicarCanjeCreditos(
-    credRow ? mapMemberCredits(credRow as RowMemberCredits) : undefined,
-    params.socioId, params.studioId, item.costeCreditos, now,
-  );
+
+  // P0-20: descuento ATÓMICO del saldo (con guard de saldo suficiente) ANTES de
+  // registrar el canje — evita que dos canjes concurrentes gasten el mismo saldo.
+  const { error: credErr } = await admin.rpc('ajustar_creditos', {
+    p_socio_id: params.socioId, p_studio_id: params.studioId,
+    p_delta_saldo: -item.costeCreditos, p_delta_ganado: 0, p_delta_canjeado: item.costeCreditos,
+  });
+  if (credErr) {
+    if (credErr.message.includes('SALDO_INSUFICIENTE')) return { error: 'Saldo insuficiente' as const };
+    return { error: credErr.message };
+  }
 
   await Promise.all([
     admin.from('reward_redemptions').insert({
@@ -1695,10 +1704,6 @@ export async function canjearRecompensaPublica(params: {
       id: `ctx-${uid()}`, studio_id: params.studioId, socio_id: params.socioId, tipo: 'CANJE',
       creditos: -item.costeCreditos, descripcion: `Canje: ${item.nombre}`, ref_id: redemptionId, creado_en: now,
     }),
-    admin.from('member_credits').upsert({
-      socio_id: actualizado.socioId, studio_id: actualizado.studioId, saldo: actualizado.saldo,
-      total_ganado: actualizado.totalGanado, total_canjeado: actualizado.totalCanjeado, actualizado_en: now,
-    }, { onConflict: 'socio_id' }),
   ]);
   if (item.stock != null) {
     await admin.from('reward_catalog').update({ stock: item.stock - 1 }).eq('id', params.catalogItemId);
@@ -1713,10 +1718,9 @@ async function otorgarCreditosServidor(
   admin: SupabaseClient, studioId: string, socioId: string,
   trigger: RewardTrigger, refId: string | null,
 ) {
-  const [{ data: rulesRows }, { data: actionRows }, { data: credRow }] = await Promise.all([
+  const [{ data: rulesRows }, { data: actionRows }] = await Promise.all([
     admin.from('reward_rules').select('*').eq('studio_id', studioId),
     admin.from('reward_actions').select('*').eq('studio_id', studioId),
-    admin.from('member_credits').select('*').eq('socio_id', socioId).maybeSingle(),
   ]);
   const rules = (rulesRows ?? []).map(mapRewardRule);
   const actions = (actionRows ?? []).map(mapRewardAction);
@@ -1730,10 +1734,11 @@ async function otorgarCreditosServidor(
   });
   if (error) return; // choque con el UNIQUE → ya otorgado, no seguimos
 
-  const actualizado = aplicarGananciaCreditos(
-    credRow ? mapMemberCredits(credRow as RowMemberCredits) : undefined,
-    socioId, studioId, regla.creditos, now,
-  );
+  // P0-20: incremento ATÓMICO del saldo (una ganancia nunca lo deja negativo).
+  await admin.rpc('ajustar_creditos', {
+    p_socio_id: socioId, p_studio_id: studioId,
+    p_delta_saldo: regla.creditos, p_delta_ganado: regla.creditos, p_delta_canjeado: 0,
+  });
   await Promise.all([
     admin.from('reward_history').insert({
       id: `rwh-${uid()}`, studio_id: studioId, socio_id: socioId, rule_id: regla.id, action_id: actionId,
@@ -1743,10 +1748,6 @@ async function otorgarCreditosServidor(
       id: `ctx-${uid()}`, studio_id: studioId, socio_id: socioId, tipo: 'GANANCIA', creditos: regla.creditos,
       descripcion: regla.nombre, ref_id: refId, creado_en: now,
     }),
-    admin.from('member_credits').upsert({
-      socio_id: actualizado.socioId, studio_id: actualizado.studioId, saldo: actualizado.saldo,
-      total_ganado: actualizado.totalGanado, total_canjeado: actualizado.totalCanjeado, actualizado_en: now,
-    }, { onConflict: 'socio_id' }),
   ]);
 }
 
@@ -2413,6 +2414,25 @@ export async function dbUpsertMemberCredits(m: MemberCredits) {
   };
   const { error } = await supabase.from('member_credits').upsert(row, { onConflict: 'socio_id' });
   if (error) reportDbError('[dbUpsertMemberCredits]', error);
+}
+
+// P0-20: ajuste ATÓMICO del saldo por deltas (incremento en la BD, no
+// leer-calcular-sobrescribir). deltaSaldo/Ganado/Canjeado: p. ej. una ganancia de
+// 5 → (+5, +5, 0); un canje de 3 → (-3, 0, +3). Devuelve el nuevo saldo o error
+// (SALDO_INSUFICIENTE si quedaría negativo).
+export async function dbAjustarCreditos(
+  socioId: string, studioId: string, deltaSaldo: number, deltaGanado: number, deltaCanjeado: number,
+): Promise<{ ok: true; saldo: number } | { error: string }> {
+  const { data, error } = await supabase.rpc('ajustar_creditos', {
+    p_socio_id: socioId, p_studio_id: studioId,
+    p_delta_saldo: deltaSaldo, p_delta_ganado: deltaGanado, p_delta_canjeado: deltaCanjeado,
+  });
+  if (error) {
+    if (error.message.includes('SALDO_INSUFICIENTE')) return { error: 'Saldo insuficiente' };
+    reportDbError('[dbAjustarCreditos]', error);
+    return { error: error.message };
+  }
+  return { ok: true, saldo: data as number };
 }
 
 export async function dbInsertRewardCatalogItem(c: RewardCatalogItem) {
