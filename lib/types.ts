@@ -200,6 +200,9 @@ export interface Sesion {
   notas: string | null;
   precioPuntual: number | null;
   googleEventId?: string | null;
+  // Serie de clases recurrentes (I-3): sesiones creadas juntas comparten id de
+  // serie, para editar/cancelar "esta y las siguientes". null = clase suelta.
+  serieId?: string | null;
 }
 
 export interface Reserva {

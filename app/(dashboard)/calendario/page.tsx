@@ -81,6 +81,7 @@ interface SesionEnr {
   instructorId: string;
   notas: string | null;
   precioPuntual: number | null;
+  serieId?: string | null;
   tipoClase: { nombre: string; color: string };
   sala: { nombre: string };
   instructor: { nombre: string };
@@ -265,6 +266,7 @@ function SessionSidebar({
   onAddReserva,
   onOpenEdit,
   onCancelarSesion,
+  onCancelarSerie,
   onEliminarSesion,
   onLiberarSpot,
   onAsignarSpot,
@@ -282,6 +284,7 @@ function SessionSidebar({
   onAddReserva: (sesionId: string, socioId: string) => void;
   onOpenEdit: () => void;
   onCancelarSesion: () => void;
+  onCancelarSerie: () => void;
   onEliminarSesion: () => void;
   onLiberarSpot: (reservaId: string) => void;
   onAsignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
@@ -315,12 +318,19 @@ function SessionSidebar({
       <div className="h-2" style={{ backgroundColor: sesion.tipoClase.color }} />
       <div className="px-5 pt-4 pb-3 border-b border-border">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <span
-            className="inline-block text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full"
-            style={{ color: sesion.tipoClase.color, backgroundColor: hexToRgba(sesion.tipoClase.color, 0.14) }}
-          >
-            {sesion.tipoClase.nombre}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className="inline-block text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full"
+              style={{ color: sesion.tipoClase.color, backgroundColor: hexToRgba(sesion.tipoClase.color, 0.14) }}
+            >
+              {sesion.tipoClase.nombre}
+            </span>
+            {sesion.serieId && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                <RefreshCw size={10} />Serie
+              </span>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors shrink-0"
@@ -403,21 +413,48 @@ function SessionSidebar({
                 : 'La clase quedará marcada como cancelada. Las socias con plaza recibirán un email de aviso.'}
             </p>
           </div>
-          <div className="flex gap-3 w-full">
-            <button
-              onClick={() => setShowConfirm(null)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted"
-            >
-              Volver
-            </button>
-            <button
-              onClick={() => { showConfirm === 'eliminar' ? onEliminarSesion() : onCancelarSesion(); setShowConfirm(null); }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-              style={{ backgroundColor: showConfirm === 'eliminar' ? '#EF4444' : '#D97706' }}
-            >
-              {showConfirm === 'eliminar' ? 'Eliminar' : 'Cancelar clase'}
-            </button>
-          </div>
+          {/* Serie (I-3): si la clase pertenece a una serie, se puede cancelar
+              solo esta o esta y las siguientes. */}
+          {showConfirm === 'cancelar' && sesion.serieId ? (
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                onClick={() => { onCancelarSesion(); setShowConfirm(null); }}
+                className="w-full py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ backgroundColor: '#D97706' }}
+              >
+                Cancelar solo esta clase
+              </button>
+              <button
+                onClick={() => { onCancelarSerie(); setShowConfirm(null); }}
+                className="w-full py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ backgroundColor: '#B45309' }}
+              >
+                Cancelar esta y las siguientes
+              </button>
+              <button
+                onClick={() => setShowConfirm(null)}
+                className="w-full py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted"
+              >
+                Volver
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => setShowConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted"
+              >
+                Volver
+              </button>
+              <button
+                onClick={() => { showConfirm === 'eliminar' ? onEliminarSesion() : onCancelarSesion(); setShowConfirm(null); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ backgroundColor: showConfirm === 'eliminar' ? '#EF4444' : '#D97706' }}
+              >
+                {showConfirm === 'eliminar' ? 'Eliminar' : 'Cancelar clase'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1043,7 +1080,8 @@ function WeekGrid({
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
-    addSesion, updateSesion, deleteSesion, addReserva, cancelarReserva, checkin,
+    addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde, cancelarSerieDesde,
+    addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
   } = useStudio();
 
@@ -1252,6 +1290,28 @@ export default function Calendario() {
     setToast('Clase actualizada');
   }
 
+  // Edita "esta y las siguientes" de la serie (I-3): aplica tipo/sala/instructora/
+  // aforo/notas y la hora (manteniendo la fecha de cada sesión). La fecha del
+  // form no se propaga —cada sesión conserva su día—, solo la hora.
+  function editarSerie() {
+    if (!sesionId) return;
+    const n = sesionesEnriquecidas.filter(s => {
+      const base = sesionesEnriquecidas.find(x => x.id === sesionId);
+      return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio;
+    }).length;
+    editarSerieDesde(sesionId, {
+      tipoClaseId: form.tipoClaseId,
+      salaId: form.salaId,
+      instructorId: form.instructorId,
+      aforoMaximo: form.aforoMaximo,
+      notas: form.notas || null,
+      horaInicio: form.horaInicio,
+      horaFin: form.horaFin,
+    });
+    setShowForm(null);
+    setToast(`Serie actualizada · ${n} clases`);
+  }
+
   function cancelarSesion() {
     if (!sesionId) return;
     // Avisar por email a cada socia con plaza (confirmada/asistida) ANTES de
@@ -1282,6 +1342,19 @@ export default function Calendario() {
     setToast('Clase cancelada · socias avisadas');
   }
 
+  // Cancela "esta y las siguientes" de la serie (I-3). El contexto avisa por
+  // email a las socias con plaza de cada sesión afectada.
+  function cancelarSerie() {
+    if (!sesionId) return;
+    const n = sesionesEnriquecidas.filter(s => {
+      const base = sesionesEnriquecidas.find(x => x.id === sesionId);
+      return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio && !s.cancelada;
+    }).length;
+    cancelarSerieDesde(sesionId);
+    setSesionId(null);
+    setToast(`Serie cancelada · ${n} clases · socias avisadas`);
+  }
+
   function eliminarSesion() {
     if (!sesionId) return;
     deleteSesion(sesionId);
@@ -1290,8 +1363,10 @@ export default function Calendario() {
   }
 
   function crearClasesRecurrentes(sesionesFields: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]) {
-    sesionesFields.forEach(s => addSesion(s));
-    setToast(`Se han creado ${sesionesFields.length} clases`);
+    // Serie recurrente (I-3): un solo serie_id compartido + inserción en batch,
+    // en vez de N inserts sueltos. Permite luego editar/cancelar "esta y futuras".
+    addSesionesSerie(sesionesFields);
+    setToast(`Serie creada · ${sesionesFields.length} clases`);
     setShowRecurrentes(false);
   }
 
@@ -1486,6 +1561,7 @@ export default function Calendario() {
               onAddReserva={handleAddReserva}
               onOpenEdit={openEdit}
               onCancelarSesion={cancelarSesion}
+              onCancelarSerie={cancelarSerie}
               onEliminarSesion={eliminarSesion}
               onLiberarSpot={liberarSpot}
               onAsignarSpot={asignarSpot}
@@ -1605,19 +1681,37 @@ export default function Calendario() {
               </div>
             )}
 
-            <div className="px-6 py-5 border-t border-border flex gap-3 shrink-0">
-              <button onClick={() => setShowForm(null)} className="flex-1 py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors">
-                Cancelar
-              </button>
-              <button
-                onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-                className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand"
-              >
-                {showForm === 'nueva'
-                  ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'
-                  : 'Guardar cambios'}
-              </button>
-            </div>
+            {showForm === 'editar' && sesionActual?.serieId ? (
+              // Serie (I-3): editar solo esta clase o esta y las siguientes.
+              <div className="px-6 py-5 border-t border-border flex flex-col gap-2 shrink-0">
+                <button
+                  onClick={editarSesion}
+                  className="w-full py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand"
+                >
+                  Guardar solo esta clase
+                </button>
+                <button
+                  onClick={editarSerie}
+                  className="w-full py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors"
+                >
+                  Guardar esta y las siguientes
+                </button>
+              </div>
+            ) : (
+              <div className="px-6 py-5 border-t border-border flex gap-3 shrink-0">
+                <button onClick={() => setShowForm(null)} className="flex-1 py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors">
+                  Cancelar
+                </button>
+                <button
+                  onClick={showForm === 'nueva' ? crearSesion : editarSesion}
+                  className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand"
+                >
+                  {showForm === 'nueva'
+                    ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'
+                    : 'Guardar cambios'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

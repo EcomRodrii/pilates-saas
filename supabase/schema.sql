@@ -1178,6 +1178,12 @@ create unique index if not exists uq_reserva_spot_activo
   on reservas (sesion_id, spot_id)
   where spot_id is not null and estado in ('CONFIRMADA', 'ASISTIDA');
 
+-- I-3 · Serie de clases recurrentes: las sesiones creadas juntas comparten un
+-- serie_id, para poder editar/cancelar "esta y las siguientes" sin tocar 50
+-- sesiones a mano. null = clase suelta.
+alter table sesiones add column if not exists serie_id text;
+create index if not exists idx_sesiones_serie on sesiones (serie_id) where serie_id is not null;
+
 create or replace function reservar_plaza(
   p_studio_id text, p_sesion_id text, p_socio_id text, p_reserva_id text
 ) returns table(estado text, posicion_espera int)

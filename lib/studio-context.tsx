@@ -6,7 +6,7 @@ import {
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion,
-  dbInsertSesion, dbUpdateSesion, dbDeleteSesion,
+  dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
@@ -91,7 +91,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, enviarEmailPromocion, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
+import { enviarEmailCampana, enviarEmailPromocion, enviarEmailCancelacionClase, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
@@ -202,6 +202,10 @@ interface StudioContextValue {
   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => void;
   updateSesion: (id: string, changes: Partial<Sesion>) => void;
   deleteSesion: (id: string) => void;
+  // Series de clases recurrentes (I-3)
+  addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => void;
+  editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => void;
+  cancelarSerieDesde: (sesionId: string) => void;
 
   // Reservas
   addReserva: (sesionId: string, socioId: string, spotId?: string | null) => EstadoReserva;
@@ -367,6 +371,13 @@ interface StudioContextValue {
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
+
+// Fecha local ('YYYY-MM-DD') de un instante ISO — para reconstruir la hora de
+// cada sesión de una serie manteniendo su día (I-3).
+function localDateFromISO(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 const StudioContext = createContext<StudioContextValue | null>(null);
 
@@ -1011,6 +1022,96 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setSesiones(prev => prev.filter(s => s.id !== id));
     setReservas(prev => prev.filter(r => r.sesionId !== id));
     dbDeleteSesion(id);
+  }
+
+  // ── Series de clases recurrentes (I-3) ───────────────────────────────────────
+
+  // Crea una serie: todas las sesiones comparten un serie_id y se insertan en UNA
+  // sola llamada (batch), en vez de N inserts secuenciales sin rollback.
+  function addSesionesSerie(fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) {
+    if (fields.length === 0) return;
+    const serieId = `serie-${uid()}`;
+    const studioId = getCurrentStudioId();
+    const nuevas: Sesion[] = fields.map(f => ({ id: `ses-${uid()}`, studioId, serieId, ...f }));
+    setSesiones(prev => [...prev, ...nuevas]);
+    dbInsertSesionesBatch(nuevas);
+  }
+
+  // Sesiones de la misma serie que una dada, desde su inicio en adelante ("esta y
+  // las siguientes"). Vacío si la sesión no pertenece a una serie.
+  function sesionesDeSerieDesde(sesionId: string): Sesion[] {
+    const base = sesiones.find(s => s.id === sesionId);
+    if (!base?.serieId) return base ? [base] : [];
+    return sesiones.filter(s => s.serieId === base.serieId && s.inicio >= base.inicio);
+  }
+
+  // Edita "esta y las siguientes" de una serie. Los campos uniformes (tipo, sala,
+  // instructora, aforo, notas) se aplican a todas; la hora se re-aplica a la
+  // fecha de cada sesión (mantiene su día, cambia H:M). changes trae horaInicio/
+  // horaFin en 'HH:MM' (hora local) para poder reconstruir inicio/fin por sesión.
+  function editarSerieDesde(
+    sesionId: string,
+    changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string },
+  ) {
+    const objetivo = sesionesDeSerieDesde(sesionId);
+    if (objetivo.length === 0) return;
+    const uniformes = {
+      tipoClaseId: changes.tipoClaseId, salaId: changes.salaId,
+      instructorId: changes.instructorId, aforoMaximo: changes.aforoMaximo, notas: changes.notas,
+    };
+    // Reconstruye inicio/fin de cada sesión con su propia fecha + la nueva hora.
+    const conHora = objetivo.map(s => {
+      const dia = localDateFromISO(s.inicio); // 'YYYY-MM-DD' local de la sesión
+      const inicio = new Date(`${dia}T${changes.horaInicio}:00`).toISOString();
+      const fin = new Date(`${dia}T${changes.horaFin}:00`).toISOString();
+      return { id: s.id, inicio, fin };
+    });
+    const ids = new Set(objetivo.map(s => s.id));
+    setSesiones(prev => prev.map(s => {
+      if (!ids.has(s.id)) return s;
+      const h = conHora.find(c => c.id === s.id)!;
+      return { ...s, ...uniformes, inicio: h.inicio, fin: h.fin };
+    }));
+    // Uniformes en batch (1 llamada) + hora por sesión (varía por fecha).
+    dbUpdateSesionesBatch([...ids], uniformes);
+    conHora.forEach(h => dbUpdateSesion(h.id, { inicio: h.inicio, fin: h.fin }));
+  }
+
+  // Cancela "esta y las siguientes" de una serie (p. ej. "cancelar la serie del
+  // verano") y avisa por email a las socias con plaza en cada sesión afectada.
+  function cancelarSerieDesde(sesionId: string) {
+    const objetivo = sesionesDeSerieDesde(sesionId).filter(s => !s.cancelada);
+    if (objetivo.length === 0) return;
+    const ids = objetivo.map(s => s.id);
+    const idSet = new Set(ids);
+    setSesiones(prev => prev.map(s => idSet.has(s.id) ? { ...s, cancelada: true } : s));
+    dbUpdateSesionesBatch(ids, { cancelada: true });
+    // Aviso a las socias con plaza en cualquiera de las sesiones canceladas.
+    notificarCancelacionSesiones(objetivo);
+  }
+
+  // Email de cancelación a cada socia con plaza (confirmada/asistida) en las
+  // sesiones dadas. Mismo criterio que la cancelación de una clase suelta.
+  function notificarCancelacionSesiones(sesionesCanceladas: Sesion[]) {
+    sesionesCanceladas.forEach(ses => {
+      const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
+      const sala = salas.find(x => x.id === ses.salaId);
+      const instructor = instructores.find(i => i.id === ses.instructorId);
+      const inicio = new Date(ses.inicio);
+      const fecha = inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+      const hora = inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      reservas
+        .filter(r => r.sesionId === ses.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
+        .forEach(r => {
+          const socia = socios.find(s => s.id === r.socioId);
+          if (!socia?.email) return;
+          enviarEmailCancelacionClase({
+            to: socia.email, toName: socia.nombre,
+            claseNombre: tipo?.nombre ?? 'Clase', fecha, hora,
+            sala: sala?.nombre ?? '', instructor: instructor?.nombre ?? '',
+          });
+        });
+    });
   }
 
   // ── Reservas ─────────────────────────────────────────────────────────────────
@@ -2244,6 +2345,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addSesion,
     updateSesion,
     deleteSesion,
+    addSesionesSerie,
+    editarSerieDesde,
+    cancelarSerieDesde,
     addReserva,
     cancelarReserva,
     checkin,

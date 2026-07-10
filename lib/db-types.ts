@@ -135,6 +135,7 @@ export interface RowSesiones {
   notas: string | null;
   precio_puntual: number | null;
   google_event_id: string | null;
+  serie_id: string | null;
 }
 
 export interface RowReservas {

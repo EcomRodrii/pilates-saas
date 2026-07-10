@@ -559,6 +559,7 @@ function mapSesion(r: RowSesiones): Sesion {
     notas: r.notas ?? null,
     precioPuntual: r.precio_puntual ?? null,
     googleEventId: r.google_event_id ?? null,
+    serieId: r.serie_id ?? null,
   } as Sesion;
 }
 
@@ -1842,6 +1843,7 @@ function sesionToDb(ses: Sesion) {
     cancelada: ses.cancelada,
     notas: ses.notas ?? null,
     precio_puntual: ses.precioPuntual ?? null,
+    serie_id: ses.serieId ?? null,
   };
 }
 
@@ -2171,6 +2173,31 @@ export async function dbInsertSesion(ses: Sesion) {
   if (error) reportDbError('[dbInsertSesion]', error);
 }
 
+// Inserta muchas sesiones en UNA sola llamada (creación de serie recurrente,
+// I-3): sustituye a los N inserts secuenciales sin rollback ni aviso.
+export async function dbInsertSesionesBatch(sesiones: Sesion[]) {
+  if (sesiones.length === 0) return;
+  const { error } = await supabase.from('sesiones').insert(sesiones.map(sesionToDb));
+  if (error) reportDbError('[dbInsertSesionesBatch]', error);
+}
+
+// Aplica los mismos cambios a varias sesiones (editar/cancelar "esta y futuras"
+// de una serie) en una sola llamada. Solo para cambios uniformes (no inicio/fin,
+// que varían por sesión — esos se hacen por sesión).
+export async function dbUpdateSesionesBatch(ids: string[], changes: Partial<Sesion>) {
+  if (ids.length === 0) return;
+  const db: Record<string, unknown> = {};
+  if ('tipoClaseId' in changes) db.tipo_clase_id = changes.tipoClaseId;
+  if ('salaId' in changes) db.sala_id = changes.salaId;
+  if ('instructorId' in changes) db.instructor_id = changes.instructorId;
+  if ('aforoMaximo' in changes) db.aforo_maximo = changes.aforoMaximo;
+  if ('cancelada' in changes) db.cancelada = changes.cancelada;
+  if ('notas' in changes) db.notas = changes.notas;
+  if (Object.keys(db).length === 0) return;
+  const { error } = await supabase.from('sesiones').update(db).in('id', ids);
+  if (error) reportDbError('[dbUpdateSesionesBatch]', error);
+}
+
 export async function dbUpdateSesion(id: string, changes: Partial<Sesion>) {
   const db: Record<string, unknown> = {};
   if ('tipoClaseId' in changes) db.tipo_clase_id = changes.tipoClaseId;
@@ -2183,6 +2210,7 @@ export async function dbUpdateSesion(id: string, changes: Partial<Sesion>) {
   if ('notas' in changes) db.notas = changes.notas;
   if ('precioPuntual' in changes) db.precio_puntual = changes.precioPuntual;
   if ('googleEventId' in changes) db.google_event_id = changes.googleEventId;
+  if ('serieId' in changes) db.serie_id = changes.serieId;
   const { error } = await supabase.from('sesiones').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateSesion]', error);
 }
