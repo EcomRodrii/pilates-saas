@@ -121,6 +121,15 @@ export function setCurrentStudioId(id: string) {
   STUDIO_ID = id;
 }
 
+// P0-2/9: techo de la ventana reciente para las tablas append-only de tipo
+// feed (actividad, notificaciones). Sin esto, la carga inicial del contexto
+// global traía TODO el histórico al navegador; con estudios de años eso son
+// cientos de miles de filas por pestaña. 500 cubre de sobra cualquier vista
+// de feed ("últimas actividades", bandeja) — nadie scrollea 500 items. Las
+// tablas que SÍ se agregan sobre histórico (reservas, recibos, ventas...) no
+// se acotan aquí: eso rompería los informes; su fix es agregación server-side.
+const RECENT_FEED_LIMIT = 500;
+
 export function getCurrentStudioId() {
   return STUDIO_ID;
 }
@@ -932,10 +941,16 @@ export async function fetchCriticalStudioData(studioId?: string) {
     supabase.from('campanas').select('*').eq('studio_id', sid),
     supabase.from('automatizaciones').select('*').eq('studio_id', sid),
     supabase.from('automation_rules').select('*').eq('studio_id', sid),
-    supabase.from('automation_logs').select('*').eq('studio_id', sid),
+    // automation_logs: ordenado newest-first, SIN límite. El motor de
+    // automatizaciones (automation-engine) lo usa como índice de dedup para no
+    // re-accionar a una socia ya accionada; acotarlo reintroduciría cobros/
+    // emails duplicados. Su bounding real necesita dedup por query (follow-up).
+    supabase.from('automation_logs').select('*').eq('studio_id', sid).order('ejecutado_en', { ascending: false }),
     supabase.from('codigos_descuento').select('*').eq('studio_id', sid),
-    supabase.from('actividad_reciente').select('*').eq('studio_id', sid),
-    supabase.from('notificaciones').select('*').eq('studio_id', sid),
+    // Feeds de solo-display: ventana reciente ordenada. Seguro acotar — ningún
+    // consumidor agrega sobre el histórico completo (ver P0-2/9).
+    supabase.from('actividad_reciente').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
+    supabase.from('notificaciones').select('*').eq('studio_id', sid).order('creada_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     supabase.from('videos_on_demand').select('*').eq('studio_id', sid),
     supabase.from('posts_comunidad').select('*').eq('studio_id', sid),
     supabase.from('notas_internas').select('*').eq('studio_id', sid),
