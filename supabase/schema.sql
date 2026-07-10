@@ -599,8 +599,11 @@ drop policy if exists "public_read_preferencias_socio" on preferencias_socio;
 drop policy if exists "public_write_preferencias_socio" on preferencias_socio;
 create policy "admin_preferencias_socio" on preferencias_socio for all to authenticated
   using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
+drop policy if exists "public_read_preferencias_socio" on preferencias_socio;
 create policy "public_read_preferencias_socio" on preferencias_socio for select to anon using (true);
+drop policy if exists "public_write_preferencias_socio" on preferencias_socio;
 create policy "public_write_preferencias_socio" on preferencias_socio for insert to anon with check (true);
+drop policy if exists "public_update_preferencias_socio" on preferencias_socio;
 create policy "public_update_preferencias_socio" on preferencias_socio for update to anon using (true) with check (true);
 
 -- Migración: Gamificación — créditos y recompensas (Fase 2, bloque 1)
@@ -807,6 +810,7 @@ alter table backups enable row level security;
 drop policy if exists "admin_read_backups" on backups;
 -- Solo propietaria: un backup es un volcado conjunto de todas las tablas
 -- (recibos, socios...), más sensible que cualquiera de ellas por separado.
+drop policy if exists "admin_read_backups" on backups;
 create policy "admin_read_backups" on backups for select to authenticated using (current_rol() = 'PROPIETARIO' and studio_id = current_studio_id());
 
 do $$
@@ -982,10 +986,12 @@ create policy "owner_studios" on studios for all to authenticated using (current
 -- sesión de admin abierta en el mismo navegador — si esto fuera solo
 -- "to anon", esa consulta autenticada caería en la política restrictiva
 -- de arriba (solo ve su propio negocio) y el slug ajeno no resolvería.
+drop policy if exists "public_read_studios" on studios;
 create policy "public_read_studios" on studios for select to public using (true);
 -- Cualquier persona autenticada puede CREAR un negocio nuevo (alta de
 -- una propietaria nueva vía /crear-estudio) — no exige studio_id porque
 -- todavía no existe.
+drop policy if exists "insert_studios" on studios;
 create policy "insert_studios" on studios for insert to authenticated with check (owner_auth_user_id = auth.uid());
 
 -- Instructores (el equipo): cualquier miembro autenticado ve la lista de
@@ -1003,7 +1009,9 @@ drop policy if exists "read_instructores" on instructores;
 drop policy if exists "owner_write_instructores" on instructores;
 drop policy if exists "self_claim_instructores" on instructores;
 create policy "read_instructores" on instructores for select to authenticated using (studio_id = current_studio_id());
+drop policy if exists "owner_write_instructores" on instructores;
 create policy "owner_write_instructores" on instructores for all to authenticated using (current_rol() = 'PROPIETARIO' and studio_id = current_studio_id()) with check (current_rol() = 'PROPIETARIO' and studio_id = current_studio_id());
+drop policy if exists "self_claim_instructores" on instructores;
 create policy "self_claim_instructores" on instructores for update to authenticated
   using (auth_user_id is null and email = (auth.jwt() ->> 'email'))
   with check (auth_user_id = auth.uid());
@@ -1016,7 +1024,9 @@ drop policy if exists "admin_socios" on socios;
 drop policy if exists "public_read_socios" on socios;
 drop policy if exists "public_update_socios" on socios;
 create policy "admin_socios" on socios for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
+drop policy if exists "public_read_socios" on socios;
 create policy "public_read_socios" on socios for select to anon using (true);
+drop policy if exists "public_update_socios" on socios;
 create policy "public_update_socios" on socios for update to anon using (true) with check (true);
 
 -- Suscripciones: la app pública necesita ver el bono activo y descontar
@@ -1027,7 +1037,9 @@ drop policy if exists "admin_suscripciones" on suscripciones;
 drop policy if exists "public_read_suscripciones" on suscripciones;
 drop policy if exists "public_update_suscripciones" on suscripciones;
 create policy "admin_suscripciones" on suscripciones for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
+drop policy if exists "public_read_suscripciones" on suscripciones;
 create policy "public_read_suscripciones" on suscripciones for select to anon using (true);
+drop policy if exists "public_update_suscripciones" on suscripciones;
 create policy "public_update_suscripciones" on suscripciones for update to anon using (true) with check (true);
 
 -- Reservas: reservar (crear/cancelar) y kiosk (check-in) son públicos por
@@ -1037,8 +1049,11 @@ drop policy if exists "admin_reservas" on reservas;
 drop policy if exists "public_read_reservas" on reservas;
 drop policy if exists "public_write_reservas" on reservas;
 create policy "admin_reservas" on reservas for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
+drop policy if exists "public_read_reservas" on reservas;
 create policy "public_read_reservas" on reservas for select to anon using (true);
+drop policy if exists "public_write_reservas" on reservas;
 create policy "public_write_reservas" on reservas for insert to anon with check (true);
+drop policy if exists "public_update_reservas" on reservas;
 create policy "public_update_reservas" on reservas for update to anon using (true) with check (true);
 
 -- Recibos: el check-in del kiosco genera un recibo de renovación cuando
@@ -1049,7 +1064,9 @@ drop policy if exists "admin_recibos" on recibos;
 drop policy if exists "public_read_recibos" on recibos;
 drop policy if exists "public_insert_recibos" on recibos;
 create policy "admin_recibos" on recibos for all to authenticated using (studio_id = current_studio_id()) with check (studio_id = current_studio_id());
+drop policy if exists "public_read_recibos" on recibos;
 create policy "public_read_recibos" on recibos for select to anon using (true);
+drop policy if exists "public_insert_recibos" on recibos;
 create policy "public_insert_recibos" on recibos for insert to anon with check (true);
 
 -- ═══════════════════════════════════════════════════════════════════
