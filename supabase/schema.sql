@@ -545,6 +545,19 @@ alter table studios add column if not exists subscription_id text;
 alter table studios add column if not exists subscription_status text;
 alter table studios add column if not exists current_period_end timestamptz;
 
+-- Migración: política de reservas y cancelaciones por estudio (auditoría C-2/C-4).
+--  · cancelacion_ventana_horas: horas antes del inicio que separan una
+--    cancelación "a tiempo" de una "tardía".
+--  · cancelacion_devolver_bono_tardia: si en cancelación tardía se devuelve la
+--    sesión al bono (false = se pierde, la penalización estándar del sector).
+--  · reserva_exigir_plan: exigir plan/bono activo para que la socia reserve.
+--  · reserva_max_simultaneas: tope de reservas activas futuras por socia
+--    (null = sin límite).
+alter table studios add column if not exists cancelacion_ventana_horas int default 12;
+alter table studios add column if not exists cancelacion_devolver_bono_tardia boolean default false;
+alter table studios add column if not exists reserva_exigir_plan boolean default false;
+alter table studios add column if not exists reserva_max_simultaneas int;
+
 -- Migración: registro de auditoría (quién hizo cada acción) y chat de equipo
 alter table actividad_reciente add column if not exists actor_nombre text;
 

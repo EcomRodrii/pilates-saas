@@ -32,6 +32,11 @@ export interface Studio {
   subscriptionId: string | null;
   subscriptionStatus: string | null;
   currentPeriodEnd: string | null;
+  // Política de reservas y cancelaciones (auditoría C-2/C-4).
+  cancelacionVentanaHoras: number;
+  cancelacionDevolverBonoTardia: boolean;
+  reservaExigirPlan: boolean;
+  reservaMaxSimultaneas: number | null;
 }
 
 // ─── Integraciones por negocio ───────────────────────────────────────────────

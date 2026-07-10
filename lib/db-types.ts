@@ -25,6 +25,10 @@ export interface RowStudios {
   subscription_id: string | null;
   subscription_status: string | null;
   current_period_end: string | null;
+  cancelacion_ventana_horas: number | null;
+  cancelacion_devolver_bono_tardia: boolean | null;
+  reserva_exigir_plan: boolean | null;
+  reserva_max_simultaneas: number | null;
 }
 
 export interface RowSocios {

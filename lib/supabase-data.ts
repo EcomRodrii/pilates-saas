@@ -2,8 +2,8 @@ import { supabase } from '@/lib/supabase';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { uid } from '@/lib/utils';
-import { siguienteEnEspera } from '@/lib/booking-logic';
-import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono } from '@/lib/bono-logic';
+import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
+import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
 import { validarCanje, aplicarCanjeCreditos, decidirOtorgarCreditos, aplicarGananciaCreditos } from '@/lib/reward-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -193,6 +193,10 @@ function mapStudio(r: RowStudios): Studio {
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,
     currentPeriodEnd: r.current_period_end ?? null,
+    cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
+    cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
+    reservaExigirPlan: r.reserva_exigir_plan ?? false,
+    reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
   } as Studio;
 }
 
@@ -1038,6 +1042,12 @@ function studioPublico(r: RowStudios) {
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     slug: r.slug ?? null,
+    // Política pública que la página de reservas necesita para avisar a la socia
+    // (ventana de cancelación) y hacer el pre-check de derechos/límite.
+    cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
+    cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
+    reservaExigirPlan: r.reserva_exigir_plan ?? false,
+    reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
   };
 }
 
@@ -1326,8 +1336,24 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
   return { sesiones: (sesiones ?? []).length, enviados, fallidos, sinEmail };
 }
 
+// Lee la política de reservas/cancelaciones del estudio (con defaults sensatos
+// si las columnas aún no existen o vienen nulas).
+async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
+  const { data } = await admin
+    .from('studios')
+    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas')
+    .eq('id', studioId).maybeSingle();
+  return {
+    ventanaHoras: (data?.cancelacion_ventana_horas ?? 12) as number,
+    devolverBonoTardia: (data?.cancelacion_devolver_bono_tardia ?? false) as boolean,
+    exigirPlan: (data?.reserva_exigir_plan ?? false) as boolean,
+    maxSimultaneas: (data?.reserva_max_simultaneas ?? null) as number | null,
+  };
+}
+
 // Crea una reserva respetando aforo/lista de espera (booking-logic) y consume
-// bono si queda CONFIRMADA. Valida identidad de la socia.
+// bono si queda CONFIRMADA. Valida identidad de la socia y el derecho a reservar
+// (C-4: plan/bono activo y tope de reservas simultáneas, si el estudio lo exige).
 export async function crearReservaPublica(params: {
   studioId: string; sesionId: string; socioId: string; email: string;
 }) {
@@ -1335,6 +1361,35 @@ export async function crearReservaPublica(params: {
   if (!admin) throw new Error('Service role no configurada');
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
+
+  // Gate de derechos (C-4): autoritativo en servidor. Solo aplica a la reserva
+  // self-service; el panel (recepción) puede añadir a cualquiera sin plan.
+  const pol = await cargarPoliticaEstudio(admin, params.studioId);
+  if (pol.exigirPlan || pol.maxSimultaneas != null) {
+    const [{ data: susRows }, { data: planRows }, { data: resRows }, { data: sesRows }] = await Promise.all([
+      admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
+      admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
+      admin.from('reservas').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
+      admin.from('sesiones').select('id, inicio').eq('studio_id', params.studioId),
+    ]);
+    const hoyISO = new Date().toISOString().slice(0, 10);
+    if (pol.exigirPlan && !tieneEntitlementActivo(
+      params.socioId, (susRows ?? []).map(mapSuscripcion), (planRows ?? []).map(mapPlanTarifa), hoyISO,
+    )) {
+      return { error: 'Necesitas un plan o bono activo para reservar' as const };
+    }
+    if (pol.maxSimultaneas != null) {
+      const activas = contarReservasActivasFuturas(
+        params.socioId,
+        (resRows ?? []).map(mapReserva),
+        (sesRows ?? []).map(r => ({ id: r.id as string, inicio: r.inicio as string })),
+        new Date(),
+      );
+      if (activas >= pol.maxSimultaneas) {
+        return { error: `Has alcanzado el máximo de ${pol.maxSimultaneas} reservas activas` as const };
+      }
+    }
+  }
 
   // Aforo transaccional: la decisión (CONFIRMADA vs LISTA_ESPERA) y la inserción
   // ocurren atómicamente en la BD (SELECT ... FOR UPDATE en la sesión), no en
@@ -1375,22 +1430,38 @@ export async function cancelarReservaPublica(params: {
     return { error: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;
-  // Bonos fuera de la transacción de aforo: se devuelve a quien cancela (si era
-  // confirmada) y se consume a quien asciende de la lista de espera.
-  if (row?.era_confirmada) await devolverBonoServidor(admin, params.studioId, params.socioId);
+
+  // Sesión cancelada + política (C-2): decide si se devuelve el bono. Una
+  // cancelación tardía (dentro de la ventana) no lo devuelve, salvo que el
+  // estudio lo permita. La plaza igualmente se libera y promociona la espera.
+  const { data: cancelada } = await admin
+    .from('reservas').select('sesion_id').eq('id', params.reservaId).maybeSingle();
+  let bonoDevuelto = false;
+  let tardia = false;
+  if (row?.era_confirmada && cancelada?.sesion_id) {
+    const pol = await cargarPoliticaEstudio(admin, params.studioId);
+    const { data: ses } = await admin
+      .from('sesiones').select('inicio').eq('id', cancelada.sesion_id).maybeSingle();
+    const inicio = ses?.inicio as string | undefined;
+    tardia = inicio ? esCancelacionTardia(inicio, new Date(), pol.ventanaHoras) : false;
+    if (inicio && debeDevolverBono(inicio, new Date(), pol.ventanaHoras, pol.devolverBonoTardia)) {
+      await devolverBonoServidor(admin, params.studioId, params.socioId);
+      bonoDevuelto = true;
+    }
+  }
+
   if (row?.promovida_socio_id) {
     const promSocioId = row.promovida_socio_id as string;
     const bonoConsumido = await consumirBonoServidor(admin, params.studioId, promSocioId);
     // Avisar a la socia ascendida de que su plaza está confirmada (indicando si
     // se le ha consumido una sesión del bono — solo si realmente ocurrió).
     // Cierra la mentira "te avisaremos si se libera una plaza". No bloquea.
-    const { data: cancelada } = await admin
-      .from('reservas').select('sesion_id').eq('id', params.reservaId).maybeSingle();
     if (cancelada?.sesion_id) {
       await notificarPromocionEspera(admin, params.studioId, promSocioId, cancelada.sesion_id as string, bonoConsumido);
     }
   }
-  return { ok: true as const };
+  // tardia/bonoDevuelto → la UI puede confirmar a la socia si recuperó la sesión.
+  return { ok: true as const, tardia, bonoDevuelto };
 }
 
 // Login del portal: resuelve email → socia dentro del estudio (service-role).
@@ -2731,6 +2802,10 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('colorPrimario' in changes) db.color_primario = changes.colorPrimario;
   if ('temaPortal' in changes) db.tema_portal = changes.temaPortal;
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
+  if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
+  if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
+  if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
+  if ('reservaMaxSimultaneas' in changes) db.reserva_max_simultaneas = changes.reservaMaxSimultaneas;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);
 }

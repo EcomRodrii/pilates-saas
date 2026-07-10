@@ -5,6 +5,8 @@ import { useSearchParams, useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa } from '@/lib/types';
+import { tieneEntitlementActivo } from '@/lib/bono-logic';
+import { contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
 import {
   ChevronLeft, ChevronRight, Clock, Users, MapPin,
   CheckCircle2, X, Calendar, Search, Zap, Award, Heart, Star,
@@ -205,7 +207,7 @@ type Step = 'login' | 'registro' | 'contrato' | 'confirm' | 'done' | 'espera';
 export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores,
-    planesTarifa, studioConfig, studio,
+    planesTarifa, suscripciones, studioConfig, studio,
     addReserva, updateSocio, cancelarReserva, addSocioFromPortal,
   } = useStudio();
   const estudioNombre = studio?.nombre ?? 'Tentare';
@@ -233,6 +235,7 @@ export default function ReservarPage() {
   const [loginStep, setLoginStep] = useState<Step>('login');
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [gateError, setGateError] = useState('');
 
   // Contract
   const [canvasSigned, setCanvasSigned] = useState(false);
@@ -299,11 +302,31 @@ export default function ReservarPage() {
     return reservas.some(r => r.sesionId === sesionId && r.socioId === socia.socioId && r.estado !== 'CANCELADA');
   }, [reservas, socia]);
 
+  // Gate de derechos (C-4): mismo criterio que el servidor, para avisar antes de
+  // intentar la reserva. El servidor es la autoridad; esto es solo UX.
+  function evaluarGate(socioId?: string): string | null {
+    if (!studio) return null;
+    if (studio.reservaExigirPlan) {
+      const ok = socioId
+        ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, localDate(now))
+        : false;
+      if (!ok) return 'Necesitas un plan o bono activo para reservar. Contrata uno en la pestaña "El estudio".';
+    }
+    if (studio.reservaMaxSimultaneas != null && socioId) {
+      const n = contarReservasActivasFuturas(socioId, reservas, sesiones, now);
+      if (n >= studio.reservaMaxSimultaneas) {
+        return `Has alcanzado el máximo de ${studio.reservaMaxSimultaneas} reservas activas. Cancela una para reservar otra.`;
+      }
+    }
+    return null;
+  }
+
   function openBooking(sesionId: string) {
     setBookingSesionId(sesionId);
     setCanvasSigned(false);
     setEnlaceEnviado(false);
     setLoginError('');
+    setGateError('');
     if (!autenticado) {
       setLoginStep('login');
     } else if (socia) {
@@ -353,6 +376,11 @@ export default function ReservarPage() {
     if (!bookingSesionId) return;
     const sesion = sesionesRich.find(s => s.id === bookingSesionId);
     if (!sesion) return;
+
+    // Gate de derechos (C-4) antes de crear nada: si no cumple, avisa y no da de
+    // alta a la walk-in ni reserva. El servidor lo revalida igualmente.
+    const gate = evaluarGate(socia?.socioId);
+    if (gate) { setGateError(gate); return; }
 
     if (!socia) {
       // Walk-in: alta de la ficha. El servidor la vincula a su auth_user_id a
@@ -687,7 +715,18 @@ export default function ReservarPage() {
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#3A3A34] bg-[#F5F5F1] hover:bg-[#F1F1EC] border border-[#E7E7E0] transition-colors">
                               <Download size={12} /> .ics
                             </button>
-                            <button onClick={() => { if (confirm('¿Cancelar esta reserva?')) cancelarReserva(r.id); }}
+                            <button onClick={() => {
+                              // Aviso de cancelación tardía (C-2): si está dentro de la
+                              // ventana y el estudio no devuelve bono, se advierte de que
+                              // perderá la sesión antes de confirmar.
+                              const ventana = studio?.cancelacionVentanaHoras ?? 0;
+                              const tardia = r.estado === 'CONFIRMADA' && esCancelacionTardia(s.inicio, now, ventana);
+                              const pierdeBono = tardia && !(studio?.cancelacionDevolverBonoTardia ?? false);
+                              const msg = pierdeBono
+                                ? `Estás cancelando con menos de ${ventana}h de antelación: no se te devolverá la sesión del bono. ¿Cancelar igualmente?`
+                                : '¿Cancelar esta reserva?';
+                              if (confirm(msg)) cancelarReserva(r.id);
+                            }}
                               className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors">
                               <X size={12} /> Cancelar plaza
                             </button>
@@ -995,6 +1034,11 @@ export default function ReservarPage() {
                       Clase llena — te apuntaremos en lista de espera
                     </p>
                   )}
+                  {studio && studio.cancelacionVentanaHoras > 0 && (
+                    <p className="text-[#A8A89F] text-xs mt-2">
+                      Cancela con al menos {studio.cancelacionVentanaHoras}h de antelación para recuperar tu sesión.
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2.5 mb-5 px-1">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
@@ -1006,6 +1050,11 @@ export default function ReservarPage() {
                     <span className="mx-1">·</span>{socia?.email ?? usuarioEmail}
                   </p>
                 </div>
+                {gateError && (
+                  <div className="mb-3 px-4 py-3 rounded-xl text-sm text-rose-600 bg-rose-50 border border-rose-200">
+                    {gateError}
+                  </div>
+                )}
                 <button onClick={handleConfirm}
                   className="w-full py-3 rounded-2xl font-bold text-white"
                   style={{ backgroundColor: PRIMARY }}>
