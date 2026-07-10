@@ -59,19 +59,17 @@ export async function crearSnapshot(admin: SupabaseClient, studioId: string): Pr
   return snapshot;
 }
 
-// Sobrescribe TODOS los datos actuales del negocio con los del snapshot:
-// borra fila a fila (en orden inverso a BACKUP_TABLES) y vuelve a insertar
-// lo que había en el momento del backup. Operación destructiva e
-// irreversible salvo que exista otro backup posterior.
+// Sobrescribe TODOS los datos actuales del negocio con los del snapshot.
+// Operación destructiva e irreversible salvo que exista otro backup posterior.
+//
+// P0-15: el borrado + reinserción de las 44 tablas se hace en UNA transacción
+// atómica (RPC restaurar_backup) en vez de 88 llamadas HTTP independientes. Si
+// algo falla a mitad, se revierte entero — nunca deja al tenant con datos a
+// medias (parte borrada, parte restaurada) sin posibilidad de rollback.
 export async function restaurarSnapshot(admin: SupabaseClient, studioId: string, snapshot: BackupSnapshot): Promise<void> {
-  for (const tabla of [...BACKUP_TABLES].reverse()) {
-    const { error } = await admin.from(tabla).delete().eq('studio_id', studioId);
-    if (error) throw new Error(`Error borrando ${tabla}: ${error.message}`);
-  }
-  for (const tabla of BACKUP_TABLES) {
-    const filas = snapshot[tabla];
-    if (!filas || filas.length === 0) continue;
-    const { error } = await admin.from(tabla).insert(filas);
-    if (error) throw new Error(`Error restaurando ${tabla}: ${error.message}`);
-  }
+  const { error } = await admin.rpc('restaurar_backup', {
+    p_studio_id: studioId,
+    p_snapshot: snapshot,
+  });
+  if (error) throw new Error(`Error restaurando el backup: ${error.message}`);
 }

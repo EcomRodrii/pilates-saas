@@ -7,6 +7,8 @@ import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
+import { uid } from '@/lib/utils';
+import * as Sentry from '@sentry/nextjs';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic();
@@ -29,9 +31,10 @@ async function redactarConIA(input: RecomendacionInput, fallback: string): Promi
 
 export const dynamic = 'force-dynamic';
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
+// P0-37: parche hasta la cola (P0-36). Recorre todos los estudios y llama a la
+// IA por candidato, así que es el cron más lento; 300s (Vercel Pro) evita que se
+// corte a mitad hasta que cada estudio sea un job independiente.
+export const maxDuration = 300;
 
 // Ejecuta el motor de automatizaciones para todos los estudios, sin depender
 // de que nadie tenga el dashboard abierto. Lo dispara Vercel Cron (ver
@@ -153,6 +156,10 @@ export async function GET(req: NextRequest) {
             log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"` };
           }
         } catch (err) {
+          // Excepción inesperada al renderizar/enviar (no el error de entrega de
+          // Resend, que ya queda en el log). Lo reportamos: puede ser una plantilla
+          // rota o Resend caído, y afectaría a todos los emails de la tanda.
+          Sentry.captureException(err, { tags: { cron: 'automatizaciones' }, extra: { studioId: studio.id, ruleId: c.rule.id } });
           fallidos++;
           log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: err instanceof Error ? err.message : 'Error al enviar el email' };
         }
