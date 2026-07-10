@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { enviarEmailCancelacionClase } from '@/lib/api-client';
+import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import type { Socio, Spot } from '@/lib/types';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -607,7 +608,7 @@ function SessionSidebar({
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
 
 function ModalClasesRecurrentes({
-  open, onClose, tiposClase, instructores, salas, onCrear,
+  open, onClose, tiposClase, instructores, salas, onCrear, sesionesExistentes,
 }: {
   open: boolean;
   onClose: () => void;
@@ -615,6 +616,7 @@ function ModalClasesRecurrentes({
   instructores: { id: string; nombre: string }[];
   salas: { id: string; nombre: string }[];
   onCrear: (sesiones: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]) => void;
+  sesionesExistentes: SlotSesion[];
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const inOneMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -647,37 +649,22 @@ function ModalClasesRecurrentes({
     }));
   }
 
-  const estimatedCount = (() => {
-    if (!form.fechaInicio || !form.fechaFin || form.diasSemana.length === 0) return 0;
+  // Genera las sesiones de la serie (misma lógica de fecha/hora que la clase
+  // única: localDate + UTC ISO con Z). Un solo sitio, reutilizado por el conteo,
+  // el aviso de conflictos y el submit.
+  const sesionesGeneradas = useMemo<Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]>(() => {
+    if (!form.fechaInicio || !form.fechaFin || form.diasSemana.length === 0) return [];
     const start = new Date(form.fechaInicio + 'T00:00:00');
     const end = new Date(form.fechaFin + 'T00:00:00');
-    if (start > end) return 0;
-    let count = 0;
-    const cursor = new Date(start);
-    while (cursor <= end) {
-      if (form.diasSemana.includes(cursor.getDay())) count++;
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    return count;
-  })();
-
-  function handleSubmit() {
-    if (form.diasSemana.length === 0) return;
-    const start = new Date(form.fechaInicio + 'T00:00:00');
-    const end = new Date(form.fechaFin + 'T00:00:00');
-    if (start > end) return;
-
-    const sesionesFields: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[] = [];
+    if (start > end) return [];
+    const out: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[] = [];
     const cursor = new Date(start);
     while (cursor <= end) {
       if (form.diasSemana.includes(cursor.getDay())) {
-        // Mismo formato que la clase única: fecha local (localDate, NO toISOString
-        // —que desplazaría el día en husos UTC+) e instantes en UTC ISO con Z
-        // (toISO), para que inicio y fin sean coherentes y no queden invertidos.
         const dateStr = localDate(cursor);
         const inicio = new Date(`${dateStr}T${form.horaInicio}:00`);
         const fin = new Date(inicio.getTime() + form.duracion * 60000);
-        sesionesFields.push({
+        out.push({
           tipoClaseId: form.tipoClaseId,
           instructorId: form.instructorId,
           salaId: form.salaId,
@@ -691,7 +678,23 @@ function ModalClasesRecurrentes({
       }
       cursor.setDate(cursor.getDate() + 1);
     }
-    onCrear(sesionesFields);
+    return out;
+  }, [form]);
+
+  const estimatedCount = sesionesGeneradas.length;
+
+  // Cuántas de las clases generadas solapan una sala/instructora ya programada.
+  const conflictosCount = useMemo(() =>
+    sesionesGeneradas.filter(s => hayConflicto(detectarConflictos(
+      { salaId: s.salaId, instructorId: s.instructorId, inicio: s.inicio, fin: s.fin },
+      sesionesExistentes,
+    ))).length,
+    [sesionesGeneradas, sesionesExistentes]
+  );
+
+  function handleSubmit() {
+    if (sesionesGeneradas.length === 0) return;
+    onCrear(sesionesGeneradas);
   }
 
   const f2 = 'w-full border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-foreground focus:outline-none text-foreground';
@@ -764,6 +767,14 @@ function ModalClasesRecurrentes({
             <div className="rounded-xl bg-muted px-4 py-3 flex items-center gap-2">
               <CalendarDays size={15} className="text-muted-foreground shrink-0" />
               <p className="text-sm font-semibold text-foreground">Se crearán <span className="font-bold">{estimatedCount}</span> clases</p>
+            </div>
+          )}
+          {conflictosCount > 0 && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center gap-2">
+              <AlertTriangle size={15} className="text-amber-600 shrink-0" />
+              <p className="text-sm font-semibold text-amber-800">
+                {conflictosCount} de estas clases se solapan con la sala o la instructora ya programadas.
+              </p>
             </div>
           )}
         </div>
@@ -1130,6 +1141,34 @@ export default function Calendario() {
       : [],
     [sesionActual, reservas, socios, spots]
   );
+
+  // ── Conflictos de sala/instructora (I-1) y aforo (I-2) del formulario abierto ──
+  // Se recalcula en vivo con los valores del form para avisar antes de guardar.
+  const conflictosForm = useMemo(() => {
+    if (!showForm || !form.fecha || !form.horaInicio || !form.horaFin) return null;
+    const inicio = toISO(form.fecha, form.horaInicio);
+    const fin = toISO(form.fecha, form.horaFin);
+    if (new Date(fin).getTime() <= new Date(inicio).getTime()) return null;
+    const existentes: SlotSesion[] = sesiones.map(s => ({
+      id: s.id, salaId: s.salaId, instructorId: s.instructorId,
+      inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
+    }));
+    const c = detectarConflictos(
+      { salaId: form.salaId, instructorId: form.instructorId, inicio, fin },
+      existentes,
+      showForm === 'editar' ? sesionId ?? undefined : undefined,
+    );
+    return hayConflicto(c) ? c : null;
+  }, [showForm, form.fecha, form.horaInicio, form.horaFin, form.salaId, form.instructorId, sesiones, sesionId]);
+
+  // I-2: al editar, cuántas confirmadas quedarían fuera si se baja el aforo.
+  const aforoSobrante = useMemo(() => {
+    if (showForm !== 'editar' || !sesionActual) return 0;
+    return plazasSobrantesTrasAforo(sesionActual.confirmadas, form.aforoMaximo);
+  }, [showForm, sesionActual, form.aforoMaximo]);
+
+  const nombreSala = (id: string | null) => salas.find(s => s.id === id)?.nombre ?? 'sala';
+  const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'instructora';
 
   // ── Calendar navigation ──────────────────────────────────────────────────────
   function cambiarSemana(delta: number) {
@@ -1513,6 +1552,32 @@ export default function Calendario() {
                 />
               </FormField>
             </div>
+
+            {/* Avisos de conflicto (I-1) y aforo (I-2) — no bloquean, informan */}
+            {(conflictosForm || aforoSobrante > 0) && (
+              <div className="px-6 pb-1 shrink-0 space-y-2">
+                {conflictosForm && (
+                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 flex gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                    <div className="space-y-0.5">
+                      {conflictosForm.sala.length > 0 && (
+                        <p><span className="font-bold">{nombreSala(form.salaId)}</span> ya está ocupada: {conflictosForm.sala.map(c => `${formatHora(c.inicio)}–${formatHora(c.fin)}`).join(', ')}</p>
+                      )}
+                      {conflictosForm.instructor.length > 0 && (
+                        <p><span className="font-bold">{nombreInstructor(form.instructorId)}</span> ya tiene clase: {conflictosForm.instructor.map(c => `${formatHora(c.inicio)}–${formatHora(c.fin)}`).join(', ')}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {aforoSobrante > 0 && (
+                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 flex gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                    <p>Hay <span className="font-bold">{sesionActual?.confirmadas} confirmada{(sesionActual?.confirmadas ?? 0) !== 1 ? 's' : ''}</span> y bajas el aforo a {form.aforoMaximo}: {aforoSobrante} quedaría{aforoSobrante !== 1 ? 'n' : ''} por encima del cupo. No se moverán a lista de espera automáticamente.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="px-6 py-5 border-t border-border flex gap-3 shrink-0">
               <button onClick={() => setShowForm(null)} className="flex-1 py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors">
                 Cancelar
@@ -1538,6 +1603,10 @@ export default function Calendario() {
         instructores={instructores}
         salas={salas}
         onCrear={crearClasesRecurrentes}
+        sesionesExistentes={sesiones.map(s => ({
+          id: s.id, salaId: s.salaId, instructorId: s.instructorId,
+          inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
+        }))}
       />
 
       {/* ── Toast ──────────────────────────────────────────────────────────────── */}
