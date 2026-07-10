@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { crearSnapshot, podarBackupsAntiguos, type TipoBackup } from '@/lib/backup-engine';
 import { uid } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
+
+// P0-37: parche hasta tener la cola (P0-36). El barrido de todos los estudios
+// puede pasarse del límite por defecto de Vercel; 300s (Pro) da margen mientras
+// cada backup no se descompone en jobs por-tenant.
+export const maxDuration = 300;
 
 // Backup automático diario para todos los negocios — lo dispara Vercel Cron
 // (ver vercel.json) contra esta ruta con el CRON_SECRET como autenticación.
@@ -49,6 +55,10 @@ export async function GET(req: NextRequest) {
         await podarBackupsAntiguos(admin, studio.id, tipo);
         resultados.push({ studioId: studio.id, tipo, ok: true });
       } catch (err: unknown) {
+        // El fallo de un estudio no aborta el resto (se acumula en `resultados`),
+        // pero sin esto Sentry nunca lo vería: lo reportamos con contexto para no
+        // quedarnos ciegos ante un backup que lleva días fallando en silencio.
+        Sentry.captureException(err, { tags: { cron: 'backups', tipo }, extra: { studioId: studio.id } });
         resultados.push({ studioId: studio.id, tipo, ok: false, error: err instanceof Error ? err.message : 'Error desconocido' });
       }
     }

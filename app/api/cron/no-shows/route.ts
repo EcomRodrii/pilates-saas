@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { barrerNoShows } from '@/lib/supabase-data';
 
 export const dynamic = 'force-dynamic';
+
+// P0-37: parche hasta la cola (P0-36). Margen para el barrido de no-shows sobre
+// todas las clases terminadas de todos los estudios en una sola invocación.
+export const maxDuration = 300;
 
 // Barrido de no-shows: pasa a NO_ASISTIO las reservas que sigan CONFIRMADA en
 // clases ya terminadas. Lo dispara Vercel Cron (ver vercel.json) con el
@@ -22,6 +27,7 @@ export async function GET(req: NextRequest) {
     const resumen = await barrerNoShows(now.toISOString());
     return NextResponse.json({ ejecutadoEn: now.toISOString(), ...resumen });
   } catch (err) {
+    Sentry.captureException(err, { tags: { cron: 'no-shows' } });
     const mensaje = err instanceof Error ? err.message : 'Error en el barrido de no-shows';
     return NextResponse.json({ error: mensaje }, { status: 500 });
   }
