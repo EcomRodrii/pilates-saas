@@ -2646,6 +2646,30 @@ export async function dbInsertAutomationLog(log: AutomationLog) {
   if (error) reportDbError('[dbInsertAutomationLog]', error);
 }
 
+// Igual que dbInsertAutomationLog pero idempotente (upsert por id). Lo usa la
+// cola durable (Inngest): si un step se reintenta tras un fallo transitorio, el
+// log se reescribe en vez de duplicarse. Requiere un id DETERMINISTA por
+// candidato (no uid() aleatorio) para que el on-conflict funcione.
+export async function dbUpsertAutomationLog(log: AutomationLog) {
+  const row = {
+    id: log.id,
+    studio_id: log.studioId ?? STUDIO_ID,
+    rule_id: log.ruleId,
+    rule_name: log.ruleName,
+    socio_id: log.socioId,
+    socio_nombre: log.socioNombre,
+    paso_index: log.pasoIndex,
+    accion: log.accion,
+    resultado: log.resultado,
+    detalle: log.detalle,
+    ejecutado_en: log.ejecutadoEn,
+    proxima_accion_en: log.proximaAccionEn,
+    recibo_id: log.reciboId ?? null,
+  };
+  const { error } = await supabase.from('automation_logs').upsert(row, { onConflict: 'id' });
+  if (error) reportDbError('[dbUpsertAutomationLog]', error);
+}
+
 export async function dbUpdateAutomationLog(id: string, changes: Partial<AutomationLog>) {
   const db: Record<string, unknown> = {};
   if ('resultado' in changes) db.resultado = changes.resultado;
