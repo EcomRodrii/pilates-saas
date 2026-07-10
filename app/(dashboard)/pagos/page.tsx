@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import type { EstadoRecibo } from '@/lib/types';
+import type { EstadoRecibo, Socio } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { crearCheckoutStripe, enviarEmailRecibo } from '@/lib/api-client';
@@ -36,7 +36,6 @@ import {
 
 const inputCls =
   'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-[#7AA80E] transition-colors';
-const selectCls = inputCls + ' appearance-none cursor-pointer';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +44,51 @@ function FF({ label, children }: { label: string; children: React.ReactNode }) {
     <div className="space-y-1.5">
       <label className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
       {children}
+    </div>
+  );
+}
+
+// P0-23: selector de miembro BUSCABLE. Antes se renderizaban TODOS los socios
+// activos como <option> (con 200.000, abrir el desplegable cuelga el navegador).
+// Aquí se filtra por texto y se pinta como mucho un puñado de resultados.
+function SocioPicker({ socios, value, onChange }: {
+  socios: Socio[]; value: string; onChange: (id: string) => void;
+}) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const selected = socios.find(s => s.id === value);
+  const results = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    const activos = socios.filter(s => s.activo);
+    const base = query
+      ? activos.filter(s => `${s.nombre} ${s.apellidos} ${s.email ?? ''}`.toLowerCase().includes(query))
+      : activos;
+    return base.slice(0, 20);
+  }, [socios, q]);
+  return (
+    <div className="relative">
+      {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
+      <input
+        className={cn(inputCls, 'relative z-50')}
+        placeholder="Buscar miembro…"
+        value={open ? q : (selected ? `${selected.nombre} ${selected.apellidos}` : '')}
+        onFocus={() => { setOpen(true); setQ(''); }}
+        onChange={e => { setQ(e.target.value); setOpen(true); }}
+      />
+      {open && (
+        <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
+          {results.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</p>
+          ) : results.map(s => (
+            <button key={s.id} type="button"
+              onClick={() => { onChange(s.id); setOpen(false); setQ(''); }}
+              className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+              {s.nombre} {s.apellidos}
+              {s.email && <span className="text-muted-foreground text-xs ml-1.5">{s.email}</span>}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -290,16 +334,27 @@ export default function Pagos() {
   // ── Cobro masivo data ──────────────────────────────────────────────────────
 
   const masivoData = useMemo(() => {
-    // All socias with active subscriptions
-    const activeSubs = suscripciones.filter(s => s.estado === 'ACTIVA');
-    return activeSubs.map(sus => {
-      const socio = socios.find(s => s.id === sus.socioId);
-      const plan = planesTarifa.find(p => p.id === sus.planId);
-      const pendientesRecibos = recibos.filter(
-        r => r.socioId === sus.socioId && r.estado === 'PENDIENTE'
-      );
-      return { sus, socio, plan, pendientesRecibos };
-    }).filter(d => d.socio != null);
+    // P0-23: índices por id + recibos pendientes agrupados por socia en UNA
+    // pasada. Antes: por cada suscripción activa, socios.find() + recibos.filter()
+    // completos → O(activas × (socios + recibos)); abrir el modal de cobro masivo
+    // con muchas socias disparaba miles de millones de operaciones.
+    const socioById = new Map(socios.map(s => [s.id, s]));
+    const planById = new Map(planesTarifa.map(p => [p.id, p]));
+    const pendientesPorSocio = new Map<string, typeof recibos>();
+    for (const r of recibos) {
+      if (r.estado !== 'PENDIENTE' || !r.socioId) continue;
+      const arr = pendientesPorSocio.get(r.socioId);
+      if (arr) arr.push(r); else pendientesPorSocio.set(r.socioId, [r]);
+    }
+    return suscripciones
+      .filter(s => s.estado === 'ACTIVA')
+      .map(sus => ({
+        sus,
+        socio: socioById.get(sus.socioId),
+        plan: planById.get(sus.planId),
+        pendientesRecibos: pendientesPorSocio.get(sus.socioId) ?? [],
+      }))
+      .filter(d => d.socio != null);
   }, [suscripciones, socios, planesTarifa, recibos]);
 
   function openMasivo() {
@@ -321,10 +376,14 @@ export default function Pagos() {
     setMasivoTotal(ids.length);
     setMasivoCobrando(0);
     setMasivoProgress('running');
-    for (let i = 0; i < ids.length; i++) {
-      marcarCobrado(ids[i]);
-      setMasivoCobrando(i + 1);
-      await new Promise(r => setTimeout(r, 120));
+    // P0-23: por lotes, cediendo el hilo entre ellos para pintar la barra y no
+    // bloquear el UI. Antes se esperaba 120ms ARTIFICIALES por recibo, así que
+    // cobrar 1000 recibos tardaba 2+ minutos de pura espera.
+    const CHUNK = 25;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      for (const id of ids.slice(i, i + CHUNK)) marcarCobrado(id);
+      setMasivoCobrando(Math.min(i + CHUNK, ids.length));
+      await new Promise(r => setTimeout(r, 0));
     }
     setMasivoProgress('done');
   }
@@ -1272,16 +1331,11 @@ export default function Pagos() {
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <FF label="Miembro">
-              <select
-                className={selectCls}
+              <SocioPicker
+                socios={socios}
                 value={facturaForm.socioId}
-                onChange={e => setFacturaForm(f => ({ ...f, socioId: e.target.value }))}
-              >
-                <option value="">Seleccionar miembro…</option>
-                {socios.filter(s => s.activo).map(s => (
-                  <option key={s.id} value={s.id}>{s.nombre} {s.apellidos}</option>
-                ))}
-              </select>
+                onChange={id => setFacturaForm(f => ({ ...f, socioId: id }))}
+              />
             </FF>
             <FF label="Concepto">
               <input
@@ -1351,15 +1405,11 @@ export default function Pagos() {
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <FF label="Miembro">
-              <select
-                className={selectCls}
+              <SocioPicker
+                socios={socios}
                 value={nuevoForm.socioId}
-                onChange={e => setNuevoForm(f => ({ ...f, socioId: e.target.value }))}
-              >
-                {socios.filter(s => s.activo).map(s => (
-                  <option key={s.id} value={s.id}>{s.nombre} {s.apellidos}</option>
-                ))}
-              </select>
+                onChange={id => setNuevoForm(f => ({ ...f, socioId: id }))}
+              />
             </FF>
             <FF label="Concepto">
               <input

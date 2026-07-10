@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { dbUpdateRecibo, dbUpdateSocio } from '@/lib/supabase-data';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -38,16 +38,32 @@ export async function POST(req: NextRequest) {
     const reciboId = session.metadata?.reciboId;
     const socioId = session.metadata?.socioId;
 
-    if (reciboId) {
-      await dbUpdateRecibo(reciboId, {
-        estado: 'COBRADO',
-        fechaCobro: new Date().toISOString(),
-      });
+    // P0-18: la persistencia se hace con service-role (bypassa RLS; el webhook
+    // no tiene sesión de usuario) y cualquier fallo de escritura devuelve un
+    // 5xx para que Stripe REINTENTE la entrega. Antes, dbUpdate* solo hacía
+    // console.error sin lanzar y el endpoint respondía 200 igualmente: el pago
+    // se cobraba en Stripe pero el recibo quedaba PENDIENTE para siempre.
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      console.error('[stripe webhook] service role no configurada');
+      return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
     }
 
-    // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola
-    // la próxima vez, si Stripe llegó a crear el Customer y el pago se
-    // completó con setup_future_usage.
+    // El recibo es lo crítico (confirma el cobro). Idempotente: reintentar sobre
+    // un recibo ya COBRADO no cambia nada relevante.
+    if (reciboId) {
+      const { error } = await admin.from('recibos')
+        .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString() })
+        .eq('id', reciboId);
+      if (error) {
+        console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
+        return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
+      }
+    }
+
+    // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la
+    // próxima vez. También crítico: un fallo aquí devuelve 5xx para reintentar
+    // (idempotente: mismos customer/payment_method).
     if (socioId && typeof session.customer === 'string' && typeof session.payment_intent === 'string') {
       // Este PaymentIntent vive en la cuenta conectada del estudio (event.account),
       // no en la de la plataforma — hay que targetearla explícitamente o Stripe
@@ -61,10 +77,13 @@ export async function POST(req: NextRequest) {
         ? paymentIntent.payment_method
         : paymentIntent.payment_method?.id;
       if (paymentMethodId) {
-        await dbUpdateSocio(socioId, {
-          stripeCustomerId: session.customer,
-          stripePaymentMethodId: paymentMethodId,
-        });
+        const { error } = await admin.from('socios')
+          .update({ stripe_customer_id: session.customer, stripe_payment_method_id: paymentMethodId })
+          .eq('id', socioId);
+        if (error) {
+          console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
+          return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
+        }
       }
     }
   }
