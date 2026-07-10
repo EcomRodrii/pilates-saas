@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ShoppingCart, X, Plus, Minus, Receipt, CheckCircle2, Search, Printer, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, X, Plus, Minus, Receipt, CheckCircle2, Search, Printer, ChevronRight, AlertTriangle, CreditCard, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
+import { terminalCobrar, terminalEstadoCobro, terminalRegistrarLector, terminalEstadoLector } from '@/lib/api-client';
 import type { ProductoPOS, VentaPOS, MetodoPago } from '@/lib/types';
 
 type CartItem = {
@@ -35,6 +36,7 @@ const METODOS: { label: string; value: MetodoPago }[] = [
   { label: 'Tarjeta', value: 'TARJETA' },
   { label: 'Bizum', value: 'BIZUM' },
   { label: 'Transferencia', value: 'TRANSFERENCIA' },
+  { label: 'Datáfono', value: 'DATAFONO' },
 ];
 
 const METODO_LABEL: Record<string, string> = {
@@ -223,7 +225,12 @@ function SuccessOverlay({ total, metodoPago }: SuccessOverlayProps) {
 // ─── Main page ─────────────────────────────────────────────────────────────
 
 export default function POSPage() {
-  const { socios, productosPOS, ventasPOS, addVentaPOS } = useStudio();
+  const { socios, productosPOS, ventasPOS, addVentaPOS, studio } = useStudio();
+
+  // Estado del cobro con datáfono (Stripe Terminal) y del emparejamiento.
+  const [terminal, setTerminal] = useState<{ fase: 'idle' | 'esperando' | 'error'; mensaje?: string }>({ fase: 'idle' });
+  const [lectorEmparejado, setLectorEmparejado] = useState<boolean | null>(null);
+  const [configMsg, setConfigMsg] = useState<string | null>(null);
 
   const [carrito, setCarrito] = useState<CartItem[]>([]);
   const [tab, setTab] = useState<TabCategoria>('Todas');
@@ -296,8 +303,9 @@ export default function POSPage() {
 
   // ─── Cobrar ───────────────────────────────────────────────────────────────
 
-  function cobrar() {
-    if (carrito.length === 0 || showSuccess) return;
+  // Registra la venta en el SaaS (genera recibo + factura sellada) y muestra el
+  // éxito. Es el paso común tras cualquier método de pago.
+  function finalizarVenta() {
     addVentaPOS({
       socioId: clienteId || null,
       items: carrito.map(i => ({
@@ -321,6 +329,63 @@ export default function POSPage() {
     }, 1500);
   }
 
+  async function cobrar() {
+    if (carrito.length === 0 || showSuccess || terminal.fase === 'esperando') return;
+
+    // Pago con datáfono físico: se lanza el importe al lector y se espera a que
+    // la clienta pase la tarjeta; solo al confirmarse se registra la venta.
+    if (metodoPago === 'DATAFONO') {
+      if (!studio) return;
+      setTerminal({ fase: 'esperando', mensaje: 'Enviando al datáfono…' });
+      const r = await terminalCobrar({
+        studioId: studio.id,
+        amount: Math.round(total * 100),
+        concepto: carrito.map(i => i.producto.nombre).join(', ') || 'Venta POS',
+      });
+      if (!r.ok || !r.paymentIntentId) {
+        setTerminal({ fase: 'error', mensaje: r.error ?? 'No se pudo iniciar el cobro' });
+        return;
+      }
+      setTerminal({ fase: 'esperando', mensaje: 'Acerque la tarjeta al datáfono' });
+      const pi = r.paymentIntentId;
+      const deadline = Date.now() + 90000;
+      const poll = async () => {
+        const e = await terminalEstadoCobro({ studioId: studio.id, paymentIntentId: pi });
+        if (e.status === 'succeeded') {
+          setTerminal({ fase: 'idle' });
+          finalizarVenta();
+          return;
+        }
+        if (e.status === 'canceled' || e.error) {
+          setTerminal({ fase: 'error', mensaje: e.error ?? 'Cobro cancelado en el datáfono' });
+          return;
+        }
+        if (Date.now() > deadline) {
+          setTerminal({ fase: 'error', mensaje: 'Se agotó el tiempo esperando al datáfono' });
+          return;
+        }
+        setTimeout(poll, 1500);
+      };
+      setTimeout(poll, 1500);
+      return;
+    }
+
+    finalizarVenta();
+  }
+
+  // Empareja el datáfono (en test, un lector simulado; en real pediría el código).
+  async function configurarDatafono() {
+    setConfigMsg('Emparejando datáfono…');
+    const r = await terminalRegistrarLector();
+    if (r.ok) {
+      setLectorEmparejado(true);
+      setConfigMsg(r.test ? 'Datáfono simulado emparejado (modo pruebas).' : 'Datáfono emparejado.');
+    } else {
+      setConfigMsg(r.error ?? 'No se pudo emparejar el datáfono');
+    }
+    setTimeout(() => setConfigMsg(null), 4000);
+  }
+
   // ─── Keyboard shortcut ────────────────────────────────────────────────────
 
   const cobrarRef = useRef(cobrar);
@@ -336,6 +401,13 @@ export default function POSPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
+
+  // Al abrir el POS, comprobar si hay datáfono emparejado (para mostrar el aviso).
+  useEffect(() => {
+    let vivo = true;
+    terminalEstadoLector().then(r => { if (vivo) setLectorEmparejado(r.emparejado ?? false); });
+    return () => { vivo = false; };
+  }, []);
 
   // ─── Filtered products ────────────────────────────────────────────────────
 
@@ -418,12 +490,27 @@ export default function POSPage() {
             <p className="text-[15px] font-bold text-[#1D4ED8] leading-tight mt-0.5">{tarjetaHoy.toFixed(2)} €</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowCerrarCaja(true)}
-          className="shrink-0 px-3 py-2 rounded-lg border border-border text-[12px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
-        >
-          Cerrar caja
-        </button>
+        <div className="shrink-0 flex items-center gap-2">
+          {configMsg && <span className="hidden sm:inline text-[12px] text-muted-foreground">{configMsg}</span>}
+          <button
+            onClick={configurarDatafono}
+            title="Emparejar el datáfono con este estudio"
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-2 rounded-lg border text-[12px] font-medium transition-colors',
+              lectorEmparejado
+                ? 'border-border text-[#059669] hover:border-foreground'
+                : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
+            )}
+          >
+            <CreditCard size={13} /> {lectorEmparejado ? 'Datáfono listo' : 'Configurar datáfono'}
+          </button>
+          <button
+            onClick={() => setShowCerrarCaja(true)}
+            className="px-3 py-2 rounded-lg border border-border text-[12px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+          >
+            Cerrar caja
+          </button>
+        </div>
       </div>
 
       {/* Mobile tab switcher - hidden on desktop */}
@@ -544,6 +631,42 @@ export default function POSPage() {
             {/* Success overlay */}
             {showSuccess && lastSale && (
               <SuccessOverlay total={lastSale.total} metodoPago={lastSale.metodoPago} />
+            )}
+
+            {/* Datáfono: overlay de espera / error */}
+            {terminal.fase !== 'idle' && !showSuccess && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-card/95 text-center px-6">
+                {terminal.fase === 'esperando' ? (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-[#E1F5EE] flex items-center justify-center">
+                      <CreditCard size={28} className="text-[#0F6E56]" />
+                    </div>
+                    <div>
+                      <p className="text-[15px] font-semibold text-foreground flex items-center justify-center gap-2">
+                        <Loader2 size={15} className="animate-spin" /> {terminal.mensaje}
+                      </p>
+                      <p className="text-[20px] font-extrabold text-foreground mt-1">{total.toFixed(2)} €</p>
+                      <p className="text-[12px] text-muted-foreground mt-1">Esperando el pago en el datáfono…</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+                      <AlertTriangle size={26} className="text-[#DC2626]" />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-semibold text-foreground">No se pudo cobrar</p>
+                      <p className="text-[12px] text-muted-foreground mt-1 max-w-[240px]">{terminal.mensaje}</p>
+                    </div>
+                    <button
+                      onClick={() => setTerminal({ fase: 'idle' })}
+                      className="px-4 py-2 rounded-lg border border-border text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+                    >
+                      Entendido
+                    </button>
+                  </>
+                )}
+              </div>
             )}
 
             {carrito.length === 0 && !showSuccess ? (
@@ -722,7 +845,9 @@ export default function POSPage() {
                       : 'bg-border text-muted-foreground cursor-not-allowed'
                   )}
                 >
-                  <Receipt size={15} /> Cobrar {total.toFixed(2)} €
+                  {metodoPago === 'DATAFONO'
+                    ? <><CreditCard size={15} /> Enviar al datáfono {total.toFixed(2)} €</>
+                    : <><Receipt size={15} /> Cobrar {total.toFixed(2)} €</>}
                 </button>
               </div>
             </div>

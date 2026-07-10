@@ -545,6 +545,12 @@ alter table studios add column if not exists subscription_id text;
 alter table studios add column if not exists subscription_status text;
 alter table studios add column if not exists current_period_end timestamptz;
 
+-- Migración: Stripe Terminal (datáfono físico server-driven). Cada estudio
+-- empareja su lector (WisePOS E) bajo su cuenta Connect; guardamos el id del
+-- lector y su Location para poder lanzar cobros a ese datáfono concreto.
+alter table studios add column if not exists stripe_terminal_reader_id text;
+alter table studios add column if not exists stripe_terminal_location_id text;
+
 -- Migración: política de reservas y cancelaciones por estudio (auditoría C-2/C-4).
 --  · cancelacion_ventana_horas: horas antes del inicio que separan una
 --    cancelación "a tiempo" de una "tardía".

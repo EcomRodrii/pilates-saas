@@ -197,7 +197,20 @@ function mapStudio(r: RowStudios): Studio {
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     reservaExigirPlan: r.reserva_exigir_plan ?? false,
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
+    stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
+    stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
   } as Studio;
+}
+
+// Guarda el lector (datáfono) emparejado con el estudio. Lo llama la ruta de
+// Terminal (servidor, sin sesión de usuario) → service role.
+export async function dbSetTerminalReader(studioId: string, readerId: string | null, locationId: string | null) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('studios')
+    .update({ stripe_terminal_reader_id: readerId, stripe_terminal_location_id: locationId })
+    .eq('id', studioId);
+  if (error) reportDbError('[dbSetTerminalReader]', error);
 }
 
 function mapUsuario(r: RowUsuarios): Usuario {

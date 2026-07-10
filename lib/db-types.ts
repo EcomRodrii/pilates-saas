@@ -20,15 +20,17 @@ export interface RowStudios {
   slug: string | null;
   creado_en: string | null;
   stripe_account_id: string | null;
-  google_calendar_email: string | null;
   stripe_customer_id: string | null;
   subscription_id: string | null;
   subscription_status: string | null;
   current_period_end: string | null;
+  stripe_terminal_reader_id: string | null;
+  stripe_terminal_location_id: string | null;
   cancelacion_ventana_horas: number | null;
   cancelacion_devolver_bono_tardia: boolean | null;
   reserva_exigir_plan: boolean | null;
   reserva_max_simultaneas: number | null;
+  google_calendar_email: string | null;
 }
 
 export interface RowSocios {
@@ -47,6 +49,7 @@ export interface RowSocios {
   aceptacion_firma: string | null;
   aceptacion_version: string | null;
   avatar: string | null;
+  auth_user_id: string | null;
   stripe_customer_id: string | null;
   stripe_payment_method_id: string | null;
   fecha_nacimiento: string | null;
@@ -579,6 +582,15 @@ export interface RowSoporteSolicitudes {
   mensaje: string;
   contacto: string | null;
   creado_en: string;
+}
+
+export interface RowIntegracionCredenciales {
+  studio_id: string | null;
+  provider: string;
+  access_token: string | null;
+  refresh_token: string | null;
+  expires_at: string | null;
+  actualizado_en: string | null;
 }
 
 // NOTA: usuarios no está en schema.sql (lo consume supabase-data). Se mantiene a
