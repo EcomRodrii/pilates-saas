@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 import { enviarEmailCancelacionClase } from '@/lib/api-client';
 import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
+import { decidirReservaNueva } from '@/lib/booking-logic';
 import type { Socio, Spot } from '@/lib/types';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -257,6 +258,7 @@ function SessionSidebar({
   spots,
   onClose,
   onCheckin,
+  onDeshacerCheckin,
   onMarcarNoShow,
   onRevertirNoShow,
   onCancelarReserva,
@@ -273,6 +275,7 @@ function SessionSidebar({
   spots: Spot[];
   onClose: () => void;
   onCheckin: (reservaId: string) => void;
+  onDeshacerCheckin: (reservaId: string) => void;
   onMarcarNoShow: (reservaId: string) => void;
   onRevertirNoShow: (reservaId: string) => void;
   onCancelarReserva: (reservaId: string) => void;
@@ -546,9 +549,18 @@ function SessionSidebar({
                         </>
                       )}
                       {r.estado === 'ASISTIDA' && (
-                        <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
-                          <CheckCircle2 size={11} />OK
-                        </span>
+                        <>
+                          <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
+                            <CheckCircle2 size={11} />OK
+                          </span>
+                          <button
+                            onClick={() => onDeshacerCheckin(r.id)}
+                            title="Deshacer check-in (vuelve a confirmada)"
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-muted-foreground hover:bg-muted transition-colors"
+                          >
+                            <RefreshCw size={11} />Deshacer
+                          </button>
+                        </>
                       )}
                       {r.estado === 'NO_ASISTIO' && (
                         <button
@@ -1032,7 +1044,7 @@ export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
     addSesion, updateSesion, deleteSesion, addReserva, cancelarReserva, checkin,
-    marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
+    deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
   } = useStudio();
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
@@ -1283,6 +1295,20 @@ export default function Calendario() {
     setShowRecurrentes(false);
   }
 
+  // Añade una socia a la clase informando del resultado (I-6): si la clase está
+  // llena, va a lista de espera y se avisa con su posición — antes el estado se
+  // descartaba y recepción le decía "ya estás dentro" a alguien en espera.
+  function handleAddReserva(sesionId: string, socioId: string) {
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    const socio = socios.find(s => s.id === socioId);
+    const nombre = socio ? socio.nombre : 'La socia';
+    const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
+    addReserva(sesionId, socioId);
+    setToast(estado === 'LISTA_ESPERA'
+      ? `Clase llena — ${nombre} va a lista de espera (nº ${posicionEspera})`
+      : `${nombre} añadida a la clase`);
+  }
+
   // ── Label ────────────────────────────────────────────────────────────────────
   const mesLabel = `${semana.toLocaleDateString('es-ES', { day: 'numeric' })} – ${addDays(semana, 6).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
 
@@ -1453,10 +1479,11 @@ export default function Calendario() {
               spots={spots}
               onClose={() => setSesionId(null)}
               onCheckin={checkin}
+              onDeshacerCheckin={deshacerCheckin}
               onMarcarNoShow={marcarNoShow}
               onRevertirNoShow={revertirNoShow}
               onCancelarReserva={cancelarReserva}
-              onAddReserva={addReserva}
+              onAddReserva={handleAddReserva}
               onOpenEdit={openEdit}
               onCancelarSesion={cancelarSesion}
               onEliminarSesion={eliminarSesion}

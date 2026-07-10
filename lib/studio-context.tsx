@@ -207,6 +207,7 @@ interface StudioContextValue {
   addReserva: (sesionId: string, socioId: string) => EstadoReserva;
   cancelarReserva: (reservaId: string) => void;
   checkin: (reservaId: string) => void;
+  deshacerCheckin: (reservaId: string) => void;
   marcarNoShow: (reservaId: string) => void;
   revertirNoShow: (reservaId: string) => void;
   liberarSpot: (reservaId: string) => void;
@@ -1272,6 +1273,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
   }
 
+  // Deshacer un check-in hecho por error (I-4): revierte la asistencia
+  // (ASISTIDA → CONFIRMADA, borra checkInEn) para que recepción corrija un clic
+  // en la socia equivocada. NO retira los créditos ya otorgados en el check-in:
+  // el dedup UNIQUE(studio_id, trigger, ref_id) evita el doble crédito si se
+  // vuelve a hacer check-in de la misma reserva. La reversión del ledger de
+  // gamificación (logros/retos/premio de referido) queda fuera de alcance.
+  function deshacerCheckin(reservaId: string) {
+    setReservas(prev => prev.map(r => r.id === reservaId && r.estado === 'ASISTIDA'
+      ? { ...r, estado: 'CONFIRMADA' as const, checkInEn: null } : r));
+    dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
+  }
+
   // Detectar planes MENSUAL caducados al cargar (una vez por sesión)
   useEffect(() => {
     const hoy = new Date().toISOString().slice(0, 10);
@@ -2233,6 +2246,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addReserva,
     cancelarReserva,
     checkin,
+    deshacerCheckin,
     marcarNoShow,
     revertirNoShow,
     liberarSpot,
