@@ -44,9 +44,15 @@ export function claveBackup(studioId: string, backupId: string): string {
 // Sube el snapshot como JSON a R2. Devuelve la clave guardada.
 export async function subirSnapshot(studioId: string, backupId: string, snapshot: BackupSnapshot): Promise<string> {
   const key = claveBackup(studioId, backupId);
+  // Body como Uint8Array (no string): R2 exige Content-Length en el PUT, y en
+  // el runtime de Vercel un body string se envía sin él (chunked) → 411
+  // MissingContentLength. Con longitud de bytes conocida, fetch pone el header
+  // Content-Length solo. (En Node local el string sí lo ponía; solo fallaba en
+  // producción — por eso hay que probar de verdad en prod.)
+  const body = new TextEncoder().encode(JSON.stringify(snapshot));
   const res = await client().fetch(`${endpointBase()}/${key}`, {
     method: 'PUT',
-    body: JSON.stringify(snapshot),
+    body,
     headers: { 'Content-Type': 'application/json' },
   });
   if (!res.ok) {
