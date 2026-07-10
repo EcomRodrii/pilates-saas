@@ -1291,3 +1291,65 @@ $$;
 
 grant execute on function reservar_plaza(text, text, text, text) to authenticated, service_role;
 grant execute on function cancelar_reserva_plaza(text, text, text) to authenticated, service_role;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- P0-1 · ÍNDICES multi-tenant. Sin esto, cada query por studio_id es un
+-- sequential scan de la tabla entera (todas las filas de todos los
+-- tenants mezcladas). Índices B-tree (studio_id, ...) según el patrón de
+-- acceso real; en las tablas calientes, compuestos que además cubren el
+-- filtro por studio_id solo (columna líder).
+-- ═══════════════════════════════════════════════════════════════════
+
+-- Índice (studio_id) en todas las tablas tenant salvo las calientes (que
+-- llevan compuesto).
+create index if not exists idx_achievement_definitions_studio on achievement_definitions(studio_id);
+create index if not exists idx_achievement_history_studio on achievement_history(studio_id);
+create index if not exists idx_achievement_progress_studio on achievement_progress(studio_id);
+create index if not exists idx_actividad_reciente_studio on actividad_reciente(studio_id);
+create index if not exists idx_automation_logs_studio on automation_logs(studio_id);
+create index if not exists idx_automation_rules_studio on automation_rules(studio_id);
+create index if not exists idx_automatizaciones_studio on automatizaciones(studio_id);
+create index if not exists idx_backups_studio on backups(studio_id);
+create index if not exists idx_campanas_studio on campanas(studio_id);
+create index if not exists idx_challenge_definitions_studio on challenge_definitions(studio_id);
+create index if not exists idx_challenge_history_studio on challenge_history(studio_id);
+create index if not exists idx_challenge_progress_studio on challenge_progress(studio_id);
+create index if not exists idx_citas_studio on citas(studio_id);
+create index if not exists idx_codigos_descuento_studio on codigos_descuento(studio_id);
+create index if not exists idx_credit_transactions_studio on credit_transactions(studio_id);
+create index if not exists idx_dashboard_charts_studio on dashboard_charts(studio_id);
+create index if not exists idx_facturas_studio on facturas(studio_id);
+create index if not exists idx_instructores_studio on instructores(studio_id);
+create index if not exists idx_integracion_credenciales_studio on integracion_credenciales(studio_id);
+create index if not exists idx_integraciones_studio on integraciones(studio_id);
+create index if not exists idx_level_definitions_studio on level_definitions(studio_id);
+create index if not exists idx_member_credits_studio on member_credits(studio_id);
+create index if not exists idx_mensajes_equipo_studio on mensajes_equipo(studio_id);
+create index if not exists idx_notas_internas_studio on notas_internas(studio_id);
+create index if not exists idx_notas_progreso_studio on notas_progreso(studio_id);
+create index if not exists idx_notificaciones_studio on notificaciones(studio_id);
+create index if not exists idx_planes_tarifa_studio on planes_tarifa(studio_id);
+create index if not exists idx_posts_comunidad_studio on posts_comunidad(studio_id);
+create index if not exists idx_preferencias_socio_studio on preferencias_socio(studio_id);
+create index if not exists idx_productos_pos_studio on productos_pos(studio_id);
+create index if not exists idx_reward_actions_studio on reward_actions(studio_id);
+create index if not exists idx_reward_catalog_studio on reward_catalog(studio_id);
+create index if not exists idx_reward_history_studio on reward_history(studio_id);
+create index if not exists idx_reward_redemptions_studio on reward_redemptions(studio_id);
+create index if not exists idx_reward_rules_studio on reward_rules(studio_id);
+create index if not exists idx_salas_studio on salas(studio_id);
+create index if not exists idx_soporte_solicitudes_studio on soporte_solicitudes(studio_id);
+create index if not exists idx_tipos_clase_studio on tipos_clase(studio_id);
+create index if not exists idx_ventas_pos_studio on ventas_pos(studio_id);
+create index if not exists idx_videos_on_demand_studio on videos_on_demand(studio_id);
+
+-- Tablas calientes: compuestos por patrón de acceso.
+create index if not exists idx_reservas_studio_sesion on reservas(studio_id, sesion_id);
+create index if not exists idx_reservas_studio_socio on reservas(studio_id, socio_id);
+create index if not exists idx_reservas_sesion_estado on reservas(sesion_id, estado);
+create index if not exists idx_sesiones_studio_inicio on sesiones(studio_id, inicio);
+create index if not exists idx_suscripciones_studio_socio on suscripciones(studio_id, socio_id);
+create index if not exists idx_recibos_studio_estado_venc on recibos(studio_id, estado, fecha_vencimiento);
+create index if not exists idx_recibos_studio_socio on recibos(studio_id, socio_id);
+create index if not exists idx_spots_studio_sala on spots(studio_id, sala_id);
+create index if not exists idx_socios_studio_email on socios(studio_id, lower(email));
