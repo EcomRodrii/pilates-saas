@@ -204,7 +204,7 @@ interface StudioContextValue {
   deleteSesion: (id: string) => void;
 
   // Reservas
-  addReserva: (sesionId: string, socioId: string) => EstadoReserva;
+  addReserva: (sesionId: string, socioId: string, spotId?: string | null) => EstadoReserva;
   cancelarReserva: (reservaId: string) => void;
   checkin: (reservaId: string) => void;
   deshacerCheckin: (reservaId: string) => void;
@@ -494,9 +494,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setLevelDefinitions(pub.levelDefinitions ?? []);
       setAchievementDefinitions(pub.achievementDefinitions ?? []);
       setChallengeDefinitions(pub.challengeDefinitions ?? []);
-      const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string }) => ({
+      const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
-        estado: r.estado as Reserva['estado'], spotId: null, posicionEspera: null, checkInEn: null, creadoEn: '',
+        estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
       }));
       const socia = pub.socia;
       const miasById = new Map<string, Reserva>((socia?.reservas ?? []).map((r: Reserva) => [r.id, r]));
@@ -1083,7 +1083,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
   }
 
-  function addReserva(sesionId: string, socioId: string): EstadoReserva {
+  function addReserva(sesionId: string, socioId: string, spotId?: string | null): EstadoReserva {
     const esPrimeraReserva = !reservas.some(r => r.socioId === socioId);
     const sesion = sesiones.find(s => s.id === sesionId);
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
@@ -1093,8 +1093,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (cpub) {
       // La creación real (con bono/renovación) la hace el servidor; el estado que
       // devolvemos es la estimación cliente (misma lógica pura); recargarPublico
-      // sincroniza el estado autoritativo.
-      postPublico('/api/public/reserva', { accion: 'crear', studioId: cpub.studioId, sesionId, socioId, email: cpub.email });
+      // sincroniza el estado autoritativo. spotId: el sitio que eligió la socia
+      // (solo se asigna si la reserva queda CONFIRMADA; el servidor lo valida).
+      postPublico('/api/public/reserva', { accion: 'crear', studioId: cpub.studioId, sesionId, socioId, email: cpub.email, spotId: spotId ?? null });
       return estado;
     }
 

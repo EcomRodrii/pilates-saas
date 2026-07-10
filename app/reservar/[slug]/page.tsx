@@ -127,6 +127,47 @@ function PlazasDots({ taken, total }: { taken: number; total: number }) {
   );
 }
 
+// Mapa de sitios (reformers) para que la socia elija el suyo al reservar (I-12).
+// Anónimo: los ocupados se muestran deshabilitados, sin revelar quién los tiene.
+function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
+  spots: { id: string; nombre: string; fila: number; columna: number }[];
+  takenIds: Set<string>;
+  selected: string | null;
+  onSelect: (id: string | null) => void;
+  primary: string;
+}) {
+  const filas = [...new Set(spots.map(s => s.fila))].sort((a, b) => a - b);
+  const columnas = [...new Set(spots.map(s => s.columna))].sort((a, b) => a - b);
+  return (
+    <div>
+      <div className="rounded-lg py-1.5 text-center text-[9px] font-bold uppercase tracking-widest bg-[#F1F1EC] text-[#A8A89F] mb-2">
+        Parte frontal · Instructora
+      </div>
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))` }}>
+        {filas.map(f => columnas.map(c => {
+          const spot = spots.find(s => s.fila === f && s.columna === c);
+          if (!spot) return <div key={`${f}-${c}`} />;
+          const taken = takenIds.has(spot.id);
+          const isSel = selected === spot.id;
+          return (
+            <button key={spot.id} type="button" disabled={taken}
+              onClick={() => onSelect(isSel ? null : spot.id)}
+              title={taken ? 'Ocupado' : spot.nombre}
+              className="aspect-[3/4] rounded-xl border text-[10px] font-bold flex items-center justify-center transition-all disabled:cursor-not-allowed"
+              style={taken
+                ? { backgroundColor: '#F1F1EC', borderColor: '#E7E7E0', color: '#C6C6BE' }
+                : isSel
+                ? { backgroundColor: primary, borderColor: primary, color: '#fff' }
+                : { backgroundColor: '#fff', borderColor: '#E5E5EA', color: '#3A3A34' }}>
+              {spot.nombre}
+            </button>
+          );
+        }))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type Tab = 'clases' | 'misreservas' | 'estudio';
@@ -134,7 +175,7 @@ type Step = 'login' | 'registro' | 'contrato' | 'confirm' | 'done' | 'espera';
 
 export default function ReservarPage() {
   const {
-    sesiones, reservas, socios, tiposClase, salas, instructores,
+    sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio,
     addReserva, updateSocio, cancelarReserva, addSocioFromPortal,
   } = useStudio();
@@ -171,6 +212,9 @@ export default function ReservarPage() {
   // Documento legal a mostrar en modal (texto renderizado por React → escapado;
   // sustituye al document.write con HTML sin escapar, que era un vector XSS).
   const [legalDoc, setLegalDoc] = useState<{ label: string; text: string } | null>(null);
+
+  // Sitio (reformer) elegido por la socia al reservar (I-12). null = sin elegir.
+  const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
 
   // Stripe
   const [stripeLoading, setStripeLoading] = useState<string | null>(null);
@@ -259,6 +303,7 @@ export default function ReservarPage() {
     setEnlaceEnviado(false);
     setLoginError('');
     setGateError('');
+    setSelectedSpot(null);
     if (!autenticado) {
       setLoginStep('login');
     } else if (socia) {
@@ -336,8 +381,9 @@ export default function ReservarPage() {
 
     // El id de la socia lo deriva el servidor del JWT; el que pasamos aquí solo
     // alimenta la actualización optimista de la UI. El estado (confirmada/espera)
-    // lo decide addReserva según el aforo del momento.
-    const estado = addReserva(bookingSesionId, socia?.socioId ?? '');
+    // lo decide addReserva según el aforo del momento. El sitio elegido (I-12)
+    // solo se asigna si la reserva queda confirmada (lo valida el servidor).
+    const estado = addReserva(bookingSesionId, socia?.socioId ?? '', selectedSpot);
     setLoginStep(estado === 'LISTA_ESPERA' ? 'espera' : 'done');
   }
 
@@ -974,6 +1020,34 @@ export default function ReservarPage() {
                     </p>
                   )}
                 </div>
+
+                {/* Selección de sitio (I-12): solo si la sala tiene reformers y la
+                    clase no está llena (la lista de espera no ocupa sitio). */}
+                {(() => {
+                  const spotsSala = spots.filter(s => s.salaId === bookingSesion.salaId && s.activo);
+                  const lleno = bookingSesion.ocupadas >= bookingSesion.aforoMaximo;
+                  if (spotsSala.length === 0 || lleno) return null;
+                  const takenIds = new Set(
+                    reservas
+                      .filter(r => r.sesionId === bookingSesion.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA') && r.spotId)
+                      .map(r => r.spotId as string),
+                  );
+                  return (
+                    <div className="mb-4">
+                      <p className="text-[#3A3A34] text-xs font-semibold mb-2">
+                        Elige tu sitio <span className="text-[#A8A89F] font-normal">(opcional)</span>
+                      </p>
+                      <SpotPickerPublico
+                        spots={spotsSala}
+                        takenIds={takenIds}
+                        selected={selectedSpot}
+                        onSelect={setSelectedSpot}
+                        primary={PRIMARY}
+                      />
+                    </div>
+                  );
+                })()}
+
                 <div className="flex items-center gap-2.5 mb-5 px-1">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                     style={{ backgroundColor: PRIMARY }}>

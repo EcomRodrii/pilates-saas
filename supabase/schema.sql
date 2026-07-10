@@ -1155,6 +1155,12 @@ create unique index if not exists uq_reserva_activa_socio_sesion
   on reservas (sesion_id, socio_id)
   where estado in ('CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA');
 
+-- I-12 · Un spot (reformer) no puede estar ocupado por dos reservas activas en
+-- la misma sesión: guard atómico de la selección de sitio por la socia.
+create unique index if not exists uq_reserva_spot_activo
+  on reservas (sesion_id, spot_id)
+  where spot_id is not null and estado in ('CONFIRMADA', 'ASISTIDA');
+
 create or replace function reservar_plaza(
   p_studio_id text, p_sesion_id text, p_socio_id text, p_reserva_id text
 ) returns table(estado text, posicion_espera int)

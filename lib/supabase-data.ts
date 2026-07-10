@@ -1087,9 +1087,10 @@ export async function fetchPublicStudioData(
   ]);
 
   // Aforo: para pintar plazas libres se necesita el conteo de reservas por
-  // sesión, pero SIN exponer quién reservó. Devolvemos solo id/sesion/estado.
+  // sesión, pero SIN exponer quién reservó. Devolvemos id/sesion/estado y el
+  // spot ocupado (para pintar el mapa de sitios; el spot no identifica a nadie).
   const { data: reservasAforo } = await admin
-    .from('reservas').select('id, sesion_id, estado').eq('studio_id', studioId);
+    .from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId);
 
   const base = {
     studio: studioPublico(studioRow as RowStudios),
@@ -1105,7 +1106,7 @@ export async function fetchPublicStudioData(
     levelDefinitions: (levelDefsRes.data ?? []).map(mapLevelDefinition),
     achievementDefinitions: (achDefsRes.data ?? []).map(mapAchievementDefinition),
     challengeDefinitions: (chalDefsRes.data ?? []).map(mapChallengeDefinition),
-    aforoReservas: (reservasAforo ?? []) as { id: string; sesion_id: string; estado: string }[],
+    aforoReservas: (reservasAforo ?? []) as { id: string; sesion_id: string; estado: string; spot_id: string | null }[],
   };
 
   if (!member) return { ...base, socia: null };
@@ -1355,7 +1356,7 @@ async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
 // bono si queda CONFIRMADA. Valida identidad de la socia y el derecho a reservar
 // (C-4: plan/bono activo y tope de reservas simultáneas, si el estudio lo exige).
 export async function crearReservaPublica(params: {
-  studioId: string; sesionId: string; socioId: string; email: string;
+  studioId: string; sesionId: string; socioId: string; email: string; spotId?: string | null;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -1407,8 +1408,39 @@ export async function crearReservaPublica(params: {
   const row = Array.isArray(data) ? data[0] : data;
   const estado: string = row?.estado ?? 'CONFIRMADA';
 
-  if (estado === 'CONFIRMADA') await consumirBonoServidor(admin, params.studioId, params.socioId);
-  return { ok: true as const, estado, reservaId };
+  let spotAsignado: string | null = null;
+  if (estado === 'CONFIRMADA') {
+    await consumirBonoServidor(admin, params.studioId, params.socioId);
+    // Sitio elegido por la socia (I-12): solo para reservas confirmadas (la
+    // lista de espera no ocupa sitio). Se valida y asigna con guard atómico.
+    if (params.spotId) {
+      spotAsignado = await asignarSpotReserva(admin, params.studioId, params.sesionId, reservaId, params.spotId);
+    }
+  }
+  return { ok: true as const, estado, reservaId, spotAsignado };
+}
+
+// Asigna un spot a una reserva confirmada validando que el sitio pertenece a la
+// sala de la sesión, está activo y libre. El índice único uq_reserva_spot_activo
+// es el backstop atómico ante reservas concurrentes del mismo sitio: si dos van
+// a por el mismo, una gana y la otra queda sin sitio (no rompe la reserva).
+// Devuelve el spotId asignado o null si no se pudo.
+async function asignarSpotReserva(
+  admin: SupabaseClient, studioId: string, sesionId: string, reservaId: string, spotId: string,
+): Promise<string | null> {
+  const [{ data: ses }, { data: spot }] = await Promise.all([
+    admin.from('sesiones').select('sala_id').eq('id', sesionId).eq('studio_id', studioId).maybeSingle(),
+    admin.from('spots').select('id, activo, sala_id').eq('id', spotId).eq('studio_id', studioId).maybeSingle(),
+  ]);
+  if (!ses || !spot || !spot.activo || spot.sala_id !== ses.sala_id) return null;
+  const { data: ocupada } = await admin
+    .from('reservas').select('id')
+    .eq('sesion_id', sesionId).eq('spot_id', spotId)
+    .in('estado', ['CONFIRMADA', 'ASISTIDA']).maybeSingle();
+  if (ocupada) return null;
+  const { error } = await admin.from('reservas').update({ spot_id: spotId }).eq('id', reservaId);
+  if (error) return null; // violación del índice único en carrera → sin sitio
+  return spotId;
 }
 
 // Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.
