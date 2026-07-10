@@ -2206,7 +2206,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // a la espera de que alguien los apruebe con un toque desde
     // Automatizaciones. NOTIFICAR_ADMIN es un insight de negocio (sin socia
     // asociada) que tampoco requiere ninguna acción automática.
-    const nuevosLogs: AutomationLog[] = await Promise.all(candidatos.map(async (c): Promise<AutomationLog> => {
+    // P0-25: concurrencia acotada (antes Promise.all sin límite disparaba miles
+    // de fetch a IA/emails a la vez desde una pestaña — DoS accidental al backend).
+    const nuevosLogs: AutomationLog[] = await mapLimit(candidatos, 6, async (c): Promise<AutomationLog> => {
       const base = {
         id: `log-${uid()}`,
         studioId: getCurrentStudioId(),
@@ -2289,7 +2291,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       } catch (err) {
         return { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: err instanceof Error ? err.message : 'Error de red al enviar el email' };
       }
-    }));
+    });
 
     setAutomationLogs(prev => [...nuevosLogs, ...prev]);
     nuevosLogs.forEach(l => dbInsertAutomationLog(l));

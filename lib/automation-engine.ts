@@ -50,6 +50,40 @@ export function computeAutomationCandidatos(
 ): AutomationCandidato[] {
   const candidatos: AutomationCandidato[] = [];
 
+  // ── Índices compartidos (P0-19) ────────────────────────────────────────────
+  // El motor lo comparten el cron (500k tenants) y el botón "Ejecutar ahora".
+  // Antes cada regla hacía .filter()/.sort()/.find()/.some() sobre las
+  // colecciones completas por cada socia/recibo/sesión/candidato —
+  // O(socios × reservas), O(recibos × socios), O(candidatos × logs). Aquí se
+  // agregan una sola vez y las reglas consultan por Map/índice.
+  const socioById = new Map(socios.map(s => [s.id, s]));
+  const tipoById = new Map(tiposClase.map(t => [t.id, t]));
+
+  // Logs indexados por (ruleId|socioId) para los dedupe .some() de cada regla.
+  const logsPorRuleSocio = new Map<string, AutomationLog[]>();
+  for (const l of automationLogs) {
+    const k = `${l.ruleId}|${l.socioId ?? ''}`;
+    const arr = logsPorRuleSocio.get(k);
+    if (arr) arr.push(l); else logsPorRuleSocio.set(k, [l]);
+  }
+  const logsDe = (ruleId: string, socioId: string | null | undefined): AutomationLog[] =>
+    logsPorRuleSocio.get(`${ruleId}|${socioId ?? ''}`) ?? [];
+
+  // Última asistencia (creadoEn) por socia — para AUSENCIA_DIAS, en una pasada.
+  const ultimaAsistidaCreado = new Map<string, string>();
+  for (const r of reservas) {
+    if (r.estado !== 'ASISTIDA') continue;
+    const prev = ultimaAsistidaCreado.get(r.socioId);
+    if (!prev || r.creadoEn > prev) ultimaAsistidaCreado.set(r.socioId, r.creadoEn);
+  }
+
+  // Plazas ocupadas por sesión (estado != CANCELADA) — para CLASE_LLENA_RECURRENTE.
+  const ocupadasPorSesion = new Map<string, number>();
+  for (const r of reservas) {
+    if (r.estado === 'CANCELADA') continue;
+    ocupadasPorSesion.set(r.sesionId, (ocupadasPorSesion.get(r.sesionId) ?? 0) + 1);
+  }
+
   automationRules.filter(r => r.activa).forEach(rule => {
     if (rule.trigger === 'AUSENCIA_DIAS') {
       const diasUmbral = (rule.condicion.dias as number) ?? 7;
@@ -60,16 +94,14 @@ export function computeAutomationCandidatos(
       const diasCritico = (rule.condicion.diasCritico as number) ?? 21;
       const descuentoPct = (rule.condicion.descuentoPct as number) ?? 15;
       socios.filter(s => s.activo).forEach(socio => {
-        const ultimaReserva = reservas
-          .filter(r => r.socioId === socio.id && r.estado === 'ASISTIDA')
-          .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0];
-        if (!ultimaReserva) return;
-        const dias = Math.floor((now.getTime() - new Date(ultimaReserva.creadoEn).getTime()) / 86400000);
+        const ultimaCreado = ultimaAsistidaCreado.get(socio.id);
+        if (!ultimaCreado) return;
+        const dias = Math.floor((now.getTime() - new Date(ultimaCreado).getTime()) / 86400000);
         if (dias < diasUmbral) return;
 
         if (dias >= diasCritico) {
-          const yaOfrecido = automationLogs.some(
-            l => l.ruleId === rule.id && l.socioId === socio.id && l.accion === 'OFRECER_DESCUENTO' && l.resultado !== 'FALLIDO'
+          const yaOfrecido = logsDe(rule.id, socio.id).some(
+            l => l.accion === 'OFRECER_DESCUENTO' && l.resultado !== 'FALLIDO'
           );
           if (yaOfrecido) return;
           candidatos.push({
@@ -83,9 +115,7 @@ export function computeAutomationCandidatos(
           return;
         }
 
-        const alreadyLogged = automationLogs.some(
-          l => l.ruleId === rule.id && l.socioId === socio.id && l.resultado === 'ESPERANDO'
-        );
+        const alreadyLogged = logsDe(rule.id, socio.id).some(l => l.resultado === 'ESPERANDO');
         if (alreadyLogged) return;
         candidatos.push({
           rule, socio,
@@ -102,11 +132,9 @@ export function computeAutomationCandidatos(
       recibos.filter(r => r.estado === 'PENDIENTE').forEach(recibo => {
         const dias = Math.floor((now.getTime() - new Date(recibo.fechaVencimiento).getTime()) / 86400000);
         if (dias < diasUmbral) return;
-        const socio = socios.find(s => s.id === recibo.socioId);
+        const socio = recibo.socioId ? socioById.get(recibo.socioId) : undefined;
         if (!socio) return;
-        const alreadyLogged = automationLogs.some(
-          l => l.ruleId === rule.id && l.socioId === socio.id && l.resultado !== 'FALLIDO'
-        );
+        const alreadyLogged = logsDe(rule.id, socio.id).some(l => l.resultado !== 'FALLIDO');
         if (alreadyLogged) return;
 
         // Si ya hay tarjeta guardada, proponemos cobrar directamente en vez
@@ -140,17 +168,15 @@ export function computeAutomationCandidatos(
       sesiones
         .filter(s => s.inicio.startsWith(mananaStr) && !s.cancelada)
         .forEach(sesion => {
-          const tipo = tiposClase.find(t => t.id === sesion.tipoClaseId);
+          const tipo = tipoById.get(sesion.tipoClaseId);
           const hora = new Date(sesion.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+          const hoyStr = now.toISOString().slice(0, 10);
           reservas
             .filter(r => r.sesionId === sesion.id && r.estado === 'CONFIRMADA')
             .forEach(reserva => {
-              const socio = socios.find(s => s.id === reserva.socioId);
+              const socio = socioById.get(reserva.socioId);
               if (!socio) return;
-              const alreadyLogged = automationLogs.some(
-                l => l.ruleId === rule.id && l.socioId === socio.id &&
-                     l.ejecutadoEn.startsWith(now.toISOString().slice(0, 10))
-              );
+              const alreadyLogged = logsDe(rule.id, socio.id).some(l => l.ejecutadoEn.startsWith(hoyStr));
               if (alreadyLogged) return;
               candidatos.push({
                 rule, socio,
@@ -169,10 +195,18 @@ export function computeAutomationCandidatos(
 
       // Agrupa sesiones YA celebradas por franja recurrente (mismo día de la
       // semana + misma hora + mismo tipo de clase) para ver si esa franja
-      // lleva llena N semanas seguidas.
+      // lleva llena N semanas seguidas. P0-19: se acota a una ventana reciente
+      // (las N últimas ocurrencias de una franja semanal caben en ~N semanas),
+      // en vez de recorrer TODO el histórico de la vida del estudio.
+      const ventanaMs = (semanasConsecutivas + 3) * 7 * 86400000;
+      const desde = now.getTime() - ventanaMs;
       const grupos = new Map<string, Sesion[]>();
       sesiones
-        .filter(s => !s.cancelada && new Date(s.inicio) <= now)
+        .filter(s => {
+          if (s.cancelada) return false;
+          const t = new Date(s.inicio).getTime();
+          return t <= now.getTime() && t >= desde;
+        })
         .forEach(s => {
           const inicio = new Date(s.inicio);
           const clave = `${inicio.getDay()}-${inicio.getHours()}:${String(inicio.getMinutes()).padStart(2, '0')}-${s.tipoClaseId}`;
@@ -186,21 +220,23 @@ export function computeAutomationCandidatos(
         if (ordenadas.length < semanasConsecutivas) return;
         const siempreLlena = ordenadas.every(s => {
           if (s.aforoMaximo <= 0) return false;
-          const ocupadas = reservas.filter(r => r.sesionId === s.id && r.estado !== 'CANCELADA').length;
+          const ocupadas = ocupadasPorSesion.get(s.id) ?? 0;
           return ocupadas / s.aforoMaximo >= ocupacionMinima;
         });
         if (!siempreLlena) return;
 
         // No repetir el mismo aviso cada vez que se ejecuta — solo una vez
         // cada 2 semanas por franja, usando la clave como parte del detalle.
-        const yaAvisado = automationLogs.some(
-          l => l.ruleId === rule.id && l.detalle.includes(`[${clave}]`) &&
+        // Los logs de esta regla no van sobre una socia (NOTIFICAR_ADMIN), así
+        // que se indexan bajo socioId nulo.
+        const yaAvisado = logsDe(rule.id, null).some(
+          l => l.detalle.includes(`[${clave}]`) &&
                (now.getTime() - new Date(l.ejecutadoEn).getTime()) < 14 * 86400000
         );
         if (yaAvisado) return;
 
         const referencia = ordenadas[0];
-        const tipo = tiposClase.find(t => t.id === referencia.tipoClaseId);
+        const tipo = tipoById.get(referencia.tipoClaseId);
         const inicioRef = new Date(referencia.inicio);
         const diaSemana = inicioRef.toLocaleDateString('es-ES', { weekday: 'long' });
         const hora = inicioRef.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
