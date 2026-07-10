@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { crearSnapshot, podarBackupsAntiguos } from '@/lib/backup-engine';
-
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
+import { guardarBackup, podarBackupsAntiguos } from '@/lib/backup-engine';
 
 // Backup manual, disparado desde el panel por cualquier miembro del equipo
 // con sesión — crear una copia no es una operación destructiva, a
@@ -22,13 +18,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const snapshot = await crearSnapshot(admin, sesion.studioId);
-    const id = `bak-${Date.now()}-${uid()}`;
-    const creadoEn = new Date().toISOString();
-    const { error } = await admin.from('backups').insert({
-      id, studio_id: sesion.studioId, tipo: 'MANUAL', datos: snapshot, creado_en: creadoEn,
-    });
-    if (error) throw new Error(error.message);
+    const { id, creadoEn } = await guardarBackup(admin, { studioId: sesion.studioId, tipo: 'MANUAL' });
 
     await podarBackupsAntiguos(admin, sesion.studioId, 'MANUAL');
 

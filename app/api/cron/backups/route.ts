@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { crearSnapshot, podarBackupsAntiguos, type TipoBackup } from '@/lib/backup-engine';
-import { uid } from '@/lib/utils';
+import { guardarBackup, podarBackupsAntiguos, type TipoBackup } from '@/lib/backup-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,12 +45,7 @@ export async function GET(req: NextRequest) {
   for (const studio of studios ?? []) {
     for (const tipo of tipos) {
       try {
-        const snapshot = await crearSnapshot(admin, studio.id);
-        const id = `bak-${Date.now()}-${uid()}`;
-        const { error } = await admin.from('backups').insert({
-          id, studio_id: studio.id, tipo, datos: snapshot, creado_en: new Date().toISOString(),
-        });
-        if (error) throw new Error(error.message);
+        await guardarBackup(admin, { studioId: studio.id, tipo });
         await podarBackupsAntiguos(admin, studio.id, tipo);
         resultados.push({ studioId: studio.id, tipo, ok: true });
       } catch (err: unknown) {

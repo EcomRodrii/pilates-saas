@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { r2Configurado, subirSnapshot, descargarSnapshot, borrarSnapshots } from '@/lib/r2';
+import { uid } from '@/lib/utils';
 
 // Todas las tablas de datos de un negocio, en el mismo orden en que
 // schema.sql las crea (o sea, en orden de dependencias: una tabla nunca
@@ -33,12 +35,18 @@ export async function podarBackupsAntiguos(admin: SupabaseClient, studioId: stri
   const limite = RETENCION[tipo];
   const { data } = await admin
     .from('backups')
-    .select('id, creado_en')
+    .select('id, creado_en, storage_key')
     .eq('studio_id', studioId)
     .eq('tipo', tipo)
     .order('creado_en', { ascending: false });
   if (!data || data.length <= limite) return;
-  const aBorrar = data.slice(limite).map((b: { id: string }) => b.id);
+  const sobran = data.slice(limite) as { id: string; storage_key: string | null }[];
+  const aBorrar = sobran.map(b => b.id);
+  // Primero R2 (best-effort), luego la fila. Si R2 fallara y la fila quedara,
+  // la siguiente poda lo reintenta; nunca dejamos un objeto R2 huérfano sin
+  // su metadata (que sería invisible para volver a purgarlo).
+  const claves = sobran.map(b => b.storage_key).filter((k): k is string => !!k);
+  if (claves.length > 0) await borrarSnapshots(claves);
   await admin.from('backups').delete().in('id', aBorrar);
 }
 
@@ -72,4 +80,54 @@ export async function restaurarSnapshot(admin: SupabaseClient, studioId: string,
     p_snapshot: snapshot,
   });
   if (error) throw new Error(`Error restaurando el backup: ${error.message}`);
+}
+
+// Fila de backups tal como la necesitan las lecturas (metadata + de dónde sale
+// el snapshot). 'datos' solo viene poblado en backups antiguos (pre-R2).
+export interface BackupRow {
+  id: string;
+  studio_id: string;
+  storage_key: string | null;
+  datos: BackupSnapshot | null;
+}
+
+// Crea el snapshot y lo guarda donde toque, en UNA función que comparten el
+// cron y el backup manual (antes cada uno duplicaba el insert). Si R2 está
+// configurado: sube el JSON a R2 y en la tabla deja solo metadata + clave. Si
+// no: cae al modo antiguo (snapshot inline en 'datos'), así nada se rompe
+// mientras R2 no esté puesto. Devuelve el id ya generado.
+export async function guardarBackup(
+  admin: SupabaseClient,
+  opts: { studioId: string; tipo: TipoBackup; id?: string; creadoEn?: string }
+): Promise<{ id: string; creadoEn: string }> {
+  const id = opts.id ?? `bak-${Date.now()}-${uid()}`;
+  const creadoEn = opts.creadoEn ?? new Date().toISOString();
+  const snapshot = await crearSnapshot(admin, opts.studioId);
+
+  if (r2Configurado()) {
+    const storageKey = await subirSnapshot(opts.studioId, id, snapshot);
+    const { error } = await admin.from('backups').insert({
+      id, studio_id: opts.studioId, tipo: opts.tipo, storage_key: storageKey, datos: null, creado_en: creadoEn,
+    });
+    if (error) {
+      // Si la fila no entra, no dejamos el objeto huérfano en R2.
+      await borrarSnapshots([storageKey]);
+      throw new Error(error.message);
+    }
+  } else {
+    const { error } = await admin.from('backups').insert({
+      id, studio_id: opts.studioId, tipo: opts.tipo, datos: snapshot, creado_en: creadoEn,
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  return { id, creadoEn };
+}
+
+// Obtiene el snapshot de un backup, venga de R2 (nuevo) o de la columna datos
+// (antiguo). Lo usa el restore.
+export async function cargarSnapshot(row: BackupRow): Promise<BackupSnapshot> {
+  if (row.storage_key) return descargarSnapshot(row.storage_key);
+  if (row.datos) return row.datos;
+  throw new Error('El backup no tiene datos ni objeto en R2');
 }
