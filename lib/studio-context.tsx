@@ -6,7 +6,7 @@ import {
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion,
-  dbInsertSesion, dbUpdateSesion, dbDeleteSesion,
+  dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
@@ -91,7 +91,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
+import { enviarEmailCampana, enviarEmailPromocion, enviarEmailCancelacionClase, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
@@ -202,11 +202,18 @@ interface StudioContextValue {
   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => void;
   updateSesion: (id: string, changes: Partial<Sesion>) => void;
   deleteSesion: (id: string) => void;
+  // Series de clases recurrentes (I-3)
+  addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => void;
+  editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => void;
+  cancelarSerieDesde: (sesionId: string) => void;
 
   // Reservas
-  addReserva: (sesionId: string, socioId: string) => EstadoReserva;
+  addReserva: (sesionId: string, socioId: string, spotId?: string | null) => EstadoReserva;
   cancelarReserva: (reservaId: string) => void;
   checkin: (reservaId: string) => void;
+  deshacerCheckin: (reservaId: string) => void;
+  marcarNoShow: (reservaId: string) => void;
+  revertirNoShow: (reservaId: string) => void;
   liberarSpot: (reservaId: string) => void;
   asignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
 
@@ -365,6 +372,13 @@ interface StudioContextValue {
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
+// Fecha local ('YYYY-MM-DD') de un instante ISO — para reconstruir la hora de
+// cada sesión de una serie manteniendo su día (I-3).
+function localDateFromISO(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 const StudioContext = createContext<StudioContextValue | null>(null);
 
 export function useStudio(): StudioContextValue {
@@ -491,9 +505,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setLevelDefinitions(pub.levelDefinitions ?? []);
       setAchievementDefinitions(pub.achievementDefinitions ?? []);
       setChallengeDefinitions(pub.challengeDefinitions ?? []);
-      const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string }) => ({
+      const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
-        estado: r.estado as Reserva['estado'], spotId: null, posicionEspera: null, checkInEn: null, creadoEn: '',
+        estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
       }));
       const socia = pub.socia;
       const miasById = new Map<string, Reserva>((socia?.reservas ?? []).map((r: Reserva) => [r.id, r]));
@@ -1010,6 +1024,96 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbDeleteSesion(id);
   }
 
+  // ── Series de clases recurrentes (I-3) ───────────────────────────────────────
+
+  // Crea una serie: todas las sesiones comparten un serie_id y se insertan en UNA
+  // sola llamada (batch), en vez de N inserts secuenciales sin rollback.
+  function addSesionesSerie(fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) {
+    if (fields.length === 0) return;
+    const serieId = `serie-${uid()}`;
+    const studioId = getCurrentStudioId();
+    const nuevas: Sesion[] = fields.map(f => ({ id: `ses-${uid()}`, studioId, serieId, ...f }));
+    setSesiones(prev => [...prev, ...nuevas]);
+    dbInsertSesionesBatch(nuevas);
+  }
+
+  // Sesiones de la misma serie que una dada, desde su inicio en adelante ("esta y
+  // las siguientes"). Vacío si la sesión no pertenece a una serie.
+  function sesionesDeSerieDesde(sesionId: string): Sesion[] {
+    const base = sesiones.find(s => s.id === sesionId);
+    if (!base?.serieId) return base ? [base] : [];
+    return sesiones.filter(s => s.serieId === base.serieId && s.inicio >= base.inicio);
+  }
+
+  // Edita "esta y las siguientes" de una serie. Los campos uniformes (tipo, sala,
+  // instructora, aforo, notas) se aplican a todas; la hora se re-aplica a la
+  // fecha de cada sesión (mantiene su día, cambia H:M). changes trae horaInicio/
+  // horaFin en 'HH:MM' (hora local) para poder reconstruir inicio/fin por sesión.
+  function editarSerieDesde(
+    sesionId: string,
+    changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string },
+  ) {
+    const objetivo = sesionesDeSerieDesde(sesionId);
+    if (objetivo.length === 0) return;
+    const uniformes = {
+      tipoClaseId: changes.tipoClaseId, salaId: changes.salaId,
+      instructorId: changes.instructorId, aforoMaximo: changes.aforoMaximo, notas: changes.notas,
+    };
+    // Reconstruye inicio/fin de cada sesión con su propia fecha + la nueva hora.
+    const conHora = objetivo.map(s => {
+      const dia = localDateFromISO(s.inicio); // 'YYYY-MM-DD' local de la sesión
+      const inicio = new Date(`${dia}T${changes.horaInicio}:00`).toISOString();
+      const fin = new Date(`${dia}T${changes.horaFin}:00`).toISOString();
+      return { id: s.id, inicio, fin };
+    });
+    const ids = new Set(objetivo.map(s => s.id));
+    setSesiones(prev => prev.map(s => {
+      if (!ids.has(s.id)) return s;
+      const h = conHora.find(c => c.id === s.id)!;
+      return { ...s, ...uniformes, inicio: h.inicio, fin: h.fin };
+    }));
+    // Uniformes en batch (1 llamada) + hora por sesión (varía por fecha).
+    dbUpdateSesionesBatch([...ids], uniformes);
+    conHora.forEach(h => dbUpdateSesion(h.id, { inicio: h.inicio, fin: h.fin }));
+  }
+
+  // Cancela "esta y las siguientes" de una serie (p. ej. "cancelar la serie del
+  // verano") y avisa por email a las socias con plaza en cada sesión afectada.
+  function cancelarSerieDesde(sesionId: string) {
+    const objetivo = sesionesDeSerieDesde(sesionId).filter(s => !s.cancelada);
+    if (objetivo.length === 0) return;
+    const ids = objetivo.map(s => s.id);
+    const idSet = new Set(ids);
+    setSesiones(prev => prev.map(s => idSet.has(s.id) ? { ...s, cancelada: true } : s));
+    dbUpdateSesionesBatch(ids, { cancelada: true });
+    // Aviso a las socias con plaza en cualquiera de las sesiones canceladas.
+    notificarCancelacionSesiones(objetivo);
+  }
+
+  // Email de cancelación a cada socia con plaza (confirmada/asistida) en las
+  // sesiones dadas. Mismo criterio que la cancelación de una clase suelta.
+  function notificarCancelacionSesiones(sesionesCanceladas: Sesion[]) {
+    sesionesCanceladas.forEach(ses => {
+      const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
+      const sala = salas.find(x => x.id === ses.salaId);
+      const instructor = instructores.find(i => i.id === ses.instructorId);
+      const inicio = new Date(ses.inicio);
+      const fecha = inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+      const hora = inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      reservas
+        .filter(r => r.sesionId === ses.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
+        .forEach(r => {
+          const socia = socios.find(s => s.id === r.socioId);
+          if (!socia?.email) return;
+          enviarEmailCancelacionClase({
+            to: socia.email, toName: socia.nombre,
+            claseNombre: tipo?.nombre ?? 'Clase', fecha, hora,
+            sala: sala?.nombre ?? '', instructor: instructor?.nombre ?? '',
+          });
+        });
+    });
+  }
+
   // ── Reservas ─────────────────────────────────────────────────────────────────
 
   // Descuenta una sesión del bono activo del socio al confirmar una reserva.
@@ -1080,7 +1184,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
   }
 
-  function addReserva(sesionId: string, socioId: string): EstadoReserva {
+  function addReserva(sesionId: string, socioId: string, spotId?: string | null): EstadoReserva {
     const esPrimeraReserva = !reservas.some(r => r.socioId === socioId);
     const sesion = sesiones.find(s => s.id === sesionId);
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
@@ -1090,8 +1194,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (cpub) {
       // La creación real (con bono/renovación) la hace el servidor; el estado que
       // devolvemos es la estimación cliente (misma lógica pura); recargarPublico
-      // sincroniza el estado autoritativo.
-      postPublico('/api/public/reserva', { accion: 'crear', studioId: cpub.studioId, sesionId, socioId, email: cpub.email });
+      // sincroniza el estado autoritativo. spotId: el sitio que eligió la socia
+      // (solo se asigna si la reserva queda CONFIRMADA; el servidor lo valida).
+      postPublico('/api/public/reserva', { accion: 'crear', studioId: cpub.studioId, sesionId, socioId, email: cpub.email, spotId: spotId ?? null });
       return estado;
     }
 
@@ -1175,6 +1280,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const tipo = sesion ? tiposClase.find(t => t.id === sesion.tipoClaseId) : null;
       const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
       const clase = tipo?.nombre ?? 'la clase';
+      // Email a la socia ascendida: ahora "te avisaremos si se libera una plaza"
+      // es cierto también por la vía admin. Best-effort (Resend puede no estar).
+      if (socio?.email && sesion) {
+        const sala = salas.find(x => x.id === sesion.salaId);
+        const instructor = instructores.find(i => i.id === sesion.instructorId);
+        const inicio = new Date(sesion.inicio);
+        enviarEmailPromocion({
+          to: socio.email,
+          toName: socio.nombre,
+          claseNombre: clase,
+          fecha: inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }),
+          hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          sala: sala?.nombre ?? '',
+          instructor: instructor?.nombre ?? '',
+          bonoConsumido: true,
+        });
+      }
       setNotificaciones(prev => [{
         id: `notif-promo-${uid()}`,
         studioId: getCurrentStudioId(),
@@ -1237,6 +1359,32 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Nota: la sesión del bono ya se descuenta al confirmar la reserva
     // (ver consumirSesionBono en addReserva), no en el check-in, para evitar
     // el doble cobro y para que el saldo refleje las plazas ya comprometidas.
+  }
+
+  // Marca manualmente una reserva como NO_ASISTIO (recepción, cuando la socia no
+  // se presenta). No devuelve bono: la sesión ya se consumió al reservar. El
+  // barrido automático (cron no-shows) hace lo mismo para las que se olvidan.
+  function marcarNoShow(reservaId: string) {
+    setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'NO_ASISTIO' as const, checkInEn: null } : r));
+    dbUpdateReserva(reservaId, { estado: 'NO_ASISTIO', checkInEn: null });
+  }
+
+  // Deshacer un NO_ASISTIO (marcado por error) → vuelve a CONFIRMADA.
+  function revertirNoShow(reservaId: string) {
+    setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CONFIRMADA' as const, checkInEn: null } : r));
+    dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
+  }
+
+  // Deshacer un check-in hecho por error (I-4): revierte la asistencia
+  // (ASISTIDA → CONFIRMADA, borra checkInEn) para que recepción corrija un clic
+  // en la socia equivocada. NO retira los créditos ya otorgados en el check-in:
+  // el dedup UNIQUE(studio_id, trigger, ref_id) evita el doble crédito si se
+  // vuelve a hacer check-in de la misma reserva. La reversión del ledger de
+  // gamificación (logros/retos/premio de referido) queda fuera de alcance.
+  function deshacerCheckin(reservaId: string) {
+    setReservas(prev => prev.map(r => r.id === reservaId && r.estado === 'ASISTIDA'
+      ? { ...r, estado: 'CONFIRMADA' as const, checkInEn: null } : r));
+    dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
   }
 
   // Detectar planes MENSUAL caducados al cargar (una vez por sesión)
@@ -2197,9 +2345,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addSesion,
     updateSesion,
     deleteSesion,
+    addSesionesSerie,
+    editarSerieDesde,
+    cancelarSerieDesde,
     addReserva,
     cancelarReserva,
     checkin,
+    deshacerCheckin,
+    marcarNoShow,
+    revertirNoShow,
     liberarSpot,
     asignarSpot,
     addRecibo,

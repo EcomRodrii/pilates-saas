@@ -8,6 +8,48 @@
 
 import type { Reserva, EstadoReserva, Socio, RewardAction } from '@/lib/types';
 
+// ─── Política de cancelación (C-2) y de reservas (C-4) ────────────────────────
+
+// ¿La cancelación es "tardía"? Está dentro de la ventana previa al inicio de la
+// clase (o la clase ya empezó). ventanaHoras <= 0 desactiva la penalización
+// (toda cancelación se considera a tiempo → siempre se devuelve el bono).
+export function esCancelacionTardia(
+  inicioISO: string, ahora: Date, ventanaHoras: number,
+): boolean {
+  if (!ventanaHoras || ventanaHoras <= 0) return false;
+  const inicio = new Date(inicioISO).getTime();
+  const limite = inicio - ventanaHoras * 3600_000;
+  return ahora.getTime() >= limite;
+}
+
+// ¿Se le devuelve la sesión del bono al cancelar? Sí salvo que sea tardía y la
+// política del estudio no devuelva bono en cancelaciones tardías.
+export function debeDevolverBono(
+  inicioISO: string, ahora: Date, ventanaHoras: number, devolverEnTardia: boolean,
+): boolean {
+  if (devolverEnTardia) return true;
+  return !esCancelacionTardia(inicioISO, ahora, ventanaHoras);
+}
+
+// Nº de reservas activas de la socia en clases aún por empezar. Cuentan para el
+// tope de reservas simultáneas (C-4): CONFIRMADA y LISTA_ESPERA ocupan cupo.
+export function contarReservasActivasFuturas(
+  socioId: string,
+  reservas: Reserva[],
+  sesiones: { id: string; inicio: string }[],
+  ahora: Date,
+): number {
+  const t = ahora.getTime();
+  const futuras = new Set(
+    sesiones.filter(s => new Date(s.inicio).getTime() > t).map(s => s.id),
+  );
+  return reservas.filter(
+    r => r.socioId === socioId &&
+      (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA') &&
+      futuras.has(r.sesionId),
+  ).length;
+}
+
 // Plazas realmente ocupadas en una sesión: solo cuentan las confirmadas o ya
 // asistidas. La lista de espera NO ocupa aforo.
 export function plazasOcupadas(sesionId: string, reservas: Reserva[]): number {

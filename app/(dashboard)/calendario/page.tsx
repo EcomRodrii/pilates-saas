@@ -11,6 +11,10 @@ import {
   Clock, MapPin, Users, UserPlus, Pencil, Trash2, ArrowUpRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { enviarEmailCancelacionClase } from '@/lib/api-client';
+import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
+import { decidirReservaNueva } from '@/lib/booking-logic';
+import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import type { Socio, Spot } from '@/lib/types';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -78,6 +82,7 @@ interface SesionEnr {
   instructorId: string;
   notas: string | null;
   precioPuntual: number | null;
+  serieId?: string | null;
   tipoClase: { nombre: string; color: string };
   sala: { nombre: string };
   instructor: { nombre: string };
@@ -108,7 +113,7 @@ type RecurringFormData = {
   instructorId: string;
   salaId: string;
   horaInicio: string;
-  duracion: 45 | 60 | 90;
+  duracion: number;
   diasSemana: number[];
   fechaInicio: string;
   fechaFin: string;
@@ -150,12 +155,8 @@ const DIA_PILLS: { label: string; day: number }[] = [
 
 // ─── StatsBar ────────────────────────────────────────────────────────────────
 
-function ocupColorFor(ratio: number) {
-  if (ratio >= 1) return '#E23B4E';
-  if (ratio >= 0.85) return '#E0733E';
-  if (ratio >= 0.6) return '#C98A2E';
-  return '#3E9E6B';
-}
+// Semántica única de ocupación (I-13): ver lib/ocupacion.ts.
+const ocupColorFor = colorOcupacion;
 
 function StatsBar({ sesiones, todayStr }: {
   sesiones: SesionEnr[];
@@ -167,7 +168,7 @@ function StatsBar({ sesiones, todayStr }: {
   const libres = Math.max(0, aforo - reservas);
   const ocupPct = aforo > 0 ? Math.round((reservas / aforo) * 100) : 0;
   const ocupColor = ocupColorFor(ocupPct / 100);
-  const ocupLabel = ocupPct >= 85 ? 'Muy ocupado' : ocupPct >= 60 ? 'Buen ritmo' : 'Tranquilo';
+  const ocupLabel = etiquetaOcupacion(ocupPct / 100);
 
   return (
     <div className="flex gap-3 flex-wrap sm:flex-nowrap">
@@ -255,10 +256,14 @@ function SessionSidebar({
   spots,
   onClose,
   onCheckin,
+  onDeshacerCheckin,
+  onMarcarNoShow,
+  onRevertirNoShow,
   onCancelarReserva,
   onAddReserva,
   onOpenEdit,
   onCancelarSesion,
+  onCancelarSerie,
   onEliminarSesion,
   onLiberarSpot,
   onAsignarSpot,
@@ -269,10 +274,14 @@ function SessionSidebar({
   spots: Spot[];
   onClose: () => void;
   onCheckin: (reservaId: string) => void;
+  onDeshacerCheckin: (reservaId: string) => void;
+  onMarcarNoShow: (reservaId: string) => void;
+  onRevertirNoShow: (reservaId: string) => void;
   onCancelarReserva: (reservaId: string) => void;
   onAddReserva: (sesionId: string, socioId: string) => void;
   onOpenEdit: () => void;
   onCancelarSesion: () => void;
+  onCancelarSerie: () => void;
   onEliminarSesion: () => void;
   onLiberarSpot: (reservaId: string) => void;
   onAsignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
@@ -292,7 +301,7 @@ function SessionSidebar({
   if (!sesion) return null;
 
   const pct = sesion.aforoMaximo > 0 ? Math.round((sesion.confirmadas / sesion.aforoMaximo) * 100) : 0;
-  const barColor = pct >= 100 ? '#EF4444' : pct >= 70 ? '#F59E0B' : '#10B981';
+  const barColor = colorOcupacion(ratioOcupacion(sesion.confirmadas, sesion.aforoMaximo));
   const dark = isDark(sesion.tipoClase.color);
   const fechaLabel = new Date(sesion.inicio).toLocaleDateString('es-ES', {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -306,14 +315,22 @@ function SessionSidebar({
       <div className="h-2" style={{ backgroundColor: sesion.tipoClase.color }} />
       <div className="px-5 pt-4 pb-3 border-b border-border">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <span
-            className="inline-block text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full"
-            style={{ color: sesion.tipoClase.color, backgroundColor: hexToRgba(sesion.tipoClase.color, 0.14) }}
-          >
-            {sesion.tipoClase.nombre}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className="inline-block text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full"
+              style={{ color: sesion.tipoClase.color, backgroundColor: hexToRgba(sesion.tipoClase.color, 0.14) }}
+            >
+              {sesion.tipoClase.nombre}
+            </span>
+            {sesion.serieId && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                <RefreshCw size={10} />Serie
+              </span>
+            )}
+          </div>
           <button
             onClick={onClose}
+            aria-label="Cerrar panel"
             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors shrink-0"
           >
             <X size={15} />
@@ -391,24 +408,51 @@ function SessionSidebar({
             <p className="text-sm text-muted-foreground">
               {showConfirm === 'eliminar'
                 ? 'Se eliminará la clase y todas las reservas. Esta acción no se puede deshacer.'
-                : 'La clase quedará marcada como cancelada. Las socias serán notificadas.'}
+                : 'La clase quedará marcada como cancelada. Las socias con plaza recibirán un email de aviso.'}
             </p>
           </div>
-          <div className="flex gap-3 w-full">
-            <button
-              onClick={() => setShowConfirm(null)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted"
-            >
-              Volver
-            </button>
-            <button
-              onClick={() => { showConfirm === 'eliminar' ? onEliminarSesion() : onCancelarSesion(); setShowConfirm(null); }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-              style={{ backgroundColor: showConfirm === 'eliminar' ? '#EF4444' : '#D97706' }}
-            >
-              {showConfirm === 'eliminar' ? 'Eliminar' : 'Cancelar clase'}
-            </button>
-          </div>
+          {/* Serie (I-3): si la clase pertenece a una serie, se puede cancelar
+              solo esta o esta y las siguientes. */}
+          {showConfirm === 'cancelar' && sesion.serieId ? (
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                onClick={() => { onCancelarSesion(); setShowConfirm(null); }}
+                className="w-full py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ backgroundColor: '#D97706' }}
+              >
+                Cancelar solo esta clase
+              </button>
+              <button
+                onClick={() => { onCancelarSerie(); setShowConfirm(null); }}
+                className="w-full py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ backgroundColor: '#B45309' }}
+              >
+                Cancelar esta y las siguientes
+              </button>
+              <button
+                onClick={() => setShowConfirm(null)}
+                className="w-full py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted"
+              >
+                Volver
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => setShowConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted"
+              >
+                Volver
+              </button>
+              <button
+                onClick={() => { showConfirm === 'eliminar' ? onEliminarSesion() : onCancelarSesion(); setShowConfirm(null); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ backgroundColor: showConfirm === 'eliminar' ? '#EF4444' : '#D97706' }}
+              >
+                {showConfirm === 'eliminar' ? 'Eliminar' : 'Cancelar clase'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -425,7 +469,7 @@ function SessionSidebar({
                 : 'border-transparent text-muted-foreground hover:text-muted-foreground'
             )}
           >
-            {tab === 'asistentes' ? `Asistentes (${reservas.filter(r => r.estado !== 'LISTA_ESPERA' && r.estado !== 'CANCELADA').length})` : 'Mapa'}
+            {tab === 'asistentes' ? `Asistentes (${reservas.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length})` : 'Mapa'}
           </button>
         ))}
       </div>
@@ -500,6 +544,8 @@ function SessionSidebar({
                           ? { backgroundColor: '#D1FAE5', color: '#065F46' }
                           : r.estado === 'LISTA_ESPERA'
                           ? { backgroundColor: '#FEF3C7', color: '#92400E' }
+                          : r.estado === 'NO_ASISTIO'
+                          ? { backgroundColor: '#FEE2E2', color: '#B91C1C' }
                           : { backgroundColor: 'color-mix(in srgb, var(--brand) 10%, var(--card))', color: 'var(--brand)' }
                       }
                     >
@@ -512,27 +558,59 @@ function SessionSidebar({
                           ? `Espera #${r.posicionEspera}`
                           : r.estado === 'ASISTIDA'
                           ? 'Asistida'
+                          : r.estado === 'NO_ASISTIO'
+                          ? 'No asistió'
                           : 'Confirmada'}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {r.estado === 'CONFIRMADA' && (
-                        <button
-                          onClick={() => onCheckin(r.id)}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
-                          style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
-                        >
-                          <CheckCircle2 size={11} />Check-in
-                        </button>
+                        <>
+                          <button
+                            onClick={() => onCheckin(r.id)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                            style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
+                          >
+                            <CheckCircle2 size={11} />Check-in
+                          </button>
+                          <button
+                            onClick={() => onMarcarNoShow(r.id)}
+                            title="Marcar que no se presentó"
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                            style={{ backgroundColor: '#FEE2E2', color: '#B91C1C' }}
+                          >
+                            No vino
+                          </button>
+                        </>
                       )}
                       {r.estado === 'ASISTIDA' && (
-                        <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
-                          <CheckCircle2 size={11} />OK
-                        </span>
+                        <>
+                          <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
+                            <CheckCircle2 size={11} />OK
+                          </span>
+                          <button
+                            onClick={() => onDeshacerCheckin(r.id)}
+                            title="Deshacer check-in (vuelve a confirmada)"
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-muted-foreground hover:bg-muted transition-colors"
+                          >
+                            <RefreshCw size={11} />Deshacer
+                          </button>
+                        </>
+                      )}
+                      {r.estado === 'NO_ASISTIO' && (
+                        <button
+                          onClick={() => onRevertirNoShow(r.id)}
+                          title="Deshacer: volver a confirmada"
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                          style={{ backgroundColor: '#FEE2E2', color: '#B91C1C' }}
+                        >
+                          <RefreshCw size={11} />Deshacer
+                        </button>
                       )}
                       <button
                         onClick={() => onCancelarReserva(r.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        aria-label="Quitar reserva"
+                        className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-400 transition-colors opacity-60 group-hover:opacity-100"
                       >
                         <X size={12} />
                       </button>
@@ -564,7 +642,8 @@ function SessionSidebar({
       {/* Footer: kiosk link */}
       <div className="px-5 py-3 border-t border-border">
         <a
-          href={`/kiosk/${studio?.slug ?? 'tentare'}`}
+          href={studio?.slug ? `/kiosk/${studio.slug}` : '#'}
+          aria-disabled={!studio?.slug}
           className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowUpRight size={13} />Ver en modo kiosk
@@ -577,7 +656,7 @@ function SessionSidebar({
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
 
 function ModalClasesRecurrentes({
-  open, onClose, tiposClase, instructores, salas, onCrear,
+  open, onClose, tiposClase, instructores, salas, onCrear, sesionesExistentes,
 }: {
   open: boolean;
   onClose: () => void;
@@ -585,6 +664,7 @@ function ModalClasesRecurrentes({
   instructores: { id: string; nombre: string }[];
   salas: { id: string; nombre: string }[];
   onCrear: (sesiones: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]) => void;
+  sesionesExistentes: SlotSesion[];
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const inOneMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -617,40 +697,27 @@ function ModalClasesRecurrentes({
     }));
   }
 
-  const estimatedCount = (() => {
-    if (!form.fechaInicio || !form.fechaFin || form.diasSemana.length === 0) return 0;
+  // Genera las sesiones de la serie (misma lógica de fecha/hora que la clase
+  // única: localDate + UTC ISO con Z). Un solo sitio, reutilizado por el conteo,
+  // el aviso de conflictos y el submit.
+  const sesionesGeneradas = useMemo<Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]>(() => {
+    if (!form.fechaInicio || !form.fechaFin || form.diasSemana.length === 0) return [];
     const start = new Date(form.fechaInicio + 'T00:00:00');
     const end = new Date(form.fechaFin + 'T00:00:00');
-    if (start > end) return 0;
-    let count = 0;
-    const cursor = new Date(start);
-    while (cursor <= end) {
-      if (form.diasSemana.includes(cursor.getDay())) count++;
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    return count;
-  })();
-
-  function handleSubmit() {
-    if (form.diasSemana.length === 0) return;
-    const start = new Date(form.fechaInicio + 'T00:00:00');
-    const end = new Date(form.fechaFin + 'T00:00:00');
-    if (start > end) return;
-
-    const sesionesFields: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[] = [];
+    if (start > end) return [];
+    const out: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[] = [];
     const cursor = new Date(start);
     while (cursor <= end) {
       if (form.diasSemana.includes(cursor.getDay())) {
-        const dateStr = cursor.toISOString().slice(0, 10);
-        const inicioISO = `${dateStr}T${form.horaInicio}:00`;
-        const finDate = new Date(inicioISO);
-        finDate.setMinutes(finDate.getMinutes() + form.duracion);
-        sesionesFields.push({
+        const dateStr = localDate(cursor);
+        const inicio = new Date(`${dateStr}T${form.horaInicio}:00`);
+        const fin = new Date(inicio.getTime() + form.duracion * 60000);
+        out.push({
           tipoClaseId: form.tipoClaseId,
           instructorId: form.instructorId,
           salaId: form.salaId,
-          inicio: inicioISO,
-          fin: finDate.toISOString().slice(0, 19),
+          inicio: inicio.toISOString(),
+          fin: fin.toISOString(),
           aforoMaximo: form.aforoMaximo,
           cancelada: false,
           notas: null,
@@ -659,7 +726,23 @@ function ModalClasesRecurrentes({
       }
       cursor.setDate(cursor.getDate() + 1);
     }
-    onCrear(sesionesFields);
+    return out;
+  }, [form]);
+
+  const estimatedCount = sesionesGeneradas.length;
+
+  // Cuántas de las clases generadas solapan una sala/instructora ya programada.
+  const conflictosCount = useMemo(() =>
+    sesionesGeneradas.filter(s => hayConflicto(detectarConflictos(
+      { salaId: s.salaId, instructorId: s.instructorId, inicio: s.inicio, fin: s.fin },
+      sesionesExistentes,
+    ))).length,
+    [sesionesGeneradas, sesionesExistentes]
+  );
+
+  function handleSubmit() {
+    if (sesionesGeneradas.length === 0) return;
+    onCrear(sesionesGeneradas);
   }
 
   const f2 = 'w-full border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-foreground focus:outline-none text-foreground';
@@ -697,12 +780,10 @@ function ModalClasesRecurrentes({
               <input type="time" className={f2} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Duración</label>
-              <select className={s2} value={form.duracion} onChange={e => setForm(f => ({ ...f, duracion: Number(e.target.value) as 45 | 60 | 90 }))}>
-                <option value={45}>45 min</option>
-                <option value={60}>60 min</option>
-                <option value={90}>90 min</option>
-              </select>
+              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Duración (min)</label>
+              <input type="number" min={15} max={300} step={5} className={f2}
+                value={form.duracion}
+                onChange={e => setForm(f => ({ ...f, duracion: Math.max(15, Number(e.target.value)) }))} />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -726,12 +807,20 @@ function ModalClasesRecurrentes({
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground uppercase tracking-wider">Aforo máximo</label>
-            <input type="number" min={1} max={50} className={f2} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
+            <input type="number" min={1} max={300} className={f2} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
           </div>
           {estimatedCount > 0 && (
             <div className="rounded-xl bg-muted px-4 py-3 flex items-center gap-2">
               <CalendarDays size={15} className="text-muted-foreground shrink-0" />
               <p className="text-sm font-semibold text-foreground">Se crearán <span className="font-bold">{estimatedCount}</span> clases</p>
+            </div>
+          )}
+          {conflictosCount > 0 && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center gap-2">
+              <AlertTriangle size={15} className="text-amber-600 shrink-0" />
+              <p className="text-sm font-semibold text-amber-800">
+                {conflictosCount} de estas clases se solapan con la sala o la instructora ya programadas.
+              </p>
             </div>
           )}
         </div>
@@ -988,12 +1077,17 @@ function WeekGrid({
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
-    addSesion, updateSesion, deleteSesion, addReserva, cancelarReserva, checkin, liberarSpot, asignarSpot,
+    addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde, cancelarSerieDesde,
+    addReserva, cancelarReserva, checkin,
+    deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
   } = useStudio();
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
+  // Antes de montar se devuelve null (no se pinta el grid), así que este valor
+  // no se renderiza: solo evita new Date() en SSR (mismatch de hidratación). Su
+  // valor concreto es irrelevante.
   const [mounted, setMounted] = useState(false);
-  const FALLBACK = new Date('2026-06-29');
+  const FALLBACK = new Date('2026-01-01T12:00:00');
 
   // ── Week state ────────────────────────────────────────────────────────────────
   const [semana, setSemana] = useState(() => weekStart(FALLBACK));
@@ -1098,6 +1192,34 @@ export default function Calendario() {
     [sesionActual, reservas, socios, spots]
   );
 
+  // ── Conflictos de sala/instructora (I-1) y aforo (I-2) del formulario abierto ──
+  // Se recalcula en vivo con los valores del form para avisar antes de guardar.
+  const conflictosForm = useMemo(() => {
+    if (!showForm || !form.fecha || !form.horaInicio || !form.horaFin) return null;
+    const inicio = toISO(form.fecha, form.horaInicio);
+    const fin = toISO(form.fecha, form.horaFin);
+    if (new Date(fin).getTime() <= new Date(inicio).getTime()) return null;
+    const existentes: SlotSesion[] = sesiones.map(s => ({
+      id: s.id, salaId: s.salaId, instructorId: s.instructorId,
+      inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
+    }));
+    const c = detectarConflictos(
+      { salaId: form.salaId, instructorId: form.instructorId, inicio, fin },
+      existentes,
+      showForm === 'editar' ? sesionId ?? undefined : undefined,
+    );
+    return hayConflicto(c) ? c : null;
+  }, [showForm, form.fecha, form.horaInicio, form.horaFin, form.salaId, form.instructorId, sesiones, sesionId]);
+
+  // I-2: al editar, cuántas confirmadas quedarían fuera si se baja el aforo.
+  const aforoSobrante = useMemo(() => {
+    if (showForm !== 'editar' || !sesionActual) return 0;
+    return plazasSobrantesTrasAforo(sesionActual.confirmadas, form.aforoMaximo);
+  }, [showForm, sesionActual, form.aforoMaximo]);
+
+  const nombreSala = (id: string | null) => salas.find(s => s.id === id)?.nombre ?? 'sala';
+  const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'instructora';
+
   // ── Calendar navigation ──────────────────────────────────────────────────────
   function cambiarSemana(delta: number) {
     setSemana(prev => addDays(prev, delta * 7));
@@ -1168,11 +1290,69 @@ export default function Calendario() {
     setToast('Clase actualizada');
   }
 
+  // Edita "esta y las siguientes" de la serie (I-3): aplica tipo/sala/instructora/
+  // aforo/notas y la hora (manteniendo la fecha de cada sesión). La fecha del
+  // form no se propaga —cada sesión conserva su día—, solo la hora.
+  function editarSerie() {
+    if (!sesionId) return;
+    const n = sesionesEnriquecidas.filter(s => {
+      const base = sesionesEnriquecidas.find(x => x.id === sesionId);
+      return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio;
+    }).length;
+    editarSerieDesde(sesionId, {
+      tipoClaseId: form.tipoClaseId,
+      salaId: form.salaId,
+      instructorId: form.instructorId,
+      aforoMaximo: form.aforoMaximo,
+      notas: form.notas || null,
+      horaInicio: form.horaInicio,
+      horaFin: form.horaFin,
+    });
+    setShowForm(null);
+    setToast(`Serie actualizada · ${n} clases`);
+  }
+
   function cancelarSesion() {
     if (!sesionId) return;
+    // Avisar por email a cada socia con plaza (confirmada/asistida) ANTES de
+    // limpiar la selección: la promesa "las socias serán notificadas" ahora se
+    // cumple. Best-effort (si Resend no está, no bloquea la cancelación).
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    if (sesion) {
+      const inicio = new Date(sesion.inicio);
+      const fecha = inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+      const hora = inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      reservas
+        .filter(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
+        .forEach(r => {
+          const socia = socios.find(s => s.id === r.socioId);
+          if (!socia?.email) return;
+          enviarEmailCancelacionClase({
+            to: socia.email,
+            toName: socia.nombre,
+            claseNombre: sesion.tipoClase.nombre,
+            fecha, hora,
+            sala: sesion.sala.nombre,
+            instructor: sesion.instructor.nombre,
+          });
+        });
+    }
     updateSesion(sesionId, { cancelada: true });
     setSesionId(null);
-    setToast('Clase cancelada');
+    setToast('Clase cancelada · socias avisadas');
+  }
+
+  // Cancela "esta y las siguientes" de la serie (I-3). El contexto avisa por
+  // email a las socias con plaza de cada sesión afectada.
+  function cancelarSerie() {
+    if (!sesionId) return;
+    const n = sesionesEnriquecidas.filter(s => {
+      const base = sesionesEnriquecidas.find(x => x.id === sesionId);
+      return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio && !s.cancelada;
+    }).length;
+    cancelarSerieDesde(sesionId);
+    setSesionId(null);
+    setToast(`Serie cancelada · ${n} clases · socias avisadas`);
   }
 
   function eliminarSesion() {
@@ -1183,9 +1363,25 @@ export default function Calendario() {
   }
 
   function crearClasesRecurrentes(sesionesFields: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]) {
-    sesionesFields.forEach(s => addSesion(s));
-    setToast(`Se han creado ${sesionesFields.length} clases`);
+    // Serie recurrente (I-3): un solo serie_id compartido + inserción en batch,
+    // en vez de N inserts sueltos. Permite luego editar/cancelar "esta y futuras".
+    addSesionesSerie(sesionesFields);
+    setToast(`Serie creada · ${sesionesFields.length} clases`);
     setShowRecurrentes(false);
+  }
+
+  // Añade una socia a la clase informando del resultado (I-6): si la clase está
+  // llena, va a lista de espera y se avisa con su posición — antes el estado se
+  // descartaba y recepción le decía "ya estás dentro" a alguien en espera.
+  function handleAddReserva(sesionId: string, socioId: string) {
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    const socio = socios.find(s => s.id === socioId);
+    const nombre = socio ? socio.nombre : 'La socia';
+    const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
+    addReserva(sesionId, socioId);
+    setToast(estado === 'LISTA_ESPERA'
+      ? `Clase llena — ${nombre} va a lista de espera (nº ${posicionEspera})`
+      : `${nombre} añadida a la clase`);
   }
 
   // ── Label ────────────────────────────────────────────────────────────────────
@@ -1211,7 +1407,7 @@ export default function Calendario() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Type legend */}
+          {/* Type legend (con indicador +N si hay más tipos que los mostrados) */}
           {tiposClase.length > 0 && (
             <div className="hidden lg:flex items-center gap-3 mr-1">
               {tiposClase.slice(0, 4).map(t => (
@@ -1220,6 +1416,11 @@ export default function Calendario() {
                   <span className="text-xs font-semibold text-muted-foreground">{t.nombre}</span>
                 </div>
               ))}
+              {tiposClase.length > 4 && (
+                <span className="text-xs font-semibold text-muted-foreground" title={tiposClase.slice(4).map(t => t.nombre).join(', ')}>
+                  +{tiposClase.length - 4}
+                </span>
+              )}
             </div>
           )}
 
@@ -1227,6 +1428,7 @@ export default function Calendario() {
           <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
             <button
               onClick={() => cambiarSemana(-1)}
+              aria-label="Semana anterior"
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <ChevronLeft size={16} />
@@ -1239,6 +1441,7 @@ export default function Calendario() {
             </button>
             <button
               onClick={() => cambiarSemana(1)}
+              aria-label="Semana siguiente"
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <ChevronRight size={16} />
@@ -1256,6 +1459,7 @@ export default function Calendario() {
               </button>
               <button
                 onClick={() => setShowNuevaMenu(v => !v)}
+                aria-label="Más opciones para crear clase"
                 className="px-2 py-2 text-white hover:bg-card/10 transition-colors border-l border-white/20"
               >
                 <ChevronDown size={14} />
@@ -1358,10 +1562,14 @@ export default function Calendario() {
               spots={spots}
               onClose={() => setSesionId(null)}
               onCheckin={checkin}
+              onDeshacerCheckin={deshacerCheckin}
+              onMarcarNoShow={marcarNoShow}
+              onRevertirNoShow={revertirNoShow}
               onCancelarReserva={cancelarReserva}
-              onAddReserva={addReserva}
+              onAddReserva={handleAddReserva}
               onOpenEdit={openEdit}
               onCancelarSesion={cancelarSesion}
+              onCancelarSerie={cancelarSerie}
               onEliminarSesion={eliminarSesion}
               onLiberarSpot={liberarSpot}
               onAsignarSpot={asignarSpot}
@@ -1380,7 +1588,7 @@ export default function Calendario() {
               <h2 className="text-lg font-extrabold text-foreground tracking-tight">
                 {showForm === 'nueva' ? 'Nueva clase' : 'Editar clase'}
               </h2>
-              <button onClick={() => setShowForm(null)} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-border transition-colors">
+              <button onClick={() => setShowForm(null)} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-border transition-colors">
                 <X size={16} className="text-foreground" />
               </button>
             </div>
@@ -1414,7 +1622,7 @@ export default function Calendario() {
                 </FormField>
               </div>
               <FormField label="Aforo máximo">
-                <input type="number" min={1} max={50} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
+                <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
               </FormField>
               {showForm === 'nueva' && (
                 <label className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-muted/60 border border-border cursor-pointer">
@@ -1455,19 +1663,63 @@ export default function Calendario() {
                 />
               </FormField>
             </div>
-            <div className="px-6 py-5 border-t border-border flex gap-3 shrink-0">
-              <button onClick={() => setShowForm(null)} className="flex-1 py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors">
-                Cancelar
-              </button>
-              <button
-                onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-                className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand"
-              >
-                {showForm === 'nueva'
-                  ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'
-                  : 'Guardar cambios'}
-              </button>
-            </div>
+
+            {/* Avisos de conflicto (I-1) y aforo (I-2) — no bloquean, informan */}
+            {(conflictosForm || aforoSobrante > 0) && (
+              <div className="px-6 pb-1 shrink-0 space-y-2">
+                {conflictosForm && (
+                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 flex gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                    <div className="space-y-0.5">
+                      {conflictosForm.sala.length > 0 && (
+                        <p><span className="font-bold">{nombreSala(form.salaId)}</span> ya está ocupada: {conflictosForm.sala.map(c => `${formatHora(c.inicio)}–${formatHora(c.fin)}`).join(', ')}</p>
+                      )}
+                      {conflictosForm.instructor.length > 0 && (
+                        <p><span className="font-bold">{nombreInstructor(form.instructorId)}</span> ya tiene clase: {conflictosForm.instructor.map(c => `${formatHora(c.inicio)}–${formatHora(c.fin)}`).join(', ')}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {aforoSobrante > 0 && (
+                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 flex gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                    <p>Hay <span className="font-bold">{sesionActual?.confirmadas} confirmada{(sesionActual?.confirmadas ?? 0) !== 1 ? 's' : ''}</span> y bajas el aforo a {form.aforoMaximo}: {aforoSobrante} quedaría{aforoSobrante !== 1 ? 'n' : ''} por encima del cupo. No se moverán a lista de espera automáticamente.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {showForm === 'editar' && sesionActual?.serieId ? (
+              // Serie (I-3): editar solo esta clase o esta y las siguientes.
+              <div className="px-6 py-5 border-t border-border flex flex-col gap-2 shrink-0">
+                <button
+                  onClick={editarSesion}
+                  className="w-full py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand"
+                >
+                  Guardar solo esta clase
+                </button>
+                <button
+                  onClick={editarSerie}
+                  className="w-full py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors"
+                >
+                  Guardar esta y las siguientes
+                </button>
+              </div>
+            ) : (
+              <div className="px-6 py-5 border-t border-border flex gap-3 shrink-0">
+                <button onClick={() => setShowForm(null)} className="flex-1 py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors">
+                  Cancelar
+                </button>
+                <button
+                  onClick={showForm === 'nueva' ? crearSesion : editarSesion}
+                  className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand"
+                >
+                  {showForm === 'nueva'
+                    ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'
+                    : 'Guardar cambios'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1480,6 +1732,10 @@ export default function Calendario() {
         instructores={instructores}
         salas={salas}
         onCrear={crearClasesRecurrentes}
+        sesionesExistentes={sesiones.map(s => ({
+          id: s.id, salaId: s.salaId, instructorId: s.instructorId,
+          inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
+        }))}
       />
 
       {/* ── Toast ──────────────────────────────────────────────────────────────── */}

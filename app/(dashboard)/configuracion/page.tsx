@@ -1601,14 +1601,33 @@ function studioToForm(s: Studio | null): StudioForm {
   };
 }
 
+type PoliticaForm = {
+  cancelacionVentanaHoras: number;
+  cancelacionDevolverBonoTardia: boolean;
+  reservaExigirPlan: boolean;
+  reservaMaxSimultaneas: number | null;
+};
+
+function studioToPolitica(s: Studio | null): PoliticaForm {
+  return {
+    cancelacionVentanaHoras: s?.cancelacionVentanaHoras ?? 12,
+    cancelacionDevolverBonoTardia: s?.cancelacionDevolverBonoTardia ?? false,
+    reservaExigirPlan: s?.reservaExigirPlan ?? false,
+    reservaMaxSimultaneas: s?.reservaMaxSimultaneas ?? null,
+  };
+}
+
 function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   const { resetDatosPilates, studioConfig, updateStudioConfig, studio, updateStudio } = useStudio();
   const [confirmReset, setConfirmReset] = useState(false);
   const [politica, setPolitica] = useState(studioConfig.politicaPrivacidad);
   const [terminos, setTerminos] = useState(studioConfig.terminosServicio);
   const [form, setForm] = useState<StudioForm>(() => studioToForm(studio));
+  // Política de reservas/cancelaciones (C-2/C-4). Estado propio, tarjeta aparte.
+  const [pol, setPol] = useState(() => studioToPolitica(studio));
 
   useEffect(() => { setForm(studioToForm(studio)); }, [studio]);
+  useEffect(() => { setPol(studioToPolitica(studio)); }, [studio]);
 
   const handleReset = useCallback(() => {
     resetDatosPilates();
@@ -1618,6 +1637,11 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   function guardarEstudio() {
     updateStudio(form);
     showToast('Datos del estudio guardados');
+  }
+
+  function guardarPolitica() {
+    updateStudio(pol);
+    showToast('Política de reservas guardada');
   }
 
   return (
@@ -1661,6 +1685,56 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         </div>
         <button onClick={guardarEstudio} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
           Guardar datos del estudio
+        </button>
+      </div>
+
+      {/* Reservas y cancelaciones (C-2/C-4) */}
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Reservas y cancelaciones</h3>
+        <p className="text-[12px] text-muted-foreground mb-4">
+          Reglas que se aplican cuando una socia reserva o cancela desde el portal público.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <p className={labelCls}>Ventana de cancelación (horas)</p>
+            <input
+              type="number" min={0} max={168} className={inputCls}
+              value={pol.cancelacionVentanaHoras}
+              onChange={e => setPol(p => ({ ...p, cancelacionVentanaHoras: Math.max(0, Number(e.target.value)) }))}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Cancelar con menos antelación se considera tardío. 0 = sin penalización.
+            </p>
+          </div>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-[13px] text-foreground">
+              Devolver la sesión del bono en cancelaciones tardías
+              <span className="block text-[11px] text-muted-foreground">Desactivado: una cancelación tardía pierde la sesión (recomendado).</span>
+            </span>
+            <Toggle on={pol.cancelacionDevolverBonoTardia} onChange={v => setPol(p => ({ ...p, cancelacionDevolverBonoTardia: v }))} />
+          </label>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-[13px] text-foreground">
+              Exigir plan o bono activo para reservar
+              <span className="block text-[11px] text-muted-foreground">La socia necesita una suscripción activa o bono con sesiones para reservar.</span>
+            </span>
+            <Toggle on={pol.reservaExigirPlan} onChange={v => setPol(p => ({ ...p, reservaExigirPlan: v }))} />
+          </label>
+          <div>
+            <p className={labelCls}>Máximo de reservas simultáneas por socia</p>
+            <input
+              type="number" min={0} max={99} className={inputCls}
+              placeholder="Sin límite"
+              value={pol.reservaMaxSimultaneas ?? ''}
+              onChange={e => setPol(p => ({ ...p, reservaMaxSimultaneas: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) }))}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Reservas activas en clases futuras. Vacío = sin límite.
+            </p>
+          </div>
+        </div>
+        <button onClick={guardarPolitica} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
+          Guardar política de reservas
         </button>
       </div>
 

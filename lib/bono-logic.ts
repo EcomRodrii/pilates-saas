@@ -37,3 +37,21 @@ export function calcularDevolucionBono(sesionesRestantes: number, planSesiones: 
   const tope = planSesiones ?? Number.POSITIVE_INFINITY;
   return Math.min(tope, sesionesRestantes + 1);
 }
+
+// C-4: ¿la socia tiene derecho a reservar? Cierto si tiene una suscripción
+// ACTIVA que sea o bien un plan MENSUAL vigente (sin fecha fin, o fin >= hoy),
+// o bien un BONO/PUNTUAL con al menos una sesión restante. hoyISO = 'YYYY-MM-DD'.
+export function tieneEntitlementActivo(
+  socioId: string,
+  suscripciones: Suscripcion[],
+  planesTarifa: PlanTarifa[],
+  hoyISO: string,
+): boolean {
+  return suscripciones.some(sus => {
+    if (sus.socioId !== socioId || sus.estado !== 'ACTIVA') return false;
+    const plan = planesTarifa.find(p => p.id === sus.planId);
+    if (!plan) return false;
+    if (plan.tipo === 'MENSUAL') return !sus.fechaFin || sus.fechaFin >= hoyISO;
+    return (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && (sus.sesionesRestantes ?? 0) > 0;
+  });
+}

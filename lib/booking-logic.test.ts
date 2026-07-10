@@ -10,6 +10,9 @@ import {
   esPrimeraAsistencia,
   contarReferidosPremiadosMes,
   decidirPremioReferido,
+  esCancelacionTardia,
+  debeDevolverBono,
+  contarReservasActivasFuturas,
 } from './booking-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -151,4 +154,67 @@ test('respeta el tope mensual: premia por debajo, no premia al alcanzarlo', () =
     socia: socia({ id: 'nueva', referidoPor: 'ref1' }), reservasTrasCheckin: primeraAsistencia,
     rewardActions: unoEsteMes, topeMensual: 1, ahora,
   }).premiar, false);
+});
+
+// ── esCancelacionTardia / debeDevolverBono (C-2) ──────────────────────────────
+const INICIO = '2026-07-13T08:00:00.000Z'; // clase a las 08:00 UTC
+
+test('esCancelacionTardia: fuera de la ventana (con antelación) = no tardía', () => {
+  const ahora = new Date('2026-07-12T08:00:00.000Z'); // 24h antes
+  assert.equal(esCancelacionTardia(INICIO, ahora, 12), false);
+});
+
+test('esCancelacionTardia: dentro de la ventana = tardía', () => {
+  const ahora = new Date('2026-07-13T02:00:00.000Z'); // 6h antes (< 12h)
+  assert.equal(esCancelacionTardia(INICIO, ahora, 12), true);
+});
+
+test('esCancelacionTardia: justo en el límite de la ventana = tardía', () => {
+  const ahora = new Date('2026-07-12T20:00:00.000Z'); // exactamente 12h antes
+  assert.equal(esCancelacionTardia(INICIO, ahora, 12), true);
+});
+
+test('esCancelacionTardia: ventana 0 desactiva la penalización', () => {
+  const ahora = new Date('2026-07-13T07:59:00.000Z'); // 1 min antes
+  assert.equal(esCancelacionTardia(INICIO, ahora, 0), false);
+});
+
+test('debeDevolverBono: a tiempo → devuelve', () => {
+  const ahora = new Date('2026-07-12T08:00:00.000Z');
+  assert.equal(debeDevolverBono(INICIO, ahora, 12, false), true);
+});
+
+test('debeDevolverBono: tardía y política no devuelve → NO devuelve', () => {
+  const ahora = new Date('2026-07-13T02:00:00.000Z');
+  assert.equal(debeDevolverBono(INICIO, ahora, 12, false), false);
+});
+
+test('debeDevolverBono: tardía pero política sí devuelve → devuelve', () => {
+  const ahora = new Date('2026-07-13T02:00:00.000Z');
+  assert.equal(debeDevolverBono(INICIO, ahora, 12, true), true);
+});
+
+// ── contarReservasActivasFuturas (C-4) ────────────────────────────────────────
+test('contarReservasActivasFuturas: cuenta CONFIRMADA y LISTA_ESPERA en clases futuras', () => {
+  const ahora = new Date('2026-07-10T00:00:00.000Z');
+  const sesiones = [
+    { id: 'fut1', inicio: '2026-07-11T08:00:00.000Z' },
+    { id: 'fut2', inicio: '2026-07-12T08:00:00.000Z' },
+    { id: 'pas1', inicio: '2026-07-09T08:00:00.000Z' }, // pasada
+  ];
+  const rs: Reserva[] = [
+    res({ sesionId: 'fut1', socioId: 'a', estado: 'CONFIRMADA' }),
+    res({ sesionId: 'fut2', socioId: 'a', estado: 'LISTA_ESPERA' }),
+    res({ sesionId: 'pas1', socioId: 'a', estado: 'CONFIRMADA' }), // pasada, no cuenta
+    res({ sesionId: 'fut1', socioId: 'a', estado: 'CANCELADA' }),  // cancelada, no cuenta
+    res({ sesionId: 'fut1', socioId: 'b', estado: 'CONFIRMADA' }), // otra socia
+  ];
+  assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 2);
+});
+
+test('contarReservasActivasFuturas: 0 si no hay clases futuras activas', () => {
+  const ahora = new Date('2026-07-10T00:00:00.000Z');
+  const sesiones = [{ id: 'pas1', inicio: '2026-07-09T08:00:00.000Z' }];
+  const rs: Reserva[] = [res({ sesionId: 'pas1', socioId: 'a', estado: 'CONFIRMADA' })];
+  assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 0);
 });

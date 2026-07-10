@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
     studioId?: string;
     sesionId?: string;
     reservaId?: string;
+    spotId?: string | null;
   } | null;
 
   if (!body?.studioId) {
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     if (body.accion === 'crear') {
       if (!body.sesionId) return NextResponse.json({ error: 'Falta la sesión' }, { status: 400 });
       const r = await crearReservaPublica({
-        studioId: body.studioId, sesionId: body.sesionId, socioId, email: user.email,
+        studioId: body.studioId, sesionId: body.sesionId, socioId, email: user.email, spotId: body.spotId ?? null,
       });
       if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
       return NextResponse.json(r);
