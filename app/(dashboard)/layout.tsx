@@ -7,6 +7,7 @@ import { Topbar } from '@/components/layout/topbar';
 import { useAuth } from '@/lib/auth-context';
 import { usePermisos } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
+import { estadoBilling } from '@/lib/api-client';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -16,6 +17,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!loading && !session) router.replace('/login');
+  }, [loading, session, router]);
+
+  // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
+  // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción
+  // activa. Con la enforcement apagada (por defecto) nunca redirige.
+  useEffect(() => {
+    if (loading || !session) return;
+    let vivo = true;
+    estadoBilling().then((e) => {
+      if (vivo && e?.bloqueado) router.replace('/suscripcion');
+    });
+    return () => { vivo = false; };
   }, [loading, session, router]);
 
   const autorizado = puedeVer(pathname);

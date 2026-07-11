@@ -55,6 +55,7 @@ const navSections = [
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
       { href: '/configuracion', label: 'Mi estudio', icon: Settings },
+      { href: '/suscripcion', label: 'Suscripción', icon: CreditCard },
     ],
   },
 ];
