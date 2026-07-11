@@ -16,21 +16,24 @@ export interface Entitlements {
     marketing: boolean;    // campañas, automatizaciones de marketing
     ia: boolean;           // asistente de campañas, notas de instructor con IA
     multiCentro: boolean;  // cadena con varios centros
+    decisiones: boolean;   // Decision OS / Centro de Control — gate de plan; el
+                            // encendido operativo real por estudio vive en
+                            // decision_feature_flags (DECISION-OS-MODELO-DATOS.md §2.11)
   };
 }
 
 export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
   BASE: {
     maxSocios: 150,
-    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false },
+    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false },
   },
   ESTUDIO: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true },
   },
   CADENA: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: true },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: true, decisiones: true },
   },
 };
 

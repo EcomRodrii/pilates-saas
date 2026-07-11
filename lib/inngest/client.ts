@@ -11,4 +11,8 @@ export const inngest = new Inngest({ id: 'pilates-saas' });
 // Nombres de eventos, centralizados para no escribir strings sueltos.
 export const EVENTS = {
   AUTOMATIZACIONES_ESTUDIO: 'automatizaciones/studio.process',
+  // Decision OS (DECISION-OS-ARQUITECTURA.md §6) — additivo, no toca los de arriba.
+  DECISION_ANALYZE: 'decision/studio.analyze',
+  DECISION_APPROVED: 'decision/recommendation.approved',
+  DECISION_MEASURE: 'decision/outcome.measure',
 } as const;

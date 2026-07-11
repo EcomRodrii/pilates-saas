@@ -6,6 +6,12 @@ import {
   automatizacionesDispatcher,
   procesarEstudioAutomatizaciones,
 } from '@/lib/inngest/automatizaciones';
+import {
+  decisionDispatcher,
+  analizarEstudio,
+  ejecutarRecomendacion,
+  medirOutcomeFn,
+} from '@/lib/inngest/decision';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -17,5 +23,9 @@ export const { GET, POST, PUT } = serve({
   functions: [
     automatizacionesDispatcher,
     procesarEstudioAutomatizaciones,
+    decisionDispatcher,
+    analizarEstudio,
+    ejecutarRecomendacion,
+    medirOutcomeFn,
   ],
 });

@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Stripe from 'stripe';
-import { supabase } from '@/lib/supabase';
-import { dbUpdateRecibo, dbUpdateAutomationLog } from '@/lib/supabase-data';
+import { dbUpdateAutomationLog } from '@/lib/supabase-data';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/stripe-cobros';
 
 // Cobra un recibo pendiente usando la tarjeta ya guardada de la socia, sin
 // que ella tenga que hacer nada. Solo se llama cuando alguien del estudio
 // aprueba la propuesta de cobro con un toque desde Automatizaciones — nunca
 // se dispara en automático sin esa aprobación humana explícita.
+// Lógica de cobro en lib/stripe-cobros.ts (compartida con el ejecutor del
+// Decision OS, DECISION-OS-ARQUITECTURA.md §12 punto 7).
+const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
+  NO_CONFIGURADO: 503,
+  NO_ENCONTRADO: 404,
+  NO_PENDIENTE: 409,
+  SIN_TARJETA: 409,
+  SIN_STRIPE_CONECTADO: 409,
+  FALLO_COBRO: 402,
+};
+
 export async function POST(req: NextRequest) {
   // SEGURIDAD: solo staff autenticado, y solo puede cobrar recibos de SU estudio.
   // Sin esto, cualquiera podía cargar una tarjeta guardada pasando IDs.
@@ -16,69 +26,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key || key.startsWith('sk_test_XXXX')) {
-    return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
-  }
-  const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
-
   const body = await req.json() as { logId: string; reciboId: string; socioId: string; studioId: string };
 
   if (body.studioId !== sesion.studioId) {
     return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
   }
 
-  const [{ data: recibo, error: reciboError }, { data: socio, error: socioError }, { data: studio, error: studioError }] = await Promise.all([
-    supabase.from('recibos').select('*').eq('id', body.reciboId).single(),
-    supabase.from('socios').select('*').eq('id', body.socioId).single(),
-    supabase.from('studios').select('stripe_account_id').eq('id', body.studioId).single(),
-  ]);
+  const resultado = await cobrarReciboOffSession({
+    reciboId: body.reciboId,
+    socioId: body.socioId,
+    studioId: body.studioId,
+    // El logId ya era el identificador natural de este flujo — ahora también
+    // sirve de Idempotency-Key: un reintento nunca duplica el cargo en Stripe.
+    idempotencyKey: body.logId,
+  });
 
-  if (reciboError || !recibo) {
-    return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
-  }
-  if (recibo.estado !== 'PENDIENTE') {
-    return NextResponse.json({ error: 'Este recibo ya no está pendiente' }, { status: 409 });
-  }
-  if (socioError || !socio?.stripe_customer_id || !socio?.stripe_payment_method_id) {
-    return NextResponse.json({ error: 'La socia no tiene tarjeta guardada' }, { status: 409 });
-  }
-  if (studioError || !studio?.stripe_account_id) {
-    return NextResponse.json({ error: 'El estudio no tiene Stripe conectado' }, { status: 409 });
-  }
-
-  try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(recibo.importe * 100),
-      currency: 'eur',
-      customer: socio.stripe_customer_id,
-      payment_method: socio.stripe_payment_method_id,
-      off_session: true,
-      confirm: true,
-      metadata: { reciboId: body.reciboId, socioId: body.socioId },
-    }, { stripeAccount: studio.stripe_account_id });
-
-    if (paymentIntent.status === 'succeeded') {
-      await dbUpdateRecibo(body.reciboId, { estado: 'COBRADO', fechaCobro: new Date().toISOString() });
-      await dbUpdateAutomationLog(body.logId, {
-        resultado: 'EJECUTADO',
-        detalle: `Cobro de ${recibo.importe}€ aprobado y cobrado con la tarjeta guardada.`,
-      });
-      return NextResponse.json({ ok: true, status: paymentIntent.status });
-    }
-
-    // requires_action u otro estado no terminal: la tarjeta necesita
-    // autenticación (3DS) que no se puede completar sin la socia presente.
+  if (resultado.ok) {
     await dbUpdateAutomationLog(body.logId, {
-      resultado: 'FALLIDO',
-      detalle: `El banco pidió autenticación adicional (3DS) que no se puede completar sin la socia presente. Pídele que pague desde un enlace de cobro normal.`,
+      resultado: 'EJECUTADO',
+      detalle: `Cobro de ${resultado.importe}€ aprobado y cobrado con la tarjeta guardada.`,
     });
-    return NextResponse.json({ ok: false, status: paymentIntent.status }, { status: 402 });
-  } catch (err) {
-    const mensaje = err instanceof Stripe.errors.StripeError
-      ? err.message
-      : (err instanceof Error ? err.message : 'Error desconocido al cobrar');
-    await dbUpdateAutomationLog(body.logId, { resultado: 'FALLIDO', detalle: mensaje });
-    return NextResponse.json({ error: mensaje }, { status: 402 });
+    return NextResponse.json({ ok: true, status: resultado.status });
   }
+
+  await dbUpdateAutomationLog(body.logId, { resultado: 'FALLIDO', detalle: resultado.error ?? 'Error desconocido al cobrar' });
+  const status = resultado.errorCode ? STATUS_POR_ERROR[resultado.errorCode] : 402;
+  return NextResponse.json({ error: resultado.error }, { status });
 }
