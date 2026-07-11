@@ -6,8 +6,21 @@
       "input_tokens": 559000,
       "output_tokens": 0,
       "note": "approximate - summed from subagent usage.subagent_tokens, precise input/output split unavailable"
+    },
+    {
+      "date": "2026-07-11T13:11:53.975103+00:00",
+      "input_tokens": 233868,
+      "output_tokens": 0,
+      "files": 107
+    },
+    {
+      "date": "2026-07-11T23:41:44.805285+00:00",
+      "input_tokens": 136666,
+      "output_tokens": 0,
+      "files": 55,
+      "note": "--update Decision OS (7 docs + 48 code)"
     }
   ],
-  "total_input_tokens": 559000,
+  "total_input_tokens": 929534,
   "total_output_tokens": 0
 }
