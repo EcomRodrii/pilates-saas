@@ -19,20 +19,28 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
 
-  const { data: instructor } = await supabase
+  // limit(1) en vez de maybeSingle(): un mismo usuario puede estar vinculado a
+  // varios estudios (instructor en dos centros, o dueño de varias sedes —el plan
+  // CADENA). maybeSingle() lanzaba error con >1 fila y bloqueaba el acceso. El
+  // orden por id es determinista para elegir siempre el mismo estudio primario.
+  const { data: instructores } = await supabase
     .from('instructores')
     .select('studio_id, rol')
     .eq('auth_user_id', user.id)
-    .maybeSingle();
+    .order('studio_id', { ascending: true })
+    .limit(1);
+  const instructor = instructores?.[0];
   if (instructor) {
     return { userId: user.id, studioId: instructor.studio_id, rol: instructor.rol };
   }
 
-  const { data: studio } = await supabase
+  const { data: studios } = await supabase
     .from('studios')
     .select('id')
     .eq('owner_auth_user_id', user.id)
-    .maybeSingle();
+    .order('id', { ascending: true })
+    .limit(1);
+  const studio = studios?.[0];
   if (studio) {
     return { userId: user.id, studioId: studio.id, rol: 'PROPIETARIO' };
   }

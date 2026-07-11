@@ -434,13 +434,22 @@ export default function Socios() {
             Gestiona y haz seguimiento de todos tus miembros
           </p>
         </div>
-        <button
-          onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors shrink-0 shadow-sm"
-        >
-          <Plus size={14} />
-          Nuevo miembro
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => router.push('/socios/importar')}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-foreground bg-card border border-border hover:bg-muted transition-colors"
+          >
+            <Upload size={14} />
+            Importar
+          </button>
+          <button
+            onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors shadow-sm"
+          >
+            <Plus size={14} />
+            Nuevo miembro
+          </button>
+        </div>
       </div>
 
       {/* ── Stats row ──────────────────────────────────────────────────────── */}

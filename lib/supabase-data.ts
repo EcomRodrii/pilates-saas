@@ -139,19 +139,25 @@ export function getCurrentStudioId() {
 // (studios.owner_auth_user_id). Returns null if neither matches (a brand
 // new signup that hasn't created or joined a studio yet).
 export async function resolveStudioId(userId: string): Promise<string | null> {
-  const { data: instructor } = await supabase
+  // limit(1) en vez de maybeSingle(): un usuario puede pertenecer a varios
+  // estudios (instructor en dos centros, o dueño de varias sedes). maybeSingle()
+  // lanzaba error con >1 fila y dejaba el estudio sin resolver. Orden por id
+  // determinista = mismo estudio primario que verificarSesionStaff (servidor).
+  const { data: instructores } = await supabase
     .from('instructores')
     .select('studio_id')
     .eq('auth_user_id', userId)
-    .maybeSingle();
-  if (instructor?.studio_id) return instructor.studio_id;
+    .order('studio_id', { ascending: true })
+    .limit(1);
+  if (instructores?.[0]?.studio_id) return instructores[0].studio_id;
 
-  const { data: studio } = await supabase
+  const { data: studios } = await supabase
     .from('studios')
     .select('id')
     .eq('owner_auth_user_id', userId)
-    .maybeSingle();
-  if (studio?.id) return studio.id;
+    .order('id', { ascending: true })
+    .limit(1);
+  if (studios?.[0]?.id) return studios[0].id;
 
   return null;
 }

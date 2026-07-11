@@ -86,6 +86,97 @@ export async function aprobarCobroAutonomo(params: {
   return { ok: true };
 }
 
+// ── Billing del SaaS (suscripción del estudio a Tentare) ───────────────────────
+
+export interface EstadoBilling {
+  plan: string;
+  subscriptionStatus: string | null;
+  activo: boolean;
+  configurado: boolean;
+  esPropietaria: boolean;
+  bloqueado: boolean;
+}
+
+// Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve
+// no-bloqueado para no dejar a nadie fuera por un error de red.
+export async function estadoBilling(): Promise<EstadoBilling | null> {
+  try {
+    const res = await fetch('/api/billing/status', { headers: { ...(await authHeader()) } });
+    if (!res.ok) return null;
+    return (await res.json()) as EstadoBilling;
+  } catch {
+    return null;
+  }
+}
+
+// Abre el Checkout de Stripe para suscribir el estudio al plan elegido.
+export async function iniciarSuscripcion(plan: 'BASE' | 'ESTUDIO' | 'CADENA'): Promise<{ url: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/billing/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ plan }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return data as { url: string };
+  } catch {
+    return { error: 'No se pudo iniciar la suscripción' };
+  }
+}
+
+// Abre el portal de facturación de Stripe (cambiar plan, cancelar, ver facturas).
+export async function gestionarSuscripcion(): Promise<{ url: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/billing/portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return data as { url: string };
+  } catch {
+    return { error: 'No se pudo abrir el portal de facturación' };
+  }
+}
+
+// ── Importación de socias (CSV) ────────────────────────────────────────────────
+
+import type { FilaSocia } from '@/lib/csv';
+
+export interface ResultadoImport {
+  total: number;
+  importadas: number;
+  duplicadas: number;
+  errores: { fila: number; email: string; motivo: string }[];
+  error?: string;
+}
+
+// Envía las filas ya validadas al servidor, que re-valida, deduplica contra la
+// BD del estudio e inserta en lote. El studio_id lo pone el servidor (JWT).
+export async function importarSocias(rows: FilaSocia[]): Promise<ResultadoImport> {
+  try {
+    const res = await fetch('/api/socios/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rows }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return {
+        total: 0,
+        importadas: data.importadas ?? 0,
+        duplicadas: data.duplicadas ?? 0,
+        errores: data.errores ?? [],
+        error: data.error ?? `Error HTTP ${res.status}`,
+      };
+    }
+    return data as ResultadoImport;
+  } catch {
+    return { total: 0, importadas: 0, duplicadas: 0, errores: [], error: 'No se pudo conectar con el servidor' };
+  }
+}
+
 // ── Facturas (Veri*Factu) ──────────────────────────────────────────────────────
 // Sella y persiste una factura en el servidor: calcula la huella encadenada por
 // estudio (SHA-256, node:crypto) y la guarda. Devuelve los campos sellados para

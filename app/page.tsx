@@ -83,11 +83,11 @@ export default function LandingPage() {
         }}
       >
         <Image src="/logo-wordmark.png" alt="Tentare" width={150} height={48} style={{ height: 34, width: 'auto' }} />
-        <div className="lp-nav-links" style={{ display: 'flex', alignItems: 'center', gap: 30, fontSize: 15, fontWeight: 500, color: '#5A5A52' }}>
-          <span>Producto</span>
-          <span>Sistema autónomo</span>
-          <span>Precios</span>
-          <span>Historias</span>
+        <div className="lp-nav-links" style={{ display: 'flex', alignItems: 'center', gap: 30, fontSize: 15, fontWeight: 500 }}>
+          <a href="#producto" style={{ color: '#5A5A52', textDecoration: 'none' }}>Producto</a>
+          <a href="#sistema" style={{ color: '#5A5A52', textDecoration: 'none' }}>Sistema autónomo</a>
+          <a href="#precios" style={{ color: '#5A5A52', textDecoration: 'none' }}>Precios</a>
+          <a href="#faq" style={{ color: '#5A5A52', textDecoration: 'none' }}>Preguntas</a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <Link href="/login" className="lp-nav-enter" style={{ fontSize: 15, fontWeight: 500, color: '#5A5A52' }}>
@@ -98,7 +98,7 @@ export default function LandingPage() {
             className={btnCta}
             style={{ fontSize: 15, fontWeight: 600, padding: '11px 22px', whiteSpace: 'nowrap' }}
           >
-            Prueba gratis
+            Crear estudio
           </Link>
         </div>
       </nav>
@@ -213,7 +213,7 @@ export default function LandingPage() {
                 className={btnCta}
                 style={{ fontSize: 16, fontWeight: 600, padding: '16px 30px', boxShadow: '0 14px 30px rgba(255,200,226,.6)' }}
               >
-                Empieza gratis →
+                Crear mi estudio →
               </Link>
               <a
                 href="#producto"
@@ -227,7 +227,7 @@ export default function LandingPage() {
               className="lp-mono"
               style={{ fontSize: 12, letterSpacing: '.04em', color: '#8E8E86', animation: 'lp-riseIn .9s cubic-bezier(.2,.7,0,1) .54s both' }}
             >
-              Sin tarjeta · Migración gratuita · +280 estudios ya dentro
+              Sin permanencia · Migración incluida · Hecho en España
             </div>
           </div>
 
@@ -426,12 +426,12 @@ export default function LandingPage() {
       </div>
 
       {/* ================= AUTONOMOUS SYSTEM ================= */}
-      <section className="lp-section" style={{ background: '#0F0F0F', color: '#E8E8E4', padding: '110px 40px' }}>
+      <section id="sistema" className="lp-section" style={{ background: '#0F0F0F', color: '#E8E8E4', padding: '110px 40px' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 24, marginBottom: 52 }}>
             <div style={{ maxWidth: 680 }}>
               <Reveal className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: '#171717', background: ACC, padding: '7px 14px', borderRadius: 999, marginBottom: 22 }}>
-                ✦ Lo que nadie más tiene
+                ✦ El sistema autónomo
               </Reveal>
               <Reveal delay={80}>
                 <h2 className="lp-h2" style={{ fontWeight: 800, fontSize: 56, lineHeight: 1, letterSpacing: '-.04em', margin: 0 }}>Un sistema autónomo que trabaja por ti</h2>
@@ -448,7 +448,7 @@ export default function LandingPage() {
                 <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect width={20} height={14} x={2} y={5} rx={2} /><line x1={2} x2={22} y1={10} y2={10} /></svg>
               </div>
               <h3 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em', margin: '0 0 8px' }}>Cobra sin perseguir</h3>
-              <p style={{ fontSize: 15, color: '#8E8E86', margin: 0 }}>Renueva bonos, reintenta pagos fallidos y emite facturas automáticamente. El 98% de tus cobros, a tiempo.</p>
+              <p style={{ fontSize: 15, color: '#8E8E86', margin: 0 }}>Renueva bonos, reintenta pagos fallidos y emite facturas automáticamente — sin perseguir a nadie.</p>
             </Reveal>
             <Reveal delay={80} style={{ background: '#171717', border: '1px solid rgba(255,255,255,.06)', borderRadius: 20, padding: 28 }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: '#A8C7CE', color: '#171717', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 22 }}>
@@ -470,7 +470,7 @@ export default function LandingPage() {
           <Reveal delay={120} style={{ marginTop: 16, background: '#171717', border: '1px solid rgba(255,255,255,.06)', borderRadius: 20, padding: '22px 26px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: ACC, boxShadow: '0 0 0 4px rgba(255,200,226,.2)' }} />
-              <span className="lp-mono" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8E8E86' }}>Actividad autónoma · en vivo</span>
+              <span className="lp-mono" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8E8E86' }}>Un día con el sistema · ejemplo</span>
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
               {[
@@ -601,10 +601,10 @@ export default function LandingPage() {
             </div>
           </Reveal>
           <Reveal delay={80} className="lp-bento-2" style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 22, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-.03em', color: ACC }}>−8h</div>
+            <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-.03em', color: ACC }}>0€</div>
             <div>
-              <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 4px' }}>de admin a la semana</h3>
-              <p style={{ fontSize: 14, color: '#8E8E86', margin: 0 }}>Tiempo que recuperas para enseñar.</p>
+              <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 4px' }}>de comisión sobre tus cobros</h3>
+              <p style={{ fontSize: 14, color: '#8E8E86', margin: 0 }}>Solo pagas la cuota estándar de Stripe.</p>
             </div>
           </Reveal>
           <Reveal delay={140} className="lp-bento-2" style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 22, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -619,25 +619,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ================= TESTIMONIAL ================= */}
-      <section className="lp-section" style={{ padding: '0 40px 110px', maxWidth: 1000, margin: '0 auto', textAlign: 'center' }}>
-        <Reveal>
-          <div style={{ fontSize: 64, lineHeight: 0, color: '#F7A6C4', height: 34, fontWeight: 800 }}>&rdquo;</div>
-          <p className="lp-quote" style={{ fontWeight: 700, fontSize: 38, lineHeight: 1.24, letterSpacing: '-.03em', margin: '0 0 30px' }}>
-            En tres meses subimos la ocupación un 22%. Tentare hace el trabajo aburrido para que yo pueda enseñar.
-          </p>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 13 }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', background: `linear-gradient(135deg,${ACC},#C9A8D3)` }} />
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>Lucía Ferrán</div>
-              <div style={{ fontSize: 14, color: '#8E8E86' }}>Fundadora · Reforma Studio, Barcelona</div>
-            </div>
-          </div>
-        </Reveal>
-      </section>
-
       {/* ================= PRICING ================= */}
-      <section className="lp-section" style={{ padding: '100px 40px', background: '#F3F3EF', borderTop: '1px solid #E7E7E0' }}>
+      <section id="precios" className="lp-section" style={{ padding: '100px 40px', background: '#F3F3EF', borderTop: '1px solid #E7E7E0' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <Reveal><h2 className="lp-h2" style={{ fontWeight: 800, fontSize: 54, letterSpacing: '-.04em', margin: '0 0 10px' }}>Precios sin letra pequeña</h2></Reveal>
@@ -645,26 +628,26 @@ export default function LandingPage() {
           </div>
           <div className="lp-pricing" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, alignItems: 'stretch' }}>
             <Reveal style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 24, padding: 36 }}>
-              <div className="lp-mono" style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 16 }}>Estudio</div>
-              <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-.03em' }}>49€<span style={{ fontSize: 17, fontWeight: 500, color: '#8E8E86' }}>/mes</span></div>
-              <p style={{ fontSize: 14, color: '#5A5A52', margin: '6px 0 24px' }}>Para una sala.</p>
-              <div style={{ borderTop: '1px solid #EDEDE6', paddingTop: 20, fontSize: 15, color: '#5A5A52', lineHeight: 2.1 }}>Reservas ilimitadas<br />Cobros automáticos<br />1 instructora</div>
+              <div className="lp-mono" style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 16 }}>Base</div>
+              <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-.03em' }}>29€<span style={{ fontSize: 17, fontWeight: 500, color: '#8E8E86' }}>/mes</span></div>
+              <p style={{ fontSize: 14, color: '#5A5A52', margin: '6px 0 24px' }}>Para empezar. Hasta 150 socias.</p>
+              <div style={{ borderTop: '1px solid #EDEDE6', paddingTop: 20, fontSize: 15, color: '#5A5A52', lineHeight: 2.1 }}>Reservas y agenda<br />Cobros y bonos<br />Check-in y portal de socias</div>
             </Reveal>
             <Reveal delay={90} style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 24, padding: 36, position: 'relative', boxShadow: '0 30px 60px -20px rgba(26,26,26,.4)' }}>
               <div className="lp-mono" style={{ position: 'absolute', top: -12, left: 36, background: ACC, color: '#171717', fontSize: 11, fontWeight: 600, letterSpacing: '.08em', padding: '6px 13px', borderRadius: 999 }}>POPULAR</div>
-              <div className="lp-mono" style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: '#F7A6C4', marginBottom: 16 }}>Crecimiento</div>
-              <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-.03em' }}>99€<span style={{ fontSize: 17, fontWeight: 500, color: '#8E8E86' }}>/mes</span></div>
-              <p style={{ fontSize: 14, color: '#8E8E86', margin: '6px 0 24px' }}>Para estudios en expansión.</p>
-              <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 20, fontSize: 15, color: '#D8D8D2', lineHeight: 2.1 }}>Todo lo de Estudio<br />App de marca<br />Instructoras ilimitadas<br />Informes avanzados</div>
+              <div className="lp-mono" style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: '#F7A6C4', marginBottom: 16 }}>Estudio</div>
+              <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-.03em' }}>59€<span style={{ fontSize: 17, fontWeight: 500, color: '#8E8E86' }}>/mes</span></div>
+              <p style={{ fontSize: 14, color: '#8E8E86', margin: '6px 0 24px' }}>El plan completo. Socias ilimitadas.</p>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 20, fontSize: 15, color: '#D8D8D2', lineHeight: 2.1 }}>Todo lo de Base<br />Socias ilimitadas<br />Gamificación y retención<br />Marketing e IA</div>
               <Link href="/crear-estudio" className="block hover:brightness-95 transition-all" style={{ background: ACC, color: '#171717', textAlign: 'center', fontWeight: 700, padding: 14, borderRadius: 14, marginTop: 24 }}>
-                Empezar gratis
+                Crear estudio
               </Link>
             </Reveal>
             <Reveal delay={180} style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 24, padding: 36 }}>
               <div className="lp-mono" style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 16 }}>Cadena</div>
-              <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-.03em' }}>A medida</div>
-              <p style={{ fontSize: 14, color: '#5A5A52', margin: '6px 0 24px' }}>Multi-sede y franquicias.</p>
-              <div style={{ borderTop: '1px solid #EDEDE6', paddingTop: 20, fontSize: 15, color: '#5A5A52', lineHeight: 2.1 }}>Todo lo de Crecimiento<br />Multi-sede<br />Soporte dedicado</div>
+              <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-.03em' }}>149€<span style={{ fontSize: 17, fontWeight: 500, color: '#8E8E86' }}>/mes</span></div>
+              <p style={{ fontSize: 14, color: '#5A5A52', margin: '6px 0 24px' }}>Multi-centro y todo incluido.</p>
+              <div style={{ borderTop: '1px solid #EDEDE6', paddingTop: 20, fontSize: 15, color: '#5A5A52', lineHeight: 2.1 }}>Todo lo de Estudio<br />Varios centros<br />Soporte dedicado</div>
             </Reveal>
           </div>
         </div>
@@ -697,7 +680,7 @@ export default function LandingPage() {
       </section>
 
       {/* ================= FAQ ================= */}
-      <section className="lp-section" style={{ padding: '40px 40px 110px', maxWidth: 820, margin: '0 auto' }}>
+      <section id="faq" className="lp-section" style={{ padding: '40px 40px 110px', maxWidth: 820, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 44 }}>
           <Reveal className="lp-mono" style={{ fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: '#B57A8E', marginBottom: 16 }}>
             Preguntas frecuentes
@@ -716,9 +699,9 @@ export default function LandingPage() {
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 680, height: 680, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,200,226,.55),transparent 62%)', pointerEvents: 'none' }} />
         <Reveal style={{ position: 'relative' }}>
           <h2 className="lp-cta-h2" style={{ fontWeight: 800, fontSize: 72, lineHeight: .98, letterSpacing: '-.04em', margin: '0 0 22px' }}>Tu estudio merece<br />menos caos.</h2>
-          <p style={{ fontSize: 20, color: '#5A5A52', margin: '0 0 34px' }}>14 días gratis. Migramos tus datos por ti. Empieza hoy.</p>
+          <p style={{ fontSize: 20, color: '#5A5A52', margin: '0 0 34px' }}>Migramos tus datos por ti. Sin permanencia. Empieza hoy.</p>
           <Link href="/crear-estudio" className={btnCta} style={{ fontSize: 17, fontWeight: 600, padding: '18px 40px', boxShadow: '0 16px 34px rgba(255,200,226,.6)' }}>
-            Crear mi cuenta gratis →
+            Crear mi estudio →
           </Link>
         </Reveal>
       </section>
