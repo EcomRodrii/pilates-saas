@@ -1,0 +1,292 @@
+// Pipeline Inngest del Decision OS (DECISION-OS-ARQUITECTURA.md §6). Clona el
+// patrón dispatcher→fan-out→steps idempotentes de lib/inngest/automatizaciones.ts.
+// El cliente se importa desde './client' (mismo orden que ese archivo, nota OTel).
+import { inngest, EVENTS } from './client';
+import { Resend } from 'resend';
+import { render } from '@react-email/render';
+import { supabase } from '@/lib/supabase';
+import { tieneFeature } from '@/lib/entitlements';
+import { cobrarReciboOffSession } from '@/lib/stripe-cobros';
+import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { uid } from '@/lib/utils';
+import { construirSnapshot } from '@/lib/decision/snapshot';
+import { ejecutarAnalisis } from '@/lib/decision/motor';
+import { redactar, type ItemARedactar, type ItemRedactado } from '@/lib/decision/redaccion';
+import { ventanaDiasDe, medirOutcome, type SenalMedicion } from '@/lib/decision/outcomes';
+import { resolverNivelAutonomiaPorTipo } from '@/lib/decision/confianza';
+import { ALGORITHM_VERSION } from '@/lib/decision/version';
+import {
+  dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
+  dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
+  dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
+} from '@/lib/decision/db';
+import type { Recomendacion } from '@/lib/decision/tipos';
+import type { CandidataPriorizada } from '@/lib/decision/prioridad';
+
+const MS_DIA = 86400000;
+
+async function nombrePropietarioDe(studioId: string): Promise<{ nombrePropietario: string; nombreEstudio: string; ownerAuthUserId: string | null }> {
+  const { data: studio } = await supabase.from('studios').select('nombre, owner_auth_user_id').eq('id', studioId).single();
+  return { nombrePropietario: studio?.nombre ?? 'tu estudio', nombreEstudio: studio?.nombre ?? '', ownerAuthUserId: studio?.owner_auth_user_id ?? null };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// F1 · DISPATCHER (cron) — 06:30 y 14:30 UTC, desplazado del de
+// automatizaciones (07:00) para no competir por la concurrency del plan free.
+// ═══════════════════════════════════════════════════════════════════════════
+export const decisionDispatcher = inngest.createFunction(
+  { id: 'decision-dispatcher', triggers: [{ cron: '30 6,14 * * *' }] },
+  async ({ step }) => {
+    const nowISO = await step.run('now', async () => new Date().toISOString());
+
+    const estudios = await step.run('list-estudios-elegibles', async () => {
+      const { data, error } = await supabase.from('studios').select('id, nombre, plan, subscription_status');
+      if (error) throw new Error(error.message);
+      const conPlan = (data ?? []).filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
+      if (conPlan.length === 0) return [];
+
+      const ids = conPlan.map(s => s.id);
+      const { data: flags } = await supabase
+        .from('decision_feature_flags').select('studio_id').eq('flag', 'DECISIONES').eq('activo', true).in('studio_id', ids);
+      const activos = new Set((flags ?? []).map(f => f.studio_id as string));
+      return conPlan.filter(s => activos.has(s.id)).map(s => ({ id: s.id }));
+    });
+
+    if (estudios.length > 0) {
+      await step.sendEvent('fan-out-estudios', estudios.map((e: { id: string }) => ({
+        name: EVENTS.DECISION_ANALYZE,
+        data: { studioId: e.id, disparadoPor: 'CRON' as const, nowISO },
+      })));
+    }
+
+    return { estudios: estudios.length, ejecutadoEn: nowISO };
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// F2 · ANALIZAR ESTUDIO — un run por estudio. concurrency 3 (comparte el
+// límite de cuenta del plan free con automatizaciones, Arquitectura §11).
+// ═══════════════════════════════════════════════════════════════════════════
+export const analizarEstudio = inngest.createFunction(
+  { id: 'decision-analizar-estudio', triggers: [{ event: EVENTS.DECISION_ANALYZE }], concurrency: { limit: 3 }, retries: 3 },
+  async ({ event, step }) => {
+    const { studioId, disparadoPor, nowISO } = event.data as { studioId: string; disparadoPor: 'CRON' | 'MANUAL' | 'REACTIVO'; nowISO: string };
+    const now = new Date(nowISO);
+
+    const sessionId = await step.run('crear-sesion', () =>
+      dbInsertDecisionSession({ studioId, disparadoPor, algorithmVersion: ALGORITHM_VERSION, iniciadoEn: nowISO })
+    );
+
+    const [snapshot, memoriaRows, pendientesActuales, resueltas90d, { nombrePropietario, nombreEstudio }] = await Promise.all([
+      step.run('snapshot', () => construirSnapshot(studioId, now)),
+      step.run('memoria', () => dbListMemoriaRows(studioId)),
+      step.run('pendientes', () => dbListPendientes(studioId)),
+      step.run('resueltas', () => dbListResueltas90d(studioId, now)),
+      step.run('propietario', () => nombrePropietarioDe(studioId)),
+    ]);
+    // Se reconstruye FUERA del step: un Map no sobrevive la serialización a
+    // JSON que Inngest hace entre steps (ver lib/decision/db.ts).
+    const memoria = construirMapaMemoria(memoriaRows);
+
+    // Puro y determinista: se recomputa igual en cada replay del handler.
+    const resultado = ejecutarAnalisis({
+      snapshot, memoria, pendientesActuales, resueltas90d, nombrePropietario,
+      ventanaMientrasDormiasDesde: new Date(now.getTime() - 17 * 3600000), // ~21:00 del día anterior
+      now,
+    });
+
+    // Candidatas → Recomendacion con id + contexto de sesión (ID de negocio,
+    // fuera del núcleo puro — Fase A no genera ids).
+    const nowISOStr = now.toISOString();
+    const recomendaciones: Recomendacion[] = resultado.candidatasFinales.map((c: CandidataPriorizada) =>
+      construirRecomendacion(c, {
+        id: uid(), studioId, decisionSessionId: sessionId, algorithmVersion: ALGORITHM_VERSION,
+        nivelAutonomia: resolverNivelAutonomiaPorTipo(c.tipo, c.confianza),
+        expiraEn: new Date(now.getTime() + c.expiraEnDias * MS_DIA).toISOString(),
+        creadoEn: nowISOStr,
+      })
+    );
+
+    // Redacción: lote único con las ≤10 de mayor score (Especialistas §8.3).
+    const fallbackPorId = new Map<string, ItemRedactado>(recomendaciones.map(r => [r.id, { titulo: r.titulo, motivo: r.motivo }]));
+    const paraRedactar: ItemARedactar[] = [...recomendaciones]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
+      .map(r => ({ id: r.id, especialista: r.especialista, tipo: r.tipo, datosUsados: r.datosUsados }));
+
+    const redaccion = await step.run('redactar', () =>
+      redactar({ nombrePropietario, nombreEstudio, saludoBase: resultado.resumenDiario.saludo, items: paraRedactar }, fallbackPorId)
+    );
+    const redaccionPorId = new Map(redaccion.items.map(it => [it.id, it]));
+
+    const recomendacionesRedactadas = recomendaciones.map(r => {
+      const texto = redaccionPorId.get(r.id);
+      return texto ? { ...r, titulo: texto.titulo, motivo: texto.motivo } : r;
+    });
+
+    // Persistencia: un step por recomendación (durable, replay-safe — patrón
+    // "candidato-i" de automatizacionesDispatcher).
+    for (let i = 0; i < recomendacionesRedactadas.length; i++) {
+      const r = recomendacionesRedactadas[i];
+      await step.run(`persistir-${i}-${r.dedupeKey}`, () => dbUpsertRecomendacion(r));
+    }
+
+    for (const exp of resultado.expiraciones) {
+      await step.run(`expirar-${exp.id}`, () => dbTransicionarRecomendacion(exp.id, 'PENDIENTE', 'EXPIRADA'));
+    }
+
+    if (resultado.nuevosHechosMemoria.length > 0) {
+      await step.run('memoria-automatica', async () => {
+        for (const h of resultado.nuevosHechosMemoria) await dbUpsertHechoMemoria(h);
+      });
+    }
+
+    const resumenFinal = { ...resultado.resumenDiario, studioId, saludo: redaccion.saludo };
+    const resumenDiarioId = await step.run('resumen-diario', () => dbUpsertResumenDiario(resumenFinal));
+
+    await step.run('finalizar-sesion', () => dbFinalizarDecisionSession(sessionId, {
+      finalizadoEn: new Date().toISOString(),
+      snapshotStats: { socios: snapshot.socios.length, sesiones: snapshot.sesiones.length, recibosPendientes: snapshot.recibos.filter(r => r.estado === 'PENDIENTE').length },
+      nCandidatasGeneradas: resultado.estadisticas.nCandidatasGeneradas,
+      nCandidatasDescartadas: resultado.estadisticas.nCandidatasDescartadas,
+      nRecomendacionesPersistidas: resultado.estadisticas.nRecomendacionesPersistidas,
+      resumenDiarioId, errores: null, estado: 'COMPLETADA',
+    }));
+
+    return { studioId, sessionId, recomendaciones: recomendacionesRedactadas.length, prioridades: resultado.prioridadesHome.length };
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// F3 · EJECUTAR RECOMENDACIÓN — al aprobar, un step por recibo cuando el lote
+// tiene varios (Arquitectura §6 F3).
+// ═══════════════════════════════════════════════════════════════════════════
+async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; detalle: string }> {
+  if (!r.socioId) return { ok: false, detalle: 'Sin socia asociada' };
+  const [{ data: socio }, { data: studio }] = await Promise.all([
+    supabase.from('socios').select('nombre, email').eq('id', r.socioId).single(),
+    supabase.from('studios').select('nombre').eq('id', r.studioId).single(),
+  ]);
+  if (!socio?.email) return { ok: false, detalle: 'La socia no tiene email registrado' };
+
+  const apiKey = process.env.RESEND_API_KEY;
+  const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
+  if (!resend) return { ok: false, detalle: 'Resend no configurado (RESEND_API_KEY)' };
+
+  const html = await render(AutomatizacionEmail({ socioNombre: socio.nombre, titulo: r.titulo, mensaje: r.motivo, estudioNombre: studio?.nombre ?? '' }));
+  const { error } = await resend.emails.send(
+    { from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: r.titulo, html },
+    { idempotencyKey: r.id }
+  );
+  if (error) return { ok: false, detalle: error.message };
+  return { ok: true, detalle: `Email enviado a ${socio.email}` };
+}
+
+export const ejecutarRecomendacion = inngest.createFunction(
+  { id: 'decision-ejecutar-recomendacion', triggers: [{ event: EVENTS.DECISION_APPROVED }], retries: 3 },
+  async ({ event, step }) => {
+    const { recomendacionId } = event.data as { recomendacionId: string };
+
+    const recomendacion = await step.run('fetch', () => dbGetRecomendacion(recomendacionId));
+    if (!recomendacion) return { ok: false, motivo: 'Recomendación no encontrada' };
+    if (recomendacion.estado !== 'APROBADA') return { ok: false, motivo: `Estado inesperado: ${recomendacion.estado}` };
+
+    let resultado: { ok: boolean; detalle: string };
+
+    if (recomendacion.accion.tipo === 'ENVIAR_EMAIL') {
+      resultado = await step.run('enviar-email', () => ejecutarEnvioEmail(recomendacion));
+    } else if (recomendacion.accion.tipo === 'COBRAR_RECIBOS') {
+      const reciboIds = recomendacion.accion.reciboIds;
+      const recibosInfo = await step.run('recibos-info', async () => {
+        const { data } = await supabase.from('recibos').select('id, socio_id').in('id', reciboIds);
+        return (data ?? []) as Array<{ id: string; socio_id: string | null }>;
+      });
+      let cobrados = 0;
+      const detalles: string[] = [];
+      for (const info of recibosInfo) {
+        if (!info.socio_id) { detalles.push(`${info.id}: sin socia asociada`); continue; }
+        const r = await step.run(`cobrar-${info.id}`, () =>
+          cobrarReciboOffSession({ reciboId: info.id, socioId: info.socio_id!, studioId: recomendacion.studioId, idempotencyKey: `${recomendacion.id}-${info.id}` })
+        );
+        if (r.ok) cobrados++; else detalles.push(`${info.id}: ${r.error ?? 'fallo'}`);
+      }
+      resultado = {
+        ok: cobrados > 0,
+        detalle: cobrados === recibosInfo.length ? `${cobrados} recibos cobrados.` : `${cobrados}/${recibosInfo.length} recibos cobrados. ${detalles.join('; ')}`,
+      };
+    } else {
+      // CONTACTO_MANUAL / MARCAR_GESTIONADO: sin efecto externo — gestión humana o informativa.
+      resultado = { ok: true, detalle: 'Sin efecto externo — gestión manual/informativa.' };
+    }
+
+    const resueltoEn = await step.run('now', async () => new Date().toISOString());
+
+    if (resultado.ok) {
+      await step.run('marcar-ejecutada', () => dbTransicionarRecomendacion(recomendacionId, 'APROBADA', 'EJECUTADA', { resueltoEn }));
+      await step.run('outcome-ejecutada', () => dbInsertOutcome({
+        studioId: recomendacion.studioId, recomendacionId, evento: 'EJECUTADA', outcome: 'PENDIENTE',
+        senalObservada: null, ventanaDias: ventanaDiasDe(recomendacion.tipo), medidoEn: null,
+      }));
+      await step.sendEvent('programar-medicion', { name: EVENTS.DECISION_MEASURE, data: { recomendacionId } });
+    } else {
+      await step.run('marcar-fallida', () => dbTransicionarRecomendacion(recomendacionId, 'APROBADA', 'FALLIDA', { resueltoEn }));
+    }
+
+    return resultado;
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// F4 · MEDIR OUTCOME — un run por recomendación ejecutada, con sleepUntil
+// durable (Arquitectura §6 F4): no consume cómputo mientras espera.
+// ═══════════════════════════════════════════════════════════════════════════
+async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> {
+  if (r.tipo === 'RECUPERAR_PAGOS' && r.accion.tipo === 'COBRAR_RECIBOS') {
+    const { data: recibos } = await supabase.from('recibos').select('estado').in('id', r.accion.reciboIds);
+    const total = recibos?.length ?? 0;
+    const cobrados = (recibos ?? []).filter((x: { estado: string }) => x.estado === 'COBRADO').length;
+    return { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: cobrados, recibosTotal: total };
+  }
+
+  if (!r.socioId) return { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: 0, recibosTotal: 0 };
+
+  const resueltoEnISO = r.resueltoEn ?? new Date(0).toISOString();
+  const [{ data: reservas }, { data: suscripciones }] = await Promise.all([
+    supabase.from('reservas').select('creado_en').eq('socio_id', r.socioId).eq('estado', 'ASISTIDA').gt('creado_en', resueltoEnISO),
+    supabase.from('suscripciones').select('estado, fecha_inicio').eq('socio_id', r.socioId),
+  ]);
+
+  const reservaAsistidaPosterior = (reservas ?? []).length > 0;
+  const suscripcionCancelada = (suscripciones ?? []).some((s: { estado: string }) => s.estado === 'CANCELADA');
+  const suscripcionRenovada = (suscripciones ?? []).some((s: { estado: string; fecha_inicio: string }) =>
+    s.estado === 'ACTIVA' && new Date(s.fecha_inicio).getTime() >= new Date(resueltoEnISO).getTime()
+  );
+
+  return { reservaAsistidaPosterior, suscripcionCancelada, suscripcionRenovada, recibosCobrados: 0, recibosTotal: 0 };
+}
+
+export const medirOutcomeFn = inngest.createFunction(
+  { id: 'decision-medir-outcome', triggers: [{ event: EVENTS.DECISION_MEASURE }], retries: 3 },
+  async ({ event, step }) => {
+    const { recomendacionId } = event.data as { recomendacionId: string };
+
+    const recomendacion = await step.run('fetch', () => dbGetRecomendacion(recomendacionId));
+    if (!recomendacion || recomendacion.estado !== 'EJECUTADA' || !recomendacion.resueltoEn) {
+      return { ok: false, motivo: 'No ejecutada o sin fecha de resolución' };
+    }
+
+    const ventanaDias = ventanaDiasDe(recomendacion.tipo);
+    const fechaMedicion = new Date(new Date(recomendacion.resueltoEn).getTime() + ventanaDias * MS_DIA);
+    await step.sleepUntil('esperar-ventana', fechaMedicion);
+
+    const senal = await step.run('construir-senal', () => construirSenalMedicion(recomendacion));
+    const { outcome, senalObservada } = medirOutcome(recomendacion.tipo, senal);
+
+    await step.run('actualizar-outcome', async () => {
+      const outcomeRow = await dbGetOutcomePorRecomendacion(recomendacionId, 'EJECUTADA');
+      if (outcomeRow) await dbActualizarOutcome(outcomeRow.id, { outcome, senalObservada, medidoEn: new Date().toISOString() });
+    });
+
+    return { outcome, senalObservada };
+  }
+);

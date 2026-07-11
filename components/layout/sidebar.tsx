@@ -8,7 +8,7 @@ import {
   FileText, Settings, BarChart2, X,
   Clock, ShoppingCart, MessageCircle, Megaphone, Play, Bell,
   Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
-  LogOut, UserCog, Users2, Check, PanelLeft,
+  LogOut, UserCog, Users2, Check, PanelLeft, Compass,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,10 @@ import { usePermisos } from '@/lib/permisos';
 // ─── Nav config ──────────────────────────────────────────────────────────────
 
 const navSections = [
+  // Decision OS (DECISION-OS-ARQUITECTURA.md §9): sección propia, arriba del
+  // todo — el sitio natural junto a "Automatizaciones IA". La página gatea el
+  // acceso por plan/feature flag; el propio dashboard sigue existiendo igual.
+  { items: [{ href: '/centro-de-control', label: 'Centro de Control', icon: Compass }] },
   { items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
   { items: [{ href: '/automatizaciones', label: 'Automatizaciones IA', icon: Bot }] },
   {
@@ -72,7 +76,7 @@ const bottomNavItems = [
 // de verdad para el día a día — todo lo demás (IA, marketing, POS, oferta
 // digital, comunidad...) se desbloquea cambiando a Modo Avanzado. Preferencia
 // puramente de UI, guardada en este navegador (no en el negocio).
-const ESSENTIAL_HREFS = ['/dashboard', '/calendario', '/socios', '/transacciones', '/informes', '/configuracion'];
+const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/socios', '/transacciones', '/informes', '/configuracion'];
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
