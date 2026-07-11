@@ -7,4 +7,7 @@
 // MAYOR (x.0.0): cambia PESOS, umbrales de confianza o fórmula de score.
 // MENOR (1.x.0): nueva regla o especialista, sin alterar el comportamiento existente.
 // PARCHE (1.0.x): fix que no toca scoring ni umbrales.
-export const ALGORITHM_VERSION = '1.0.0';
+// 1.1.0 — Retención R5 (baja sin renovar), Ingresos I3 (impago sin tarjeta,
+// gestión manual) y nuevo Especialista Agenda A1 (clase infrautilizada). Reglas
+// y especialista nuevos; no cambian PESOS, umbrales de score ni reglas previas.
+export const ALGORITHM_VERSION = '1.1.0';

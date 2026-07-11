@@ -6,9 +6,10 @@ import type { Socio } from '@/lib/types';
 import {
   construirIndices, frecuenciaHabitual, diasSinVenir, umbralAnomalo, ausenciaAnomala,
   renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, noShow30d,
+  diasDesdeVencimientoSinRenovar, totalAsistencias,
   type IndicesSenal,
 } from '../senales.ts';
-import { confianzaRecuperarSocia, confianzaRecuperarSociaPorNoShow, confianzaEnviarReactivacion } from '../confianza.ts';
+import { confianzaRecuperarSocia, confianzaRecuperarSociaPorNoShow, confianzaEnviarReactivacion, confianzaRecuperarSociaVencida } from '../confianza.ts';
 import { tieneHechoActivo } from '../memoria.ts';
 
 const MS_DIA = 86400000;
@@ -201,6 +202,57 @@ function reglaR4(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
   };
 }
 
+/**
+ * R5 · Baja sin renovar → RECUPERAR_SOCIA. La socia sigue en la casa (activa) pero
+ * su suscripción venció y no la renovó. R1-R4 no la ven porque `esElegible` exige
+ * suscripción ACTIVA — justo el punto ciego que dejaba invisibles a las que se van.
+ * Corre en la rama SIN suscripción activa (ver detectar).
+ */
+function reglaR5(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
+  if (!socio.activo) return null;
+  const antiguedadDias = Math.floor((now.getTime() - new Date(socio.fechaAlta).getTime()) / MS_DIA);
+  if (antiguedadDias < 30) return null;
+
+  const diasVencida = diasDesdeVencimientoSinRenovar(socio.id, idx, now, 45);
+  if (diasVencida === null) return null;
+
+  // Solo reactivamos a quien llegó a engancharse; sin ninguna asistencia no hay
+  // señal de que fuera una socia real (evita perseguir altas fantasma).
+  const asistencias = totalAsistencias(socio.id, idx);
+  if (asistencias < 1) return null;
+
+  const diasContacto = diasDesdeUltimoContacto(socio.id, idx, now);
+  if (diasContacto !== null && diasContacto < 14) return null;
+
+  const confianza = confianzaRecuperarSociaVencida({
+    vencioReciente: diasVencida <= 30,
+    sinContactoReciente: diasContacto === null || diasContacto >= 30,
+  });
+  if (!confianza) return null;
+
+  const valor = redondear2(valorMensual(socio.id, idx, now));
+  const urgencia = Math.min(1, 0.5 + (45 - diasVencida) / 90); // más fresca la baja, más urgente
+  const motivoMotor = `Se le acabó la cuota hace ${diasVencida} días y no ha vuelto a renovar. Una llamada ahora, mientras aún se acuerda de lo bien que le sentaba, suele traerla de vuelta.`;
+
+  return {
+    especialista: 'RETENCION',
+    tipo: 'RECUPERAR_SOCIA',
+    dedupeKey: `RETENCION:RECUPERAR_SOCIA:${socio.id}`,
+    tituloMotor: `${socio.nombre} dejó de renovar hace ${diasVencida} días`,
+    motivoMotor,
+    datosUsados: { nombre: socio.nombre, diasDesdeVencimiento: diasVencida, asistenciasPrevias: asistencias, valorMensual: valor },
+    riesgo: 'PERDIDA',
+    impacto: valor > 0 ? { valor, unidad: 'EUR_MES', formula: `cuota de ${socio.nombre} (${valor}€/mes) perdida al no renovar` } : undefined,
+    confianza,
+    accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: motivoMotor },
+    socioId: socio.id,
+    tiempoEstimadoMin: 3,
+    expiraEnDias: 14,
+    urgencia,
+    esfuerzo: 0.3,
+  };
+}
+
 export const retencion: Especialista = {
   id: 'RETENCION',
   pregunta: '¿Quién corre riesgo de abandonar?',
@@ -208,6 +260,13 @@ export const retencion: Especialista = {
     const idx = construirIndices(s);
     const candidatas: Candidata[] = [];
     for (const socio of s.socios) {
+      // Rama sin suscripción ACTIVA: la socia que no renovó. Antes se descartaba
+      // aquí y quedaba invisible; ahora R5 la recupera.
+      if (!idx.suscripcionActivaPorSocio.has(socio.id)) {
+        const c = reglaR5(socio, idx, now);
+        if (c) candidatas.push(c);
+        continue;
+      }
       if (!esElegible(socio, idx, now)) continue;
       // Prioridad interna por socia (Especialistas §1.2): R3 > R2 > R1 > R4.
       // Solo una candidata sale por socia — el resto queda como contexto.
