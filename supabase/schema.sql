@@ -1558,3 +1558,34 @@ begin
 end;
 $$;
 grant execute on function restaurar_backup(text, jsonb) to service_role;
+
+-- ─── Ficha Clínica Operativa (migración 0004) ────────────────────────────────
+create table if not exists condiciones_salud (
+  id text primary key,
+  studio_id text not null references studios(id) on delete cascade,
+  socio_id text not null references socios(id) on delete cascade,
+  categoria text not null check (categoria in ('LESION','EMBARAZO','POSTPARTO','CRONICA','PROTESIS','OTRO')),
+  etiqueta text not null,
+  zona text check (zona in ('RODILLA','COLUMNA','HOMBRO','CADERA','CUELLO','MUNECA','TOBILLO','GENERAL')),
+  restricciones text[] not null default '{}',
+  severidad text not null default 'MEDIA' check (severidad in ('LEVE','MEDIA','ALTA')),
+  estado text not null default 'ACTIVA' check (estado in ('ACTIVA','RESUELTA')),
+  inicio date not null,
+  fin date,
+  revisar_en date,
+  notas text,
+  creado_por text,
+  creado_en timestamptz default now(),
+  actualizado_en timestamptz default now()
+);
+
+create table if not exists respuestas_sesion (
+  id text primary key,
+  studio_id text not null references studios(id) on delete cascade,
+  socio_id text not null references socios(id) on delete cascade,
+  sesion_id text references sesiones(id) on delete set null,
+  respuesta text not null check (respuesta in ('MEJOR','IGUAL','MOLESTIAS','DOLOR')),
+  nota text,
+  creado_por text,
+  creado_en timestamptz default now()
+);

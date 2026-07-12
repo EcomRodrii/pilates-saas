@@ -6,6 +6,7 @@ import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCa
 import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/reward-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
+import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -30,6 +31,8 @@ import type {
   RowLevelDefinitions,
   RowMemberCredits,
   RowMensajesEquipo,
+  RowCondicionesSalud,
+  RowRespuestasSesion,
   RowNotasInternas,
   RowNotasProgreso,
   RowNotificaciones,
@@ -78,6 +81,8 @@ import type {
   LevelDefinition,
   MemberCredits,
   MensajeEquipo,
+  CondicionSalud,
+  RespuestaSesionRow,
   NotaInterna,
   NotaProgreso,
   Notificacion,
@@ -875,6 +880,40 @@ function mapNotaInterna(r: RowNotasInternas): NotaInterna {
   } as NotaInterna;
 }
 
+function mapCondicionSalud(r: RowCondicionesSalud): CondicionSalud {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    categoria: r.categoria,
+    etiqueta: r.etiqueta,
+    zona: r.zona,
+    restricciones: r.restricciones ?? [],
+    severidad: r.severidad,
+    estado: r.estado,
+    inicio: r.inicio,
+    fin: r.fin,
+    revisarEn: r.revisar_en,
+    notas: r.notas,
+    creadoPor: r.creado_por,
+    creadoEn: r.creado_en,
+    actualizadoEn: r.actualizado_en,
+  } as CondicionSalud;
+}
+
+function mapRespuestaSesion(r: RowRespuestasSesion): RespuestaSesionRow {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    sesionId: r.sesion_id,
+    respuesta: r.respuesta,
+    nota: r.nota,
+    creadoPor: r.creado_por,
+    creadoEn: r.creado_en,
+  } as RespuestaSesionRow;
+}
+
 // ─── Fetch all studio data in parallel ───────────────────────────────────────
 
 // ── Carga en dos olas (Fase C: lazy-load) ────────────────────────────────────
@@ -913,6 +952,8 @@ export async function fetchCriticalStudioData(studioId?: string) {
     videosOnDemandRes,
     postsComunidadRes,
     notasInternasRes,
+    condicionesSaludRes,
+    respuestasSesionRes,
     integracionesRes,
     mensajesEquipoRes,
     preferenciasSocioRes,
@@ -960,6 +1001,8 @@ export async function fetchCriticalStudioData(studioId?: string) {
     supabase.from('videos_on_demand').select('*').eq('studio_id', sid),
     supabase.from('posts_comunidad').select('*').eq('studio_id', sid),
     supabase.from('notas_internas').select('*').eq('studio_id', sid),
+    supabase.from('condiciones_salud').select('*').eq('studio_id', sid),
+    supabase.from('respuestas_sesion').select('*').eq('studio_id', sid),
     supabase.from('integraciones').select('*').eq('studio_id', sid),
     supabase.from('mensajes_equipo').select('*').eq('studio_id', sid),
     supabase.from('preferencias_socio').select('*').eq('studio_id', sid),
@@ -1003,6 +1046,8 @@ export async function fetchCriticalStudioData(studioId?: string) {
     videosOnDemand: (videosOnDemandRes.data ?? []).map(mapVideoOnDemand),
     postsComunidad: (postsComunidadRes.data ?? []).map(mapPostComunidad),
     notasInternas: (notasInternasRes.data ?? []).map(mapNotaInterna),
+    condicionesSalud: (condicionesSaludRes.data ?? []).map(mapCondicionSalud),
+    respuestasSesion: (respuestasSesionRes.data ?? []).map(mapRespuestaSesion),
     integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
     mensajesEquipo: (mensajesEquipoRes.data ?? []).map(mapMensajeEquipo),
     preferenciasSocio: (preferenciasSocioRes.data ?? []).map(mapPreferenciasSocio),
@@ -1297,6 +1342,66 @@ async function notificarPromocionEspera(
     tipo: 'promocion', to: socia.email, toName: socia.nombre ?? 'Socia',
     data: { ...datos, bonoConsumido },
   });
+}
+
+// Recordatorios de revisión de ficha clínica (FICHA-CLINICA.md §10). Recorre las
+// condiciones activas de todos los estudios; para las que necesitan revisión
+// (regla pura `recordatoriosRevision`) crea un aviso en `notificaciones`. Dedup:
+// no re-avisa la misma condición si ya hay un aviso suyo en los últimos 30 días
+// (marca en el enlace `?rev=<condicionId>`). Lo dispara /api/cron/revisiones-salud.
+export async function generarRecordatoriosRevision(nowISO: string, umbralDias = 90) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const hoy = new Date(nowISO);
+
+  const { data: condsRaw, error } = await admin
+    .from('condiciones_salud').select('*').eq('estado', 'ACTIVA');
+  if (error) throw new Error(error.message);
+  const condiciones = (condsRaw ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud));
+
+  const recordatorios = recordatoriosRevision(condiciones, hoy, umbralDias);
+  if (recordatorios.length === 0) {
+    return { condicionesActivas: condiciones.length, recordatorios: 0, notificacionesCreadas: 0 };
+  }
+
+  // Dedup: enlaces de avisos de revisión creados en los últimos 30 días.
+  const cutoff = new Date(hoy.getTime() - 30 * 86_400_000).toISOString();
+  const { data: notis } = await admin
+    .from('notificaciones').select('enlace').gt('creada_en', cutoff).like('enlace', '%?rev=%');
+  const yaAvisado = new Set((notis ?? []).map(n => n.enlace as string));
+
+  // Nombres de las socias implicadas (en lotes para no exceder el filtro `in`).
+  const socioIds = [...new Set(recordatorios.map(r => r.condicion.socioId))];
+  const nombrePorSocio = new Map<string, string>();
+  for (let i = 0; i < socioIds.length; i += 200) {
+    const lote = socioIds.slice(i, i + 200);
+    const { data: socias } = await admin.from('socios').select('id, nombre, apellidos').in('id', lote);
+    for (const s of socias ?? []) nombrePorSocio.set(s.id as string, `${s.nombre} ${s.apellidos}`.trim());
+  }
+
+  const nuevas = recordatorios
+    .map(r => {
+      const enlace = `/socios/${r.condicion.socioId}?rev=${r.condicion.id}`;
+      if (yaAvisado.has(enlace)) return null;
+      const nombre = nombrePorSocio.get(r.condicion.socioId) ?? 'Una socia';
+      return {
+        id: `noti-${uid()}`,
+        studio_id: r.condicion.studioId,
+        titulo: 'Revisión de ficha de salud',
+        texto: textoRecordatorioRevision(nombre, r),
+        leida: false,
+        tipo: 'AVISO',
+        enlace,
+        creada_en: nowISO,
+      };
+    })
+    .filter((n): n is NonNullable<typeof n> => n !== null);
+
+  if (nuevas.length > 0) {
+    const { error: insErr } = await admin.from('notificaciones').insert(nuevas);
+    if (insErr) throw new Error(insErr.message);
+  }
+  return { condicionesActivas: condiciones.length, recordatorios: recordatorios.length, notificacionesCreadas: nuevas.length };
 }
 
 // Barrido de no-shows: marca NO_ASISTIO toda reserva que siga CONFIRMADA en una
@@ -2007,6 +2112,40 @@ function notaInternaToDb(nota: NotaInterna) {
     texto: nota.texto,
     tipo: nota.tipo,
     creado_en: nota.creadoEn,
+  };
+}
+
+function condicionSaludToDb(c: CondicionSalud) {
+  return {
+    id: c.id,
+    studio_id: c.studioId ?? STUDIO_ID,
+    socio_id: c.socioId,
+    categoria: c.categoria,
+    etiqueta: c.etiqueta,
+    zona: c.zona,
+    restricciones: c.restricciones ?? [],
+    severidad: c.severidad,
+    estado: c.estado,
+    inicio: c.inicio,
+    fin: c.fin,
+    revisar_en: c.revisarEn,
+    notas: c.notas,
+    creado_por: c.creadoPor,
+    creado_en: c.creadoEn,
+    actualizado_en: c.actualizadoEn,
+  };
+}
+
+function respuestaSesionToDb(r: RespuestaSesionRow) {
+  return {
+    id: r.id,
+    studio_id: r.studioId ?? STUDIO_ID,
+    socio_id: r.socioId,
+    sesion_id: r.sesionId,
+    respuesta: r.respuesta,
+    nota: r.nota,
+    creado_por: r.creadoPor,
+    creado_en: r.creadoEn,
   };
 }
 
@@ -2764,6 +2903,43 @@ export async function dbInsertNotaInterna(nota: NotaInterna) {
 export async function dbDeleteNotaInterna(id: string) {
   const { error } = await supabase.from('notas_internas').delete().eq('id', id);
   if (error) reportDbError('[dbDeleteNotaInterna]', error);
+}
+
+export async function dbInsertCondicion(c: CondicionSalud) {
+  const { error } = await supabase.from('condiciones_salud').insert(condicionSaludToDb(c));
+  if (error) reportDbError('[dbInsertCondicion]', error);
+}
+
+export async function dbUpdateCondicion(id: string, changes: Partial<CondicionSalud>) {
+  const parcial = condicionSaludToDb({ id, ...changes } as CondicionSalud);
+  // Solo enviamos las columnas realmente presentes en `changes` (+ actualizado_en).
+  const patch: Record<string, unknown> = { actualizado_en: new Date().toISOString() };
+  const clave: Record<keyof CondicionSalud, string> = {
+    id: 'id', studioId: 'studio_id', socioId: 'socio_id', categoria: 'categoria',
+    etiqueta: 'etiqueta', zona: 'zona', restricciones: 'restricciones', severidad: 'severidad',
+    estado: 'estado', inicio: 'inicio', fin: 'fin', revisarEn: 'revisar_en', notas: 'notas',
+    creadoPor: 'creado_por', creadoEn: 'creado_en', actualizadoEn: 'actualizado_en',
+  };
+  for (const k of Object.keys(changes) as (keyof CondicionSalud)[]) {
+    patch[clave[k]] = (parcial as Record<string, unknown>)[clave[k]];
+  }
+  const { error } = await supabase.from('condiciones_salud').update(patch).eq('id', id);
+  if (error) reportDbError('[dbUpdateCondicion]', error);
+}
+
+export async function dbDeleteCondicion(id: string) {
+  const { error } = await supabase.from('condiciones_salud').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteCondicion]', error);
+}
+
+export async function dbInsertRespuestaSesion(r: RespuestaSesionRow) {
+  const { error } = await supabase.from('respuestas_sesion').insert(respuestaSesionToDb(r));
+  if (error) reportDbError('[dbInsertRespuestaSesion]', error);
+}
+
+export async function dbUpdateRespuestaSesion(id: string, changes: Partial<Pick<RespuestaSesionRow, 'respuesta' | 'nota'>>) {
+  const { error } = await supabase.from('respuestas_sesion').update(changes).eq('id', id);
+  if (error) reportDbError('[dbUpdateRespuestaSesion]', error);
 }
 
 export async function dbInsertCampana(c: Campana) {

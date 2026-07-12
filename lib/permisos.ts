@@ -20,6 +20,14 @@ function coincide(path: string, prefijo: string) {
   return path === prefijo || path.startsWith(`${prefijo}/`);
 }
 
+// Ficha clínica: dato de salud sensible (FICHA-CLINICA.md §11). PROPIETARIO e
+// INSTRUCTOR ven el detalle clínico; RECEPCIÓN solo ve el color del semáforo
+// (no el motivo ni las condiciones). Es una barrera de UI; la fuente de verdad
+// se protege también en servidor.
+export function puedeVerFichaClinica(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'INSTRUCTOR';
+}
+
 export function puedeVer(rol: Rol, path: string): boolean {
   if (rol === 'PROPIETARIO') return true;
   if (rol === 'INSTRUCTOR') return PERMITIDO_INSTRUCTOR.some(p => coincide(path, p));

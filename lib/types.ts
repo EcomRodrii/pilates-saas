@@ -123,6 +123,46 @@ export interface NotaInterna {
   creadoEn: string;
 }
 
+// ─── Ficha clínica operativa (FICHA-CLINICA.md) ──────────────────────────────
+
+export type CategoriaCondicion = 'LESION' | 'EMBARAZO' | 'POSTPARTO' | 'CRONICA' | 'PROTESIS' | 'OTRO';
+export type ZonaCorporal = 'RODILLA' | 'COLUMNA' | 'HOMBRO' | 'CADERA' | 'CUELLO' | 'MUNECA' | 'TOBILLO' | 'GENERAL';
+export type SeveridadCondicion = 'LEVE' | 'MEDIA' | 'ALTA';
+export type EstadoCondicion = 'ACTIVA' | 'RESUELTA';
+export type RespuestaSesion = 'MEJOR' | 'IGUAL' | 'MOLESTIAS' | 'DOLOR';
+export type NivelSemaforo = 'VERDE' | 'AMBAR' | 'ROJO';
+export type NivelRiesgo = 'BAJO' | 'MEDIO' | 'ALTO';
+
+export interface CondicionSalud {
+  id: string;
+  studioId: string;
+  socioId: string;
+  categoria: CategoriaCondicion;
+  etiqueta: string;
+  zona: ZonaCorporal | null;
+  restricciones: string[];        // códigos del catálogo de lib/ficha-clinica.ts
+  severidad: SeveridadCondicion;
+  estado: EstadoCondicion;
+  inicio: string;                 // ISO date (YYYY-MM-DD)
+  fin: string | null;             // alta médica / resolución
+  revisarEn: string | null;
+  notas: string | null;
+  creadoPor: string | null;       // instructor_id
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
+export interface RespuestaSesionRow {
+  id: string;
+  studioId: string;
+  socioId: string;
+  sesionId: string | null;
+  respuesta: RespuestaSesion;
+  nota: string | null;
+  creadoPor: string | null;
+  creadoEn: string;
+}
+
 export interface PlanTarifa {
   id: string;
   studioId: string;

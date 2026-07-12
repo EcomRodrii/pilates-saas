@@ -3,8 +3,10 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
+import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
+import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
-import type { Socio } from '@/lib/types';
+import type { Socio, NivelSemaforo } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
@@ -128,8 +130,27 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Socios() {
   const router = useRouter();
-  const { socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig } =
+  const { socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud } =
     useStudio();
+  const verFichaClinica = puedeVerFichaClinica(useRol());
+
+  // Semáforo de salud por socia (solo el color; el motivo vive en el detalle).
+  // FICHA-CLINICA.md §1, §11 — RECEPCIÓN no ve ni el color.
+  const semaforoPorSocio = useMemo(() => {
+    const porSocio = new Map<string, NivelSemaforo>();
+    if (!verFichaClinica) return porSocio;
+    const grupos = new Map<string, typeof condicionesSalud>();
+    for (const c of condicionesSalud) {
+      const arr = grupos.get(c.socioId) ?? [];
+      arr.push(c);
+      grupos.set(c.socioId, arr);
+    }
+    for (const [socioId, conds] of grupos) {
+      const nivel = semaforo(conds);
+      if (nivel !== 'VERDE') porSocio.set(socioId, nivel);
+    }
+    return porSocio;
+  }, [condicionesSalud, verFichaClinica]);
 
   // Filter & sort state
   const [busqueda, setBusqueda] = useState('');
@@ -694,8 +715,12 @@ export default function Socios() {
                       <div className="flex items-center gap-3">
                         <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarText} size="sm" />
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-foreground truncate">
-                            {s.nombre} {s.apellidos}
+                          <p className="text-[13px] font-semibold text-foreground truncate flex items-center gap-1.5">
+                            {semaforoPorSocio.has(s.id) && (
+                              <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[semaforoPorSocio.get(s.id)!].label}
+                                style={{ backgroundColor: SEMAFORO_META[semaforoPorSocio.get(s.id)!].color }} />
+                            )}
+                            <span className="truncate">{s.nombre} {s.apellidos}</span>
                           </p>
                           <p className="text-[11px] text-muted-foreground truncate">{s.email}</p>
                         </div>
@@ -790,7 +815,13 @@ export default function Socios() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-foreground truncate">{s.nombre} {s.apellidos}</p>
+                        <p className="text-[13px] font-semibold text-foreground truncate flex items-center gap-1.5">
+                          {semaforoPorSocio.has(s.id) && (
+                            <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[semaforoPorSocio.get(s.id)!].label}
+                              style={{ backgroundColor: SEMAFORO_META[semaforoPorSocio.get(s.id)!].color }} />
+                          )}
+                          <span className="truncate">{s.nombre} {s.apellidos}</span>
+                        </p>
                         <p className="text-[11px] text-muted-foreground truncate">{s.email}</p>
                       </div>
                       <button

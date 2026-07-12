@@ -2,6 +2,9 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
+import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
+import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
+import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida } from '@/lib/types';
 import { SpotMap } from '@/components/spots/spot-map';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,6 +12,7 @@ import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   Search, CalendarDays, CheckCircle2, TrendingUp, ChevronDown,
   Clock, MapPin, Users, UserPlus, Pencil, Trash2, ArrowUpRight,
+  Bot, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { enviarEmailCancelacionClase } from '@/lib/api-client';
@@ -286,11 +290,77 @@ function SessionSidebar({
   onLiberarSpot: (reservaId: string) => void;
   onAsignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
 }) {
-  const { studio } = useStudio();
+  const { studio, condicionesSalud, respuestasSesion, registrarRespuestaSesion } = useStudio();
+  const verFichaClinica = puedeVerFichaClinica(useRol());
   const [buscarSocia, setBuscarSocia] = useState('');
   const [showAnadir, setShowAnadir] = useState(false);
   const [showConfirm, setShowConfirm] = useState<'cancelar' | 'eliminar' | null>(null);
   const [activeTab, setActiveTab] = useState<'asistentes' | 'mapa'>('asistentes');
+  const [prepIA, setPrepIA] = useState<{ resumen: string; evitar: string[]; variantes: string[] } | null>(null);
+  const [prepIALoading, setPrepIALoading] = useState(false);
+  const [prepIAError, setPrepIAError] = useState(false);
+
+  // Ficha clínica: condiciones por socia + alertas antes de la clase (§4, §7).
+  // Solo PROPIETARIO/INSTRUCTOR; RECEPCIÓN no ve semáforo ni motivo (§11).
+  const hoy = useMemo(() => new Date(), []);
+  const condicionesPorSocio = useMemo(() => {
+    const m = new Map<string, typeof condicionesSalud>();
+    if (!verFichaClinica) return m;
+    for (const c of condicionesSalud) {
+      const arr = m.get(c.socioId) ?? [];
+      arr.push(c);
+      m.set(c.socioId, arr);
+    }
+    return m;
+  }, [condicionesSalud, verFichaClinica]);
+
+  const alertasClase = useMemo(() => {
+    if (!verFichaClinica) return [] as string[];
+    return reservas
+      .filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')
+      .map(r => {
+        const conds = condicionesPorSocio.get(r.socioId);
+        if (!conds || !r.socio) return null;
+        return alertaPreClase(r.socio.nombre, conds, hoy);
+      })
+      .filter((a): a is string => a !== null);
+  }, [reservas, condicionesPorSocio, verFichaClinica, hoy]);
+
+  // Evolución post-clase (§8): respuesta ya registrada de cada socia en ESTA sesión.
+  const respuestaPorSocio = useMemo(() => {
+    const m = new Map<string, (typeof respuestasSesion)[number]>();
+    if (!sesion) return m;
+    for (const r of respuestasSesion) {
+      if (r.sesionId === sesion.id) m.set(r.socioId, r);
+    }
+    return m;
+  }, [respuestasSesion, sesion]);
+
+  // IA prep de clase (§9): construye el agregado ANÓNIMO en el cliente con la
+  // función pura y lo envía. La IA nunca recibe nombres ni datos crudos.
+  async function prepararClaseIA() {
+    setPrepIALoading(true);
+    setPrepIA(null);
+    setPrepIAError(false);
+    try {
+      const condicionesPorAlumna = reservas
+        .filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')
+        .map(r => condicionesPorSocio.get(r.socioId) ?? []);
+      const resumen = resumenSaludClase(condicionesPorAlumna);
+      const res = await fetch('/api/ai/ficha-clinica-clase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify(resumen),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Error');
+      setPrepIA({ resumen: data.resumen, evitar: data.evitar ?? [], variantes: data.variantes ?? [] });
+    } catch {
+      setPrepIAError(true);
+    } finally {
+      setPrepIALoading(false);
+    }
+  }
 
   const sociosEnClase = new Set(reservas.filter(r => r.estado !== 'CANCELADA').map(r => r.socioId));
   const sociosDisponibles = socios.filter(
@@ -478,6 +548,61 @@ function SessionSidebar({
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'asistentes' ? (
           <div className="p-4 space-y-1">
+            {/* Alertas de salud antes de la clase (§4, §7) */}
+            {alertasClase.length > 0 && (
+              <div className="mb-3 rounded-xl border p-3" style={{ backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}>
+                <p className="text-[11px] font-bold mb-1.5 flex items-center gap-1.5" style={{ color: '#92400E' }}>
+                  <AlertTriangle size={13} /> Adaptaciones para esta clase
+                </p>
+                <ul className="space-y-1">
+                  {alertasClase.map((a, i) => (
+                    <li key={i} className="text-[11px] leading-snug" style={{ color: '#78350F' }}>· {a}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* IA: preparar clase (§9) */}
+            {verFichaClinica && alertasClase.length > 0 && (
+              <div className="mb-3">
+                {!prepIA && (
+                  <button
+                    onClick={prepararClaseIA}
+                    disabled={prepIALoading}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[11px] font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-50 transition-colors"
+                  >
+                    {prepIALoading ? <Loader2 size={13} className="animate-spin" /> : <Bot size={13} />}
+                    {prepIALoading ? 'Preparando…' : 'Preparar clase con IA'}
+                  </button>
+                )}
+                {prepIAError && <p className="text-[11px] text-red-600 mt-1.5">No se pudo generar la preparación. Inténtalo de nuevo.</p>}
+                {prepIA && (
+                  <div className="rounded-xl border border-border bg-card p-3 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs text-foreground leading-snug">{prepIA.resumen}</p>
+                      <button onClick={() => setPrepIA(null)} title="Cerrar" className="text-muted-foreground hover:text-foreground shrink-0"><X size={13} /></button>
+                    </div>
+                    {prepIA.evitar.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Evitar</p>
+                        <ul className="space-y-0.5">
+                          {prepIA.evitar.map((e, i) => <li key={i} className="text-[11px] text-foreground leading-snug">· {e}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {prepIA.variantes.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Variantes sugeridas</p>
+                        <ul className="space-y-0.5">
+                          {prepIA.variantes.map((v, i) => <li key={i} className="text-[11px] text-foreground leading-snug">· {v}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    <p className="text-[9px] text-muted-foreground italic">Sugerencia generada por IA — revísala antes de aplicarla. No es consejo médico.</p>
+                  </div>
+                )}
+              </div>
+            )}
             {/* Add attendee */}
             {!showAnadir ? (
               <button
@@ -552,7 +677,16 @@ function SessionSidebar({
                       {r.socio?.nombre[0]}{r.socio?.apellidos[0]}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-foreground truncate">{r.socio?.nombre} {r.socio?.apellidos}</p>
+                      <p className="text-xs font-semibold text-foreground truncate flex items-center gap-1.5">
+                        {(() => {
+                          const conds = condicionesPorSocio.get(r.socioId);
+                          const nivel = conds ? semaforo(conds) : 'VERDE';
+                          return nivel !== 'VERDE' ? (
+                            <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[nivel].label} style={{ backgroundColor: SEMAFORO_META[nivel].color }} />
+                          ) : null;
+                        })()}
+                        <span className="truncate">{r.socio?.nombre} {r.socio?.apellidos}</span>
+                      </p>
                       <p className="text-[10px] text-muted-foreground">
                         {r.estado === 'LISTA_ESPERA'
                           ? `Espera #${r.posicionEspera}`
@@ -562,6 +696,28 @@ function SessionSidebar({
                           ? 'No asistió'
                           : 'Confirmada'}
                       </p>
+                      {/* Evolución post-clase: ¿cómo respondió hoy? (§8) */}
+                      {verFichaClinica && r.estado === 'ASISTIDA' && (
+                        <div className="flex items-center gap-1 mt-1.5">
+                          {RESPUESTAS_ORDEN.map(resp => {
+                            const rm = RESPUESTA_META[resp];
+                            const activa = respuestaPorSocio.get(r.socioId)?.respuesta === resp;
+                            return (
+                              <button
+                                key={resp}
+                                onClick={() => registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesion?.id ?? null, respuesta: resp })}
+                                title={rm.label}
+                                aria-label={rm.label}
+                                aria-pressed={activa}
+                                className={cn('w-6 h-6 rounded-md text-xs flex items-center justify-center transition-all', activa ? 'ring-2 scale-110' : 'opacity-45 hover:opacity-100')}
+                                style={activa ? { backgroundColor: rm.bg, boxShadow: `0 0 0 2px ${rm.color}` } : { backgroundColor: rm.bg }}
+                              >
+                                {rm.emoji}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {r.estado === 'CONFIRMADA' && (

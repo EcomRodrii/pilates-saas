@@ -23,6 +23,8 @@ import {
   dbInsertChallengeDefinition, dbUpdateChallengeDefinition, dbDeleteChallengeDefinition,
   dbUpsertChallengeProgress, dbInsertChallengeHistory,
   dbInsertNotaInterna, dbDeleteNotaInterna,
+  dbInsertCondicion, dbUpdateCondicion, dbDeleteCondicion,
+  dbInsertRespuestaSesion, dbUpdateRespuestaSesion,
   dbInsertCampana, dbDeleteCampana, dbUpdateCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion,
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
@@ -47,6 +49,9 @@ import type {
   Instructor,
   Spot,
   NotaInterna,
+  CondicionSalud,
+  RespuestaSesionRow,
+  RespuestaSesion,
   Cita,
   EstadoCita,
   ProductoPOS,
@@ -198,6 +203,16 @@ interface StudioContextValue {
   // Notas internas
   addNota: (socioId: string, texto: string) => void;
   deleteNota: (notaId: string) => void;
+
+  // Ficha clínica — condiciones de salud (FICHA-CLINICA.md)
+  condicionesSalud: CondicionSalud[];
+  addCondicion: (fields: Omit<CondicionSalud, 'id' | 'studioId' | 'creadoEn' | 'actualizadoEn'>) => void;
+  updateCondicion: (id: string, changes: Partial<CondicionSalud>) => void;
+  deleteCondicion: (id: string) => void;
+
+  // Ficha clínica — evolución post-clase (Fase 2)
+  respuestasSesion: RespuestaSesionRow[];
+  registrarRespuestaSesion: (params: { socioId: string; sesionId: string | null; respuesta: RespuestaSesion; nota?: string | null }) => void;
 
   // Sesiones
   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => void;
@@ -422,6 +437,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [recibos, setRecibos] = useState<Recibo[]>([]);
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const [notasInternas, setNotasInternas] = useState<NotaInterna[]>([]);
+  const [condicionesSalud, setCondicionesSalud] = useState<CondicionSalud[]>([]);
+  const [respuestasSesion, setRespuestasSesion] = useState<RespuestaSesionRow[]>([]);
 
   const [citas, setCitas] = useState<Cita[]>([]);
   const [productosPOS, setProductosPOS] = useState<ProductoPOS[]>([]);
@@ -568,6 +585,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setRecibos(data.recibos);
       setFacturas(data.facturas);
       setNotasInternas(data.notasInternas);
+      setCondicionesSalud(data.condicionesSalud);
+      setRespuestasSesion(data.respuestasSesion);
       setCitas(data.citas);
       setProductosPOS(data.productosPOS);
       setVentasPOS(data.ventasPOS);
@@ -919,6 +938,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setSuscripciones(prev => prev.filter(s => s.socioId !== id));
     setRecibos(prev => prev.filter(r => r.socioId !== id));
     setNotasInternas(prev => prev.filter(n => n.socioId !== id));
+    setCondicionesSalud(prev => prev.filter(c => c.socioId !== id));
+    setRespuestasSesion(prev => prev.filter(r => r.socioId !== id));
     dbDeleteSocio(id);
     if (socio) addActividadReciente('SOCIA_ELIMINADA', `${actorNombre ?? 'Alguien'} eliminó a ${socio.nombre} ${socio.apellidos}`);
   }
@@ -957,6 +978,57 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   function deleteNota(notaId: string) {
     setNotasInternas(prev => prev.filter(n => n.id !== notaId));
     dbDeleteNotaInterna(notaId);
+  }
+
+  // ── Ficha clínica: condiciones de salud ──────────────────────────────────────
+  function addCondicion(fields: Omit<CondicionSalud, 'id' | 'studioId' | 'creadoEn' | 'actualizadoEn'>) {
+    const ahora = new Date().toISOString();
+    const nueva: CondicionSalud = {
+      ...fields,
+      id: `cond-${uid()}`,
+      studioId: getCurrentStudioId(),
+      creadoEn: ahora,
+      actualizadoEn: ahora,
+    };
+    setCondicionesSalud(prev => [nueva, ...prev]);
+    dbInsertCondicion(nueva);
+    // Sin log al feed de actividad reciente: es visible para RECEPCIÓN y la
+    // etiqueta clínica es dato sensible (FICHA-CLINICA.md §11). Un registro de
+    // auditoría restringido queda como follow-up.
+  }
+
+  function updateCondicion(id: string, changes: Partial<CondicionSalud>) {
+    const conActualizado = { ...changes, actualizadoEn: new Date().toISOString() };
+    setCondicionesSalud(prev => prev.map(c => c.id === id ? { ...c, ...conActualizado } : c));
+    dbUpdateCondicion(id, changes);
+  }
+
+  function deleteCondicion(id: string) {
+    setCondicionesSalud(prev => prev.filter(c => c.id !== id));
+    dbDeleteCondicion(id);
+  }
+
+  // Evolución post-clase (Fase 2): una respuesta por (socia, sesión). Si ya
+  // existe para esa combinación, se actualiza; si no, se inserta.
+  function registrarRespuestaSesion({ socioId, sesionId, respuesta, nota = null }: { socioId: string; sesionId: string | null; respuesta: RespuestaSesion; nota?: string | null }) {
+    const existente = respuestasSesion.find(r => r.socioId === socioId && r.sesionId === sesionId);
+    if (existente) {
+      setRespuestasSesion(prev => prev.map(r => r.id === existente.id ? { ...r, respuesta, nota } : r));
+      dbUpdateRespuestaSesion(existente.id, { respuesta, nota });
+      return;
+    }
+    const nueva: RespuestaSesionRow = {
+      id: `resp-${uid()}`,
+      studioId: getCurrentStudioId(),
+      socioId,
+      sesionId,
+      respuesta,
+      nota,
+      creadoPor: null,
+      creadoEn: new Date().toISOString(),
+    };
+    setRespuestasSesion(prev => [nueva, ...prev]);
+    dbInsertRespuestaSesion(nueva);
   }
 
   // ── Suscripciones ────────────────────────────────────────────────────────────
@@ -2347,6 +2419,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     reanudarSuscripcion,
     addNota,
     deleteNota,
+    condicionesSalud,
+    addCondicion,
+    updateCondicion,
+    deleteCondicion,
+    respuestasSesion,
+    registrarRespuestaSesion,
     addSesion,
     updateSesion,
     deleteSesion,
@@ -2480,6 +2558,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setRecibos(data.recibos);
       setFacturas(data.facturas);
       setNotasInternas(data.notasInternas);
+      setCondicionesSalud(data.condicionesSalud);
+      setRespuestasSesion(data.respuestasSesion);
       setCitas(data.citas);
       setProductosPOS(data.productosPOS);
       setVentasPOS(data.ventasPOS);

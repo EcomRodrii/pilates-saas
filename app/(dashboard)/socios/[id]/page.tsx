@@ -4,7 +4,9 @@ import { use, useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
-import { useRol } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
+import { FichaSalud } from '@/components/socios/ficha-salud';
+import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
@@ -164,12 +166,13 @@ function AttendanceSparkline({ weeks }: { weeks: boolean[] }) {
 
 // ─── Tab bar ──────────────────────────────────────────────────────────────────
 
-type Tab = 'resumen' | 'reservas' | 'pagos' | 'comunicaciones';
+type Tab = 'resumen' | 'reservas' | 'salud' | 'pagos' | 'comunicaciones';
 
-function TabBar({ active, onChange, verFinanzas }: { active: Tab; onChange: (t: Tab) => void; verFinanzas: boolean }) {
+function TabBar({ active, onChange, verFinanzas, verFichaClinica }: { active: Tab; onChange: (t: Tab) => void; verFinanzas: boolean; verFichaClinica: boolean }) {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'resumen', label: 'Resumen' },
     { id: 'reservas', label: 'Reservas' },
+    ...(verFichaClinica ? [{ id: 'salud' as Tab, label: 'Salud' }] : []),
     ...(verFinanzas ? [{ id: 'pagos' as Tab, label: 'Pagos' }] : []),
     { id: 'comunicaciones', label: 'Comunicaciones' },
   ];
@@ -199,6 +202,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const { id } = use(params);
   const rol = useRol();
   const verFinanzas = rol !== 'INSTRUCTOR';
+  const verFichaClinica = puedeVerFichaClinica(rol);
 
   const {
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
@@ -207,7 +211,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion,
     addNota, deleteNota,
     notasProgreso, addNotaProgreso,
+    condicionesSalud,
   } = useStudio();
+
+  const semaforoSocio = useMemo(
+    () => semaforo(condicionesSalud.filter(c => c.socioId === id)),
+    [condicionesSalud, id],
+  );
 
   // ── Hydration fix ──────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
@@ -494,7 +504,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
           {/* Tab bar + panels */}
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <TabBar active={activeTab} onChange={setActiveTab} verFinanzas={verFinanzas} />
+            <TabBar active={activeTab} onChange={setActiveTab} verFinanzas={verFinanzas} verFichaClinica={verFichaClinica} />
 
             <div className="p-5">
 
@@ -905,6 +915,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 </div>
               )}
 
+              {/* ═══ TAB: SALUD (ficha clínica) ═════════════════════════════ */}
+              {activeTab === 'salud' && verFichaClinica && (
+                <FichaSalud socioId={id} now={now} />
+              )}
+
               {/* ═══ TAB: PAGOS ═════════════════════════════════════════════ */}
               {activeTab === 'pagos' && verFinanzas && (
                 <div>
@@ -1074,6 +1089,17 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: socio.activo ? '#059669' : 'var(--muted-foreground)' }} />
                 {socio.activo ? 'Activa' : 'Inactiva'}
               </span>
+              {verFichaClinica && semaforoSocio !== 'VERDE' && (
+                <button
+                  onClick={() => setActiveTab('salud')}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full mt-2 ml-2 hover:brightness-95"
+                  style={{ backgroundColor: `${SEMAFORO_META[semaforoSocio].color}1A`, color: SEMAFORO_META[semaforoSocio].color }}
+                  title="Ver ficha de salud"
+                >
+                  <span aria-hidden>{SEMAFORO_META[semaforoSocio].emoji}</span>
+                  {SEMAFORO_META[semaforoSocio].label}
+                </button>
+              )}
             </div>
 
             {/* Contact info */}

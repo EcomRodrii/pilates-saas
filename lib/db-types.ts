@@ -604,3 +604,33 @@ export interface RowUsuarios {
   telefono: string | null;
   avatar_url: string | null;
 }
+
+export interface RowCondicionesSalud {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  categoria: string;
+  etiqueta: string;
+  zona: string | null;
+  restricciones: string[];
+  severidad: string;
+  estado: string;
+  inicio: string;
+  fin: string | null;
+  revisar_en: string | null;
+  notas: string | null;
+  creado_por: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowRespuestasSesion {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  sesion_id: string | null;
+  respuesta: string;
+  nota: string | null;
+  creado_por: string | null;
+  creado_en: string;
+}
