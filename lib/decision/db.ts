@@ -4,6 +4,13 @@
 // de mappers (mapXxx/xxxToDb) y de errores (reportError) que ese archivo.
 import { requireSupabaseAdmin } from '@/lib/supabase-admin';
 import { uid } from '@/lib/utils';
+import type {
+  AccionDecision, Confianza, DecisionFeatureFlag, DecisionFlag, DecisionSession, EspecialistaId,
+  EstadoRecomendacion, HechoMemoria, Impacto, ItemMientrasDormias, MemoriaEstudio, Outcome,
+  Prioridad, Recomendacion, ResumenDiario, Riesgo, TipoRecomendacion,
+} from './tipos.ts';
+import type { NuevoHechoMemoria } from './memoria.ts';
+import type { CandidataPriorizada } from './prioridad.ts';
 
 // Decision OS escribe con el cliente service-role (salta RLS). Con el cliente
 // anon, RLS bloqueaba silenciosamente todos los INSERT/UPSERT de estas tablas
@@ -12,13 +19,6 @@ import { uid } from '@/lib/utils';
 function db() {
   return requireSupabaseAdmin();
 }
-import type {
-  AccionDecision, Confianza, DecisionFeatureFlag, DecisionFlag, DecisionSession, EspecialistaId,
-  EstadoRecomendacion, HechoMemoria, Impacto, ItemMientrasDormias, MemoriaEstudio, Outcome,
-  Prioridad, Recomendacion, ResumenDiario, Riesgo, TipoRecomendacion,
-} from './tipos.ts';
-import type { NuevoHechoMemoria } from './memoria.ts';
-import type { CandidataPriorizada } from './prioridad.ts';
 
 function reportError(tag: string, error: unknown) {
   console.error(tag, error);
@@ -32,7 +32,7 @@ export async function dbInsertDecisionSession(input: {
   studioId: string; disparadoPor: DecisionSession['disparadoPor']; algorithmVersion: string; iniciadoEn: string;
 }): Promise<string> {
   const id = uid();
-  const { error } = await supabase.from('decision_sessions').insert({
+  const { error } = await db().from('decision_sessions').insert({
     id, studio_id: input.studioId, disparado_por: input.disparadoPor,
     algorithm_version: input.algorithmVersion, iniciado_en: input.iniciadoEn,
   });
@@ -45,7 +45,7 @@ export async function dbFinalizarDecisionSession(id: string, patch: {
   nCandidatasDescartadas: number; nRecomendacionesPersistidas: number; resumenDiarioId: string | null;
   errores: string[] | null; estado: 'COMPLETADA' | 'FALLIDA';
 }): Promise<void> {
-  const { error } = await supabase.from('decision_sessions').update({
+  const { error } = await db().from('decision_sessions').update({
     finalizado_en: patch.finalizadoEn, snapshot_stats: patch.snapshotStats,
     n_candidatas_generadas: patch.nCandidatasGeneradas, n_candidatas_descartadas: patch.nCandidatasDescartadas,
     n_recomendaciones_persistidas: patch.nRecomendacionesPersistidas, resumen_diario_id: patch.resumenDiarioId,
@@ -118,7 +118,7 @@ export function construirRecomendacion(c: CandidataPriorizada, ctx: {
  * `.upsert()`.
  */
 export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
-  const { data: existente, error: selectError } = await supabase
+  const { data: existente, error: selectError } = await db()
     .from('recomendaciones')
     .select('id')
     .eq('studio_id', r.studioId)
@@ -133,10 +133,10 @@ export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
     const actualizable: Partial<typeof row> = { ...row };
     delete actualizable.id;
     delete actualizable.creado_en;
-    const { error } = await supabase.from('recomendaciones').update(actualizable).eq('id', existente.id);
+    const { error } = await db().from('recomendaciones').update(actualizable).eq('id', existente.id);
     if (error) reportError('[dbUpsertRecomendacion:update]', error);
   } else {
-    const { error } = await supabase.from('recomendaciones').insert(row);
+    const { error } = await db().from('recomendaciones').insert(row);
     if (error) reportError('[dbUpsertRecomendacion:insert]', error);
   }
 }
@@ -155,7 +155,7 @@ export async function dbTransicionarRecomendacion(
   if (extra.resueltoPor !== undefined) patch.resuelto_por = extra.resueltoPor;
   if (extra.resueltoEn !== undefined) patch.resuelto_en = extra.resueltoEn;
 
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('recomendaciones')
     .update(patch)
     .eq('id', id)
@@ -169,7 +169,7 @@ export async function dbTransicionarRecomendacion(
 
 export async function dbMarcarVista(id: string, vistaEn: string): Promise<void> {
   // Solo se rellena la primera vez — no pisa una vistaEn ya existente.
-  const { error } = await supabase.from('recomendaciones').update({ vista_en: vistaEn }).eq('id', id).is('vista_en', null);
+  const { error } = await db().from('recomendaciones').update({ vista_en: vistaEn }).eq('id', id).is('vista_en', null);
   if (error) reportError('[dbMarcarVista]', error);
 }
 
@@ -178,7 +178,7 @@ export async function dbListPendientes(studioId: string): Promise<Recomendacion[
   // alfabéticamente saldría ALTA, BAJA, CRITICA, MEDIA — el orden real
   // (severidad, luego score) lo aplica quien consuma la lista, con la misma
   // lógica ya testeada en prioridad.ts (seleccionarPrioridadesHome).
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('recomendaciones')
     .select('*')
     .eq('studio_id', studioId)
@@ -190,7 +190,7 @@ export async function dbListPendientes(studioId: string): Promise<Recomendacion[
 
 export async function dbListResueltas90d(studioId: string, now: Date): Promise<Recomendacion[]> {
   const desde = new Date(now.getTime() - 90 * 86400000).toISOString();
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('recomendaciones')
     .select('*')
     .eq('studio_id', studioId)
@@ -201,7 +201,7 @@ export async function dbListResueltas90d(studioId: string, now: Date): Promise<R
 }
 
 export async function dbGetRecomendacion(id: string): Promise<Recomendacion | null> {
-  const { data, error } = await supabase.from('recomendaciones').select('*').eq('id', id).maybeSingle();
+  const { data, error } = await db().from('recomendaciones').select('*').eq('id', id).maybeSingle();
   if (error) { reportError('[dbGetRecomendacion]', error); return null; }
   return data ? mapRecomendacion(data as RowRecomendaciones) : null;
 }
@@ -224,7 +224,7 @@ function mapOutcome(row: RowOutcomes): Outcome {
 }
 
 export async function dbInsertOutcome(o: Omit<Outcome, 'id'>): Promise<void> {
-  const { error } = await supabase.from('recomendacion_outcomes').insert({
+  const { error } = await db().from('recomendacion_outcomes').insert({
     id: uid(), studio_id: o.studioId, recomendacion_id: o.recomendacionId, evento: o.evento,
     outcome: o.outcome, senal_observada: o.senalObservada, ventana_dias: o.ventanaDias, medido_en: o.medidoEn,
   });
@@ -232,14 +232,14 @@ export async function dbInsertOutcome(o: Omit<Outcome, 'id'>): Promise<void> {
 }
 
 export async function dbActualizarOutcome(id: string, patch: { outcome: Outcome['outcome']; senalObservada: Outcome['senalObservada']; medidoEn: string }): Promise<void> {
-  const { error } = await supabase.from('recomendacion_outcomes').update({
+  const { error } = await db().from('recomendacion_outcomes').update({
     outcome: patch.outcome, senal_observada: patch.senalObservada, medido_en: patch.medidoEn,
   }).eq('id', id);
   if (error) reportError('[dbActualizarOutcome]', error);
 }
 
 export async function dbGetOutcomePorRecomendacion(recomendacionId: string, evento: Outcome['evento']): Promise<Outcome | null> {
-  const { data, error } = await supabase.from('recomendacion_outcomes').select('*').eq('recomendacion_id', recomendacionId).eq('evento', evento).maybeSingle();
+  const { data, error } = await db().from('recomendacion_outcomes').select('*').eq('recomendacion_id', recomendacionId).eq('evento', evento).maybeSingle();
   if (error) { reportError('[dbGetOutcomePorRecomendacion]', error); return null; }
   return data ? mapOutcome(data as RowOutcomes) : null;
 }
@@ -269,7 +269,7 @@ function mapHechoMemoria(row: RowMemoriaSocio): HechoMemoria {
 // en cuanto hay un replay. `construirMapaMemoria` reconstruye el Map FUERA
 // del step, en memoria del propio handler.
 export async function dbListMemoriaRows(studioId: string): Promise<HechoMemoria[]> {
-  const { data, error } = await supabase.from('memoria_socio').select('*').eq('studio_id', studioId).eq('activa', true);
+  const { data, error } = await db().from('memoria_socio').select('*').eq('studio_id', studioId).eq('activa', true);
   if (error) { reportError('[dbListMemoriaRows]', error); return []; }
   return (data ?? []).map(row => mapHechoMemoria(row as RowMemoriaSocio));
 }
@@ -286,7 +286,7 @@ export function construirMapaMemoria(hechos: HechoMemoria[]): MemoriaEstudio {
 
 /** Upsert por (studio_id, socio_id, clave) — catálogo cerrado, un hecho activo por clave y socia. */
 export async function dbUpsertHechoMemoria(h: NuevoHechoMemoria): Promise<void> {
-  const { error } = await supabase.from('memoria_socio').upsert({
+  const { error } = await db().from('memoria_socio').upsert({
     id: uid(), studio_id: h.studioId, socio_id: h.socioId, clave: h.clave, valor: h.valor,
     nivel: h.nivel, confianza: h.confianza, origen: h.origen, creado_por: h.creadoPor,
     evidencia: h.evidencia, activa: h.activa, expira_en: h.expiraEn, actualizado_en: new Date().toISOString(),
@@ -315,7 +315,7 @@ function mapResumenDiario(row: RowResumenDiario): ResumenDiario {
 /** Upsert por (studio_id, fecha) — el análisis de las 14:30 sobreescribe el de las 06:30. */
 export async function dbUpsertResumenDiario(r: ResumenDiario): Promise<string> {
   const id = uid();
-  const { data, error } = await supabase.from('resumen_diario').upsert({
+  const { data, error } = await db().from('resumen_diario').upsert({
     id, studio_id: r.studioId, fecha: r.fecha, estado_general: r.estadoGeneral, saludo: r.saludo,
     mientras_dormias: r.mientrasDormias, n_decisiones: r.nDecisiones, tiempo_estimado_min: r.tiempoEstimadoMin,
     impacto_total: r.impactoTotal, generado_en: r.generadoEn,
@@ -325,7 +325,7 @@ export async function dbUpsertResumenDiario(r: ResumenDiario): Promise<string> {
 }
 
 export async function dbGetResumenDiario(studioId: string, fecha: string): Promise<ResumenDiario | null> {
-  const { data, error } = await supabase.from('resumen_diario').select('*').eq('studio_id', studioId).eq('fecha', fecha).maybeSingle();
+  const { data, error } = await db().from('resumen_diario').select('*').eq('studio_id', studioId).eq('fecha', fecha).maybeSingle();
   if (error) { reportError('[dbGetResumenDiario]', error); return null; }
   return data ? mapResumenDiario(data as RowResumenDiario) : null;
 }
@@ -343,7 +343,7 @@ function mapFeatureFlag(row: RowFeatureFlags): DecisionFeatureFlag {
 }
 
 export async function dbGetFeatureFlags(studioId: string): Promise<Map<DecisionFlag, boolean>> {
-  const { data, error } = await supabase.from('decision_feature_flags').select('*').eq('studio_id', studioId);
+  const { data, error } = await db().from('decision_feature_flags').select('*').eq('studio_id', studioId);
   if (error) { reportError('[dbGetFeatureFlags]', error); return new Map(); }
   const flags = new Map<DecisionFlag, boolean>();
   for (const row of (data ?? [])) {
@@ -354,7 +354,7 @@ export async function dbGetFeatureFlags(studioId: string): Promise<Map<DecisionF
 }
 
 export async function dbSetFeatureFlag(studioId: string, flag: DecisionFlag, activo: boolean, activadoPor: string): Promise<void> {
-  const { error } = await supabase.from('decision_feature_flags').upsert({
+  const { error } = await db().from('decision_feature_flags').upsert({
     id: uid(), studio_id: studioId, flag, activo, activado_en: new Date().toISOString(), activado_por: activadoPor,
   }, { onConflict: 'studio_id,flag' });
   if (error) reportError('[dbSetFeatureFlag]', error);

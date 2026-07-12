@@ -4,7 +4,7 @@
 import { inngest, EVENTS } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
-import { supabase } from '@/lib/supabase';
+import { requireSupabaseAdmin } from '@/lib/supabase-admin';
 import { tieneFeature } from '@/lib/entitlements';
 import { cobrarReciboOffSession } from '@/lib/stripe-cobros';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
@@ -26,7 +26,7 @@ import type { CandidataPriorizada } from '@/lib/decision/prioridad';
 const MS_DIA = 86400000;
 
 async function nombrePropietarioDe(studioId: string): Promise<{ nombrePropietario: string; nombreEstudio: string; ownerAuthUserId: string | null }> {
-  const { data: studio } = await supabase.from('studios').select('nombre, owner_auth_user_id').eq('id', studioId).single();
+  const { data: studio } = await requireSupabaseAdmin().from('studios').select('nombre, owner_auth_user_id').eq('id', studioId).single();
   return { nombrePropietario: studio?.nombre ?? 'tu estudio', nombreEstudio: studio?.nombre ?? '', ownerAuthUserId: studio?.owner_auth_user_id ?? null };
 }
 
@@ -40,7 +40,7 @@ export const decisionDispatcher = inngest.createFunction(
     const nowISO = await step.run('now', async () => new Date().toISOString());
 
     const estudios = await step.run('list-estudios-elegibles', async () => {
-      const { data, error } = await supabase.from('studios').select('id, nombre, plan, subscription_status');
+      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre, plan, subscription_status');
       if (error) throw new Error(error.message);
       const conPlan = (data ?? []).filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
       if (conPlan.length === 0) return [];
@@ -164,8 +164,8 @@ export const analizarEstudio = inngest.createFunction(
 async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; detalle: string }> {
   if (!r.socioId) return { ok: false, detalle: 'Sin socia asociada' };
   const [{ data: socio }, { data: studio }] = await Promise.all([
-    supabase.from('socios').select('nombre, email').eq('id', r.socioId).single(),
-    supabase.from('studios').select('nombre').eq('id', r.studioId).single(),
+    requireSupabaseAdmin().from('socios').select('nombre, email').eq('id', r.socioId).single(),
+    requireSupabaseAdmin().from('studios').select('nombre').eq('id', r.studioId).single(),
   ]);
   if (!socio?.email) return { ok: false, detalle: 'La socia no tiene email registrado' };
 
@@ -198,7 +198,7 @@ export const ejecutarRecomendacion = inngest.createFunction(
     } else if (recomendacion.accion.tipo === 'COBRAR_RECIBOS') {
       const reciboIds = recomendacion.accion.reciboIds;
       const recibosInfo = await step.run('recibos-info', async () => {
-        const { data } = await supabase.from('recibos').select('id, socio_id').in('id', reciboIds);
+        const { data } = await requireSupabaseAdmin().from('recibos').select('id, socio_id').in('id', reciboIds);
         return (data ?? []) as Array<{ id: string; socio_id: string | null }>;
       });
       let cobrados = 0;
@@ -242,7 +242,7 @@ export const ejecutarRecomendacion = inngest.createFunction(
 // ═══════════════════════════════════════════════════════════════════════════
 async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> {
   if (r.tipo === 'RECUPERAR_PAGOS' && r.accion.tipo === 'COBRAR_RECIBOS') {
-    const { data: recibos } = await supabase.from('recibos').select('estado').in('id', r.accion.reciboIds);
+    const { data: recibos } = await requireSupabaseAdmin().from('recibos').select('estado').in('id', r.accion.reciboIds);
     const total = recibos?.length ?? 0;
     const cobrados = (recibos ?? []).filter((x: { estado: string }) => x.estado === 'COBRADO').length;
     return { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: cobrados, recibosTotal: total };
@@ -252,8 +252,8 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
 
   const resueltoEnISO = r.resueltoEn ?? new Date(0).toISOString();
   const [{ data: reservas }, { data: suscripciones }] = await Promise.all([
-    supabase.from('reservas').select('creado_en').eq('socio_id', r.socioId).eq('estado', 'ASISTIDA').gt('creado_en', resueltoEnISO),
-    supabase.from('suscripciones').select('estado, fecha_inicio').eq('socio_id', r.socioId),
+    requireSupabaseAdmin().from('reservas').select('creado_en').eq('socio_id', r.socioId).eq('estado', 'ASISTIDA').gt('creado_en', resueltoEnISO),
+    requireSupabaseAdmin().from('suscripciones').select('estado, fecha_inicio').eq('socio_id', r.socioId),
   ]);
 
   const reservaAsistidaPosterior = (reservas ?? []).length > 0;
