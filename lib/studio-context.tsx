@@ -842,9 +842,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // identidad del JWT en vez de fiarse del body. En /reservar (sin sesión
       // Supabase) no se manda, y esos endpoints siguen con el modelo antiguo.
       const auth = await portalAuthHeader();
+      // C-2: si el dispositivo es un kiosko con token guardado, se envía en
+      // x-kiosk-token. /api/public/checkin lo exige; el resto de endpoints
+      // públicos ignoran la cabecera, así que enviarla siempre es inocuo.
+      const kioskToken = typeof window !== 'undefined' ? window.localStorage.getItem('kioskToken') : null;
       await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...auth },
+        headers: {
+          'Content-Type': 'application/json',
+          ...auth,
+          ...(kioskToken ? { 'x-kiosk-token': kioskToken } : {}),
+        },
         body: JSON.stringify(body),
       });
     } finally {

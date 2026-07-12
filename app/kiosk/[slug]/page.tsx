@@ -57,6 +57,13 @@ export default function KioskPage() {
   const [checkedInNow, setCheckedInNow] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuccess, setShowSuccess] = useState<{ nombre: string } | null>(null);
+  // C-2: el check-in exige el token del kiosko. Se guarda en el dispositivo
+  // (localStorage) y postPublico lo envía en x-kiosk-token.
+  const [kioskToken, setKioskToken] = useState<string | null>(null);
+  const [tokenInput, setTokenInput] = useState('');
+  useEffect(() => {
+    setKioskToken(typeof window !== 'undefined' ? window.localStorage.getItem('kioskToken') : null);
+  }, []);
 
   // Today's sessions sorted by start time.
   const hoy = now ? localDate(now) : '';
@@ -145,6 +152,35 @@ export default function KioskPage() {
   const idx = sesionesHoy.findIndex(s => s.id === selectedSesionId);
 
   if (!now) return null;
+
+  // Setup del dispositivo: sin token guardado, se pide una vez (C-2).
+  if (!kioskToken) {
+    return (
+      <div className="fixed inset-0 bg-[#0A0A0A] text-white flex items-center justify-center p-6" style={{ fontFamily: 'var(--font-jakarta, system-ui)' }}>
+        <div className="w-full max-w-sm">
+          <h1 className="text-lg font-bold mb-1">Configurar kiosko</h1>
+          <p className="text-sm text-white/50 mb-4">Pega el token del kiosko (Configuración → Integraciones → Kiosko) para activar el check-in en este dispositivo.</p>
+          <input
+            value={tokenInput}
+            onChange={e => setTokenInput(e.target.value)}
+            placeholder="Token del kiosko"
+            className="w-full bg-white/10 rounded-lg px-3 py-2.5 text-sm mb-3 outline-none"
+          />
+          <button
+            onClick={() => {
+              const t = tokenInput.trim();
+              if (!t) return;
+              window.localStorage.setItem('kioskToken', t);
+              setKioskToken(t);
+            }}
+            className="w-full bg-white text-black rounded-lg py-2.5 text-sm font-bold"
+          >
+            Activar kiosko
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-[#0A0A0A] text-white flex flex-col overflow-hidden select-none" style={{ fontFamily: 'var(--font-jakarta, system-ui)' }}>
