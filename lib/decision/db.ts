@@ -2,8 +2,16 @@
 // DECISION-OS-MODELO-DATOS.md §4). Mappers Row↔dominio + dbXxx de las 6
 // tablas nuevas — server-only, NO engorda lib/supabase-data.ts. Mismo patrón
 // de mappers (mapXxx/xxxToDb) y de errores (reportError) que ese archivo.
-import { supabase } from '@/lib/supabase';
+import { requireSupabaseAdmin } from '@/lib/supabase-admin';
 import { uid } from '@/lib/utils';
+
+// Decision OS escribe con el cliente service-role (salta RLS). Con el cliente
+// anon, RLS bloqueaba silenciosamente todos los INSERT/UPSERT de estas tablas
+// y las lecturas volvían vacías → el Centro de Control quedaba en "modo
+// aprendizaje" pese a haber datos. Se resuelve una vez por llamada (cacheado).
+function db() {
+  return requireSupabaseAdmin();
+}
 import type {
   AccionDecision, Confianza, DecisionFeatureFlag, DecisionFlag, DecisionSession, EspecialistaId,
   EstadoRecomendacion, HechoMemoria, Impacto, ItemMientrasDormias, MemoriaEstudio, Outcome,
@@ -11,6 +19,14 @@ import type {
 } from './tipos.ts';
 import type { NuevoHechoMemoria } from './memoria.ts';
 import type { CandidataPriorizada } from './prioridad.ts';
+
+// Decision OS escribe con el cliente service-role (salta RLS). Con el cliente
+// anon, RLS bloqueaba silenciosamente todos los INSERT/UPSERT de estas tablas
+// y las lecturas volvían vacías → el Centro de Control quedaba en "modo
+// aprendizaje" pese a haber datos. Se resuelve una vez por llamada (cacheado).
+function db() {
+  return requireSupabaseAdmin();
+}
 
 function reportError(tag: string, error: unknown) {
   console.error(tag, error);
@@ -110,7 +126,7 @@ export function construirRecomendacion(c: CandidataPriorizada, ctx: {
  * `.upsert()`.
  */
 export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
-  const { data: existente, error: selectError } = await supabase
+  const { data: existente, error: selectError } = await db()
     .from('recomendaciones')
     .select('id')
     .eq('studio_id', r.studioId)
@@ -147,7 +163,7 @@ export async function dbTransicionarRecomendacion(
   if (extra.resueltoPor !== undefined) patch.resuelto_por = extra.resueltoPor;
   if (extra.resueltoEn !== undefined) patch.resuelto_en = extra.resueltoEn;
 
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('recomendaciones')
     .update(patch)
     .eq('id', id)
@@ -170,7 +186,7 @@ export async function dbListPendientes(studioId: string): Promise<Recomendacion[
   // alfabéticamente saldría ALTA, BAJA, CRITICA, MEDIA — el orden real
   // (severidad, luego score) lo aplica quien consuma la lista, con la misma
   // lógica ya testeada en prioridad.ts (seleccionarPrioridadesHome).
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('recomendaciones')
     .select('*')
     .eq('studio_id', studioId)
@@ -182,7 +198,7 @@ export async function dbListPendientes(studioId: string): Promise<Recomendacion[
 
 export async function dbListResueltas90d(studioId: string, now: Date): Promise<Recomendacion[]> {
   const desde = new Date(now.getTime() - 90 * 86400000).toISOString();
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('recomendaciones')
     .select('*')
     .eq('studio_id', studioId)

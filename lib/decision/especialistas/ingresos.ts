@@ -1,10 +1,12 @@
-// Especialista en Ingresos — ¿dónde estamos dejando dinero? (MVP: I1-I2).
+// Especialista en Ingresos — ¿dónde estamos dejando dinero? (MVP: I1-I3).
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
+import type { Recibo } from '@/lib/types';
 import {
   construirIndices, frecuenciaHabitual, agruparFranjasRecurrentes, demandaInsatisfecha, pagosEnRiesgo,
+  impagosManualesPorSocio,
   type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
-import { confianzaAbrirSesion, confianzaRecuperarPagos } from '../confianza.ts';
+import { confianzaAbrirSesion, confianzaRecuperarPagos, confianzaCobrarPendienteManual } from '../confianza.ts';
 
 const MS_DIA = 86400000;
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
@@ -144,6 +146,56 @@ function reglaI2(s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata | 
   };
 }
 
+/**
+ * I3 · Impago sin cobro automático → COBRAR_PENDIENTE (gestión manual). Una
+ * candidata por socia (agrega sus recibos vencidos). Cubre el punto ciego de I2,
+ * que solo actúa sobre socias con tarjeta guardada: sin Stripe configurado, ese
+ * filtro dejaba TODOS los impagos invisibles. Aquí no hay reintento automático,
+ * el propietario reclama a mano — por eso la acción es CONTACTO_MANUAL.
+ */
+const IMPORTE_MINIMO_RELEVANTE = 10;
+
+function reglaI3(socioId: string, recibos: Recibo[], idx: IndicesSenal, now: Date): Candidata | null {
+  if (recibos.length === 0) return null;
+  const socio = idx.socioPorId.get(socioId);
+  if (!socio) return null;
+
+  const total = redondear2(recibos.reduce((acc, r) => acc + r.importe, 0));
+  // Puerta dura: importes ínfimos son ruido, no una decisión que reclamar.
+  if (total < IMPORTE_MINIMO_RELEVANTE) return null;
+
+  const diasVencidos = recibos.map(r => Math.floor((now.getTime() - new Date(r.fechaVencimiento).getTime()) / MS_DIA));
+  const diasMaxVencido = Math.max(...diasVencidos);
+
+  const confianza = confianzaCobrarPendienteManual({
+    socioActivo: socio.activo,
+    vencidoSignificativo: diasMaxVencido >= 15,
+  });
+  if (!confianza) return null;
+
+  const motivoMotor = recibos.length === 1
+    ? `Tiene un recibo de ${total}€ sin pagar desde hace ${diasMaxVencido} días y no hay tarjeta para reintentarlo. Habría que reclamárselo directamente.`
+    : `Acumula ${recibos.length} recibos sin pagar (${total}€ en total) y no hay tarjeta guardada para cobrarlos solos. Toca reclamarle a mano.`;
+
+  return {
+    especialista: 'INGRESOS',
+    tipo: 'COBRAR_PENDIENTE',
+    dedupeKey: `INGRESOS:COBRAR_PENDIENTE:${socioId}`,
+    tituloMotor: `${socio.nombre} tiene ${total}€ pendientes de pago`,
+    motivoMotor,
+    datosUsados: { nombre: socio.nombre, nRecibos: recibos.length, total, diasMaxVencido },
+    riesgo: 'PERDIDA',
+    impacto: { valor: total, unidad: 'EUR', formula: `${recibos.length} recibo(s) sin cobro automático: ${total}€` },
+    confianza,
+    accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: motivoMotor },
+    socioId,
+    tiempoEstimadoMin: 3,
+    expiraEnDias: 14,
+    urgencia: Math.min(1, 0.4 + 0.02 * diasMaxVencido),
+    esfuerzo: 0.3,
+  };
+}
+
 export const ingresos: Especialista = {
   id: 'INGRESOS',
   pregunta: '¿Dónde estamos dejando dinero?',
@@ -159,6 +211,11 @@ export const ingresos: Especialista = {
 
     const i2 = reglaI2(s, idx, now);
     if (i2) candidatas.push(i2);
+
+    for (const [socioId, recibos] of impagosManualesPorSocio(idx, now, 90)) {
+      const c = reglaI3(socioId, recibos, idx, now);
+      if (c) candidatas.push(c);
+    }
 
     return candidatas;
   },

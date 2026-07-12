@@ -129,6 +129,44 @@ test('memoria: NO_OFRECER_DESCUENTOS baja la confianza de R2 (no puede ser ALTA)
   assert.notEqual(c.confianza.nivel, 'ALTA');
 });
 
+test('R5: baja sin renovar hace 10 días, con asistencias previas → RECUPERAR_SOCIA', () => {
+  const socios = [socio({ id: 'a' })];
+  const suscripciones = [suscripcion({ socioId: 'a', planId: 'p1', estado: 'EXPIRADA', fechaFin: diasAntes(10) })];
+  const reservas = asistenciasHabituales('a', 3, 6, 20); // se enganchó antes de irse
+  const snap = snapshot({ socios, reservas, suscripciones });
+  const [c] = retencion.detectar(snap, memoriaVacia(), NOW);
+  assert.ok(c);
+  assert.equal(c.tipo, 'RECUPERAR_SOCIA');
+  assert.equal(c.accion.tipo, 'CONTACTO_MANUAL');
+  assert.equal(c.riesgo, 'PERDIDA');
+  assert.equal(c.datosUsados.diasDesdeVencimiento, 10);
+  assert.equal(c.confianza.nivel, 'ALTA'); // vencida reciente + sin contacto
+});
+
+test('R5: baja sin ninguna asistencia previa (alta fantasma) → sin candidata', () => {
+  const socios = [socio({ id: 'a' })];
+  const suscripciones = [suscripcion({ socioId: 'a', planId: 'p1', estado: 'EXPIRADA', fechaFin: diasAntes(10) })];
+  const snap = snapshot({ socios, suscripciones }); // sin reservas ASISTIDA
+  assert.equal(retencion.detectar(snap, memoriaVacia(), NOW).length, 0);
+});
+
+test('R5: baja demasiado antigua (>45 días) → sin candidata', () => {
+  const socios = [socio({ id: 'a' })];
+  const suscripciones = [suscripcion({ socioId: 'a', planId: 'p1', estado: 'EXPIRADA', fechaFin: diasAntes(60) })];
+  const reservas = asistenciasHabituales('a', 3, 6, 65);
+  const snap = snapshot({ socios, reservas, suscripciones });
+  assert.equal(retencion.detectar(snap, memoriaVacia(), NOW).length, 0);
+});
+
+test('R5: con suscripción ACTIVA vigente no entra por la rama de baja (la cubren R1-R4)', () => {
+  const socios = [socio({ id: 'a' })];
+  // Activa vigente + histórico de asistencia estable reciente → ni R1-R4 ni R5.
+  const reservas = asistenciasHabituales('a', 2, 12, 1);
+  const snap = snapshot({ socios, reservas }); // suscripción ACTIVA por defecto
+  const candidatas = retencion.detectar(snap, memoriaVacia(), NOW);
+  assert.equal(candidatas.find(c => c.datosUsados.diasDesdeVencimiento !== undefined), undefined);
+});
+
 test('silencio: estudio sin datos suficientes no genera candidatas (ni error)', () => {
   const socios = [socio({ id: 'a' })];
   const snap = snapshot({ socios });

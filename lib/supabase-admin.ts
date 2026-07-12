@@ -16,3 +16,13 @@ export function getSupabaseAdmin(): SupabaseClient | null {
   }
   return admin;
 }
+
+// Igual que getSupabaseAdmin pero lanza si no está configurado. Úsalo en el
+// código de servidor cuyas escrituras DEBEN persistir (p.ej. el Decision OS):
+// con el cliente anon, RLS bloquea el INSERT y —si el error se traga— el paso
+// "completa" sin escribir nada. Mejor fallar ruidosamente que en silencio.
+export function requireSupabaseAdmin(): SupabaseClient {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('SUPABASE_SERVICE_ROLE_KEY no configurada (requerida para escrituras de servidor)');
+  return admin;
+}

@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   }
 
   const cincoMinAtras = new Date(Date.now() - 5 * 60000).toISOString();
-  const { data: sesionReciente } = await supabase
+  const { data: sesionReciente } = await requireSupabaseAdmin()
     .from('decision_sessions')
     .select('id')
     .eq('studio_id', sesion.studioId)

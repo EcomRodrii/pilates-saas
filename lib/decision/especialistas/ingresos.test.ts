@@ -113,6 +113,44 @@ test('I2: sin tarjeta guardada → sin candidata RECUPERAR_PAGOS', () => {
   assert.equal(candidatas.find(c => c.tipo === 'RECUPERAR_PAGOS'), undefined);
 });
 
+test('I3: impago SIN tarjeta, socia activa → COBRAR_PENDIENTE (gestión manual), una por socia', () => {
+  const socios = [socio({ id: 'a' })]; // sin stripeCustomerId/paymentMethodId
+  const recibos = [
+    recibo({ estado: 'PENDIENTE', socioId: 'a', importe: 90, fechaVencimiento: diasAntes(20) }),
+    recibo({ estado: 'PENDIENTE', socioId: 'a', importe: 90, fechaVencimiento: diasAntes(50) }),
+  ];
+  const snap = snapshot({ socios, recibos });
+  const candidatas = ingresos.detectar(snap, memoriaVacia(), NOW);
+  const pend = candidatas.filter(c => c.tipo === 'COBRAR_PENDIENTE');
+  assert.equal(pend.length, 1); // una candidata por socia, no una por recibo
+  assert.equal(pend[0].accion.tipo, 'CONTACTO_MANUAL');
+  assert.equal(pend[0].riesgo, 'PERDIDA');
+  assert.equal(pend[0].impacto?.valor, 180);
+  assert.equal(pend[0].datosUsados.nRecibos, 2);
+});
+
+test('I3: con tarjeta guardada → NO COBRAR_PENDIENTE (es trabajo de RECUPERAR_PAGOS)', () => {
+  const socios = [socio({ id: 'a', stripeCustomerId: 'cus_a', stripePaymentMethodId: 'pm_a' })];
+  const recibos = [recibo({ estado: 'PENDIENTE', socioId: 'a', importe: 90, fechaVencimiento: diasAntes(10) })];
+  const snap = snapshot({ socios, recibos });
+  const candidatas = ingresos.detectar(snap, memoriaVacia(), NOW);
+  assert.equal(candidatas.find(c => c.tipo === 'COBRAR_PENDIENTE'), undefined);
+});
+
+test('I3: socia inactiva no genera COBRAR_PENDIENTE', () => {
+  const socios = [socio({ id: 'a', activo: false })];
+  const recibos = [recibo({ estado: 'PENDIENTE', socioId: 'a', importe: 90, fechaVencimiento: diasAntes(10) })];
+  const snap = snapshot({ socios, recibos });
+  assert.equal(ingresos.detectar(snap, memoriaVacia(), NOW).find(c => c.tipo === 'COBRAR_PENDIENTE'), undefined);
+});
+
+test('I3: importe por debajo del mínimo de ruido no genera candidata', () => {
+  const socios = [socio({ id: 'a' })];
+  const recibos = [recibo({ estado: 'PENDIENTE', socioId: 'a', importe: 5, fechaVencimiento: diasAntes(10) })];
+  const snap = snapshot({ socios, recibos });
+  assert.equal(ingresos.detectar(snap, memoriaVacia(), NOW).find(c => c.tipo === 'COBRAR_PENDIENTE'), undefined);
+});
+
 test('silencio: estudio sin datos suficientes no genera candidatas', () => {
   const snap = snapshot({});
   assert.equal(ingresos.detectar(snap, memoriaVacia(), NOW).length, 0);

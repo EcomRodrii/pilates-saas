@@ -15,6 +15,9 @@ export interface IndicesSenal {
   // Todas las reservas por socia (cualquier estado), ordenadas desc por creadoEn.
   todasPorSocio: Map<string, Reserva[]>;
   suscripcionActivaPorSocio: Map<string, Suscripcion>;
+  // Todas las suscripciones por socia (cualquier estado), ordenadas desc por
+  // fechaInicio — para detectar bajas que NO renovaron (sin ACTIVA vigente).
+  suscripcionesPorSocio: Map<string, Suscripcion[]>;
   recibosCobradosPorSocio: Map<string, Recibo[]>;
   recibosPendientes: Recibo[];
   logsPorSocio: Map<string, AutomationLog[]>;
@@ -53,6 +56,12 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     }
   }
 
+  const suscripcionesPorSocioRaw = agrupar(s.suscripciones, sus => sus.socioId);
+  const suscripcionesPorSocio = new Map<string, Suscripcion[]>();
+  for (const [k, v] of suscripcionesPorSocioRaw) {
+    suscripcionesPorSocio.set(k, [...v].sort((a, b) => b.fechaInicio.localeCompare(a.fechaInicio)));
+  }
+
   const recibosCobradosPorSocio = agrupar(
     s.recibos.filter(r => r.estado === 'COBRADO' && r.socioId),
     r => r.socioId
@@ -72,6 +81,7 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     asistidasPorSocio,
     todasPorSocio,
     suscripcionActivaPorSocio,
+    suscripcionesPorSocio,
     recibosCobradosPorSocio,
     recibosPendientes: s.recibos.filter(r => r.estado === 'PENDIENTE'),
     logsPorSocio: agrupar(s.automationLogs, l => l.socioId),
@@ -202,6 +212,57 @@ export function noShow30d(socioId: string, idx: IndicesSenal, now: Date): { noSh
   return { noShows, total, ratio: total > 0 ? noShows / total : 0 };
 }
 
+/**
+ * Baja silenciosa: la socia NO tiene suscripción ACTIVA vigente pero su última
+ * suscripción venció/se canceló hace `maxDias` días o menos (Núcleo §1, hueco de
+ * renovación). Devuelve los días desde que venció, o null si sigue con ACTIVA,
+ * nunca tuvo suscripción, o la baja es demasiado antigua para reactivar.
+ */
+export function diasDesdeVencimientoSinRenovar(socioId: string, idx: IndicesSenal, now: Date, maxDias = 45): number | null {
+  if (idx.suscripcionActivaPorSocio.has(socioId)) return null;
+  const historial = idx.suscripcionesPorSocio.get(socioId) ?? [];
+  if (historial.length === 0) return null;
+  // La más reciente con fecha de fin en el pasado (venció o se canceló con fecha).
+  let mejor: number | null = null;
+  for (const sus of historial) {
+    if (sus.estado === 'ACTIVA' || sus.estado === 'PAUSADA') continue;
+    if (!sus.fechaFin) continue;
+    const dias = Math.floor((now.getTime() - new Date(sus.fechaFin).getTime()) / MS_DIA);
+    if (dias < 0) continue; // aún no ha vencido
+    if (mejor === null || dias < mejor) mejor = dias;
+  }
+  if (mejor === null || mejor > maxDias) return null;
+  return mejor;
+}
+
+/** Nº total de asistencias registradas en la ventana del snapshot — prueba de que la socia llegó a engancharse. */
+export function totalAsistencias(socioId: string, idx: IndicesSenal): number {
+  return (idx.asistidasPorSocio.get(socioId) ?? []).length;
+}
+
+/**
+ * Recibos PENDIENTE vencidos SIN cobro automático posible (socia sin tarjeta
+ * guardada), agrupados por socia. Ventana amplia por defecto (hasta 90 días) —
+ * a diferencia de pagosEnRiesgo (reintento con tarjeta ≤30d), aquí la gestión es
+ * manual y la deuda vieja es la que más urge reclamar. Solo socias activas.
+ */
+export function impagosManualesPorSocio(idx: IndicesSenal, now: Date, maxDias = 90): Map<string, Recibo[]> {
+  const porSocio = new Map<string, Recibo[]>();
+  for (const r of idx.recibosPendientes) {
+    if (!r.socioId) continue;
+    const socio = idx.socioPorId.get(r.socioId);
+    if (!socio?.activo) continue;
+    // Con tarjeta guardada → es trabajo de RECUPERAR_PAGOS (reintento auto), no de aquí.
+    if (socio.stripeCustomerId && socio.stripePaymentMethodId) continue;
+    const dias = Math.floor((now.getTime() - new Date(r.fechaVencimiento).getTime()) / MS_DIA);
+    if (dias < 0 || dias > maxDias) continue;
+    const arr = porSocio.get(r.socioId) ?? [];
+    arr.push(r);
+    porSocio.set(r.socioId, arr);
+  }
+  return porSocio;
+}
+
 /** Recibos PENDIENTE vencidos (0..maxDias días de retraso), particionados por si la socia tiene tarjeta guardada. */
 export function pagosEnRiesgo(idx: IndicesSenal, now: Date, maxDias = 30): { conTarjeta: Recibo[]; sinTarjeta: Recibo[] } {
   const vencidos = idx.recibosPendientes.filter(r => {
@@ -253,6 +314,19 @@ export function agruparFranjasRecurrentes(idx: IndicesSenal, s: SnapshotEstudio,
     resultado.set(clave, { clave, sesionesOrdenadas: ordenadas, ocupaciones });
   }
   return resultado;
+}
+
+/** Clave de franja recurrente de una sesión (mismo formato que agruparFranjasRecurrentes). */
+export function claveFranjaDe(se: Sesion): string {
+  const inicio = new Date(se.inicio);
+  return `${inicio.getUTCDay()}-${inicio.getUTCHours()}:${String(inicio.getUTCMinutes()).padStart(2, '0')}-${se.tipoClaseId}`;
+}
+
+/** ¿La franja sigue viva? — hay al menos una sesión FUTURA no cancelada en ella. */
+export function hayProximaSesionEnFranja(clave: string, s: SnapshotEstudio, now: Date): boolean {
+  return s.sesiones.some(se =>
+    !se.cancelada && new Date(se.inicio).getTime() > now.getTime() && claveFranjaDe(se) === clave
+  );
 }
 
 /** Media de socias en LISTA_ESPERA en las últimas N ocurrencias de una franja. */
