@@ -3005,7 +3005,13 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
 // Toma el id explícito (no el STUDIO_ID de la sesión del navegador) porque la
 // llama el callback de OAuth de Stripe Connect, un servidor sin sesión.
 export async function dbSetStripeAccountId(studioId: string, stripeAccountId: string | null) {
-  const { error } = await supabase.from('studios').update({ stripe_account_id: stripeAccountId }).eq('id', studioId);
+  // A-1: se ejecuta en el callback OAuth de Stripe Connect (servidor, sin sesión
+  // de usuario). Con el cliente anónimo, la política owner_studios (que exige
+  // current_studio_id()) no casa ninguna fila → el binding NO se guardaba y el
+  // onboarding de Stripe quedaba roto en silencio. Con service-role sí persiste.
+  const admin = getSupabaseAdmin();
+  if (!admin) { reportDbError('[dbSetStripeAccountId]', new Error('service role no configurada')); return; }
+  const { error } = await admin.from('studios').update({ stripe_account_id: stripeAccountId }).eq('id', studioId);
   if (error) reportDbError('[dbSetStripeAccountId]', error);
 }
 

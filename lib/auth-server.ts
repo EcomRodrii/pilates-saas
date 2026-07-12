@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export interface SesionStaff {
   userId: string;
@@ -19,11 +20,19 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
 
+  // A-1: el JWT ya se validó arriba (getUser). La RESOLUCIÓN de rol/estudio se
+  // hace con service-role: la tabla `instructores` no tiene política anon, así
+  // que con el cliente anónimo (sin sesión en servidor) la lectura volvía vacía
+  // y RECEPCION/INSTRUCTOR NUNCA resolvían —solo el dueño, vía public_read_studios—
+  // devolviendo 401 a todo el staff no-propietario. Fallback al anónimo si no
+  // hay service-role, para no cambiar el comportamiento del dueño.
+  const db = getSupabaseAdmin() ?? supabase;
+
   // limit(1) en vez de maybeSingle(): un mismo usuario puede estar vinculado a
   // varios estudios (instructor en dos centros, o dueño de varias sedes —el plan
   // CADENA). maybeSingle() lanzaba error con >1 fila y bloqueaba el acceso. El
   // orden por id es determinista para elegir siempre el mismo estudio primario.
-  const { data: instructores } = await supabase
+  const { data: instructores } = await db
     .from('instructores')
     .select('studio_id, rol')
     .eq('auth_user_id', user.id)
@@ -34,7 +43,7 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
     return { userId: user.id, studioId: instructor.studio_id, rol: instructor.rol };
   }
 
-  const { data: studios } = await supabase
+  const { data: studios } = await db
     .from('studios')
     .select('id')
     .eq('owner_auth_user_id', user.id)

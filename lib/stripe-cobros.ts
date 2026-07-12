@@ -1,6 +1,11 @@
 import Stripe from 'stripe';
-import { supabase } from '@/lib/supabase';
-import { dbUpdateRecibo } from '@/lib/supabase-data';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+
+// A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
+// ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
+// denegaba las lecturas de recibos/socios y la escritura del recibo (no hay
+// política anon en esas tablas) → el cobro "no encontraba" el recibo y fallaba
+// en silencio. Se usa el cliente service-role, que es lo correcto aquí.
 
 // Lógica de cobro off-session extraída de app/api/stripe/charge-off-session
 // (DECISION-OS-ARQUITECTURA.md §12, punto 7 — el único refactor del proyecto).
@@ -31,10 +36,15 @@ export async function cobrarReciboOffSession(params: {
   }
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
 
+  const admin = getSupabaseAdmin();
+  if (!admin) {
+    return { ok: false, error: 'Servicio no configurado (service role)', errorCode: 'NO_CONFIGURADO' };
+  }
+
   const [{ data: recibo, error: reciboError }, { data: socio, error: socioError }, { data: studio, error: studioError }] = await Promise.all([
-    supabase.from('recibos').select('*').eq('id', params.reciboId).single(),
-    supabase.from('socios').select('*').eq('id', params.socioId).single(),
-    supabase.from('studios').select('stripe_account_id').eq('id', params.studioId).single(),
+    admin.from('recibos').select('*').eq('id', params.reciboId).single(),
+    admin.from('socios').select('*').eq('id', params.socioId).single(),
+    admin.from('studios').select('stripe_account_id').eq('id', params.studioId).single(),
   ]);
 
   if (reciboError || !recibo) {
@@ -62,7 +72,7 @@ export async function cobrarReciboOffSession(params: {
     }, { stripeAccount: studio.stripe_account_id, idempotencyKey: params.idempotencyKey });
 
     if (paymentIntent.status === 'succeeded') {
-      await dbUpdateRecibo(params.reciboId, { estado: 'COBRADO', fechaCobro: new Date().toISOString() });
+      await admin.from('recibos').update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString() }).eq('id', params.reciboId);
       return { ok: true, status: paymentIntent.status, importe: recibo.importe };
     }
 
