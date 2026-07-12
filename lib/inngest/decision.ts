@@ -46,7 +46,7 @@ export const decisionDispatcher = inngest.createFunction(
       if (conPlan.length === 0) return [];
 
       const ids = conPlan.map(s => s.id);
-      const { data: flags } = await supabase
+      const { data: flags } = await requireSupabaseAdmin()
         .from('decision_feature_flags').select('studio_id').eq('flag', 'DECISIONES').eq('activo', true).in('studio_id', ids);
       const activos = new Set((flags ?? []).map(f => f.studio_id as string));
       return conPlan.filter(s => activos.has(s.id)).map(s => ({ id: s.id }));
