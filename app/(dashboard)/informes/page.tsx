@@ -456,7 +456,7 @@ export default function Informes() {
           >
             <CreditCard size={17} className="text-brand-secondary" />
           </div>
-          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>MRR</p>
+          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos del mes</p>
           <p className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
             {fmtEurFull(mrr)}
           </p>
