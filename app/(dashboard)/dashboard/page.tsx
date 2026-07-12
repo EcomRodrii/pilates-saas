@@ -777,7 +777,7 @@ export default function Dashboard() {
                   </div>
                   {pendientes.length > 1 && (
                     <button
-                      onClick={cobrarTodosPendientes}
+                      onClick={() => cobrarTodosPendientes()}
                       className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-[#ECFDF5] text-[#059669] hover:bg-[#D1FAE5] transition-colors"
                     >
                       <Zap size={11} /> Cobrar todos

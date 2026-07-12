@@ -918,7 +918,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       </button>
                       {pendientes.length > 0 && (
                         <button
-                          onClick={() => { cobrarTodosPendientes(); setToast(`${pendientes.length} recibo(s) cobrados`); }}
+                          onClick={() => { cobrarTodosPendientes(id); setToast(`${pendientes.length} recibo(s) cobrados`); }}
                           className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg transition-colors"
                           style={{ backgroundColor: '#D1FAE5', color: '#059669' }}
                         >

@@ -21,8 +21,13 @@ export default function Transacciones() {
 
   // Unifica recibos cobrados + ventas POS en una sola lista de movimientos
   const movimientos = useMemo(() => {
+    // C-10: toda venta POS genera un recibo `rec-pos-*` COBRADO (studio-context
+    // addVentaPOS) Y aparece en `ventasPOS`. Contar ambos duplicaba el POS en
+    // totalCobros/totalNeto y en la lista. Se excluyen los recibos POS de la
+    // fuente de cobros; el POS se cuenta una sola vez vía `ventas` (abajo), que
+    // además conserva el método de pago.
     const cobros = recibos
-      .filter(r => r.estado === 'COBRADO' || r.estado === 'DEVUELTO')
+      .filter(r => (r.estado === 'COBRADO' || r.estado === 'DEVUELTO') && !r.id.startsWith('rec-pos-'))
       .map(r => {
         const socio = socios.find(s => s.id === r.socioId);
         return {

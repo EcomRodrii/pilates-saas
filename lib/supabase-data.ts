@@ -1785,6 +1785,22 @@ async function otorgarCreditosServidor(
   ]);
 }
 
+// C-2: valida el token de dispositivo de kiosko de un estudio. Sin token
+// configurado (NULL) el check-in público queda cerrado (devuelve false), que es
+// el lado seguro. Solo tiene sentido en servidor (usa service-role); en cliente
+// getSupabaseAdmin() es null y devuelve false.
+export async function validarKioskToken(studioId: string, token: string | null): Promise<boolean> {
+  if (!token) return false;
+  const admin = getSupabaseAdmin();
+  if (!admin) return false;
+  const { data } = await admin.from('studios').select('kiosk_token').eq('id', studioId).maybeSingle();
+  const esperado = (data?.kiosk_token ?? '') as string;
+  // El token es aleatorio de alta entropía; una comparación directa es
+  // suficiente (un ataque de temporización sobre un secreto aleatorio no es
+  // práctico) y evita importar `crypto` en un módulo que también corre en cliente.
+  return esperado.length > 0 && esperado === token;
+}
+
 // Check-in de kiosk: marca la reserva ASISTIDA, otorga créditos de asistencia y,
 // si es la primera clase de una socia referida, premia a quien la invitó (con
 // tope mensual). La reserva debe pertenecer al estudio.
@@ -2420,6 +2436,23 @@ export async function dbInsertRewardAction(a: RewardAction) {
   };
   const { error } = await supabase.from('reward_actions').insert(row);
   if (error) reportDbError('[dbInsertRewardAction]', error);
+  return !error;
+}
+
+// C-11: cerrojo de idempotencia para concesiones de crédito que NO tienen una
+// RewardRule detrás (logros y retos). Inserta una fila-guard en reward_actions;
+// el UNIQUE(studio_id, trigger, ref_id) hace que solo la PRIMERA evaluación gane.
+// Devuelve true si ganó el claim (primera vez → otorgar crédito), false si ya
+// existía o hubo error (→ NO otorgar; el lado seguro es no doblar el saldo).
+// Usar trigger sintético ('LOGRO'/'RETO') y refId = `${socioId}:${defId}` para
+// que sea único por (socia, logro/reto) y no por logro/reto a secas.
+export async function dbClaimRecompensaUnica(
+  studioId: string, socioId: string, trigger: string, refId: string,
+): Promise<boolean> {
+  const { error } = await supabase.from('reward_actions').insert({
+    id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId, trigger, ref_id: refId,
+    creado_en: new Date().toISOString(),
+  });
   return !error;
 }
 
