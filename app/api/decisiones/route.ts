@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { tieneFeature } from '@/lib/entitlements';
-import { supabase } from '@/lib/supabase';
+import { requireSupabaseAdmin } from '@/lib/supabase-admin';
 import { dbListPendientes, dbGetResumenDiario } from '@/lib/decision/db';
 import { calcularEstadoEspecialista } from '@/lib/decision/director';
 import { seleccionarPrioridadesHome } from '@/lib/decision/prioridad';
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (sesion.rol !== 'PROPIETARIO') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
 
-  const { data: studio } = await supabase.from('studios').select('plan, subscription_status').eq('id', sesion.studioId).single();
+  const { data: studio } = await requireSupabaseAdmin().from('studios').select('plan, subscription_status').eq('id', sesion.studioId).single();
   if (!studio || !tieneFeature({ plan: studio.plan, subscriptionStatus: studio.subscription_status }, 'decisiones')) {
     return NextResponse.json({ error: 'Tu plan no incluye el Centro de Control' }, { status: 403 });
   }
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const [resumen, pendientes, actividadRes] = await Promise.all([
     dbGetResumenDiario(sesion.studioId, hoy),
     dbListPendientes(sesion.studioId),
-    supabase.from('actividad_reciente').select('*').eq('studio_id', sesion.studioId).order('creado_en', { ascending: false }).limit(10),
+    requireSupabaseAdmin().from('actividad_reciente').select('*').eq('studio_id', sesion.studioId).order('creado_en', { ascending: false }).limit(10),
   ]);
 
   // Mismo score+prioridad ya persistidos por el análisis; aquí solo se
