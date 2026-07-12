@@ -71,6 +71,59 @@ export function confianzaEnviarReactivacion(c: {
   return evaluarNivel(criterios, a && b && cc, a && cc, a);
 }
 
+/**
+ * RECUPERAR_SOCIA vía baja sin renovar (Retención R5) — la socia ya no tiene
+ * suscripción vigente. No aplica "ausencia anómala" (no hay suscripción de
+ * referencia); el engagement previo se exige como puerta en la regla, no aquí.
+ * ALTA: a+b (baja fresca y sin contactar) · MEDIA: solo a · BAJA: solo b.
+ */
+export function confianzaRecuperarSociaVencida(c: {
+  vencioReciente: boolean;      // venció hace ≤30 días (ventana caliente de reactivación)
+  sinContactoReciente: boolean; // sin contacto en los últimos 30 días
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.vencioReciente, etiqueta: 'suscripción vencida hace 30 días o menos' },
+    { valor: c.sinContactoReciente, etiqueta: 'sin contacto en los últimos 30 días' },
+  ];
+  const { vencioReciente: a, sinContactoReciente: b } = c;
+  return evaluarNivel(criterios, a && b, a, b);
+}
+
+/**
+ * COBRAR_PENDIENTE manual (Ingresos I3) — impago de una socia SIN tarjeta
+ * guardada: no se puede reintentar en automático, hay que reclamar a mano. El
+ * mínimo de importe y la existencia del impago se filtran como puerta en la
+ * regla; aquí se gradúa por si la socia sigue activa y cuánto lleva vencido.
+ * ALTA: a+b (activa y claramente vencido) · MEDIA: solo a · BAJA: solo b.
+ */
+export function confianzaCobrarPendienteManual(c: {
+  socioActivo: boolean;        // la socia sigue activa (merece la pena reclamar)
+  vencidoSignificativo: boolean; // vencido bastante (no un simple desfase de ciclo)
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.socioActivo, etiqueta: 'socia activa' },
+    { valor: c.vencidoSignificativo, etiqueta: 'recibo vencido hace 15 días o más' },
+  ];
+  const { socioActivo: a, vencidoSignificativo: b } = c;
+  return evaluarNivel(criterios, a && b, a, b);
+}
+
+/**
+ * FUSIONAR_SESIONES por infrautilización (Agenda A1) — una franja recurrente
+ * lleva varias ocurrencias medio vacía. ALTA: a+b · MEDIA: solo a · sin BAJA.
+ */
+export function confianzaSesionInfrautilizada(c: {
+  ocupacionBajaConsistente: boolean; // últimas ocurrencias por debajo del umbral
+  patronSostenido: boolean;          // el patrón se repite en 5+ ocurrencias
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.ocupacionBajaConsistente, etiqueta: 'ocupación por debajo del 30% en las últimas 3 ocurrencias' },
+    { valor: c.patronSostenido, etiqueta: 'patrón sostenido durante 5 o más ocurrencias' },
+  ];
+  const { ocupacionBajaConsistente: a, patronSostenido: b } = c;
+  return evaluarNivel(criterios, a && b, a, false);
+}
+
 /** ABRIR_SESION — ALTA: a+b+c · MEDIA: a+b · BAJA: solo a. */
 export function confianzaAbrirSesion(c: {
   franjaLlenaConsistente: boolean;

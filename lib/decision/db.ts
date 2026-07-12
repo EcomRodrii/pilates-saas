@@ -2,8 +2,16 @@
 // DECISION-OS-MODELO-DATOS.md §4). Mappers Row↔dominio + dbXxx de las 6
 // tablas nuevas — server-only, NO engorda lib/supabase-data.ts. Mismo patrón
 // de mappers (mapXxx/xxxToDb) y de errores (reportError) que ese archivo.
-import { supabase } from '@/lib/supabase';
+import { requireSupabaseAdmin } from '@/lib/supabase-admin';
 import { uid } from '@/lib/utils';
+
+// Decision OS escribe con el cliente service-role (salta RLS). Con el cliente
+// anon, RLS bloqueaba silenciosamente todos los INSERT/UPSERT de estas tablas
+// y las lecturas volvían vacías → el Centro de Control quedaba en "modo
+// aprendizaje" pese a haber datos. Se resuelve una vez por llamada (cacheado).
+function db() {
+  return requireSupabaseAdmin();
+}
 import type {
   AccionDecision, Confianza, DecisionFeatureFlag, DecisionFlag, DecisionSession, EspecialistaId,
   EstadoRecomendacion, HechoMemoria, Impacto, ItemMientrasDormias, MemoriaEstudio, Outcome,
