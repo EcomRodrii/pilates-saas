@@ -2,6 +2,7 @@
 // DECISION-OS-MODELO-DATOS.md §4). Mappers Row↔dominio + dbXxx de las 6
 // tablas nuevas — server-only, NO engorda lib/supabase-data.ts. Mismo patrón
 // de mappers (mapXxx/xxxToDb) y de errores (reportError) que ese archivo.
+import * as Sentry from '@sentry/nextjs';
 import { requireSupabaseAdmin } from '@/lib/supabase-admin';
 import { uid } from '@/lib/utils';
 import type {
@@ -22,6 +23,13 @@ function db() {
 
 function reportError(tag: string, error: unknown) {
   console.error(tag, error);
+  // A-6: los fallos de escritura del Decision OS también llegan a Sentry.
+  try {
+    Sentry.captureException(
+      error instanceof Error ? error : new Error(`${tag}: ${typeof error === 'string' ? error : JSON.stringify(error)}`),
+      { tags: { area: 'decision-os' }, extra: { op: tag } },
+    );
+  } catch { /* nunca romper la escritura por el reporte */ }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

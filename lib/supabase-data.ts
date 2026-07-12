@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/supabase';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
@@ -175,6 +176,17 @@ export function setDbErrorListener(fn: DbErrorListener | null) {
 
 function reportDbError(tag: string, error: unknown) {
   console.error(tag, error);
+  // A-6: los fallos de escritura de DB llegan a Sentry (antes solo console.error
+  // + un toast → invisibles en producción). Tag por estudio para agrupar por
+  // tenant. No-op si Sentry no está inicializado (DSN sin definir).
+  try {
+    Sentry.captureException(
+      error instanceof Error ? error : new Error(`${tag}: ${typeof error === 'string' ? error : JSON.stringify(error)}`),
+      { tags: { area: 'db', studioId: STUDIO_ID || 'desconocido' }, extra: { op: tag } },
+    );
+  } catch {
+    /* nunca dejar que el reporte rompa una escritura */
+  }
   try {
     dbErrorListener?.(tag, error);
   } catch {
