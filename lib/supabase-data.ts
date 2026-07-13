@@ -1730,13 +1730,31 @@ export async function canjearRecompensaPublica(params: {
   const now = new Date().toISOString();
   const redemptionId = `rwd-${uid()}`;
 
-  // P0-20: descuento ATÓMICO del saldo (con guard de saldo suficiente) ANTES de
-  // registrar el canje — evita que dos canjes concurrentes gasten el mismo saldo.
+  // A-13: para ítems con stock limitado, se RESERVA el stock ATÓMICAMENTE (RPC)
+  // antes de cobrar créditos. Antes se hacía `update stock = item.stock-1` con un
+  // valor leído de un snapshot → dos canjes concurrentes del último ítem lo
+  // vendían dos veces. Si está agotado, no se debita nada.
+  const stockLimitado = item.stock != null;
+  if (stockLimitado) {
+    const { error: stockErr } = await admin.rpc('ajustar_stock', {
+      p_item_id: params.catalogItemId, p_studio_id: params.studioId, p_delta: -1,
+    });
+    if (stockErr) {
+      if (stockErr.message.includes('SIN_STOCK')) return { error: 'Esta recompensa está agotada.' as const };
+      return { error: stockErr.message };
+    }
+  }
+
+  // P0-20: descuento ATÓMICO del saldo (con guard de saldo suficiente). Si falla,
+  // se DEVUELVE el stock que se acababa de reservar.
   const { error: credErr } = await admin.rpc('ajustar_creditos', {
     p_socio_id: params.socioId, p_studio_id: params.studioId,
     p_delta_saldo: -item.costeCreditos, p_delta_ganado: 0, p_delta_canjeado: item.costeCreditos,
   });
   if (credErr) {
+    if (stockLimitado) {
+      await admin.rpc('ajustar_stock', { p_item_id: params.catalogItemId, p_studio_id: params.studioId, p_delta: 1 });
+    }
     if (credErr.message.includes('SALDO_INSUFICIENTE')) return { error: 'Saldo insuficiente' as const };
     return { error: credErr.message };
   }
@@ -1751,9 +1769,6 @@ export async function canjearRecompensaPublica(params: {
       creditos: -item.costeCreditos, descripcion: `Canje: ${item.nombre}`, ref_id: redemptionId, creado_en: now,
     }),
   ]);
-  if (item.stock != null) {
-    await admin.from('reward_catalog').update({ stock: item.stock - 1 }).eq('id', params.catalogItemId);
-  }
   return { ok: true as const };
 }
 
@@ -2512,6 +2527,24 @@ export async function dbAjustarCreditos(
     return { error: error.message };
   }
   return { ok: true, saldo: data as number };
+}
+
+// A-13: ajuste ATÓMICO del stock de una recompensa (delta -1 reservar / +1
+// devolver) vía la RPC ajustar_stock. Con el cliente autenticado del panel; el
+// aislamiento por estudio lo aplica la propia función. Devuelve error 'SIN_STOCK'
+// si el decremento dejaría el stock por debajo de 0.
+export async function dbAjustarStock(
+  itemId: string, studioId: string, delta: number,
+): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.rpc('ajustar_stock', {
+    p_item_id: itemId, p_studio_id: studioId, p_delta: delta,
+  });
+  if (error) {
+    if (error.message.includes('SIN_STOCK')) return { error: 'SIN_STOCK' };
+    reportDbError('[dbAjustarStock]', error);
+    return { error: error.message };
+  }
+  return { ok: true };
 }
 
 export async function dbInsertRewardCatalogItem(c: RewardCatalogItem) {

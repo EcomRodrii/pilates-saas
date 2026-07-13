@@ -15,7 +15,7 @@ import {
   dbInsertActividadReciente,
   dbInsertRewardRule, dbUpdateRewardRule,
   dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos, dbClaimRecompensaUnica,
-  dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem,
+  dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
   dbInsertRewardRedemption, dbUpdateRewardRedemption,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
   dbUpsertAchievementProgress, dbInsertAchievementHistory,
@@ -1954,8 +1954,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ? aplicarCanjeCreditos(m, socioId, studioId, item.costeCreditos, now)
       : m));
     if (item.stock != null) {
-      setRewardCatalog(prev => prev.map(c => c.id === catalogItemId ? { ...c, stock: (c.stock ?? 1) - 1 } : c));
-      dbUpdateRewardCatalogItem(catalogItemId, { stock: item.stock - 1 });
+      setRewardCatalog(prev => prev.map(c => c.id === catalogItemId ? { ...c, stock: (c.stock ?? 1) - 1 } : c)); // optimista
+      // A-13: decremento ATÓMICO en BD (evita oversell/negativo). Antes se
+      // escribía item.stock-1 de un snapshot → carrera. El estado optimista se
+      // reconcilia al sincronizar.
+      dbAjustarStock(catalogItemId, getCurrentStudioId(), -1);
     }
 
     dbInsertRewardRedemption(redemption);
