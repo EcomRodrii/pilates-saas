@@ -184,7 +184,7 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
 
   const html = await render(AutomatizacionEmail({ socioNombre: socio.nombre, titulo: r.titulo, mensaje: r.motivo, estudioNombre: studio?.nombre ?? '' }));
   const { error } = await resend.emails.send(
-    { from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: r.titulo, html },
+    { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: r.titulo, html },
     { idempotencyKey: r.id }
   );
   if (error) return { ok: false, detalle: error.message };
@@ -211,7 +211,7 @@ async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; d
 
   const html = await render(AutomatizacionEmail({ socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo, estudioNombre: studio?.nombre ?? '' }));
   const { error } = await resend.emails.send(
-    { from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: mensaje.asunto, html },
+    { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: mensaje.asunto, html },
     { idempotencyKey: r.id }
   );
   if (error) return { ok: false, detalle: error.message };
