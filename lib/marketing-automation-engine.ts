@@ -11,6 +11,7 @@ const MS_DIA = 86400000;
 export interface AutomatizacionMktCandidato {
   automatizacion: Automatizacion;
   socio: Socio;
+  canal: 'EMAIL' | 'WHATSAPP'; // el envío real elige transporte (Resend / Twilio)
   asunto: string;
   mensaje: string;
 }
@@ -80,12 +81,15 @@ export function computeAutomatizacionMktCandidatos(
   const diasDesde = (iso: string) => Math.floor((now.getTime() - new Date(iso).getTime()) / MS_DIA);
 
   const emitir = (a: Automatizacion, socio: Socio) => {
-    if (!socio.email) return; // sin email no hay envío (el motor lo marcará fallido igualmente si llega)
+    const canal: 'EMAIL' | 'WHATSAPP' = a.accion === 'WHATSAPP' ? 'WHATSAPP' : 'EMAIL';
+    // Sin el dato de contacto del canal no hay envío (email para EMAIL, teléfono
+    // para WhatsApp). Se descarta aquí para no generar candidatas que fallarían.
+    if (canal === 'EMAIL' ? !socio.email : !(socio.telefono && socio.telefono.trim())) return;
     if (yaEnviado(a.id, socio.id, DEDUP_DIAS[a.trigger] ?? 14)) return;
-    candidatos.push({ automatizacion: a, socio, asunto: personalizar(a.asunto, socio), mensaje: personalizar(a.mensaje, socio) });
+    candidatos.push({ automatizacion: a, socio, canal, asunto: personalizar(a.asunto, socio), mensaje: personalizar(a.mensaje, socio) });
   };
 
-  for (const a of automatizaciones.filter(x => x.activa && x.accion === 'EMAIL')) {
+  for (const a of automatizaciones.filter(x => x.activa && (x.accion === 'EMAIL' || x.accion === 'WHATSAPP'))) {
     switch (a.trigger) {
       case 'NUEVA_ALTA':
         for (const s of socios) if (s.activo && diasDesde(s.fechaAlta) <= 1 && diasDesde(s.fechaAlta) >= 0) emitir(a, s);

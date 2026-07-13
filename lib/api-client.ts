@@ -367,6 +367,26 @@ export async function enviarEmailCampana(params: {
   }
 }
 
+// Envía un mensaje de campaña por WhatsApp/SMS (Twilio) a una destinataria.
+// Mismo shape que enviarEmailCampana pero con `canal` y a /api/mensajes/send.
+export async function enviarMensajeCampana(params: {
+  canal: 'WHATSAPP' | 'SMS';
+  to: string;
+  asunto: string;
+  contenido: string;
+}): Promise<boolean> {
+  try {
+    const res = await fetch('/api/mensajes/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ canal: params.canal, to: params.to, asunto: params.asunto, contenido: params.contenido }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function enviarEmailReserva(params: {
   to: string;
   toName: string;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mensajeParaSocia, enlaceWhatsApp } from './mensajes-socia.ts';
+import { mensajeParaSocia, enlaceWhatsApp, telefonoE164 } from './mensajes-socia.ts';
 
 test('mensajeParaSocia: RECUPERAR_SOCIA usa el nombre y el estudio, tono para la SOCIA', () => {
   const m = mensajeParaSocia('RECUPERAR_SOCIA', { nombre: 'Marta' }, 'Pilates Boutique');
@@ -32,4 +32,20 @@ test('enlaceWhatsApp: respeta prefijo internacional existente; sin teléfono →
   assert.equal(enlaceWhatsApp('+44 7700 900000', 'x'), 'https://wa.me/447700900000?text=x');
   assert.equal(enlaceWhatsApp(null, 'x'), null);
   assert.equal(enlaceWhatsApp('', 'x'), null);
+});
+
+test('telefonoE164: normaliza a E.164 (móvil ES → +34, respeta intl y 00)', () => {
+  assert.equal(telefonoE164('612 34 56 78'), '+34612345678');   // móvil ES sin prefijo
+  assert.equal(telefonoE164('+44 7700 900000'), '+447700900000'); // intl con +
+  assert.equal(telefonoE164('0034 612345678'), '+34612345678');   // prefijo 00 internacional
+  assert.equal(telefonoE164('34612345678'), '+34612345678');      // ya con 34, sin +
+  assert.equal(telefonoE164(null), null);
+  assert.equal(telefonoE164('sin numero'), null);
+});
+
+test('mensajeParaSocia: CONGELAR_MEMBRESIA propone la pausa a la socia', () => {
+  const m = mensajeParaSocia('CONGELAR_MEMBRESIA', { nombre: 'Lucía' }, 'Pilates Boutique');
+  assert.ok(m);
+  assert.match(m!.cuerpo, /Lucía/);
+  assert.match(m!.cuerpo, /congel|pausa/i);
 });

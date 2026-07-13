@@ -60,12 +60,25 @@ export function mensajeParaSocia(tipo: string, datos: Datos, estudioNombre: stri
   }
 }
 
-/** Enlace wa.me con el mensaje prerrellenado. `telefono` puede venir con +, espacios, etc. */
-export function enlaceWhatsApp(telefono: string | null | undefined, cuerpo: string): string | null {
+/**
+ * Normaliza un teléfono a formato E.164 (`+34612345678`). `telefono` puede venir
+ * con +, espacios, guiones, etc. Devuelve null si no hay dígitos. Es PURO — lo
+ * usan tanto el enlace wa.me (navegador) como el envío por Twilio (servidor).
+ */
+export function telefonoE164(telefono: string | null | undefined): string | null {
   if (!telefono) return null;
+  const teniaPrefijoIntl = telefono.trim().startsWith('+') || telefono.trim().startsWith('00');
   let digitos = telefono.replace(/\D/g, '');
   if (!digitos) return null;
+  if (digitos.startsWith('00')) digitos = digitos.slice(2); // 00 internacional → sin él
   // Móvil español sin prefijo internacional (9 dígitos, empieza por 6/7) → +34.
-  if (digitos.length === 9 && /^[67]/.test(digitos)) digitos = `34${digitos}`;
-  return `https://wa.me/${digitos}?text=${encodeURIComponent(cuerpo)}`;
+  if (!teniaPrefijoIntl && digitos.length === 9 && /^[67]/.test(digitos)) digitos = `34${digitos}`;
+  return `+${digitos}`;
+}
+
+/** Enlace wa.me con el mensaje prerrellenado. `telefono` puede venir con +, espacios, etc. */
+export function enlaceWhatsApp(telefono: string | null | undefined, cuerpo: string): string | null {
+  const e164 = telefonoE164(telefono);
+  if (!e164) return null;
+  return `https://wa.me/${e164.slice(1)}?text=${encodeURIComponent(cuerpo)}`;
 }

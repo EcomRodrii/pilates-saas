@@ -7,6 +7,7 @@ import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/aut
 import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/marketing-automation-engine';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
+import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -123,6 +124,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
 // automatización, para dedup y contador). Idempotency-Key por id de log.
 export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
   const { studioId, studioNombre, index, nowISO, dry, resend } = opts;
+  const esWhatsApp = c.canal === 'WHATSAPP';
   const base = {
     id: `mkt-${studioId}-${c.automatizacion.id}-${c.socio.id}-${index}-${nowISO.slice(0, 10)}`,
     studioId,
@@ -131,7 +133,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     socioId: c.socio.id,
     socioNombre: `${c.socio.nombre} ${c.socio.apellidos}`,
     pasoIndex: 0,
-    accion: 'ENVIAR_EMAIL' as const,
+    accion: (esWhatsApp ? 'ENVIAR_WHATSAPP' : 'ENVIAR_EMAIL') as AutomationLog['accion'],
     ejecutadoEn: nowISO,
     proximaAccionEn: null,
     reciboId: null,
@@ -139,7 +141,21 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
 
   let log: AutomationLog;
   if (dry) {
-    log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.asunto} → ${c.socio.email}` };
+    const destino = esWhatsApp ? c.socio.telefono : c.socio.email;
+    log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.asunto} → ${destino}` };
+  } else if (esWhatsApp) {
+    // WhatsApp vía Twilio. Sin idempotency-key nativo: la garantía anti-reenvío es
+    // la memoización del step.run (Inngest no re-ejecuta un step ya completado) +
+    // el dedup por automation_logs del motor. Gap residual (envío OK y caída antes
+    // de memoizar) igual que cualquier side-effect sin clave; aceptable para MVP.
+    if (!twilioConfigurado('WHATSAPP')) {
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no configurado (faltan credenciales Twilio)' };
+    } else {
+      const r = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: `${c.asunto}\n\n${c.mensaje}` });
+      log = r.ok
+        ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}: "${c.asunto}"` }
+        : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio' };
+    }
   } else if (!c.socio.email) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado' };
   } else {
