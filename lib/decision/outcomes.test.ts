@@ -46,3 +46,15 @@ test('medirOutcome ABRIR_SESION: tipo sin reglas específicas → NEUTRO, sin se
   const r = medirOutcome('ABRIR_SESION', { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: 0, recibosTotal: 0 });
   assert.deepEqual(r, { outcome: 'NEUTRO', senalObservada: null });
 });
+
+test('medirOutcome COBRAR_PENDIENTE: si la socia paga → POSITIVO (ya no siempre NEGATIVO)', () => {
+  assert.equal(medirOutcome('COBRAR_PENDIENTE', { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: 1, recibosTotal: 1 }).outcome, 'POSITIVO');
+  assert.equal(medirOutcome('COBRAR_PENDIENTE', { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: 0, recibosTotal: 1 }).outcome, 'NEGATIVO');
+});
+
+test('medirOutcome CONTACTAR_LEAD / CONVERTIR_PRUEBA cierran el bucle (antes siempre NEUTRO)', () => {
+  const base = { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: 0, recibosTotal: 0 };
+  assert.deepEqual(medirOutcome('CONTACTAR_LEAD', { ...base, suscripcionRenovada: true }), { outcome: 'POSITIVO', senalObservada: 'RENOVO' });
+  assert.deepEqual(medirOutcome('CONVERTIR_PRUEBA', { ...base, reservaAsistidaPosterior: true }), { outcome: 'NEUTRO', senalObservada: 'RESERVO' });
+  assert.deepEqual(medirOutcome('CONTACTAR_LEAD', base), { outcome: 'NEGATIVO', senalObservada: 'SIN_RESPUESTA' });
+});

@@ -231,6 +231,17 @@ function mapOutcome(row: RowOutcomes): Outcome {
   };
 }
 
+// Registro de actividad para el flujo del Centro de Control: al aprobar/rechazar
+// una recomendación el propietario no veía NADA (ni una línea) — ahora queda
+// traza en el feed "Actividad" ("todo tenga conexión"). Enlace al Centro.
+export async function dbLogActividadReciente(a: { studioId: string; tipo: string; texto: string; socioId?: string | null }): Promise<void> {
+  const { error } = await db().from('actividad_reciente').insert({
+    id: uid(), studio_id: a.studioId, tipo: a.tipo, texto: a.texto,
+    socio_id: a.socioId ?? null, enlace: '/centro-de-control', creado_en: new Date().toISOString(), actor_nombre: null,
+  });
+  if (error) reportError('[dbLogActividadReciente]', error);
+}
+
 export async function dbInsertOutcome(o: Omit<Outcome, 'id'>): Promise<void> {
   const { error } = await db().from('recomendacion_outcomes').insert({
     id: uid(), studio_id: o.studioId, recomendacion_id: o.recomendacionId, evento: o.evento,

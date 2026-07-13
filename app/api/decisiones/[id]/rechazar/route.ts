@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { dbGetRecomendacion, dbTransicionarRecomendacion, dbInsertOutcome } from '@/lib/decision/db';
+import { dbGetRecomendacion, dbTransicionarRecomendacion, dbInsertOutcome, dbLogActividadReciente } from '@/lib/decision/db';
 import { outcomeInmediato } from '@/lib/decision/outcomes';
 
 // POST /api/decisiones/[id]/rechazar — transición condicional PENDIENTE→RECHAZADA
@@ -31,6 +31,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await dbInsertOutcome({
     studioId: recomendacion.studioId, recomendacionId: id, evento: 'RECHAZADA',
     outcome: outcomeInmediato('RECHAZADA'), senalObservada: null, ventanaDias: 0, medidoEn: nowISO,
+  });
+
+  await dbLogActividadReciente({
+    studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA',
+    texto: `Descartada la recomendación: ${recomendacion.titulo}`, socioId: recomendacion.socioId,
   });
 
   return NextResponse.json({ estado: 'RECHAZADA' });
