@@ -7,7 +7,7 @@ import type {
   Instructor, Campana, AutomationLog,
 } from '@/lib/types';
 
-export type EspecialistaId = 'RETENCION' | 'INGRESOS' | 'AGENDA' | 'MARKETING' | 'FINANZAS' | 'EQUIPO';
+export type EspecialistaId = 'RETENCION' | 'INGRESOS' | 'AGENDA' | 'CAPTACION' | 'MARKETING' | 'FINANZAS' | 'EQUIPO';
 
 // Catálogo único de tipos de recomendación — todo tipo nuevo de cualquier fase
 // se añade aquí (DECISION-OS-ARQUITECTURA.md §3).
@@ -25,7 +25,10 @@ export type TipoRecomendacion =
   | 'COBRAR_PENDIENTE'
   | 'MOVER_HORARIO'
   | 'FUSIONAR_SESIONES'
-  | 'PREPARAR_CAMPANA';
+  | 'PREPARAR_CAMPANA'
+  // Captación / Conversión (embudo de leads)
+  | 'CONTACTAR_LEAD'
+  | 'CONVERTIR_PRUEBA';
 
 export type NivelAutonomia = 0 | 1 | 2 | 3;
 export type NivelConfianza = 'ALTA' | 'MEDIA' | 'BAJA';

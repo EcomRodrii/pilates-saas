@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   // lib/decision/especialistas/contrato.ts): un especialista con 0 pendientes
   // igual muestra su tarjeta ("todo en orden"), no desaparece de Mi Equipo.
   const porEspecialistaMap = new Map<EspecialistaId, Recomendacion[]>([
-    ['RETENCION', []], ['INGRESOS', []], ['AGENDA', []],
+    ['RETENCION', []], ['INGRESOS', []], ['AGENDA', []], ['CAPTACION', []],
   ]);
   for (const r of pendientes) {
     const arr = porEspecialistaMap.get(r.especialista) ?? [];
