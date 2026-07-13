@@ -14,6 +14,7 @@ import { ejecutarAnalisis } from '@/lib/decision/motor';
 import { redactar, type ItemARedactar, type ItemRedactado } from '@/lib/decision/redaccion';
 import { ventanaDiasDe, medirOutcome, type SenalMedicion } from '@/lib/decision/outcomes';
 import { resolverNivelAutonomiaPorTipo } from '@/lib/decision/confianza';
+import { mensajeParaSocia } from '@/lib/decision/mensajes-socia';
 import { ALGORITHM_VERSION } from '@/lib/decision/version';
 import {
   dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
@@ -189,6 +190,33 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   return { ok: true, detalle: `Email enviado a ${socio.email}` };
 }
 
+// Al aprobar una recomendación de CONTACTO_MANUAL: se envía a la socia el mensaje
+// orientado a ELLA (no el motivo del propietario) por email. El propietario tiene
+// además el botón de WhatsApp en la tarjeta. Sin socia/email/mensaje → se marca
+// gestionada sin fallar (la acción real la hace el propietario por WhatsApp).
+async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; detalle: string }> {
+  if (!r.socioId) return { ok: true, detalle: 'Recomendación sin socia — marcada como gestionada.' };
+  const [{ data: socio }, { data: studio }] = await Promise.all([
+    requireSupabaseAdmin().from('socios').select('nombre, email').eq('id', r.socioId).single(),
+    requireSupabaseAdmin().from('studios').select('nombre').eq('id', r.studioId).single(),
+  ]);
+  const mensaje = mensajeParaSocia(r.tipo, r.datosUsados, studio?.nombre ?? '');
+  if (!mensaje) return { ok: true, detalle: 'Sin mensaje automático para este tipo — marcada como gestionada.' };
+  if (!socio?.email) return { ok: true, detalle: 'La socia no tiene email — contáctala por WhatsApp desde la tarjeta.' };
+
+  const apiKey = process.env.RESEND_API_KEY;
+  const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
+  if (!resend) return { ok: true, detalle: 'Email no configurado — contáctala por WhatsApp desde la tarjeta.' };
+
+  const html = await render(AutomatizacionEmail({ socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo, estudioNombre: studio?.nombre ?? '' }));
+  const { error } = await resend.emails.send(
+    { from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: mensaje.asunto, html },
+    { idempotencyKey: r.id }
+  );
+  if (error) return { ok: false, detalle: error.message };
+  return { ok: true, detalle: `Mensaje enviado por email a ${socio.email}` };
+}
+
 export const ejecutarRecomendacion = inngest.createFunction(
   { id: 'decision-ejecutar-recomendacion', triggers: [{ event: EVENTS.DECISION_APPROVED }], retries: 3 },
   async ({ event, step }) => {
@@ -224,9 +252,12 @@ export const ejecutarRecomendacion = inngest.createFunction(
         ok: cobrados > 0,
         detalle: cobrados === recibosInfo.length ? `${cobrados} recibos cobrados.` : `${cobrados}/${recibosInfo.length} recibos cobrados. ${detalles.join('; ')}`,
       };
+    } else if (recomendacion.accion.tipo === 'CONTACTO_MANUAL') {
+      // Aprobar una recomendación de contacto → enviar el mensaje a la socia.
+      resultado = await step.run('contactar-socia', () => ejecutarContactoSocia(recomendacion));
     } else {
-      // CONTACTO_MANUAL / MARCAR_GESTIONADO: sin efecto externo — gestión humana o informativa.
-      resultado = { ok: true, detalle: 'Sin efecto externo — gestión manual/informativa.' };
+      // MARCAR_GESTIONADO (avisos de horario, etc.): informativo, sin efecto externo.
+      resultado = { ok: true, detalle: 'Marcada como gestionada.' };
     }
 
     const resueltoEn = await step.run('now', async () => new Date().toISOString());

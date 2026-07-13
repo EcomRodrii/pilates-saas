@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, Check, X } from 'lucide-react';
+import { Clock, Check, X, MessageCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { ImpactoAPI, RecomendacionAPI } from './use-decisiones';
@@ -23,11 +23,12 @@ function formatearImpacto(imp: ImpactoAPI | null): string | null {
   return `${signo}${imp.valor}%`;
 }
 
-export function RecommendationCard({ recomendacion, onAprobar, onRechazar, procesando }: {
+export function RecommendationCard({ recomendacion, onAprobar, onRechazar, procesando, whatsappHref }: {
   recomendacion: RecomendacionAPI;
   onAprobar: () => void;
   onRechazar: () => void;
   procesando?: boolean;
+  whatsappHref?: string | null;
 }) {
   const impactoTexto = formatearImpacto(recomendacion.impacto);
   const esCritica = recomendacion.prioridad === 'CRITICA';
@@ -59,10 +60,17 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
           <span title={recomendacion.confianza.evidencia.join(' · ')}>{CONFIANZA_LABEL[recomendacion.confianza.nivel]}</span>
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button size="sm" onClick={onAprobar} disabled={procesando}>
             <Check size={14} /> Aprobar
           </Button>
+          {whatsappHref && (
+            <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="inline-flex">
+              <Button size="sm" variant="outline" type="button" tabIndex={-1}>
+                <MessageCircle size={14} /> WhatsApp
+              </Button>
+            </a>
+          )}
           <Button size="sm" variant="outline" onClick={onRechazar} disabled={procesando}>
             <X size={14} /> Descartar
           </Button>
