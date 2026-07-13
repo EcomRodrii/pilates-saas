@@ -78,6 +78,18 @@ test('enCooldown: RECHAZADA fuera de la ventana de 21d no suprime', () => {
   assert.equal(enCooldown(c, resueltas, NOW), false);
 });
 
+test('enCooldown: EJECUTADA reciente suprime (aprobar la recomendación la silencia, no reaparece)', () => {
+  const c = candidata({ tipo: 'RECUPERAR_SOCIA', dedupeKey: 'RETENCION:RECUPERAR_SOCIA:a' });
+  const resueltas = [recomendacion({ tipo: 'RECUPERAR_SOCIA', dedupeKey: 'RETENCION:RECUPERAR_SOCIA:a', estado: 'EJECUTADA', resueltoEn: diasAntes(5) })];
+  assert.equal(enCooldown(c, resueltas, NOW), true);
+});
+
+test('enCooldown: EJECUTADA fuera de la ventana vuelve a proponerse', () => {
+  const c = candidata({ tipo: 'RECUPERAR_SOCIA', dedupeKey: 'RETENCION:RECUPERAR_SOCIA:a' });
+  const resueltas = [recomendacion({ tipo: 'RECUPERAR_SOCIA', dedupeKey: 'RETENCION:RECUPERAR_SOCIA:a', estado: 'EJECUTADA', resueltoEn: diasAntes(25) })];
+  assert.equal(enCooldown(c, resueltas, NOW), false);
+});
+
 test('enCooldown: EXPIRADA cuenta la mitad de la ventana', () => {
   const c = candidata({ tipo: 'RECUPERAR_SOCIA', dedupeKey: 'RETENCION:RECUPERAR_SOCIA:a' });
   const resueltas = [recomendacion({ tipo: 'RECUPERAR_SOCIA', dedupeKey: 'RETENCION:RECUPERAR_SOCIA:a', estado: 'EXPIRADA', resueltoEn: diasAntes(9) })];
