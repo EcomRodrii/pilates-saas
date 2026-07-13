@@ -19,8 +19,8 @@ const OCURRENCIAS_MINIMAS = 3;  // nº de ocurrencias recientes que deben ir vac
 // A2 (ocupación estructuralmente baja): parámetros de la agregación.
 const A2_DIAS = 28;             // ventana de clases pasadas a evaluar
 const A2_MIN_CLASES = 8;        // por debajo de esto es un estudio recién arrancado
-const A2_MIN_VACIAS = 5;        // al menos estas clases casi vacías
-const A2_VOLUMEN_ALTO = 12;     // volumen que sube la confianza a ALTA
+const A2_MIN_VACIAS = 6;        // nº de clases casi vacías para que valga la pena avisar
+const A2_PROPORCION_ALTA = 0.4; // fracción de clases casi vacías que sube la confianza
 
 /**
  * Precio medio por sesión, ponderado por socias activas (mismo criterio que
@@ -128,35 +128,34 @@ function reglaA2(s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata | 
   });
   if (pasadas.length < A2_MIN_CLASES) return null;
 
-  const ocupaciones = pasadas.map(se => (idx.ocupadasPorSesion.get(se.id) ?? 0) / se.aforoMaximo);
-  const nVacias = ocupaciones.filter(o => o <= UMBRAL_VACIA).length;
-  const mayoriaVacia = nVacias >= A2_MIN_VACIAS && nVacias / pasadas.length >= 0.5;
-  const volumenSuficiente = pasadas.length >= A2_VOLUMEN_ALTO;
+  const vacias = pasadas.filter(se => (idx.ocupadasPorSesion.get(se.id) ?? 0) / se.aforoMaximo <= UMBRAL_VACIA);
+  const nVacias = vacias.length;
+  const bastantesVacias = nVacias >= A2_MIN_VACIAS;
+  const proporcionAlta = nVacias / pasadas.length >= A2_PROPORCION_ALTA;
 
-  const confianza = confianzaOcupacionBajaEstructural({ mayoriaVacia, volumenSuficiente });
+  const confianza = confianzaOcupacionBajaEstructural({ bastantesVacias, proporcionAlta });
   if (!confianza) return null;
 
-  const ocupMediaPct = Math.round((ocupaciones.reduce((a, b) => a + b, 0) / pasadas.length) * 100);
-  const aforoMedio = pasadas.reduce((a, se) => a + se.aforoMaximo, 0) / pasadas.length;
-  const asistentesMedios = (ocupaciones.reduce((a, b) => a + b, 0) / pasadas.length) * aforoMedio;
-  const plazasVaciasMedias = Math.max(0, aforoMedio - asistentesMedios);
+  const ocupMediaPct = Math.round((pasadas.reduce((a, se) => a + (idx.ocupadasPorSesion.get(se.id) ?? 0) / se.aforoMaximo, 0) / pasadas.length) * 100);
   const precioMedio = precioMedioSesion(s, idx);
-  const clasesPorSemana = pasadas.length / (A2_DIAS / 7);
-  // Coste de oportunidad mensual de las plazas vacías en el ritmo actual de clases.
-  const valor = redondear2(plazasVaciasMedias * precioMedio * clasesPorSemana * 4.33);
+  // Impacto: SOLO las plazas vacías DE LAS CLASES CASI VACÍAS (no las de las que
+  // van razonablemente llenas), llevado a ritmo mensual. Evita cifras infladas.
+  const plazasVaciasEnVacias = vacias.reduce((acc, se) => acc + Math.max(0, se.aforoMaximo - (idx.ocupadasPorSesion.get(se.id) ?? 0)), 0);
+  const plazasVaciasPorSemana = plazasVaciasEnVacias / (A2_DIAS / 7);
+  const valor = redondear2(plazasVaciasPorSemana * precioMedio * 4.33);
 
-  const motivoMotor = `En las últimas ${A2_DIAS / 7} semanas, ${nVacias} de tus ${pasadas.length} clases fueron con la sala a menos del 30% (ocupación media ${ocupMediaPct}%). Estás pagando sala e instructora para clases casi vacías — o reagrupamos el horario en menos clases más llenas, o promocionamos esas franjas.`;
+  const motivoMotor = `En las últimas ${A2_DIAS / 7} semanas, ${nVacias} de tus ${pasadas.length} clases fueron con la sala a menos del 30% de ocupación. Estás pagando sala e instructora para clases casi vacías — o reagrupas el horario en menos clases más llenas, o promocionas esas franjas.`;
 
   return {
     especialista: 'AGENDA',
     tipo: 'FUSIONAR_SESIONES',
     dedupeKey: `AGENDA:OCUPACION_BAJA:${s.studioId}`,
-    tituloMotor: `Muchas clases van casi vacías (${ocupMediaPct}% de ocupación media)`,
+    tituloMotor: nVacias === 1 ? `1 clase va casi vacía semana tras semana` : `${nVacias} clases van casi vacías`,
     motivoMotor,
     datosUsados: { clasesEvaluadas: pasadas.length, clasesVacias: nVacias, ocupacionMediaPct: ocupMediaPct, semanas: A2_DIAS / 7 },
     riesgo: 'PERDIDA',
     impacto: valor > 0
-      ? { valor, unidad: 'EUR_MES', formula: `${redondear1(plazasVaciasMedias)} plazas vacías/clase × ${redondear2(precioMedio)}€ × ${redondear1(clasesPorSemana)} clases/semana × 4.33` }
+      ? { valor, unidad: 'EUR_MES', formula: `${redondear1(plazasVaciasPorSemana)} plazas vacías/semana en ${nVacias} clases casi vacías × ${redondear2(precioMedio)}€ × 4.33` }
       : undefined,
     confianza,
     accion: { tipo: 'MARCAR_GESTIONADO' },
