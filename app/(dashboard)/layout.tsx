@@ -5,12 +5,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { useAuth } from '@/lib/auth-context';
+import { useStudio } from '@/lib/studio-context';
 import { usePermisos } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
 import { estadoBilling } from '@/lib/api-client';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
+  const { dataLoaded } = useStudio();
   const { puedeVer } = usePermisos();
   const router = useRouter();
   const pathname = usePathname();
@@ -31,14 +33,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => { vivo = false; };
   }, [loading, session, router]);
 
+  // El rol solo está resuelto cuando el estudio ya cargó (studio + instructores).
+  // Antes de eso, useRol() es fail-closed (A-2) y devuelve el rol mínimo: decidir
+  // la autorización ahí redirigía a /dashboard al REFRESCAR una página solo-
+  // PROPIETARIO (Centro de Control, equipo, configuración…). Se espera a que el
+  // rol resuelva; el servidor ya protege cada endpoint, así que renderizar el
+  // marco mientras carga no expone datos.
+  const rolResuelto = dataLoaded;
   const autorizado = puedeVer(pathname);
   useEffect(() => {
-    if (!loading && session && !autorizado) router.replace('/dashboard');
-  }, [loading, session, autorizado, router]);
+    if (!loading && session && rolResuelto && !autorizado) router.replace('/dashboard');
+  }, [loading, session, rolResuelto, autorizado, router]);
 
   if (loading) return null;
 
-  if (!autorizado) {
+  if (rolResuelto && !autorizado) {
     return (
       <PanelThemeProvider className="min-h-screen bg-background">
         <Sidebar />

@@ -153,19 +153,21 @@ export function confianzaConvertirPrueba(c: {
   return evaluarNivel(criterios, a && b, a, b);
 }
 
-// Ocupación estructuralmente baja (Agenda A2) — muchas clases van casi vacías
-// aunque no formen una franja recurrente única. ALTA: a+b (mayoría vacía y
-// volumen alto de clases) · MEDIA: solo a · BAJA: solo b.
+// Ocupación estructuralmente baja (Agenda A2) — un nº relevante de clases van
+// casi vacías aunque no formen una franja recurrente única. El criterio primario
+// es que HAYA clases casi vacías (a); la proporción alta (b) solo eleva la
+// confianza. NUNCA se dispara por (b) sola: un estudio con muchas clases pero
+// llenas no debe recibir este aviso. ALTA: a+b · MEDIA: solo a · sin BAJA.
 export function confianzaOcupacionBajaEstructural(c: {
-  mayoriaVacia: boolean;   // la mayoría de las clases recientes fueron casi vacías
-  volumenSuficiente: boolean; // hay bastantes clases como para que no sea ruido de arranque
+  bastantesVacias: boolean; // nº de clases casi vacías por encima del umbral
+  proporcionAlta: boolean;  // además son una fracción alta del total
 }): Confianza | null {
   const criterios: Criterio[] = [
-    { valor: c.mayoriaVacia, etiqueta: 'la mayoría de las clases recientes por debajo del 30% de ocupación' },
-    { valor: c.volumenSuficiente, etiqueta: 'volumen de clases suficiente para descartar ruido de arranque' },
+    { valor: c.bastantesVacias, etiqueta: 'varias clases recientes por debajo del 30% de ocupación' },
+    { valor: c.proporcionAlta, etiqueta: 'son una parte importante de todas las clases' },
   ];
-  const { mayoriaVacia: a, volumenSuficiente: b } = c;
-  return evaluarNivel(criterios, a && b, a, b);
+  const { bastantesVacias: a, proporcionAlta: b } = c;
+  return evaluarNivel(criterios, a && b, a, false);
 }
 
 export function confianzaAbrirSesion(c: {
