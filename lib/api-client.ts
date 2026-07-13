@@ -266,6 +266,38 @@ export async function terminalEstadoCobro(params: { studioId: string; paymentInt
   } catch { return { error: 'No se pudo consultar el estado' }; }
 }
 
+// A-14 (backstop): cobros por datáfono confirmados en Stripe pero sin venta
+// registrada (el POS se cerró tras el tap). El servidor los deja vía webhook.
+export interface ReconciliacionPendiente {
+  paymentIntentId: string;
+  importe: number;
+  concepto: string | null;
+  creadoEn: string;
+}
+
+export async function terminalReconciliacionesPendientes(): Promise<ReconciliacionPendiente[]> {
+  try {
+    const res = await fetch('/api/terminal/reconciliaciones', { headers: { ...(await authHeader()) } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { pendientes?: ReconciliacionPendiente[] };
+    return data.pendientes ?? [];
+  } catch { return []; }
+}
+
+// Marca un cobro por datáfono como reconciliado (su venta ya está registrada).
+export async function terminalMarcarReconciliado(params: {
+  paymentIntentId: string; ventaId?: string | null; importe?: number; concepto?: string | null;
+}): Promise<boolean> {
+  try {
+    const res = await fetch('/api/terminal/reconciliar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(params),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 // ── Emails ────────────────────────────────────────────────────────────────────
 
 export async function enviarEmailRecibo(params: {

@@ -5,7 +5,7 @@ import { ShoppingCart, X, Plus, Minus, Receipt, CheckCircle2, Search, Printer, C
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import { terminalCobrar, terminalEstadoCobro, terminalRegistrarLector, terminalEstadoLector } from '@/lib/api-client';
+import { terminalCobrar, terminalEstadoCobro, terminalRegistrarLector, terminalEstadoLector, terminalReconciliacionesPendientes, terminalMarcarReconciliado, type ReconciliacionPendiente } from '@/lib/api-client';
 import type { ProductoPOS, VentaPOS, MetodoPago } from '@/lib/types';
 
 type CartItem = {
@@ -245,6 +245,15 @@ export default function POSPage() {
   const [showCerrarCaja, setShowCerrarCaja] = useState(false);
   const [posView, setPosView] = useState<'catalog' | 'cart'>('catalog');
 
+  // A-14 (backstop): cobros por datáfono confirmados en Stripe sin venta
+  // registrada (el POS se cerró tras el tap). El webhook los deja marcados;
+  // aquí se listan para completarlos con un clic.
+  const [reconciliaciones, setReconciliaciones] = useState<ReconciliacionPendiente[]>([]);
+  const refrescarReconciliaciones = useCallback(async () => {
+    setReconciliaciones(await terminalReconciliacionesPendientes());
+  }, []);
+  useEffect(() => { refrescarReconciliaciones(); }, [refrescarReconciliaciones]);
+
   const today = new Date();
 
   // ─── Daily stats ──────────────────────────────────────────────────────────
@@ -329,6 +338,24 @@ export default function POSPage() {
     }, 1500);
   }
 
+  // A-14: registra la venta de un cobro por datáfono que quedó pendiente (el POS
+  // se cerró tras el tap). Genera venta + recibo + factura por el importe cobrado
+  // (línea única, sin desglose porque el carrito original se perdió) y marca el
+  // cobro reconciliado.
+  async function registrarReconciliacion(r: ReconciliacionPendiente) {
+    addVentaPOS({
+      socioId: null,
+      items: [{ productoId: 'reconciliacion', nombre: r.concepto || 'Cobro datáfono', cantidad: 1, precio: r.importe }],
+      subtotal: r.importe,
+      descuento: 0,
+      total: r.importe,
+      metodoPago: 'DATAFONO',
+      notas: `Cobro reconciliado del datáfono (${r.paymentIntentId})`,
+    });
+    await terminalMarcarReconciliado({ paymentIntentId: r.paymentIntentId, importe: r.importe, concepto: r.concepto });
+    await refrescarReconciliaciones();
+  }
+
   async function cobrar() {
     if (carrito.length === 0 || showSuccess || terminal.fase === 'esperando') return;
 
@@ -349,11 +376,17 @@ export default function POSPage() {
       setTerminal({ fase: 'esperando', mensaje: 'Acerque la tarjeta al datáfono' });
       const pi = r.paymentIntentId;
       const deadline = Date.now() + 90000;
+      const conceptoVenta = carrito.map(i => i.producto.nombre).join(', ') || 'Venta POS';
+      const totalVenta = total;
       const poll = async () => {
         const e = await terminalEstadoCobro({ studioId: studio.id, paymentIntentId: pi });
         if (e.status === 'succeeded') {
           setTerminal({ fase: 'idle' });
           finalizarVenta();
+          // A-14: la venta ya quedó registrada aquí → marca el cobro reconciliado
+          // para que el backstop del webhook no lo muestre como pendiente.
+          terminalMarcarReconciliado({ paymentIntentId: pi, importe: totalVenta, concepto: conceptoVenta })
+            .then(() => refrescarReconciliaciones());
           return;
         }
         if (e.status === 'canceled' || e.error) {
@@ -512,6 +545,39 @@ export default function POSPage() {
           </button>
         </div>
       </div>
+
+      {/* A-14: cobros por datáfono confirmados en Stripe pero sin venta registrada */}
+      {reconciliaciones.length > 0 && (
+        <div className="shrink-0 px-4 sm:px-6 py-2.5 border-b border-amber-200 bg-amber-50">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={15} className="shrink-0 mt-0.5 text-amber-600" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <p className="text-[12px] font-bold text-amber-800">
+                {reconciliaciones.length} cobro{reconciliaciones.length !== 1 ? 's' : ''} por datáfono sin registrar
+              </p>
+              <p className="text-[11px] text-amber-700">
+                La tarjeta se cobró pero la venta no llegó a guardarse (el POS se cerró). Regístrala para emitir su factura.
+              </p>
+              <div className="flex flex-col gap-1.5 pt-0.5">
+                {reconciliaciones.map((r) => (
+                  <div key={r.paymentIntentId} className="flex items-center justify-between gap-2 rounded-lg bg-card border border-amber-200 px-3 py-1.5">
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-semibold text-foreground truncate">{r.concepto || 'Cobro datáfono'}</p>
+                      <p className="text-[11px] text-muted-foreground">{r.importe.toFixed(2)} € · {new Date(r.creadoEn).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <button
+                      onClick={() => registrarReconciliacion(r)}
+                      className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-[12px] font-bold hover:bg-amber-700 transition-colors"
+                    >
+                      Registrar venta
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile tab switcher - hidden on desktop */}
       <div className="lg:hidden shrink-0 flex items-center gap-1 px-4 py-2 bg-card border-b border-border">

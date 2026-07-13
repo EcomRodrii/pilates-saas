@@ -88,5 +88,42 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // A-14 (backstop): el cobro por datáfono se confirma aquí aunque el POS se haya
+  // cerrado tras el tap. Deja un marcador de reconciliación (idempotente por
+  // PaymentIntent) para que ningún cobro quede sin registrar. El flujo normal del
+  // POS lo marcará RECONCILIADO; si no llega a hacerlo, queda PENDIENTE y el staff
+  // lo completa desde el POS. Solo aplica a los PI de terminal (origen marcado al
+  // crearlos en /api/terminal/cobrar); el resto de payment_intent.succeeded se
+  // ignora (los cobros con checkout ya se persisten vía checkout.session.completed).
+  if (event.type === 'payment_intent.succeeded') {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    if (pi.metadata?.origen === 'pos_terminal') {
+      const studioId = pi.metadata.studioId;
+      if (!studioId) {
+        console.error('[stripe webhook] PI de terminal sin studioId en metadata', pi.id);
+        return NextResponse.json({ received: true });
+      }
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        console.error('[stripe webhook] service role no configurada (reconciliación POS)');
+        return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      // Insert idempotente: si el POS ya registró la venta y marcó el marcador
+      // RECONCILIADO, la PK del PaymentIntent hace que este INSERT choque (23505)
+      // y no pisamos ese estado. Cualquier otro error → 5xx para que Stripe
+      // reintente la entrega (no perder el cobro).
+      const { error } = await admin.from('reconciliaciones_pos').insert({
+        payment_intent_id: pi.id,
+        studio_id: studioId,
+        importe: (pi.amount_received ?? pi.amount ?? 0) / 100,
+        concepto: pi.metadata.concepto ?? 'Venta POS',
+      });
+      if (error && error.code !== '23505') {
+        console.error('[stripe webhook] no se pudo registrar la reconciliación POS', pi.id, error);
+        return NextResponse.json({ error: 'Fallo al registrar la reconciliación' }, { status: 500 });
+      }
+    }
+  }
+
   return NextResponse.json({ received: true });
 }
