@@ -45,11 +45,18 @@ export const decisionDispatcher = inngest.createFunction(
       const conPlan = (data ?? []).filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
       if (conPlan.length === 0) return [];
 
+      // El flag DECISIONES es un KILL-SWITCH, no un opt-in. Antes el cron exigía
+      // flag `activo=true`, pero NADA lo activa nunca (dbSetFeatureFlag no tiene
+      // callers) → la lista salía vacía y el análisis diario NO corría para NINGÚN
+      // estudio; solo se poblaba con "Analizar ahora" manual. Ahora se analizan
+      // todos los estudios con el plan, salvo los explícitamente DESACTIVADOS con
+      // un flag activo=false. Coherente con GET /api/decisiones y /analizar, que
+      // solo gatean por plan.
       const ids = conPlan.map(s => s.id);
       const { data: flags } = await requireSupabaseAdmin()
-        .from('decision_feature_flags').select('studio_id').eq('flag', 'DECISIONES').eq('activo', true).in('studio_id', ids);
-      const activos = new Set((flags ?? []).map(f => f.studio_id as string));
-      return conPlan.filter(s => activos.has(s.id)).map(s => ({ id: s.id }));
+        .from('decision_feature_flags').select('studio_id, activo').eq('flag', 'DECISIONES').in('studio_id', ids);
+      const desactivados = new Set((flags ?? []).filter(f => f.activo === false).map(f => f.studio_id as string));
+      return conPlan.filter(s => !desactivados.has(s.id)).map(s => ({ id: s.id }));
     });
 
     if (estudios.length > 0) {
