@@ -103,10 +103,17 @@ export async function POST(req: NextRequest) {
   // estudio y año (A-{año}-{NNNN}), no un número que traiga el cliente.
   const fechaEmision = new Date().toISOString();
   const anio = new Date(fechaEmision).getFullYear();
-  const { count: emitidasAnio } = await admin
-    .from('facturas').select('id', { count: 'exact', head: true })
+  // max+1 (no count+1): nunca se reutiliza un número, y si hay huecos por una
+  // factura borrada no se colisiona con uno existente.
+  const { data: delAnio } = await admin
+    .from('facturas').select('numero_completo')
     .eq('studio_id', f.studioId).like('numero_completo', `A-${anio}-%`);
-  const numeroCompleto = `A-${anio}-${String((emitidasAnio ?? 0) + 1).padStart(4, '0')}`;
+  let maxN = 0;
+  for (const row of delAnio ?? []) {
+    const m = /A-\d{4}-(\d+)/.exec((row.numero_completo as string | null) ?? '');
+    if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+  }
+  const numeroCompleto = `A-${anio}-${String(maxN + 1).padStart(4, '0')}`;
 
   // Extremo actual de la cadena de este estudio (huella anterior + secuencia).
   // NOTA (follow-up C-5): la lectura del extremo + inserción no es atómica; bajo
