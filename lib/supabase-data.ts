@@ -937,6 +937,14 @@ function mapRespuestaSesion(r: RowRespuestasSesion): RespuestaSesionRow {
 
 export async function fetchCriticalStudioData(studioId?: string) {
   const sid = studioId ?? STUDIO_ID;
+  // Decision-OS / crons: esta carga la invoca también código de SERVIDOR sin
+  // sesión de usuario (Inngest — construirSnapshot, motor de automatizaciones).
+  // Con el cliente anónimo, la RLS (current_studio_id() = null) devolvía CERO
+  // filas de socios/recibos/sesiones → el snapshot llegaba vacío y todos los
+  // especialistas veían "todo en orden" (bug del Centro de Control). Se prefiere
+  // el service-role cuando existe (servidor); en el navegador getSupabaseAdmin()
+  // es null y se usa el anónimo + la sesión del usuario, que RLS scopea bien.
+  const db = getSupabaseAdmin() ?? supabase;
   const [
     studioRes,
     usuariosRes,
@@ -981,56 +989,56 @@ export async function fetchCriticalStudioData(studioId?: string) {
     challengeProgressRes,
     dashboardChartsRes,
   ] = await Promise.all([
-    supabase.from('studios').select('*').eq('id', sid).single(),
-    supabase.from('usuarios').select('*').eq('studio_id', sid),
+    db.from('studios').select('*').eq('id', sid).single(),
+    db.from('usuarios').select('*').eq('studio_id', sid),
     // A-3/A-4: las socias con baja lógica (borrado_en) no entran al panel; su
     // rastro fiscal (recibos/facturas) sí queda y se muestra como "Socia eliminada".
-    supabase.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null),
-    supabase.from('planes_tarifa').select('*').eq('studio_id', sid),
-    supabase.from('suscripciones').select('*').eq('studio_id', sid),
-    supabase.from('salas').select('*').eq('studio_id', sid),
-    supabase.from('spots').select('*').eq('studio_id', sid),
-    supabase.from('tipos_clase').select('*').eq('studio_id', sid),
-    supabase.from('instructores').select('*').eq('studio_id', sid),
-    supabase.from('sesiones').select('*').eq('studio_id', sid),
-    supabase.from('reservas').select('*').eq('studio_id', sid),
-    supabase.from('recibos').select('*').eq('studio_id', sid),
-    supabase.from('facturas').select('*').eq('studio_id', sid),
-    supabase.from('citas').select('*').eq('studio_id', sid),
-    supabase.from('productos_pos').select('*').eq('studio_id', sid),
-    supabase.from('ventas_pos').select('*').eq('studio_id', sid),
-    supabase.from('campanas').select('*').eq('studio_id', sid),
-    supabase.from('automatizaciones').select('*').eq('studio_id', sid),
-    supabase.from('automation_rules').select('*').eq('studio_id', sid),
+    db.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null),
+    db.from('planes_tarifa').select('*').eq('studio_id', sid),
+    db.from('suscripciones').select('*').eq('studio_id', sid),
+    db.from('salas').select('*').eq('studio_id', sid),
+    db.from('spots').select('*').eq('studio_id', sid),
+    db.from('tipos_clase').select('*').eq('studio_id', sid),
+    db.from('instructores').select('*').eq('studio_id', sid),
+    db.from('sesiones').select('*').eq('studio_id', sid),
+    db.from('reservas').select('*').eq('studio_id', sid),
+    db.from('recibos').select('*').eq('studio_id', sid),
+    db.from('facturas').select('*').eq('studio_id', sid),
+    db.from('citas').select('*').eq('studio_id', sid),
+    db.from('productos_pos').select('*').eq('studio_id', sid),
+    db.from('ventas_pos').select('*').eq('studio_id', sid),
+    db.from('campanas').select('*').eq('studio_id', sid),
+    db.from('automatizaciones').select('*').eq('studio_id', sid),
+    db.from('automation_rules').select('*').eq('studio_id', sid),
     // automation_logs: ordenado newest-first, SIN límite. El motor de
     // automatizaciones (automation-engine) lo usa como índice de dedup para no
     // re-accionar a una socia ya accionada; acotarlo reintroduciría cobros/
     // emails duplicados. Su bounding real necesita dedup por query (follow-up).
-    supabase.from('automation_logs').select('*').eq('studio_id', sid).order('ejecutado_en', { ascending: false }),
-    supabase.from('codigos_descuento').select('*').eq('studio_id', sid),
+    db.from('automation_logs').select('*').eq('studio_id', sid).order('ejecutado_en', { ascending: false }),
+    db.from('codigos_descuento').select('*').eq('studio_id', sid),
     // Feeds de solo-display: ventana reciente ordenada. Seguro acotar — ningún
     // consumidor agrega sobre el histórico completo (ver P0-2/9).
-    supabase.from('actividad_reciente').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
-    supabase.from('notificaciones').select('*').eq('studio_id', sid).order('creada_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
-    supabase.from('videos_on_demand').select('*').eq('studio_id', sid),
-    supabase.from('posts_comunidad').select('*').eq('studio_id', sid),
-    supabase.from('notas_internas').select('*').eq('studio_id', sid),
-    supabase.from('condiciones_salud').select('*').eq('studio_id', sid),
-    supabase.from('respuestas_sesion').select('*').eq('studio_id', sid),
-    supabase.from('integraciones').select('*').eq('studio_id', sid),
-    supabase.from('mensajes_equipo').select('*').eq('studio_id', sid),
-    supabase.from('preferencias_socio').select('*').eq('studio_id', sid),
-    supabase.from('reward_rules').select('*').eq('studio_id', sid),
-    supabase.from('reward_actions').select('*').eq('studio_id', sid),
-    supabase.from('member_credits').select('*').eq('studio_id', sid),
-    supabase.from('reward_catalog').select('*').eq('studio_id', sid),
-    supabase.from('reward_redemptions').select('*').eq('studio_id', sid),
-    supabase.from('achievement_definitions').select('*').eq('studio_id', sid),
-    supabase.from('achievement_progress').select('*').eq('studio_id', sid),
-    supabase.from('level_definitions').select('*').eq('studio_id', sid),
-    supabase.from('challenge_definitions').select('*').eq('studio_id', sid),
-    supabase.from('challenge_progress').select('*').eq('studio_id', sid),
-    supabase.from('dashboard_charts').select('*').eq('studio_id', sid),
+    db.from('actividad_reciente').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
+    db.from('notificaciones').select('*').eq('studio_id', sid).order('creada_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
+    db.from('videos_on_demand').select('*').eq('studio_id', sid),
+    db.from('posts_comunidad').select('*').eq('studio_id', sid),
+    db.from('notas_internas').select('*').eq('studio_id', sid),
+    db.from('condiciones_salud').select('*').eq('studio_id', sid),
+    db.from('respuestas_sesion').select('*').eq('studio_id', sid),
+    db.from('integraciones').select('*').eq('studio_id', sid),
+    db.from('mensajes_equipo').select('*').eq('studio_id', sid),
+    db.from('preferencias_socio').select('*').eq('studio_id', sid),
+    db.from('reward_rules').select('*').eq('studio_id', sid),
+    db.from('reward_actions').select('*').eq('studio_id', sid),
+    db.from('member_credits').select('*').eq('studio_id', sid),
+    db.from('reward_catalog').select('*').eq('studio_id', sid),
+    db.from('reward_redemptions').select('*').eq('studio_id', sid),
+    db.from('achievement_definitions').select('*').eq('studio_id', sid),
+    db.from('achievement_progress').select('*').eq('studio_id', sid),
+    db.from('level_definitions').select('*').eq('studio_id', sid),
+    db.from('challenge_definitions').select('*').eq('studio_id', sid),
+    db.from('challenge_progress').select('*').eq('studio_id', sid),
+    db.from('dashboard_charts').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -1081,6 +1089,9 @@ export async function fetchCriticalStudioData(studioId?: string) {
 
 export async function fetchDeferredStudioData(studioId?: string) {
   const sid = studioId ?? STUDIO_ID;
+  // Mismo motivo que fetchCriticalStudioData: service-role en servidor (crons),
+  // anónimo + sesión en navegador.
+  const db = getSupabaseAdmin() ?? supabase;
   const [
     rewardHistoryRes,
     creditTransactionsRes,
@@ -1089,12 +1100,12 @@ export async function fetchDeferredStudioData(studioId?: string) {
     notasProgresoRes,
     backupsRes,
   ] = await Promise.all([
-    supabase.from('reward_history').select('*').eq('studio_id', sid),
-    supabase.from('credit_transactions').select('*').eq('studio_id', sid),
-    supabase.from('achievement_history').select('*').eq('studio_id', sid),
-    supabase.from('challenge_history').select('*').eq('studio_id', sid),
-    supabase.from('notas_progreso').select('*').eq('studio_id', sid),
-    supabase.from('backups').select('id, studio_id, tipo, creado_en').eq('studio_id', sid).order('creado_en', { ascending: false }),
+    db.from('reward_history').select('*').eq('studio_id', sid),
+    db.from('credit_transactions').select('*').eq('studio_id', sid),
+    db.from('achievement_history').select('*').eq('studio_id', sid),
+    db.from('challenge_history').select('*').eq('studio_id', sid),
+    db.from('notas_progreso').select('*').eq('studio_id', sid),
+    db.from('backups').select('id, studio_id, tipo, creado_en').eq('studio_id', sid).order('creado_en', { ascending: false }),
   ]);
 
   return {
