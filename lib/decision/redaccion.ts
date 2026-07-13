@@ -105,13 +105,45 @@ interface RespuestaIACruda {
   items?: unknown;
 }
 
+// A-20: contexto para validar que la IA no INVENTA cifras. La regla absoluta nº1
+// del prompt ("prohibido números que no estén en datosUsados") no se imponía: un
+// título/motivo que colara un importe o porcentaje falso (p.ej. "son 500€" cuando
+// eran 180€) pasaba mientras cumpliera la longitud, y esa cifra se le mostraba a
+// la propietaria como si fuera real. Aquí se comprueba de verdad.
+export interface ContextoValidacion {
+  datosPorId: Map<string, Record<string, string | number | boolean>>;
+  saludoBase: string;
+}
+
+const RE_DIGITOS = /\d+/g;
+
+function tokensNumericos(texto: string): string[] {
+  return texto.match(RE_DIGITOS) ?? [];
+}
+
+// Números que la IA PUEDE usar para un item: los presentes en sus datosUsados
+// (la fuente de verdad) más los que el propio motor ya rendía en su texto de
+// fallback (confiable por construcción). Todo número fuera de ese conjunto es
+// una invención y descalifica el texto.
+function numerosPermitidos(datos: Record<string, string | number | boolean> | undefined, motor: ItemRedactado): Set<string> {
+  const set = new Set<string>();
+  for (const v of Object.values(datos ?? {})) for (const t of tokensNumericos(String(v))) set.add(t);
+  for (const t of tokensNumericos(`${motor.titulo} ${motor.motivo}`)) set.add(t);
+  return set;
+}
+
+function sinCifrasInventadas(texto: string, permitidos: Set<string>): boolean {
+  return tokensNumericos(texto).every(t => permitidos.has(t));
+}
+
 /**
  * Valida y fusiona la respuesta cruda de la IA con el fallback determinista.
  * Pura y testeable sin red: cualquier item que no pase las reglas absolutas
- * (id desconocido, longitud, tipos) se descarta y esa entrada concreta
- * conserva su texto de motor — el fallo nunca es todo-o-nada.
+ * (id desconocido, longitud, tipos, o CIFRAS NO FUNDAMENTADAS cuando se aporta
+ * `contexto`) se descarta y esa entrada concreta conserva su texto de motor —
+ * el fallo nunca es todo-o-nada.
  */
-export function validarRespuestaIA(raw: string, fallback: RedaccionOutput): RedaccionOutput {
+export function validarRespuestaIA(raw: string, fallback: RedaccionOutput, contexto?: ContextoValidacion): RedaccionOutput {
   let parsed: RespuestaIACruda;
   try {
     parsed = JSON.parse(raw);
@@ -128,11 +160,19 @@ export function validarRespuestaIA(raw: string, fallback: RedaccionOutput): Reda
       if (typeof titulo !== 'string' || typeof motivo !== 'string') continue;
       if (titulo.length === 0 || titulo.length > 80) continue;
       if (motivo.length === 0 || motivo.length > 240) continue;
+      if (contexto) {
+        const permitidos = numerosPermitidos(contexto.datosPorId.get(id), fallback.items.get(id)!);
+        if (!sinCifrasInventadas(titulo, permitidos) || !sinCifrasInventadas(motivo, permitidos)) continue;
+      }
       items.set(id, { titulo, motivo });
     }
   }
 
-  const saludo = typeof parsed.saludo === 'string' && parsed.saludo.length > 0 ? parsed.saludo : fallback.saludo;
+  // El saludo no tiene datosUsados: sus únicas cifras válidas son las que ya
+  // traía el saludo base del motor. Si la IA mete un número nuevo, se descarta.
+  const saludoValido = typeof parsed.saludo === 'string' && parsed.saludo.length > 0 &&
+    (!contexto || sinCifrasInventadas(parsed.saludo, new Set(tokensNumericos(contexto.saludoBase))));
+  const saludo = saludoValido ? (parsed.saludo as string) : fallback.saludo;
   return { saludo, items };
 }
 
@@ -157,7 +197,12 @@ export async function redactar(input: RedaccionInput, fallbackPorId: Map<string,
       messages: [{ role: 'user', content: construirUserPrompt(input) }],
     });
     const raw = message.content[0].type === 'text' ? message.content[0].text : '';
-    return aResultadoSerializable(validarRespuestaIA(raw, fallback));
+    // A-20: el contexto permite rechazar cifras que la IA no debía inventar.
+    const contexto: ContextoValidacion = {
+      datosPorId: new Map(input.items.map(it => [it.id, it.datosUsados])),
+      saludoBase: input.saludoBase,
+    };
+    return aResultadoSerializable(validarRespuestaIA(raw, fallback, contexto));
   } catch {
     return aResultadoSerializable(fallback);
   }
