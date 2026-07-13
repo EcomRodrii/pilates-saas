@@ -74,6 +74,12 @@ export function medirOutcome(tipo: TipoRecomendacion, senal: SenalMedicion): Res
       if (senal.reservaAsistidaPosterior) return { outcome: 'NEUTRO', senalObservada: 'RESERVO' };
       return { outcome: 'NEGATIVO', senalObservada: 'SIN_RESPUESTA' };
 
+    // Renovación de bono: renovó (nueva suscripción) → POSITIVO; si no, NEGATIVO.
+    case 'PROPONER_RENOVACION_BONO':
+      if (senal.suscripcionRenovada) return { outcome: 'POSITIVO', senalObservada: 'RENOVO' };
+      if (senal.reservaAsistidaPosterior) return { outcome: 'NEUTRO', senalObservada: 'RESERVO' };
+      return { outcome: 'NEGATIVO', senalObservada: 'SIN_RESPUESTA' };
+
     default:
       return { outcome: 'NEUTRO', senalObservada: null };
   }

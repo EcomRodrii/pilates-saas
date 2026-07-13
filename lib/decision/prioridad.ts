@@ -33,6 +33,7 @@ const COOLDOWN_DIAS: Record<TipoRecomendacion, number> = {
   PREPARAR_CAMPANA: 14,
   CONTACTAR_LEAD: 10,
   CONVERTIR_PRUEBA: 10,
+  REVISAR_CARGA_EQUIPO: 14,
 };
 
 const MS_DIA = 86400000;

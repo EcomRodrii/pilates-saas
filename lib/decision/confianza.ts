@@ -170,6 +170,42 @@ export function confianzaOcupacionBajaEstructural(c: {
   return evaluarNivel(criterios, a && b, a, false);
 }
 
+// PROPONER_RENOVACION_BONO (Finanzas F1) — a una socia con bono casi agotado se
+// le propone renovar antes de que se quede sin sesiones (y sin venir).
+// ALTA: a+b (bono al límite y socia activa) · MEDIA: solo a · BAJA: solo b.
+export function confianzaRenovarBono(c: {
+  bonoCasiAgotado: boolean;
+  socioActivo: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.bonoCasiAgotado, etiqueta: 'bono con 1 o 0 sesiones restantes' },
+    { valor: c.socioActivo, etiqueta: 'socia activa' },
+  ];
+  const { bonoCasiAgotado: a, socioActivo: b } = c;
+  return evaluarNivel(criterios, a && b, a, b);
+}
+
+// PREPARAR_CAMPANA (Marketing M1) — hay volumen suficiente de socias inactivas /
+// leads para que merezca la pena una campaña. ALTA: a+b · MEDIA: solo a · sin BAJA.
+export function confianzaPrepararCampana(c: {
+  volumenSuficiente: boolean;
+  sinCampanaReciente: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.volumenSuficiente, etiqueta: 'volumen suficiente de socias a reactivar/convertir' },
+    { valor: c.sinCampanaReciente, etiqueta: 'sin campaña reciente a ese público' },
+  ];
+  const { volumenSuficiente: a, sinCampanaReciente: b } = c;
+  return evaluarNivel(criterios, a && b, a, false);
+}
+
+// REVISAR_CARGA_EQUIPO (Equipo E1) — una instructora que daba clases se ha
+// quedado sin ninguna asignada próximamente. Criterio único → MEDIA.
+export function confianzaCargaEquipo(c: { huecoClaro: boolean }): Confianza | null {
+  const criterios: Criterio[] = [{ valor: c.huecoClaro, etiqueta: 'instructora activa sin clases próximas pese a haber dado clases hace poco' }];
+  return evaluarNivel(criterios, false, c.huecoClaro, false);
+}
+
 export function confianzaAbrirSesion(c: {
   franjaLlenaConsistente: boolean;
   demandaInsatisfecha: boolean;
