@@ -1,12 +1,12 @@
 // Especialista en Ingresos — ¿dónde estamos dejando dinero? (MVP: I1-I3).
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
-import type { Recibo } from '@/lib/types';
+import type { Recibo, PlanTarifa } from '@/lib/types';
 import {
   construirIndices, frecuenciaHabitual, agruparFranjasRecurrentes, demandaInsatisfecha, pagosEnRiesgo,
   impagosManualesPorSocio,
   type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
-import { confianzaAbrirSesion, confianzaRecuperarPagos, confianzaCobrarPendienteManual } from '../confianza.ts';
+import { confianzaAbrirSesion, confianzaRecuperarPagos, confianzaCobrarPendienteManual, confianzaRevisarPrecio } from '../confianza.ts';
 
 const MS_DIA = 86400000;
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
@@ -196,6 +196,73 @@ function reglaI3(socioId: string, recibos: Recibo[], idx: IndicesSenal, now: Dat
   };
 }
 
+/**
+ * I4 · Plan MENSUAL infravalorado → REVISAR_PRECIO. Para cada plan mensual con
+ * varias socias activas, se calcula su precio REAL por sesión (cuota ÷ clases que
+ * de verdad dan al mes). Si queda muy por debajo de la media del estudio, hay
+ * margen de subida — pero el precio es decisión del propietario, así que es una
+ * OPORTUNIDAD suave (confianza topada en MEDIA, sin cifra de impacto inventada).
+ */
+const I4_MIN_HOLDERS = 3;
+const I4_UMBRAL_INFRAVALOR = 0.55; // por debajo del 55% de la media → claramente barato
+
+function reglaI4(s: SnapshotEstudio, idx: IndicesSenal): Candidata | null {
+  const mediaEstudio = precioMedioSesion(s, idx);
+  if (mediaEstudio <= 0) return null;
+
+  // Precio/sesión real de cada socia activa MENSUAL, agrupado por plan.
+  const porSesionPorPlan = new Map<string, number[]>();
+  for (const socio of s.socios) {
+    if (!socio.activo) continue;
+    const sus = idx.suscripcionActivaPorSocio.get(socio.id);
+    if (!sus) continue;
+    const plan = idx.planPorId.get(sus.planId);
+    if (!plan || plan.tipo !== 'MENSUAL') continue;
+    const freq = frecuenciaHabitual(socio.id, idx);
+    if (freq === null || freq <= 0) continue; // sin frecuencia fiable no se puede valorar
+    const arr = porSesionPorPlan.get(plan.id) ?? [];
+    arr.push(plan.precio / (freq * 4.33));
+    porSesionPorPlan.set(plan.id, arr);
+  }
+
+  // El plan más infravalorado que supere el mínimo de socias.
+  let mejor: { plan: PlanTarifa; porSesion: number; holders: number } | null = null;
+  for (const [planId, valores] of porSesionPorPlan) {
+    if (valores.length < I4_MIN_HOLDERS) continue;
+    const porSesion = valores.reduce((a, b) => a + b, 0) / valores.length;
+    if (porSesion >= mediaEstudio * I4_UMBRAL_INFRAVALOR) continue;
+    if (!mejor || porSesion < mejor.porSesion) {
+      const plan = idx.planPorId.get(planId);
+      if (plan) mejor = { plan, porSesion, holders: valores.length };
+    }
+  }
+  if (!mejor) return null;
+
+  const confianza = confianzaRevisarPrecio({ suficientesHolders: true, claramenteInfravalorado: true });
+  if (!confianza) return null;
+
+  const porSesionR = redondear2(mejor.porSesion);
+  const mediaR = redondear2(mediaEstudio);
+  const motivoMotor = `Tus ${mejor.holders} socias del plan "${mejor.plan.nombre}" vienen tanto que les sale a ${porSesionR}€ la clase, cuando tu media son ${mediaR}€. No es una alarma, pero quizá ese plan esté por debajo de lo que vale — puede ser buen momento para revisarlo.`;
+
+  return {
+    especialista: 'INGRESOS',
+    tipo: 'REVISAR_PRECIO',
+    dedupeKey: `INGRESOS:REVISAR_PRECIO:${mejor.plan.id}`,
+    tituloMotor: `El plan "${mejor.plan.nombre}" quizá esté barato para lo que se usa`,
+    motivoMotor,
+    datosUsados: { plan: mejor.plan.nombre, precio: mejor.plan.precio, precioPorSesion: porSesionR, mediaEstudioPorSesion: mediaR, socias: mejor.holders },
+    riesgo: 'OPORTUNIDAD',
+    // Sin impacto en €: no sabemos el precio "correcto", así que no inventamos una cifra.
+    confianza,
+    accion: { tipo: 'MARCAR_GESTIONADO' },
+    tiempoEstimadoMin: 10,
+    expiraEnDias: 30,
+    urgencia: 0.2,
+    esfuerzo: 0.5,
+  };
+}
+
 export const ingresos: Especialista = {
   id: 'INGRESOS',
   pregunta: '¿Dónde estamos dejando dinero?',
@@ -216,6 +283,9 @@ export const ingresos: Especialista = {
       const c = reglaI3(socioId, recibos, idx, now);
       if (c) candidatas.push(c);
     }
+
+    const i4 = reglaI4(s, idx);
+    if (i4) candidatas.push(i4);
 
     return candidatas;
   },

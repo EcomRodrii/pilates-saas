@@ -9,7 +9,7 @@ import {
   diasDesdeVencimientoSinRenovar, totalAsistencias,
   type IndicesSenal,
 } from '../senales.ts';
-import { confianzaRecuperarSocia, confianzaRecuperarSociaPorNoShow, confianzaEnviarReactivacion, confianzaRecuperarSociaVencida } from '../confianza.ts';
+import { confianzaRecuperarSocia, confianzaRecuperarSociaPorNoShow, confianzaEnviarReactivacion, confianzaRecuperarSociaVencida, confianzaCongelarMembresia } from '../confianza.ts';
 import { tieneHechoActivo } from '../memoria.ts';
 
 const MS_DIA = 86400000;
@@ -253,6 +253,56 @@ function reglaR5(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
   };
 }
 
+/**
+ * R6 · Paga pero no viene → CONGELAR_MEMBRESIA. Socia con MENSUAL vigente que
+ * sigue cobrándosele cada mes pero lleva ≥45 días sin aparecer. R1-R4 no la ven:
+ * R1 exige ausencia por DEBAJO del umbral crítico (esta lo supera), R2/R3 exigen
+ * renovación inminente, R4 un patrón de no-shows. Aquí el hecho es distinto —
+ * paga y no usa— y la palanca también: ofrecerle CONGELAR antes de que cancele
+ * de golpe y con mal sabor. Por eso va la ÚLTIMA del `??` (solo si nada más aplica).
+ */
+function reglaR6(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
+  const sus = idx.suscripcionActivaPorSocio.get(socio.id);
+  if (!sus) return null;
+  const plan = idx.planPorId.get(sus.planId);
+  if (!plan || plan.tipo !== 'MENSUAL') return null; // solo cuota recurrente; el bono lo cubre Finanzas
+
+  const dias = diasSinVenir(socio.id, idx, now);
+  if (dias === null || dias < 45) return null; // sin asistencias nunca, o ausencia aún no prolongada
+
+  // Debe estar al corriente de pago: si tiene un recibo vencido, es un problema de
+  // cobro (Ingresos), no un candidato a congelación de buena fe.
+  const tieneImpago = idx.recibosPendientes.some(r => {
+    if (r.socioId !== socio.id) return false;
+    return new Date(r.fechaVencimiento).getTime() <= now.getTime();
+  });
+  if (tieneImpago) return null;
+
+  const confianza = confianzaCongelarMembresia({ ausenciaProlongada: dias >= 45, ausenciaMuyProlongada: dias >= 60 });
+  if (!confianza) return null;
+
+  const valor = redondear2(valorMensual(socio.id, idx, now));
+  const motivoMotor = `${socio.nombre} lleva ${dias} días sin venir pero se le sigue cobrando la mensualidad. Antes de que cancele de golpe, yo le ofrecería congelarla una temporada — así no pierde el dinero ni tú a la socia.`;
+
+  return {
+    especialista: 'RETENCION',
+    tipo: 'CONGELAR_MEMBRESIA',
+    dedupeKey: `RETENCION:CONGELAR_MEMBRESIA:${socio.id}`,
+    tituloMotor: `${socio.nombre} paga pero no viene desde hace ${dias} días`,
+    motivoMotor,
+    datosUsados: { nombre: socio.nombre, diasSinVenir: dias, plan: plan.nombre, valorMensual: valor },
+    riesgo: 'PERDIDA',
+    impacto: valor > 0 ? { valor, unidad: 'EUR_MES', formula: `cuota de ${socio.nombre} (${valor}€/mes) en riesgo de cancelación` } : undefined,
+    confianza,
+    accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: motivoMotor },
+    socioId: socio.id,
+    tiempoEstimadoMin: 3,
+    expiraEnDias: 14,
+    urgencia: Math.min(0.7, 0.4 + (dias - 45) / 100),
+    esfuerzo: 0.3,
+  };
+}
+
 export const retencion: Especialista = {
   id: 'RETENCION',
   pregunta: '¿Quién corre riesgo de abandonar?',
@@ -274,7 +324,8 @@ export const retencion: Especialista = {
         reglaR3(socio, idx, now) ??
         reglaR2(socio, idx, m, now) ??
         reglaR1(socio, idx, now) ??
-        reglaR4(socio, idx, now);
+        reglaR4(socio, idx, now) ??
+        reglaR6(socio, idx, now);
       if (candidata) candidatas.push(candidata);
     }
     return candidatas;

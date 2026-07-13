@@ -43,6 +43,11 @@ export function mensajeParaSocia(tipo: string, datos: Datos, estudioNombre: stri
         asunto: `¿Renovamos tu bono, ${nombre}?`,
         cuerpo: `¡Hola ${nombre}! Se te está acabando el bono en ${estudio}. ¿Te preparo uno nuevo para que no pierdas el ritmo? Dime y lo dejamos listo.`,
       };
+    case 'CONGELAR_MEMBRESIA':
+      return {
+        asunto: `¿Te viene bien una pausa, ${nombre}?`,
+        cuerpo: `¡Hola ${nombre}! Hemos notado que llevas un tiempo sin poder venir a ${estudio}. Si ahora te va mal, podemos congelarte la cuota una temporada — así no pagas de más y retomas cuando quieras, sin perder tu sitio. ¿Te lo preparo?`,
+      };
     case 'COBRAR_PENDIENTE': {
       const total = typeof datos.total === 'number' ? datos.total : null;
       return {
