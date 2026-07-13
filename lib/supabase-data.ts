@@ -849,6 +849,19 @@ function mapNotificacion(r: RowNotificaciones): Notificacion {
   } as Notificacion;
 }
 
+// El marcado de "leída" solo vivía en estado local y se perdía al recargar.
+// La política RLS admin_notificaciones permite al staff (sesión) escribir las de
+// su estudio, así que persiste con el cliente anónimo + sesión.
+export async function dbMarcarNotificacionLeida(id: string) {
+  const { error } = await supabase.from('notificaciones').update({ leida: true }).eq('id', id);
+  if (error) reportDbError('[dbMarcarNotificacionLeida]', error);
+}
+
+export async function dbMarcarNotificacionesLeidas(studioId: string) {
+  const { error } = await supabase.from('notificaciones').update({ leida: true }).eq('studio_id', studioId).eq('leida', false);
+  if (error) reportDbError('[dbMarcarNotificacionesLeidas]', error);
+}
+
 function mapVideoOnDemand(r: RowVideosOnDemand): VideoOnDemand {
   return {
     id: r.id,
