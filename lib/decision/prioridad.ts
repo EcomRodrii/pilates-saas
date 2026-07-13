@@ -37,13 +37,21 @@ const COOLDOWN_DIAS: Record<TipoRecomendacion, number> = {
 
 const MS_DIA = 86400000;
 
-/** ¿Esta candidata (por dedupeKey) fue rechazada/expiró recientemente y sigue en cooldown? */
+/**
+ * ¿Esta candidata (por dedupeKey) se resolvió recientemente y sigue en cooldown?
+ * Incluye EJECUTADA: si el propietario YA gestionó la recomendación (aprobó
+ * "llamar a Marta", revisar el horario…), NO se la volvemos a proponer al día
+ * siguiente aunque el hecho siga presente — antes solo RECHAZADA/EXPIRADA
+ * entraban en cooldown, así que aprobar una recomendación no la silenciaba y
+ * reaparecía en cada análisis (parecía que "aprobar no hacía nada"). EXPIRADA
+ * cuenta media ventana; RECHAZADA y EJECUTADA la completa.
+ */
 export function enCooldown(candidata: Candidata, resueltas90d: Recomendacion[], now: Date): boolean {
   const dias = COOLDOWN_DIAS[candidata.tipo] ?? 0;
   if (dias === 0) return false;
   return resueltas90d.some(r => {
     if (r.dedupeKey !== candidata.dedupeKey) return false;
-    if (r.estado !== 'RECHAZADA' && r.estado !== 'EXPIRADA') return false;
+    if (r.estado !== 'RECHAZADA' && r.estado !== 'EXPIRADA' && r.estado !== 'EJECUTADA') return false;
     if (!r.resueltoEn) return false;
     const ventana = r.estado === 'EXPIRADA' ? dias / 2 : dias;
     const diasTranscurridos = (now.getTime() - new Date(r.resueltoEn).getTime()) / MS_DIA;
