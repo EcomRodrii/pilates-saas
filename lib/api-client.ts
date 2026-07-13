@@ -387,6 +387,43 @@ export async function enviarMensajeCampana(params: {
   }
 }
 
+// Pide al servidor una URL de subida directa de Cloudflare Stream. Devuelve el
+// uid del futuro vídeo + la URL, o un error tipado (status 503 = Stream no
+// configurado, para que la UI degrade a "solo metadatos" con un aviso claro).
+export async function pedirSubidaVideo(nombre: string): Promise<
+  | { ok: true; uid: string; uploadURL: string }
+  | { ok: false; status: number; error: string }
+> {
+  try {
+    const res = await fetch('/api/ondemand/upload-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ nombre }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      return { ok: false, status: res.status, error: (j as { error?: string }).error ?? `Error ${res.status}` };
+    }
+    const j = (await res.json()) as { uid: string; uploadURL: string };
+    return { ok: true, uid: j.uid, uploadURL: j.uploadURL };
+  } catch {
+    return { ok: false, status: 0, error: 'Error de red al preparar la subida' };
+  }
+}
+
+// Sube el fichero de vídeo directo a Cloudflare Stream (la uploadURL de un solo
+// uso). El navegador no toca el token de Stream. Devuelve true si Cloudflare aceptó.
+export async function subirVideoAStream(uploadURL: string, file: File): Promise<boolean> {
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(uploadURL, { method: 'POST', body: form });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function enviarEmailReserva(params: {
   to: string;
   toName: string;
