@@ -3313,6 +3313,10 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
   if ('reservaMaxSimultaneas' in changes) db.reserva_max_simultaneas = changes.reservaMaxSimultaneas;
+  // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
+  // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
+  // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
+  if ('stripeAccountId' in changes) db.stripe_account_id = changes.stripeAccountId;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);
 }

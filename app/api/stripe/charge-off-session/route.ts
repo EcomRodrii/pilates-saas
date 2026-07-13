@@ -15,6 +15,7 @@ const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
   NO_PENDIENTE: 409,
   SIN_TARJETA: 409,
   SIN_STRIPE_CONECTADO: 409,
+  CUENTA_NO_LISTA: 409,
   FALLO_COBRO: 402,
 };
 
