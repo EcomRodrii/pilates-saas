@@ -32,13 +32,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
   }
 
+  // A-10: la Idempotency-Key la deriva cobrarReciboOffSession del reciboId, para
+  // que este disparador (aprobación manual) y el ejecutor del Decision OS
+  // converjan en la misma clave y Stripe deduplique el cobro del mismo recibo.
   const resultado = await cobrarReciboOffSession({
     reciboId: body.reciboId,
     socioId: body.socioId,
     studioId: body.studioId,
-    // El logId ya era el identificador natural de este flujo — ahora también
-    // sirve de Idempotency-Key: un reintento nunca duplica el cargo en Stripe.
-    idempotencyKey: body.logId,
   });
 
   if (resultado.ok) {
