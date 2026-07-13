@@ -225,12 +225,21 @@ export const ejecutarRecomendacion = inngest.createFunction(
     const resueltoEn = await step.run('now', async () => new Date().toISOString());
 
     if (resultado.ok) {
-      await step.run('marcar-ejecutada', () => dbTransicionarRecomendacion(recomendacionId, 'APROBADA', 'EJECUTADA', { resueltoEn }));
-      await step.run('outcome-ejecutada', () => dbInsertOutcome({
-        studioId: recomendacion.studioId, recomendacionId, evento: 'EJECUTADA', outcome: 'PENDIENTE',
-        senalObservada: null, ventanaDias: ventanaDiasDe(recomendacion.tipo), medidoEn: null,
-      }));
-      await step.sendEvent('programar-medicion', { name: EVENTS.DECISION_MEASURE, data: { recomendacionId } });
+      // A-17: el insert del outcome y la programación de la medición van GATEADOS
+      // por la transición real APROBADA→EJECUTADA. Sin esto, un segundo run del
+      // ejecutor sobre la misma recomendación (doble aprobación / reintento no
+      // memoizado) insertaba OTRA fila outcome 'EJECUTADA' —sin unicidad en la
+      // tabla—, y luego dbGetOutcomePorRecomendacion (maybeSingle) fallaba con >1
+      // fila: la medición no actualizaba nada y el outcome quedaba PENDIENTE para
+      // siempre. Con el guard, solo el run que efectivamente transiciona escribe.
+      const trans = await step.run('marcar-ejecutada', () => dbTransicionarRecomendacion(recomendacionId, 'APROBADA', 'EJECUTADA', { resueltoEn }));
+      if (trans.ok) {
+        await step.run('outcome-ejecutada', () => dbInsertOutcome({
+          studioId: recomendacion.studioId, recomendacionId, evento: 'EJECUTADA', outcome: 'PENDIENTE',
+          senalObservada: null, ventanaDias: ventanaDiasDe(recomendacion.tipo), medidoEn: null,
+        }));
+        await step.sendEvent('programar-medicion', { name: EVENTS.DECISION_MEASURE, data: { recomendacionId } });
+      }
     } else {
       await step.run('marcar-fallida', () => dbTransicionarRecomendacion(recomendacionId, 'APROBADA', 'FALLIDA', { resueltoEn }));
     }

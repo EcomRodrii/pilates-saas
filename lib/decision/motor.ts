@@ -7,7 +7,7 @@ import type { Candidata, MemoriaEstudio, Recomendacion, SnapshotEstudio } from '
 import { ESPECIALISTAS } from './especialistas/contrato.ts';
 import { aplicarMemoria, detectarHechosPorRegla, detectarHechosPorFeedback, type NuevoHechoMemoria } from './memoria.ts';
 import { coordinarColisiones, construirResumenDiario, construirMientrasDormias } from './director.ts';
-import { priorizar, seleccionarPrioridadesHome, type CandidataPriorizada } from './prioridad.ts';
+import { priorizar, seleccionarPrioridadesHome, enCooldown, type CandidataPriorizada } from './prioridad.ts';
 import { construirIndices } from './senales.ts';
 
 export interface RecomendacionAExpirar {
@@ -73,15 +73,23 @@ export function ejecutarAnalisis(input: EntradaAnalisis): ResultadoAnalisis {
   // 3 · MEMORY ENGINE — veto y ajuste de canal.
   const postMemoria = aplicarMemoria(candidatasBrutas, memoria, now);
 
-  // 4 · COORDINACIÓN — una socia, una candidata visible.
+  // 4 · COORDINACIÓN — una socia, una candidata visible. Este conjunto (sobre
+  // TODAS las candidatas vivas, sin mirar cooldown) es el que usa la expiración
+  // más abajo: una PENDIENTE expira porque el HECHO desapareció, no por cooldown.
   const coordinadas = coordinarColisiones(postMemoria);
 
   // 5 · CONFIDENCE ENGINE — ya resuelta al emitir cada candidata (ver nota en
   // tipos.ts: Especialista.detectar). Este paso queda como posición
   // conceptual del pipeline, sin transformación adicional.
 
-  // 6-7 · COOLDOWNS + PRIORITY.
-  const puntuadas = priorizar(coordinadas, resueltas90d, now);
+  // 6-7 · COOLDOWNS + PRIORITY. A-17: el cooldown se aplica ANTES de coordinar
+  // colisiones para el bloque visible. Si no, una candidata en cooldown podía
+  // GANAR la colisión (mayor score) y luego priorizar la descartaba por cooldown,
+  // dejando a la socia sin la alternativa viable que sí existía. Filtrando el
+  // cooldown primero, la colisión se resuelve solo entre candidatas mostrables.
+  const fueraCooldown = postMemoria.filter(c => !enCooldown(c, resueltas90d, now));
+  const coordinadasVisibles = coordinarColisiones(fueraCooldown);
+  const puntuadas = priorizar(coordinadasVisibles, resueltas90d, now);
   const prioridadesHome = seleccionarPrioridadesHome(puntuadas);
 
   // 8 · DIRECTOR.
