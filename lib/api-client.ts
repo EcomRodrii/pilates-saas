@@ -188,6 +188,15 @@ export interface FacturaSellada {
   verifactuSeq: number | null;
   qrUrl?: string;
   entorno?: 'produccion' | 'pruebas';
+  // C-5: valores fiscales AUTORITATIVOS recalculados en el servidor (el cliente
+  // debe reconciliar con estos, no con los que calculó de forma optimista).
+  numeroCompleto?: string;
+  fechaEmision?: string;
+  receptorNombre?: string;
+  receptorNIF?: string | null;
+  baseImponible?: number;
+  cuotaIVA?: number;
+  total?: number;
 }
 
 export async function sellarFactura(fac: Factura): Promise<{ ok: boolean; sellada?: boolean; aviso?: string | null; factura?: FacturaSellada }> {
