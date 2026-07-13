@@ -89,6 +89,7 @@ import type {
   Notificacion,
   PlanTarifa,
   PostComunidad,
+  ComentarioComunidad,
   PreferenciasSocio,
   ProductoPOS,
   Recibo,
@@ -2366,6 +2367,45 @@ export async function dbDeleteSocio(id: string) {
     if (!res.ok) reportDbError('[dbDeleteSocio]', await res.json().catch(() => ({ status: res.status })));
   } catch (e) {
     reportDbError('[dbDeleteSocio]', e);
+  }
+}
+
+// ── Comentarios de Comunidad ────────────────────────────────────────────────
+// Persisten vía /api/comunidad/comentarios (server-authoritative). Antes solo
+// vivían en un useState y se perdían al refrescar.
+export async function dbListComentariosComunidad(): Promise<ComentarioComunidad[]> {
+  try {
+    const res = await fetch('/api/comunidad/comentarios', {
+      headers: { ...(await staffAuthHeader()) },
+    });
+    if (!res.ok) {
+      reportDbError('[dbListComentariosComunidad]', await res.json().catch(() => ({ status: res.status })));
+      return [];
+    }
+    const data = (await res.json()) as { comentarios?: ComentarioComunidad[] };
+    return data.comentarios ?? [];
+  } catch (e) {
+    reportDbError('[dbListComentariosComunidad]', e);
+    return [];
+  }
+}
+
+export async function dbAddComentarioComunidad(postId: string, texto: string): Promise<ComentarioComunidad | null> {
+  try {
+    const res = await fetch('/api/comunidad/comentarios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({ postId, texto }),
+    });
+    if (!res.ok) {
+      reportDbError('[dbAddComentarioComunidad]', await res.json().catch(() => ({ status: res.status })));
+      return null;
+    }
+    const data = (await res.json()) as { comentario?: ComentarioComunidad };
+    return data.comentario ?? null;
+  } catch (e) {
+    reportDbError('[dbAddComentarioComunidad]', e);
+    return null;
   }
 }
 

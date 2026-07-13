@@ -602,6 +602,17 @@ export interface PostComunidad {
   creadoEn: string;
 }
 
+export interface ComentarioComunidad {
+  id: string;
+  studioId: string;
+  postId: string;
+  autorId: string | null;
+  autorNombre: string;
+  autorInicial: string | null;
+  texto: string;
+  creadoEn: string;
+}
+
 // ─── Gamificación: créditos y recompensas ─────────────────────────────────────
 // El estudio configura CUÁNTO vale cada acción (RewardRule) — el motor
 // (lib/reward-engine.ts) nunca usa números fijos, siempre lee la regla.
