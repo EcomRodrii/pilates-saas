@@ -191,7 +191,7 @@ interface StudioContextValue {
   addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string }) => void;
   addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<void>;
   updateSocio: (id: string, changes: Partial<Socio>) => void;
-  deleteSocio: (id: string) => void;
+  deleteSocio: (id: string) => Promise<void>;
   addTagSocio: (socioId: string, tag: string) => void;
   removeTagSocio: (socioId: string, tag: string) => void;
 
@@ -961,8 +961,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setNotasInternas(prev => prev.filter(n => n.socioId !== id));
     setCondicionesSalud(prev => prev.filter(c => c.socioId !== id));
     setRespuestasSesion(prev => prev.filter(r => r.socioId !== id));
-    dbDeleteSocio(id);
     if (socio) addActividadReciente('SOCIA_ELIMINADA', `${actorNombre ?? 'Alguien'} dio de baja a ${socio.nombre} ${socio.apellidos}`);
+    // Devuelve la promesa: la baja pasa por un endpoint (async) y quien redirige
+    // justo después (ficha → window.location) debe ESPERARLA, o la navegación
+    // dura cancela la petición y la socia no llega a anonimizarse.
+    return dbDeleteSocio(id);
   }
 
   function addTagSocio(socioId: string, tag: string) {

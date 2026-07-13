@@ -390,8 +390,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     setToast('Socia actualizada');
   }
 
-  function handleDelete() {
-    deleteSocio(id);
+  async function handleDelete() {
+    // Espera a que la baja (endpoint /api/socios/eliminar) COMPLETE antes de
+    // navegar: window.location.href cancela peticiones en vuelo, así que sin el
+    // await la socia no llegaba a anonimizarse (parecía borrada pero seguía).
+    await deleteSocio(id);
     window.location.href = '/socios';
   }
 
