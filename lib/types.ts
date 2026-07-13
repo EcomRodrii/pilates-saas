@@ -587,6 +587,9 @@ export interface VideoOnDemand {
   likes: number;
   activo: boolean;
   creadoEn: string;
+  // UID del asset en Cloudflare Stream. null = fila antigua sin vídeo alojado
+  // (se muestra el placeholder); presente = se embebe el reproductor de Stream.
+  streamUid: string | null;
 }
 
 export interface PostComunidad {

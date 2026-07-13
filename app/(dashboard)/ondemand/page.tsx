@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { Play, Eye, Heart, Upload, X, Search } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Play, Eye, Heart, Upload, X, Search, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
+import { pedirSubidaVideo, subirVideoAStream } from '@/lib/api-client';
+import { urlIframeStream } from '@/lib/stream-playback';
 import type { VideoOnDemand, CategoriaVideo, NivelClase } from '@/lib/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -70,7 +72,7 @@ type UploadForm = {
   instructorId: string;
 };
 
-function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; onSave: (fields: UploadForm) => void; instructores: { id: string; nombre: string }[] }) {
+function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; onSave: (fields: UploadForm, streamUid: string | null) => void; instructores: { id: string; nombre: string }[] }) {
   const [form, setForm] = useState<UploadForm>({
     titulo: '',
     descripcion: '',
@@ -79,10 +81,42 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
     duracion: '',
     instructorId: instructores[0]?.id ?? '',
   });
+  const [file, setFile] = useState<File | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  function handleSave() {
-    if (!form.titulo.trim()) return;
-    onSave(form);
+  async function handleSave() {
+    if (!form.titulo.trim() || subiendo) return;
+
+    // Sin fichero → se guarda solo la ficha (comportamiento antiguo).
+    if (!file) {
+      onSave(form, null);
+      onClose();
+      return;
+    }
+
+    // Con fichero → subida real a Cloudflare Stream.
+    setSubiendo(true);
+    setAviso(null);
+    const prep = await pedirSubidaVideo(form.titulo.trim());
+    if (!prep.ok) {
+      setSubiendo(false);
+      if (prep.status === 503) {
+        // Stream no configurado: se ofrece guardar solo la ficha, sin bloquear.
+        setAviso('El hosting de vídeo (Cloudflare Stream) aún no está configurado. Puedes guardar la ficha y subir el vídeo cuando esté listo.');
+      } else {
+        setAviso(prep.error);
+      }
+      return;
+    }
+    const ok = await subirVideoAStream(prep.uploadURL, file);
+    setSubiendo(false);
+    if (!ok) {
+      setAviso('No se pudo subir el vídeo a Cloudflare. Inténtalo de nuevo.');
+      return;
+    }
+    onSave(form, prep.uid);
     onClose();
   }
 
@@ -115,6 +149,25 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
               rows={3}
               className="w-full px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-muted-foreground text-foreground outline-none focus:border-foreground transition-colors resize-none"
             />
+          </div>
+          <div>
+            <label className="block text-[12px] font-medium text-foreground mb-1">Vídeo</label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="video/*"
+              onChange={e => setFile(e.target.files?.[0] ?? null)}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border text-[13px] text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+            >
+              <Upload size={14} />
+              <span className="truncate">{file ? file.name : 'Seleccionar fichero de vídeo (opcional)'}</span>
+            </button>
+            <p className="text-[11px] text-muted-foreground mt-1">Si no subes fichero, se guarda solo la ficha del vídeo.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -167,25 +220,30 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
               </select>
             </div>
           </div>
+          {aviso && (
+            <p className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{aviso}</p>
+          )}
         </div>
         <div className="flex gap-2 px-5 py-4 border-t border-border">
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-lg border border-border bg-card text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+            disabled={subiendo}
+            className="flex-1 py-2 rounded-lg border border-border bg-card text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleSave}
-            disabled={!form.titulo.trim()}
+            disabled={!form.titulo.trim() || subiendo}
             className={cn(
-              'flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors',
-              form.titulo.trim()
+              'flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center justify-center gap-2',
+              form.titulo.trim() && !subiendo
                 ? 'bg-brand text-brand-foreground hover:brightness-95'
                 : 'bg-border text-muted-foreground cursor-not-allowed'
             )}
           >
-            Subir vídeo
+            {subiendo && <Loader2 size={14} className="animate-spin" />}
+            {subiendo ? 'Subiendo…' : file ? 'Subir vídeo' : 'Guardar ficha'}
           </button>
         </div>
       </div>
@@ -204,23 +262,48 @@ function VideoCard({
   instructorNombre: string;
   onToggle: (id: string) => void;
 }) {
+  const [reproduciendo, setReproduciendo] = useState(false);
+  const tieneVideo = !!video.streamUid;
+
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-sm transition-shadow">
-      {/* Thumbnail */}
-      <div className={cn('relative h-36 flex items-center justify-center', categoriaBg[video.categoria])}>
-        {/* Category badge */}
-        <span className={cn('absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-medium', categoriaBadge[video.categoria])}>
-          {video.categoria}
-        </span>
-        {/* Play button */}
-        <button className="w-12 h-12 rounded-full bg-card/80 hover:bg-card flex items-center justify-center shadow transition-colors">
-          <Play size={20} className="text-foreground ml-0.5" fill="currentColor" />
-        </button>
-        {/* Duration */}
-        <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-[11px] font-medium">
-          {video.duracionMinutos} min
-        </span>
-      </div>
+      {/* Thumbnail / reproductor */}
+      {reproduciendo && video.streamUid ? (
+        <div className="relative h-36 bg-black">
+          <iframe
+            src={urlIframeStream(video.streamUid)}
+            className="absolute inset-0 w-full h-full"
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+            allowFullScreen
+            title={video.titulo}
+          />
+        </div>
+      ) : (
+        <div className={cn('relative h-36 flex items-center justify-center', categoriaBg[video.categoria])}>
+          {/* Category badge */}
+          <span className={cn('absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-medium', categoriaBadge[video.categoria])}>
+            {video.categoria}
+          </span>
+          {/* Play button — solo reproduce si el vídeo está alojado (streamUid) */}
+          <button
+            onClick={() => tieneVideo && setReproduciendo(true)}
+            title={tieneVideo ? 'Reproducir' : 'Este vídeo aún no tiene fichero subido'}
+            className={cn(
+              'w-12 h-12 rounded-full flex items-center justify-center shadow transition-colors',
+              tieneVideo ? 'bg-card/80 hover:bg-card cursor-pointer' : 'bg-card/50 cursor-not-allowed',
+            )}
+          >
+            <Play size={20} className={cn('ml-0.5', tieneVideo ? 'text-foreground' : 'text-muted-foreground')} fill="currentColor" />
+          </button>
+          {!tieneVideo && (
+            <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/50 text-white text-[10px] font-medium">Sin vídeo</span>
+          )}
+          {/* Duration */}
+          <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-[11px] font-medium">
+            {video.duracionMinutos} min
+          </span>
+        </div>
+      )}
 
       {/* Body */}
       <div className="p-3">
@@ -298,7 +381,7 @@ export default function OnDemandPage() {
     return matchCat && matchNivel && matchSearch;
   });
 
-  function handleSaveVideo(form: { titulo: string; descripcion: string; categoria: CategoriaVideo; nivel: NivelClase; duracion: string; instructorId: string }) {
+  function handleSaveVideo(form: { titulo: string; descripcion: string; categoria: CategoriaVideo; nivel: NivelClase; duracion: string; instructorId: string }, streamUid: string | null) {
     addVideo({
       titulo: form.titulo.trim(),
       descripcion: form.descripcion.trim() || null,
@@ -307,6 +390,7 @@ export default function OnDemandPage() {
       nivel: form.nivel,
       instructorId: form.instructorId,
       activo: true,
+      streamUid,
     });
   }
 

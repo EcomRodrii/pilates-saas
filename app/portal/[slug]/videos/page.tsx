@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { CategoriaVideo, NivelClase, VideoOnDemand } from '@/lib/types';
+import { urlIframeStream } from '@/lib/stream-playback';
 import { X, Play, Clock, Eye } from 'lucide-react';
 
 const CATEGORIAS: { value: CategoriaVideo | 'TODOS'; label: string; emoji: string }[] = [
@@ -39,6 +40,7 @@ export default function VideosPage() {
   const [cat, setCat] = useState<CategoriaVideo | 'TODOS'>('TODOS');
   const [selected, setSelected] = useState<VideoOnDemand | null>(null);
   const [avisoPendiente, setAvisoPendiente] = useState(false);
+  const [reproduciendo, setReproduciendo] = useState(false);
 
   const filtrados = cat === 'TODOS'
     ? videosOnDemand.filter(v => v.activo)
@@ -129,33 +131,51 @@ export default function VideosPage() {
 
       {/* Modal */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => setSelected(null)}>
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => { setSelected(null); setReproduciendo(false); setAvisoPendiente(false); }}>
           <div
             className="bg-white w-full rounded-t-3xl overflow-hidden"
             onClick={e => e.stopPropagation()}
             style={{ maxHeight: '85vh' }}
           >
-            {/* Thumbnail */}
-            <div className="w-full h-44 flex items-center justify-center relative" style={{ background: GRADIENTS[selected.categoria] }}>
-              <div className="w-16 h-16 rounded-full bg-white/25 flex items-center justify-center">
-                <Play size={26} className="text-white fill-white ml-1" />
-              </div>
-              <button
-                onClick={() => setSelected(null)}
-                className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/30 flex items-center justify-center"
-              >
-                <X size={17} className="text-white" />
-              </button>
-              <div className="absolute bottom-3 left-4 flex items-center gap-2">
-                <span
-                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+            {/* Reproductor / Thumbnail */}
+            {reproduciendo && selected.streamUid ? (
+              <div className="w-full aspect-video bg-black relative">
+                <iframe
+                  src={urlIframeStream(selected.streamUid)}
+                  className="absolute inset-0 w-full h-full"
+                  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                  allowFullScreen
+                  title={selected.titulo}
+                />
+                <button
+                  onClick={() => { setSelected(null); setReproduciendo(false); }}
+                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 flex items-center justify-center z-10"
                 >
-                  {NIVEL_LABEL[selected.nivel]}
-                </span>
-                <span className="text-white/80 text-[12px] font-medium">{selected.duracionMinutos} min</span>
+                  <X size={17} className="text-white" />
+                </button>
               </div>
-            </div>
+            ) : (
+              <div className="w-full h-44 flex items-center justify-center relative" style={{ background: GRADIENTS[selected.categoria] }}>
+                <div className="w-16 h-16 rounded-full bg-white/25 flex items-center justify-center">
+                  <Play size={26} className="text-white fill-white ml-1" />
+                </div>
+                <button
+                  onClick={() => { setSelected(null); setAvisoPendiente(false); }}
+                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/30 flex items-center justify-center"
+                >
+                  <X size={17} className="text-white" />
+                </button>
+                <div className="absolute bottom-3 left-4 flex items-center gap-2">
+                  <span
+                    className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                  >
+                    {NIVEL_LABEL[selected.nivel]}
+                  </span>
+                  <span className="text-white/80 text-[12px] font-medium">{selected.duracionMinutos} min</span>
+                </div>
+              </div>
+            )}
 
             <div className="p-5">
               <p className="text-[20px] font-extrabold text-[#171717] leading-tight">{selected.titulo}</p>
@@ -167,7 +187,7 @@ export default function VideosPage() {
               {selected.descripcion && (
                 <p className="text-[14px] text-[#3A3A32] leading-relaxed mt-3">{selected.descripcion}</p>
               )}
-              {avisoPendiente ? (
+              {reproduciendo ? null : avisoPendiente ? (
                 <div className="w-full mt-5 rounded-2xl bg-[#F1F1EC] px-4 py-4 text-center">
                   <p className="text-[14px] font-bold text-[#171717]">Reproducción en preparación</p>
                   <p className="text-[12px] text-[#8E8E93] mt-1">Este contenido estará disponible muy pronto en tu portal.</p>
@@ -176,10 +196,10 @@ export default function VideosPage() {
                 <button
                   className="w-full py-4 rounded-2xl text-white font-bold text-[16px] flex items-center justify-center gap-2 mt-5"
                   style={{ background: GRADIENTS[selected.categoria] }}
-                  onClick={() => setAvisoPendiente(true)}
+                  onClick={() => { if (selected.streamUid) setReproduciendo(true); else setAvisoPendiente(true); }}
                 >
                   <Play size={18} className="fill-white" />
-                  Empezar video
+                  {selected.streamUid ? 'Reproducir' : 'Empezar video'}
                 </button>
               )}
             </div>

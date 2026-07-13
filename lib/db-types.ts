@@ -340,6 +340,7 @@ export interface RowVideosOnDemand {
   likes: number | null;
   activo: boolean | null;
   creado_en: string | null;
+  stream_uid: string | null;
 }
 
 export interface RowPostsComunidad {

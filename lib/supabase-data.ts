@@ -877,6 +877,7 @@ function mapVideoOnDemand(r: RowVideosOnDemand): VideoOnDemand {
     likes: r.likes,
     activo: r.activo,
     creadoEn: r.creado_en,
+    streamUid: r.stream_uid ?? null,
   } as VideoOnDemand;
 }
 
@@ -2299,6 +2300,7 @@ function videoOnDemandToDb(v: VideoOnDemand) {
     likes: v.likes,
     activo: v.activo,
     creado_en: v.creadoEn,
+    stream_uid: v.streamUid ?? null,
   };
 }
 
@@ -3164,6 +3166,7 @@ export async function dbUpdateVideoOnDemand(id: string, changes: Partial<VideoOn
   if ('vistas' in changes) db.vistas = changes.vistas;
   if ('likes' in changes) db.likes = changes.likes;
   if ('activo' in changes) db.activo = changes.activo;
+  if ('streamUid' in changes) db.stream_uid = changes.streamUid;
   const { error } = await supabase.from('videos_on_demand').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateVideoOnDemand]', error);
 }
