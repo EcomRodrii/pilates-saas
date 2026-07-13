@@ -13,6 +13,7 @@ import {
   dbInsertVentaPOS,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
+  dbMarcarNotificacionLeida, dbMarcarNotificacionesLeidas,
   dbInsertRewardRule, dbUpdateRewardRule,
   dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos, dbClaimRecompensaUnica,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
@@ -2242,10 +2243,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setNotificaciones(prev => prev.map(n =>
       n.id === notiId ? { ...n, leida: true } : n
     ));
+    dbMarcarNotificacionLeida(notiId); // persistir (antes solo era estado local)
   }
 
   function marcarTodasLeidas() {
     setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
+    dbMarcarNotificacionesLeidas(getCurrentStudioId());
   }
 
   // ── Videos on demand ──────────────────────────────────────────────────────────

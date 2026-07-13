@@ -3,7 +3,8 @@
 import { use, useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import { authHeader } from '@/lib/api-client';
+import type { LeadStage } from '@/lib/types';
+import { authHeader, enviarEmailCampana } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
@@ -248,6 +249,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     ejerciciosCasa: string | null;
   } | null>(null);
   const [msgForm, setMsgForm] = useState({ asunto: '', cuerpo: '' });
+  const [enviandoMsg, setEnviandoMsg] = useState(false);
   const [editForm, setEditForm] = useState({ nombre: '', apellidos: '', email: '', telefono: '', nif: '' });
   const [reciboForm, setReciboForm] = useState({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()) });
 
@@ -463,8 +465,16 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     setToast('Nota guardada');
   }
 
-  function handleSendMessage() {
+  async function handleSendMessage() {
+    if (!socio) return;
     if (!msgForm.asunto.trim() || !msgForm.cuerpo.trim()) return;
+    if (!socio.email) { setToast('La socia no tiene email registrado'); return; }
+    // Antes solo actualizaba estado local y decía "Email enviado" sin enviar nada.
+    // Ahora manda el email de verdad por Resend (/api/emails/send).
+    setEnviandoMsg(true);
+    const ok = await enviarEmailCampana({ to: socio.email, toName: socio.nombre, asunto: msgForm.asunto.trim(), contenido: msgForm.cuerpo.trim() });
+    setEnviandoMsg(false);
+    if (!ok) { setToast('No se pudo enviar el email'); return; }
     setComunicaciones(prev => [{
       id: `msg-${Date.now()}`,
       asunto: msgForm.asunto,
@@ -1127,6 +1137,26 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <Calendar size={13} className="text-muted-foreground shrink-0" />
                 <span className="text-xs font-medium text-muted-foreground">Alta: {fecha(socio.fechaAlta)}</span>
               </div>
+              {/* Etapa del embudo de captación: lo LEE el especialista de Captación
+                  del Centro de Control y el embudo de Marketing. Antes no había forma
+                  de fijarlo desde la UI → ambos salían siempre vacíos. */}
+              <div className="flex items-center gap-2.5">
+                <Filter size={13} className="text-muted-foreground shrink-0" />
+                <select
+                  value={socio.leadStage ?? ''}
+                  onChange={(e) => updateSocio(id, { leadStage: (e.target.value || undefined) as LeadStage | undefined })}
+                  className="text-xs font-medium bg-transparent text-foreground border border-border rounded-lg px-1.5 py-1 focus:outline-none focus:border-brand"
+                  title="Etapa en el embudo de captación"
+                >
+                  <option value="">Etapa: sin definir</option>
+                  <option value="LEAD">Lead (primer contacto)</option>
+                  <option value="INTERESADA">Interesada</option>
+                  <option value="PRUEBA">En prueba</option>
+                  <option value="ACTIVA">Activa (convertida)</option>
+                  <option value="EN_RIESGO">En riesgo</option>
+                  <option value="PERDIDA">Perdida</option>
+                </select>
+              </div>
             </div>
 
             {/* Tags */}
@@ -1460,10 +1490,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             </button>
             <button
               onClick={handleSendMessage}
-              disabled={!msgForm.asunto.trim() || !msgForm.cuerpo.trim()}
+              disabled={!msgForm.asunto.trim() || !msgForm.cuerpo.trim() || enviandoMsg}
               className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
             >
-              <Send size={14} />Enviar email
+              {enviandoMsg ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}Enviar email
             </button>
           </div>
         </DialogContent>

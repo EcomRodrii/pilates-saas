@@ -845,14 +845,14 @@ export default function Pagos() {
                           {r.estado === 'COBRADO' && (
                             <>
                               {factura && (
-                                <button
-                                  onClick={() => {/* TODO: abrir factura */}}
+                                <Link
+                                  href={`/facturas?ver=${factura.id}`}
                                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-background text-muted-foreground hover:bg-border transition-colors"
                                   title="Ver factura"
                                 >
                                   <FileText size={12} />
                                   {factura.numeroCompleto}
-                                </button>
+                                </Link>
                               )}
                               <button
                                 onClick={() => marcarDevuelto(r.id)}

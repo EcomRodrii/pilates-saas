@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { Search, Download, FileText, TrendingUp, Euro, ChevronDown, ChevronRight, X, ShieldCheck } from 'lucide-react';
@@ -32,6 +32,13 @@ export default function Facturas() {
   const [agrupador, setAgrupador] = useState<AgrupadorFact>('mes');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<string | null>(null);
+
+  // Abrir directamente una factura cuando se llega con ?ver=<id> (p.ej. desde el
+  // botón "Ver factura" de Pagos, que antes no hacía nada).
+  useEffect(() => {
+    const ver = new URLSearchParams(window.location.search).get('ver');
+    if (ver) setPreview(ver);
+  }, []);
 
   // ── helpers ──────────────────────────────────────────────────────────────────
 

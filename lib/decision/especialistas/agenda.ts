@@ -7,7 +7,7 @@ import {
   construirIndices, agruparFranjasRecurrentes, frecuenciaHabitual, hayProximaSesionEnFranja,
   type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
-import { confianzaSesionInfrautilizada, confianzaOcupacionBajaEstructural } from '../confianza.ts';
+import { confianzaSesionInfrautilizada, confianzaOcupacionBajaEstructural, confianzaMoverHorario } from '../confianza.ts';
 
 const MS_DIA = 86400000;
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
@@ -15,6 +15,7 @@ const redondear1 = (n: number) => Math.round(n * 10) / 10;
 
 const UMBRAL_VACIA = 0.30;      // ocupación por debajo de la cual la franja "va vacía"
 const OCURRENCIAS_MINIMAS = 3;  // nº de ocurrencias recientes que deben ir vacías
+const A3_UMBRAL_LLENA = 0.70;   // otra franja del mismo tipo por encima de esto → "se llena"
 
 // A2 (ocupación estructuralmente baja): parámetros de la agregación.
 const A2_DIAS = 28;             // ventana de clases pasadas a evaluar
@@ -46,6 +47,86 @@ function precioMedioSesion(s: SnapshotEstudio, idx: IndicesSenal): number {
   }
   if (precios.length === 0) return 0;
   return precios.reduce((a, b) => a + b, 0) / precios.length;
+}
+
+/** Día de la semana + hora de una franja, en formato legible (es-ES, UTC). */
+function etiquetaFranja(referencia: FranjaRecurrente['sesionesOrdenadas'][number]): { diaSemana: string; hora: string } {
+  const inicio = new Date(referencia.inicio);
+  return {
+    diaSemana: inicio.toLocaleDateString('es-ES', { weekday: 'long', timeZone: 'UTC' }),
+    hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+  };
+}
+
+/** Media de ocupación de las últimas `n` ocurrencias de una franja. */
+function ocupacionMediaUltimas(franja: FranjaRecurrente, n: number): number {
+  const u = franja.ocupaciones.slice(0, n);
+  return u.length === 0 ? 0 : u.reduce((a, b) => a + b, 0) / u.length;
+}
+
+/**
+ * A3 · Franja medio vacía pero el MISMO tipo de clase se llena en otra hora →
+ * MOVER_HORARIO. Distinto de A1/A2 (fusionar/eliminar): aquí la demanda EXISTE,
+ * solo que no a esa hora. Es mutuamente excluyente con A1 por franja (ver
+ * detectar): si hay un horario alternativo que funciona, mover gana a fusionar.
+ */
+function reglaA3(clave: string, franja: FranjaRecurrente, franjas: Map<string, FranjaRecurrente>, s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata | null {
+  if (franja.sesionesOrdenadas.length < OCURRENCIAS_MINIMAS) return null;
+  const ultimas3 = franja.ocupaciones.slice(0, OCURRENCIAS_MINIMAS);
+  if (!ultimas3.every(o => o <= UMBRAL_VACIA)) return null;
+  if (!hayProximaSesionEnFranja(clave, s, now)) return null;
+
+  const referencia = franja.sesionesOrdenadas[0];
+  const tipoClaseId = referencia.tipoClaseId;
+
+  // Busca la franja MÁS llena del mismo tipo (distinta de esta) que vaya claramente llena.
+  let alternativa: { franja: FranjaRecurrente; media: number } | null = null;
+  for (const [otraClave, otra] of franjas) {
+    if (otraClave === clave) continue;
+    if (otra.sesionesOrdenadas[0]?.tipoClaseId !== tipoClaseId) continue;
+    if (otra.sesionesOrdenadas.length < OCURRENCIAS_MINIMAS) continue;
+    const media = ocupacionMediaUltimas(otra, OCURRENCIAS_MINIMAS);
+    if (media < A3_UMBRAL_LLENA) continue;
+    if (!alternativa || media > alternativa.media) alternativa = { franja: otra, media };
+  }
+  if (!alternativa) return null;
+
+  const confianza = confianzaMoverHorario({ franjaVaciaConsistente: true, existeAlternativaLlena: true });
+  if (!confianza) return null;
+
+  const tipo = idx.tipoClasePorId.get(tipoClaseId);
+  const aqui = etiquetaFranja(referencia);
+  const alli = etiquetaFranja(alternativa.franja.sesionesOrdenadas[0]);
+
+  const ocupacionMedia = ultimas3.reduce((a, b) => a + b, 0) / ultimas3.length;
+  const plazasVacias = Math.max(0, referencia.aforoMaximo - Math.round(ocupacionMedia * referencia.aforoMaximo));
+  const precioMedio = precioMedioSesion(s, idx);
+  const valor = redondear2(plazasVacias * precioMedio * 4.33);
+
+  const motivoMotor = `Tu ${tipo?.nombre ?? 'clase'} del ${aqui.diaSemana} a las ${aqui.hora} va medio vacía, pero la del ${alli.diaSemana} a las ${alli.hora} se llena (${Math.round(alternativa.media * 100)}%). La demanda está ahí — a lo mejor el problema es la hora, no la clase. Probaría a moverla a una franja parecida a la que sí funciona.`;
+
+  return {
+    especialista: 'AGENDA',
+    tipo: 'MOVER_HORARIO',
+    dedupeKey: `AGENDA:MOVER_HORARIO:${clave}`,
+    tituloMotor: `Tu clase del ${aqui.diaSemana} a las ${aqui.hora} quizá esté a mala hora`,
+    motivoMotor,
+    datosUsados: {
+      tipoClase: tipo?.nombre ?? 'clase', diaVacio: aqui.diaSemana, horaVacia: aqui.hora,
+      diaLleno: alli.diaSemana, horaLlena: alli.hora, ocupacionAlternativaPct: Math.round(alternativa.media * 100),
+    },
+    riesgo: 'OPORTUNIDAD',
+    impacto: valor > 0
+      ? { valor, unidad: 'EUR_MES', formula: `${plazasVacias} plazas vacías × ${redondear2(precioMedio)}€/sesión × 4.33 semanas` }
+      : undefined,
+    confianza,
+    accion: { tipo: 'MARCAR_GESTIONADO' },
+    sesionId: referencia.id,
+    tiempoEstimadoMin: 10,
+    expiraEnDias: 21,
+    urgencia: 0.4,
+    esfuerzo: 0.6,
+  };
 }
 
 /** A1 · Franja recurrente medio vacía y todavía viva → FUSIONAR_SESIONES. */
@@ -174,6 +255,10 @@ export const agenda: Especialista = {
     const candidatas: Candidata[] = [];
     const franjas = agruparFranjasRecurrentes(idx, s, now, OCURRENCIAS_MINIMAS);
     for (const [clave, franja] of franjas) {
+      // A3 (mover) antes que A1 (fusionar): si el mismo tipo de clase se llena en
+      // otra hora, la demanda existe y mover gana a fusionar. Solo si no, fusionar.
+      const cMover = reglaA3(clave, franja, franjas, s, idx, now);
+      if (cMover) { candidatas.push(cMover); continue; }
       const c = reglaA1(clave, franja, s, idx, now);
       if (c) candidatas.push(c);
     }

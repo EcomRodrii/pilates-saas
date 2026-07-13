@@ -20,6 +20,7 @@ import {
   dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
   dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
+  dbLogActividadReciente,
 } from '@/lib/decision/db';
 import type { Recomendacion } from '@/lib/decision/tipos';
 import type { CandidataPriorizada } from '@/lib/decision/prioridad';
@@ -277,9 +278,15 @@ export const ejecutarRecomendacion = inngest.createFunction(
           senalObservada: null, ventanaDias: ventanaDiasDe(recomendacion.tipo), medidoEn: null,
         }));
         await step.sendEvent('programar-medicion', { name: EVENTS.DECISION_MEASURE, data: { recomendacionId } });
+        // Traza visible en el feed "Actividad" del Centro (antes aprobar no dejaba
+        // rastro alguno). El detalle ya dice qué pasó (email enviado / gestionada).
+        const nombreSocia = typeof recomendacion.datosUsados.nombre === 'string' ? recomendacion.datosUsados.nombre : null;
+        const textoAct = nombreSocia ? `${nombreSocia}: ${resultado.detalle}` : `Gestionada: ${recomendacion.titulo}`;
+        await step.run('log-actividad', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: textoAct, socioId: recomendacion.socioId }));
       }
     } else {
       await step.run('marcar-fallida', () => dbTransicionarRecomendacion(recomendacionId, 'APROBADA', 'FALLIDA', { resueltoEn }));
+      await step.run('log-actividad-fallo', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: `No se pudo completar: ${recomendacion.titulo} — ${resultado.detalle}`, socioId: recomendacion.socioId }));
     }
 
     return resultado;
@@ -295,6 +302,20 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
     const { data: recibos } = await requireSupabaseAdmin().from('recibos').select('estado').in('id', r.accion.reciboIds);
     const total = recibos?.length ?? 0;
     const cobrados = (recibos ?? []).filter((x: { estado: string }) => x.estado === 'COBRADO').length;
+    return { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: cobrados, recibosTotal: total };
+  }
+
+  // COBRAR_PENDIENTE (reclamo manual, sin reciboIds): antes caía a la rama de
+  // socioId con recibos=0 → medirOutcome lo daba SIEMPRE por NEGATIVO aunque la
+  // socia pagara. Se miran sus recibos ya vencidos al reclamar y cuántos están
+  // ya COBRADO tras la ventana de medición.
+  if (r.tipo === 'COBRAR_PENDIENTE' && r.socioId) {
+    const { data: recibos } = await requireSupabaseAdmin()
+      .from('recibos').select('estado, fecha_vencimiento').eq('socio_id', r.socioId);
+    const corte = new Date(r.resueltoEn ?? 0).getTime();
+    const relevantes = (recibos ?? []).filter((x: { fecha_vencimiento: string }) => new Date(x.fecha_vencimiento).getTime() <= corte);
+    const total = relevantes.length;
+    const cobrados = relevantes.filter((x: { estado: string }) => x.estado === 'COBRADO').length;
     return { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: cobrados, recibosTotal: total };
   }
 

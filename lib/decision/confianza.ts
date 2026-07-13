@@ -124,6 +124,60 @@ export function confianzaSesionInfrautilizada(c: {
   return evaluarNivel(criterios, a && b, a, false);
 }
 
+/**
+ * CONGELAR_MEMBRESIA (Retención R6) — socia con MENSUAL vigente que sigue PAGANDO
+ * pero lleva mucho sin venir. En vez de dejar que cancele con mala sensación, se
+ * le ofrece congelar/pausar (gesto de buena fe que retiene). El criterio primario
+ * es la ausencia prolongada (a); la ausencia MUY prolongada (b) solo eleva la
+ * confianza. ALTA: a+b · MEDIA: solo a · sin BAJA (nunca por b sola).
+ */
+export function confianzaCongelarMembresia(c: {
+  ausenciaProlongada: boolean;    // ≥45 días sin venir aun pagando mensualidad
+  ausenciaMuyProlongada: boolean; // ≥60 días — ya desenganchada del todo
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.ausenciaProlongada, etiqueta: 'más de 45 días sin venir pese a seguir pagando la mensualidad' },
+    { valor: c.ausenciaMuyProlongada, etiqueta: 'más de 60 días sin aparecer' },
+  ];
+  const { ausenciaProlongada: a, ausenciaMuyProlongada: b } = c;
+  return evaluarNivel(criterios, a && b, a, false);
+}
+
+/**
+ * REVISAR_PRECIO (Ingresos I4) — un plan MENSUAL cuyo precio por sesión real
+ * (según cuánto lo usan sus socias) queda muy por debajo de la media del estudio:
+ * hay margen para revisarlo al alza. Juicio de negocio del propietario → se topa
+ * en MEDIA (nunca alarma). Requiere AMBOS criterios; si no, no se emite.
+ */
+export function confianzaRevisarPrecio(c: {
+  suficientesHolders: boolean;      // varias socias activas en ese plan (no un caso aislado)
+  claramenteInfravalorado: boolean; // precio/sesión muy por debajo de la media del estudio
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.suficientesHolders, etiqueta: 'varias socias activas en el mismo plan' },
+    { valor: c.claramenteInfravalorado, etiqueta: 'precio por sesión muy por debajo de la media del estudio' },
+  ];
+  const { suficientesHolders: a, claramenteInfravalorado: b } = c;
+  return evaluarNivel(criterios, false, a && b, false);
+}
+
+/**
+ * MOVER_HORARIO (Agenda A3) — una franja recurrente va medio vacía PERO el mismo
+ * tipo de clase se llena en otro horario: el problema es la hora, no la clase.
+ * Juicio del propietario → se topa en MEDIA. Requiere AMBOS criterios.
+ */
+export function confianzaMoverHorario(c: {
+  franjaVaciaConsistente: boolean;  // esta franja lleva varias ocurrencias medio vacía
+  existeAlternativaLlena: boolean;  // otra franja del mismo tipo va claramente llena
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.franjaVaciaConsistente, etiqueta: 'franja por debajo del 30% en las últimas 3 ocurrencias' },
+    { valor: c.existeAlternativaLlena, etiqueta: 'el mismo tipo de clase se llena en otro horario' },
+  ];
+  const { franjaVaciaConsistente: a, existeAlternativaLlena: b } = c;
+  return evaluarNivel(criterios, false, a && b, false);
+}
+
 /** ABRIR_SESION — ALTA: a+b+c · MEDIA: a+b · BAJA: solo a. */
 // CONTACTAR_LEAD (Captación C1) — un lead/interesada lleva días sin avanzar.
 // ALTA: a+b (madurado y sin contacto) · MEDIA: solo a · BAJA: solo b.
@@ -168,6 +222,42 @@ export function confianzaOcupacionBajaEstructural(c: {
   ];
   const { bastantesVacias: a, proporcionAlta: b } = c;
   return evaluarNivel(criterios, a && b, a, false);
+}
+
+// PROPONER_RENOVACION_BONO (Finanzas F1) — a una socia con bono casi agotado se
+// le propone renovar antes de que se quede sin sesiones (y sin venir).
+// ALTA: a+b (bono al límite y socia activa) · MEDIA: solo a · BAJA: solo b.
+export function confianzaRenovarBono(c: {
+  bonoCasiAgotado: boolean;
+  socioActivo: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.bonoCasiAgotado, etiqueta: 'bono con 1 o 0 sesiones restantes' },
+    { valor: c.socioActivo, etiqueta: 'socia activa' },
+  ];
+  const { bonoCasiAgotado: a, socioActivo: b } = c;
+  return evaluarNivel(criterios, a && b, a, b);
+}
+
+// PREPARAR_CAMPANA (Marketing M1) — hay volumen suficiente de socias inactivas /
+// leads para que merezca la pena una campaña. ALTA: a+b · MEDIA: solo a · sin BAJA.
+export function confianzaPrepararCampana(c: {
+  volumenSuficiente: boolean;
+  sinCampanaReciente: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.volumenSuficiente, etiqueta: 'volumen suficiente de socias a reactivar/convertir' },
+    { valor: c.sinCampanaReciente, etiqueta: 'sin campaña reciente a ese público' },
+  ];
+  const { volumenSuficiente: a, sinCampanaReciente: b } = c;
+  return evaluarNivel(criterios, a && b, a, false);
+}
+
+// REVISAR_CARGA_EQUIPO (Equipo E1) — una instructora que daba clases se ha
+// quedado sin ninguna asignada próximamente. Criterio único → MEDIA.
+export function confianzaCargaEquipo(c: { huecoClaro: boolean }): Confianza | null {
+  const criterios: Criterio[] = [{ valor: c.huecoClaro, etiqueta: 'instructora activa sin clases próximas pese a haber dado clases hace poco' }];
+  return evaluarNivel(criterios, false, c.huecoClaro, false);
 }
 
 export function confianzaAbrirSesion(c: {

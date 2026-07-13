@@ -1128,8 +1128,8 @@ export default function MarketingPage() {
                 onChange={e => setNewCampana(p => ({ ...p, tipo: e.target.value as TipoCampana }))}
               >
                 <option value="EMAIL">Email</option>
-                <option value="WHATSAPP">WhatsApp</option>
-                <option value="SMS">SMS</option>
+                <option value="WHATSAPP" disabled>WhatsApp (próximamente)</option>
+                <option value="SMS" disabled>SMS (próximamente)</option>
               </select>
             </FF>
             <FF label="Asunto">
@@ -1273,8 +1273,8 @@ export default function MarketingPage() {
                 onChange={e => setNewAuto(p => ({ ...p, accion: e.target.value as 'EMAIL' | 'WHATSAPP' | 'NOTIFICACION' }))}
               >
                 <option value="EMAIL">Email</option>
-                <option value="WHATSAPP">WhatsApp</option>
-                <option value="NOTIFICACION">Notificación</option>
+                <option value="WHATSAPP" disabled>WhatsApp (próximamente)</option>
+                <option value="NOTIFICACION" disabled>Notificación (próximamente)</option>
               </select>
             </FF>
             <FF label="Asunto">

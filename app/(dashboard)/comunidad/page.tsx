@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Heart, MessageCircle, X, Pin, Image, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
+import { dbListComentariosComunidad, dbAddComentarioComunidad } from '@/lib/supabase-data';
 import type { PostComunidad } from '@/lib/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -171,7 +172,11 @@ function PostCard({
   onAddComment: (postId: string, texto: string) => void;
 }) {
   const isStudio = post.autorId === null;
-  const totalComments = (post.comentariosCount ?? 0) + comments.length;
+  // Los comentarios ahora se cargan reales de la BD: si el post tiene alguno, ese
+  // es el recuento honesto. Si no hay ninguno cargado, se respeta el contador
+  // sembrado (posts de demo antiguos) para no mostrar 0 de golpe. Antes se sumaban
+  // ambos, lo que duplicaría al recargar (el comentario contaba dos veces).
+  const totalComments = comments.length > 0 ? comments.length : (post.comentariosCount ?? 0);
 
   return (
     <div className={cn(
@@ -332,13 +337,28 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ComunidadPage() {
-  const { postsComunidad: posts, addPost, toggleLikePost, socios, sesiones, reservas, tiposClase } = useStudio();
+  const { postsComunidad: posts, addPost, toggleLikePost, socios, sesiones, reservas, tiposClase, dataLoaded } = useStudio();
   const [modalOpen, setModalOpen] = useState(false);
   const [composeText, setComposeText] = useState('');
 
-  // Comments state
+  // Comments state — se hidrata desde la BD (antes solo vivía en memoria y se
+  // perdía al refrescar). Se agrupa por postId para pintarlo bajo cada post.
   const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>({});
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!dataLoaded) return;
+    let vivo = true;
+    dbListComentariosComunidad().then(comentarios => {
+      if (!vivo) return;
+      const mapa: Record<string, Comment[]> = {};
+      for (const c of comentarios) {
+        (mapa[c.postId] ??= []).push({ id: c.id, autorNombre: c.autorNombre, texto: c.texto, creadoEn: c.creadoEn });
+      }
+      setCommentsMap(mapa);
+    });
+    return () => { vivo = false; };
+  }, [dataLoaded]);
 
   const memberCount = socios.filter(s => s.activo).length;
 
@@ -421,17 +441,21 @@ export default function ComunidadPage() {
     });
   }
 
-  function handleAddComment(postId: string, texto: string) {
-    const newComment: Comment = {
-      id: `${postId}-${Date.now()}`,
-      autorNombre: 'Tentare',
-      texto,
-      creadoEn: new Date().toISOString(),
-    };
-    setCommentsMap(prev => ({
-      ...prev,
-      [postId]: [...(prev[postId] ?? []), newComment],
-    }));
+  async function handleAddComment(postId: string, texto: string) {
+    // Optimista: se pinta al momento con un id temporal y se persiste; al volver
+    // del servidor se sustituye por la fila real (o se revierte si falla).
+    const tempId = `temp-${Date.now()}`;
+    const optimista: Comment = { id: tempId, autorNombre: 'Tentare', texto, creadoEn: new Date().toISOString() };
+    setCommentsMap(prev => ({ ...prev, [postId]: [...(prev[postId] ?? []), optimista] }));
+
+    const guardado = await dbAddComentarioComunidad(postId, texto);
+    setCommentsMap(prev => {
+      const lista = prev[postId] ?? [];
+      const reconciliada = guardado
+        ? lista.map(c => (c.id === tempId ? { id: guardado.id, autorNombre: guardado.autorNombre, texto: guardado.texto, creadoEn: guardado.creadoEn } : c))
+        : lista.filter(c => c.id !== tempId); // falló → se revierte
+      return { ...prev, [postId]: reconciliada };
+    });
   }
 
   return (

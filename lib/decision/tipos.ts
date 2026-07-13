@@ -28,7 +28,9 @@ export type TipoRecomendacion =
   | 'PREPARAR_CAMPANA'
   // Captación / Conversión (embudo de leads)
   | 'CONTACTAR_LEAD'
-  | 'CONVERTIR_PRUEBA';
+  | 'CONVERTIR_PRUEBA'
+  // Equipo
+  | 'REVISAR_CARGA_EQUIPO';
 
 export type NivelAutonomia = 0 | 1 | 2 | 3;
 export type NivelConfianza = 'ALTA' | 'MEDIA' | 'BAJA';

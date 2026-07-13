@@ -521,7 +521,8 @@ export type TipoActividad =
   | 'EQUIPO_ALTA'
   | 'EQUIPO_EDITADO'
   | 'EQUIPO_BAJA'
-  | 'AUTOMATIZACION_CAMBIO';
+  | 'AUTOMATIZACION_CAMBIO'
+  | 'DECISION_GESTIONADA';
 
 export interface ActividadReciente {
   id: string;
@@ -598,6 +599,17 @@ export interface PostComunidad {
   likes: number;
   comentariosCount: number;
   fijado: boolean;
+  creadoEn: string;
+}
+
+export interface ComentarioComunidad {
+  id: string;
+  studioId: string;
+  postId: string;
+  autorId: string | null;
+  autorNombre: string;
+  autorInicial: string | null;
+  texto: string;
   creadoEn: string;
 }
 

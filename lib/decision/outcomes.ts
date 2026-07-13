@@ -65,6 +65,21 @@ export function medirOutcome(tipo: TipoRecomendacion, senal: SenalMedicion): Res
       if (senal.recibosCobrados > 0) return { outcome: 'NEUTRO', senalObservada: 'PAGO' };
       return { outcome: 'NEGATIVO', senalObservada: 'SIN_RESPUESTA' };
 
+    // Captación: convirtió (suscripción activa) → POSITIVO; solo vino a clase →
+    // NEUTRO (interés pero sin cerrar); nada → NEGATIVO. Antes caía a `default` y
+    // el outcome de toda captación quedaba perpetuamente NEUTRO (bucle roto).
+    case 'CONTACTAR_LEAD':
+    case 'CONVERTIR_PRUEBA':
+      if (senal.suscripcionRenovada) return { outcome: 'POSITIVO', senalObservada: 'RENOVO' };
+      if (senal.reservaAsistidaPosterior) return { outcome: 'NEUTRO', senalObservada: 'RESERVO' };
+      return { outcome: 'NEGATIVO', senalObservada: 'SIN_RESPUESTA' };
+
+    // Renovación de bono: renovó (nueva suscripción) → POSITIVO; si no, NEGATIVO.
+    case 'PROPONER_RENOVACION_BONO':
+      if (senal.suscripcionRenovada) return { outcome: 'POSITIVO', senalObservada: 'RENOVO' };
+      if (senal.reservaAsistidaPosterior) return { outcome: 'NEUTRO', senalObservada: 'RESERVO' };
+      return { outcome: 'NEGATIVO', senalObservada: 'SIN_RESPUESTA' };
+
     default:
       return { outcome: 'NEUTRO', senalObservada: null };
   }
