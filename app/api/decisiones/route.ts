@@ -30,6 +30,15 @@ export async function GET(req: NextRequest) {
   // Mismo score+prioridad ya persistidos por el análisis; aquí solo se
   // selecciona qué cabe en el bloque Prioridades (≤3, ≤2/especialista).
   const prioridades = seleccionarPrioridadesHome(pendientes);
+  // El resto de situaciones detectadas (MEDIA/BAJA, o las que no cupieron en el
+  // cap de Prioridades) también deben ser ACCIONABLES: antes solo se contaban en
+  // "Mi Equipo" pero no se mostraban en ningún sitio, así que un especialista con
+  // "7 situaciones pendientes" no dejaba ver NINGUNA. Se devuelven ordenadas por
+  // score para pintarlas como tarjetas bajo Prioridades.
+  const idsPrioridad = new Set(prioridades.map(r => r.id));
+  const masSituaciones = pendientes
+    .filter(r => !idsPrioridad.has(r.id))
+    .sort((a, b) => b.score - a.score);
 
   // Sembrado con los especialistas MVP activos (ESPECIALISTAS en
   // lib/decision/especialistas/contrato.ts): un especialista con 0 pendientes
@@ -62,6 +71,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     resumen,
     prioridades,
+    masSituaciones,
     porEspecialista,
     actividad,
   });

@@ -64,15 +64,17 @@ export interface ActividadAPI {
 export interface DecisionesResponse {
   resumen: ResumenAPI | null;
   prioridades: RecomendacionAPI[];
+  masSituaciones: RecomendacionAPI[];
   porEspecialista: PorEspecialistaAPI[];
   actividad: ActividadAPI[];
 }
 
 function quitarRecomendacion(prev: DecisionesResponse, id: string): DecisionesResponse {
-  const rec = prev.prioridades.find(r => r.id === id);
+  const rec = prev.prioridades.find(r => r.id === id) ?? prev.masSituaciones.find(r => r.id === id);
   return {
     ...prev,
     prioridades: prev.prioridades.filter(r => r.id !== id),
+    masSituaciones: prev.masSituaciones.filter(r => r.id !== id),
     porEspecialista: rec
       ? prev.porEspecialista.map(pe => pe.especialista === rec.especialista ? { ...pe, pendientes: Math.max(0, pe.pendientes - 1) } : pe)
       : prev.porEspecialista,

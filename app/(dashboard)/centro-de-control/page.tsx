@@ -84,24 +84,47 @@ export default function CentroDeControlPage() {
         <>
           <ExecutiveSummary resumen={data.resumen!} />
 
-          {data.prioridades.length > 0 && (
-            <div id="prioridades" className="flex flex-col gap-3">
-              <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Prioridades
-              </h2>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {data.prioridades.map(r => (
-                  <RecommendationCard
-                    key={r.id}
-                    recomendacion={r}
-                    onAprobar={() => handleAprobar(r.id)}
-                    onRechazar={() => handleRechazar(r.id)}
-                    procesando={procesandoId === r.id}
-                  />
-                ))}
+          <div id="recomendaciones" className="flex flex-col gap-6">
+            {data.prioridades.length > 0 && (
+              <div id="prioridades" className="flex flex-col gap-3">
+                <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Prioridades
+                </h2>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {data.prioridades.map(r => (
+                    <RecommendationCard
+                      key={r.id}
+                      recomendacion={r}
+                      onAprobar={() => handleAprobar(r.id)}
+                      onRechazar={() => handleRechazar(r.id)}
+                      procesando={procesandoId === r.id}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Todas las demás situaciones detectadas (MEDIA/BAJA) — también
+                accionables, no solo un número en "Mi Equipo". */}
+            {data.masSituaciones.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {data.prioridades.length > 0 ? 'Más situaciones' : 'Situaciones a revisar'}
+                </h2>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {data.masSituaciones.map(r => (
+                    <RecommendationCard
+                      key={r.id}
+                      recomendacion={r}
+                      onAprobar={() => handleAprobar(r.id)}
+                      onRechazar={() => handleRechazar(r.id)}
+                      procesando={procesandoId === r.id}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <WhileYouSlept items={data.resumen!.mientrasDormias} />
         </>
