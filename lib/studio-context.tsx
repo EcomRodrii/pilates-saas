@@ -97,7 +97,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, enviarEmailPromocion, enviarEmailCancelacionClase, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
+import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
 import { computeAutomationCandidatos } from '@/lib/automation-engine';
@@ -1834,21 +1834,35 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
   }
 
-  // Envía una campaña de verdad: manda el email a cada destinataria con correo
-  // válido y marca la campaña como ENVIADA con el recuento real.
+  // Envía una campaña de verdad y la marca como ENVIADA con el recuento real.
+  // Enruta por canal: EMAIL → Resend (necesita email); WHATSAPP/SMS → Twilio
+  // (necesita teléfono). Sin el canal configurado en servidor, cada envío falla
+  // con gracia (503) y el recuento refleja lo que sí salió.
   async function enviarCampana(campana: Campana): Promise<{ enviados: number; total: number }> {
-    const destinatarias = resolverDestinatariasCampana(campana.destinatarios)
-      .filter(s => s.email && s.email.includes('@'));
+    const canal = campana.tipo;
+    const base = resolverDestinatariasCampana(campana.destinatarios);
+    const destinatarias = canal === 'EMAIL'
+      ? base.filter(s => s.email && s.email.includes('@'))
+      : base.filter(s => s.telefono && s.telefono.trim());
 
     // P0-24: antes era un for...await secuencial (un round-trip a la vez → horas
     // con muchas destinatarias). Concurrencia acotada: más rápido y sin saturar.
     // (El fix definitivo a escala masiva es una cola en servidor.)
-    const resultados = await mapLimit(destinatarias, 8, socio => enviarEmailCampana({
-      to: socio.email,
-      toName: `${socio.nombre} ${socio.apellidos}`.trim(),
-      asunto: campana.asunto,
-      contenido: campana.contenido,
-    }));
+    const resultados = await mapLimit(destinatarias, 8, socio =>
+      canal === 'EMAIL'
+        ? enviarEmailCampana({
+            to: socio.email!,
+            toName: `${socio.nombre} ${socio.apellidos}`.trim(),
+            asunto: campana.asunto,
+            contenido: campana.contenido,
+          })
+        : enviarMensajeCampana({
+            canal,
+            to: socio.telefono!,
+            asunto: campana.asunto,
+            contenido: campana.contenido,
+          }),
+    );
     const enviados = resultados.filter(Boolean).length;
 
     const enviadaEn = new Date().toISOString();
@@ -1860,7 +1874,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbUpdateCampana(campana.id, { estado: 'ENVIADA', enviados, enviadaEn });
     addActividadReciente(
       'MENSAJE_ENVIADO',
-      `Campaña "${campana.nombre}" enviada a ${enviados} de ${destinatarias.length} destinatarias`,
+      `Campaña "${campana.nombre}" (${canal}) enviada a ${enviados} de ${destinatarias.length} destinatarias`,
       undefined,
       '/marketing',
     );

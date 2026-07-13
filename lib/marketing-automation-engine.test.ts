@@ -58,12 +58,29 @@ test('dedup: no reenvía si ya hay log reciente de esa automatización+socia', (
   assert.equal(c.length, 0);
 });
 
-test('solo dispara automatizaciones ACTIVAS y de accion EMAIL', () => {
+test('solo dispara automatizaciones ACTIVAS; NOTIFICACION no es un canal de envío', () => {
   const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
-  const inactiva = run({ automatizaciones: [auto('CUMPLEANOS', { activa: false })], socios: [s] });
-  assert.equal(inactiva.length, 0);
-  const whatsapp = run({ automatizaciones: [auto('CUMPLEANOS', { accion: 'WHATSAPP' })], socios: [s] });
-  assert.equal(whatsapp.length, 0);
+  assert.equal(run({ automatizaciones: [auto('CUMPLEANOS', { activa: false })], socios: [s] }).length, 0);
+  // NOTIFICACION no tiene transporte de mensaje → no genera candidata.
+  assert.equal(run({ automatizaciones: [auto('CUMPLEANOS', { accion: 'NOTIFICACION' })], socios: [s] }).length, 0);
+});
+
+test('canal WHATSAPP: emite con canal WHATSAPP solo si la socia tiene teléfono', () => {
+  const sinTel = socio({ id: '1', fechaNacimiento: '1990-07-13', telefono: null });
+  assert.equal(run({ automatizaciones: [auto('CUMPLEANOS', { accion: 'WHATSAPP' })], socios: [sinTel] }).length, 0);
+
+  const conTel = socio({ id: '2', fechaNacimiento: '1990-07-13', telefono: '612345678' });
+  const c = run({ automatizaciones: [auto('CUMPLEANOS', { accion: 'WHATSAPP' })], socios: [conTel] });
+  assert.equal(c.length, 1);
+  assert.equal(c[0].canal, 'WHATSAPP');
+  assert.equal(c[0].asunto, 'Hola Ana');
+});
+
+test('canal EMAIL (por defecto) exige email, no teléfono', () => {
+  const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
+  const c = run({ automatizaciones: [auto('CUMPLEANOS')], socios: [s] });
+  assert.equal(c.length, 1);
+  assert.equal(c[0].canal, 'EMAIL');
 });
 
 test('CITA_RECORDATORIO: cita de mañana dispara', () => {

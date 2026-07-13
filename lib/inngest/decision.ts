@@ -15,6 +15,7 @@ import { redactar, type ItemARedactar, type ItemRedactado } from '@/lib/decision
 import { ventanaDiasDe, medirOutcome, type SenalMedicion } from '@/lib/decision/outcomes';
 import { resolverNivelAutonomiaPorTipo } from '@/lib/decision/confianza';
 import { mensajeParaSocia } from '@/lib/decision/mensajes-socia';
+import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import { ALGORITHM_VERSION } from '@/lib/decision/version';
 import {
   dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
@@ -198,11 +199,23 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
 async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; detalle: string }> {
   if (!r.socioId) return { ok: true, detalle: 'Recomendación sin socia — marcada como gestionada.' };
   const [{ data: socio }, { data: studio }] = await Promise.all([
-    requireSupabaseAdmin().from('socios').select('nombre, email').eq('id', r.socioId).single(),
+    requireSupabaseAdmin().from('socios').select('nombre, email, telefono').eq('id', r.socioId).single(),
     requireSupabaseAdmin().from('studios').select('nombre').eq('id', r.studioId).single(),
   ]);
   const mensaje = mensajeParaSocia(r.tipo, r.datosUsados, studio?.nombre ?? '');
   if (!mensaje) return { ok: true, detalle: 'Sin mensaje automático para este tipo — marcada como gestionada.' };
+
+  // Si la recomendación es de canal WhatsApp y hay Twilio + teléfono, se envía el
+  // WhatsApp de VERDAD al aprobar (antes era siempre un clic manual del propietario).
+  // Si Twilio falla o no está, cae al email; y si tampoco hay email, queda el botón
+  // manual de WhatsApp en la tarjeta.
+  const canalRec = r.accion.tipo === 'CONTACTO_MANUAL' ? r.accion.canal : null;
+  if (canalRec === 'WHATSAPP' && socio?.telefono && twilioConfigurado('WHATSAPP')) {
+    const rw = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: socio.telefono, cuerpo: mensaje.cuerpo });
+    if (rw.ok) return { ok: true, detalle: `WhatsApp enviado a ${socio.telefono}` };
+    // no-ok → sigue al respaldo por email
+  }
+
   if (!socio?.email) return { ok: true, detalle: 'La socia no tiene email — contáctala por WhatsApp desde la tarjeta.' };
 
   const apiKey = process.env.RESEND_API_KEY;
