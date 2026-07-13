@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useDecisiones } from '@/components/decision/use-decisiones';
+import { useStudio } from '@/lib/studio-context';
+import { mensajeParaSocia, enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
+import { useDecisiones, type RecomendacionAPI } from '@/components/decision/use-decisiones';
 import { ExecutiveSummary } from '@/components/decision/executive-summary';
 import { RecommendationCard } from '@/components/decision/recommendation-card';
 import { WhileYouSlept } from '@/components/decision/while-you-slept';
@@ -19,8 +21,20 @@ import { EmptyState } from '@/components/decision/empty-state';
 // servidor — esta página solo lo presenta.
 export default function CentroDeControlPage() {
   const { data, loading, error, aprobar, rechazar, analizarAhora, recargar } = useDecisiones();
+  const { socios, studio } = useStudio();
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [analizando, setAnalizando] = useState(false);
+
+  // Enlace de WhatsApp con el mensaje ORIENTADO A LA SOCIA prerrellenado, para
+  // que el propietario pueda escribirle con un clic (además del email que se
+  // envía al aprobar). Solo para recomendaciones de contacto con socia + teléfono.
+  function whatsappHref(r: RecomendacionAPI): string | null {
+    if (!r.socioId) return null;
+    const mensaje = mensajeParaSocia(r.tipo, r.datosUsados, studio?.nombre ?? '');
+    if (!mensaje) return null;
+    const socia = socios.find(s => s.id === r.socioId);
+    return enlaceWhatsApp(socia?.telefono, mensaje.cuerpo);
+  }
 
   async function handleAprobar(id: string) {
     setProcesandoId(id);
@@ -98,6 +112,7 @@ export default function CentroDeControlPage() {
                       onAprobar={() => handleAprobar(r.id)}
                       onRechazar={() => handleRechazar(r.id)}
                       procesando={procesandoId === r.id}
+                      whatsappHref={whatsappHref(r)}
                     />
                   ))}
                 </div>
@@ -119,6 +134,7 @@ export default function CentroDeControlPage() {
                       onAprobar={() => handleAprobar(r.id)}
                       onRechazar={() => handleRechazar(r.id)}
                       procesando={procesandoId === r.id}
+                      whatsappHref={whatsappHref(r)}
                     />
                   ))}
                 </div>
