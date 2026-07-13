@@ -71,9 +71,56 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   const nifEmisor = studio?.nif?.trim() || '';
 
+  // ── C-5: TODO el contenido fiscal se recalcula EN SERVIDOR desde el recibo ──
+  // Antes la ruta sellaba baseImponible/cuotaIVA/total, el número y el receptor
+  // TAL CUAL los enviaba el navegador (f.*): el "sello" certificaba cifras y
+  // numeración elegidas por el cliente. Ahora se derivan de la fuente autoritativa
+  // (el recibo y su socia); los campos de importe/número/receptor del body se
+  // IGNORAN.
+  const { data: recibo } = await admin
+    .from('recibos').select('importe, socio_id')
+    .eq('id', f.reciboId).eq('studio_id', f.studioId).maybeSingle();
+  if (!recibo) {
+    return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
+  }
+  const total = Math.round(Number(recibo.importe) * 100) / 100;
+  const baseImponible = Math.round((total / 1.21) * 100) / 100;
+  const cuotaIVA = Math.round((total - baseImponible) * 100) / 100;
+  const tipoIVA = 21;
+
+  let receptorNombre = 'Cliente de mostrador';
+  let receptorNIF: string | null = null;
+  if (recibo.socio_id) {
+    const { data: socio } = await admin
+      .from('socios').select('nombre, apellidos, nif').eq('id', recibo.socio_id).maybeSingle();
+    if (socio) {
+      receptorNombre = `${socio.nombre ?? ''} ${socio.apellidos ?? ''}`.trim() || 'Cliente';
+      receptorNIF = (socio.nif as string | null) ?? null;
+    }
+  }
+
+  // Fecha de expedición y número de factura los fija el SERVIDOR: correlativo por
+  // estudio y año (A-{año}-{NNNN}), no un número que traiga el cliente.
+  const fechaEmision = new Date().toISOString();
+  const anio = new Date(fechaEmision).getFullYear();
+  // max+1 (no count+1): nunca se reutiliza un número, y si hay huecos por una
+  // factura borrada no se colisiona con uno existente.
+  const { data: delAnio } = await admin
+    .from('facturas').select('numero_completo')
+    .eq('studio_id', f.studioId).like('numero_completo', `A-${anio}-%`);
+  let maxN = 0;
+  for (const row of delAnio ?? []) {
+    const m = /A-\d{4}-(\d+)/.exec((row.numero_completo as string | null) ?? '');
+    if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+  }
+  const numeroCompleto = `A-${anio}-${String(maxN + 1).padStart(4, '0')}`;
+
   // Extremo actual de la cadena de este estudio (huella anterior + secuencia).
-  // NOTA: en volúmenes de un estudio el riesgo de carrera es bajo; endurecer con
-  // secuencia/lock en BD es tarea de la Fase 2 (envío a la AEAT).
+  // NOTA (follow-up C-5): la lectura del extremo + inserción no es atómica; bajo
+  // dos sellados simultáneos del MISMO estudio puede bifurcarse la cadena o
+  // duplicarse el número. Endurecer con UNIQUE(studio_id, verifactu_seq) +
+  // UNIQUE(studio_id, numero_completo) + reintento (requiere auditar los datos
+  // existentes antes de crear las constraints) y/o advisory lock.
   const { data: tip } = await admin
     .from('facturas')
     .select('verifactu_hash, verifactu_seq')
@@ -89,14 +136,14 @@ export async function POST(req: NextRequest) {
     id: f.id,
     studio_id: f.studioId,
     recibo_id: f.reciboId,
-    numero_completo: f.numeroCompleto,
-    fecha_emision: f.fechaEmision,
-    receptor_nombre: f.receptorNombre,
-    receptor_nif: f.receptorNIF,
-    base_imponible: f.baseImponible,
-    tipo_iva: f.tipoIVA,
-    cuota_iva: f.cuotaIVA,
-    total: f.total,
+    numero_completo: numeroCompleto,
+    fecha_emision: fechaEmision,
+    receptor_nombre: receptorNombre,
+    receptor_nif: receptorNIF,
+    base_imponible: baseImponible,
+    tipo_iva: tipoIVA,
+    cuota_iva: cuotaIVA,
+    total,
   };
 
   let salida: Record<string, unknown> = {};
@@ -104,19 +151,19 @@ export async function POST(req: NextRequest) {
     const ts = fechaHoraHusoMadrid(new Date());
     const registro: RegistroAltaVerifactu = {
       idEmisorFactura: nifEmisor,
-      numSerieFactura: f.numeroCompleto,
-      fechaExpedicionFactura: fechaExpedicionDesdeISO(f.fechaEmision),
+      numSerieFactura: numeroCompleto,
+      fechaExpedicionFactura: fechaExpedicionDesdeISO(fechaEmision),
       // F1 = factura completa (receptor identificado con NIF); F2 = factura
       // simplificada / ticket (venta de mostrador sin NIF del cliente).
-      tipoFactura: f.receptorNIF ? 'F1' : 'F2',
-      cuotaTotal: f.cuotaIVA,
-      importeTotal: f.total,
+      tipoFactura: receptorNIF ? 'F1' : 'F2',
+      cuotaTotal: cuotaIVA,
+      importeTotal: total,
       fechaHoraHusoGenRegistro: ts,
     };
     const huella = calcularHuellaAlta(registro, huellaAnterior);
     const produccion = process.env.VERIFACTU_ENTORNO === 'produccion';
     const qrUrl = urlQrVerifactu(
-      { nif: nifEmisor, numSerie: f.numeroCompleto, fecha: registro.fechaExpedicionFactura, importeTotal: f.total },
+      { nif: nifEmisor, numSerie: numeroCompleto, fecha: registro.fechaExpedicionFactura, importeTotal: total },
       { produccion },
     );
     fila.verifactu_hash = huella;
@@ -142,7 +189,9 @@ export async function POST(req: NextRequest) {
     ok: true,
     sellada: Boolean(nifEmisor),
     aviso: nifEmisor ? null : 'La factura se guardó sin huella Veri*Factu: falta el NIF fiscal del estudio.',
-    factura: salida,
+    // Se devuelven los valores AUTORITATIVOS del servidor para que el cliente
+    // reconcilie (el número/importes que calculó de forma optimista pueden diferir).
+    factura: { ...salida, numeroCompleto, fechaEmision, receptorNombre, receptorNIF, baseImponible, cuotaIVA, total },
   });
 }
 

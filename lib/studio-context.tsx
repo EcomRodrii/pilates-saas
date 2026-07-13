@@ -682,6 +682,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         verifactuPrevHash: s.verifactuPrevHash,
         verifactuTs: s.verifactuTs,
         verifactuSeq: s.verifactuSeq,
+        // C-5: reconciliar con los valores AUTORITATIVOS del servidor (número,
+        // importes, receptor y fecha se recalculan allí desde el recibo).
+        numeroCompleto: s.numeroCompleto ?? f.numeroCompleto,
+        fechaEmision: s.fechaEmision ?? f.fechaEmision,
+        receptorNombre: s.receptorNombre ?? f.receptorNombre,
+        receptorNIF: s.receptorNIF !== undefined ? s.receptorNIF : f.receptorNIF,
+        baseImponible: s.baseImponible ?? f.baseImponible,
+        cuotaIVA: s.cuotaIVA ?? f.cuotaIVA,
+        total: s.total ?? f.total,
       } : f));
     }
   }
