@@ -12,7 +12,7 @@ import { estadoBilling } from '@/lib/api-client';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
-  const { dataLoaded } = useStudio();
+  const { studio } = useStudio();
   const { puedeVer } = usePermisos();
   const router = useRouter();
   const pathname = usePathname();
@@ -33,13 +33,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => { vivo = false; };
   }, [loading, session, router]);
 
-  // El rol solo está resuelto cuando el estudio ya cargó (studio + instructores).
-  // Antes de eso, useRol() es fail-closed (A-2) y devuelve el rol mínimo: decidir
-  // la autorización ahí redirigía a /dashboard al REFRESCAR una página solo-
-  // PROPIETARIO (Centro de Control, equipo, configuración…). Se espera a que el
-  // rol resuelva; el servidor ya protege cada endpoint, así que renderizar el
-  // marco mientras carga no expone datos.
-  const rolResuelto = dataLoaded;
+  // El rol solo está resuelto cuando el ESTUDIO del usuario ya cargó. Ojo: no
+  // vale `dataLoaded`, porque el provider hace un primer fetch con la sesión aún
+  // sin resolver (authUserId nulo) que deja `studio` a null pero `dataLoaded` a
+  // true; decidir ahí veía el rol mínimo (fail-closed de A-2) y rebotaba a
+  // /dashboard al REFRESCAR una página solo-PROPIETARIO. Con `studio !== null`
+  // esperamos a que useRol tenga el dato del dueño. El servidor ya protege cada
+  // endpoint, así que renderizar el marco mientras carga no expone datos.
+  const rolResuelto = studio !== null;
   const autorizado = puedeVer(pathname);
   useEffect(() => {
     if (!loading && session && rolResuelto && !autorizado) router.replace('/dashboard');
