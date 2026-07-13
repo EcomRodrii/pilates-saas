@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
+import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
 import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
@@ -35,6 +36,10 @@ const DURACIONES = [30, 45, 60, 90];
 
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function formatHoraCorta(iso: string): string {
+  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 function formatFecha(iso: string): string {
@@ -188,7 +193,7 @@ function CitaCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CitasPage() {
-  const { socios, instructores, citas, addCita, completarCita, cancelarCita } = useStudio();
+  const { socios, instructores, citas, sesiones, addCita, completarCita, cancelarCita } = useStudio();
   const rol = useRol();
   const verPrecio = rol !== 'INSTRUCTOR';
   const [tab, setTab] = useState<'proximas' | 'historial'>('proximas');
@@ -208,6 +213,43 @@ export default function CitasPage() {
   });
 
   const now = new Date();
+
+  // A-8: doble-reserva de la instructora. Antes una cita se creaba sin comprobar
+  // solapes; el calendario ya avisaba de esto para las clases, las citas no. Se
+  // reutiliza detectarConflictos contra las citas activas Y las clases de esa
+  // instructora (no puede estar en dos sitios a la vez). Aviso no bloqueante,
+  // igual que en el calendario. Las citas no tienen sala → solo conflicto de
+  // instructora (candidata.salaId = null nunca cruza la rama de sala).
+  const conflictoInstructor = useMemo(() => {
+    if (!form.instructorId || !form.fecha || !form.hora) return null;
+    const inicioDate = new Date(`${form.fecha}T${form.hora}`);
+    if (Number.isNaN(inicioDate.getTime())) return null;
+    const finDate = new Date(inicioDate.getTime() + form.duracion * 60000);
+    const inicio = inicioDate.toISOString();
+    const fin = finDate.toISOString();
+
+    const existentes: SlotSesion[] = [
+      ...citas.map((c) => ({
+        id: c.id,
+        salaId: null,
+        instructorId: c.instructorId,
+        inicio: c.inicio,
+        fin: c.fin,
+        cancelada: c.estado === 'CANCELADA' || c.estado === 'NO_ASISTIO',
+      })),
+      ...sesiones.map((s) => ({
+        id: s.id,
+        salaId: s.salaId,
+        instructorId: s.instructorId,
+        inicio: s.inicio,
+        fin: s.fin,
+        cancelada: s.cancelada,
+      })),
+    ];
+
+    const c = detectarConflictos({ salaId: null, instructorId: form.instructorId, inicio, fin }, existentes);
+    return hayConflicto(c) ? c.instructor : null;
+  }, [form.instructorId, form.fecha, form.hora, form.duracion, citas, sesiones]);
 
   // Derived counts
   const upcoming = citas.filter(
@@ -513,6 +555,16 @@ export default function CitasPage() {
                 className={cn(inputCls, 'resize-none')}
               />
             </FF>
+
+            {conflictoInstructor && (
+              <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 flex gap-2">
+                <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                <p>
+                  <span className="font-bold">{getInstructor(form.instructorId)?.nombre ?? 'La instructora'}</span> ya
+                  tiene algo agendado: {conflictoInstructor.map((c) => `${formatHoraCorta(c.inicio)}–${formatHoraCorta(c.fin)}`).join(', ')}. Revisa antes de guardar.
+                </p>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <button
