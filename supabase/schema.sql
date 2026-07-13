@@ -1,6 +1,22 @@
 -- ═══════════════════════════════════════════════════════════════════
--- PILATES SAAS — Schema completo
--- Pega esto en el SQL Editor de Supabase y ejecuta
+-- PILATES SAAS — Snapshot de esquema (NO AUTORITATIVO)
+-- ═══════════════════════════════════════════════════════════════════
+--
+-- ⚠️  NO EJECUTES ESTE FICHERO CONTRA NINGUNA BASE DE DATOS.
+--
+-- La FUENTE DE VERDAD del esquema son las migraciones en supabase/migrations/
+-- (config.toml: [db.migrations] enabled, schema_paths=[]). Se aplican con
+-- `supabase db push`. Este fichero es un snapshot hecho a mano que HA DIVERGIDO
+-- de producción (hallazgo de due diligence C-7):
+--   • Le falta la tabla `usuarios` (existe en prod: 0000_base.sql:1060, y el
+--     código la consulta: lib/supabase-data.ts).
+--   • Declaraba `studios.stripe_terminal_*` que no estaban en prod hasta la
+--     migración 0008 (antes de 0008 eran columnas fantasma → Terminal roto).
+--   • Otras posibles diferencias de nullability/constraints no reflejadas.
+--
+-- Para obtener el esquema real: `supabase db dump --linked` (requiere Docker), o
+-- reconstruye desde 0000_base.sql + migraciones 0001..000N. Los tipos TS
+-- (lib/db-types.ts) deberían regenerarse desde ahí, no desde este fichero.
 -- ═══════════════════════════════════════════════════════════════════
 
 -- Extensión para UUIDs (opcional, usamos text IDs propios)
