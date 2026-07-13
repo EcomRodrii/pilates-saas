@@ -205,8 +205,11 @@ export const ejecutarRecomendacion = inngest.createFunction(
       const detalles: string[] = [];
       for (const info of recibosInfo) {
         if (!info.socio_id) { detalles.push(`${info.id}: sin socia asociada`); continue; }
+        // A-10: sin idempotencyKey explícita — cobrarReciboOffSession la deriva del
+        // reciboId, de modo que este ejecutor y la aprobación manual comparten la
+        // misma clave y Stripe no duplica el cargo del mismo recibo.
         const r = await step.run(`cobrar-${info.id}`, () =>
-          cobrarReciboOffSession({ reciboId: info.id, socioId: info.socio_id!, studioId: recomendacion.studioId, idempotencyKey: `${recomendacion.id}-${info.id}` })
+          cobrarReciboOffSession({ reciboId: info.id, socioId: info.socio_id!, studioId: recomendacion.studioId })
         );
         if (r.ok) cobrados++; else detalles.push(`${info.id}: ${r.error ?? 'fallo'}`);
       }

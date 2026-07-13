@@ -28,8 +28,15 @@ export async function cobrarReciboOffSession(params: {
   reciboId: string;
   socioId: string;
   studioId: string;
-  idempotencyKey: string;
 }): Promise<ResultadoCobro> {
+  // A-10: la Idempotency-Key de Stripe se deriva SOLO del reciboId. Antes cada
+  // disparador pasaba una clave distinta (la ruta manual usaba el logId; el
+  // ejecutor del Decision OS usaba `${recomendacion.id}-${reciboId}`), así que si
+  // ambos aprobaban el cobro del MISMO recibo casi a la vez —antes de que el
+  // primero marcara el recibo COBRADO— Stripe no los deduplicaba y la socia
+  // pagaba dos veces. Con la clave anclada al recibo, un segundo intento del
+  // mismo cobro devuelve el mismo PaymentIntent en lugar de crear otro cargo.
+  const idempotencyKey = `offsession-cobro-${params.reciboId}`;
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
     return { ok: false, error: 'Stripe no configurado', errorCode: 'NO_CONFIGURADO' };
@@ -69,7 +76,7 @@ export async function cobrarReciboOffSession(params: {
       off_session: true,
       confirm: true,
       metadata: { reciboId: params.reciboId, socioId: params.socioId },
-    }, { stripeAccount: studio.stripe_account_id, idempotencyKey: params.idempotencyKey });
+    }, { stripeAccount: studio.stripe_account_id, idempotencyKey });
 
     if (paymentIntent.status === 'succeeded') {
       await admin.from('recibos').update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString() }).eq('id', params.reciboId);
