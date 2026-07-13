@@ -153,6 +153,21 @@ export function confianzaConvertirPrueba(c: {
   return evaluarNivel(criterios, a && b, a, b);
 }
 
+// Ocupación estructuralmente baja (Agenda A2) — muchas clases van casi vacías
+// aunque no formen una franja recurrente única. ALTA: a+b (mayoría vacía y
+// volumen alto de clases) · MEDIA: solo a · BAJA: solo b.
+export function confianzaOcupacionBajaEstructural(c: {
+  mayoriaVacia: boolean;   // la mayoría de las clases recientes fueron casi vacías
+  volumenSuficiente: boolean; // hay bastantes clases como para que no sea ruido de arranque
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.mayoriaVacia, etiqueta: 'la mayoría de las clases recientes por debajo del 30% de ocupación' },
+    { valor: c.volumenSuficiente, etiqueta: 'volumen de clases suficiente para descartar ruido de arranque' },
+  ];
+  const { mayoriaVacia: a, volumenSuficiente: b } = c;
+  return evaluarNivel(criterios, a && b, a, b);
+}
+
 export function confianzaAbrirSesion(c: {
   franjaLlenaConsistente: boolean;
   demandaInsatisfecha: boolean;
