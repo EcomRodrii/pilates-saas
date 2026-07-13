@@ -115,7 +115,15 @@ export function computeAutomationCandidatos(
           return;
         }
 
-        const alreadyLogged = logsDe(rule.id, socio.id).some(l => l.resultado === 'ESPERANDO');
+        // A-11: dedup por lo que REALMENTE se escribe. Antes buscaba
+        // resultado === 'ESPERANDO', un estado que ningún camino de ejecución
+        // persiste (ambos escriben 'EJECUTADO') → el recordatorio se reenviaba
+        // CADA DÍA (~14 días seguidos). Ahora se deduplica como OFRECER_DESCUENTO
+        // y PAGO_PENDIENTE: por acción y salvo fallo (para reintentar tras un
+        // FALLIDO).
+        const alreadyLogged = logsDe(rule.id, socio.id).some(
+          l => l.accion === 'ENVIAR_EMAIL' && l.resultado !== 'FALLIDO',
+        );
         if (alreadyLogged) return;
         candidatos.push({
           rule, socio,

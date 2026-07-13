@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { IBM_Plex_Mono } from 'next/font/google';
+import { useAuth } from '@/lib/auth-context';
+import { useStudio } from '@/lib/studio-context';
+import { useRol } from '@/lib/permisos';
+import { tieneFeature } from '@/lib/entitlements';
 
 const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' });
 
@@ -61,6 +66,22 @@ const btnCta =
   'inline-block bg-[#FFC8E2] text-[#171717] rounded-full transition-all duration-250 hover:bg-[#F7B3D2] hover:-translate-y-0.5';
 
 export default function LandingPage() {
+  // Los usuarios AUTENTICADOS que aterrizan en "/" (logo, marcador, tras
+  // cerrar sesión y volver) van a su home real; los anónimos ven la landing.
+  // Sustituye a app/(dashboard)/page.tsx, que resolvía también a "/" y hacía
+  // fallar `next build` con un conflicto de "parallel pages" (hallazgo C-6).
+  const router = useRouter();
+  const { session } = useAuth();
+  const { studio } = useStudio();
+  const rol = useRol();
+  useEffect(() => {
+    if (!session || !studio) return; // anónimo o estudio aún sin cargar: mostrar landing
+    const tieneDecisionOS =
+      rol === 'PROPIETARIO' &&
+      tieneFeature({ plan: studio.plan, subscriptionStatus: studio.subscriptionStatus }, 'decisiones');
+    router.replace(tieneDecisionOS ? '/centro-de-control' : '/dashboard');
+  }, [session, studio, rol, router]);
+
   return (
     <div
       className={plexMono.variable}

@@ -14,7 +14,7 @@ import {
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
   dbInsertRewardRule, dbUpdateRewardRule,
-  dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos,
+  dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos, dbClaimRecompensaUnica,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem,
   dbInsertRewardRedemption, dbUpdateRewardRedemption,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
@@ -239,7 +239,7 @@ interface StudioContextValue {
   marcarDevuelto: (reciboId: string) => void;
   reintentar: (reciboId: string) => void;
   deleteRecibo: (id: string) => void;
-  cobrarTodosPendientes: () => void;
+  cobrarTodosPendientes: (socioId?: string) => void;
 
   // Citas
   citas: Cita[];
@@ -861,9 +861,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // identidad del JWT en vez de fiarse del body. En /reservar (sin sesión
       // Supabase) no se manda, y esos endpoints siguen con el modelo antiguo.
       const auth = await portalAuthHeader();
+      // C-2: si el dispositivo es un kiosko con token guardado, se envía en
+      // x-kiosk-token. /api/public/checkin lo exige; el resto de endpoints
+      // públicos ignoran la cabecera, así que enviarla siempre es inocuo.
+      const kioskToken = typeof window !== 'undefined' ? window.localStorage.getItem('kioskToken') : null;
       await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...auth },
+        headers: {
+          'Content-Type': 'application/json',
+          ...auth,
+          ...(kioskToken ? { 'x-kiosk-token': kioskToken } : {}),
+        },
         body: JSON.stringify(body),
       });
     } finally {
@@ -1613,11 +1621,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbDeleteRecibo(id);
   }
 
-  function cobrarTodosPendientes() {
-    const pendientes = recibos.filter(r => r.estado === 'PENDIENTE');
+  function cobrarTodosPendientes(socioId?: string) {
+    // Con socioId, cobra SOLO los pendientes de esa socia (botón de la ficha de
+    // socia). Sin él, cobra todos los del estudio (dashboard / página de Pagos).
+    // Antes ignoraba cualquier filtro y desde la ficha cobraba —y sellaba una
+    // factura irreversible de— TODO el estudio (hallazgo C-3).
+    const pendientes = recibos.filter(r => r.estado === 'PENDIENTE' && (!socioId || r.socioId === socioId));
+    const idsPendientes = new Set(pendientes.map(r => r.id));
     const fechaCobro = new Date().toISOString();
     setRecibos(prev => prev.map(r =>
-      r.estado === 'PENDIENTE' ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
+      idsPendientes.has(r.id) ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
     ));
     // Persist each recibo update to Supabase
     for (const recibo of pendientes) {
@@ -2076,8 +2089,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: def.creditosRecompensa,
           descripcion: `Logro desbloqueado: ${def.nombre}`, refId: def.id, creadoEn: now.toISOString(),
         };
-        setCreditTransactions(prev => [transaccion, ...prev]);
-        dbInsertCreditTransaction(transaccion);
+        setCreditTransactions(prev => [transaccion, ...prev]); // optimista (se reconcilia al sincronizar)
         setMemberCredits(prev => {
           const existente = prev.find(m => m.socioId === socioId);
           const actualizado: MemberCredits = existente
@@ -2085,7 +2097,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
             : { socioId, studioId, saldo: def.creditosRecompensa, totalGanado: def.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
           return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
         });
-        dbAjustarCreditos(socioId, studioId, def.creditosRecompensa, def.creditosRecompensa, 0); // P0-20 atómico
+        // C-11: idempotencia REAL en BD vía el UNIQUE de reward_actions. Sin
+        // esto, dos evaluaciones (doble check-in, o eval antes de sincronizar el
+        // progreso) doblaban el saldo PERSISTIDO — la fila de progreso se
+        // deduplicaba, pero la concesión de crédito no.
+        void (async () => {
+          const primeraVez = await dbClaimRecompensaUnica(studioId, socioId, 'LOGRO', `${socioId}:${def.id}`);
+          if (!primeraVez) return; // otra evaluación ya otorgó este logro
+          dbInsertCreditTransaction(transaccion);
+          dbAjustarCreditos(socioId, studioId, def.creditosRecompensa, def.creditosRecompensa, 0); // P0-20 atómico
+        })();
       }
     });
   }
@@ -2171,8 +2192,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
             id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: reto.creditosRecompensa,
             descripcion: `Reto completado: ${reto.nombre}`, refId: reto.id, creadoEn: now.toISOString(),
           };
-          setCreditTransactions(prev => [transaccion, ...prev]);
-          dbInsertCreditTransaction(transaccion);
+          setCreditTransactions(prev => [transaccion, ...prev]); // optimista (se reconcilia al sincronizar)
           setMemberCredits(prev => {
             const existente = prev.find(m => m.socioId === socioId);
             const actualizado: MemberCredits = existente
@@ -2180,7 +2200,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
               : { socioId, studioId, saldo: reto.creditosRecompensa, totalGanado: reto.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
             return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
           });
-          dbAjustarCreditos(socioId, studioId, reto.creditosRecompensa, reto.creditosRecompensa, 0); // P0-20 atómico
+          // C-11: idempotencia REAL en BD vía el UNIQUE de reward_actions (ver
+          // el bloque de logros). Evita doblar el saldo persistido ante doble
+          // evaluación del reto.
+          void (async () => {
+            const primeraVez = await dbClaimRecompensaUnica(studioId, socioId, 'RETO', `${socioId}:${reto.id}`);
+            if (!primeraVez) return; // otra evaluación ya otorgó este reto
+            dbInsertCreditTransaction(transaccion);
+            dbAjustarCreditos(socioId, studioId, reto.creditosRecompensa, reto.creditosRecompensa, 0); // P0-20 atómico
+          })();
         }
       });
   }

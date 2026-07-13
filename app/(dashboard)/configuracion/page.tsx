@@ -1297,9 +1297,21 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
   const stripeConectado = !!studio?.stripeAccountId;
   const stripeClientId = process.env.NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '');
-  const stripeConnectUrl = stripeClientId && studio
-    ? `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${stripeClientId}&scope=read_write&redirect_uri=${encodeURIComponent(`${appUrl}/api/stripe/connect/callback`)}&state=${studio.id}`
-    : null;
+  // C-8: el `state` ya no es el studioId en claro; lo emite firmado una ruta de
+  // servidor autenticada y el callback lo verifica. El botón lo pide y redirige.
+  const puedeConectarStripe = !!(stripeClientId && studio);
+  async function conectarStripe() {
+    if (!stripeClientId) return;
+    const res = await fetch('/api/integrations/oauth-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ provider: 'stripe' }),
+    });
+    if (!res.ok) { showToast('No se pudo iniciar la conexión con Stripe'); return; }
+    const { state } = await res.json() as { state: string };
+    const redirect = encodeURIComponent(`${appUrl}/api/stripe/connect/callback`);
+    window.location.href = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${stripeClientId}&scope=read_write&redirect_uri=${redirect}&state=${encodeURIComponent(state)}`;
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1322,9 +1334,37 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
   // autenticadas (no solo estado local) — ver app/api/integrations/google-calendar/*.
   const googleConectado = !!studio?.googleCalendarEmail;
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const googleConnectUrl = googleClientId && studio
-    ? `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(`${appUrl}/api/integrations/google-calendar/callback`)}&response_type=code&scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email')}&access_type=offline&prompt=consent&state=${studio.id}`
-    : null;
+  const puedeConectarGoogle = !!(googleClientId && studio);
+  async function conectarGoogle() {
+    if (!googleClientId) return;
+    const res = await fetch('/api/integrations/oauth-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ provider: 'google' }),
+    });
+    if (!res.ok) { showToast('No se pudo iniciar la conexión con Google'); return; }
+    const { state } = await res.json() as { state: string };
+    const redirect = encodeURIComponent(`${appUrl}/api/integrations/google-calendar/callback`);
+    const scope = encodeURIComponent('https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email');
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${redirect}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
+  }
+  // C-2: token de dispositivo del kiosko. Se genera aquí (PROPIETARIO) y se
+  // pega en el dispositivo de recepción; /api/public/checkin lo exige.
+  const [kioskToken, setKioskToken] = useState<string | null>(null);
+  const [generandoKiosk, setGenerandoKiosk] = useState(false);
+  async function generarKioskToken() {
+    setGenerandoKiosk(true);
+    try {
+      const res = await fetch('/api/kiosk/token', { method: 'POST', headers: await authHeader() });
+      if (!res.ok) { showToast('No se pudo generar el token de kiosko'); return; }
+      const { token } = await res.json() as { token: string };
+      setKioskToken(token);
+      showToast('Token de kiosko generado — cópialo al dispositivo');
+    } finally {
+      setGenerandoKiosk(false);
+    }
+  }
+
   const [sincronizando, setSincronizando] = useState(false);
 
   useEffect(() => {
@@ -1491,8 +1531,8 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                 ) : cat.tipo === 'STRIPE' ? (
                   stripeConectado ? (
                     <button onClick={desconectarStripe} className={btnSecondary}>Desconectar</button>
-                  ) : stripeConnectUrl ? (
-                    <a href={stripeConnectUrl} className={cn(btnPrimary, 'no-underline')}>Conectar con Stripe</a>
+                  ) : puedeConectarStripe ? (
+                    <button type="button" onClick={conectarStripe} className={cn(btnPrimary, 'no-underline')}>Conectar con Stripe</button>
                   ) : (
                     <p className="text-[11px] text-muted-foreground">
                       Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID</code>
@@ -1506,8 +1546,8 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                       </button>
                       <button onClick={desconectarGoogle} className={btnSecondary}>Desconectar</button>
                     </>
-                  ) : googleConnectUrl ? (
-                    <a href={googleConnectUrl} className={cn(btnPrimary, 'no-underline')}>Conectar con Google</a>
+                  ) : puedeConectarGoogle ? (
+                    <button type="button" onClick={conectarGoogle} className={cn(btnPrimary, 'no-underline')}>Conectar con Google</button>
                   ) : (
                     <p className="text-[11px] text-muted-foreground">
                       Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
@@ -1530,6 +1570,23 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
             </div>
           );
         })}
+
+        {/* C-2: token de dispositivo del kiosko de check-in */}
+        <div className={cn(cardCls, 'p-4 flex flex-col')}>
+          <p className="text-sm font-bold mb-1">Kiosko de check-in</p>
+          <p className="text-[12px] text-muted-foreground mb-3 flex-1">
+            Token del dispositivo de recepción. Genéralo y pégalo en el kiosko (<code className="font-mono bg-muted px-1 rounded">/kiosk/tu-slug</code>) la primera vez. El check-in solo funciona desde un dispositivo con este token.
+          </p>
+          {kioskToken && (
+            <div className="rounded-lg bg-muted p-2.5 mb-2">
+              <p className="text-[10px] text-muted-foreground mb-1">Cópialo ahora — no se vuelve a mostrar:</p>
+              <code className="text-[12px] font-mono break-all select-all">{kioskToken}</code>
+            </div>
+          )}
+          <button onClick={generarKioskToken} disabled={generandoKiosk} className={cn(btnPrimary, generandoKiosk && 'opacity-50')}>
+            {generandoKiosk ? 'Generando…' : kioskToken ? 'Regenerar token' : 'Generar token de kiosko'}
+          </button>
+        </div>
       </div>
 
       {/* Config modal */}

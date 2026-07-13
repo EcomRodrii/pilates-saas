@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { dbSetStripeAccountId } from '@/lib/supabase-data';
+import { verificarEstadoOAuth } from '@/lib/oauth-state';
 
 // Vuelta del OAuth de Stripe Connect (ver el botón "Conectar con Stripe" en
 // Configuración → Integraciones). Cambia el `code` de un solo uso por el id
@@ -14,15 +15,19 @@ export async function GET(req: NextRequest) {
   }
 
   const code = req.nextUrl.searchParams.get('code');
-  const studioId = req.nextUrl.searchParams.get('state');
   const oauthError = req.nextUrl.searchParams.get('error_description') ?? req.nextUrl.searchParams.get('error');
 
   if (oauthError) {
     return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=${encodeURIComponent(oauthError)}`);
   }
-  if (!code || !studioId) {
-    return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=Faltan%20datos%20de%20Stripe`);
+  // C-8: el studioId sale del `state` FIRMADO (emitido por /api/integrations/
+  // oauth-state al PROPIETARIO), no de un id en claro del navegador. Un state
+  // ausente, manipulado o caducado se rechaza → no hay CSRF de binding.
+  const verificado = verificarEstadoOAuth(req.nextUrl.searchParams.get('state'), 'stripe', Date.now());
+  if (!code || !verificado) {
+    return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=Estado%20de%20conexi%C3%B3n%20inv%C3%A1lido%20o%20caducado`);
   }
+  const studioId = verificado.studioId;
 
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
 

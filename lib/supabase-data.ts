@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/supabase';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
@@ -180,6 +181,17 @@ export function setDbErrorListener(fn: DbErrorListener | null) {
 
 function reportDbError(tag: string, error: unknown) {
   console.error(tag, error);
+  // A-6: los fallos de escritura de DB llegan a Sentry (antes solo console.error
+  // + un toast → invisibles en producción). Tag por estudio para agrupar por
+  // tenant. No-op si Sentry no está inicializado (DSN sin definir).
+  try {
+    Sentry.captureException(
+      error instanceof Error ? error : new Error(`${tag}: ${typeof error === 'string' ? error : JSON.stringify(error)}`),
+      { tags: { area: 'db', studioId: STUDIO_ID || 'desconocido' }, extra: { op: tag } },
+    );
+  } catch {
+    /* nunca dejar que el reporte rompa una escritura */
+  }
   try {
     dbErrorListener?.(tag, error);
   } catch {
@@ -1890,6 +1902,22 @@ async function otorgarCreditosServidor(
   ]);
 }
 
+// C-2: valida el token de dispositivo de kiosko de un estudio. Sin token
+// configurado (NULL) el check-in público queda cerrado (devuelve false), que es
+// el lado seguro. Solo tiene sentido en servidor (usa service-role); en cliente
+// getSupabaseAdmin() es null y devuelve false.
+export async function validarKioskToken(studioId: string, token: string | null): Promise<boolean> {
+  if (!token) return false;
+  const admin = getSupabaseAdmin();
+  if (!admin) return false;
+  const { data } = await admin.from('studios').select('kiosk_token').eq('id', studioId).maybeSingle();
+  const esperado = (data?.kiosk_token ?? '') as string;
+  // El token es aleatorio de alta entropía; una comparación directa es
+  // suficiente (un ataque de temporización sobre un secreto aleatorio no es
+  // práctico) y evita importar `crypto` en un módulo que también corre en cliente.
+  return esperado.length > 0 && esperado === token;
+}
+
 // Check-in de kiosk: marca la reserva ASISTIDA, otorga créditos de asistencia y,
 // si es la primera clase de una socia referida, premia a quien la invitó (con
 // tope mensual). La reserva debe pertenecer al estudio.
@@ -2562,6 +2590,23 @@ export async function dbInsertRewardAction(a: RewardAction) {
   return !error;
 }
 
+// C-11: cerrojo de idempotencia para concesiones de crédito que NO tienen una
+// RewardRule detrás (logros y retos). Inserta una fila-guard en reward_actions;
+// el UNIQUE(studio_id, trigger, ref_id) hace que solo la PRIMERA evaluación gane.
+// Devuelve true si ganó el claim (primera vez → otorgar crédito), false si ya
+// existía o hubo error (→ NO otorgar; el lado seguro es no doblar el saldo).
+// Usar trigger sintético ('LOGRO'/'RETO') y refId = `${socioId}:${defId}` para
+// que sea único por (socia, logro/reto) y no por logro/reto a secas.
+export async function dbClaimRecompensaUnica(
+  studioId: string, socioId: string, trigger: string, refId: string,
+): Promise<boolean> {
+  const { error } = await supabase.from('reward_actions').insert({
+    id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId, trigger, ref_id: refId,
+    creado_en: new Date().toISOString(),
+  });
+  return !error;
+}
+
 export async function dbInsertRewardHistory(h: RewardHistory) {
   const row = {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, rule_id: h.ruleId,
@@ -3148,7 +3193,13 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
 // Toma el id explícito (no el STUDIO_ID de la sesión del navegador) porque la
 // llama el callback de OAuth de Stripe Connect, un servidor sin sesión.
 export async function dbSetStripeAccountId(studioId: string, stripeAccountId: string | null) {
-  const { error } = await supabase.from('studios').update({ stripe_account_id: stripeAccountId }).eq('id', studioId);
+  // A-1: se ejecuta en el callback OAuth de Stripe Connect (servidor, sin sesión
+  // de usuario). Con el cliente anónimo, la política owner_studios (que exige
+  // current_studio_id()) no casa ninguna fila → el binding NO se guardaba y el
+  // onboarding de Stripe quedaba roto en silencio. Con service-role sí persiste.
+  const admin = getSupabaseAdmin();
+  if (!admin) { reportDbError('[dbSetStripeAccountId]', new Error('service role no configurada')); return; }
+  const { error } = await admin.from('studios').update({ stripe_account_id: stripeAccountId }).eq('id', studioId);
   if (error) reportDbError('[dbSetStripeAccountId]', error);
 }
 

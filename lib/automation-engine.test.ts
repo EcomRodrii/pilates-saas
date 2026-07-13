@@ -65,13 +65,25 @@ test('AUSENCIA_DIAS: reciente (3d < umbral), inactiva, y sin asistencias → sin
   assert.equal(c.length, 0);
 });
 
-test('AUSENCIA_DIAS: dedup por log ESPERANDO existente', () => {
+test('AUSENCIA_DIAS: NO reenvía si ya hay un ENVIAR_EMAIL ejecutado (A-11)', () => {
   const r = rule({ trigger: 'AUSENCIA_DIAS', condicion: { dias: 7 } });
   const s = socio({ id: 'a' });
   const res = reserva({ socioId: 'a', sesionId: 'x', estado: 'ASISTIDA', creadoEn: diasAntes(10) });
-  const l = log({ ruleId: r.id, socioId: 'a', resultado: 'ESPERANDO' });
+  // 'EJECUTADO' es lo que escriben AMBOS caminos de ejecución (antes se
+  // deduplicaba por 'ESPERANDO', que nunca se persiste → reenvío diario).
+  const l = log({ ruleId: r.id, socioId: 'a', accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO' });
   const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reservas: [res], automationLogs: [l] }), NOW);
   assert.equal(c.length, 0);
+});
+
+test('AUSENCIA_DIAS: SÍ reintenta si el último envío FALLÓ', () => {
+  const r = rule({ trigger: 'AUSENCIA_DIAS', condicion: { dias: 7 } });
+  const s = socio({ id: 'a' });
+  const res = reserva({ socioId: 'a', sesionId: 'x', estado: 'ASISTIDA', creadoEn: diasAntes(10) });
+  const l = log({ ruleId: r.id, socioId: 'a', accion: 'ENVIAR_EMAIL', resultado: 'FALLIDO' });
+  const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reservas: [res], automationLogs: [l] }), NOW);
+  assert.equal(c.length, 1);
+  assert.equal(c[0].accion, 'ENVIAR_EMAIL');
 });
 
 // ── CLASE_LLENA_RECURRENTE ────────────────────────────────────────────────────

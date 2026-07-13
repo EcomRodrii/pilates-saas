@@ -236,9 +236,12 @@ function ClaseHoyCard({
   );
 
   const asistidas = reservasSesion.filter(r => r.estado === 'ASISTIDA').length;
+  // A-16: % de ocupación sobre plazas realmente ocupadas (CONFIRMADA/ASISTIDA),
+  // no toda reserva no cancelada (incluía espera/no-shows → superaba el 100%).
+  const ocupadas = reservasSesion.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
   const pct =
     sesion.aforoMaximo > 0
-      ? Math.round((reservasSesion.length / sesion.aforoMaximo) * 100)
+      ? Math.round((ocupadas / sesion.aforoMaximo) * 100)
       : 0;
   const fillColor = pct >= 100 ? '#DC2626' : pct >= 75 ? '#D97706' : '#059669';
 
@@ -462,8 +465,11 @@ export default function Dashboard() {
     );
     if (sessSemana.length === 0) return 0;
     const total = sessSemana.reduce((sum, s) => {
+      // A-16: plazas ocupadas = CONFIRMADA/ASISTIDA. Antes contaba toda reserva
+      // no cancelada (incluía LISTA_ESPERA y NO_ASISTIO), inflando la ocupación
+      // por encima del 100% y discrepando de Informes.
       const ocupadas = reservas.filter(
-        r => r.sesionId === s.id && r.estado !== 'CANCELADA'
+        r => r.sesionId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')
       ).length;
       return sum + ocupadas / s.aforoMaximo;
     }, 0);
@@ -473,13 +479,12 @@ export default function Dashboard() {
   // ── MRR ─────────────────────────────────────────────────────────────────────
   const { mrr, renovacionesProximas } = useMemo(() => {
     const activas = suscripciones.filter(s => s.estado === 'ACTIVA');
+    // A-16: el MRR (ingreso recurrente) solo cuenta planes MENSUAL. Antes sumaba
+    // BONO/PUNTUAL (pago único) prorrateado por sesiones → MRR y ARR (mrr*12)
+    // sobrestimados en cualquier estudio que venda bonos o clases sueltas.
     const mensualMrr = activas.reduce((sum, s) => {
       const plan = planesTarifa.find(p => p.id === s.planId);
-      if (!plan) return sum;
-      if (plan.tipo === 'MENSUAL') return sum + plan.precio;
-      if (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL')
-        return sum + plan.precio / (plan.sesiones ?? 4);
-      return sum;
+      return plan?.tipo === 'MENSUAL' ? sum + plan.precio : sum;
     }, 0);
 
     const en30 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30)
@@ -777,7 +782,7 @@ export default function Dashboard() {
                   </div>
                   {pendientes.length > 1 && (
                     <button
-                      onClick={cobrarTodosPendientes}
+                      onClick={() => cobrarTodosPendientes()}
                       className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-[#ECFDF5] text-[#059669] hover:bg-[#D1FAE5] transition-colors"
                     >
                       <Zap size={11} /> Cobrar todos
