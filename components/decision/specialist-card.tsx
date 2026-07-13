@@ -1,6 +1,6 @@
 'use client';
 
-import { Heart, TrendingUp, Calendar, Megaphone, Wallet, UsersRound, type LucideIcon } from 'lucide-react';
+import { Heart, TrendingUp, Calendar, Megaphone, Wallet, UsersRound, UserPlus, type LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { PorEspecialistaAPI } from './use-decisiones';
@@ -11,6 +11,7 @@ const ESPECIALISTA_INFO: Record<string, { nombre: string; icon: LucideIcon }> = 
   RETENCION: { nombre: 'Especialista en Retención', icon: Heart },
   INGRESOS: { nombre: 'Especialista en Ingresos', icon: TrendingUp },
   AGENDA: { nombre: 'Especialista en Agenda', icon: Calendar },
+  CAPTACION: { nombre: 'Especialista en Captación', icon: UserPlus },
   MARKETING: { nombre: 'Especialista en Marketing', icon: Megaphone },
   FINANZAS: { nombre: 'Especialista Financiero', icon: Wallet },
   EQUIPO: { nombre: 'Especialista en Equipo', icon: UsersRound },

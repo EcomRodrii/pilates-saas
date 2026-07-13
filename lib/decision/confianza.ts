@@ -125,6 +125,34 @@ export function confianzaSesionInfrautilizada(c: {
 }
 
 /** ABRIR_SESION — ALTA: a+b+c · MEDIA: a+b · BAJA: solo a. */
+// CONTACTAR_LEAD (Captación C1) — un lead/interesada lleva días sin avanzar.
+// ALTA: a+b (madurado y sin contacto) · MEDIA: solo a · BAJA: solo b.
+export function confianzaContactarLead(c: {
+  leadMadurado: boolean;
+  sinContactoReciente: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.leadMadurado, etiqueta: 'lead sin avanzar durante 7 días o más' },
+    { valor: c.sinContactoReciente, etiqueta: 'sin contacto reciente' },
+  ];
+  const { leadMadurado: a, sinContactoReciente: b } = c;
+  return evaluarNivel(criterios, a && b, a, b);
+}
+
+// CONVERTIR_PRUEBA (Captación C2) — una socia en PRUEBA no ha comprado plan.
+// ALTA: a+b (prueba madura y sin suscripción) · MEDIA: solo a · BAJA: solo b.
+export function confianzaConvertirPrueba(c: {
+  pruebaMadura: boolean;
+  sinSuscripcion: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.pruebaMadura, etiqueta: 'prueba iniciada hace 7 días o más' },
+    { valor: c.sinSuscripcion, etiqueta: 'sin suscripción activa' },
+  ];
+  const { pruebaMadura: a, sinSuscripcion: b } = c;
+  return evaluarNivel(criterios, a && b, a, b);
+}
+
 export function confianzaAbrirSesion(c: {
   franjaLlenaConsistente: boolean;
   demandaInsatisfecha: boolean;
