@@ -7,13 +7,20 @@ import {
   construirIndices, agruparFranjasRecurrentes, frecuenciaHabitual, hayProximaSesionEnFranja,
   type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
-import { confianzaSesionInfrautilizada } from '../confianza.ts';
+import { confianzaSesionInfrautilizada, confianzaOcupacionBajaEstructural } from '../confianza.ts';
 
+const MS_DIA = 86400000;
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
 const redondear1 = (n: number) => Math.round(n * 10) / 10;
 
 const UMBRAL_VACIA = 0.30;      // ocupación por debajo de la cual la franja "va vacía"
 const OCURRENCIAS_MINIMAS = 3;  // nº de ocurrencias recientes que deben ir vacías
+
+// A2 (ocupación estructuralmente baja): parámetros de la agregación.
+const A2_DIAS = 28;             // ventana de clases pasadas a evaluar
+const A2_MIN_CLASES = 8;        // por debajo de esto es un estudio recién arrancado
+const A2_MIN_VACIAS = 5;        // al menos estas clases casi vacías
+const A2_VOLUMEN_ALTO = 12;     // volumen que sube la confianza a ALTA
 
 /**
  * Precio medio por sesión, ponderado por socias activas (mismo criterio que
@@ -103,6 +110,63 @@ function reglaA1(clave: string, franja: FranjaRecurrente, s: SnapshotEstudio, id
   };
 }
 
+/**
+ * A2 · Ocupación estructuralmente baja → FUSIONAR_SESIONES (a nivel de estudio).
+ * Cubre el punto ciego de A1: A1 solo ve una FRANJA recurrente (mismo día/hora/
+ * tipo ≥3 veces) que va vacía. Un estudio que programa clases ad-hoc —horarios
+ * distintos cada semana— puede tener la mitad de sus clases casi vacías sin que
+ * ninguna franja recurrente lo dispare. Aquí se agrega sobre TODAS las clases
+ * pasadas recientes: si la mayoría van casi vacías, hay un problema de horario/
+ * demanda que cuesta dinero (sala + instructora para clases que nadie usa).
+ */
+function reglaA2(s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata | null {
+  const desde = now.getTime() - A2_DIAS * MS_DIA;
+  const pasadas = s.sesiones.filter(se => {
+    if (se.cancelada || se.aforoMaximo <= 0) return false;
+    const t = new Date(se.inicio).getTime();
+    return t <= now.getTime() && t >= desde;
+  });
+  if (pasadas.length < A2_MIN_CLASES) return null;
+
+  const ocupaciones = pasadas.map(se => (idx.ocupadasPorSesion.get(se.id) ?? 0) / se.aforoMaximo);
+  const nVacias = ocupaciones.filter(o => o <= UMBRAL_VACIA).length;
+  const mayoriaVacia = nVacias >= A2_MIN_VACIAS && nVacias / pasadas.length >= 0.5;
+  const volumenSuficiente = pasadas.length >= A2_VOLUMEN_ALTO;
+
+  const confianza = confianzaOcupacionBajaEstructural({ mayoriaVacia, volumenSuficiente });
+  if (!confianza) return null;
+
+  const ocupMediaPct = Math.round((ocupaciones.reduce((a, b) => a + b, 0) / pasadas.length) * 100);
+  const aforoMedio = pasadas.reduce((a, se) => a + se.aforoMaximo, 0) / pasadas.length;
+  const asistentesMedios = (ocupaciones.reduce((a, b) => a + b, 0) / pasadas.length) * aforoMedio;
+  const plazasVaciasMedias = Math.max(0, aforoMedio - asistentesMedios);
+  const precioMedio = precioMedioSesion(s, idx);
+  const clasesPorSemana = pasadas.length / (A2_DIAS / 7);
+  // Coste de oportunidad mensual de las plazas vacías en el ritmo actual de clases.
+  const valor = redondear2(plazasVaciasMedias * precioMedio * clasesPorSemana * 4.33);
+
+  const motivoMotor = `En las últimas ${A2_DIAS / 7} semanas, ${nVacias} de tus ${pasadas.length} clases fueron con la sala a menos del 30% (ocupación media ${ocupMediaPct}%). Estás pagando sala e instructora para clases casi vacías — o reagrupamos el horario en menos clases más llenas, o promocionamos esas franjas.`;
+
+  return {
+    especialista: 'AGENDA',
+    tipo: 'FUSIONAR_SESIONES',
+    dedupeKey: `AGENDA:OCUPACION_BAJA:${s.studioId}`,
+    tituloMotor: `Muchas clases van casi vacías (${ocupMediaPct}% de ocupación media)`,
+    motivoMotor,
+    datosUsados: { clasesEvaluadas: pasadas.length, clasesVacias: nVacias, ocupacionMediaPct: ocupMediaPct, semanas: A2_DIAS / 7 },
+    riesgo: 'PERDIDA',
+    impacto: valor > 0
+      ? { valor, unidad: 'EUR_MES', formula: `${redondear1(plazasVaciasMedias)} plazas vacías/clase × ${redondear2(precioMedio)}€ × ${redondear1(clasesPorSemana)} clases/semana × 4.33` }
+      : undefined,
+    confianza,
+    accion: { tipo: 'MARCAR_GESTIONADO' },
+    tiempoEstimadoMin: 15,
+    expiraEnDias: 21,
+    urgencia: Math.min(0.7, 0.4 + 0.02 * nVacias),
+    esfuerzo: 0.7,
+  };
+}
+
 export const agenda: Especialista = {
   id: 'AGENDA',
   pregunta: '¿Qué clases sobran o faltan en el horario?',
@@ -112,6 +176,12 @@ export const agenda: Especialista = {
     const franjas = agruparFranjasRecurrentes(idx, s, now, OCURRENCIAS_MINIMAS);
     for (const [clave, franja] of franjas) {
       const c = reglaA1(clave, franja, s, idx, now);
+      if (c) candidatas.push(c);
+    }
+    // A2 solo si A1 no encontró franjas recurrentes vacías concretas: si ya hay
+    // consejo específico por franja, el agregado a nivel de estudio sería redundante.
+    if (candidatas.length === 0) {
+      const c = reglaA2(s, idx, now);
       if (c) candidatas.push(c);
     }
     return candidatas;
