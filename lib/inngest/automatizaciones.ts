@@ -2,8 +2,9 @@ import { inngest, EVENTS } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { supabase } from '@/lib/supabase';
-import { fetchAllStudioData, dbUpsertAutomationLog, dbUpdateAutomationRule } from '@/lib/supabase-data';
+import { fetchAllStudioData, dbUpsertAutomationLog, dbUpdateAutomationRule, dbUpdateAutomatizacion } from '@/lib/supabase-data';
 import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/automation-engine';
+import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/marketing-automation-engine';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
@@ -111,6 +112,45 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     } else {
       log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"` };
     }
+  }
+
+  if (!dry) await dbUpsertAutomationLog(log);
+  return log;
+}
+
+// Envía una candidata de MARKETING (Automatizacion con asunto/mensaje del
+// usuario) y persiste el log en automation_logs (ruleId = id de la
+// automatización, para dedup y contador). Idempotency-Key por id de log.
+export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
+  const { studioId, studioNombre, index, nowISO, dry, resend } = opts;
+  const base = {
+    id: `mkt-${studioId}-${c.automatizacion.id}-${c.socio.id}-${index}-${nowISO.slice(0, 10)}`,
+    studioId,
+    ruleId: c.automatizacion.id,
+    ruleName: c.automatizacion.nombre,
+    socioId: c.socio.id,
+    socioNombre: `${c.socio.nombre} ${c.socio.apellidos}`,
+    pasoIndex: 0,
+    accion: 'ENVIAR_EMAIL' as const,
+    ejecutadoEn: nowISO,
+    proximaAccionEn: null,
+    reciboId: null,
+  };
+
+  let log: AutomationLog;
+  if (dry) {
+    log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.asunto} → ${c.socio.email}` };
+  } else if (!c.socio.email) {
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado' };
+  } else {
+    const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: studioNombre }));
+    const { error } = await resend!.emails.send(
+      { from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
+      { idempotencyKey: base.id },
+    );
+    log = error
+      ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message }
+      : { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.asunto}"` };
   }
 
   if (!dry) await dbUpsertAutomationLog(log);
@@ -225,6 +265,33 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       });
     }
 
-    return { studioId, emailsEnviados, fallidos, cobrosPropuestos };
+    // ── Automatizaciones de MARKETING (tipo Automatizacion, con triggers) ──────
+    // Antes se creaban pero nada las ejecutaba. Mismo patrón: candidatas puras +
+    // envío durable por candidata + contador `ejecutadas`. Comparte automation_logs
+    // (ruleId = id de la automatización) para dedup.
+    const mktCandidatos = computeAutomatizacionMktCandidatos(
+      { automatizaciones: data.automatizaciones, automationLogs: data.automationLogs, socios: data.socios, suscripciones: data.suscripciones, reservas: data.reservas, citas: data.citas },
+      now,
+    );
+    let mktEnviados = 0, mktFallidos = 0;
+    const firedPorAuto = new Map<string, number>();
+    for (let i = 0; i < mktCandidatos.length; i++) {
+      const c = mktCandidatos[i];
+      const log = await step.run(`mkt-${i}-${c.automatizacion.id}-${c.socio.id}`, () =>
+        procesarCandidatoMkt(c, { studioId, studioNombre, index: i, nowISO, dry, resend }),
+      );
+      if (log.resultado === 'EJECUTADO') mktEnviados++; else if (log.resultado === 'FALLIDO') mktFallidos++;
+      firedPorAuto.set(c.automatizacion.id, (firedPorAuto.get(c.automatizacion.id) ?? 0) + 1);
+    }
+    if (!dry && firedPorAuto.size > 0) {
+      await step.run('actualizar-automatizaciones', async () => {
+        for (const [autoId, count] of firedPorAuto) {
+          const base = data.automatizaciones.find(a => a.id === autoId)?.ejecutadas ?? 0;
+          await dbUpdateAutomatizacion(autoId, { ejecutadas: base + count });
+        }
+      });
+    }
+
+    return { studioId, emailsEnviados, fallidos, cobrosPropuestos, mktEnviados, mktFallidos };
   }
 );
