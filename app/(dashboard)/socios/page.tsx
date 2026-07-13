@@ -1152,10 +1152,10 @@ export default function Socios() {
             </div>
             <div>
               <h3 className="text-[14px] font-semibold text-foreground mb-1">
-                ¿Eliminar miembro?
+                ¿Dar de baja a esta socia?
               </h3>
               <p className="text-[13px] text-muted-foreground">
-                Se eliminarán todos sus datos. Esta acción no se puede deshacer.
+                Se anonimizan sus datos personales y su ficha de salud. Las facturas y recibos se conservan por obligación fiscal. Esta acción no se puede deshacer.
               </p>
             </div>
             <div className="flex gap-2 w-full">

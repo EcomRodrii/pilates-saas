@@ -1474,9 +1474,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               <Trash2 size={24} className="text-red-500" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-foreground mb-1">Eliminar socia</h3>
+              <h3 className="text-base font-semibold text-foreground mb-1">Dar de baja a la socia</h3>
               <p className="text-sm text-muted-foreground">
-                Se eliminará {socio.nombre} {socio.apellidos}, su suscripción y todo su historial. Esta acción no se puede deshacer.
+                Se anonimizan los datos personales de {socio.nombre} {socio.apellidos} y se elimina su ficha de salud; su suscripción queda cancelada. Las facturas y recibos se conservan por obligación fiscal. Esta acción no se puede deshacer.
               </p>
             </div>
             <div className="flex gap-3 w-full">

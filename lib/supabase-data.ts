@@ -983,7 +983,9 @@ export async function fetchCriticalStudioData(studioId?: string) {
   ] = await Promise.all([
     supabase.from('studios').select('*').eq('id', sid).single(),
     supabase.from('usuarios').select('*').eq('studio_id', sid),
-    supabase.from('socios').select('*').eq('studio_id', sid),
+    // A-3/A-4: las socias con baja lógica (borrado_en) no entran al panel; su
+    // rastro fiscal (recibos/facturas) sí queda y se muestra como "Socia eliminada".
+    supabase.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null),
     supabase.from('planes_tarifa').select('*').eq('studio_id', sid),
     supabase.from('suscripciones').select('*').eq('studio_id', sid),
     supabase.from('salas').select('*').eq('studio_id', sid),
@@ -2326,9 +2328,21 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>) {
   if (error) reportDbError('[dbUpdateSocio]', error);
 }
 
+// A-3/A-4: la baja de una socia NO borra la fila (destruía recibos/facturas con
+// obligación fiscal, o fallaba a medias por las FK RESTRICT). Pasa por
+// /api/socios/eliminar, que anonimiza el PII, marca el borrado lógico, conserva
+// el rastro fiscal y elimina los datos personales sin base de retención.
 export async function dbDeleteSocio(id: string) {
-  const { error } = await supabase.from('socios').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteSocio]', error);
+  try {
+    const res = await fetch('/api/socios/eliminar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({ socioId: id }),
+    });
+    if (!res.ok) reportDbError('[dbDeleteSocio]', await res.json().catch(() => ({ status: res.status })));
+  } catch (e) {
+    reportDbError('[dbDeleteSocio]', e);
+  }
 }
 
 export async function dbInsertPlanTarifa(plan: PlanTarifa) {

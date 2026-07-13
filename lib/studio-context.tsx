@@ -951,14 +951,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   function deleteSocio(id: string) {
     const socio = socios.find(s => s.id === id);
+    // A-3/A-4: baja lógica con anonimización (dbDeleteSocio → /api/socios/eliminar).
+    // Localmente: la socia sale del roster, sus suscripciones quedan CANCELADAS y
+    // se limpian sus datos personales sin base de retención. Los RECIBOS se
+    // CONSERVAN (obligación fiscal); el pago histórico se mostrará como "Socia
+    // eliminada" al no resolver ya el nombre.
     setSocios(prev => prev.filter(s => s.id !== id));
-    setSuscripciones(prev => prev.filter(s => s.socioId !== id));
-    setRecibos(prev => prev.filter(r => r.socioId !== id));
+    setSuscripciones(prev => prev.map(s => s.socioId === id ? { ...s, estado: 'CANCELADA' as const } : s));
     setNotasInternas(prev => prev.filter(n => n.socioId !== id));
     setCondicionesSalud(prev => prev.filter(c => c.socioId !== id));
     setRespuestasSesion(prev => prev.filter(r => r.socioId !== id));
     dbDeleteSocio(id);
-    if (socio) addActividadReciente('SOCIA_ELIMINADA', `${actorNombre ?? 'Alguien'} eliminó a ${socio.nombre} ${socio.apellidos}`);
+    if (socio) addActividadReciente('SOCIA_ELIMINADA', `${actorNombre ?? 'Alguien'} dio de baja a ${socio.nombre} ${socio.apellidos}`);
   }
 
   function addTagSocio(socioId: string, tag: string) {
