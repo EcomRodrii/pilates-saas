@@ -56,7 +56,7 @@ export function SpecialistCard({ data }: { data: PorEspecialistaAPI }) {
         )}
 
         {data.pendientes > 0 && (
-          <a href="#prioridades" className="text-[12px] font-semibold" style={{ color: 'var(--brand-secondary)' }}>
+          <a href="#recomendaciones" className="text-[12px] font-semibold" style={{ color: 'var(--brand-secondary)' }}>
             Revisar
           </a>
         )}
