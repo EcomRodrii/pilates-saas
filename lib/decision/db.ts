@@ -247,7 +247,19 @@ export async function dbActualizarOutcome(id: string, patch: { outcome: Outcome[
 }
 
 export async function dbGetOutcomePorRecomendacion(recomendacionId: string, evento: Outcome['evento']): Promise<Outcome | null> {
-  const { data, error } = await db().from('recomendacion_outcomes').select('*').eq('recomendacion_id', recomendacionId).eq('evento', evento).maybeSingle();
+  // A-17: `.limit(1)` en vez de `.maybeSingle()` a secas. Si por un duplicado
+  // preexistente (antes del guard del ejecutor) hubiera >1 fila para la misma
+  // (recomendacion, evento), maybeSingle lanzaba error y la medición quedaba rota
+  // para siempre. Se ordena por `medido_en` NULLS FIRST para elegir la fila aún
+  // sin medir (la que la medición debe actualizar).
+  const { data, error } = await db()
+    .from('recomendacion_outcomes')
+    .select('*')
+    .eq('recomendacion_id', recomendacionId)
+    .eq('evento', evento)
+    .order('medido_en', { ascending: true, nullsFirst: true })
+    .limit(1)
+    .maybeSingle();
   if (error) { reportError('[dbGetOutcomePorRecomendacion]', error); return null; }
   return data ? mapOutcome(data as RowOutcomes) : null;
 }
