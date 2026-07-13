@@ -65,7 +65,7 @@ export async function enviarEmailTransaccional(params: {
     const { data, error } = await resend.emails.send({
       // Remitente configurable por env (RESEND_FROM). Sin dominio verificado, el
       // sandbox de Resend solo entrega al email de la cuenta.
-      from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>',
+      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
       to: [params.to],
       subject,
       html,

@@ -99,7 +99,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     }));
     const { error } = await resend!.emails.send(
       {
-        from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>',
+        from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
         to: [c.socio.email],
         subject: c.titulo,
         html,
@@ -161,7 +161,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
   } else {
     const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: studioNombre }));
     const { error } = await resend!.emails.send(
-      { from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
+      { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
       { idempotencyKey: base.id },
     );
     log = error

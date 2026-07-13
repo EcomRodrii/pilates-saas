@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     // Remitente configurable por env: una vez verificado el dominio propio en
     // Resend, poner RESEND_FROM='Tentare <hola@tudominio.com>'. Sin verificar,
     // el sandbox de Resend solo entrega al email de la cuenta.
-    from: process.env.RESEND_FROM ?? 'Tentare <onboarding@resend.dev>',
+    from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
     to: [body.to],
     subject,
     html,
