@@ -125,5 +125,25 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Stripe Connect: el estudio revocó el acceso desde SU panel de Stripe (o Stripe
+  // desconectó la cuenta). Limpiamos el binding `stripe_account_id` para que la app
+  // deje de intentar cobrar sobre una cuenta ya no conectada y la UI muestre "no
+  // conectado". Idempotente: si ya está a null, el UPDATE no casa ninguna fila.
+  if (event.type === 'account.application.deauthorized') {
+    const accountId = event.account;
+    if (accountId) {
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        console.error('[stripe webhook] service role no configurada (deauthorized)');
+        return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      const { error } = await admin.from('studios').update({ stripe_account_id: null }).eq('stripe_account_id', accountId);
+      if (error) {
+        console.error('[stripe webhook] no se pudo desvincular la cuenta desconectada', accountId, error);
+        return NextResponse.json({ error: 'Fallo al desvincular la cuenta' }, { status: 500 });
+      }
+    }
+  }
+
   return NextResponse.json({ received: true });
 }

@@ -14,7 +14,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 // idempotencyKey de Stripe: un reintento del step de Inngest tras un fallo de
 // red nunca duplica el cargo.
 
-export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'FALLO_COBRO';
+export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'CUENTA_NO_LISTA' | 'FALLO_COBRO';
 
 export interface ResultadoCobro {
   ok: boolean;
@@ -65,6 +65,21 @@ export async function cobrarReciboOffSession(params: {
   }
   if (studioError || !studio?.stripe_account_id) {
     return { ok: false, error: 'El estudio no tiene Stripe conectado', errorCode: 'SIN_STRIPE_CONECTADO' };
+  }
+
+  // Verifica que la cuenta conectada del estudio PUEDE cobrar antes de intentarlo.
+  // Si el onboarding de Stripe está a medias (charges_enabled=false) o la cuenta
+  // se desconectó, el cargo fallaría con un error críptico; mejor avisar claro.
+  try {
+    const cuenta = await stripe.accounts.retrieve(studio.stripe_account_id);
+    if (!cuenta.charges_enabled) {
+      return {
+        ok: false, errorCode: 'CUENTA_NO_LISTA',
+        error: 'La cuenta de Stripe del estudio aún no puede cobrar. Completa el onboarding en Stripe (verificación de identidad y cuenta bancaria).',
+      };
+    }
+  } catch {
+    return { ok: false, error: 'No se pudo verificar la cuenta de Stripe del estudio (¿desconectada?).', errorCode: 'CUENTA_NO_LISTA' };
   }
 
   try {
