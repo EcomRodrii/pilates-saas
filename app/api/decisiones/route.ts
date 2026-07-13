@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { tieneFeature } from '@/lib/entitlements';
 import { requireSupabaseAdmin } from '@/lib/supabase-admin';
-import { dbListPendientes, dbGetResumenDiario } from '@/lib/decision/db';
+import { dbListPendientes, dbGetResumenDiarioReciente } from '@/lib/decision/db';
 import { calcularEstadoEspecialista } from '@/lib/decision/director';
 import { seleccionarPrioridadesHome } from '@/lib/decision/prioridad';
 import type { EspecialistaId, Impacto, Recomendacion } from '@/lib/decision/tipos';
@@ -21,9 +21,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Tu plan no incluye el Centro de Control' }, { status: 403 });
   }
 
-  const hoy = new Date().toISOString().slice(0, 10);
   const [resumen, pendientes, actividadRes] = await Promise.all([
-    dbGetResumenDiario(sesion.studioId, hoy),
+    dbGetResumenDiarioReciente(sesion.studioId, new Date()),
     dbListPendientes(sesion.studioId),
     requireSupabaseAdmin().from('actividad_reciente').select('*').eq('studio_id', sesion.studioId).order('creado_en', { ascending: false }).limit(10),
   ]);

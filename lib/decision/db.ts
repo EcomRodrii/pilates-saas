@@ -350,6 +350,25 @@ export async function dbGetResumenDiario(studioId: string, fecha: string): Promi
   return data ? mapResumenDiario(data as RowResumenDiario) : null;
 }
 
+// El Centro de Control mostraba el resumen SOLO si existía uno con la fecha de
+// HOY: entre ejecuciones del cron (2×/día) o si el análisis de hoy aún no había
+// corrido, el panel caía a "Aún estoy conociendo tu estudio" aunque hubiera un
+// briefing reciente perfectamente válido. Se toma el más reciente dentro de una
+// ventana (por defecto 7 días); solo si no hay ninguno se considera "sin datos".
+export async function dbGetResumenDiarioReciente(studioId: string, now: Date, maxDias = 7): Promise<ResumenDiario | null> {
+  const desde = new Date(now.getTime() - maxDias * 86400000).toISOString().slice(0, 10);
+  const { data, error } = await db()
+    .from('resumen_diario')
+    .select('*')
+    .eq('studio_id', studioId)
+    .gte('fecha', desde)
+    .order('fecha', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) { reportError('[dbGetResumenDiarioReciente]', error); return null; }
+  return data ? mapResumenDiario(data as RowResumenDiario) : null;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // decision_feature_flags
 // ═══════════════════════════════════════════════════════════════════════════

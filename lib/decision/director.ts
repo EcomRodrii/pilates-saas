@@ -46,7 +46,13 @@ export type EstadoGeneral = 'EXCELENTE' | 'ATENCION' | 'ACCION_INMEDIATA';
  */
 export function calcularEstadoGeneral(puntuadas: CandidataPriorizada[]): EstadoGeneral {
   if (puntuadas.some(c => c.prioridad === 'CRITICA')) return 'ACCION_INMEDIATA';
-  if (puntuadas.some(c => c.prioridad === 'ALTA' && c.riesgo === 'PERDIDA')) return 'ATENCION';
+  // No declarar "todo en orden" cuando hay una PÉRDIDA real que atender: antes
+  // solo las de prioridad ALTA bajaban el estado a ATENCION, así que un impago o
+  // una ausencia de prioridad MEDIA quedaban ocultos bajo un "excelente". Ahora
+  // cualquier riesgo de PÉRDIDA relevante (ALTA o MEDIA) lo refleja. Las
+  // OPORTUNIDADES (crecer, abrir clase) son upside, no un problema de salud → no
+  // tumban el estado por sí solas (se ven en "Mi Equipo").
+  if (puntuadas.some(c => c.riesgo === 'PERDIDA' && (c.prioridad === 'ALTA' || c.prioridad === 'MEDIA'))) return 'ATENCION';
   return 'EXCELENTE';
 }
 
@@ -138,6 +144,12 @@ export function generarSaludo(
     return `${base}, ${nombrePropietario}. Hay algo que no puede esperar: empieza por la primera tarjeta.`;
   }
   if (estadoGeneral === 'ATENCION') {
+    // ATENCION sin tarjetas de Prioridades (todo MEDIA): las recomendaciones
+    // están en "Mi Equipo", no en el bloque Prioridades — se dirige ahí, sin
+    // prometer un recuento de tarjetas que no existen.
+    if (nDecisiones === 0) {
+      return `${base}, ${nombrePropietario}. No hay nada urgente, pero sí algunas cosas en tu equipo que conviene que revises.`;
+    }
     return `${base}, ${nombrePropietario}. Hay ${nDecisiones} cosas que me gustaría que vieras hoy — te llevará unos ${tiempoEstimadoMin} minutos.`;
   }
   if (nDecisiones === 0) {
