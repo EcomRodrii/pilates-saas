@@ -34,12 +34,21 @@ export function puedeVer(rol: Rol, path: string): boolean {
   return !BLOQUEADO_RECEPCION.some(p => coincide(path, p));
 }
 
+// A-2 (fail-closed): antes cualquier usuario autenticado SIN ficha de instructora
+// caía a 'PROPIETARIO' —una escalada de privilegios en la UI: bastaba tener sesión
+// para ver los controles de dueña—. Ahora el default es el rol MÍNIMO (INSTRUCTOR,
+// el más restringido: lista blanca de rutas, sin cobros/equipo/config). La única
+// excepción es la dueña real del negocio (studios.owner_auth_user_id), que no tiene
+// ficha de instructora pero sí es PROPIETARIA. Esto es solo la barrera de UI; el
+// servidor (verificarSesionStaff) y la RLS son la fuente de verdad.
 export function useRol(): Rol {
   const { user } = useAuth();
-  const { instructores } = useStudio();
-  if (!user) return 'PROPIETARIO';
+  const { instructores, studio } = useStudio();
+  if (!user) return 'INSTRUCTOR';
   const yo = instructores.find(i => i.authUserId === user.id);
-  return yo?.rol ?? 'PROPIETARIO';
+  if (yo) return yo.rol;
+  if (studio?.ownerAuthUserId && studio.ownerAuthUserId === user.id) return 'PROPIETARIO';
+  return 'INSTRUCTOR';
 }
 
 export function usePermisos() {

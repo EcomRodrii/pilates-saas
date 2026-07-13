@@ -3155,35 +3155,48 @@ export async function dbDeleteTipoClase(id: string) {
   if (error) reportDbError('[dbDeleteTipoClase]', error);
 }
 
+// A-2: las mutaciones de equipo (alta/edición/baja) pasan por /api/equipo, que
+// exige verificarSesionStaff con rol PROPIETARIO (o autoedición de la propia
+// ficha) — antes escribían directamente a `instructores` con el cliente anónimo,
+// fiándose solo de la RLS y de una UI que caía a PROPIETARIO por defecto.
+async function staffAuthHeader(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
+
 export async function dbInsertInstructor(i: Instructor) {
-  const row = {
-    id: i.id,
-    studio_id: i.studioId ?? STUDIO_ID,
-    nombre: i.nombre,
-    email: i.email ?? null,
-    telefono: i.telefono ?? null,
-    color: i.color,
-    activo: i.activo,
-    avatar: i.avatar ?? null,
-    rol: i.rol ?? 'INSTRUCTOR',
-    auth_user_id: i.authUserId ?? null,
-  };
-  const { error } = await supabase.from('instructores').insert(row);
-  if (error) reportDbError('[dbInsertInstructor]', error);
+  try {
+    const res = await fetch('/api/equipo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({
+        id: i.id,
+        nombre: i.nombre,
+        email: i.email ?? null,
+        telefono: i.telefono ?? null,
+        color: i.color,
+        activo: i.activo,
+        avatar: i.avatar ?? null,
+        rol: i.rol ?? 'INSTRUCTOR',
+      }),
+    });
+    if (!res.ok) reportDbError('[dbInsertInstructor]', await res.json().catch(() => ({ status: res.status })));
+  } catch (e) {
+    reportDbError('[dbInsertInstructor]', e);
+  }
 }
 
 export async function dbUpdateInstructor(id: string, changes: Partial<Instructor>) {
-  const db: Record<string, unknown> = {};
-  if ('nombre' in changes) db.nombre = changes.nombre;
-  if ('email' in changes) db.email = changes.email;
-  if ('telefono' in changes) db.telefono = changes.telefono;
-  if ('color' in changes) db.color = changes.color;
-  if ('activo' in changes) db.activo = changes.activo;
-  if ('avatar' in changes) db.avatar = changes.avatar;
-  if ('rol' in changes) db.rol = changes.rol;
-  if ('authUserId' in changes) db.auth_user_id = changes.authUserId;
-  const { error } = await supabase.from('instructores').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateInstructor]', error);
+  try {
+    const res = await fetch('/api/equipo', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({ id, changes }),
+    });
+    if (!res.ok) reportDbError('[dbUpdateInstructor]', await res.json().catch(() => ({ status: res.status })));
+  } catch (e) {
+    reportDbError('[dbUpdateInstructor]', e);
+  }
 }
 
 // Vincula la fila de instructor sin reclamar (auth_user_id null) cuyo
@@ -3339,6 +3352,14 @@ export async function dbUpdateStudioAvatar(avatarId: string | null) {
 }
 
 export async function dbDeleteInstructor(id: string) {
-  const { error } = await supabase.from('instructores').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteInstructor]', error);
+  try {
+    const res = await fetch('/api/equipo', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) reportDbError('[dbDeleteInstructor]', await res.json().catch(() => ({ status: res.status })));
+  } catch (e) {
+    reportDbError('[dbDeleteInstructor]', e);
+  }
 }
