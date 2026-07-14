@@ -6,6 +6,7 @@ import {
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
   dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
+  dbFetchDependencySnapshots,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
@@ -41,6 +42,7 @@ import type {
   Socio,
   CampoPersonalizado,
   PlantillaEmail,
+  InstructorDependencySnapshot,
   AceptacionContrato,
   Suscripcion,
   Sesion,
@@ -366,6 +368,10 @@ interface StudioContextValue {
   plantillasEmail: PlantillaEmail[];
   upsertPlantillaEmail: (tipo: PlantillaEmail['tipo'], changes: { asunto?: string | null; intro?: string | null; activa?: boolean }) => void;
 
+  // Riesgo de concentración por instructor
+  dependencySnapshots: InstructorDependencySnapshot[];
+  recalcularDependencia: () => Promise<boolean>;
+
   // Instructores (mutable)
   addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>) => void;
   updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => void;
@@ -443,6 +449,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [tiposClase, setTiposClase] = useState<TipoClase[]>([]);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
+  const [dependencySnapshots, setDependencySnapshots] = useState<InstructorDependencySnapshot[]>([]);
   const [instructores, setInstructores] = useState<Instructor[]>([]);
   const [spots, setSpots] = useState<Spot[]>([]);
 
@@ -636,6 +643,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // config + fichas), se cargan aparte sin bloquear el primer pintado.
       dbFetchCamposPersonalizados().then(setCamposPersonalizados).catch(() => {});
       dbFetchPlantillasEmail().then(setPlantillasEmail).catch(() => {});
+      dbFetchDependencySnapshots().then(setDependencySnapshots).catch(() => {});
 
       // 2ª ola (Fase C): historial/logs. No bloquea el primer pintado; estas
       // vistas se rellenan un instante después. Ninguna lógica de negocio las
@@ -805,6 +813,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return [...rest, merged];
     });
     dbUpsertPlantillaEmail(merged);
+  }
+
+  // ── Riesgo de concentración por instructor ──────────────────────────────────
+
+  async function recalcularDependencia(): Promise<boolean> {
+    try {
+      const res = await fetch('/api/instructors/dependency_risk/recalcular', {
+        method: 'POST',
+        headers: { ...(await authHeader()) },
+      });
+      if (!res.ok) return false;
+      const fresh = await dbFetchDependencySnapshots();
+      setDependencySnapshots(fresh);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // ── Instructores ──────────────────────────────────────────────────────────────
@@ -2434,6 +2459,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     deleteCampoPersonalizado,
     plantillasEmail,
     upsertPlantillaEmail,
+    dependencySnapshots,
+    recalcularDependencia,
     addInstructor,
     updateInstructor,
     deleteInstructor,

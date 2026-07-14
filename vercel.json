@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/revisiones-salud",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/dependency-risk",
+      "schedule": "0 4 * * 1"
     }
   ]
 }
