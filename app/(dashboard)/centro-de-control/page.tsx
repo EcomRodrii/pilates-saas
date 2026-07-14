@@ -13,7 +13,7 @@ import { SpecialistCard } from '@/components/decision/specialist-card';
 import { ActivityList } from '@/components/decision/activity-list';
 import { QuickActions } from '@/components/decision/quick-actions';
 import { EmptyState } from '@/components/decision/empty-state';
-import { RiesgoCartera } from '@/components/centro-de-control/riesgo-cartera';
+import { EspecialistaCartera } from '@/components/centro-de-control/especialista-cartera';
 
 // Centro de Control — el Home basado en decisiones (Bible doc 4). Orden fijo,
 // nunca cambia (doc 5 §17): Resumen Ejecutivo → Prioridades → Mientras
@@ -22,7 +22,8 @@ import { RiesgoCartera } from '@/components/centro-de-control/riesgo-cartera';
 // servidor — esta página solo lo presenta.
 export default function CentroDeControlPage() {
   const { data, loading, error, aprobar, rechazar, analizarAhora, recargar } = useDecisiones();
-  const { socios, studio } = useStudio();
+  const { socios, studio, dependencySnapshots } = useStudio();
+  const hayCartera = dependencySnapshots.some(s => s.alumnasTotal > 0);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [analizando, setAnalizando] = useState(false);
 
@@ -147,18 +148,17 @@ export default function CentroDeControlPage() {
         </>
       )}
 
-      {data.porEspecialista.length > 0 && (
+      {(data.porEspecialista.length > 0 || hayCartera) && (
         <div className="flex flex-col gap-3">
           <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
             Mi Equipo
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {data.porEspecialista.map(pe => <SpecialistCard key={pe.especialista} data={pe} />)}
+            <EspecialistaCartera />
           </div>
         </div>
       )}
-
-      <RiesgoCartera />
 
       <ActivityList items={data.actividad} />
 
