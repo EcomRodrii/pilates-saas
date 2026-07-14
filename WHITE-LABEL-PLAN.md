@@ -132,11 +132,28 @@ server-side de tema, y migrar `reservar/[slug]` fuera de colores hardcodeados
   `db push` por el flujo habitual) y comprobar en el navegador un tema custom en
   portal/reservas + la marca del estudio en el panel.
 
-### Fase 3 — Editor white-label + preview en vivo
-- Evolucionar `components/layout/appearance-panel.tsx`: split-screen con preview
-  en vivo (iframe del portal con tema draft), color pickers con validación de
-  contraste, selector fuente/radius, upload logo+favicon con validación
-  tamaño/formato, "restaurar por defecto", borrador vs publicar.
+### Fase 3 — Editor white-label + preview en vivo ✅ CÓDIGO COMPLETO (2026-07-14)
+- [x] API: `app/api/theme/route.ts` (GET publicado/`?draft`, PUT guardar borrador
+      owner) + `app/api/theme/publish/route.ts` (POST publicar, gate WCAG server).
+      Helpers cliente en `lib/api-client.ts` (fetch/guardar/publicar).
+- [x] `components/theme/theme-preview.tsx`: preview EN VIVO (UI representativa del
+      portal con `themeToCssVars`, se actualiza al instante — sin iframe).
+- [x] `components/theme/theme-editor.tsx`: split-screen (controles | preview).
+      Color pickers (nativo + hex) con aviso de contraste WCAG en vivo; selector
+      de fuente; segmented de radius; upload logo+favicon con validación
+      tamaño/formato; "Restaurar"; **Guardar borrador vs Publicar** (publicar
+      deshabilitado si el contraste no cumple).
+- [x] `lib/portal-storage.ts`: `subirFaviconEstudio`/`eliminar` + `validarImagenMarca`
+      (tamaño/formato) aplicado también al logo (antes sin validación).
+- [x] Página `app/(dashboard)/configuracion/apariencia/page.tsx` (owner-gated por
+      el layout). Enlace desde `appearance-panel.tsx` (que ya solo tiene el toggle
+      dark + link al editor; preset personal eliminado).
+- [x] Verificado: typecheck + lint + suite 350 verde; boundaries client/server OK.
+- ⚠️ Runtime/visual NO verificado: sin creds DB en disco + inestabilidad de
+      Turbopack dev en `/` (bug RSC-manifest, ajeno al theming, por doble lockfile
+      workspace-root). Verificar vía build de Vercel (PR preview) o local con DB.
+- Deferido: favicon/themeColor del portal (convertir su metadata a
+  generateMetadata) — Fase 3.1 menor.
 
 ### v2 (separado) — Fase 4: layout configurable
 - `dnd-kit`, refactor de `dashboard/page.tsx` a registro de secciones data-driven,

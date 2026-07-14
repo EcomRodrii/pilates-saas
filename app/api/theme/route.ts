@@ -1,14 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getThemePublicado } from '@/lib/theme-data';
+import { getThemePublicado, getThemeBorrador, guardarBorradorTheme } from '@/lib/theme-data';
+import { themeDraftSchema } from '@/lib/theme-schema';
 
-// Tema PUBLICADO del estudio del staff autenticado. Lo usa el panel para pintar
-// la marca del estudio (--brand*). El modo claro/oscuro sigue siendo preferencia
-// por-usuario (localStorage), no viene de aquí.
-// (Fase 3 añadirá aquí PUT para guardar borrador y POST para publicar.)
+// GET /api/theme            → tema PUBLICADO del estudio del staff (marca del panel).
+// GET /api/theme?draft=1    → tema BORRADOR (editor + preview en vivo).
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  const theme = await getThemePublicado(sesion.studioId);
+  const draft = req.nextUrl.searchParams.get('draft') === '1';
+  const theme = draft
+    ? await getThemeBorrador(sesion.studioId)
+    : await getThemePublicado(sesion.studioId);
   return NextResponse.json(theme);
+}
+
+// PUT /api/theme → guarda (fusiona) un parche parcial en el BORRADOR. Solo
+// PROPIETARIO. No afecta a lo publicado.
+export async function PUT(req: NextRequest) {
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (sesion.rol !== 'PROPIETARIO')
+    return NextResponse.json({ error: 'Solo el propietario puede editar la marca' }, { status: 403 });
+
+  const body = await req.json().catch(() => null);
+  const parsed = themeDraftSchema.safeParse(body);
+  if (!parsed.success)
+    return NextResponse.json({ error: 'Tema inválido', detalles: parsed.error.issues }, { status: 400 });
+
+  try {
+    const borrador = await guardarBorradorTheme(sesion.studioId, parsed.data);
+    return NextResponse.json(borrador);
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+  }
 }
