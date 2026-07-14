@@ -13,6 +13,7 @@ import { SpecialistCard } from '@/components/decision/specialist-card';
 import { ActivityList } from '@/components/decision/activity-list';
 import { QuickActions } from '@/components/decision/quick-actions';
 import { EmptyState } from '@/components/decision/empty-state';
+import { RiesgoCartera } from '@/components/centro-de-control/riesgo-cartera';
 
 // Centro de Control — el Home basado en decisiones (Bible doc 4). Orden fijo,
 // nunca cambia (doc 5 §17): Resumen Ejecutivo → Prioridades → Mientras
@@ -156,6 +157,8 @@ export default function CentroDeControlPage() {
           </div>
         </div>
       )}
+
+      <RiesgoCartera />
 
       <ActivityList items={data.actividad} />
 
