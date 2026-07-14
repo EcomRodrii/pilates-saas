@@ -80,6 +80,26 @@ cada agregador, que da acceso a su API privada. En la app, el botón
 el equipo gestione el alta. No hay variables de entorno que configurar hasta
 tener el acuerdo de partner.
 
+## Integraciones de plataforma (WhatsApp, PayPal, Zoom, Kisi)
+
+Secretos por **ENV del operador** (una app por plataforma, como Stripe/Google).
+El estudio las **Activa/Desactiva** en Configuración → Integraciones; el botón
+**Probar conexión** valida las credenciales. Mientras falte la ENV, la tarjeta
+muestra "Falta configurar en el servidor". El cliente/lib está listo
+(`lib/whatsapp.ts`, `lib/paypal.ts`, `lib/zoom.ts`, `lib/kisi.ts`); el cableado
+profundo (PayPal en el checkout de socias, Zoom por clase online, WhatsApp como
+canal de automatizaciones) es un paso posterior.
+
+| Integración | Variables (servidor) | Dónde obtenerlas |
+|---|---|---|
+| **WhatsApp** | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID` (opc. `WHATSAPP_API_VERSION`) | Meta for Developers → WhatsApp Cloud API (token permanente + phone number id) |
+| **PayPal** | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` (opc. `PAYPAL_ENV=live`) | developer.paypal.com → My Apps & Credentials |
+| **Zoom** | `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` | Zoom Marketplace → app **Server-to-Server OAuth** |
+| **Kisi** | `KISI_API_KEY` | Kisi dashboard → API keys |
+
+Todas son claves de **servidor** (sin `NEXT_PUBLIC_`), así que se leen en runtime
+(no hace falta redeploy para que surtan efecto, salvo que Vercel cachee).
+
 ## Otras integraciones / jobs
 
 - **Supabase**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,

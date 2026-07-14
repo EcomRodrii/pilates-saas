@@ -17,7 +17,7 @@ import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, PayPalIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
 import { useAuth } from '@/lib/auth-context';
 import { subirFotoClase, eliminarFotoClase, subirLogoEstudio, eliminarLogoEstudio } from '@/lib/portal-storage';
-import { authHeader } from '@/lib/api-client';
+import { authHeader, fetchIntegracionesEstado, probarIntegracion, type IntegracionesEstado } from '@/lib/api-client';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -1120,6 +1120,10 @@ type CatalogoIntegracion = {
   accion?: 'exportar';
   categoria?: string;
   proximamente?: boolean;
+  // Integración de plataforma: el operador pone los secretos por ENV y el
+  // estudio la activa/desactiva. El estado real se consulta a /api/integrations/estado.
+  plataforma?: boolean;
+  envVars?: string[];
 };
 
 const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
@@ -1165,7 +1169,8 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     bg: '#F5F5F5',
     categoria: 'Mensajería',
     campos: [],
-    proximamente: true,
+    plataforma: true,
+    envVars: ['WHATSAPP_TOKEN', 'WHATSAPP_PHONE_ID'],
   },
   {
     tipo: 'EXCEL',
@@ -1186,7 +1191,8 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     bg: '#F5F5F5',
     categoria: 'Pagos',
     campos: [],
-    proximamente: true,
+    plataforma: true,
+    envVars: ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET'],
   },
   {
     tipo: 'CLASSPASS',
@@ -1252,7 +1258,8 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     bg: '#F5F5F5',
     categoria: 'Contenido digital',
     campos: [],
-    proximamente: true,
+    plataforma: true,
+    envVars: ['ZOOM_ACCOUNT_ID', 'ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET'],
   },
   {
     tipo: 'KISI',
@@ -1263,7 +1270,8 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     bg: '#EEF0FE',
     categoria: 'Control de acceso',
     campos: [],
-    proximamente: true,
+    plataforma: true,
+    envVars: ['KISI_API_KEY'],
   },
 ];
 
@@ -1292,6 +1300,24 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
   const { studio, updateStudio, integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos } = useStudio();
   const [editando, setEditando] = useState<TipoIntegracion | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  // Integraciones de plataforma: qué tiene ENV configurada en el servidor.
+  const [estadoPlataforma, setEstadoPlataforma] = useState<IntegracionesEstado | null>(null);
+  const [probando, setProbando] = useState<TipoIntegracion | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    fetchIntegracionesEstado().then((e) => { if (vivo) setEstadoPlataforma(e); });
+    return () => { vivo = false; };
+  }, []);
+  const activarPlataforma = (cat: CatalogoIntegracion, activar: boolean) => {
+    upsertIntegracion(cat.tipo, activar, {});
+    showToast(`${cat.nombre} ${activar ? 'activado' : 'desactivado'}`);
+  };
+  const probarPlataforma = async (cat: CatalogoIntegracion) => {
+    setProbando(cat.tipo);
+    const r = await probarIntegracion(cat.tipo);
+    setProbando(null);
+    showToast(r.ok ? `Conexión con ${cat.nombre} correcta ✓` : `Error: ${r.error ?? 'no se pudo conectar'}`);
+  };
 
   const getIntegracion = (tipo: TipoIntegracion) => integraciones.find(i => i.tipo === tipo) ?? null;
 
@@ -1579,6 +1605,24 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                     <p className="text-[11px] text-muted-foreground">
                       Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
                     </p>
+                  )
+                ) : cat.plataforma ? (
+                  estadoPlataforma && !estadoPlataforma[cat.tipo as keyof IntegracionesEstado] ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      Falta configurar en el servidor:{' '}
+                      {cat.envVars?.map((v, i) => (
+                        <span key={v}>{i > 0 ? ', ' : ''}<code className="font-mono bg-muted px-1 rounded">{v}</code></span>
+                      ))}
+                    </p>
+                  ) : conectado ? (
+                    <>
+                      <button onClick={() => probarPlataforma(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
+                        {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
+                      </button>
+                      <button onClick={() => activarPlataforma(cat, false)} className={btnSecondary}>Desactivar</button>
+                    </>
+                  ) : (
+                    <button onClick={() => activarPlataforma(cat, true)} className={btnPrimary}>Activar</button>
                   )
                 ) : (
                   <>
