@@ -161,63 +161,10 @@ create table if not exists reservas (
   creado_en timestamptz default now()
 );
 
--- Reserva atómica: decide CONFIRMADA vs LISTA_ESPERA e inserta en una sola
--- transacción, bloqueando la fila de la sesión (`for update`) mientras dura.
--- Antes, la decisión se tomaba en JS leyendo un snapshot de `reservas` y
--- luego insertando en un segundo paso — dos reservas concurrentes a la
--- última plaza podían leer "hay hueco" las dos y sobrevender el aforo. Con
--- el lock, la segunda transacción espera a que la primera confirme antes de
--- contar plazas, así que ve el cupo ya actualizado.
-create or replace function crear_reserva_atomica(
-  p_id text,
-  p_studio_id text,
-  p_sesion_id text,
-  p_socio_id text,
-  p_spot_id text default null
-) returns reservas
-language plpgsql
-as $$
-declare
-  v_aforo int;
-  v_confirmadas int;
-  v_en_espera int;
-  v_estado text;
-  v_posicion int;
-  v_row reservas;
-begin
-  select aforo_maximo into v_aforo
-  from sesiones
-  where id = p_sesion_id and studio_id = p_studio_id
-  for update;
-
-  if v_aforo is null then
-    raise exception 'SESION_NO_ENCONTRADA';
-  end if;
-
-  select count(*) into v_confirmadas
-  from reservas
-  where sesion_id = p_sesion_id and estado in ('CONFIRMADA', 'ASISTIDA');
-
-  if v_confirmadas < v_aforo then
-    v_estado := 'CONFIRMADA';
-    v_posicion := null;
-  else
-    select count(*) into v_en_espera
-    from reservas
-    where sesion_id = p_sesion_id and estado = 'LISTA_ESPERA';
-    v_estado := 'LISTA_ESPERA';
-    v_posicion := v_en_espera + 1;
-  end if;
-
-  insert into reservas (id, studio_id, sesion_id, socio_id, spot_id, estado, posicion_espera)
-  values (p_id, p_studio_id, p_sesion_id, p_socio_id, p_spot_id, v_estado, v_posicion)
-  returning * into v_row;
-
-  return v_row;
-end;
-$$;
-
-grant execute on function crear_reserva_atomica(text, text, text, text, text) to authenticated, anon, service_role;
+-- La reserva atómica de aforo (CONFIRMADA vs LISTA_ESPERA con `for update`) vive
+-- en `reservar_plaza` (más abajo), que es la única que usa el código. La antigua
+-- `crear_reserva_atomica` quedó superada y sin callers; se elimina en
+-- 0021_bono_atomico.sql.
 
 -- ─── Recibos ──────────────────────────────────────────────────────────────────
 create table if not exists recibos (
@@ -1316,6 +1263,66 @@ $$;
 
 grant execute on function reservar_plaza(text, text, text, text) to authenticated, service_role;
 grant execute on function cancelar_reserva_plaza(text, text, text) to authenticated, service_role;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Consumo/devolución ATÓMICOS del saldo de bono (sesiones_restantes).
+-- Espejo de 0021_bono_atomico.sql. Mismo patrón que reservar_plaza y
+-- ajustar_creditos: el decremento/incremento se hace en la BD con UPDATE
+-- guardado + RETURNING, no leyendo-calculando-escribiendo en el cliente
+-- (evita el lost-update entre reserva y promoción de lista de espera de la
+-- misma socia, y que un saldo en 0 regenere el recibo de renovación en bucle).
+-- ═══════════════════════════════════════════════════════════════════
+create or replace function consumir_sesion_bono(
+  p_studio_id text, p_suscripcion_id text
+) returns table(consumido boolean, restantes int, agotado boolean)
+language plpgsql security definer as $$
+declare
+  v_rest int;
+begin
+  if auth.uid() is not null and p_studio_id is distinct from current_studio_id() then
+    raise exception 'STUDIO_MISMATCH';
+  end if;
+
+  update suscripciones
+    set sesiones_restantes = sesiones_restantes - 1
+    where id = p_suscripcion_id and studio_id = p_studio_id
+      and sesiones_restantes is not null and sesiones_restantes > 0
+    returning sesiones_restantes into v_rest;
+
+  if not found then
+    return query select false, null::int, false;
+  else
+    return query select true, v_rest, (v_rest = 0);
+  end if;
+end;
+$$;
+
+create or replace function devolver_sesion_bono(
+  p_studio_id text, p_suscripcion_id text, p_tope int default null
+) returns int
+language plpgsql security definer as $$
+declare
+  v_rest int;
+begin
+  if auth.uid() is not null and p_studio_id is distinct from current_studio_id() then
+    raise exception 'STUDIO_MISMATCH';
+  end if;
+
+  update suscripciones
+    set sesiones_restantes = case
+      when p_tope is null then sesiones_restantes + 1
+      else least(p_tope, sesiones_restantes + 1)
+    end
+    where id = p_suscripcion_id and studio_id = p_studio_id
+      and sesiones_restantes is not null
+    returning sesiones_restantes into v_rest;
+
+  return v_rest;
+end;
+$$;
+
+grant execute on function consumir_sesion_bono(text, text) to authenticated, service_role;
+grant execute on function devolver_sesion_bono(text, text, int) to authenticated, service_role;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- P0-20 · Ajuste ATÓMICO del saldo de créditos (gamificación).

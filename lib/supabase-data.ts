@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
-import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
+import { bonoConsumible, tieneEntitlementActivo } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/reward-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
@@ -1338,10 +1338,19 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
   const planes = (planRows ?? []).map(mapPlanTarifa);
   const consumible = bonoConsumible(socioId, suscripciones, planes);
   if (!consumible) return false;
-  const { suscripcion: sus, plan, sesionesRestantes } = consumible;
-  const { nuevasRestantes, agotado } = calcularConsumoBono(sesionesRestantes);
-  await admin.from('suscripciones').update({ sesiones_restantes: nuevasRestantes }).eq('id', sus.id);
-  if (agotado) {
+  const { suscripcion: sus, plan } = consumible;
+
+  // Decremento ATÓMICO y guardado en la BD (no leer-calcular-escribir en JS):
+  // evita el lost-update entre reserva y promoción de lista de espera de la
+  // misma socia. `agotado` (transición 1 → 0) viene autoritativo del RPC, así
+  // que el recibo de renovación se genera una sola vez, no en cada intento.
+  const { data, error } = await admin.rpc('consumir_sesion_bono', {
+    p_studio_id: studioId, p_suscripcion_id: sus.id,
+  });
+  if (error) { reportDbError('[consumirBonoServidor]', error); return false; }
+  const rpc = (Array.isArray(data) ? data[0] : data) as { consumido: boolean; agotado: boolean } | null;
+  if (!rpc?.consumido) return false;
+  if (rpc.agotado) {
     const hoy = new Date().toISOString().slice(0, 10);
     await admin.from('recibos').insert({
       id: `rec-renov-${uid()}`, studio_id: studioId, socio_id: socioId, suscripcion_id: sus.id,
@@ -1359,9 +1368,12 @@ async function devolverBonoServidor(admin: SupabaseClient, studioId: string, soc
   ]);
   const consumible = bonoConsumible(socioId, (susRows ?? []).map(mapSuscripcion), (planRows ?? []).map(mapPlanTarifa));
   if (!consumible) return;
-  const { suscripcion: sus, plan, sesionesRestantes } = consumible;
-  const nuevas = calcularDevolucionBono(sesionesRestantes, plan.sesiones);
-  await admin.from('suscripciones').update({ sesiones_restantes: nuevas }).eq('id', sus.id);
+  const { suscripcion: sus, plan } = consumible;
+  // Incremento ATÓMICO y guardado (tope = total del plan) en la BD.
+  const { error } = await admin.rpc('devolver_sesion_bono', {
+    p_studio_id: studioId, p_suscripcion_id: sus.id, p_tope: plan.sesiones ?? null,
+  });
+  if (error) reportDbError('[devolverBonoServidor]', error);
 }
 
 // Reúne los datos de una clase para un email transaccional (nombre de clase,
@@ -2694,6 +2706,33 @@ export async function dbCancelarReservaPlaza(
   if (error) { reportDbError('[dbCancelarReservaPlaza]', error); return { error: error.message }; }
   const row = Array.isArray(data) ? data[0] : data;
   return { eraConfirmada: !!row?.era_confirmada, promovidaSocioId: row?.promovida_socio_id ?? null };
+}
+
+// Consumo/devolución ATÓMICOS del bono desde el panel. La UI actualiza el saldo
+// de forma optimista; la mutación real en la BD pasa por estas RPC guardadas
+// para que dos operaciones concurrentes de la misma socia no se pisen (ni el
+// panel pise el decremento del servidor). Devuelve `agotado` para que el panel
+// sepa si generar el recibo de renovación.
+export async function dbConsumirSesionBono(
+  studioId: string, suscripcionId: string,
+): Promise<{ consumido: boolean; restantes: number | null; agotado: boolean } | null> {
+  const { data, error } = await supabase.rpc('consumir_sesion_bono', {
+    p_studio_id: studioId, p_suscripcion_id: suscripcionId,
+  });
+  if (error) { reportDbError('[dbConsumirSesionBono]', error); return null; }
+  const row = Array.isArray(data) ? data[0] : data;
+  return row
+    ? { consumido: !!row.consumido, restantes: row.restantes ?? null, agotado: !!row.agotado }
+    : null;
+}
+
+export async function dbDevolverSesionBono(
+  studioId: string, suscripcionId: string, tope: number | null,
+) {
+  const { error } = await supabase.rpc('devolver_sesion_bono', {
+    p_studio_id: studioId, p_suscripcion_id: suscripcionId, p_tope: tope,
+  });
+  if (error) reportDbError('[dbDevolverSesionBono]', error);
 }
 
 export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
