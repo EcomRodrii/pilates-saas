@@ -43,3 +43,23 @@ export async function eliminarFotoClase(tipoClaseId: string): Promise<{ ok: true
   if (error) return { error: error.message };
   return { ok: true };
 }
+
+// Logo del estudio (marca) — mismo bucket público, prefijo propio. Se muestra
+// en el portal público de reservas cuando existe.
+export async function subirLogoEstudio(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const path = `logo-${studioId}`;
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+export async function eliminarLogoEstudio(studioId: string): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([`logo-${studioId}`]);
+  if (error) return { error: error.message };
+  return { ok: true };
+}

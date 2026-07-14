@@ -7,6 +7,7 @@ import type { LeadStage } from '@/lib/types';
 import { authHeader, enviarEmailCampana } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
+import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -212,7 +213,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion,
     addNota, deleteNota,
     notasProgreso, addNotaProgreso,
-    condicionesSalud,
+    condicionesSalud, camposPersonalizados,
   } = useStudio();
 
   const semaforoSocio = useMemo(
@@ -250,7 +251,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   } | null>(null);
   const [msgForm, setMsgForm] = useState({ asunto: '', cuerpo: '' });
   const [enviandoMsg, setEnviandoMsg] = useState(false);
-  const [editForm, setEditForm] = useState({ nombre: '', apellidos: '', email: '', telefono: '', nif: '' });
+  const [editForm, setEditForm] = useState<{
+    nombre: string; apellidos: string; email: string; telefono: string; nif: string;
+    camposExtra: Record<string, string | number | boolean | null>;
+  }>({ nombre: '', apellidos: '', email: '', telefono: '', nif: '', camposExtra: {} });
   const [reciboForm, setReciboForm] = useState({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()) });
 
   // ── Fake communications log (stored locally per socia) ─────────────────────
@@ -376,6 +380,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       email: socio!.email,
       telefono: socio!.telefono ?? '',
       nif: socio!.nif ?? '',
+      camposExtra: socio!.camposExtra ?? {},
     });
     setShowEdit(true);
   }
@@ -387,6 +392,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       email: editForm.email.trim(),
       telefono: editForm.telefono || null,
       nif: editForm.nif || null,
+      camposExtra: editForm.camposExtra,
     });
     setShowEdit(false);
     setToast('Socia actualizada');
@@ -702,6 +708,27 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           );
                         })}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Campos personalizados (solo lectura) */}
+                  {camposPersonalizados.some(c => c.activo) && (
+                    <div className="border border-border rounded-xl p-5">
+                      <SectionTitle>Datos adicionales</SectionTitle>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mt-4">
+                        {camposPersonalizados.filter(c => c.activo).sort((a, b) => a.orden - b.orden).map(c => {
+                          const v = socio.camposExtra?.[c.id];
+                          const texto = v == null || v === ''
+                            ? '—'
+                            : c.tipo === 'booleano' ? (v ? 'Sí' : 'No') : String(v);
+                          return (
+                            <div key={c.id}>
+                              <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{c.etiqueta}</dt>
+                              <dd className="text-sm font-medium text-foreground mt-0.5">{texto}</dd>
+                            </div>
+                          );
+                        })}
+                      </dl>
                     </div>
                   )}
 
@@ -1354,6 +1381,16 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <input className={inputCls} value={editForm.nif} onChange={e => setEditForm(f => ({ ...f, nif: e.target.value }))} />
               </FF>
             </div>
+            {camposPersonalizados.some(c => c.activo) && (
+              <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+                <CamposExtraFields
+                  campos={camposPersonalizados}
+                  values={editForm.camposExtra}
+                  onChange={(cid, v) => setEditForm(f => ({ ...f, camposExtra: { ...f.camposExtra, [cid]: v } }))}
+                  inputClassName={inputCls}
+                />
+              </div>
+            )}
           </div>
           <div className="flex gap-3 mt-6">
             <button onClick={() => setShowEdit(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted">

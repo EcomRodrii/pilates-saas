@@ -7,12 +7,14 @@ interface Props {
   socioNombre: string;
   planNombre?: string;
   estudioNombre?: string;
+  intro?: string; // texto de introducción personalizado por el estudio
 }
 
 export function BienvenidaEmail({
   socioNombre,
   planNombre,
   estudioNombre = 'Tentare',
+  intro,
 }: Props) {
   return (
     <Html lang="es">
@@ -32,7 +34,7 @@ export function BienvenidaEmail({
 
           <Section style={{ padding: '28px 32px' }}>
             <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.6, margin: '0 0 20px' }}>
-              Hola <strong>{socioNombre}</strong>, estamos encantadas de tenerte en {estudioNombre}.
+              {intro ?? <>Hola <strong>{socioNombre}</strong>, estamos encantadas de tenerte en {estudioNombre}.</>}
             </Text>
 
             {planNombre && (

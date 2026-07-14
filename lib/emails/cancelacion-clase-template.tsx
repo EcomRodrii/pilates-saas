@@ -13,6 +13,7 @@ interface Props {
   estudioNombre?: string;
   // Si la reserva ocupaba plaza y se le devuelve la sesión al bono, se indica.
   bonoDevuelto?: boolean;
+  intro?: string;
 }
 
 export function CancelacionClaseEmail({
@@ -24,6 +25,7 @@ export function CancelacionClaseEmail({
   instructor,
   estudioNombre = 'Tentare',
   bonoDevuelto = false,
+  intro,
 }: Props) {
   return (
     <Html lang="es">
@@ -43,8 +45,8 @@ export function CancelacionClaseEmail({
 
           <Section style={{ padding: '28px 32px' }}>
             <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 24px' }}>
-              Hola <strong>{socioNombre}</strong>, lamentamos avisarte de que esta clase ha sido
-              <strong> cancelada</strong>. No hace falta que te presentes.
+              {intro ?? <>Hola <strong>{socioNombre}</strong>, lamentamos avisarte de que esta clase ha sido
+              <strong> cancelada</strong>. No hace falta que te presentes.</>}
             </Text>
 
             <Section style={{ backgroundColor: '#F9FAFB', borderRadius: 10, padding: '20px 24px', marginBottom: 20 }}>

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, Pencil, Trash2, Check, AlertTriangle, RotateCcw, FileSpreadsheet, ExternalLink, Ticket, Dumbbell, HeartPulse, Activity, Users2, KeyRound, BellRing, Monitor, Calendar as CalendarLinkIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import type { PlanTarifa, Sala, TipoClase, TipoIntegracion, Studio } from '@/lib/types';
+import type { PlanTarifa, Sala, TipoClase, TipoIntegracion, Studio, CampoPersonalizado, PlantillaEmail, TipoPlantillaEmail } from '@/lib/types';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { TabRecompensas } from '@/components/configuracion/tab-recompensas';
 import { TabLogros } from '@/components/configuracion/tab-logros';
@@ -16,7 +16,7 @@ import { TabBackups } from '@/components/configuracion/tab-backups';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, PayPalIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
 import { useAuth } from '@/lib/auth-context';
-import { subirFotoClase, eliminarFotoClase } from '@/lib/portal-storage';
+import { subirFotoClase, eliminarFotoClase, subirLogoEstudio, eliminarLogoEstudio } from '@/lib/portal-storage';
 import { authHeader } from '@/lib/api-client';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ function EstadoBadge({ activo }: { activo: boolean }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'logros' | 'niveles' | 'retos' | 'integraciones' | 'estudio' | 'backups' | 'perfil';
+type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'logros' | 'niveles' | 'retos' | 'integraciones' | 'estudio' | 'campos' | 'plantillas' | 'backups' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
@@ -226,6 +226,8 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'retos',       label: 'Retos' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
+  { id: 'campos',      label: 'Campos de socia' },
+  { id: 'plantillas',  label: 'Emails' },
   { id: 'backups',     label: 'Copias de seguridad' },
   { id: 'perfil',      label: 'Mi perfil' },
 ];
@@ -286,6 +288,8 @@ export default function ConfiguracionPage() {
       {activeTab === 'backups'     && <TabBackups      showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
+      {activeTab === 'campos'      && <TabCamposPersonalizados showToast={showToast} />}
+      {activeTab === 'plantillas'  && <TabPlantillasEmail showToast={showToast} />}
       {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
@@ -1684,6 +1688,264 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
   };
 }
 
+// ─── Plantillas de email transaccional ───────────────────────────────────────
+
+const PLANTILLAS_META: {
+  tipo: TipoPlantillaEmail; label: string; descripcion: string;
+  asuntoDefault: string; introDefault: string; variables: string[];
+}[] = [
+  {
+    tipo: 'bienvenida', label: 'Bienvenida', descripcion: 'Al dar de alta a una socia.',
+    asuntoDefault: '¡Bienvenida a {estudio}!',
+    introDefault: 'Hola {nombre}, estamos encantadas de tenerte en {estudio}.',
+    variables: ['{nombre}', '{estudio}'],
+  },
+  {
+    tipo: 'reserva', label: 'Reserva confirmada', descripcion: 'Cuando una socia reserva una clase.',
+    asuntoDefault: 'Reserva confirmada — {clase}',
+    introDefault: 'Hola {nombre}, tu plaza está reservada.',
+    variables: ['{nombre}', '{clase}'],
+  },
+  {
+    tipo: 'recordatorio', label: 'Recordatorio de clase', descripcion: 'Aviso antes de la clase.',
+    asuntoDefault: 'Recordatorio — {clase}',
+    introDefault: 'Hola {nombre}, te esperamos en tu próxima clase. Aquí tienes los detalles.',
+    variables: ['{nombre}', '{clase}'],
+  },
+  {
+    tipo: 'cancelacion', label: 'Clase cancelada', descripcion: 'Cuando el estudio cancela una clase.',
+    asuntoDefault: 'Clase cancelada — {clase}',
+    introDefault: 'Hola {nombre}, lamentamos avisarte de que esta clase ha sido cancelada. No hace falta que te presentes.',
+    variables: ['{nombre}', '{clase}'],
+  },
+  {
+    tipo: 'promocion', label: 'Plaza liberada (lista de espera)', descripcion: 'Al ascender a una socia de la lista de espera.',
+    asuntoDefault: 'Se ha liberado tu plaza — {clase}',
+    introDefault: 'Hola {nombre}, estabas en lista de espera y ha quedado una plaza libre.',
+    variables: ['{nombre}', '{clase}'],
+  },
+];
+
+function PlantillaCard({
+  meta, plantilla, onSave,
+}: {
+  meta: (typeof PLANTILLAS_META)[number];
+  plantilla: PlantillaEmail | undefined;
+  onSave: (changes: { asunto?: string | null; intro?: string | null; activa?: boolean }) => void;
+}) {
+  const [asunto, setAsunto] = useState(plantilla?.asunto ?? '');
+  const [intro, setIntro] = useState(plantilla?.intro ?? '');
+  const activa = plantilla?.activa ?? true;
+
+  // Re-sincroniza si cambian los datos cargados (p. ej. tras la carga diferida).
+  useEffect(() => { setAsunto(plantilla?.asunto ?? ''); setIntro(plantilla?.intro ?? ''); }, [plantilla?.asunto, plantilla?.intro]);
+
+  return (
+    <div className={cn(cardCls, 'p-6')}>
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h3 className="text-[14px] font-semibold text-foreground">{meta.label}</h3>
+          <p className="text-[12px] text-muted-foreground">{meta.descripcion}</p>
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer shrink-0" title="Personalización activa">
+          <span className="text-[11px] text-muted-foreground">{activa ? 'Personalizado' : 'Por defecto'}</span>
+          <Toggle on={activa} onChange={v => onSave({ activa: v })} />
+        </label>
+      </div>
+      <div className="space-y-4">
+        <Field label="Asunto">
+          <input className={inputCls} placeholder={meta.asuntoDefault}
+            value={asunto} onChange={e => setAsunto(e.target.value)} />
+        </Field>
+        <Field label="Texto de introducción">
+          <textarea className={cn(inputCls, 'resize-none')} rows={3} placeholder={meta.introDefault}
+            value={intro} onChange={e => setIntro(e.target.value)} />
+        </Field>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] text-muted-foreground">
+            Variables: {meta.variables.map(v => <code key={v} className="bg-muted rounded px-1 py-0.5 mx-0.5">{v}</code>)}
+            . Deja un campo vacío para usar el texto por defecto.
+          </p>
+          <button onClick={() => onSave({ asunto: asunto.trim() || null, intro: intro.trim() || null })} className={btnPrimary}>
+            <Check size={14} /> Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TabPlantillasEmail({ showToast }: { showToast: (m: string) => void }) {
+  const { plantillasEmail, upsertPlantillaEmail } = useStudio();
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <p className="text-[12px] text-muted-foreground">
+        Personaliza el asunto y el texto de introducción de los emails automáticos a tus socias.
+        El diseño (logo, cabecera y datos) se mantiene. Los emails de recibo/factura no se editan por su contenido fiscal.
+      </p>
+      {PLANTILLAS_META.map(meta => (
+        <PlantillaCard
+          key={meta.tipo}
+          meta={meta}
+          plantilla={plantillasEmail.find(p => p.tipo === meta.tipo)}
+          onSave={changes => { upsertPlantillaEmail(meta.tipo, changes); showToast('Plantilla guardada'); }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Campos personalizados de socia ──────────────────────────────────────────
+
+const TIPOS_CAMPO: { id: CampoPersonalizado['tipo']; label: string }[] = [
+  { id: 'texto',     label: 'Texto' },
+  { id: 'numero',    label: 'Número' },
+  { id: 'fecha',     label: 'Fecha' },
+  { id: 'booleano',  label: 'Sí / No' },
+  { id: 'seleccion', label: 'Lista de opciones' },
+];
+
+type CampoForm = { etiqueta: string; tipo: CampoPersonalizado['tipo']; opciones: string; requerido: boolean };
+const emptyCampoForm = (): CampoForm => ({ etiqueta: '', tipo: 'texto', opciones: '', requerido: false });
+
+function TabCamposPersonalizados({ showToast }: { showToast: (m: string) => void }) {
+  const { camposPersonalizados, addCampoPersonalizado, updateCampoPersonalizado, deleteCampoPersonalizado } = useStudio();
+  const [form, setForm] = useState<CampoForm>(emptyCampoForm());
+  const [editId, setEditId] = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+
+  const ordenados = [...camposPersonalizados].sort((a, b) => a.orden - b.orden);
+
+  function parseOpciones(s: string): string[] {
+    return s.split(',').map(o => o.trim()).filter(Boolean);
+  }
+
+  function guardar() {
+    const etiqueta = form.etiqueta.trim();
+    if (!etiqueta) { showToast('Ponle un nombre al campo'); return; }
+    const opciones = form.tipo === 'seleccion' ? parseOpciones(form.opciones) : [];
+    if (form.tipo === 'seleccion' && opciones.length === 0) { showToast('Añade al menos una opción'); return; }
+    if (editId) {
+      updateCampoPersonalizado(editId, { etiqueta, tipo: form.tipo, opciones, requerido: form.requerido });
+      showToast('Campo actualizado');
+    } else {
+      const orden = ordenados.length ? Math.max(...ordenados.map(c => c.orden)) + 1 : 0;
+      addCampoPersonalizado({ etiqueta, tipo: form.tipo, opciones, requerido: form.requerido, orden, activo: true });
+      showToast('Campo añadido');
+    }
+    setForm(emptyCampoForm());
+    setEditId(null);
+  }
+
+  function editar(c: CampoPersonalizado) {
+    setEditId(c.id);
+    setForm({ etiqueta: c.etiqueta, tipo: c.tipo, opciones: c.opciones.join(', '), requerido: c.requerido });
+  }
+
+  function mover(id: string, dir: -1 | 1) {
+    const i = ordenados.findIndex(c => c.id === id);
+    const j = i + dir;
+    if (j < 0 || j >= ordenados.length) return;
+    const a = ordenados[i], b = ordenados[j];
+    updateCampoPersonalizado(a.id, { orden: b.orden });
+    updateCampoPersonalizado(b.id, { orden: a.orden });
+  }
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">{editId ? 'Editar campo' : 'Nuevo campo'}</h3>
+        <p className="text-[12px] text-muted-foreground mb-4">
+          Datos propios que quieras recoger de cada socia (lesiones, objetivos, cómo nos conoció…).
+          Aparecen al dar de alta una socia y en su ficha.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Nombre del campo">
+            <input className={inputCls} placeholder="Ej. Lesiones o limitaciones"
+              value={form.etiqueta} onChange={e => setForm(f => ({ ...f, etiqueta: e.target.value }))} />
+          </Field>
+          <Field label="Tipo">
+            <select className={cn(inputCls, 'cursor-pointer')} value={form.tipo}
+              onChange={e => setForm(f => ({ ...f, tipo: e.target.value as CampoPersonalizado['tipo'] }))}>
+              {TIPOS_CAMPO.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </Field>
+          {form.tipo === 'seleccion' && (
+            <div className="sm:col-span-2">
+              <Field label="Opciones (separadas por comas)">
+                <input className={inputCls} placeholder="Instagram, Google, Recomendación, Otro"
+                  value={form.opciones} onChange={e => setForm(f => ({ ...f, opciones: e.target.value }))} />
+              </Field>
+            </div>
+          )}
+        </div>
+        <label className="flex items-center justify-between gap-4 cursor-pointer mt-4">
+          <span className="text-[13px] text-foreground">Obligatorio al dar de alta</span>
+          <Toggle on={form.requerido} onChange={v => setForm(f => ({ ...f, requerido: v }))} />
+        </label>
+        <div className="flex gap-2 mt-4">
+          <button onClick={guardar} className={btnPrimary}>
+            {editId ? <><Check size={14} /> Guardar cambios</> : <><Plus size={14} /> Añadir campo</>}
+          </button>
+          {editId && (
+            <button onClick={() => { setEditId(null); setForm(emptyCampoForm()); }} className={btnSecondary}>Cancelar</button>
+          )}
+        </div>
+      </div>
+
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-foreground mb-4">Campos ({ordenados.length})</h3>
+        {ordenados.length === 0 ? (
+          <p className="text-[13px] text-muted-foreground">Aún no has creado ningún campo personalizado.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {ordenados.map((c, i) => (
+              <li key={c.id} className="flex items-center gap-3 py-3">
+                <div className="flex flex-col gap-0.5">
+                  <button onClick={() => mover(c.id, -1)} disabled={i === 0}
+                    className="text-[11px] leading-none text-muted-foreground hover:text-foreground disabled:opacity-30">▲</button>
+                  <button onClick={() => mover(c.id, 1)} disabled={i === ordenados.length - 1}
+                    className="text-[11px] leading-none text-muted-foreground hover:text-foreground disabled:opacity-30">▼</button>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-foreground truncate">
+                    {c.etiqueta}
+                    {c.requerido && <span className="ml-1.5 text-[#DC2626]">*</span>}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {TIPOS_CAMPO.find(t => t.id === c.tipo)?.label}
+                    {c.tipo === 'seleccion' && c.opciones.length > 0 && ` · ${c.opciones.join(', ')}`}
+                  </p>
+                </div>
+                <label className="flex items-center gap-1.5 cursor-pointer shrink-0" title="Activo">
+                  <Toggle on={c.activo} onChange={v => updateCampoPersonalizado(c.id, { activo: v })} />
+                </label>
+                <button onClick={() => editar(c)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground shrink-0" title="Editar">
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => setConfirmDel(c.id)} className="p-1.5 rounded-lg hover:bg-muted text-[#DC2626] shrink-0" title="Eliminar">
+                  <Trash2 size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={confirmDel !== null}
+        onOpenChange={o => { if (!o) setConfirmDel(null); }}
+        title="Eliminar campo"
+        description="Se quitará de las altas y fichas. Los valores ya guardados en las socias no se muestran, pero no se borran."
+        onConfirm={() => {
+          if (confirmDel) { deleteCampoPersonalizado(confirmDel); showToast('Campo eliminado'); }
+          setConfirmDel(null);
+        }}
+      />
+    </div>
+  );
+}
+
 function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   const { resetDatosPilates, studioConfig, updateStudioConfig, studio, updateStudio } = useStudio();
   const [confirmReset, setConfirmReset] = useState(false);
@@ -1692,9 +1954,41 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   const [form, setForm] = useState<StudioForm>(() => studioToForm(studio));
   // Política de reservas/cancelaciones (C-2/C-4). Estado propio, tarjeta aparte.
   const [pol, setPol] = useState(() => studioToPolitica(studio));
+  // Marca (logo) e IVA — Tanda 1.
+  const [subiendoLogo, setSubiendoLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setForm(studioToForm(studio)); }, [studio]);
   useEffect(() => { setPol(studioToPolitica(studio)); }, [studio]);
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !studio) return;
+    if (!file.type.startsWith('image/')) { showToast('Elige un archivo de imagen'); return; }
+    if (file.size > 5 * 1024 * 1024) { showToast('La imagen no puede superar 5 MB'); return; }
+    setSubiendoLogo(true);
+    const result = await subirLogoEstudio(studio.id, file);
+    setSubiendoLogo(false);
+    if ('error' in result) { showToast(result.error); return; }
+    await updateStudio({ logoUrl: result.url });
+    showToast('Logo actualizado');
+  }
+
+  async function handleEliminarLogo() {
+    if (!studio) return;
+    setSubiendoLogo(true);
+    const result = await eliminarLogoEstudio(studio.id);
+    setSubiendoLogo(false);
+    if ('error' in result) { showToast(result.error); return; }
+    await updateStudio({ logoUrl: null });
+    showToast('Logo eliminado');
+  }
+
+  function guardarIva(tipo: number) {
+    updateStudio({ ivaPorDefecto: tipo });
+    showToast(`IVA general fijado en ${tipo}%`);
+  }
 
   const handleReset = useCallback(() => {
     resetDatosPilates();
@@ -1753,6 +2047,72 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         <button onClick={guardarEstudio} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
           Guardar datos del estudio
         </button>
+      </div>
+
+      {/* Marca — logo del estudio */}
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Marca</h3>
+        <p className="text-[12px] text-muted-foreground mb-4">
+          Tu logo aparece en la página pública de reservas. El color de la app de
+          socias se elige desde <span className="font-medium text-foreground">Apariencia</span> (menú de perfil).
+        </p>
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-20 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
+            {studio?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={studio.logoUrl} alt="Logo del estudio" className="w-full h-full object-contain" />
+            ) : (
+              <span className="text-[11px] text-muted-foreground text-center px-2">Sin logo</span>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+            <button
+              type="button"
+              disabled={subiendoLogo}
+              onClick={() => logoInputRef.current?.click()}
+              className={cn(btnSecondary, 'disabled:opacity-40')}
+            >
+              {subiendoLogo ? 'Subiendo…' : studio?.logoUrl ? 'Cambiar logo' : 'Subir logo'}
+            </button>
+            {studio?.logoUrl && (
+              <button
+                type="button"
+                disabled={subiendoLogo}
+                onClick={handleEliminarLogo}
+                className="text-[12px] font-medium text-[#DC2626] hover:underline text-left disabled:opacity-40"
+              >
+                Quitar logo
+              </button>
+            )}
+            <p className="text-[11px] text-muted-foreground">PNG o JPG, máx. 5 MB.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Facturación e impuestos — tipo de IVA general */}
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Facturación e impuestos</h3>
+        <p className="text-[12px] text-muted-foreground mb-4">
+          Tipo de IVA aplicado al emitir facturas. Los precios se tratan como <span className="font-medium text-foreground">IVA incluido</span>:
+          este tipo solo cambia el desglose base/cuota, nunca el total cobrado.
+        </p>
+        <div className="max-w-xs">
+          <p className={labelCls}>IVA general</p>
+          <select
+            className={cn(inputCls, 'cursor-pointer')}
+            value={studio?.ivaPorDefecto ?? 21}
+            onChange={e => guardarIva(Number(e.target.value))}
+          >
+            <option value={21}>21 % — General</option>
+            <option value={10}>10 % — Reducido</option>
+            <option value={4}>4 % — Superreducido</option>
+            <option value={0}>0 % — Exento</option>
+          </select>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Se aplica a las próximas facturas. Las ya emitidas y selladas (Veri*Factu) no cambian.
+          </p>
+        </div>
       </div>
 
       {/* Reservas y cancelaciones (C-2/C-4) */}

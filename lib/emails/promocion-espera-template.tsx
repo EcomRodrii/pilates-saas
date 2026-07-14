@@ -14,6 +14,7 @@ interface Props {
   // Si a la socia se le ha consumido una sesión del bono al ascender, se le
   // dice explícitamente (transparencia: nunca se le descuenta sin avisar).
   bonoConsumido?: boolean;
+  intro?: string;
 }
 
 export function PromocionEsperaEmail({
@@ -25,6 +26,7 @@ export function PromocionEsperaEmail({
   instructor,
   estudioNombre = 'Tentare',
   bonoConsumido = false,
+  intro,
 }: Props) {
   return (
     <Html lang="es">
@@ -44,7 +46,7 @@ export function PromocionEsperaEmail({
 
           <Section style={{ padding: '28px 32px' }}>
             <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 24px' }}>
-              Hola <strong>{socioNombre}</strong>, estabas en lista de espera y ha quedado una plaza libre.
+              {intro ?? <>Hola <strong>{socioNombre}</strong>, estabas en lista de espera y ha quedado una plaza libre.</>}
               Tu reserva ya está <strong>confirmada</strong>.
             </Text>
 

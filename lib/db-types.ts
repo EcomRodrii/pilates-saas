@@ -14,6 +14,8 @@ export interface RowStudios {
   telefono: string | null;
   color_primario: string | null;
   tema_portal: string | null;
+  logo_url: string | null;
+  iva_por_defecto: number | null;
   plan: string | null;
   avatar_admin: string | null;
   owner_auth_user_id: string | null;
@@ -56,6 +58,29 @@ export interface RowSocios {
   direccion: string | null;
   foto_url: string | null;
   referido_por: string | null;
+  campos_extra: Record<string, string | number | boolean | null> | null;
+}
+
+export interface RowCamposPersonalizados {
+  id: string;
+  studio_id: string | null;
+  etiqueta: string;
+  tipo: string | null;
+  opciones: string[] | null;
+  requerido: boolean | null;
+  orden: number | null;
+  activo: boolean | null;
+  creado_en: string | null;
+}
+
+export interface RowPlantillasEmail {
+  id: string;
+  studio_id: string | null;
+  tipo: string;
+  asunto: string | null;
+  intro: string | null;
+  activa: boolean | null;
+  actualizado_en: string | null;
 }
 
 export interface RowPlanesTarifa {
