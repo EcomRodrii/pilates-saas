@@ -8,7 +8,7 @@ import {
   dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
   dbFetchDependencySnapshots,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
-  dbInsertSuscripcion, dbUpdateSuscripcion,
+  dbInsertSuscripcion, dbUpdateSuscripcion, dbConsumirSesionBono, dbDevolverSesionBono,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbDeleteRecibo,
@@ -114,8 +114,8 @@ import { calcularProgresoReto } from '@/lib/challenge-engine';
 import { uid } from '@/lib/utils';
 import {
   decidirReservaNueva,
-  siguienteEnEspera,
   decidirPremioReferido,
+  debeDevolverBono,
 } from '@/lib/booking-logic';
 import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
@@ -1307,7 +1307,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setSuscripciones(prev => prev.map(s =>
       s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
     ));
-    dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
+    // Persistencia ATÓMICA (decremento guardado en la BD, no overwrite del saldo
+    // desde el snapshot de React): así el panel no pisa el decremento del
+    // servidor ni otra pestaña. El setState de arriba es solo estimación optimista.
+    dbConsumirSesionBono(getCurrentStudioId(), sus.id);
 
     // Bono agotado → generar recibo de renovación + notificación
     if (agotado) {
@@ -1359,7 +1362,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setSuscripciones(prev => prev.map(s =>
       s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
     ));
-    dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
+    // Persistencia ATÓMICA (incremento guardado con tope del plan en la BD).
+    dbDevolverSesionBono(getCurrentStudioId(), sus.id, plan.sesiones);
   }
 
   function addReserva(sesionId: string, socioId: string, spotId?: string | null): EstadoReserva {
@@ -1421,72 +1425,86 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return;
     }
 
-    let promotedSocioId: string | null = null;
-    let promotedSesionId: string | null = null;
-
     const cancelada = reservas.find(r => r.id === reservaId);
-    // Solo se devuelve la sesión si la reserva ocupaba plaza (estaba confirmada).
-    // Una reserva en lista de espera nunca llegó a descontar bono.
-    if (cancelada?.estado === 'CONFIRMADA') devolverSesionBono(cancelada.socioId);
+    const sesionId = cancelada?.sesionId ?? null;
 
-    setReservas(prev => {
-      const updated = prev.map(r =>
-        r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r
-      );
-      // Promoción optimista de la primera de la LISTA_ESPERA (la BD la ejecuta
-      // atómica en dbCancelarReservaPlaza; esto solo adelanta la UI).
-      if (!cancelada) return updated;
-      const espera = siguienteEnEspera(cancelada.sesionId, updated);
-      if (!espera) return updated;
-      promotedSocioId = espera.socioId;
-      promotedSesionId = espera.sesionId;
-      return updated.map(r =>
-        r.id === espera.id ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r
-      );
-    });
+    // Optimista (UI inmediata): marca la reserva como cancelada. La promoción de
+    // la lista de espera y los efectos de bono NO se estiman sobre el snapshot:
+    // se aplican desde el RESULTADO autoritativo de la BD (abajo). Así la
+    // identidad de la promovida, el consumo de su bono y la devolución a quien
+    // cancela no dependen de un estado local que puede estar desactualizado —
+    // misma política que la vía pública (cancelarReservaPublica).
+    setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r));
+
     // Cancelación + promoción de espera ATÓMICAS en la BD (una transacción con
-    // bloqueo de fila) — sustituye a los dos updates sueltos no atómicos.
-    dbCancelarReservaPlaza(getCurrentStudioId(), reservaId);
+    // bloqueo de fila). Su resultado {eraConfirmada, promovidaSocioId} decide todo.
+    dbCancelarReservaPlaza(getCurrentStudioId(), reservaId).then(res => {
+      if (!res || 'error' in res) return;
+      const { eraConfirmada, promovidaSocioId } = res;
 
-    // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
-    if (promotedSocioId) consumirSesionBono(promotedSocioId);
-
-    // Fire notification for promoted socia
-    if (promotedSocioId && promotedSesionId) {
-      const socio = socios.find(s => s.id === promotedSocioId);
-      const sesion = sesiones.find(s => s.id === promotedSesionId);
-      const tipo = sesion ? tiposClase.find(t => t.id === sesion.tipoClaseId) : null;
-      const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
-      const clase = tipo?.nombre ?? 'la clase';
-      // Email a la socia ascendida: ahora "te avisaremos si se libera una plaza"
-      // es cierto también por la vía admin. Best-effort (Resend puede no estar).
-      if (socio?.email && sesion) {
-        const sala = salas.find(x => x.id === sesion.salaId);
-        const instructor = instructores.find(i => i.id === sesion.instructorId);
-        const inicio = new Date(sesion.inicio);
-        enviarEmailPromocion({
-          to: socio.email,
-          toName: socio.nombre,
-          claseNombre: clase,
-          fecha: inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }),
-          hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-          sala: sala?.nombre ?? '',
-          instructor: instructor?.nombre ?? '',
-          bonoConsumido: true,
-        });
+      // Devolver bono a quien canceló solo si su reserva ocupaba plaza (según BD)
+      // Y la política de cancelación del estudio lo permite. Una cancelación
+      // tardía (dentro de la ventana horaria) no devuelve el bono salvo que el
+      // estudio lo habilite — misma regla que la vía pública. Antes el panel
+      // devolvía siempre, dejando escapar ingresos que el portal sí protegía.
+      if (eraConfirmada && cancelada) {
+        const inicio = sesiones.find(s => s.id === sesionId)?.inicio;
+        const devolver = !inicio || !studio
+          ? true
+          : debeDevolverBono(inicio, new Date(), studio.cancelacionVentanaHoras, studio.cancelacionDevolverBonoTardia);
+        if (devolver) devolverSesionBono(cancelada.socioId);
       }
-      setNotificaciones(prev => [{
-        id: `notif-promo-${uid()}`,
-        studioId: getCurrentStudioId(),
-        tipo: 'EXITO' as const,
-        titulo: 'Lista de espera promovida',
-        texto: `${nombre} ha pasado de lista de espera a confirmada en ${clase}.`,
-        leida: false,
-        creadaEn: new Date().toISOString(),
-        enlace: promotedSocioId ? `/socios/${promotedSocioId}` : null,
-      }, ...prev]);
-      addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, promotedSocioId, `/socios/${promotedSocioId}`);
+
+      if (promovidaSocioId && sesionId) {
+        // Reflejar la promoción real de la BD en el estado local.
+        setReservas(prev => prev.map(r =>
+          (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
+            ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
+        // La promovida ocupa plaza → consume su bono y recibe aviso. `bonoConsumido`
+        // refleja si de verdad tenía un bono consumible (no un plan mensual).
+        const consumeBono = bonoConsumible(promovidaSocioId, suscripciones, planesTarifa) != null;
+        consumirSesionBono(promovidaSocioId);
+        notificarPromocionAdmin(promovidaSocioId, sesionId, consumeBono);
+      }
+    });
+  }
+
+  // Aviso (email + campana + actividad) a una socia ascendida de lista de espera
+  // por la vía admin. Se dispara desde el resultado autoritativo de la BD, no
+  // desde una estimación. `bonoConsumido` refleja si realmente tenía bono.
+  function notificarPromocionAdmin(socioId: string, sesionId: string, bonoConsumido: boolean) {
+    const socio = socios.find(s => s.id === socioId);
+    const sesion = sesiones.find(s => s.id === sesionId);
+    const tipo = sesion ? tiposClase.find(t => t.id === sesion.tipoClaseId) : null;
+    const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
+    const clase = tipo?.nombre ?? 'la clase';
+    // Email a la socia ascendida. Best-effort (Resend puede no estar).
+    if (socio?.email && sesion) {
+      const sala = salas.find(x => x.id === sesion.salaId);
+      const instructor = instructores.find(i => i.id === sesion.instructorId);
+      const inicio = new Date(sesion.inicio);
+      enviarEmailPromocion({
+        to: socio.email,
+        toName: socio.nombre,
+        claseNombre: clase,
+        fecha: inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }),
+        hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        sala: sala?.nombre ?? '',
+        instructor: instructor?.nombre ?? '',
+        bonoConsumido,
+      });
     }
+    setNotificaciones(prev => [{
+      id: `notif-promo-${uid()}`,
+      studioId: getCurrentStudioId(),
+      tipo: 'EXITO' as const,
+      titulo: 'Lista de espera promovida',
+      texto: `${nombre} ha pasado de lista de espera a confirmada en ${clase}.`,
+      leida: false,
+      creadaEn: new Date().toISOString(),
+      enlace: `/socios/${socioId}`,
+    }, ...prev]);
+    addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, socioId, `/socios/${socioId}`);
   }
 
   // Premia a quien invitó SOLO cuando la referida asiste a su primera clase,
