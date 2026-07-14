@@ -1,14 +1,13 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { getPreset, type ThemePresetId } from '@/lib/theme-presets';
+import { authHeader } from '@/lib/api-client';
+import { foregroundParaFondo } from '@/lib/theme-runtime';
+import type { ThemeConfig } from '@/lib/theme-schema';
 
-const PRESET_KEY = 'panel-theme-preset';
 const DARK_KEY = 'panel-dark-mode';
 
 interface PanelThemeValue {
-  presetId: ThemePresetId;
-  setPreset: (id: ThemePresetId) => void;
   dark: boolean;
   setDark: (v: boolean) => void;
 }
@@ -21,41 +20,52 @@ export function usePanelTheme(): PanelThemeValue {
   return ctx;
 }
 
-function applyToElement(el: HTMLElement, presetId: ThemePresetId, dark: boolean) {
-  const preset = getPreset(presetId);
-  el.style.setProperty('--brand', preset.primary);
-  el.style.setProperty('--brand-foreground', preset.foreground);
-  el.style.setProperty('--brand-secondary', preset.secondary);
-  el.classList.toggle('dark', dark);
+function aplicarMarca(el: HTMLElement, theme: ThemeConfig) {
+  el.style.setProperty('--brand', theme.primary);
+  el.style.setProperty('--brand-foreground', foregroundParaFondo(theme.primary));
+  el.style.setProperty('--brand-secondary', theme.secondary);
 }
 
+// La MARCA del panel proviene del estudio (tema publicado en la DB), no de una
+// preferencia por-usuario. Lo único personal es el modo claro/oscuro
+// (localStorage). Si la carga del tema falla, se mantiene la marca por defecto
+// de globals.css (fallback robusto).
 export function PanelThemeProvider({ children, className }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [presetId, setPresetId] = useState<ThemePresetId>('original');
   const [dark, setDarkState] = useState(false);
 
   useEffect(() => {
-    const storedPreset = (localStorage.getItem(PRESET_KEY) as ThemePresetId | null) ?? 'original';
+    // Lectura de la preferencia personal en el montaje (localStorage no existe
+    // en SSR, por eso va en el efecto y no en el render).
     const storedDark = localStorage.getItem(DARK_KEY) === '1';
-    setPresetId(storedPreset);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDarkState(storedDark);
-    if (ref.current) applyToElement(ref.current, storedPreset, storedDark);
-  }, []);
+    if (ref.current) ref.current.classList.toggle('dark', storedDark);
 
-  function setPreset(id: ThemePresetId) {
-    setPresetId(id);
-    localStorage.setItem(PRESET_KEY, id);
-    if (ref.current) applyToElement(ref.current, id, dark);
-  }
+    let vivo = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/theme', { headers: await authHeader() });
+        if (!res.ok || !vivo) return;
+        const theme = (await res.json()) as ThemeConfig;
+        if (ref.current && vivo) aplicarMarca(ref.current, theme);
+      } catch {
+        // sin conexión / sin sesión → marca por defecto
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   function setDark(v: boolean) {
     setDarkState(v);
     localStorage.setItem(DARK_KEY, v ? '1' : '0');
-    if (ref.current) applyToElement(ref.current, presetId, v);
+    if (ref.current) ref.current.classList.toggle('dark', v);
   }
 
   return (
-    <PanelThemeContext.Provider value={{ presetId, setPreset, dark, setDark }}>
+    <PanelThemeContext.Provider value={{ dark, setDark }}>
       <div ref={ref} className={className}>{children}</div>
     </PanelThemeContext.Provider>
   );

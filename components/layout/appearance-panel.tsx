@@ -44,7 +44,7 @@ function PresetSwatch({
 export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { studio, updateStudio } = useStudio();
   const { rol } = usePermisos();
-  const { presetId, setPreset, dark, setDark } = usePanelTheme();
+  const { dark, setDark } = usePanelTheme();
   const [portalSaving, setPortalSaving] = useState<'idle' | 'guardando' | 'guardado'>('idle');
 
   if (!open) return null;
@@ -74,13 +74,15 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
-          {/* Tu panel */}
+          {/* Tu panel — solo la preferencia personal de modo claro/oscuro. La
+              MARCA del panel la define el estudio (tema publicado), no cada
+              usuario. */}
           <div>
             <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Tu panel</p>
 
             <button
               onClick={() => setDark(!dark)}
-              className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl bg-muted mb-4"
+              className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl bg-muted"
             >
               <span className="flex items-center gap-2.5 text-[13px] font-semibold text-foreground">
                 {dark ? <Moon size={16} /> : <Sun size={16} />}
@@ -96,17 +98,6 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
                 />
               </span>
             </button>
-
-            <div className="grid grid-cols-3 gap-3">
-              {THEME_PRESETS.map(preset => (
-                <PresetSwatch
-                  key={preset.id}
-                  preset={preset}
-                  selected={presetId === preset.id}
-                  onClick={() => setPreset(preset.id)}
-                />
-              ))}
-            </div>
             <p className="text-[11.5px] text-muted-foreground mt-3">Solo lo ves tú — se guarda en este navegador.</p>
           </div>
 

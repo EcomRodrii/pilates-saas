@@ -109,12 +109,28 @@ server-side de tema, y migrar `reservar/[slug]` fuera de colores hardcodeados
       aplicada + un estudio con tema → ver 2b. (No hay creds Supabase en disco;
       solo en Vercel.)
 
-**2b — PENDIENTE (panel + favicon + verificación end-to-end):**
-- Panel/dashboard con marca del estudio + dark por-usuario (migrar `panel-theme`;
-  requiere llevar el tema publicado al contexto cliente del dashboard).
-- Favicon dinámico desde `theme.faviconUrl`.
-- Aplicar `0019_studio_theme.sql` a una DB (decidir: local `supabase start` vs
-  linked/prod `db push`) y verificar un tema custom end-to-end en el navegador.
+**2b ✅ CÓDIGO COMPLETO (2026-07-14) — panel + favicon:**
+- [x] `app/api/theme/route.ts` (GET): tema publicado del estudio del staff
+      autenticado (`verificarSesionStaff` → `getThemePublicado`). Fase 3 añadirá
+      PUT/POST (borrador/publicar).
+- [x] `lib/panel-theme.tsx`: la MARCA del panel ahora viene del estudio (fetch a
+      `/api/theme`, aplica `--brand*` con foreground por contraste); el modo
+      claro/oscuro sigue por-usuario (localStorage). Eliminado el preset personal.
+- [x] `components/layout/appearance-panel.tsx`: quitado el selector de preset
+      personal ("Tu panel" ahora solo el toggle claro/oscuro). La sección owner
+      "Tema de la app de socias" (temaPortal) se mantiene hasta el editor (Fase 3).
+- [x] Favicon dinámico en `app/reservar/[slug]/layout.tsx` (metadata `icons` desde
+      `theme.faviconUrl`; sin efecto hasta que la Fase 3 permita subirlo).
+- [x] Verificado: suite 350 verde, typecheck + lint OK.
+- Deferido a Fase 3: favicon/themeColor del portal (requiere convertir su
+  `metadata` estático a `generateMetadata`); se hará junto al upload de favicon.
+
+**Verificación VISUAL end-to-end (toda la Fase 2): PENDIENTE de DB.**
+- Docker NO instalado → `supabase start` local no viable sin instalar runtime.
+- No hay creds Supabase en disco (solo Vercel).
+- Cuando haya DB: aplicar `0019_studio_theme.sql` (local `supabase start`, o prod
+  `db push` por el flujo habitual) y comprobar en el navegador un tema custom en
+  portal/reservas + la marca del estudio en el panel.
 
 ### Fase 3 — Editor white-label + preview en vivo
 - Evolucionar `components/layout/appearance-panel.tsx`: split-screen con preview
