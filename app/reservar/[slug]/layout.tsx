@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { getStudioSeo } from '@/lib/studio-seo';
+import { getThemePublicado } from '@/lib/theme-data';
+import { ThemeStyle } from '@/components/theme-style';
+import { ThemePreviewListener } from '@/components/theme/theme-preview-listener';
 
 // SEO server-rendered (I-9): título/descripción/Open Graph con el nombre y la
 // ciudad del estudio, para que "pilates <ciudad> reservar" indexe contenido real
@@ -14,12 +17,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const enCiudad = studio.ciudad ? ` en ${studio.ciudad}` : '';
   const title = `${studio.nombre} — Reserva tu clase de Pilates${enCiudad}`;
   const description = `Reserva online tu clase de Pilates reformer en ${studio.nombre}${studio.ciudad ? ` (${studio.ciudad})` : ''}. Elige día, hora y tu sitio en segundos.`;
+  // Favicon del estudio (white-label) si lo tiene configurado en su tema.
+  const theme = await getThemePublicado(studio.id);
   return {
     title,
     description,
     openGraph: { title, description, type: 'website', locale: 'es_ES' },
     twitter: { card: 'summary', title, description },
     robots: { index: true, follow: true },
+    ...(theme.faviconUrl ? { icons: { icon: theme.faviconUrl } } : {}),
   };
 }
 
@@ -31,6 +37,8 @@ export default async function ReservarSlugLayout({ children, params }: { childre
   const studio = await getStudioSeo(slug);
   return (
     <StudioSlugGate slug={slug} initialStudioId={studio?.id ?? null} initialResuelto>
+      <ThemeStyle slug={slug} />
+      <ThemePreviewListener />
       {children}
     </StudioSlugGate>
   );

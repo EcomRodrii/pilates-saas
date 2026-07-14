@@ -3,6 +3,8 @@
 import { supabase } from '@/lib/supabase';
 import { supabasePortal } from '@/lib/supabase-portal';
 import type { Factura } from '@/lib/types';
+import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
+import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -18,6 +20,60 @@ export async function authHeader(): Promise<Record<string, string>> {
 export async function portalAuthHeader(): Promise<Record<string, string>> {
   const { data: { session } } = await supabasePortal.auth.getSession();
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
+
+// ── Tema white-label (editor de marca, solo propietario) ─────────────────────
+export async function fetchThemeBorrador(): Promise<ThemeConfig> {
+  const res = await fetch('/api/theme?draft=1', { headers: await authHeader() });
+  if (!res.ok) throw new Error('No se pudo cargar el tema');
+  return res.json();
+}
+
+export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeConfig> {
+  const res = await fetch('/api/theme', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify(parche),
+  });
+  if (!res.ok) {
+    const b = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(b.error ?? 'Error al guardar el borrador');
+  }
+  return res.json();
+}
+
+export type ResultadoPublicar =
+  | { ok: true; theme: ThemeConfig }
+  | { ok: false; errores: string[] };
+
+export async function publicarThemeApi(): Promise<ResultadoPublicar> {
+  const res = await fetch('/api/theme/publish', { method: 'POST', headers: await authHeader() });
+  if (res.status === 422) {
+    const b = (await res.json()) as { errores?: string[] };
+    return { ok: false, errores: b.errores ?? ['Contraste insuficiente'] };
+  }
+  if (!res.ok) throw new Error('Error al publicar');
+  return { ok: true, theme: await res.json() };
+}
+
+// ── Configuración de menú por estudio (Fase 4) ───────────────────────────────
+export async function fetchLayout(): Promise<LayoutConfig> {
+  const res = await fetch('/api/layout', { headers: await authHeader() });
+  if (!res.ok) throw new Error('No se pudo cargar el menú');
+  return res.json();
+}
+
+export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfig> {
+  const res = await fetch('/api/layout', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify(parche),
+  });
+  if (!res.ok) {
+    const b = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(b.error ?? 'Error al guardar el menú');
+  }
+  return res.json();
 }
 
 // ── Datos públicos (proxy scopeado) ─────────────────────────────────────────

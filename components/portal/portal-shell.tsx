@@ -5,8 +5,6 @@ import { usePathname, useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home, Calendar, CreditCard, Play, TrendingUp } from 'lucide-react';
 import { usePortalAuth } from '@/lib/portal-auth';
-import { useStudio } from '@/lib/studio-context';
-import { portalThemeStyle } from '@/lib/portal-theme';
 
 const NAV = [
   { seg: 'clases', icon: Calendar, label: 'Clases' },
@@ -18,12 +16,11 @@ const NAV = [
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { studio } = useStudio();
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
-  const themeStyle = portalThemeStyle(studio?.temaPortal);
+  // El tema (--portal-brand*) lo inyecta <ThemeStyle> server-side en el layout.
 
   const isLoginPage = pathname === `/portal/${slug}` || pathname === `/portal/${slug}/login`;
 
@@ -43,12 +40,12 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
 
   if (!session && !isLoginPage) return null;
   if (session && isLoginPage) return null;
-  if (isLoginPage) return <div style={themeStyle}>{children}</div>;
+  if (isLoginPage) return <div>{children}</div>;
 
   return (
     <div
       className="fixed inset-0 flex flex-col bg-white overflow-hidden"
-      style={{ paddingTop: 'env(safe-area-inset-top)', ...themeStyle }}
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       {/* Scrollable content */}
       <main

@@ -50,6 +50,8 @@
 :root {
   /* Floating sidebar width — toggled between expanded/collapsed by components/layout/sidebar.tsx */
   --sidebar-w: 256px;
+  /* Altura de la barra superior de nav cuando menuPosition='superior' (0 en lateral). */
+  --topnav-h: 0px;
 
   /* Midbox-style palette — soft warm off-white, near-black ink, lime accent */
   --background: #EEEEE8;
