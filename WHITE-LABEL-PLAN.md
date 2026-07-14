@@ -173,6 +173,14 @@ server-side de tema, y migrar `reservar/[slug]` fuera de colores hardcodeados
 - [x] Verificado: typecheck + lint + suite 367 verde.
 - Follow-up: reordenar SECCIONES del dashboard home (monolito de 990 líneas).
 
+### Mejoras post-v1 (2026-07-14)
+- Editor de color rico (paletas + derivar armónico), commit 25078a2.
+- **Preview en vivo REAL**: iframe de `/reservar/{slug}` con el tema BORRADOR por
+  `postMessage` → `ThemePreviewListener` (montado en el layout de reservas,
+  whitelist de vars, solo mismo-origen dentro de iframe). Sustituye la maqueta.
+- **Optimización técnica — aplicar sin recargar**: eventos `tentare-layout-changed`
+  (sidebar recarga menú) y `tentare-theme-changed` (panel recarga marca al publicar).
+
 ## Notas de proceso
 
 - **Antes de escribir código con APIs de Next**: leer la guía en

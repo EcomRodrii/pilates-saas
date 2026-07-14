@@ -230,10 +230,15 @@ export function Sidebar() {
   const [layout, setLayout] = useState<LayoutConfig>(DEFAULT_LAYOUT);
 
   // Config de menú del estudio (reordenar/ocultar). Si falla, menú por defecto.
+  // Se recarga al vuelo cuando el editor guarda (evento 'tentare-layout-changed')
+  // → los cambios se ven sin recargar la página.
   useEffect(() => {
     let vivo = true;
-    fetchLayout().then((l) => { if (vivo) setLayout(l); }).catch(() => {});
-    return () => { vivo = false; };
+    const cargar = () => fetchLayout().then((l) => { if (vivo) setLayout(l); }).catch(() => {});
+    cargar();
+    const onCambio = () => cargar();
+    window.addEventListener('tentare-layout-changed', onCambio);
+    return () => { vivo = false; window.removeEventListener('tentare-layout-changed', onCambio); };
   }, []);
 
   // Variables de layout según la posición del menú: superior → sin sidebar

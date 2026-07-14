@@ -134,8 +134,10 @@ export function ThemeEditor() {
     try {
       await guardarThemeBorrador(draft); // incluye los cambios locales
       const r = await publicarThemeApi();
-      if (r.ok) setAviso({ tipo: 'ok', texto: '¡Publicado! Ya lo ven tus socias.' });
-      else setAviso({ tipo: 'error', texto: r.errores.join(' ') });
+      if (r.ok) {
+        window.dispatchEvent(new CustomEvent('tentare-theme-changed'));
+        setAviso({ tipo: 'ok', texto: '¡Publicado! Ya lo ven tus socias.' });
+      } else setAviso({ tipo: 'error', texto: r.errores.join(' ') });
     } catch (e) {
       setAviso({ tipo: 'error', texto: (e as Error).message });
     } finally {
@@ -354,10 +356,11 @@ export function ThemeEditor() {
         </section>
       </div>
 
-      {/* Preview en vivo */}
+      {/* Preview en vivo (iframe real del portal de reservas) */}
       <div className="lg:sticky lg:top-4 space-y-2">
         <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Vista previa en vivo</p>
-        <ThemePreview config={draft} logoUrl={studio?.logoUrl} nombre={studio?.nombre ?? 'Tu Estudio'} />
+        <ThemePreview config={draft} slug={studio?.slug} />
+        <p className="text-[11px] text-muted-foreground">Es tu página de reservas real con el tema del borrador.</p>
       </div>
     </div>
   );

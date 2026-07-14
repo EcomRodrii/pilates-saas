@@ -43,7 +43,7 @@ export function PanelThemeProvider({ children, className }: { children: React.Re
     if (ref.current) ref.current.classList.toggle('dark', storedDark);
 
     let vivo = true;
-    (async () => {
+    async function cargarMarca() {
       try {
         const res = await fetch('/api/theme', { headers: await authHeader() });
         if (!res.ok || !vivo) return;
@@ -52,9 +52,15 @@ export function PanelThemeProvider({ children, className }: { children: React.Re
       } catch {
         // sin conexión / sin sesión → marca por defecto
       }
-    })();
+    }
+    cargarMarca();
+    // El editor de marca dispara esto al publicar → el panel refleja la nueva
+    // marca sin recargar.
+    const onCambio = () => cargarMarca();
+    window.addEventListener('tentare-theme-changed', onCambio);
     return () => {
       vivo = false;
+      window.removeEventListener('tentare-theme-changed', onCambio);
     };
   }, []);
 

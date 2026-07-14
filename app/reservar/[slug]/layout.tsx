@@ -3,6 +3,7 @@ import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { getStudioSeo } from '@/lib/studio-seo';
 import { getThemePublicado } from '@/lib/theme-data';
 import { ThemeStyle } from '@/components/theme-style';
+import { ThemePreviewListener } from '@/components/theme/theme-preview-listener';
 
 // SEO server-rendered (I-9): título/descripción/Open Graph con el nombre y la
 // ciudad del estudio, para que "pilates <ciudad> reservar" indexe contenido real
@@ -37,6 +38,7 @@ export default async function ReservarSlugLayout({ children, params }: { childre
   return (
     <StudioSlugGate slug={slug} initialStudioId={studio?.id ?? null} initialResuelto>
       <ThemeStyle slug={slug} />
+      <ThemePreviewListener />
       {children}
     </StudioSlugGate>
   );

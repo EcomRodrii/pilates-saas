@@ -124,7 +124,8 @@ export function MenuEditor() {
     setAviso(null);
     try {
       await guardarLayoutApi({ orden: items, ocultos: [...ocultos], menuPosition: posicion });
-      setAviso({ tipo: 'ok', texto: 'Menú guardado. Recarga la página para verlo aplicado.' });
+      window.dispatchEvent(new CustomEvent('tentare-layout-changed'));
+      setAviso({ tipo: 'ok', texto: 'Menú guardado y aplicado.' });
     } catch (e) {
       setAviso({ tipo: 'error', texto: (e as Error).message });
     } finally {
