@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { bloqueoPorFeature } from '@/lib/billing-guard';
 import { enviarMensajeTwilio, twilioConfigurado, type CanalMensaje } from '@/lib/twilio';
 
 // Envío de un mensaje WhatsApp/SMS por Twilio. Igual que /api/emails/send: solo
@@ -8,6 +9,9 @@ import { enviarMensajeTwilio, twilioConfigurado, type CanalMensaje } from '@/lib
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // R7: WhatsApp/SMS es un canal premium (marketing). Lo transaccional va por email.
+  const bloqueoMkt = await bloqueoPorFeature(sesion.studioId, 'marketing');
+  if (bloqueoMkt) return bloqueoMkt;
 
   const body = (await req.json().catch(() => null)) as {
     canal?: unknown; to?: unknown; asunto?: unknown; contenido?: unknown;

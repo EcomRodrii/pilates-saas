@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbUpdateAutomationLog } from '@/lib/supabase-data';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { bloqueoPorSuscripcion } from '@/lib/billing-guard';
 import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/stripe-cobros';
 
 // Cobra un recibo pendiente usando la tarjeta ya guardada de la socia, sin
@@ -32,6 +33,10 @@ export async function POST(req: NextRequest) {
   if (body.studioId !== sesion.studioId) {
     return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
   }
+
+  // R7: un estudio con la suscripción caducada no puede cobrar a sus socias.
+  const bloqueo = await bloqueoPorSuscripcion(sesion.studioId);
+  if (bloqueo) return bloqueo;
 
   // A-10: la Idempotency-Key la deriva cobrarReciboOffSession del reciboId, para
   // que este disparador (aprobación manual) y el ejecutor del Decision OS

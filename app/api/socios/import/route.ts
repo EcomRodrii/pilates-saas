@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing-guard';
 import { emailValido } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 
@@ -93,6 +94,19 @@ export async function POST(req: NextRequest) {
       tags,
     });
   });
+
+  // R7: no superar el tope de socias del plan. Solo contamos si el enforcement
+  // está activo (evita un COUNT extra en el caso normal, apagado).
+  if (billingEnforced() && paraInsertar.length > 0) {
+    const { count: activasActuales } = await admin
+      .from('socios')
+      .select('id', { count: 'exact', head: true })
+      .eq('studio_id', sesion.studioId)
+      .eq('activo', true)
+      .is('borrado_en', null);
+    const bloqueoLimite = await bloqueoPorLimiteSocias(sesion.studioId, activasActuales ?? 0, paraInsertar.length);
+    if (bloqueoLimite) return bloqueoLimite;
+  }
 
   // Inserta por lotes para no exceder límites de payload.
   let importadas = 0;

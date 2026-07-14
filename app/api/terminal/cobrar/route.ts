@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { applicationFeeAmount } from '@/lib/stripe-fees';
+import { bloqueoPorSuscripcion } from '@/lib/billing-guard';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lanza un cobro al datáfono físico (server-driven). Crea un PaymentIntent
@@ -34,6 +35,10 @@ export async function POST(req: NextRequest) {
   const MAX_CENTIMOS = 1_000_000; // 10.000 €
   const body = (await req.json().catch(() => ({}))) as { studioId?: string; amount?: number; concepto?: string };
   if (body.studioId !== sesion.studioId) return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
+
+  // R7: un estudio con la suscripción caducada no puede cobrar por el datáfono.
+  const bloqueoSub = await bloqueoPorSuscripcion(sesion.studioId);
+  if (bloqueoSub) return bloqueoSub;
   const amount = Math.round(body.amount ?? 0); // céntimos
   if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: 'Importe inválido' }, { status: 400 });
   if (amount > MAX_CENTIMOS) {
