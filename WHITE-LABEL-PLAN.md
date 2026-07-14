@@ -180,6 +180,11 @@ server-side de tema, y migrar `reservar/[slug]` fuera de colores hardcodeados
   whitelist de vars, solo mismo-origen dentro de iframe). Sustituye la maqueta.
 - **Optimización técnica — aplicar sin recargar**: eventos `tentare-layout-changed`
   (sidebar recarga menú) y `tentare-theme-changed` (panel recarga marca al publicar).
+- **Reordenar/ocultar secciones de la HOME del dashboard**: `lib/home-sections.ts`
+  (8 secciones), refactor de `dashboard/page.tsx` a `flex flex-col` con CSS `order`
+  por sección (Header fijo `order:-1`; sin mover el DOM, default idéntico).
+  `studio_layout.config.home` (jsonb, sin migración) con API **merge** (menú y home
+  no se pisan). Editor `home-editor.tsx` (dnd-kit) en Configuración → Apariencia.
 
 ## Notas de proceso
 

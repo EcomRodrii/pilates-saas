@@ -1,5 +1,6 @@
 import { ThemeEditor } from '@/components/theme/theme-editor';
 import { MenuEditor } from '@/components/theme/menu-editor';
+import { HomeEditor } from '@/components/theme/home-editor';
 
 export const metadata = { title: 'Marca y apariencia' };
 
@@ -24,6 +25,16 @@ export default function AparienciaPage() {
           </p>
         </div>
         <MenuEditor />
+      </section>
+
+      <section className="space-y-5 border-t border-border pt-8">
+        <div>
+          <h2 className="text-xl font-extrabold text-foreground">Pantalla de inicio</h2>
+          <p className="text-sm text-muted-foreground">
+            Reordena y oculta las secciones del dashboard (KPIs, ingresos, clases…).
+          </p>
+        </div>
+        <HomeEditor />
       </section>
     </div>
   );

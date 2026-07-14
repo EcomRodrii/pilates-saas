@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getLayout, guardarLayout } from '@/lib/layout-data';
-import { layoutConfigSchema } from '@/lib/layout-schema';
+import { layoutDraftSchema } from '@/lib/layout-schema';
 
 // GET /api/layout → config de menú del estudio del staff autenticado.
 export async function GET(req: NextRequest) {
@@ -18,7 +18,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Solo el propietario puede configurar el menú' }, { status: 403 });
 
   const body = await req.json().catch(() => null);
-  const parsed = layoutConfigSchema.safeParse(body);
+  const parsed = layoutDraftSchema.safeParse(body);
   if (!parsed.success)
     return NextResponse.json({ error: 'Configuración inválida', detalles: parsed.error.issues }, { status: 400 });
 

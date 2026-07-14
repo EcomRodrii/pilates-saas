@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { supabasePortal } from '@/lib/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
-import type { LayoutConfig } from '@/lib/layout-schema';
+import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -63,11 +63,11 @@ export async function fetchLayout(): Promise<LayoutConfig> {
   return res.json();
 }
 
-export async function guardarLayoutApi(config: LayoutConfig): Promise<LayoutConfig> {
+export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfig> {
   const res = await fetch('/api/layout', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify(config),
+    body: JSON.stringify(parche),
   });
   if (!res.ok) {
     const b = (await res.json().catch(() => ({}))) as { error?: string };

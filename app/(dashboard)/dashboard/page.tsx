@@ -19,6 +19,9 @@ import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 import { InstructorDependencyWidget } from '@/components/dashboard/instructor-dependency-widget';
+import { fetchLayout } from '@/lib/api-client';
+import { aplicarLayout, DEFAULT_LAYOUT, type LayoutConfig } from '@/lib/layout-schema';
+import { HOME_SECCIONES } from '@/lib/home-sections';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -388,6 +391,25 @@ export default function Dashboard() {
     resetDatosPilates,
   } = useStudio();
 
+  // Personalización de la home por estudio (reordenar/ocultar secciones). Se
+  // reordena por CSS `order` sin mover el DOM. Recarga al vuelo al guardar.
+  const [layout, setLayout] = useState<LayoutConfig>(DEFAULT_LAYOUT);
+  useEffect(() => {
+    let vivo = true;
+    const cargar = () => fetchLayout().then((l) => { if (vivo) setLayout(l); }).catch(() => {});
+    cargar();
+    const onCambio = () => cargar();
+    window.addEventListener('tentare-layout-changed', onCambio);
+    return () => { vivo = false; window.removeEventListener('tentare-layout-changed', onCambio); };
+  }, []);
+  const homeVisibles = aplicarLayout(HOME_SECCIONES.map((s) => s.id), layout.home);
+  const ordenSeccion = (id: string) => {
+    const i = homeVisibles.indexOf(id);
+    return i === -1 ? undefined : i; // undefined → oculta
+  };
+  // Props para el contenedor de cada sección: orden CSS + hidden si está oculta.
+  const wrap = (id: string) => ({ style: { order: ordenSeccion(id) ?? 0 }, hidden: ordenSeccion(id) === undefined });
+
   // Hydration fix — avoids server/client mismatch with Date
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -587,10 +609,10 @@ export default function Dashboard() {
   return (
 
     <div>
-      <div className="space-y-5">
+      <div className="flex flex-col gap-5">
 
-        {/* ── Header ─────────────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between gap-3 flex-wrap">
+        {/* ── Header (fijo arriba, no reordenable) ───────────────────────────── */}
+        <div className="flex items-start justify-between gap-3 flex-wrap" style={{ order: -1 }}>
           <div>
             <p className="text-xs font-medium text-muted-foreground capitalize">{mesFecha}</p>
             <h1 className="text-[26px] font-semibold text-foreground mt-0.5 tracking-tight">
@@ -608,6 +630,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Hoy de un vistazo (10 segundos) ─────────────────────────────────── */}
+        <div {...wrap('resumen')}>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
             { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Alumnos hoy', alert: false },
@@ -632,10 +655,12 @@ export default function Dashboard() {
             </Link>
           ))}
         </div>
+        </div>
 
-        <OnboardingChecklist />
+        <div {...wrap('onboarding')}><OnboardingChecklist /></div>
 
         {/* ── Automation briefing ────────────────────────────────────────────── */}
+        <div {...wrap('automatizaciones')}>
         {(() => {
           const today = new Date().toISOString().slice(0, 10);
           const todayLogs = automationLogs.filter(l => l.ejecutadoEn.startsWith(today));
@@ -666,8 +691,10 @@ export default function Dashboard() {
             </Link>
           );
         })()}
+        </div>
 
         {/* ── Revenue card (full width) ──────────────────────────────────────── */}
+        <div {...wrap('ingresos')}>
         <Card>
           <CardContent className="flex items-start justify-between gap-4">
             <div>
@@ -697,8 +724,10 @@ export default function Dashboard() {
             <RevenueSparkline data={sparkData} labels={sparkLabels} currentIdx={sparkCurrentIdx} />
           </CardContent>
         </Card>
+        </div>
 
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
+        <div {...wrap('kpis')}>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <KpiCard label="Miembros activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
           <Card size="sm" className="gap-2.5">
@@ -721,12 +750,14 @@ export default function Dashboard() {
             tintBg="bg-emerald-50"
           />
         </div>
+        </div>
 
-        <CustomChartsSection />
+        <div {...wrap('graficos')}><CustomChartsSection /></div>
 
-        <InstructorDependencyWidget />
+        <div {...wrap('instructor')}><InstructorDependencyWidget /></div>
 
         {/* ── Main content grid ──────────────────────────────────────────────── */}
+        <div {...wrap('principal')}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
           {/* LEFT: Clases hoy + Pagos pendientes */}
@@ -986,6 +1017,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
