@@ -16,6 +16,5 @@ export const HOME_SECCIONES: HomeSeccion[] = [
   { id: 'ingresos', label: 'Ingresos del mes' },
   { id: 'kpis', label: 'Indicadores (KPIs)' },
   { id: 'graficos', label: 'Gráficas personalizadas' },
-  { id: 'instructor', label: 'Riesgo por instructor' },
   { id: 'principal', label: 'Clases, pagos y actividad' },
 ];

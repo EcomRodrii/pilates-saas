@@ -18,7 +18,6 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
-import { InstructorDependencyWidget } from '@/components/dashboard/instructor-dependency-widget';
 import { fetchLayout } from '@/lib/api-client';
 import { aplicarLayout, DEFAULT_LAYOUT, type LayoutConfig } from '@/lib/layout-schema';
 import { HOME_SECCIONES } from '@/lib/home-sections';
@@ -753,8 +752,6 @@ export default function Dashboard() {
         </div>
 
         <div {...wrap('graficos')}><CustomChartsSection /></div>
-
-        <div {...wrap('instructor')}><InstructorDependencyWidget /></div>
 
         {/* ── Main content grid ──────────────────────────────────────────────── */}
         <div {...wrap('principal')}>
