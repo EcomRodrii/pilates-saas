@@ -649,7 +649,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   function buildFactura(recibo: Recibo, currentFacturas: Factura[]): Factura {
     const socio = socios.find(s => s.id === recibo.socioId);
-    const baseImponible = Math.round((recibo.importe / 1.21) * 100) / 100;
+    // Desglose optimista con el tipo de IVA del estudio. El servidor (sellar) lo
+    // recalcula igual y es el autoritativo; esto solo evita un parpadeo de cifras
+    // en la UI antes del sellado. Precio IVA incluido → el total no cambia.
+    const tipoIVA = studio?.ivaPorDefecto ?? 21;
+    const divisor = 1 + tipoIVA / 100;
+    const baseImponible = Math.round((recibo.importe / divisor) * 100) / 100;
     const cuotaIVA = Math.round((recibo.importe - baseImponible) * 100) / 100;
     return {
       id: `fac-auto-${uid()}`,
@@ -660,7 +665,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       receptorNombre: socio ? `${socio.nombre} ${socio.apellidos}` : 'Cliente de mostrador',
       receptorNIF: socio?.nif ?? null,
       baseImponible,
-      tipoIVA: 21,
+      tipoIVA,
       cuotaIVA,
       total: recibo.importe,
       verifactuHash: null,

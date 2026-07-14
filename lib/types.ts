@@ -20,6 +20,10 @@ export interface Studio {
   telefono: string;
   colorPrimario: string;
   temaPortal: string;
+  logoUrl: string | null;
+  // Tipo de IVA general del estudio (%). El precio del recibo es IVA incluido;
+  // este tipo solo cambia el desglose base/cuota de la factura, no el total.
+  ivaPorDefecto: number;
   plan: 'BASE' | 'ESTUDIO' | 'CADENA';
   avatarAdmin: string | null;
   ownerAuthUserId: string | null;

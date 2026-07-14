@@ -196,6 +196,7 @@ export default function ReservarPage() {
     addReserva, updateSocio, cancelarReserva, addSocioFromPortal,
   } = useStudio();
   const estudioNombre = studio?.nombre ?? 'Tentare';
+  const estudioLogo = studio?.logoUrl ?? null;
   const estudioDireccion = [studio?.ciudad, studio?.direccion].filter(Boolean).join(' · ') || 'Málaga · Calle Larios 12';
   const estudioEmail = studio?.email ?? 'hola@tentare.es';
   const estudioTelefono = studio?.telefono ?? '+34 951 000 000';
@@ -499,8 +500,14 @@ export default function ReservarPage() {
           {/* Studio identity */}
           <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-[11px] font-black shrink-0"
-                style={{ backgroundColor: PRIMARY }}>{estudioNombre[0]}</div>
+              {estudioLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={estudioLogo} alt={estudioNombre}
+                  className="w-9 h-9 rounded-xl object-contain bg-white shrink-0" />
+              ) : (
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-[11px] font-black shrink-0"
+                  style={{ backgroundColor: PRIMARY }}>{estudioNombre[0]}</div>
+              )}
               <div>
                 <p className="font-bold text-[#1A1A1A] text-sm leading-tight">{estudioNombre}</p>
                 <p className="text-[#767670] text-[11px]">{estudioDireccion}</p>

@@ -215,6 +215,8 @@ function mapStudio(r: RowStudios): Studio {
     telefono: r.telefono,
     colorPrimario: r.color_primario,
     temaPortal: r.tema_portal ?? 'original',
+    logoUrl: r.logo_url ?? null,
+    ivaPorDefecto: r.iva_por_defecto ?? 21,
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     ownerAuthUserId: r.owner_auth_user_id ?? null,
@@ -1161,6 +1163,7 @@ function studioPublico(r: RowStudios) {
     email: r.email,
     telefono: r.telefono,
     colorPrimario: r.color_primario,
+    logoUrl: r.logo_url ?? null,
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     slug: r.slug ?? null,
@@ -3308,6 +3311,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('telefono' in changes) db.telefono = changes.telefono;
   if ('colorPrimario' in changes) db.color_primario = changes.colorPrimario;
   if ('temaPortal' in changes) db.tema_portal = changes.temaPortal;
+  if ('logoUrl' in changes) db.logo_url = changes.logoUrl;
+  if ('ivaPorDefecto' in changes) db.iva_por_defecto = changes.ivaPorDefecto;
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;

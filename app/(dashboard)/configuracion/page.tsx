@@ -16,7 +16,7 @@ import { TabBackups } from '@/components/configuracion/tab-backups';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, PayPalIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
 import { useAuth } from '@/lib/auth-context';
-import { subirFotoClase, eliminarFotoClase } from '@/lib/portal-storage';
+import { subirFotoClase, eliminarFotoClase, subirLogoEstudio, eliminarLogoEstudio } from '@/lib/portal-storage';
 import { authHeader } from '@/lib/api-client';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -1692,9 +1692,41 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   const [form, setForm] = useState<StudioForm>(() => studioToForm(studio));
   // Política de reservas/cancelaciones (C-2/C-4). Estado propio, tarjeta aparte.
   const [pol, setPol] = useState(() => studioToPolitica(studio));
+  // Marca (logo) e IVA — Tanda 1.
+  const [subiendoLogo, setSubiendoLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setForm(studioToForm(studio)); }, [studio]);
   useEffect(() => { setPol(studioToPolitica(studio)); }, [studio]);
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !studio) return;
+    if (!file.type.startsWith('image/')) { showToast('Elige un archivo de imagen'); return; }
+    if (file.size > 5 * 1024 * 1024) { showToast('La imagen no puede superar 5 MB'); return; }
+    setSubiendoLogo(true);
+    const result = await subirLogoEstudio(studio.id, file);
+    setSubiendoLogo(false);
+    if ('error' in result) { showToast(result.error); return; }
+    await updateStudio({ logoUrl: result.url });
+    showToast('Logo actualizado');
+  }
+
+  async function handleEliminarLogo() {
+    if (!studio) return;
+    setSubiendoLogo(true);
+    const result = await eliminarLogoEstudio(studio.id);
+    setSubiendoLogo(false);
+    if ('error' in result) { showToast(result.error); return; }
+    await updateStudio({ logoUrl: null });
+    showToast('Logo eliminado');
+  }
+
+  function guardarIva(tipo: number) {
+    updateStudio({ ivaPorDefecto: tipo });
+    showToast(`IVA general fijado en ${tipo}%`);
+  }
 
   const handleReset = useCallback(() => {
     resetDatosPilates();
@@ -1753,6 +1785,72 @@ function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         <button onClick={guardarEstudio} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
           Guardar datos del estudio
         </button>
+      </div>
+
+      {/* Marca — logo del estudio */}
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Marca</h3>
+        <p className="text-[12px] text-muted-foreground mb-4">
+          Tu logo aparece en la página pública de reservas. El color de la app de
+          socias se elige desde <span className="font-medium text-foreground">Apariencia</span> (menú de perfil).
+        </p>
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-20 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
+            {studio?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={studio.logoUrl} alt="Logo del estudio" className="w-full h-full object-contain" />
+            ) : (
+              <span className="text-[11px] text-muted-foreground text-center px-2">Sin logo</span>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+            <button
+              type="button"
+              disabled={subiendoLogo}
+              onClick={() => logoInputRef.current?.click()}
+              className={cn(btnSecondary, 'disabled:opacity-40')}
+            >
+              {subiendoLogo ? 'Subiendo…' : studio?.logoUrl ? 'Cambiar logo' : 'Subir logo'}
+            </button>
+            {studio?.logoUrl && (
+              <button
+                type="button"
+                disabled={subiendoLogo}
+                onClick={handleEliminarLogo}
+                className="text-[12px] font-medium text-[#DC2626] hover:underline text-left disabled:opacity-40"
+              >
+                Quitar logo
+              </button>
+            )}
+            <p className="text-[11px] text-muted-foreground">PNG o JPG, máx. 5 MB.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Facturación e impuestos — tipo de IVA general */}
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Facturación e impuestos</h3>
+        <p className="text-[12px] text-muted-foreground mb-4">
+          Tipo de IVA aplicado al emitir facturas. Los precios se tratan como <span className="font-medium text-foreground">IVA incluido</span>:
+          este tipo solo cambia el desglose base/cuota, nunca el total cobrado.
+        </p>
+        <div className="max-w-xs">
+          <p className={labelCls}>IVA general</p>
+          <select
+            className={cn(inputCls, 'cursor-pointer')}
+            value={studio?.ivaPorDefecto ?? 21}
+            onChange={e => guardarIva(Number(e.target.value))}
+          >
+            <option value={21}>21 % — General</option>
+            <option value={10}>10 % — Reducido</option>
+            <option value={4}>4 % — Superreducido</option>
+            <option value={0}>0 % — Exento</option>
+          </select>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Se aplica a las próximas facturas. Las ya emitidas y selladas (Veri*Factu) no cambian.
+          </p>
+        </div>
       </div>
 
       {/* Reservas y cancelaciones (C-2/C-4) */}

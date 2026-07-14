@@ -1363,12 +1363,12 @@ export default function Pagos() {
                   <span className="font-semibold text-foreground">{parseFloat(facturaForm.importe).toFixed(2)} €</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">IVA 21%</span>
-                  <span className="font-semibold text-foreground">{(parseFloat(facturaForm.importe) * 0.21).toFixed(2)} €</span>
+                  <span className="text-muted-foreground">IVA {studio?.ivaPorDefecto ?? 21}%</span>
+                  <span className="font-semibold text-foreground">{(parseFloat(facturaForm.importe) * ((studio?.ivaPorDefecto ?? 21) / 100)).toFixed(2)} €</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5 mt-1.5">
                   <span className="text-foreground">Total</span>
-                  <span className="text-foreground">{(parseFloat(facturaForm.importe) * 1.21).toFixed(2)} €</span>
+                  <span className="text-foreground">{(parseFloat(facturaForm.importe) * (1 + (studio?.ivaPorDefecto ?? 21) / 100)).toFixed(2)} €</span>
                 </div>
               </div>
             )}

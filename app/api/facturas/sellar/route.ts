@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
   // pero SIN sellar, y se avisa: el estudio debe completar su NIF fiscal.
   const { data: studio } = await admin
     .from('studios')
-    .select('nif')
+    .select('nif, iva_por_defecto')
     .eq('id', f.studioId)
     .maybeSingle();
   const nifEmisor = studio?.nif?.trim() || '';
@@ -83,10 +83,14 @@ export async function POST(req: NextRequest) {
   if (!recibo) {
     return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
   }
+  // Tipo de IVA configurable por estudio (general 21 / reducido 10 /
+  // superreducido 4 / exento 0). El importe del recibo es IVA INCLUIDO, así que
+  // el tipo solo reparte total → base + cuota; el total cobrado no cambia.
+  const tipoIVA = Number(studio?.iva_por_defecto ?? 21);
+  const divisor = 1 + tipoIVA / 100;
   const total = Math.round(Number(recibo.importe) * 100) / 100;
-  const baseImponible = Math.round((total / 1.21) * 100) / 100;
+  const baseImponible = Math.round((total / divisor) * 100) / 100;
   const cuotaIVA = Math.round((total - baseImponible) * 100) / 100;
-  const tipoIVA = 21;
 
   let receptorNombre = 'Cliente de mostrador';
   let receptorNIF: string | null = null;

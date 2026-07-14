@@ -14,6 +14,8 @@ export interface RowStudios {
   telefono: string | null;
   color_primario: string | null;
   tema_portal: string | null;
+  logo_url: string | null;
+  iva_por_defecto: number | null;
   plan: string | null;
   avatar_admin: string | null;
   owner_auth_user_id: string | null;
