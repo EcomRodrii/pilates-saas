@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { planDePriceId } from '@/lib/billing';
+import { capturar } from '@/lib/analytics';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Webhook de Stripe Billing (suscripción del estudio al SaaS). Distinto del
@@ -74,4 +75,8 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
   // Si falla la escritura, propagamos para que el POST devuelva 500 y Stripe
   // reintente (no silenciamos como hacía el webhook de Connect).
   if (error) throw new Error(`update studios: ${error.message}`);
+
+  // R4: señal de ciclo de vida de la suscripción (alta/renovación/impago/baja).
+  // Solo si conocemos el estudio por metadata (los legacy sin studioId se omiten).
+  if (studioId) capturar(studioId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
 }

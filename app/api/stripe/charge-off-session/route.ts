@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbUpdateAutomationLog } from '@/lib/supabase-data';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { bloqueoPorSuscripcion } from '@/lib/billing-guard';
+import { capturar } from '@/lib/analytics';
 import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/stripe-cobros';
 
 // Cobra un recibo pendiente usando la tarjeta ya guardada de la socia, sin
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
       resultado: 'EJECUTADO',
       detalle: `Cobro de ${resultado.importe}€ aprobado y cobrado con la tarjeta guardada.`,
     });
+    // R4: señal de GMV (cobro con tarjeta guardada).
+    capturar(body.studioId, { nombre: 'pago_completado', props: { importe_centimos: Math.round((resultado.importe ?? 0) * 100), via: 'off_session' } });
     return NextResponse.json({ ok: true, status: resultado.status });
   }
 
