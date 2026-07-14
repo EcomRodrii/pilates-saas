@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { applicationFeeAmount } from '@/lib/stripe-fees';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
-// (direct charge: el dinero y la comisión van a la cuenta del estudio).
+// (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
+// el take-rate vía application_fee_amount cuando está activo — lib/stripe-fees).
 //
 // SEGURIDAD: el importe y el concepto se derivan SIEMPRE de la base de datos
 // —del recibo pendiente, o del plan de tarifa—, NUNCA del cuerpo de la
@@ -104,6 +106,9 @@ export async function POST(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
 
+  // R2: take-rate de plataforma (apagado por defecto; ver lib/stripe-fees.ts).
+  const fee = applicationFeeAmount(Math.round(importe * 100));
+
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
@@ -124,7 +129,10 @@ export async function POST(req: NextRequest) {
     // Crea un Customer de Stripe y guarda la tarjeta para poder cobrar sola
     // (off_session) la próxima vez, sin que la socia reintroduzca la tarjeta.
     customer_creation: 'always',
-    payment_intent_data: { setup_future_usage: 'off_session' },
+    payment_intent_data: {
+      setup_future_usage: 'off_session',
+      ...(fee !== undefined ? { application_fee_amount: fee } : {}),
+    },
     metadata,
     success_url: `${appUrl}/pagos?stripe_success=1${body.reciboId ? `&recibo=${body.reciboId}` : ''}`,
     cancel_url: `${appUrl}/pagos?stripe_cancel=1`,
