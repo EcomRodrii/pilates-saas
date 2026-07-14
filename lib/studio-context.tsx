@@ -100,7 +100,6 @@ import type {
 import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
-import { computeAutomationCandidatos } from '@/lib/automation-engine';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
 import { calcularMetrica } from '@/lib/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
@@ -2326,122 +2325,34 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function runAutomation(): Promise<AutomationLog[]> {
-    const now = new Date();
+    // R5: la ejecución vive ahora en el SERVIDOR (/api/automatizaciones/run), que
+    // reutiliza el núcleo del cron de Inngest sobre datos COMPLETOS (no los arrays
+    // en memoria, posiblemente capados) y deduplica por id determinista. Antes
+    // esto computaba candidatos en el navegador y enviaba los emails desde la
+    // pestaña, pudiendo divergir del cron diario.
+    let logs: AutomationLog[] = [];
+    try {
+      const res = await fetch('/api/automatizaciones/run', {
+        method: 'POST',
+        headers: { ...(await authHeader()) },
+      });
+      if (!res.ok) return [];
+      logs = ((await res.json()) as { logs?: AutomationLog[] }).logs ?? [];
+    } catch {
+      return [];
+    }
+    if (logs.length === 0) return [];
 
-    // Candidatos a notificar: solo canal real disponible hoy es email (Resend).
-    // No hay integración de WhatsApp Business, así que ya no fingimos enviarlo.
-    // Detección de candidatos compartida con el cron de servidor — ver
-    // lib/automation-engine.ts.
-    const candidatos = computeAutomationCandidatos(
-      { automationRules, automationLogs, socios, reservas, recibos, sesiones, tiposClase },
-      now
-    );
-
-    if (candidatos.length === 0) return [];
-
-    // ENVIAR_EMAIL se manda solo (vía /api/emails/send). COBRAR_RECIBO y
-    // OFRECER_DESCUENTO nunca se ejecutan aquí — quedan como PENDIENTE_ADMIN
-    // a la espera de que alguien los apruebe con un toque desde
-    // Automatizaciones. NOTIFICAR_ADMIN es un insight de negocio (sin socia
-    // asociada) que tampoco requiere ninguna acción automática.
-    // P0-25: concurrencia acotada (antes Promise.all sin límite disparaba miles
-    // de fetch a IA/emails a la vez desde una pestaña — DoS accidental al backend).
-    const nuevosLogs: AutomationLog[] = await mapLimit(candidatos, 6, async (c): Promise<AutomationLog> => {
-      const base = {
-        id: `log-${uid()}`,
-        studioId: getCurrentStudioId(),
-        ruleId: c.rule.id,
-        ruleName: c.rule.nombre,
-        socioId: c.socio?.id ?? null,
-        socioNombre: c.socio ? `${c.socio.nombre} ${c.socio.apellidos}` : null,
-        pasoIndex: 0,
-        accion: c.accion,
-        ejecutadoEn: now.toISOString(),
-        proximaAccionEn: c.proximaAccionEn,
-        reciboId: c.reciboId ?? null,
-      };
-
-      if (c.accion === 'COBRAR_RECIBO') {
-        return { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.mensaje };
-      }
-
-      if (c.accion === 'NOTIFICAR_ADMIN') {
-        // Insight redactado con IA a partir de los datos que ya detectó el
-        // motor (ver lib/automation-engine.ts) — si la IA falla, se muestra
-        // igualmente el mensaje base calculado por el motor.
-        let detalle = c.mensaje;
-        if (c.contextoIA) {
-          try {
-            const res = await fetch('/api/ai/recomendacion', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-              body: JSON.stringify({ tipo: 'CLASE_LLENA', ...c.contextoIA }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data.mensaje) detalle = data.mensaje;
-            }
-          } catch { /* se queda con el mensaje base del motor */ }
-        }
-        return { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle };
-      }
-
-      if (c.accion === 'OFRECER_DESCUENTO') {
-        // Redacta la oferta de reactivación con IA; si falla, usa el mensaje
-        // base del motor como respaldo — nunca se envía nada sin aprobación.
-        let detalle = c.mensaje;
-        if (c.contextoIA) {
-          try {
-            const res = await fetch('/api/ai/recomendacion', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-              body: JSON.stringify({ tipo: 'REACTIVACION', ...c.contextoIA }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data.mensaje) detalle = data.mensaje;
-            }
-          } catch { /* se queda con el mensaje base del motor */ }
-        }
-        return { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle };
-      }
-
-      if (!c.socio) {
-        return { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Acción sin socia asociada' };
-      }
-
-      try {
-        const res = await fetch('/api/emails/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-          body: JSON.stringify({
-            tipo: 'automatizacion',
-            to: c.socio.email,
-            toName: c.socio.nombre,
-            data: { titulo: c.titulo, mensaje: c.mensaje },
-          }),
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          return { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: body.error ?? `No se pudo enviar el email (HTTP ${res.status})` };
-        }
-        return { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"` };
-      } catch (err) {
-        return { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: err instanceof Error ? err.message : 'Error de red al enviar el email' };
-      }
-    });
-
-    setAutomationLogs(prev => [...nuevosLogs, ...prev]);
-    nuevosLogs.forEach(l => dbInsertAutomationLog(l));
+    // El servidor ya persistió logs y contadores; solo reflejamos en la UI.
+    setAutomationLogs(prev => [...logs, ...prev]);
+    const nowISO = new Date().toISOString();
     setAutomationRules(prev => prev.map(r => {
-      const ruleNewLogs = nuevosLogs.filter(l => l.ruleId === r.id);
+      const ruleNewLogs = logs.filter(l => l.ruleId === r.id);
       if (ruleNewLogs.length === 0) return r;
-      const nuevasVeces = r.ejecutadaVeces + ruleNewLogs.length;
-      dbUpdateAutomationRule(r.id, { ejecutadaVeces: nuevasVeces, ultimaEjecucion: now.toISOString() });
-      return { ...r, ejecutadaVeces: nuevasVeces, ultimaEjecucion: now.toISOString() };
+      return { ...r, ejecutadaVeces: r.ejecutadaVeces + ruleNewLogs.length, ultimaEjecucion: nowISO };
     }));
 
-    return nuevosLogs;
+    return logs;
   }
 
   // Notas de progreso: extraídas a useProgressNotesStore (Fase B).
