@@ -9,6 +9,7 @@ import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
 import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { resolverPlantilla, interpolar } from '@/lib/emails/plantillas-server';
 
 export async function POST(req: NextRequest) {
   // SEGURIDAD: solo staff autenticado. Evita que cualquiera use la cuenta de
@@ -32,6 +33,15 @@ export async function POST(req: NextRequest) {
   let html: string;
   let subject: string;
 
+  // Override de plantilla del estudio (asunto + intro). El studioId sale de la
+  // sesión de staff, no del body — así ningún emisor tiene que pasarlo. Para los
+  // tipos no editables (recibo, automatizacion) devuelve {} y todo sigue igual.
+  const plantilla = await resolverPlantilla(sesion.studioId, body.tipo);
+  const dv = body.data as { estudioNombre?: string; claseNombre?: string };
+  const varsPlantilla = { nombre: body.toName, estudio: dv.estudioNombre, clase: dv.claseNombre };
+  const introCustom = plantilla.intro ? interpolar(plantilla.intro, varsPlantilla) : undefined;
+  const asuntoCustom = plantilla.asunto ? interpolar(plantilla.asunto, varsPlantilla) : undefined;
+
   if (body.tipo === 'recibo') {
     const d = body.data as {
       concepto: string; importe: number; fechaCobro: string;
@@ -41,15 +51,15 @@ export async function POST(req: NextRequest) {
     subject = `Pago confirmado — ${d.concepto}`;
   } else if (body.tipo === 'bienvenida') {
     const d = body.data as { planNombre?: string; estudioNombre?: string };
-    html = await render(BienvenidaEmail({ socioNombre: body.toName, ...d }));
-    subject = `¡Bienvenida a ${d.estudioNombre ?? 'Tentare'}!`;
+    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, ...d }));
+    subject = asuntoCustom ?? `¡Bienvenida a ${d.estudioNombre ?? 'Tentare'}!`;
   } else if (body.tipo === 'reserva') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string;
     };
-    html = await render(ReservaEmail({ socioNombre: body.toName, ...d }));
-    subject = `Reserva confirmada — ${d.claseNombre}`;
+    html = await render(ReservaEmail({ socioNombre: body.toName, intro: introCustom, ...d }));
+    subject = asuntoCustom ?? `Reserva confirmada — ${d.claseNombre}`;
   } else if (body.tipo === 'automatizacion') {
     const d = body.data as { titulo: string; mensaje: string; estudioNombre?: string };
     html = await render(AutomatizacionEmail({ socioNombre: body.toName, ...d }));
@@ -59,22 +69,22 @@ export async function POST(req: NextRequest) {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string; bonoConsumido?: boolean;
     };
-    html = await render(PromocionEsperaEmail({ socioNombre: body.toName, ...d }));
-    subject = `Se ha liberado tu plaza — ${d.claseNombre}`;
+    html = await render(PromocionEsperaEmail({ socioNombre: body.toName, intro: introCustom, ...d }));
+    subject = asuntoCustom ?? `Se ha liberado tu plaza — ${d.claseNombre}`;
   } else if (body.tipo === 'cancelacion') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string; bonoDevuelto?: boolean;
     };
-    html = await render(CancelacionClaseEmail({ socioNombre: body.toName, ...d }));
-    subject = `Clase cancelada — ${d.claseNombre}`;
+    html = await render(CancelacionClaseEmail({ socioNombre: body.toName, intro: introCustom, ...d }));
+    subject = asuntoCustom ?? `Clase cancelada — ${d.claseNombre}`;
   } else if (body.tipo === 'recordatorio') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string;
     };
-    html = await render(RecordatorioEmail({ socioNombre: body.toName, ...d }));
-    subject = `Recordatorio — ${d.claseNombre}`;
+    html = await render(RecordatorioEmail({ socioNombre: body.toName, intro: introCustom, ...d }));
+    subject = asuntoCustom ?? `Recordatorio — ${d.claseNombre}`;
   } else {
     return NextResponse.json({ error: 'Tipo de email desconocido' }, { status: 400 });
   }

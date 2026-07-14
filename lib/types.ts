@@ -96,6 +96,34 @@ export interface Socio {
   direccion?: string | null;
   fotoUrl?: string | null;
   referidoPor?: string | null; // id del socio que la invitó (programa de referidos)
+  // Valores de los campos personalizados del estudio: { [campoId]: valor }.
+  camposExtra?: Record<string, string | number | boolean | null>;
+}
+
+// ─── Plantillas de email transaccional (override por estudio) ────────────────
+export type TipoPlantillaEmail = 'bienvenida' | 'reserva' | 'recordatorio' | 'cancelacion' | 'promocion';
+
+export interface PlantillaEmail {
+  id: string;
+  studioId: string;
+  tipo: TipoPlantillaEmail;
+  asunto: string | null;
+  intro: string | null;
+  activa: boolean;
+}
+
+// ─── Campos personalizados de socia (definidos por el estudio) ───────────────
+export type TipoCampoPersonalizado = 'texto' | 'numero' | 'fecha' | 'booleano' | 'seleccion';
+
+export interface CampoPersonalizado {
+  id: string;
+  studioId: string;
+  etiqueta: string;
+  tipo: TipoCampoPersonalizado;
+  opciones: string[]; // valores posibles cuando tipo === 'seleccion'
+  requerido: boolean;
+  orden: number;
+  activo: boolean;
 }
 
 // ─── Preferencias del alumno (portal de miembros) ────────────────────────────

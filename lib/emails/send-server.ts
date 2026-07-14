@@ -4,6 +4,7 @@ import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
 import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { ReservaEmail } from '@/lib/emails/reserva-template';
+import { resolverPlantilla, interpolar, type PlantillaOverride } from '@/lib/emails/plantillas-server';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Envío de emails transaccionales desde CÓDIGO DE SERVIDOR (no una ruta staff):
@@ -35,17 +36,21 @@ async function renderPorTipo(
   tipo: TipoEmailTransaccional,
   toName: string,
   d: DatosClaseEmail,
+  plantilla: PlantillaOverride,
 ): Promise<{ html: string; subject: string }> {
-  const base = { socioNombre: toName, ...d };
+  const vars = { nombre: toName, estudio: d.estudioNombre, clase: d.claseNombre };
+  const intro = plantilla.intro ? interpolar(plantilla.intro, vars) : undefined;
+  const asunto = plantilla.asunto ? interpolar(plantilla.asunto, vars) : undefined;
+  const base = { socioNombre: toName, intro, ...d };
   switch (tipo) {
     case 'promocion':
-      return { html: await render(PromocionEsperaEmail(base)), subject: `Se ha liberado tu plaza — ${d.claseNombre}` };
+      return { html: await render(PromocionEsperaEmail(base)), subject: asunto ?? `Se ha liberado tu plaza — ${d.claseNombre}` };
     case 'cancelacion':
-      return { html: await render(CancelacionClaseEmail(base)), subject: `Clase cancelada — ${d.claseNombre}` };
+      return { html: await render(CancelacionClaseEmail(base)), subject: asunto ?? `Clase cancelada — ${d.claseNombre}` };
     case 'recordatorio':
-      return { html: await render(RecordatorioEmail(base)), subject: `Recordatorio — ${d.claseNombre}` };
+      return { html: await render(RecordatorioEmail(base)), subject: asunto ?? `Recordatorio — ${d.claseNombre}` };
     case 'reserva':
-      return { html: await render(ReservaEmail(base)), subject: `Reserva confirmada — ${d.claseNombre}` };
+      return { html: await render(ReservaEmail(base)), subject: asunto ?? `Reserva confirmada — ${d.claseNombre}` };
   }
 }
 
@@ -54,13 +59,17 @@ export async function enviarEmailTransaccional(params: {
   to: string;
   toName: string;
   data: DatosClaseEmail;
+  // Opcional: si se pasa, aplica el override de plantilla del estudio (asunto +
+  // intro). Los crons/proxy que tienen el studioId a mano lo envían.
+  studioId?: string;
 }): Promise<Resultado> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
 
   try {
-    const { html, subject } = await renderPorTipo(params.tipo, params.toName, params.data);
+    const plantilla = await resolverPlantilla(params.studioId, params.tipo);
+    const { html, subject } = await renderPorTipo(params.tipo, params.toName, params.data, plantilla);
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
       // Remitente configurable por env (RESEND_FROM). Sin dominio verificado, el

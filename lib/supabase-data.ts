@@ -51,6 +51,8 @@ import type {
   RowSalas,
   RowSesiones,
   RowSocios,
+  RowCamposPersonalizados,
+  RowPlantillasEmail,
   RowSpots,
   RowStudios,
   RowSuscripciones,
@@ -103,6 +105,8 @@ import type {
   Sala,
   Sesion,
   Socio,
+  CampoPersonalizado,
+  PlantillaEmail,
   Spot,
   Studio,
   Suscripcion,
@@ -290,7 +294,21 @@ function mapSocio(r: RowSocios): Socio {
     direccion: r.direccion ?? null,
     fotoUrl: r.foto_url ?? null,
     referidoPor: r.referido_por ?? null,
+    camposExtra: r.campos_extra ?? {},
   } as Socio;
+}
+
+function mapCampoPersonalizado(r: RowCamposPersonalizados): CampoPersonalizado {
+  return {
+    id: r.id,
+    studioId: r.studio_id ?? '',
+    etiqueta: r.etiqueta,
+    tipo: (r.tipo ?? 'texto') as CampoPersonalizado['tipo'],
+    opciones: r.opciones ?? [],
+    requerido: r.requerido ?? false,
+    orden: r.orden ?? 0,
+    activo: r.activo ?? true,
+  };
 }
 
 function mapPreferenciasSocio(r: RowPreferenciasSocio): PreferenciasSocio {
@@ -2011,6 +2029,7 @@ function socioToDb(socio: Socio) {
   const {
     aceptacionContrato, studioId, fechaAlta, leadStage,
     stripeCustomerId, stripePaymentMethodId, fechaNacimiento, fotoUrl, referidoPor,
+    camposExtra,
     ...rest
   } = socio;
   return {
@@ -2023,6 +2042,7 @@ function socioToDb(socio: Socio) {
     fecha_nacimiento: fechaNacimiento ?? null,
     foto_url: fotoUrl ?? null,
     referido_por: referidoPor ?? null,
+    campos_extra: camposExtra ?? {},
     aceptacion_fecha: aceptacionContrato?.fecha ?? null,
     aceptacion_firma: aceptacionContrato?.firma ?? null,
     aceptacion_version: aceptacionContrato?.versionTexto ?? null,
@@ -2349,6 +2369,7 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>) {
   if ('direccion' in changes) db.direccion = changes.direccion;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
   if ('referidoPor' in changes) db.referido_por = changes.referidoPor;
+  if ('camposExtra' in changes) db.campos_extra = changes.camposExtra ?? {};
   if ('aceptacionContrato' in changes) {
     db.aceptacion_fecha = changes.aceptacionContrato?.fecha ?? null;
     db.aceptacion_firma = changes.aceptacionContrato?.firma ?? null;
@@ -2373,6 +2394,85 @@ export async function dbDeleteSocio(id: string) {
   } catch (e) {
     reportDbError('[dbDeleteSocio]', e);
   }
+}
+
+// ── Campos personalizados de socia ──────────────────────────────────────────
+// Definición por estudio (RLS scoped). Los valores viven en socios.campos_extra.
+function campoToDb(c: CampoPersonalizado) {
+  return {
+    id: c.id,
+    studio_id: c.studioId ?? STUDIO_ID,
+    etiqueta: c.etiqueta,
+    tipo: c.tipo,
+    opciones: c.opciones ?? [],
+    requerido: c.requerido,
+    orden: c.orden,
+    activo: c.activo,
+  };
+}
+
+export async function dbFetchCamposPersonalizados(): Promise<CampoPersonalizado[]> {
+  const { data, error } = await supabase
+    .from('campos_personalizados')
+    .select('*')
+    .order('orden', { ascending: true });
+  if (error) { reportDbError('[dbFetchCamposPersonalizados]', error); return []; }
+  return (data ?? []).map(r => mapCampoPersonalizado(r as RowCamposPersonalizados));
+}
+
+export async function dbInsertCampoPersonalizado(campo: CampoPersonalizado) {
+  const { error } = await supabase.from('campos_personalizados').insert(campoToDb(campo));
+  if (error) reportDbError('[dbInsertCampoPersonalizado]', error);
+  return !error;
+}
+
+export async function dbUpdateCampoPersonalizado(id: string, changes: Partial<CampoPersonalizado>) {
+  const db: Record<string, unknown> = {};
+  if ('etiqueta' in changes) db.etiqueta = changes.etiqueta;
+  if ('tipo' in changes) db.tipo = changes.tipo;
+  if ('opciones' in changes) db.opciones = changes.opciones ?? [];
+  if ('requerido' in changes) db.requerido = changes.requerido;
+  if ('orden' in changes) db.orden = changes.orden;
+  if ('activo' in changes) db.activo = changes.activo;
+  const { error } = await supabase.from('campos_personalizados').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateCampoPersonalizado]', error);
+}
+
+export async function dbDeleteCampoPersonalizado(id: string) {
+  const { error } = await supabase.from('campos_personalizados').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteCampoPersonalizado]', error);
+}
+
+// ── Plantillas de email (override por estudio) ──────────────────────────────
+function mapPlantillaEmail(r: RowPlantillasEmail): PlantillaEmail {
+  return {
+    id: r.id,
+    studioId: r.studio_id ?? '',
+    tipo: r.tipo as PlantillaEmail['tipo'],
+    asunto: r.asunto ?? null,
+    intro: r.intro ?? null,
+    activa: r.activa ?? true,
+  };
+}
+
+export async function dbFetchPlantillasEmail(): Promise<PlantillaEmail[]> {
+  const { data, error } = await supabase.from('plantillas_email').select('*');
+  if (error) { reportDbError('[dbFetchPlantillasEmail]', error); return []; }
+  return (data ?? []).map(r => mapPlantillaEmail(r as RowPlantillasEmail));
+}
+
+// Upsert por (studio_id, tipo): un override por estudio y tipo de email.
+export async function dbUpsertPlantillaEmail(p: PlantillaEmail) {
+  const { error } = await supabase.from('plantillas_email').upsert({
+    id: p.id,
+    studio_id: p.studioId ?? STUDIO_ID,
+    tipo: p.tipo,
+    asunto: p.asunto,
+    intro: p.intro,
+    activa: p.activa,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'studio_id,tipo' });
+  if (error) reportDbError('[dbUpsertPlantillaEmail]', error);
 }
 
 // ── Comentarios de Comunidad ────────────────────────────────────────────────

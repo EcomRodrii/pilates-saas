@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
+import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 
 // ─── Shared style tokens ────────────────────────────────────────────────────
 const inputCls =
@@ -34,6 +35,7 @@ type FormSocia = {
   telefono: string;
   nif: string;
   planId: string;
+  camposExtra: Record<string, string | number | boolean | null>;
 };
 
 const emptyForm = (): FormSocia => ({
@@ -43,6 +45,7 @@ const emptyForm = (): FormSocia => ({
   telefono: '',
   nif: '',
   planId: '',
+  camposExtra: {},
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -130,7 +133,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Socios() {
   const router = useRouter();
-  const { socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud } =
+  const { socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados } =
     useStudio();
   const verFichaClinica = puedeVerFichaClinica(useRol());
 
@@ -380,6 +383,7 @@ export default function Socios() {
       telefono: form.telefono || null,
       nif: form.nif || null,
       activo: true,
+      camposExtra: form.camposExtra,
       planId: form.planId || undefined,
       aceptacionContrato: {
         fecha: new Date().toISOString(),
@@ -406,6 +410,7 @@ export default function Socios() {
       email: form.email.trim(),
       telefono: form.telefono || null,
       nif: form.nif || null,
+      camposExtra: form.camposExtra,
     });
     if (form.planId) assignPlan(editandoId, form.planId);
     resetModal();
@@ -421,6 +426,7 @@ export default function Socios() {
       telefono: s.telefono ?? '',
       nif: s.nif ?? '',
       planId: sus?.planId ?? '',
+      camposExtra: s.camposExtra ?? {},
     });
     setFormStep(1);
     setFirma('');
@@ -960,6 +966,16 @@ export default function Socios() {
                   />
                 </FF>
               </div>
+              {camposPersonalizados.some(c => c.activo) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                  <CamposExtraFields
+                    campos={camposPersonalizados}
+                    values={form.camposExtra}
+                    onChange={(id, v) => setForm(f => ({ ...f, camposExtra: { ...f.camposExtra, [id]: v } }))}
+                    inputClassName={inputCls}
+                  />
+                </div>
+              )}
               <FF label="Plan / Tarifa">
                 <select
                   className={selectCls}

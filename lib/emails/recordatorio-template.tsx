@@ -11,6 +11,7 @@ interface Props {
   sala: string;
   instructor: string;
   estudioNombre?: string;
+  intro?: string;
 }
 
 export function RecordatorioEmail({
@@ -21,6 +22,7 @@ export function RecordatorioEmail({
   sala,
   instructor,
   estudioNombre = 'Tentare',
+  intro,
 }: Props) {
   return (
     <Html lang="es">
@@ -40,7 +42,7 @@ export function RecordatorioEmail({
 
           <Section style={{ padding: '28px 32px' }}>
             <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 24px' }}>
-              Hola <strong>{socioNombre}</strong>, te esperamos en tu próxima clase. Aquí tienes los detalles.
+              {intro ?? <>Hola <strong>{socioNombre}</strong>, te esperamos en tu próxima clase. Aquí tienes los detalles.</>}
             </Text>
 
             <Section style={{ backgroundColor: '#F9FAFB', borderRadius: 10, padding: '20px 24px', marginBottom: 20 }}>

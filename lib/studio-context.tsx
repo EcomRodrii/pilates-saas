@@ -4,6 +4,8 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
+  dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
+  dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
@@ -37,6 +39,8 @@ import {
 import type {
   Studio,
   Socio,
+  CampoPersonalizado,
+  PlantillaEmail,
   AceptacionContrato,
   Suscripcion,
   Sesion,
@@ -353,6 +357,16 @@ interface StudioContextValue {
   updateTipoClase: (id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>) => void;
   deleteTipoClase: (id: string) => void;
 
+  // Campos personalizados de socia
+  camposPersonalizados: CampoPersonalizado[];
+  addCampoPersonalizado: (fields: Omit<CampoPersonalizado, 'id' | 'studioId'>) => void;
+  updateCampoPersonalizado: (id: string, changes: Partial<Omit<CampoPersonalizado, 'id' | 'studioId'>>) => void;
+  deleteCampoPersonalizado: (id: string) => void;
+
+  // Plantillas de email transaccional
+  plantillasEmail: PlantillaEmail[];
+  upsertPlantillaEmail: (tipo: PlantillaEmail['tipo'], changes: { asunto?: string | null; intro?: string | null; activa?: boolean }) => void;
+
   // Instructores (mutable)
   addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>) => void;
   updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => void;
@@ -428,6 +442,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [planesTarifa, setPlanesTarifa] = useState<PlanTarifa[]>([]);
   const [salas, setSalas] = useState<Sala[]>([]);
   const [tiposClase, setTiposClase] = useState<TipoClase[]>([]);
+  const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
+  const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
   const [instructores, setInstructores] = useState<Instructor[]>([]);
   const [spots, setSpots] = useState<Spot[]>([]);
 
@@ -617,6 +633,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setStudio(data.studio);
       setDataLoaded(true);
 
+      // Campos personalizados y plantillas de email: no son ruta crítica (solo
+      // config + fichas), se cargan aparte sin bloquear el primer pintado.
+      dbFetchCamposPersonalizados().then(setCamposPersonalizados).catch(() => {});
+      dbFetchPlantillasEmail().then(setPlantillasEmail).catch(() => {});
+
       // 2ª ola (Fase C): historial/logs. No bloquea el primer pintado; estas
       // vistas se rellenan un instante después. Ninguna lógica de negocio las
       // lee, así que el hueco no cambia comportamiento.
@@ -755,6 +776,36 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   function deleteTipoClase(id: string) {
     setTiposClase(prev => prev.filter(t => t.id !== id));
     dbDeleteTipoClase(id);
+  }
+
+  // ── Campos personalizados de socia ──────────────────────────────────────────
+
+  function addCampoPersonalizado(fields: Omit<CampoPersonalizado, 'id' | 'studioId'>) {
+    const nuevo: CampoPersonalizado = { ...fields, id: `campo-${uid()}`, studioId: getCurrentStudioId() };
+    setCamposPersonalizados(prev => [...prev, nuevo]);
+    dbInsertCampoPersonalizado(nuevo);
+  }
+  function updateCampoPersonalizado(id: string, changes: Partial<Omit<CampoPersonalizado, 'id' | 'studioId'>>) {
+    setCamposPersonalizados(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c));
+    dbUpdateCampoPersonalizado(id, changes);
+  }
+  function deleteCampoPersonalizado(id: string) {
+    setCamposPersonalizados(prev => prev.filter(c => c.id !== id));
+    dbDeleteCampoPersonalizado(id);
+  }
+
+  // ── Plantillas de email ─────────────────────────────────────────────────────
+
+  function upsertPlantillaEmail(tipo: PlantillaEmail['tipo'], changes: { asunto?: string | null; intro?: string | null; activa?: boolean }) {
+    const existente = plantillasEmail.find(p => p.tipo === tipo);
+    const merged: PlantillaEmail = existente
+      ? { ...existente, ...changes }
+      : { id: `pl-${uid()}`, studioId: getCurrentStudioId(), tipo, asunto: null, intro: null, activa: true, ...changes };
+    setPlantillasEmail(prev => {
+      const rest = prev.filter(p => p.tipo !== tipo);
+      return [...rest, merged];
+    });
+    dbUpsertPlantillaEmail(merged);
   }
 
   // ── Instructores ──────────────────────────────────────────────────────────────
@@ -2466,6 +2517,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addTipoClase,
     updateTipoClase,
     deleteTipoClase,
+    camposPersonalizados,
+    addCampoPersonalizado,
+    updateCampoPersonalizado,
+    deleteCampoPersonalizado,
+    plantillasEmail,
+    upsertPlantillaEmail,
     addInstructor,
     updateInstructor,
     deleteInstructor,
