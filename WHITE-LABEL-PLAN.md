@@ -91,9 +91,30 @@ server-side de tema, y migrar `reservar/[slug]` fuera de colores hardcodeados
   Verificar en Fase 2 que el bundler de Next resuelve el import `.ts` de theme-runtime.
 
 ### Fase 2 — Aplicación en runtime
-- Migrar `app/reservar/[slug]/page.tsx` a CSS vars.
-- Panel del dueño con marca del estudio + dark por-usuario (migrar `panel-theme`).
-- Favicon dinámico.
+**2a ✅ COMPLETA (2026-07-14) — superficies públicas:**
+- [x] `components/theme-style.tsx`: server component que inyecta `themeToCssText`
+      en `:root` desde `getThemePublicado` (sin FOUC), reusando `getStudioSeo`.
+- [x] Wired en `app/portal/[slug]/layout.tsx` y `app/reservar/[slug]/layout.tsx`.
+- [x] Puente de retrocompat `presetAThemeConfig`: si el estudio no tiene fila en
+      `studio_theme`, el tema se deriva de su `studios.tema_portal` (preset viejo)
+      → ningún estudio existente pierde su color al activarse el white-label.
+- [x] `components/portal/portal-shell.tsx`: quitado el `portalThemeStyle` inline
+      (redundante; `:root` es ahora autoritativo).
+- [x] `app/reservar/[slug]/page.tsx`: `PRIMARY` → `var(--portal-brand)` y texto
+      sobre marca → `var(--portal-brand-foreground)` (autoderivado por contraste,
+      legible también con marcas claras).
+- [x] Verificado: suite 350 verde, typecheck OK; dev server compila `reservar`
+      (200, Turbopack resuelve los imports `.ts` en el bundle — riesgo despejado).
+- Pendiente: verificación VISUAL con tema custom real necesita DB con migr. 0019
+      aplicada + un estudio con tema → ver 2b. (No hay creds Supabase en disco;
+      solo en Vercel.)
+
+**2b — PENDIENTE (panel + favicon + verificación end-to-end):**
+- Panel/dashboard con marca del estudio + dark por-usuario (migrar `panel-theme`;
+  requiere llevar el tema publicado al contexto cliente del dashboard).
+- Favicon dinámico desde `theme.faviconUrl`.
+- Aplicar `0019_studio_theme.sql` a una DB (decidir: local `supabase start` vs
+  linked/prod `db push`) y verificar un tema custom end-to-end en el navegador.
 
 ### Fase 3 — Editor white-label + preview en vivo
 - Evolucionar `components/layout/appearance-panel.tsx`: split-screen con preview

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { getStudioSeo } from '@/lib/studio-seo';
+import { ThemeStyle } from '@/components/theme-style';
 
 // SEO server-rendered (I-9): título/descripción/Open Graph con el nombre y la
 // ciudad del estudio, para que "pilates <ciudad> reservar" indexe contenido real
@@ -31,6 +32,7 @@ export default async function ReservarSlugLayout({ children, params }: { childre
   const studio = await getStudioSeo(slug);
   return (
     <StudioSlugGate slug={slug} initialStudioId={studio?.id ?? null} initialResuelto>
+      <ThemeStyle slug={slug} />
       {children}
     </StudioSlugGate>
   );

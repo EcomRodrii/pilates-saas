@@ -489,7 +489,11 @@ export default function ReservarPage() {
 
   const bookingSesion = bookingSesionId ? sesionesRich.find(s => s.id === bookingSesionId) : null;
 
-  const PRIMARY = '#1A1A1A'; // Midbox ink — brand accent
+  // Marca del estudio (white-label): inyectada como CSS var por <ThemeStyle>
+  // server-side. PRIMARY_FG es el texto sobre la marca, autoderivado por
+  // contraste (garantiza legibilidad también con marcas claras).
+  const PRIMARY = 'var(--portal-brand)';
+  const PRIMARY_FG = 'var(--portal-brand-foreground)';
 
   return (
     <div className="min-h-screen bg-[#EEEEE8]">
@@ -505,8 +509,8 @@ export default function ReservarPage() {
                 <img src={estudioLogo} alt={estudioNombre}
                   className="w-9 h-9 rounded-xl object-contain bg-white shrink-0" />
               ) : (
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-[11px] font-black shrink-0"
-                  style={{ backgroundColor: PRIMARY }}>{estudioNombre[0]}</div>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-black shrink-0"
+                  style={{ backgroundColor: PRIMARY, color: PRIMARY_FG }}>{estudioNombre[0]}</div>
               )}
               <div>
                 <p className="font-bold text-[#1A1A1A] text-sm leading-tight">{estudioNombre}</p>
@@ -516,8 +520,8 @@ export default function ReservarPage() {
             {socia ? (
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F5F1] border border-[#E7E7E0]">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
-                    style={{ backgroundColor: PRIMARY }}>
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
+                    style={{ backgroundColor: PRIMARY, color: PRIMARY_FG }}>
                     {socia.nombre[0]}
                   </div>
                   <span className="text-[#3A3A34] text-sm font-medium">{socia.nombre.split(' ')[0]}</span>
@@ -527,8 +531,8 @@ export default function ReservarPage() {
             ) : (
               <button
                 onClick={() => { setBookingSesionId(''); setLoginStep('login'); openBooking(''); }}
-                className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-colors"
-                style={{ backgroundColor: PRIMARY }}>
+                className="px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+                style={{ backgroundColor: PRIMARY, color: PRIMARY_FG }}>
                 Acceder
               </button>
             )}
@@ -573,7 +577,7 @@ export default function ReservarPage() {
                       <button key={key} onClick={() => setSelectedDay(key)}
                         className="flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl transition-all shrink-0 min-w-[42px]"
                         style={isSel
-                          ? { backgroundColor: PRIMARY, color: '#fff' }
+                          ? { backgroundColor: PRIMARY, color: PRIMARY_FG }
                           : { color: isToday ? '#171717' : '#767670' }}>
                         <span className="text-[9px] font-semibold uppercase">{fmtShort(d).split(' ')[0]}</span>
                         <span className={`text-base font-bold leading-none ${isToday && !isSel ? 'underline decoration-dotted' : ''}`}>{d.getDate()}</span>
@@ -598,7 +602,7 @@ export default function ReservarPage() {
                   <button key={id || 'all'} onClick={() => setFiltroTipo(id)}
                     className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border"
                     style={active
-                      ? { backgroundColor: tipo?.color ?? PRIMARY, color: '#fff', borderColor: tipo?.color ?? PRIMARY }
+                      ? { backgroundColor: tipo?.color ?? PRIMARY, color: tipo?.color ? '#fff' : PRIMARY_FG, borderColor: tipo?.color ?? PRIMARY }
                       : { backgroundColor: 'white', color: '#8E8E86', borderColor: '#E7E7E0' }}>
                     {tipo && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: active ? 'rgba(255,255,255,0.7)' : tipo.color }} />}
                     {tipo ? tipo.nombre : 'Todas las clases'}

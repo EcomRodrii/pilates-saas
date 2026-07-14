@@ -1,6 +1,7 @@
 import { PortalAuthProvider } from '@/lib/portal-auth';
 import { PortalShell } from '@/components/portal/portal-shell';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
+import { ThemeStyle } from '@/components/theme-style';
 
 export const metadata = {
   title: 'Mi Estudio · Portal',
@@ -19,6 +20,7 @@ export default async function PortalLayout({ children, params }: { children: Rea
   const { slug } = await params;
   return (
     <StudioSlugGate slug={slug}>
+      <ThemeStyle slug={slug} />
       <PortalAuthProvider slug={slug}>
         <PortalShell>{children}</PortalShell>
       </PortalAuthProvider>

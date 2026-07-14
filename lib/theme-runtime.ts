@@ -14,8 +14,24 @@
 //    evita el FOUC / flash sin tema).
 
 import type { CSSProperties } from 'react';
-import { resolveTheme, FUENTES, RADIOS } from './theme-schema.ts';
+import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig } from './theme-schema.ts';
+import { getPreset } from './theme-presets.ts';
 import { ratioContraste, cumpleContraste } from './wcag-contrast.ts';
+
+/**
+ * Puente de retrocompatibilidad: convierte el preset con nombre que un estudio
+ * ya tenía (`studios.tema_portal`, sistema viejo de 6 opciones) en un tema
+ * completo. Se usa cuando el estudio aún no tiene fila en `studio_theme`, para
+ * que NO pierda su color al activarse el white-label.
+ */
+export function presetAThemeConfig(temaPortal: string | null | undefined): ThemeConfig {
+  const p = getPreset(temaPortal);
+  return {
+    ...DEFAULT_THEME,
+    primary: p.primary,
+    secondary: p.secondary,
+  };
+}
 
 /** Negro o blanco: el que más contraste haga sobre el fondo dado. */
 export function foregroundParaFondo(fondo: string): string {

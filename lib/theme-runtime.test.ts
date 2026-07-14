@@ -5,8 +5,9 @@ import {
   themeToCssVars,
   themeToCssText,
   validarContrasteTheme,
+  presetAThemeConfig,
 } from './theme-runtime.ts';
-import { DEFAULT_THEME } from './theme-schema.ts';
+import { DEFAULT_THEME, themeConfigSchema } from './theme-schema.ts';
 
 test('foregroundParaFondo: blanco sobre fondo oscuro, negro sobre fondo claro', () => {
   assert.equal(foregroundParaFondo('#131313'), '#FFFFFF');
@@ -61,4 +62,16 @@ test('validarContrasteTheme: texto sin contraste falla con mensaje', () => {
   const r = validarContrasteTheme({ ...DEFAULT_THEME, text: '#EEEEEE', background: '#FFFFFF' });
   assert.equal(r.ok, false);
   assert.ok(r.errores.some((e) => e.includes('texto')));
+});
+
+test('presetAThemeConfig: deriva un tema válido del preset viejo', () => {
+  const t = presetAThemeConfig('teal');
+  assert.equal(themeConfigSchema.safeParse(t).success, true);
+  assert.equal(t.primary, '#0F766E'); // primary del preset teal
+  assert.equal(t.fontId, 'jakarta'); // resto = default
+});
+
+test('presetAThemeConfig: preset desconocido/null → deriva del preset Original', () => {
+  const t = presetAThemeConfig(null);
+  assert.equal(t.primary, DEFAULT_THEME.primary);
 });

@@ -24,8 +24,26 @@ import {
   type ThemeDraft,
   DEFAULT_THEME,
 } from '@/lib/theme-schema';
+import { presetAThemeConfig } from '@/lib/theme-runtime';
 
-/** Tema PUBLICADO de un estudio (runtime). Fallback a default si no hay fila. */
+/**
+ * Tema derivado del preset viejo del estudio (`studios.tema_portal`). Se usa
+ * como fallback cuando aún no hay fila en `studio_theme`, para no regresionar
+ * el color de estudios existentes. Si no se puede leer, cae al default.
+ */
+async function themeDesdePreset(
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+  studioId: string,
+): Promise<ThemeConfig> {
+  const { data } = await admin
+    .from('studios')
+    .select('tema_portal')
+    .eq('id', studioId)
+    .maybeSingle();
+  return data ? presetAThemeConfig(data.tema_portal) : DEFAULT_THEME;
+}
+
+/** Tema PUBLICADO de un estudio (runtime). Fallback: preset viejo → default. */
 export const getThemePublicado = cache(async (studioId: string): Promise<ThemeConfig> => {
   const admin = getSupabaseAdmin();
   if (!admin || !studioId) return DEFAULT_THEME;
@@ -34,10 +52,11 @@ export const getThemePublicado = cache(async (studioId: string): Promise<ThemeCo
     .select('config_published')
     .eq('studio_id', studioId)
     .maybeSingle();
-  return resolveTheme(data?.config_published ?? null);
+  if (data?.config_published) return resolveTheme(data.config_published);
+  return themeDesdePreset(admin, studioId);
 });
 
-/** Tema BORRADOR de un estudio (editor/preview). Fallback a lo publicado. */
+/** Tema BORRADOR de un estudio (editor/preview). Fallback: publicado → preset → default. */
 export const getThemeBorrador = cache(async (studioId: string): Promise<ThemeConfig> => {
   const admin = getSupabaseAdmin();
   if (!admin || !studioId) return DEFAULT_THEME;
@@ -46,8 +65,9 @@ export const getThemeBorrador = cache(async (studioId: string): Promise<ThemeCon
     .select('config_draft, config_published')
     .eq('studio_id', studioId)
     .maybeSingle();
-  // Si aún no hay borrador, se parte de lo publicado (o del default).
-  return resolveTheme(data?.config_draft ?? data?.config_published ?? null);
+  const guardado = data?.config_draft ?? data?.config_published;
+  if (guardado) return resolveTheme(guardado);
+  return themeDesdePreset(admin, studioId);
 });
 
 /**
