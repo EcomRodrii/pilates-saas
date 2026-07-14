@@ -188,9 +188,9 @@ export function ThemeEditor() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] items-start">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
       {/* Controles */}
-      <div className="space-y-6">
+      <div className="space-y-6 rounded-2xl border border-border bg-card p-5">
         {/* Paletas de arranque */}
         <section className="space-y-3">
           <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Empieza con una paleta</p>
