@@ -18,6 +18,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
+import { InstructorDependencyWidget } from '@/components/dashboard/instructor-dependency-widget';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -722,6 +723,8 @@ export default function Dashboard() {
         </div>
 
         <CustomChartsSection />
+
+        <InstructorDependencyWidget />
 
         {/* ── Main content grid ──────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

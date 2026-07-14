@@ -24,6 +24,11 @@ export interface Studio {
   // Tipo de IVA general del estudio (%). El precio del recibo es IVA incluido;
   // este tipo solo cambia el desglose base/cuota de la factura, no el total.
   ivaPorDefecto: number;
+  // Umbrales de "riesgo de concentración por instructor" (% de facturación) y
+  // ventana de análisis en días. Configurables por el estudio.
+  depUmbralAlto: number;
+  depUmbralMedio: number;
+  depVentanaDias: number;
   plan: 'BASE' | 'ESTUDIO' | 'CADENA';
   avatarAdmin: string | null;
   ownerAuthUserId: string | null;
@@ -98,6 +103,33 @@ export interface Socio {
   referidoPor?: string | null; // id del socio que la invitó (programa de referidos)
   // Valores de los campos personalizados del estudio: { [campoId]: valor }.
   camposExtra?: Record<string, string | number | boolean | null>;
+}
+
+// ─── Riesgo de concentración por instructor ─────────────────────────────────
+export type NivelRiesgoDependencia = 'ALTO' | 'MEDIO' | 'BAJO';
+
+export interface AlumnaCautiva {
+  socioId: string;
+  nombre: string;
+  gasto: number;            // ingresos de esta socia en la ventana
+  pctConInstructor: number; // % de sus asistencias con este instructor
+}
+
+export interface InstructorDependencySnapshot {
+  id: string;
+  studioId: string;
+  instructorId: string;
+  periodoInicio: string;
+  periodoFin: string;
+  ventanaDias: number;
+  alumnasTotal: number;
+  alumnasCautivasCount: number;
+  ingresosCautivos: number;
+  ingresosTotalEstudio: number;
+  porcentajeFacturacion: number;
+  nivelRiesgo: NivelRiesgoDependencia;
+  detalle: AlumnaCautiva[];
+  calculadoEn: string;
 }
 
 // ─── Plantillas de email transaccional (override por estudio) ────────────────

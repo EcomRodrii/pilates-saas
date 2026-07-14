@@ -16,6 +16,9 @@ export interface RowStudios {
   tema_portal: string | null;
   logo_url: string | null;
   iva_por_defecto: number | null;
+  dep_umbral_alto: number | null;
+  dep_umbral_medio: number | null;
+  dep_ventana_dias: number | null;
   plan: string | null;
   avatar_admin: string | null;
   owner_auth_user_id: string | null;
@@ -59,6 +62,23 @@ export interface RowSocios {
   foto_url: string | null;
   referido_por: string | null;
   campos_extra: Record<string, string | number | boolean | null> | null;
+}
+
+export interface RowInstructorDependencySnapshots {
+  id: string;
+  studio_id: string | null;
+  instructor_id: string | null;
+  periodo_inicio: string | null;
+  periodo_fin: string | null;
+  ventana_dias: number | null;
+  alumnas_total: number | null;
+  alumnas_cautivas_count: number | null;
+  ingresos_cautivos: number | null;
+  ingresos_total_estudio: number | null;
+  porcentaje_facturacion: number | null;
+  nivel_riesgo: string | null;
+  detalle: Array<{ socioId: string; nombre: string; gasto: number; pctConInstructor: number }> | null;
+  calculado_en: string | null;
 }
 
 export interface RowCamposPersonalizados {

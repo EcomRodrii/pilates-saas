@@ -53,6 +53,7 @@ import type {
   RowSocios,
   RowCamposPersonalizados,
   RowPlantillasEmail,
+  RowInstructorDependencySnapshots,
   RowSpots,
   RowStudios,
   RowSuscripciones,
@@ -107,6 +108,7 @@ import type {
   Socio,
   CampoPersonalizado,
   PlantillaEmail,
+  InstructorDependencySnapshot,
   Spot,
   Studio,
   Suscripcion,
@@ -221,6 +223,9 @@ function mapStudio(r: RowStudios): Studio {
     temaPortal: r.tema_portal ?? 'original',
     logoUrl: r.logo_url ?? null,
     ivaPorDefecto: r.iva_por_defecto ?? 21,
+    depUmbralAlto: r.dep_umbral_alto ?? 25,
+    depUmbralMedio: r.dep_umbral_medio ?? 15,
+    depVentanaDias: r.dep_ventana_dias ?? 90,
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     ownerAuthUserId: r.owner_auth_user_id ?? null,
@@ -2443,6 +2448,34 @@ export async function dbDeleteCampoPersonalizado(id: string) {
   if (error) reportDbError('[dbDeleteCampoPersonalizado]', error);
 }
 
+// ── Riesgo de concentración por instructor ──────────────────────────────────
+function mapDependencySnapshot(r: RowInstructorDependencySnapshots): InstructorDependencySnapshot {
+  return {
+    id: r.id,
+    studioId: r.studio_id ?? '',
+    instructorId: r.instructor_id ?? '',
+    periodoInicio: r.periodo_inicio ?? '',
+    periodoFin: r.periodo_fin ?? '',
+    ventanaDias: r.ventana_dias ?? 90,
+    alumnasTotal: r.alumnas_total ?? 0,
+    alumnasCautivasCount: r.alumnas_cautivas_count ?? 0,
+    ingresosCautivos: Number(r.ingresos_cautivos ?? 0),
+    ingresosTotalEstudio: Number(r.ingresos_total_estudio ?? 0),
+    porcentajeFacturacion: Number(r.porcentaje_facturacion ?? 0),
+    nivelRiesgo: (r.nivel_riesgo ?? 'BAJO') as InstructorDependencySnapshot['nivelRiesgo'],
+    detalle: r.detalle ?? [],
+    calculadoEn: r.calculado_en ?? '',
+  };
+}
+
+export async function dbFetchDependencySnapshots(): Promise<InstructorDependencySnapshot[]> {
+  const { data, error } = await supabase
+    .from('instructor_dependency_snapshots')
+    .select('*');
+  if (error) { reportDbError('[dbFetchDependencySnapshots]', error); return []; }
+  return (data ?? []).map(r => mapDependencySnapshot(r as RowInstructorDependencySnapshots));
+}
+
 // ── Plantillas de email (override por estudio) ──────────────────────────────
 function mapPlantillaEmail(r: RowPlantillasEmail): PlantillaEmail {
   return {
@@ -3413,6 +3446,9 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('temaPortal' in changes) db.tema_portal = changes.temaPortal;
   if ('logoUrl' in changes) db.logo_url = changes.logoUrl;
   if ('ivaPorDefecto' in changes) db.iva_por_defecto = changes.ivaPorDefecto;
+  if ('depUmbralAlto' in changes) db.dep_umbral_alto = changes.depUmbralAlto;
+  if ('depUmbralMedio' in changes) db.dep_umbral_medio = changes.depUmbralMedio;
+  if ('depVentanaDias' in changes) db.dep_ventana_dias = changes.depVentanaDias;
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
