@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbUpdateAutomationLog } from '@/lib/supabase-data';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { bloqueoPorSuscripcion } from '@/lib/billing-guard';
+import { capturar } from '@/lib/analytics';
 import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/stripe-cobros';
 
 // Cobra un recibo pendiente usando la tarjeta ya guardada de la socia, sin
@@ -33,6 +35,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
   }
 
+  // R7: un estudio con la suscripción caducada no puede cobrar a sus socias.
+  const bloqueo = await bloqueoPorSuscripcion(sesion.studioId);
+  if (bloqueo) return bloqueo;
+
   // A-10: la Idempotency-Key la deriva cobrarReciboOffSession del reciboId, para
   // que este disparador (aprobación manual) y el ejecutor del Decision OS
   // converjan en la misma clave y Stripe deduplique el cobro del mismo recibo.
@@ -47,6 +53,8 @@ export async function POST(req: NextRequest) {
       resultado: 'EJECUTADO',
       detalle: `Cobro de ${resultado.importe}€ aprobado y cobrado con la tarjeta guardada.`,
     });
+    // R4: señal de GMV (cobro con tarjeta guardada).
+    capturar(body.studioId, { nombre: 'pago_completado', props: { importe_centimos: Math.round((resultado.importe ?? 0) * 100), via: 'off_session' } });
     return NextResponse.json({ ok: true, status: resultado.status });
   }
 

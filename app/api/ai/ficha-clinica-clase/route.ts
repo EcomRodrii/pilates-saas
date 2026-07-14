@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { bloqueoPorFeature } from '@/lib/billing-guard';
 import { FICHA_CLINICA_CLASE_SYSTEM_PROMPT, buildFichaClinicaClaseUserPrompt } from '@/lib/ai/ficha-clinica-clase-prompt';
 import type { ResumenClaseSalud } from '@/lib/ficha-clinica';
 
@@ -9,6 +10,8 @@ const client = new Anthropic();
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const bloqueoIA = await bloqueoPorFeature(sesion.studioId, 'ia');
+  if (bloqueoIA) return bloqueoIA;
   try {
     // El cliente envía el agregado ANÓNIMO ya calculado (resumenSaludClase).
     // No llegan nombres ni datos personales — la IA solo redacta (§9).

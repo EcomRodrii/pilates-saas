@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { applicationFeeAmount } from '@/lib/stripe-fees';
+import { bloqueoPorSuscripcion } from '@/lib/billing-guard';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lanza un cobro al datáfono físico (server-driven). Crea un PaymentIntent
@@ -33,6 +35,10 @@ export async function POST(req: NextRequest) {
   const MAX_CENTIMOS = 1_000_000; // 10.000 €
   const body = (await req.json().catch(() => ({}))) as { studioId?: string; amount?: number; concepto?: string };
   if (body.studioId !== sesion.studioId) return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
+
+  // R7: un estudio con la suscripción caducada no puede cobrar por el datáfono.
+  const bloqueoSub = await bloqueoPorSuscripcion(sesion.studioId);
+  if (bloqueoSub) return bloqueoSub;
   const amount = Math.round(body.amount ?? 0); // céntimos
   if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: 'Importe inválido' }, { status: 400 });
   if (amount > MAX_CENTIMOS) {
@@ -47,6 +53,9 @@ export async function POST(req: NextRequest) {
   if (!stripeAccount) return NextResponse.json({ error: 'El estudio no tiene Stripe conectado' }, { status: 409 });
   if (!readerId) return NextResponse.json({ error: 'No hay datáfono emparejado. Configúralo primero.' }, { status: 409 });
 
+  // R2: take-rate de plataforma (apagado por defecto; ver lib/stripe-fees.ts).
+  const fee = applicationFeeAmount(amount);
+
   try {
     const pi = await stripe.paymentIntents.create({
       amount,
@@ -54,6 +63,7 @@ export async function POST(req: NextRequest) {
       payment_method_types: ['card_present'],
       capture_method: 'automatic',
       metadata: { studioId: sesion.studioId, origen: 'pos_terminal', concepto: body.concepto ?? 'Venta POS' },
+      ...(fee !== undefined ? { application_fee_amount: fee } : {}),
     }, { stripeAccount });
 
     await stripe.terminal.readers.processPaymentIntent(readerId, { payment_intent: pi.id }, { stripeAccount });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { bloqueoPorFeature } from '@/lib/billing-guard';
 
 const client = new Anthropic();
 
@@ -21,6 +22,8 @@ Responde SOLO con el JSON, sin texto adicional.`;
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const bloqueoIA = await bloqueoPorFeature(sesion.studioId, 'ia');
+  if (bloqueoIA) return bloqueoIA;
   try {
     const body = await req.json();
     const { texto, socioId, instructorId, sesionId } = body as {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { capturar } from '@/lib/analytics';
 
 export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -86,6 +87,12 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+
+    // R4: señal de GMV (analítica de producto, no-op si POSTHOG_KEY no está).
+    const studioId = session.metadata?.studioId;
+    if (studioId && typeof session.amount_total === 'number') {
+      capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: session.amount_total, via: 'checkout' } });
+    }
   }
 
   // A-14 (backstop): el cobro por datáfono se confirma aquí aunque el POS se haya
@@ -122,6 +129,9 @@ export async function POST(req: NextRequest) {
         console.error('[stripe webhook] no se pudo registrar la reconciliación POS', pi.id, error);
         return NextResponse.json({ error: 'Fallo al registrar la reconciliación' }, { status: 500 });
       }
+
+      // R4: señal de GMV del datáfono.
+      capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'terminal' } });
     }
   }
 
