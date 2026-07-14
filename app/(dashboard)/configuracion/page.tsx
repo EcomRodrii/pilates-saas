@@ -1437,6 +1437,21 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
     showToast(`Te avisaremos cuando ${cat.nombre} esté disponible`);
   };
 
+  // Agregadores (ClassPass, Urban Sports, Wellhub…): no se conectan por API sin
+  // un alta como partner. "Solicitar acceso" registra el interés para que el
+  // equipo de Tentare gestione el alta con el agregador.
+  const solicitarAcceso = (cat: CatalogoIntegracion) => {
+    dbInsertSoporteSolicitud({
+      id: `sup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      tipo: 'MEJORA',
+      mensaje: `Solicito acceso al agregador ${cat.nombre} (requiere alta como partner). Estudio interesado en aparecer en su red.`,
+      contacto: null,
+      creadoEn: new Date().toISOString(),
+    });
+    setAvisado(prev => new Set(prev).add(cat.tipo));
+    showToast(`Solicitud enviada — te contactamos para el alta en ${cat.nombre}`);
+  };
+
   const exportarExcel = () => {
     const fmtEur = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     // P0-35: índices por socio en UNA pasada, en vez de suscripciones.find/filter
@@ -1520,7 +1535,15 @@ function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-[#F1F1F4] flex items-center gap-2">
-                {cat.proximamente ? (
+                {cat.proximamente && cat.categoria === 'Agregadores' ? (
+                  <button
+                    onClick={() => solicitarAcceso(cat)}
+                    disabled={avisado.has(cat.tipo)}
+                    className={cn(btnPrimary, avisado.has(cat.tipo) && 'opacity-50')}
+                  >
+                    <Ticket size={14} /> {avisado.has(cat.tipo) ? 'Solicitud enviada' : 'Solicitar acceso'}
+                  </button>
+                ) : cat.proximamente ? (
                   <button
                     onClick={() => avisarme(cat)}
                     disabled={avisado.has(cat.tipo)}
