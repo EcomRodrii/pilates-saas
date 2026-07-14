@@ -1,13 +1,12 @@
 'use client';
 
-import { Calendar, Home, CreditCard, Play } from 'lucide-react';
+import { Calendar, Home, CreditCard, Play, TrendingUp, Clock } from 'lucide-react';
 import { themeToCssVars } from '@/lib/theme-runtime';
 import type { ThemeConfig } from '@/lib/theme-schema';
 
-// Preview en vivo del tema: renderiza UI representativa del portal de socias
-// (cabecera + logo, botones, tarjeta de clase, chips, tab bar) dentro de un
-// contenedor con las CSS variables del tema aplicadas. Se re-renderiza al
-// instante cuando cambia `config` — no necesita servidor ni iframe.
+// Preview en vivo del tema: maqueta fiel de la app de socias (pantalla de móvil)
+// con las CSS variables del tema aplicadas. Se re-renderiza al instante cuando
+// cambia `config` — sin servidor ni iframe.
 export function ThemePreview({
   config,
   logoUrl,
@@ -21,48 +20,68 @@ export function ThemePreview({
 
   return (
     <div
-      className="rounded-2xl overflow-hidden border border-border shadow-sm select-none"
+      className="mx-auto w-full max-w-[300px] rounded-[2.2rem] border-[6px] border-black/85 shadow-xl overflow-hidden select-none"
       style={{ ...vars, backgroundColor: 'var(--background)', color: 'var(--foreground)', fontFamily: 'var(--font-sans)' }}
     >
-      {/* Cabecera */}
-      <div className="flex items-center gap-2.5 px-4 py-3 bg-white/70 border-b border-black/5">
-        {logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
-        ) : (
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-black"
-            style={{ backgroundColor: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }}
-          >
-            {nombre[0]}
-          </div>
-        )}
-        <span className="text-sm font-bold">{nombre}</span>
+      {/* Notch / status bar */}
+      <div className="relative h-6 bg-white/60 flex items-center justify-center">
+        <div className="absolute top-1.5 w-16 h-1.5 rounded-full bg-black/70" />
       </div>
 
-      <div className="p-4 space-y-3">
-        {/* Botones */}
-        <div className="flex gap-2">
+      <div className="px-4 pt-3 pb-2 space-y-3.5">
+        {/* Header */}
+        <div className="flex items-center gap-2.5">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="Logo" className="w-9 h-9 rounded-xl object-contain" />
+          ) : (
+            <div
+              className="w-9 h-9 flex items-center justify-center text-[13px] font-black"
+              style={{ backgroundColor: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', borderRadius: 'var(--radius-md)' }}
+            >
+              {nombre[0]}
+            </div>
+          )}
+          <div className="leading-tight">
+            <p className="text-[13px] font-extrabold">Hola, Laura</p>
+            <p className="text-[10px]" style={{ color: 'var(--portal-brand-secondary)' }}>{nombre}</p>
+          </div>
+        </div>
+
+        {/* Hero: próxima clase */}
+        <div
+          className="p-3.5 text-left"
+          style={{ backgroundColor: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', borderRadius: 'var(--radius-lg)' }}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-wider opacity-80">Tu próxima clase</p>
+          <p className="text-[15px] font-extrabold mt-0.5">Reformer Flow</p>
+          <div className="flex items-center gap-1.5 mt-0.5 text-[11px] opacity-90">
+            <Clock size={12} /> Hoy · 10:00 · con Laura
+          </div>
           <button
-            className="px-3.5 py-2 text-[13px] font-bold"
-            style={{ backgroundColor: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', borderRadius: 'var(--radius-md)' }}
+            className="mt-2.5 text-[11px] font-bold px-3 py-1.5"
+            style={{ backgroundColor: 'var(--portal-brand-foreground)', color: 'var(--portal-brand)', borderRadius: '999px' }}
           >
-            Reservar
-          </button>
-          <button
-            className="px-3.5 py-2 text-[13px] font-semibold border"
-            style={{ color: 'var(--portal-brand)', borderColor: 'var(--portal-brand)', borderRadius: 'var(--radius-md)' }}
-          >
-            Ver plan
+            Ver reserva
           </button>
         </div>
 
-        {/* Chips de nivel */}
-        <div className="flex gap-2">
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-2">
+          {[{ n: '12', t: 'clases este mes' }, { n: '3', t: 'bonos activos' }].map((s) => (
+            <div key={s.t} className="p-2.5" style={{ backgroundColor: 'var(--accent)', borderRadius: 'var(--radius-md)' }}>
+              <p className="text-[16px] font-extrabold leading-none">{s.n}</p>
+              <p className="text-[9.5px] mt-1" style={{ color: 'var(--portal-brand-secondary)' }}>{s.t}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Chips */}
+        <div className="flex gap-1.5">
           {['Todos', 'Reformer', 'Mat'].map((c, i) => (
             <span
               key={c}
-              className="text-[11px] font-semibold px-2.5 py-1"
+              className="text-[10px] font-semibold px-2.5 py-1"
               style={
                 i === 0
                   ? { backgroundColor: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', borderRadius: '999px' }
@@ -74,24 +93,38 @@ export function ThemePreview({
           ))}
         </div>
 
-        {/* Tarjeta de clase */}
-        <div
-          className="p-3 bg-white shadow-sm"
-          style={{ borderRadius: 'var(--radius-lg)', borderLeft: '3px solid var(--portal-brand)' }}
-        >
-          <p className="text-[13px] font-bold">Reformer Flow · 10:00</p>
-          <p className="text-[11px]" style={{ color: 'var(--portal-brand-secondary)' }}>
-            con Laura · 3 plazas libres
-          </p>
+        {/* Lista de clases */}
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-bold">Clases de hoy</p>
+          {[{ h: '10:00', n: 'Reformer Flow', p: '3 plazas' }, { h: '18:30', n: 'Mat Pilates', p: 'Últimas 2' }].map((cl) => (
+            <div
+              key={cl.h}
+              className="flex items-center gap-2.5 p-2.5 bg-white shadow-sm"
+              style={{ borderRadius: 'var(--radius-md)', borderLeft: '3px solid var(--portal-brand)' }}
+            >
+              <div className="text-[11px] font-extrabold tabular-nums" style={{ color: 'var(--portal-brand)' }}>{cl.h}</div>
+              <div className="flex-1 leading-tight">
+                <p className="text-[11.5px] font-bold text-[#1a1a1a]">{cl.n}</p>
+                <p className="text-[9.5px] text-[#8a8a8a]">{cl.p}</p>
+              </div>
+              <span
+                className="text-[9.5px] font-bold px-2 py-1"
+                style={{ backgroundColor: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', borderRadius: '999px' }}
+              >
+                Reservar
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Tab bar */}
-      <div className="flex bg-white/95 border-t border-black/5">
+      <div className="flex bg-white/95 border-t border-black/5 mt-1">
         {[
-          { icon: Calendar, on: true },
-          { icon: Home, on: false },
+          { icon: Home, on: true },
+          { icon: Calendar, on: false },
           { icon: CreditCard, on: false },
+          { icon: TrendingUp, on: false },
           { icon: Play, on: false },
         ].map(({ icon: Icon, on }, i) => (
           <div key={i} className="flex-1 flex justify-center py-2.5">
@@ -99,7 +132,7 @@ export function ThemePreview({
               className="w-8 h-6 flex items-center justify-center rounded-full"
               style={on ? { backgroundColor: 'var(--portal-brand)' } : undefined}
             >
-              <Icon size={17} style={{ color: on ? 'var(--portal-brand-foreground)' : '#C7C7CC' }} strokeWidth={on ? 2.5 : 1.8} />
+              <Icon size={16} style={{ color: on ? 'var(--portal-brand-foreground)' : '#C7C7CC' }} strokeWidth={on ? 2.5 : 1.8} />
             </span>
           </div>
         ))}
