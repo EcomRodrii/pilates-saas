@@ -4,11 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, Calendar, Users, CreditCard,
-  FileText, Settings, BarChart2, X,
-  Clock, ShoppingCart, MessageCircle, Megaphone, Play, Bell,
-  Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
-  LogOut, UserCog, Users2, Check, PanelLeft, Compass,
+  X, Menu, ExternalLink, LogOut, Check, PanelLeft,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -16,67 +12,9 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos } from '@/lib/permisos';
-
-// ─── Nav config ──────────────────────────────────────────────────────────────
-
-const navSections = [
-  // Decision OS (DECISION-OS-ARQUITECTURA.md §9): sección propia, arriba del
-  // todo — el sitio natural junto a "Automatizaciones IA". La página gatea el
-  // acceso por plan/feature flag; el propio dashboard sigue existiendo igual.
-  { items: [{ href: '/centro-de-control', label: 'Centro de Control', icon: Compass }] },
-  { items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
-  { items: [{ href: '/automatizaciones', label: 'Automatizaciones IA', icon: Bot }] },
-  {
-    label: 'Clases',
-    items: [
-      { href: '/calendario', label: 'Calendario', icon: Calendar },
-      { href: '/citas', label: 'Citas', icon: Clock },
-    ],
-  },
-  {
-    label: 'Miembros',
-    items: [
-      { href: '/socios', label: 'Miembros', icon: Users },
-      { href: '/mensajeria', label: 'Mensajería', icon: Inbox },
-      { href: '/comunidad', label: 'Comunidad', icon: MessageCircle },
-      { href: '/chat', label: 'Chat de equipo', icon: Users2 },
-    ],
-  },
-  {
-    label: 'Ventas',
-    items: [
-      { href: '/transacciones', label: 'Transacciones', icon: ArrowLeftRight },
-      { href: '/facturas', label: 'Facturas', icon: FileText },
-      { href: '/productos', label: 'Productos', icon: Package },
-      { href: '/pos', label: 'POS', icon: Store },
-    ],
-  },
-  {
-    label: 'Estudio',
-    items: [
-      { href: '/equipo', label: 'Equipo', icon: UserCog },
-      { href: '/marketing', label: 'Marketing', icon: Megaphone },
-      { href: '/ondemand', label: 'Oferta digital', icon: Play },
-      { href: '/informes', label: 'Informes', icon: BarChart2 },
-      { href: '/configuracion', label: 'Mi estudio', icon: Settings },
-      { href: '/suscripcion', label: 'Suscripción', icon: CreditCard },
-    ],
-  },
-];
-
-// Bottom nav shows 4 main items + "Más"
-const bottomNavItems = [
-  { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
-  { href: '/calendario', label: 'Clases', icon: Calendar },
-  { href: '/socios', label: 'Miembros', icon: Users },
-  { href: '/transacciones', label: 'Ventas', icon: ArrowLeftRight },
-];
-
-// Modo Esencial: lo que un estudio pequeño con una sola propietaria necesita
-// de verdad para el día a día — todo lo demás (IA, marketing, POS, oferta
-// digital, comunidad...) se desbloquea cambiando a Modo Avanzado. Preferencia
-// puramente de UI, guardada en este navegador (no en el negocio).
-const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/socios', '/transacciones', '/informes', '/configuracion'];
+import { fetchLayout } from '@/lib/api-client';
+import { navSections, bottomNavItems, ESSENTIAL_HREFS, MODULOS, type NavSection } from '@/lib/nav-config';
+import { aplicarLayout, DEFAULT_LAYOUT, type LayoutConfig } from '@/lib/layout-schema';
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -86,6 +24,7 @@ export function useNavMode() {
 
   useEffect(() => {
     const stored = localStorage.getItem('nav-mode');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === 'avanzado') setMode('avanzado');
   }, []);
 
@@ -153,7 +92,7 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
 
 function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }: {
   onClose: () => void; userInitials: string; userEmail: string; handleSignOut: () => void;
-  sections: typeof navSections;
+  sections: NavSection[];
 }) {
   const pathname = usePathname();
 
@@ -239,13 +178,32 @@ export function Sidebar() {
   const { puedeVer } = usePermisos();
   const router = useRouter();
   const { mode: navMode, setNavMode } = useNavMode();
+  const [layout, setLayout] = useState<LayoutConfig>(DEFAULT_LAYOUT);
+
+  // Config de menú del estudio (reordenar/ocultar). Si falla, menú por defecto.
+  useEffect(() => {
+    let vivo = true;
+    fetchLayout().then((l) => { if (vivo) setLayout(l); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
 
   const collapsed = size === 'compacto';
 
-  const seccionesVisibles = navSections
-    .map(s => ({ ...s, items: s.items.filter(i => puedeVer(i.href) && (navMode === 'avanzado' || ESSENTIAL_HREFS.includes(i.href))) }))
-    .filter(s => s.items.length > 0);
-  const bottomNavVisibles = bottomNavItems.filter(i => puedeVer(i.href));
+  // Si el estudio ha personalizado el menú (reordenado u ocultado algo), se
+  // renderiza una lista PLANA en el orden elegido (ignorando el toggle
+  // esencial/avanzado). Si no, se mantiene el agrupado por secciones de siempre.
+  const customizado = layout.orden.length > 0 || layout.ocultos.length > 0;
+  const seccionesVisibles: NavSection[] = customizado
+    ? [{
+        items: aplicarLayout(MODULOS.map((m) => m.href), layout)
+          .filter((href) => puedeVer(href))
+          .map((href) => MODULOS.find((m) => m.href === href))
+          .filter((m): m is (typeof MODULOS)[number] => Boolean(m)),
+      }]
+    : navSections
+        .map(s => ({ ...s, items: s.items.filter(i => puedeVer(i.href) && (navMode === 'avanzado' || ESSENTIAL_HREFS.includes(i.href))) }))
+        .filter(s => s.items.length > 0);
+  const bottomNavVisibles = bottomNavItems.filter(i => puedeVer(i.href) && !layout.ocultos.includes(i.href));
 
   function applySize(next: SidebarSize) {
     setSize(next);
@@ -260,9 +218,9 @@ export function Sidebar() {
     const storedSize = localStorage.getItem('sidebar-size') as SidebarSize | null;
     const legacyCollapsed = localStorage.getItem('sidebar-collapsed');
     const initial: SidebarSize = storedSize ?? (legacyCollapsed === '1' ? 'compacto' : 'normal');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSize(initial);
     document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[initial].cssVar);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSignOut() {
@@ -328,8 +286,8 @@ export function Sidebar() {
         )}
         style={{ backgroundColor: '#0A0A0A' }}
       >
-        {/* Modo Esencial / Avanzado */}
-        {!collapsed && (
+        {/* Modo Esencial / Avanzado (oculto si el estudio ya personalizó el menú) */}
+        {!collapsed && !customizado && (
           <div className="px-3 pt-2.5 pb-1">
             <div className="flex gap-0.5 p-0.5 rounded-full bg-card/5">
               {([['esencial', 'Esencial'], ['avanzado', 'Todo']] as const).map(([val, label]) => (

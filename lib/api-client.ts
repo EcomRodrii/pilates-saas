@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { supabasePortal } from '@/lib/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
+import type { LayoutConfig } from '@/lib/layout-schema';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -53,6 +54,26 @@ export async function publicarThemeApi(): Promise<ResultadoPublicar> {
   }
   if (!res.ok) throw new Error('Error al publicar');
   return { ok: true, theme: await res.json() };
+}
+
+// ── Configuración de menú por estudio (Fase 4) ───────────────────────────────
+export async function fetchLayout(): Promise<LayoutConfig> {
+  const res = await fetch('/api/layout', { headers: await authHeader() });
+  if (!res.ok) throw new Error('No se pudo cargar el menú');
+  return res.json();
+}
+
+export async function guardarLayoutApi(config: LayoutConfig): Promise<LayoutConfig> {
+  const res = await fetch('/api/layout', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) {
+    const b = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(b.error ?? 'Error al guardar el menú');
+  }
+  return res.json();
 }
 
 // ── Datos públicos (proxy scopeado) ─────────────────────────────────────────

@@ -155,10 +155,21 @@ server-side de tema, y migrar `reservar/[slug]` fuera de colores hardcodeados
 - Deferido: favicon/themeColor del portal (convertir su metadata a
   generateMetadata) — Fase 3.1 menor.
 
-### v2 (separado) — Fase 4: layout configurable
-- `dnd-kit`, refactor de `dashboard/page.tsx` a registro de secciones data-driven,
-  `layout_config` (orden secciones, visibilidad módulos, posición menú),
-  enforcement de guardrails.
+### Fase 4 — Menú configurable por estudio ✅ CÓDIGO COMPLETO (2026-07-14)
+- [x] Migración `0020_studio_layout.sql` (tabla studio_layout, config jsonb, RLS
+      lectura staff + escritura PROPIETARIO) — APLICADA a prod.
+- [x] `lib/layout-schema.ts` (orden/ocultos/menuPosition + `resolveLayout` +
+      `aplicarLayout`) + tests. `lib/layout-data.ts` + `app/api/layout` (GET/PUT).
+- [x] `lib/nav-config.tsx`: config de navegación extraída a fuente única
+      (navSections + MODULOS + NO_OCULTABLES); sidebar la importa.
+- [x] Sidebar aplica orden + ocultos del estudio (lista plana ordenada si hay
+      personalización; agrupada por defecto). Módulos críticos no ocultables.
+- [x] `components/theme/menu-editor.tsx`: drag & drop (dnd-kit) para reordenar +
+      toggles de visibilidad; en Configuración → Apariencia.
+- [x] Verificado: typecheck + lint + suite 367 verde.
+- Deferido: **posición del menú lateral/superior** (el render de nav horizontal
+  sin poder verificarlo en local es alto riesgo; se hará como paso enfocado).
+  Y reordenar SECCIONES del dashboard home (monolito de 990 líneas) = follow-up.
 
 ## Notas de proceso
 
