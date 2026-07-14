@@ -168,6 +168,55 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
   grande: { aside: 'w-72', cssVar: '320px', label: 'Grande' },
 };
 
+// ─── Desktop: barra superior (menuPosition = 'superior') ──────────────────────
+
+function DesktopTopNav({ sections, studioSlug, userInitials, avatarAdmin, handleSignOut }: {
+  sections: NavSection[];
+  studioSlug: string;
+  userInitials: string;
+  avatarAdmin?: string | null;
+  handleSignOut: () => void;
+}) {
+  const pathname = usePathname();
+  const items = sections.flatMap((s) => s.items);
+  return (
+    <header
+      className="hidden lg:flex fixed top-0 inset-x-0 z-20 h-14 items-center gap-3 px-4"
+      style={{ backgroundColor: '#0A0A0A' }}
+    >
+      <Image src="/logo-horizontal.png" alt="Tentare" width={160} height={64} className="h-8 w-auto object-contain shrink-0" />
+      <nav className="flex-1 flex items-center gap-1 overflow-x-auto">
+        {items.map((item) => {
+          const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap transition-all',
+                active ? 'bg-brand text-[#131313] font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5',
+              )}
+            >
+              <Icon size={14} strokeWidth={active ? 2.5 : 2} />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+      <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal miembros" className="shrink-0 text-brand">
+        <ExternalLink size={15} />
+      </Link>
+      <Link href="/configuracion" title="Mi perfil" className="shrink-0">
+        <ProfileAvatar avatarId={avatarAdmin} nombre={userInitials} size="xs" />
+      </Link>
+      <button onClick={handleSignOut} title="Cerrar sesión" className="shrink-0 p-1.5 rounded-lg hover:bg-card/10">
+        <LogOut size={14} className="text-white/40" />
+      </button>
+    </header>
+  );
+}
+
 export function Sidebar() {
   const [masOpen, setMasOpen] = useState(false);
   const [size, setSize] = useState<SidebarSize>('normal');
@@ -186,6 +235,20 @@ export function Sidebar() {
     fetchLayout().then((l) => { if (vivo) setLayout(l); }).catch(() => {});
     return () => { vivo = false; };
   }, []);
+
+  // Variables de layout según la posición del menú: superior → sin sidebar
+  // izquierdo (--sidebar-w:0) y con hueco arriba (--topnav-h); lateral → ancho
+  // según el tamaño y sin hueco superior. Solo toca DOM, no estado.
+  useEffect(() => {
+    const root = document.documentElement.style;
+    if (layout.menuPosition === 'superior') {
+      root.setProperty('--sidebar-w', '0px');
+      root.setProperty('--topnav-h', '56px');
+    } else {
+      root.setProperty('--sidebar-w', SIDEBAR_SIZES[size].cssVar);
+      root.setProperty('--topnav-h', '0px');
+    }
+  }, [layout.menuPosition, size]);
 
   const collapsed = size === 'compacto';
 
@@ -264,6 +327,20 @@ export function Sidebar() {
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
       {masOpen && <MasDrawer onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />}
 
+      {/* ── Desktop: barra superior (menuPosition = 'superior') ─────────────── */}
+      {layout.menuPosition === 'superior' && (
+        <DesktopTopNav
+          sections={seccionesVisibles}
+          studioSlug={studioSlug}
+          userInitials={userInitials}
+          avatarAdmin={studio?.avatarAdmin}
+          handleSignOut={handleSignOut}
+        />
+      )}
+
+      {/* ── Desktop lateral (logo + píldora): solo si NO es superior ─────────── */}
+      {layout.menuPosition !== 'superior' && (
+      <>
       {/* ── Desktop logo (fuera de la píldora del menú) ─────────────────────── */}
       <div
         className={cn(
@@ -401,6 +478,8 @@ export function Sidebar() {
           </button>
         </div>
       </aside>
+      </>
+      )}
     </>
   );
 }

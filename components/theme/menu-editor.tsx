@@ -22,7 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { usePermisos } from '@/lib/permisos';
 import { fetchLayout, guardarLayoutApi } from '@/lib/api-client';
 import { MODULOS, NO_OCULTABLES, type NavItemDef } from '@/lib/nav-config';
-import { DEFAULT_LAYOUT } from '@/lib/layout-schema';
+import { type MenuPosicion } from '@/lib/layout-schema';
 
 function Fila({ item, oculto, onToggle }: { item: NavItemDef; oculto: boolean; onToggle: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.href });
@@ -63,6 +63,7 @@ export function MenuEditor() {
   const { rol } = usePermisos();
   const [items, setItems] = useState<string[]>(MODULOS.map((m) => m.href));
   const [ocultos, setOcultos] = useState<Set<string>>(new Set());
+  const [posicion, setPosicion] = useState<MenuPosicion>('lateral');
   const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando');
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
@@ -81,6 +82,7 @@ export function MenuEditor() {
         const orden = [...l.orden.filter((h) => todos.includes(h)), ...todos.filter((h) => !l.orden.includes(h))];
         setItems(orden);
         setOcultos(new Set(l.ocultos));
+        setPosicion(l.menuPosition);
       })
       .catch(() => {})
       .finally(() => {
@@ -121,7 +123,7 @@ export function MenuEditor() {
     setGuardando(true);
     setAviso(null);
     try {
-      await guardarLayoutApi({ orden: items, ocultos: [...ocultos], menuPosition: DEFAULT_LAYOUT.menuPosition });
+      await guardarLayoutApi({ orden: items, ocultos: [...ocultos], menuPosition: posicion });
       setAviso({ tipo: 'ok', texto: 'Menú guardado. Recarga la página para verlo aplicado.' });
     } catch (e) {
       setAviso({ tipo: 'error', texto: (e as Error).message });
@@ -133,6 +135,7 @@ export function MenuEditor() {
   function restaurar() {
     setItems(MODULOS.map((m) => m.href));
     setOcultos(new Set());
+    setPosicion('lateral');
     setAviso(null);
   }
 
@@ -143,6 +146,27 @@ export function MenuEditor() {
       <p className="text-[13px] text-muted-foreground">
         Arrastra para reordenar los módulos del menú y usa el ojo para ocultar los que no uses. Se aplica a todo el equipo del estudio.
       </p>
+
+      {/* Posición del menú */}
+      <div className="space-y-2">
+        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Posición del menú</p>
+        <div className="flex gap-2">
+          {([['lateral', 'Lateral'], ['superior', 'Superior']] as const).map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => { setPosicion(val); setAviso(null); }}
+              className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
+                posicion === val ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11.5px] text-muted-foreground">
+          {posicion === 'superior' ? 'Barra horizontal arriba (escritorio). En móvil se mantiene la barra inferior.' : 'Menú vertical a la izquierda (por defecto).'}
+        </p>
+      </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={items} strategy={verticalListSortingStrategy}>

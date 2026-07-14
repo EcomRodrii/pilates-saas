@@ -165,11 +165,13 @@ server-side de tema, y migrar `reservar/[slug]` fuera de colores hardcodeados
 - [x] Sidebar aplica orden + ocultos del estudio (lista plana ordenada si hay
       personalización; agrupada por defecto). Módulos críticos no ocultables.
 - [x] `components/theme/menu-editor.tsx`: drag & drop (dnd-kit) para reordenar +
-      toggles de visibilidad; en Configuración → Apariencia.
+      toggles de visibilidad + selector de posición; en Configuración → Apariencia.
+- [x] **Posición del menú lateral/superior**: `DesktopTopNav` (barra horizontal)
+      en el sidebar tras el flag `menuPosition`; var `--topnav-h` + `--sidebar-w:0`
+      en superior; layout aplica `lg:pt-[var(--topnav-h)]`. Lateral intacto.
+      (Móvil siempre barra inferior.) A verificar visualmente en preview.
 - [x] Verificado: typecheck + lint + suite 367 verde.
-- Deferido: **posición del menú lateral/superior** (el render de nav horizontal
-  sin poder verificarlo en local es alto riesgo; se hará como paso enfocado).
-  Y reordenar SECCIONES del dashboard home (monolito de 990 líneas) = follow-up.
+- Follow-up: reordenar SECCIONES del dashboard home (monolito de 990 líneas).
 
 ## Notas de proceso
 
