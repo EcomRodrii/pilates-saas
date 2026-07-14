@@ -76,6 +76,35 @@ export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfi
   return res.json();
 }
 
+// ── Integraciones de plataforma (WhatsApp/PayPal/Zoom/Kisi) ──────────────────
+// El secreto vive en ENV del servidor; el cliente consulta aquí qué está
+// configurado y puede lanzar una prueba de conexión real.
+export type IntegracionesEstado = Record<'WHATSAPP' | 'PAYPAL' | 'ZOOM' | 'KISI', boolean>;
+
+export async function fetchIntegracionesEstado(): Promise<IntegracionesEstado | null> {
+  try {
+    const res = await fetch('/api/integrations/estado', { headers: await authHeader() });
+    if (!res.ok) return null;
+    return (await res.json()) as IntegracionesEstado;
+  } catch {
+    return null;
+  }
+}
+
+export async function probarIntegracion(provider: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/integrations/estado', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ provider }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    return { ok: res.ok && !!data.ok, error: data.error };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 // ── Datos públicos (proxy scopeado) ─────────────────────────────────────────
 // Carga el catálogo del estudio + (si hay socia en sesión) sus datos, vía el
 // endpoint de servidor con service-role. Sustituye el acceso anónimo directo.
