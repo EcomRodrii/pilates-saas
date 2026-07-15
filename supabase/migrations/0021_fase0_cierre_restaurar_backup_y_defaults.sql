@@ -1,0 +1,58 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 0021 · FASE 0 · Cierre del hueco crítico `restaurar_backup` (anon)
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- ⚠️  Cambia PRIVILEGIOS en la base de datos de producción.
+--
+-- CONTEXTO
+-- La alerta de Supabase del 12-jul-2026 ("RLS disabled") ya NO aparece: el
+-- Security Advisor de `dwqvdycjcffqwfkzapvi` (= "EcomRodrii's Project", backend
+-- de esta app según supabase/config.toml) reporta 0 errores. El hueco de LECTURA
+-- concreto ya está cerrado.
+--
+-- Al reauditar quedó un problema CRÍTICO que el barrido C-1
+-- (0004_revoke_anon_rpc.sql) no cubrió:
+--
+--   `restaurar_backup(p_studio_id text, p_snapshot jsonb)` es SECURITY DEFINER
+--   (salta RLS), BORRA e reinserta datos por `studio_id` a partir de un snapshot
+--   JSONB arbitrario (lib/backup-engine.ts:77, "operación destructiva e
+--   irreversible"), y HOY es ejecutable por `anon`. 0001_restaurar_backup.sql
+--   solo hizo GRANT explícito a service_role, pero Postgres concede EXECUTE a
+--   PUBLIC por defecto al crear la función; nunca se revocó (el barrido 0004 la
+--   omitió). Resultado: cualquiera con la anon key pública (embebida en el bundle
+--   del navegador) puede POST /rest/v1/rpc/restaurar_backup con cualquier
+--   p_studio_id y DESTRUIR los datos de cualquier estudio, sin autenticarse y
+--   cruzando tenants. Es más grave que una fuga de lectura: borrado no autenticado.
+--
+-- Verificación (Fase 0 #4 — no romper flujos legítimos):
+--   Único llamador → lib/backup-engine.ts:78 (restaurarSnapshot) con
+--   getSupabaseAdmin() = service_role. Revocar anon/authenticated NO rompe nada;
+--   service_role conserva su GRANT explícito de 0001.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+REVOKE EXECUTE ON FUNCTION public.restaurar_backup(text, jsonb) FROM PUBLIC, anon, authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- SOBRE LA CAUSA RAÍZ SISTÉMICA (M-4) — estado real, NO se toca aquí:
+--
+--   `ALTER DEFAULT PRIVILEGES ... GRANT ALL ON TABLES TO anon` (0000_base.sql)
+--   hace que las tablas futuras nazcan expuestas a anon. Está cerrado A MEDIAS:
+--     · Rol `postgres` (tablas creadas por NUESTRAS migraciones): ya revocado en
+--       0014_rls_ficha_clinica_salud.sql:65 (efectivamente aplicado en prod).
+--     · Rol `supabase_admin` (tablas creadas desde el DASHBOARD / Table Editor):
+--       SIGUE ABIERTO. No se puede revocar desde una migración — Postgres
+--       gestionado lo prohíbe (SQLSTATE 42501, ver nota en 0014:58-64). Éste es
+--       el vector que probablemente causó la alerta del 12-jul (tabla creada en
+--       el panel sin RLS). REQUIERE ticket a soporte de Supabase o acción desde
+--       el panel; no es SQL de migración. → FOLLOW-UP FASE 0.
+--
+-- OTROS HALLAZGOS DEL ADVISOR (decisión de diseño / toggle, fuera de aquí):
+--   · current_rol()/current_studio_id() ejecutables por anon: se usan dentro de
+--     policies RLS; revocar de anon podría romper páginas públicas/kiosk. Analizar.
+--   · 8 funciones con search_path mutable: hardening (SET search_path=''). Aparte.
+--   · storage.avatars: bucket público listable. Decisión de producto.
+--   · Auth "Leaked Password Protection" desactivado: activar en el dashboard.
+--   · Info (correcto, no tocar): integracion_credenciales y reconciliaciones_pos
+--     con RLS activo sin policy = deny-all salvo service_role; se acceden solo
+--     desde el servidor con service_role.
+-- ═══════════════════════════════════════════════════════════════════════════

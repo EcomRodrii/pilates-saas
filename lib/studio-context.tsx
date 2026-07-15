@@ -73,7 +73,6 @@ import type {
   CodigoDescuento,
   ActividadReciente,
   TipoActividad,
-  MensajeEquipo,
   PreferenciasSocio,
   RewardRule,
   RewardAction,
@@ -124,7 +123,6 @@ import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
 import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
 import { useProgressNotesStore } from '@/lib/stores/use-progress-notes-store';
 import { useMemberPrefsStore } from '@/lib/stores/use-member-prefs-store';
-import { useTeamChatStore } from '@/lib/stores/use-team-chat-store';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -300,8 +298,6 @@ interface StudioContextValue {
   toggleLikePost: (postId: string) => void;
   integraciones: Integracion[];
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>) => void;
-  mensajesEquipo: MensajeEquipo[];
-  addMensajeEquipo: (texto: string) => void;
   preferenciasSocio: PreferenciasSocio[];
   upsertPreferenciasSocio: (socioId: string, changes: Partial<Omit<PreferenciasSocio, 'socioId' | 'studioId'>>) => void;
   rewardRules: RewardRule[];
@@ -520,9 +516,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const yo = instructores.find(i => i.authUserId === authUserId);
   const actorNombre = yo?.nombre ?? (user ? 'Propietaria' : null);
 
-  // Chat de equipo: extraído a su store (Fase B). Recibe el autor derivado.
-  const teamChatStore = useTeamChatStore({ autorInstructorId: yo?.id ?? null, autorNombre: actorNombre });
-  const { mensajesEquipo } = teamChatStore;
+  // Chat de equipo: ya NO vive aquí. Se desacopló a su propio hook (useTeamChat),
+  // consumido directamente por app/(dashboard)/chat/page.tsx, para que enviar un
+  // mensaje no re-renderice todo el dashboard y se cargue bajo demanda.
 
   // Carga (o recarga) los datos en ruta pública desde el proxy scopeado. Se
   // llama al montar y de nuevo tras el login de la socia (recargarPublico), para
@@ -623,7 +619,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       content.setPostsComunidad(data.postsComunidad);
       dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
       integrationsStore.setIntegraciones(data.integraciones ?? []);
-      teamChatStore.setMensajesEquipo(data.mensajesEquipo ?? []);
       memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
@@ -2012,9 +2007,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbInsertActividadReciente(nueva);
   }
 
-  // ── Chat de equipo (canal único compartido) ───────────────────────────────────
-
-  // Chat de equipo: extraído a useTeamChatStore (Fase B).
+  // ── Chat de equipo ────────────────────────────────────────────────────────────
+  // Desacoplado del provider: vive en useTeamChat (lib/stores/use-team-chat-store)
+  // y lo consume directamente la página del chat.
 
   // ── Preferencias del alumno (portal de miembros) ──────────────────────────────
 
@@ -2548,8 +2543,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     toggleLikePost: content.toggleLikePost,
     integraciones,
     upsertIntegracion: integrationsStore.upsertIntegracion,
-    mensajesEquipo,
-    addMensajeEquipo: teamChatStore.addMensajeEquipo,
     preferenciasSocio,
     upsertPreferenciasSocio: upsertPreferenciasSocioPub,
     rewardRules,
@@ -2639,7 +2632,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       content.setPostsComunidad(data.postsComunidad);
       dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
       integrationsStore.setIntegraciones(data.integraciones ?? []);
-      teamChatStore.setMensajesEquipo(data.mensajesEquipo ?? []);
       memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);

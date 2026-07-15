@@ -477,7 +477,7 @@ export default function ComunidadPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-[20px] font-semibold text-foreground">Comunidad</h1>
           <span className="px-2 py-0.5 rounded-full bg-card border border-border text-[12px] text-muted-foreground">
-            {memberCount} miembros
+            {memberCount} clientes
           </span>
         </div>
         <button
@@ -579,9 +579,9 @@ export default function ComunidadPage() {
             </div>
           </div>
 
-          {/* Miembros activos */}
+          {/* Clientes activos */}
           <div className="bg-card border border-border rounded-xl p-4">
-            <h3 className="text-[14px] font-semibold text-foreground mb-3">Miembros activos</h3>
+            <h3 className="text-[14px] font-semibold text-foreground mb-3">Clientes activos</h3>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {activeSocias.map((socio, i) => {
                 const ini = getInitials(socio.nombre);
@@ -595,7 +595,7 @@ export default function ComunidadPage() {
                 );
               })}
               {activeSocias.length === 0 && (
-                <p className="col-span-4 text-[13px] text-muted-foreground">Sin miembros activos</p>
+                <p className="col-span-4 text-[13px] text-muted-foreground">Sin clientes activos</p>
               )}
             </div>
           </div>

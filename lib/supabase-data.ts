@@ -851,7 +851,7 @@ function mapActividadReciente(r: RowActividadReciente): ActividadReciente {
   } as ActividadReciente;
 }
 
-function mapMensajeEquipo(r: RowMensajesEquipo): MensajeEquipo {
+export function mapMensajeEquipo(r: RowMensajesEquipo): MensajeEquipo {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -1066,7 +1066,11 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('condiciones_salud').select('*').eq('studio_id', sid),
     db.from('respuestas_sesion').select('*').eq('studio_id', sid),
     db.from('integraciones').select('*').eq('studio_id', sid),
-    db.from('mensajes_equipo').select('*').eq('studio_id', sid),
+    // El chat de equipo ya NO se consume desde aquí (se carga bajo demanda en su
+    // propia página vía dbListMensajesEquipo). Se mantiene la posición del array
+    // para no romper el desestructurado posicional de abajo, pero acotado para
+    // no traer el histórico completo en cada arranque.
+    db.from('mensajes_equipo').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(1),
     db.from('preferencias_socio').select('*').eq('studio_id', sid),
     db.from('reward_rules').select('*').eq('studio_id', sid),
     db.from('reward_actions').select('*').eq('studio_id', sid),
@@ -2766,9 +2770,32 @@ export async function dbInsertActividadReciente(act: ActividadReciente) {
   if (error) reportDbError('[dbInsertActividadReciente]', error);
 }
 
-export async function dbInsertMensajeEquipo(m: MensajeEquipo) {
+// Últimos N mensajes del estudio, en orden cronológico ascendente (más antiguo
+// primero) para pintarlos directamente. Acotado: se traen los más recientes y se
+// invierte, en vez de todo el histórico.
+export async function dbListMensajesEquipo(limite = 200): Promise<MensajeEquipo[]> {
+  const { data, error } = await supabase
+    .from('mensajes_equipo')
+    .select('*')
+    .eq('studio_id', getCurrentStudioId())
+    .order('creado_en', { ascending: false })
+    .limit(limite);
+  if (error) {
+    reportDbError('[dbListMensajesEquipo]', error);
+    return [];
+  }
+  return (data ?? []).map(mapMensajeEquipo).reverse();
+}
+
+// Devuelve true si el insert fue OK (para que el chat marque el mensaje como
+// enviado o fallido, en vez de fire-and-forget).
+export async function dbInsertMensajeEquipo(m: MensajeEquipo): Promise<boolean> {
   const { error } = await supabase.from('mensajes_equipo').insert(mensajeEquipoToDb(m));
-  if (error) reportDbError('[dbInsertMensajeEquipo]', error);
+  if (error) {
+    reportDbError('[dbInsertMensajeEquipo]', error);
+    return false;
+  }
+  return true;
 }
 
 export async function dbUpsertPreferenciasSocio(p: PreferenciasSocio) {

@@ -34,9 +34,9 @@ const navSections = [
     ],
   },
   {
-    label: 'Miembros',
+    label: 'Clientes',
     items: [
-      { href: '/socios', label: 'Miembros', icon: Users },
+      { href: '/socios', label: 'Clientes', icon: Users },
       { href: '/mensajeria', label: 'Mensajería', icon: Inbox },
       { href: '/comunidad', label: 'Comunidad', icon: MessageCircle },
       { href: '/chat', label: 'Chat de equipo', icon: Users2 },
@@ -68,7 +68,7 @@ const navSections = [
 const bottomNavItems = [
   { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
   { href: '/calendario', label: 'Clases', icon: Calendar },
-  { href: '/socios', label: 'Miembros', icon: Users },
+  { href: '/socios', label: 'Clientes', icon: Users },
   { href: '/transacciones', label: 'Ventas', icon: ArrowLeftRight },
 ];
 
@@ -336,7 +336,7 @@ export function Sidebar() {
                 <button
                   key={val}
                   onClick={() => setNavMode(val)}
-                  title={val === 'esencial' ? 'Solo lo esencial: Dashboard, Calendario, Miembros, Transacciones, Informes' : 'Todas las funciones'}
+                  title={val === 'esencial' ? 'Solo lo esencial: Dashboard, Calendario, Clientes, Transacciones, Informes' : 'Todas las funciones'}
                   className={cn(
                     'flex-1 py-1 rounded-full text-[10.5px] font-bold transition-all',
                     navMode === val ? 'bg-brand text-[#131313]' : 'text-white/40',
@@ -371,7 +371,7 @@ export function Sidebar() {
         {/* External links */}
         {collapsed ? (
           <div className="px-2 pb-2 flex flex-col items-center gap-0.5">
-            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal miembros" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-brand">
+            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-brand">
               <ExternalLink size={15} />
             </Link>
           </div>
@@ -383,7 +383,7 @@ export function Sidebar() {
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-brand"
             >
               <ExternalLink size={12} className="shrink-0" />
-              <span>Portal miembros</span>
+              <span>Portal clientes</span>
             </Link>
           </div>
         )}

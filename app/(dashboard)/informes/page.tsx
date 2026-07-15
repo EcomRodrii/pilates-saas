@@ -471,11 +471,11 @@ export default function Informes() {
           >
             <Activity size={17} style={{ color: '#D97706' }} />
           </div>
-          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ticket medio / miembro</p>
+          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ticket medio / cliente</p>
           <p className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
             {fmtEurFull(ticketMedio)}
           </p>
-          <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>por miembro en el periodo</p>
+          <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>por cliente en el periodo</p>
         </div>
 
         {/* Retención */}
@@ -726,7 +726,7 @@ export default function Informes() {
         {/* Right: Cohort retention table */}
         <div className="bg-card border border-border rounded-xl p-6">
           <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Retención por cohorte</h2>
-          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>Miembros nuevos por mes y su actividad posterior</p>
+          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>Clientes nuevos por mes y su actividad posterior</p>
 
           {cohortRows.every(r => r.total === 0) ? (
             <div className="flex items-center justify-center h-40">
@@ -781,7 +781,7 @@ export default function Informes() {
 
         {/* Top 5 socias */}
         <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Top 5 miembros</h2>
+          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Top 5 clientes</h2>
           <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>Más sesiones asistidas en el periodo</p>
 
           {topSocias.length === 0 ? (

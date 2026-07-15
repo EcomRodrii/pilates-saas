@@ -31,9 +31,9 @@ export const navSections: NavSection[] = [
     ],
   },
   {
-    label: 'Miembros',
+    label: 'Clientes',
     items: [
-      { href: '/socios', label: 'Miembros', icon: Users },
+      { href: '/socios', label: 'Clientes', icon: Users },
       { href: '/mensajeria', label: 'Mensajería', icon: Inbox },
       { href: '/comunidad', label: 'Comunidad', icon: MessageCircle },
       { href: '/chat', label: 'Chat de equipo', icon: Users2 },
@@ -67,7 +67,7 @@ export const MODULOS: NavItemDef[] = navSections.flatMap((s) => s.items);
 export const bottomNavItems: NavItemDef[] = [
   { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
   { href: '/calendario', label: 'Clases', icon: Calendar },
-  { href: '/socios', label: 'Miembros', icon: Users },
+  { href: '/socios', label: 'Clientes', icon: Users },
   { href: '/transacciones', label: 'Ventas', icon: ArrowLeftRight },
 ];
 

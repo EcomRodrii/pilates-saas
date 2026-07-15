@@ -6,7 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
 import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, formatEuro } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -84,6 +84,7 @@ interface CitaCardProps {
   socioEmail: string;
   socioInitials: string;
   instructorNombre: string;
+  esNuevo: boolean;
   onCompletar: (id: string) => void;
   onCancelar: (id: string) => void;
   verPrecio: boolean;
@@ -95,6 +96,7 @@ function CitaCard({
   socioEmail,
   socioInitials,
   instructorNombre,
+  esNuevo,
   onCompletar,
   onCancelar,
   verPrecio,
@@ -127,7 +129,14 @@ function CitaCard({
           <span className="text-xs font-semibold text-muted-foreground uppercase">{socioInitials}</span>
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{socioNombre}</p>
+          <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+            <span className="truncate">{socioNombre}</span>
+            {esNuevo && (
+              <span className="shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-brand/15 text-brand uppercase tracking-wide">
+                Nuevo
+              </span>
+            )}
+          </p>
           <p className="text-xs text-muted-foreground truncate">{socioEmail}</p>
         </div>
       </div>
@@ -258,6 +267,28 @@ export default function CitasPage() {
   const thisMonth = citas.filter((c) => isSameMonth(c.inicio, now));
   const completadasMes = thisMonth.filter((c) => c.estado === 'COMPLETADA');
   const ingresosMes = completadasMes.reduce((sum, c) => sum + (c.precio ?? 0), 0);
+  const noShowsMes = thisMonth.filter((c) => c.estado === 'NO_ASISTIO').length;
+  // Tasa de asistencia sobre citas ya resueltas (completada o no-show); las
+  // pendientes/canceladas no cuentan porque aún no hubo asistencia.
+  const resueltasMes = completadasMes.length + noShowsMes;
+  const tasaAsistencia = resueltasMes > 0 ? Math.round((completadasMes.length / resueltasMes) * 100) : null;
+
+  // Un socio es "nuevo" si esta es su única cita en el historial (sin citas
+  // previas ni otras). Set para O(1) en el render de la lista.
+  const sociosConVariasCitas = useMemo(() => {
+    const conteo = new Map<string, number>();
+    for (const c of citas) conteo.set(c.socioId, (conteo.get(c.socioId) ?? 0) + 1);
+    return conteo;
+  }, [citas]);
+
+  const metricas = [
+    ...(verPrecio
+      ? [{ label: 'Ingresos este mes', value: formatEuro(ingresosMes), accent: 'text-[#059669]' }]
+      : []),
+    { label: 'Citas este mes', value: String(thisMonth.length), accent: 'text-foreground' },
+    { label: 'Asistencia', value: tasaAsistencia != null ? `${tasaAsistencia}%` : '—', accent: 'text-[#059669]' },
+    { label: 'No-shows', value: String(noShowsMes), accent: noShowsMes > 0 ? 'text-[#B91C1C]' : 'text-foreground' },
+  ];
 
   // Tab filter
   const byTab = citas.filter((c) => {
@@ -340,16 +371,15 @@ export default function CitasPage() {
         </button>
       </div>
 
-      {/* Revenue banner */}
-      {verPrecio && (
-        <div className="bg-card border border-border rounded-xl px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 size={16} className="text-[#059669]" />
-            <span>Ingresos completadas este mes</span>
+      {/* Métricas del mes */}
+      <div className={cn('grid grid-cols-2 gap-3', metricas.length === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3')}>
+        {metricas.map((m) => (
+          <div key={m.label} className="bg-card border border-border rounded-xl px-4 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{m.label}</p>
+            <p className={cn('text-xl font-bold mt-0.5 tabular-nums', m.accent)}>{m.value}</p>
           </div>
-          <span className="text-xl font-bold text-foreground">{ingresosMes} €</span>
-        </div>
-      )}
+        ))}
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit">
@@ -433,6 +463,7 @@ export default function CitasPage() {
                 socioEmail={socioEmail}
                 socioInitials={socioInitials}
                 instructorNombre={instructorNombre}
+                esNuevo={(sociosConVariasCitas.get(cita.socioId) ?? 0) <= 1}
                 onCompletar={handleCompletar}
                 onCancelar={handleCancelar}
                 verPrecio={verPrecio}
