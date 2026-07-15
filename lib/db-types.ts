@@ -241,6 +241,7 @@ export interface RowCitas {
   notas: string | null;
   estado: string;
   precio: number | null;
+  pagada: boolean | null;
   creado_en: string | null;
 }
 

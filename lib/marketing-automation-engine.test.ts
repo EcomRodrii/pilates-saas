@@ -85,7 +85,7 @@ test('canal EMAIL (por defecto) exige email, no teléfono', () => {
 
 test('CITA_RECORDATORIO: cita de mañana dispara', () => {
   const s = socio({ id: '1' });
-  const cita: Cita = { id: 'c1', studioId: 'e1', socioId: '1', instructorId: 'i', tipo: 'PRIVADA', inicio: diasDespues(1), fin: diasDespues(1), notas: null, estado: 'CONFIRMADA', precio: null, creadoEn: diasAntes(1) };
+  const cita: Cita = { id: 'c1', studioId: 'e1', socioId: '1', instructorId: 'i', tipo: 'PRIVADA', inicio: diasDespues(1), fin: diasDespues(1), notas: null, estado: 'CONFIRMADA', precio: null, pagada: false, creadoEn: diasAntes(1) };
   const c = run({ automatizaciones: [auto('CITA_RECORDATORIO')], socios: [s], citas: [cita] });
   assert.equal(c.length, 1);
 });
