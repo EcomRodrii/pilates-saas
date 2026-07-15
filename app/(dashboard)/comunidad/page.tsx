@@ -158,6 +158,7 @@ function PostCard({
   post,
   colorClass,
   onLike,
+  liked,
   comments,
   isExpanded,
   onToggleComments,
@@ -166,6 +167,7 @@ function PostCard({
   post: PostComunidad;
   colorClass: string;
   onLike: (id: string) => void;
+  liked: boolean;
   comments: Comment[];
   isExpanded: boolean;
   onToggleComments: (id: string) => void;
@@ -213,9 +215,18 @@ function PostCard({
       <div className="flex items-center gap-4 pt-2 border-t border-border">
         <button
           onClick={() => onLike(post.id)}
-          className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-[#DC2626] transition-colors group"
+          className={cn(
+            'flex items-center gap-1.5 text-[12px] transition-colors group',
+            liked ? 'text-[#DC2626]' : 'text-muted-foreground hover:text-[#DC2626]'
+          )}
         >
-          <Heart size={14} className="group-hover:fill-[#DC2626] group-hover:text-[#DC2626] transition-colors" />
+          <Heart
+            size={14}
+            className={cn(
+              'transition-colors',
+              liked ? 'fill-[#DC2626] text-[#DC2626]' : 'group-hover:fill-[#DC2626] group-hover:text-[#DC2626]'
+            )}
+          />
           <span>{post.likes}</span>
         </button>
         <button
@@ -337,7 +348,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ComunidadPage() {
-  const { postsComunidad: posts, addPost, toggleLikePost, socios, sesiones, reservas, tiposClase, dataLoaded } = useStudio();
+  const { postsComunidad: posts, addPost, toggleLikePost, likedPostIds, socios, sesiones, reservas, tiposClase, dataLoaded } = useStudio();
   const [modalOpen, setModalOpen] = useState(false);
   const [composeText, setComposeText] = useState('');
 
@@ -516,6 +527,7 @@ export default function ComunidadPage() {
               post={post}
               colorClass={AVATAR_COLORS[i % AVATAR_COLORS.length]}
               onLike={toggleLikePost}
+              liked={likedPostIds.has(post.id)}
               comments={commentsMap[post.id] ?? []}
               isExpanded={expandedPosts.has(post.id)}
               onToggleComments={handleToggleComments}

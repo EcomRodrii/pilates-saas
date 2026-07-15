@@ -21,12 +21,15 @@ import {
   dbInsertVideoOnDemand,
   dbUpdateVideoOnDemand,
   dbInsertPostComunidad,
-  dbUpdatePostComunidad,
+  dbToggleLikePost,
 } from '@/lib/supabase-data';
 
 export function useContentStore() {
   const [videosOnDemand, setVideosOnDemand] = useState<VideoOnDemand[]>([]);
   const [postsComunidad, setPostsComunidad] = useState<PostComunidad[]>([]);
+  // post_ids que el usuario actual ha likeado (para el estado "me gusta" y para
+  // que el toggle sea idempotente: like ↔ unlike, no un +1 infinito).
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
 
   // ── Vídeos on-demand ──────────────────────────────────────────────────────
   function addVideo(fields: Omit<VideoOnDemand, 'id' | 'studioId' | 'vistas' | 'likes' | 'creadoEn'>) {
@@ -69,20 +72,39 @@ export function useContentStore() {
   }
 
   function toggleLikePost(postId: string) {
-    const actual = postsComunidad.find(p => p.id === postId);
+    const studioId = getCurrentStudioId();
+    const yaLiked = likedPostIds.has(postId);
+    // Optimista: alterna el estado y ajusta el contador ±1.
+    setLikedPostIds(prev => {
+      const n = new Set(prev);
+      if (yaLiked) n.delete(postId); else n.add(postId);
+      return n;
+    });
     setPostsComunidad(prev => prev.map(p =>
-      p.id === postId ? { ...p, likes: p.likes + 1 } : p
+      p.id === postId ? { ...p, likes: Math.max(0, p.likes + (yaLiked ? -1 : 1)) } : p
     ));
-    if (actual) dbUpdatePostComunidad(postId, { likes: actual.likes + 1 });
+    // Persistencia idempotente; reconcilia con la verdad del servidor (estado +
+    // conteo real recomputado). Si falla, revierte al valor del servidor.
+    dbToggleLikePost(postId, studioId).then(res => {
+      if (!res) return;
+      setLikedPostIds(prev => {
+        const n = new Set(prev);
+        if (res.liked) n.add(postId); else n.delete(postId);
+        return n;
+      });
+      setPostsComunidad(prev => prev.map(p => p.id === postId ? { ...p, likes: res.likes } : p));
+    });
   }
 
   return {
     // estado
     videosOnDemand,
     postsComunidad,
+    likedPostIds,
     // hidratación (usada por el fetchAll del provider)
     setVideosOnDemand,
     setPostsComunidad,
+    setLikedPostIds,
     // acciones
     addVideo,
     toggleVideo,

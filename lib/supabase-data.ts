@@ -3327,6 +3327,33 @@ export async function dbUpdatePostComunidad(id: string, changes: Partial<PostCom
   if (error) reportDbError('[dbUpdatePostComunidad]', error);
 }
 
+// Like idempotente (un like por usuario y post). RPC atómica que alterna y
+// devuelve el estado + el conteo REAL recomputado. Reemplaza el viejo `likes+1`
+// no idempotente que inflaba el contador.
+export async function dbToggleLikePost(
+  postId: string,
+  studioId: string,
+): Promise<{ liked: boolean; likes: number } | null> {
+  const { data, error } = await supabase.rpc('toggle_like_post', { p_post_id: postId, p_studio_id: studioId });
+  if (error) {
+    reportDbError('[dbToggleLikePost]', error);
+    return null;
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return { liked: !!row.liked, likes: Number(row.likes ?? 0) };
+}
+
+// Post_ids que el usuario actual ha likeado (para pintar el estado "me gusta").
+export async function dbMisLikesComunidad(): Promise<string[]> {
+  const { data, error } = await supabase.rpc('mis_likes_comunidad');
+  if (error) {
+    reportDbError('[dbMisLikesComunidad]', error);
+    return [];
+  }
+  return (data as string[] | null) ?? [];
+}
+
 export async function dbDeletePostComunidad(id: string) {
   const { error } = await supabase.from('posts_comunidad').delete().eq('id', id);
   if (error) reportDbError('[dbDeletePostComunidad]', error);
