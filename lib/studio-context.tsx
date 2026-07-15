@@ -20,6 +20,7 @@ import {
   dbInsertRewardRule, dbUpdateRewardRule,
   dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos, dbClaimRecompensaUnica,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
+  dbConsumirSesionBono,
   dbInsertRewardRedemption, dbUpdateRewardRedemption,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
   dbUpsertAchievementProgress, dbInsertAchievementHistory,
@@ -116,7 +117,7 @@ import {
   siguienteEnEspera,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono } from '@/lib/bono-logic';
+import { bonoConsumible, calcularDevolucionBono } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -1169,15 +1170,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function pausarSuscripcion(susId: string) {
-    setSuscripciones(prev => prev.map(s =>
-      s.id === susId && s.estado === 'ACTIVA' ? { ...s, estado: 'PAUSADA' as const } : s
-    ));
+    // I7: persistir en BD (antes solo tocaba el estado local → pausar se perdía al
+    // recargar). Se guarda solo si la transición aplica, como hace assignPlan.
+    const sus = suscripciones.find(s => s.id === susId);
+    if (!sus || sus.estado !== 'ACTIVA') return;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'PAUSADA' as const } : s));
+    dbUpdateSuscripcion(susId, { estado: 'PAUSADA' });
   }
 
   function reanudarSuscripcion(susId: string) {
-    setSuscripciones(prev => prev.map(s =>
-      s.id === susId && s.estado === 'PAUSADA' ? { ...s, estado: 'ACTIVA' as const } : s
-    ));
+    // I7: idem — persistir la reanudación.
+    const sus = suscripciones.find(s => s.id === susId);
+    if (!sus || sus.estado !== 'PAUSADA') return;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'ACTIVA' as const } : s));
+    dbUpdateSuscripcion(susId, { estado: 'ACTIVA' });
   }
 
   // ── Sesiones ─────────────────────────────────────────────────────────────────
@@ -1293,21 +1299,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Descuenta una sesión del bono activo del socio al confirmar una reserva.
   // Si el bono se agota, genera el recibo de renovación + notificación.
-  function consumirSesionBono(socioId: string) {
-    // Lógica pura y testeada (bono-logic): resuelve el bono consumible y calcula
-    // el nuevo saldo y si queda agotado.
+  async function consumirSesionBono(socioId: string) {
+    // bono-logic resuelve el bono consumible (qué suscripción descontar).
     const consumible = bonoConsumible(socioId, suscripciones, planesTarifa);
     if (!consumible) return;
-    const { suscripcion: sus, plan, sesionesRestantes } = consumible;
+    const { suscripcion: sus, plan } = consumible;
 
-    const { nuevasRestantes, agotado } = calcularConsumoBono(sesionesRestantes);
+    // C5/R2: el descuento y la decisión de "agotado" salen de la RPC atómica
+    // (serializada por lock de fila), NO de calcularConsumoBono() sobre el
+    // snapshot local —que puede estar obsoleto y provocar un recibo de renovación
+    // perdido o duplicado si dos reservas compiten. Espejo de consumirBonoServidor.
+    const res = await dbConsumirSesionBono(sus.id, getCurrentStudioId());
+    if (!('ok' in res)) return; // sin sesión que descontar / error → no tocar recibo
+    const nuevasRestantes = res.saldo;
     setSuscripciones(prev => prev.map(s =>
       s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
     ));
-    dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
 
-    // Bono agotado → generar recibo de renovación + notificación
-    if (agotado) {
+    // Bono agotado (transición autoritativa a 0) → recibo de renovación + notificación
+    if (nuevasRestantes === 0) {
       const socio = socios.find(s => s.id === socioId);
       const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
       const hoy = new Date().toISOString().slice(0, 10);
@@ -2045,14 +2055,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const actualizado = aplicarGananciaCreditos(existente, socioId, studioId, regla.creditos, now);
       return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
     });
-    // P0-20: incremento atómico en la BD (fuera del updater para no doblarlo).
-    dbAjustarCreditos(socioId, studioId, regla.creditos, regla.creditos, 0);
-
     (async () => {
       const ok = await dbInsertRewardAction(action);
-      // El UNIQUE (studio_id, trigger, ref_id) es el cerrojo real contra
-      // duplicados — si la inserción choca con él, no seguimos otorgando.
+      // C3: el UNIQUE (studio_id, trigger, ref_id) es el cerrojo real contra
+      // duplicados. El ajuste de saldo va DESPUÉS de ganarlo —si la inserción
+      // choca con el cerrojo (doble pestaña/kiosko, snapshot obsoleto), NO se
+      // otorga nada. Antes el saldo se incrementaba incondicionalmente y solo se
+      // frenaban history/tx → créditos de fidelidad duplicados. Espejo del servidor.
       if (!ok) return;
+      // P0-20: incremento atómico en la BD (fuera del updater para no doblarlo).
+      await dbAjustarCreditos(socioId, studioId, regla.creditos, regla.creditos, 0);
       dbInsertRewardHistory(historyEntry);
       dbInsertCreditTransaction(transaccion);
     })();
@@ -2119,24 +2131,40 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       descripcion: `Canje: ${item.nombre}`, refId: redemption.id, creadoEn: now,
     };
 
-    setRewardRedemptions(prev => [redemption, ...prev]);
-    setCreditTransactions(prev => [transaccion, ...prev]);
-    setMemberCredits(prev => prev.map(m => m.socioId === socioId
-      ? aplicarCanjeCreditos(m, socioId, studioId, item.costeCreditos, now)
-      : m));
-    if (item.stock != null) {
-      setRewardCatalog(prev => prev.map(c => c.id === catalogItemId ? { ...c, stock: (c.stock ?? 1) - 1 } : c)); // optimista
-      // A-13: decremento ATÓMICO en BD (evita oversell/negativo). Antes se
-      // escribía item.stock-1 de un snapshot → carrera. El estado optimista se
-      // reconcilia al sincronizar.
-      dbAjustarStock(catalogItemId, getCurrentStudioId(), -1);
-    }
-
-    dbInsertRewardRedemption(redemption);
-    dbInsertCreditTransaction(transaccion);
-    // P0-20: descuento atómico del saldo (la validación de saldo suficiente ya se
-    // hizo arriba con validarCanje; el RPC es el cerrojo real ante concurrencia).
-    dbAjustarCreditos(socioId, studioId, -item.costeCreditos, 0, item.costeCreditos);
+    // C4: secuencia ATÓMICA con rollback (espejo de canjeRecompensaServidor).
+    // Antes las cuatro escrituras eran fire-and-forget: si el débito de saldo
+    // fallaba por gasto concurrente (SALDO_INSUFICIENTE), la fila de canje y el
+    // stock YA se habían escrito → la socia se quedaba la recompensa sin pagar.
+    // Ahora: (1) reservar stock, (2) debitar saldo con guard —si falla, DEVOLVER
+    // el stock—, (3) solo entonces persistir canje/tx. La UI se aplica sobre lo ya
+    // confirmado en BD, así que no diverge en el error.
+    (async () => {
+      const stockLimitado = item.stock != null;
+      if (stockLimitado) {
+        const s = await dbAjustarStock(catalogItemId, studioId, -1);
+        if ('error' in s) {
+          setDbError({ msg: 'Esta recompensa está agotada.', key: Date.now() });
+          return;
+        }
+      }
+      const c = await dbAjustarCreditos(socioId, studioId, -item.costeCreditos, 0, item.costeCreditos);
+      if ('error' in c) {
+        if (stockLimitado) await dbAjustarStock(catalogItemId, studioId, 1); // devolver stock reservado
+        setDbError({ msg: c.error === 'Saldo insuficiente' ? 'Saldo insuficiente para este canje.' : 'No se pudo completar el canje.', key: Date.now() });
+        return;
+      }
+      // Confirmado en BD → registrar canje/tx y reflejar en la UI.
+      dbInsertRewardRedemption(redemption);
+      dbInsertCreditTransaction(transaccion);
+      setRewardRedemptions(prev => [redemption, ...prev]);
+      setCreditTransactions(prev => [transaccion, ...prev]);
+      setMemberCredits(prev => prev.map(m => m.socioId === socioId
+        ? aplicarCanjeCreditos(m, socioId, studioId, item.costeCreditos, now)
+        : m));
+      if (stockLimitado) {
+        setRewardCatalog(prev => prev.map(c => c.id === catalogItemId ? { ...c, stock: (c.stock ?? 1) - 1 } : c));
+      }
+    })();
 
     return { ok: true };
   }

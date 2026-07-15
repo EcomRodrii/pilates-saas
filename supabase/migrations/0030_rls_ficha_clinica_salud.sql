@@ -1,5 +1,16 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- 0014 · R1 (BLOCKER de seguridad): RLS en los datos de salud de la ficha clínica
+-- 0030 · R1 (BLOCKER de seguridad): RLS en los datos de salud de la ficha clínica
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- RENUMERADO 2026-07-16 (era 0014_rls_ficha_clinica_salud.sql). Colisionaba con
+-- 0014_marca_e_iva.sql: Supabase indexa las migraciones por su token numérico
+-- (`0014`), así que en un `db push` solo se registra/aplica un archivo por número
+-- y el otro se trata como "ya aplicado" y se omite. Este —el que activa RLS sobre
+-- datos de salud (GDPR Art. 9)— es justo el que no debe saltarse nunca. Movido al
+-- final de la secuencia con número único. Es 100 % IDEMPOTENTE (ENABLE RLS, DROP
+-- POLICY IF EXISTS + CREATE, REVOKE, ALTER DEFAULT PRIVILEGES): re-aplicarlo sobre
+-- un entorno donde ya hubiera corrido NO cambia nada. Verifica con
+-- scripts/verify-rls-salud.sql antes y después del push.
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- CONTEXTO (due diligence — Consejo Ejecutivo, jul-2026)
