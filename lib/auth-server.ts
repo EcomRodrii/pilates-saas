@@ -42,7 +42,7 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
     .limit(1);
   const instructor = instructores?.[0];
   if (instructor) {
-    return { userId: user.id, studioId: instructor.studio_id, rol: instructor.rol, nombre: instructor.nombre ?? 'Equipo' };
+    return { userId: user.id, studioId: instructor.studio_id, rol: instructor.rol, nombre: instructor.nombre || 'Equipo' };
   }
 
   const { data: studios } = await db
@@ -53,7 +53,7 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
     .limit(1);
   const studio = studios?.[0];
   if (studio) {
-    return { userId: user.id, studioId: studio.id, rol: 'PROPIETARIO', nombre: studio.nombre ?? 'Estudio' };
+    return { userId: user.id, studioId: studio.id, rol: 'PROPIETARIO', nombre: studio.nombre || 'Estudio' };
   }
 
   return null;
