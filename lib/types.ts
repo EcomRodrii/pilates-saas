@@ -603,9 +603,17 @@ export interface ActividadReciente {
 
 // ─── Chat de equipo (canal único compartido del negocio) ─────────────────────
 
+export interface CanalEquipo {
+  id: string;
+  studioId: string;
+  nombre: string;
+  creadoEn: string;
+}
+
 export interface MensajeEquipo {
   id: string;
   studioId: string;
+  canalId: string;
   autorInstructorId: string | null;
   autorNombre: string;
   texto: string;
