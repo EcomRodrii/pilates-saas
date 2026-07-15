@@ -3205,7 +3205,10 @@ export async function dbUpsertAutomationLog(log: AutomationLog) {
     proxima_accion_en: log.proximaAccionEn,
     recibo_id: log.reciboId ?? null,
   };
-  const { error } = await supabase.from('automation_logs').upsert(row, { onConflict: 'id' });
+  // El cron de Inngest corre en servidor sin sesión → sin auth.uid() la RLS
+  // rechaza el insert (42501). Se escribe con service-role (getSupabaseAdmin);
+  // en navegador cae al cliente anónimo + RLS (misma sesión de la usuaria).
+  const { error } = await (getSupabaseAdmin() ?? supabase).from('automation_logs').upsert(row, { onConflict: 'id' });
   if (error) reportDbError('[dbUpsertAutomationLog]', error);
 }
 
@@ -3234,7 +3237,7 @@ export async function dbUpdateAutomationRule(id: string, changes: Partial<Automa
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadaVeces' in changes) db.ejecutada_veces = changes.ejecutadaVeces;
   if ('ultimaEjecucion' in changes) db.ultima_ejecucion = changes.ultimaEjecucion;
-  const { error } = await supabase.from('automation_rules').update(db).eq('id', id);
+  const { error } = await (getSupabaseAdmin() ?? supabase).from('automation_rules').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateAutomationRule]', error);
 }
 
@@ -3349,7 +3352,7 @@ export async function dbUpdateAutomatizacion(id: string, changes: Partial<Automa
   if ('mensaje' in changes) db.mensaje = changes.mensaje;
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadas' in changes) db.ejecutadas = changes.ejecutadas;
-  const { error } = await supabase.from('automatizaciones').update(db).eq('id', id);
+  const { error } = await (getSupabaseAdmin() ?? supabase).from('automatizaciones').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateAutomatizacion]', error);
 }
 
