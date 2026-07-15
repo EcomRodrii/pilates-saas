@@ -2980,6 +2980,27 @@ export async function dbAjustarStock(
   return { ok: true };
 }
 
+// R2 (ruta panel): decremento ATÓMICO de una sesión de bono vía la misma RPC
+// `consumir_sesion_bono` que usa el servidor. UPDATE condicional serializado por
+// lock de fila (`sesiones_restantes = sesiones_restantes - 1 WHERE > 0`). Devuelve
+// el saldo AUTORITATIVO tras el descuento, o { error } si no había sesión que
+// descontar (otra reserva concurrente ya agotó el bono) o falló la RPC. El panel
+// debe decidir `agotado` (recibo de renovación) sobre este saldo, NO sobre el
+// snapshot local (que puede estar obsoleto). Espejo de consumirBonoServidor.
+export async function dbConsumirSesionBono(
+  suscripcionId: string, studioId: string,
+): Promise<{ ok: true; saldo: number } | { error: string }> {
+  const { data, error } = await supabase.rpc('consumir_sesion_bono', {
+    p_suscripcion_id: suscripcionId, p_studio_id: studioId,
+  });
+  if (error) {
+    reportDbError('[dbConsumirSesionBono]', error);
+    return { error: error.message };
+  }
+  if (data == null) return { error: 'SIN_SESION' };
+  return { ok: true, saldo: data as number };
+}
+
 export async function dbInsertRewardCatalogItem(c: RewardCatalogItem) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,

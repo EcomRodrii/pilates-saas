@@ -1,5 +1,13 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- 0004 · C-1: cerrar las RPCs SECURITY DEFINER expuestas al rol `anon`
+-- 0029 · C-1: cerrar las RPCs SECURITY DEFINER expuestas al rol `anon`
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- RENUMERADO 2026-07-16 (era 0004_revoke_anon_rpc.sql). Colisionaba con
+-- 0004_ficha_clinica.sql por el mismo token numérico `0004`; en prod ganó el que
+-- crea las tablas (la app las usa), luego este REVOKE de seguridad pudo quedar sin
+-- aplicar. Movido al final con número único. Es IDEMPOTENTE (CREATE OR REPLACE
+-- FUNCTION + REVOKE): re-aplicarlo es inofensivo. Ejecutar tras 0028 no colisiona
+-- con ningún GRANT posterior (0028 concede sobre otra función, no sobre estas).
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- CONTEXTO (due diligence, hallazgo C-1)
