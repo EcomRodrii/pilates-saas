@@ -6,6 +6,8 @@ export interface SesionStaff {
   userId: string;
   studioId: string;
   rol: 'PROPIETARIO' | 'RECEPCION' | 'INSTRUCTOR';
+  // Nombre para mostrar (instructora → su nombre; propietaria → nombre del estudio).
+  nombre: string;
 }
 
 // Verifica el JWT que el cliente manda en el header Authorization (obtenido
@@ -34,24 +36,24 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
   // orden por id es determinista para elegir siempre el mismo estudio primario.
   const { data: instructores } = await db
     .from('instructores')
-    .select('studio_id, rol')
+    .select('studio_id, rol, nombre')
     .eq('auth_user_id', user.id)
     .order('studio_id', { ascending: true })
     .limit(1);
   const instructor = instructores?.[0];
   if (instructor) {
-    return { userId: user.id, studioId: instructor.studio_id, rol: instructor.rol };
+    return { userId: user.id, studioId: instructor.studio_id, rol: instructor.rol, nombre: instructor.nombre ?? 'Equipo' };
   }
 
   const { data: studios } = await db
     .from('studios')
-    .select('id')
+    .select('id, nombre')
     .eq('owner_auth_user_id', user.id)
     .order('id', { ascending: true })
     .limit(1);
   const studio = studios?.[0];
   if (studio) {
-    return { userId: user.id, studioId: studio.id, rol: 'PROPIETARIO' };
+    return { userId: user.id, studioId: studio.id, rol: 'PROPIETARIO', nombre: studio.nombre ?? 'Estudio' };
   }
 
   return null;
