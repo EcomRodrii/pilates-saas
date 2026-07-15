@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
-import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
+import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/reward-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
@@ -1355,10 +1355,16 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
   const planes = (planRows ?? []).map(mapPlanTarifa);
   const consumible = bonoConsumible(socioId, suscripciones, planes);
   if (!consumible) return false;
-  const { suscripcion: sus, plan, sesionesRestantes } = consumible;
-  const { nuevasRestantes, agotado } = calcularConsumoBono(sesionesRestantes);
-  await admin.from('suscripciones').update({ sesiones_restantes: nuevasRestantes }).eq('id', sus.id);
-  if (agotado) {
+  const { suscripcion: sus, plan } = consumible;
+  // Decremento ATÓMICO condicional (arregla el sobre-consumo concurrente): N
+  // reservas simultáneas de la misma socia ya NO comparten el mismo descuento.
+  // Devuelve el nuevo saldo, o null si otra reserva ya agotó el bono / hubo error.
+  const { data: nuevoSaldo, error } = await admin.rpc('consumir_sesion_bono', {
+    p_suscripcion_id: sus.id,
+    p_studio_id: studioId,
+  });
+  if (error || nuevoSaldo == null) return false;
+  if (nuevoSaldo === 0) {
     const hoy = new Date().toISOString().slice(0, 10);
     await admin.from('recibos').insert({
       id: `rec-renov-${uid()}`, studio_id: studioId, socio_id: socioId, suscripcion_id: sus.id,

@@ -365,7 +365,10 @@ export default function POSPage() {
   }
 
   async function cobrar() {
-    if (carrito.length === 0 || showSuccess || terminal.fase === 'esperando') return;
+    // Bloquea también en estado 'error': tras un fallo/timeout de datáfono hay
+    // que descartar el aviso ("Entendido" → idle) antes de reintentar, para no
+    // lanzar un 2º cobro mientras el 1er PaymentIntent pueda seguir vivo.
+    if (carrito.length === 0 || showSuccess || terminal.fase !== 'idle') return;
 
     // Pago con datáfono físico: se lanza el importe al lector y se espera a que
     // la clienta pase la tarjeta; solo al confirmarse se registra la venta.
@@ -399,10 +402,12 @@ export default function POSPage() {
         }
         if (e.status === 'canceled' || e.error) {
           setTerminal({ fase: 'error', mensaje: e.error ?? 'Cobro cancelado en el datáfono' });
+          void refrescarReconciliaciones();
           return;
         }
         if (Date.now() > deadline) {
-          setTerminal({ fase: 'error', mensaje: 'Se agotó el tiempo esperando al datáfono' });
+          setTerminal({ fase: 'error', mensaje: 'Se agotó el tiempo. Si la tarjeta llegó a pasarse, el cobro saldrá arriba en "cobros por datáfono sin registrar" — compruébalo antes de volver a cobrar para no cobrar dos veces.' });
+          void refrescarReconciliaciones();
           return;
         }
         setTimeout(poll, 1500);
