@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import type { EstadoRecibo, Socio } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { cn, formatEuro } from '@/lib/utils';
 import { crearCheckoutStripe, enviarEmailRecibo } from '@/lib/api-client';
 import {
   CheckCircle,
@@ -48,7 +48,7 @@ function FF({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 
-// P0-23: selector de miembro BUSCABLE. Antes se renderizaban TODOS los socios
+// P0-23: selector de cliente BUSCABLE. Antes se renderizaban TODOS los socios
 // activos como <option> (con 200.000, abrir el desplegable cuelga el navegador).
 // Aquí se filtra por texto y se pinta como mucho un puñado de resultados.
 function SocioPicker({ socios, value, onChange }: {
@@ -70,7 +70,7 @@ function SocioPicker({ socios, value, onChange }: {
       {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
       <input
         className={cn(inputCls, 'relative z-50')}
-        placeholder="Buscar miembro…"
+        placeholder="Buscar cliente…"
         value={open ? q : (selected ? `${selected.nombre} ${selected.apellidos}` : '')}
         onFocus={() => { setOpen(true); setQ(''); }}
         onChange={e => { setQ(e.target.value); setOpen(true); }}
@@ -581,7 +581,7 @@ export default function Pagos() {
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Miembros con deuda
+              Clientes con deuda
             </p>
             <div className="w-8 h-8 rounded-lg bg-[#FEE2E2] flex items-center justify-center">
               <Users size={15} className="text-[#DC2626]" />
@@ -590,14 +590,14 @@ export default function Pagos() {
           <p className="text-2xl font-extrabold text-[#DC2626]">
             {kpis.sociosConDeuda}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">miembro{kpis.sociosConDeuda !== 1 ? 's' : ''} con recibos pendientes</p>
+          <p className="text-xs text-muted-foreground mt-1">cliente{kpis.sociosConDeuda !== 1 ? 's' : ''} con recibos pendientes</p>
         </div>
 
         {/* Media por socia */}
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Media por miembro
+              Media por cliente
             </p>
             <div className="w-8 h-8 rounded-lg bg-brand/10 flex items-center justify-center">
               <BarChart3 size={15} className="text-[#7AA80E]" />
@@ -606,7 +606,7 @@ export default function Pagos() {
           <p className="text-2xl font-extrabold text-foreground">
             {kpis.mediaXSocia.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
           </p>
-          <p className="text-xs text-muted-foreground mt-1">sobre miembros activos este mes</p>
+          <p className="text-xs text-muted-foreground mt-1">sobre clientes activos este mes</p>
         </div>
       </div>
 
@@ -700,7 +700,7 @@ export default function Pagos() {
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Buscar por concepto o miembro…"
+                  placeholder="Buscar por concepto o cliente…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   className="w-full rounded-xl border border-border bg-background pl-9 pr-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-[#7AA80E] transition-colors"
@@ -964,7 +964,7 @@ export default function Pagos() {
             <div className="overflow-x-auto">
               {/* Table header */}
               <div className="grid grid-cols-6 gap-4 px-5 py-2 bg-muted border-b border-border min-w-[700px]">
-                {['Miembro', 'Plan', 'Precio/mes', 'Próximo cobro', 'Sesiones rest.', 'Acciones'].map(h => (
+                {['Cliente', 'Plan', 'Precio/mes', 'Próximo cobro', 'Sesiones rest.', 'Acciones'].map(h => (
                   <p key={h} className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{h}</p>
                 ))}
               </div>
@@ -983,7 +983,7 @@ export default function Pagos() {
 
                     return (
                       <div key={sus.id} className="grid grid-cols-6 gap-4 px-5 py-4 items-center hover:bg-muted transition-colors group min-w-[700px]">
-                        {/* Miembro */}
+                        {/* Cliente */}
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-[#DBEAFE] text-[#7AA80E] shrink-0">
                             {initials}
@@ -1053,7 +1053,7 @@ export default function Pagos() {
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Buscar miembro o concepto…"
+                  placeholder="Buscar cliente o concepto…"
                   value={histSearch}
                   onChange={e => setHistSearch(e.target.value)}
                   className="w-full rounded-xl border border-border bg-background pl-9 pr-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-[#7AA80E] transition-colors"
@@ -1330,7 +1330,7 @@ export default function Pagos() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            <FF label="Miembro">
+            <FF label="Cliente">
               <SocioPicker
                 socios={socios}
                 value={facturaForm.socioId}
@@ -1360,15 +1360,15 @@ export default function Pagos() {
               <div className="bg-muted border border-border rounded-xl p-4 space-y-1.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Base imponible</span>
-                  <span className="font-semibold text-foreground">{parseFloat(facturaForm.importe).toFixed(2)} €</span>
+                  <span className="font-semibold text-foreground">{formatEuro(parseFloat(facturaForm.importe))}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">IVA {studio?.ivaPorDefecto ?? 21}%</span>
-                  <span className="font-semibold text-foreground">{(parseFloat(facturaForm.importe) * ((studio?.ivaPorDefecto ?? 21) / 100)).toFixed(2)} €</span>
+                  <span className="font-semibold text-foreground">{formatEuro((parseFloat(facturaForm.importe) * ((studio?.ivaPorDefecto ?? 21) / 100)))}</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5 mt-1.5">
                   <span className="text-foreground">Total</span>
-                  <span className="text-foreground">{(parseFloat(facturaForm.importe) * (1 + (studio?.ivaPorDefecto ?? 21) / 100)).toFixed(2)} €</span>
+                  <span className="text-foreground">{formatEuro((parseFloat(facturaForm.importe) * (1 + (studio?.ivaPorDefecto ?? 21) / 100)))}</span>
                 </div>
               </div>
             )}
@@ -1404,7 +1404,7 @@ export default function Pagos() {
             <DialogTitle className="text-lg font-semibold text-foreground">Nuevo cobro</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            <FF label="Miembro">
+            <FF label="Cliente">
               <SocioPicker
                 socios={socios}
                 value={nuevoForm.socioId}

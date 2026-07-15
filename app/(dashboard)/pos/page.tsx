@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ShoppingCart, X, Plus, Minus, Receipt, CheckCircle2, Search, Printer, ChevronRight, AlertTriangle, CreditCard, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, formatEuro } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { terminalCobrar, terminalEstadoCobro, terminalRegistrarLector, terminalEstadoLector, terminalReconciliacionesPendientes, terminalMarcarReconciliado, type ReconciliacionPendiente } from '@/lib/api-client';
 import type { ProductoPOS, VentaPOS, MetodoPago } from '@/lib/types';
@@ -134,7 +134,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
             </div>
             <div className="bg-card rounded-xl px-4 py-3 border border-border">
               <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Total recaudado</p>
-              <p className="text-[22px] font-bold text-[#059669]">{grandTotal.toFixed(2)} €</p>
+              <p className="text-[22px] font-bold text-[#059669]">{formatEuro(grandTotal)}</p>
             </div>
           </div>
         </div>
@@ -155,7 +155,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
                   <td className="py-2.5 text-foreground font-medium">{row.label}</td>
                   <td className="py-2.5 text-center text-muted-foreground">{row.count}</td>
                   <td className="py-2.5 text-right font-semibold text-foreground">
-                    {row.total.toFixed(2)} €
+                    {formatEuro(row.total)}
                   </td>
                 </tr>
               ))}
@@ -164,7 +164,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
                 <td className="pt-3 pb-1 font-bold text-foreground">Total caja</td>
                 <td className="pt-3 pb-1 text-center font-bold text-foreground">{ventasHoy.length}</td>
                 <td className="pt-3 pb-1 text-right font-bold text-[16px] text-[#059669]">
-                  {grandTotal.toFixed(2)} €
+                  {formatEuro(grandTotal)}
                 </td>
               </tr>
             </tbody>
@@ -216,7 +216,7 @@ function SuccessOverlay({ total, metodoPago }: SuccessOverlayProps) {
       </div>
       <p className="text-[16px] font-semibold text-foreground">¡Cobrado!</p>
       <p className="text-[13px] text-muted-foreground">
-        {total.toFixed(2)} € · {METODO_LABEL[metodoPago] ?? metodoPago}
+        {formatEuro(total)} · {METODO_LABEL[metodoPago] ?? metodoPago}
       </p>
     </div>
   );
@@ -512,15 +512,15 @@ export default function POSPage() {
           </div>
           <div className="shrink-0 rounded-lg border border-border bg-background px-3 py-1.5">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Total caja</p>
-            <p className="text-[15px] font-bold text-[#059669] leading-tight mt-0.5">{totalHoy.toFixed(2)} €</p>
+            <p className="text-[15px] font-bold text-[#059669] leading-tight mt-0.5">{formatEuro(totalHoy)}</p>
           </div>
           <div className="shrink-0 hidden sm:block rounded-lg border border-border bg-background px-3 py-1.5">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Efectivo</p>
-            <p className="text-[15px] font-bold text-[#059669] leading-tight mt-0.5">{efectivoHoy.toFixed(2)} €</p>
+            <p className="text-[15px] font-bold text-[#059669] leading-tight mt-0.5">{formatEuro(efectivoHoy)}</p>
           </div>
           <div className="shrink-0 hidden sm:block rounded-lg border border-border bg-background px-3 py-1.5">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Tarjeta</p>
-            <p className="text-[15px] font-bold text-[#1D4ED8] leading-tight mt-0.5">{tarjetaHoy.toFixed(2)} €</p>
+            <p className="text-[15px] font-bold text-[#1D4ED8] leading-tight mt-0.5">{formatEuro(tarjetaHoy)}</p>
           </div>
         </div>
         <div className="shrink-0 flex items-center gap-2">
@@ -563,7 +563,7 @@ export default function POSPage() {
                   <div key={r.paymentIntentId} className="flex items-center justify-between gap-2 rounded-lg bg-card border border-amber-200 px-3 py-1.5">
                     <div className="min-w-0">
                       <p className="text-[12px] font-semibold text-foreground truncate">{r.concepto || 'Cobro datáfono'}</p>
-                      <p className="text-[11px] text-muted-foreground">{r.importe.toFixed(2)} € · {new Date(r.creadoEn).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                      <p className="text-[11px] text-muted-foreground">{formatEuro(r.importe)} · {new Date(r.creadoEn).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                     <button
                       onClick={() => registrarReconciliacion(r)}
@@ -660,7 +660,7 @@ export default function POSPage() {
                     </p>
                     <div className="flex items-center justify-between">
                       <span className="text-[15px] font-bold text-foreground tabular-nums">
-                        {p.precio.toFixed(2)} €
+                        {formatEuro(p.precio)}
                       </span>
                       <span
                         className="w-7 h-7 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105"
@@ -711,7 +711,7 @@ export default function POSPage() {
                       <p className="text-[15px] font-semibold text-foreground flex items-center justify-center gap-2">
                         <Loader2 size={15} className="animate-spin" /> {terminal.mensaje}
                       </p>
-                      <p className="text-[20px] font-extrabold text-foreground mt-1">{total.toFixed(2)} €</p>
+                      <p className="text-[20px] font-extrabold text-foreground mt-1">{formatEuro(total)}</p>
                       <p className="text-[12px] text-muted-foreground mt-1">Esperando el pago en el datáfono…</p>
                     </div>
                   </>
@@ -750,7 +750,7 @@ export default function POSPage() {
                 <div key={item.producto.id} className="flex items-center gap-2 py-2 border-b border-border last:border-0">
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-foreground truncate">{item.producto.nombre}</p>
-                    <p className="text-[12px] text-muted-foreground">{item.producto.precio.toFixed(2)} € c/u</p>
+                    <p className="text-[12px] text-muted-foreground">{formatEuro(item.producto.precio)} c/u</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
@@ -768,7 +768,7 @@ export default function POSPage() {
                     </button>
                   </div>
                   <span className="w-14 text-right text-[13px] font-semibold text-foreground shrink-0">
-                    {(item.producto.precio * item.cantidad).toFixed(2)} €
+                    {formatEuro((item.producto.precio * item.cantidad))}
                   </span>
                   <button
                     onClick={() => removeFromCart(item.producto.id)}
@@ -847,17 +847,17 @@ export default function POSPage() {
               <div className="space-y-1 text-[13px]">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
-                  <span>{subtotal.toFixed(2)} €</span>
+                  <span>{formatEuro(subtotal)}</span>
                 </div>
                 {descuentoAmt > 0 && (
                   <div className="flex justify-between text-[#D97706]">
                     <span>Descuento</span>
-                    <span>−{descuentoAmt.toFixed(2)} €</span>
+                    <span>−{formatEuro(descuentoAmt)}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between rounded-lg bg-background border border-border px-3 py-2 mt-1">
                   <span className="text-[13px] font-semibold text-foreground">Total</span>
-                  <span className="text-[20px] font-extrabold text-foreground tabular-nums">{total.toFixed(2)} €</span>
+                  <span className="text-[20px] font-extrabold text-foreground tabular-nums">{formatEuro(total)}</span>
                 </div>
               </div>
 
@@ -886,7 +886,7 @@ export default function POSPage() {
                 <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
                   <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                   <span>
-                    Venta de <strong>{total.toFixed(2)} €</strong> sin socia: se emitirá como <strong>ticket
+                    Venta de <strong>{formatEuro(total)}</strong> sin socia: se emitirá como <strong>ticket
                     simplificado</strong>. Por encima de 400 € Hacienda exige factura completa — asigna una socia
                     (con NIF) arriba para incluir sus datos.
                   </span>
@@ -912,8 +912,8 @@ export default function POSPage() {
                   )}
                 >
                   {metodoPago === 'DATAFONO'
-                    ? <><CreditCard size={15} /> Enviar al datáfono {total.toFixed(2)} €</>
-                    : <><Receipt size={15} /> Cobrar {total.toFixed(2)} €</>}
+                    ? <><CreditCard size={15} /> Enviar al datáfono {formatEuro(total)}</>
+                    : <><Receipt size={15} /> Cobrar {formatEuro(total)}</>}
                 </button>
               </div>
             </div>
@@ -992,7 +992,7 @@ export default function POSPage() {
                           {v.items.map(i => `${i.cantidad}× ${i.nombre}`).join(', ')}
                         </td>
                         <td className="px-3 py-2.5 text-right font-semibold text-foreground">
-                          {v.total.toFixed(2)} €
+                          {formatEuro(v.total)}
                         </td>
                         <td className="px-3 py-2.5 hidden sm:table-cell">
                           <span className={cn(
@@ -1021,7 +1021,7 @@ export default function POSPage() {
                           Total del día
                         </td>
                         <td className="px-3 py-2 text-right font-bold text-[13px] text-[#059669]">
-                          {todayTotal.toFixed(2)} €
+                          {formatEuro(todayTotal)}
                         </td>
                         <td />
                       </tr>
@@ -1030,7 +1030,7 @@ export default function POSPage() {
                           Total del día
                         </td>
                         <td className="px-3 py-2 text-right font-bold text-[13px] text-[#059669]">
-                          {todayTotal.toFixed(2)} €
+                          {formatEuro(todayTotal)}
                         </td>
                         <td colSpan={2} />
                       </tr>

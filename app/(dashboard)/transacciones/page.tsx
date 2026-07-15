@@ -78,7 +78,7 @@ export default function Transacciones() {
   const totalNeto = totalCobros + totalPOS - totalDev;
 
   function exportarCSV() {
-    const headers = ['Fecha', 'Tipo', 'Concepto', 'Miembro', 'Método', 'Importe'];
+    const headers = ['Fecha', 'Tipo', 'Concepto', 'Cliente', 'Método', 'Importe'];
     const rows = filtrados.map(m => [
       fechaCorta(m.fecha),
       m.tipo === 'cobro' ? 'Cobro suscripción' : m.tipo === 'pos' ? 'Venta POS' : 'Devolución',
@@ -224,7 +224,7 @@ export default function Transacciones() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted border-b border-border">
-                {['Fecha', 'Tipo', 'Concepto', 'Miembro', 'Método', 'Importe', ''].map(h => (
+                {['Fecha', 'Tipo', 'Concepto', 'Cliente', 'Método', 'Importe', ''].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
                     {h}
                   </th>

@@ -116,14 +116,14 @@ export default function ImportarSociasPage() {
         <Link
           href="/socios"
           className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          aria-label="Volver a Miembros"
+          aria-label="Volver a Clientes"
         >
           <ArrowLeft size={16} />
         </Link>
         <div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight">Importar miembros</h1>
+          <h1 className="text-xl font-bold text-foreground tracking-tight">Importar clientes</h1>
           <p className="text-[12px] text-muted-foreground mt-0.5">
-            Migra tu lista de miembros desde un CSV (Excel, Bsport, Mindbody u otro).
+            Migra tu lista de clientes desde un CSV (Excel, Bsport, Mindbody u otro).
           </p>
         </div>
       </div>
@@ -287,7 +287,7 @@ export default function ImportarSociasPage() {
               disabled={!puedeImportar}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {importando ? 'Importando…' : <>Importar {conteo.ok} miembros <ArrowRight size={14} /></>}
+              {importando ? 'Importando…' : <>Importar {conteo.ok} clientes <ArrowRight size={14} /></>}
             </button>
           </div>
         </div>
@@ -313,7 +313,7 @@ export default function ImportarSociasPage() {
                 <PartyPopper size={22} className="text-primary" />
               </div>
               <p className="text-[17px] font-bold text-foreground">
-                {resultado.importadas} {resultado.importadas === 1 ? 'miembro importado' : 'miembros importados'}
+                {resultado.importadas} {resultado.importadas === 1 ? 'cliente importado' : 'clientes importados'}
               </p>
               <p className="text-[13px] text-muted-foreground mt-1">
                 {resultado.duplicadas > 0 && `${resultado.duplicadas} omitidos por estar ya en tu lista. `}
@@ -351,7 +351,7 @@ export default function ImportarSociasPage() {
               onClick={() => router.push('/socios')}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-all shadow-sm"
             >
-              <Users size={14} /> Ver mis miembros
+              <Users size={14} /> Ver mis clientes
             </button>
             <button onClick={reiniciar} className="text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
               Importar otro archivo

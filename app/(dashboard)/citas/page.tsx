@@ -345,7 +345,7 @@ export default function CitasPage() {
         <div className="bg-card border border-border rounded-xl px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 size={16} className="text-[#059669]" />
-            <span>Ingresos completadas este mes</span>
+            <span>Ingresos completados este mes</span>
           </div>
           <span className="text-xl font-bold text-foreground">{ingresosMes} €</span>
         </div>

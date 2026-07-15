@@ -641,7 +641,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Link href="/socios?nuevo=1" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
-              <UserPlus /> Nuevo miembro
+              <UserPlus /> Nuevo cliente
             </Link>
             <Link href="/pos" className={cn(buttonVariants({ size: 'lg' }))}>
               <ShoppingCart /> Abrir caja
@@ -749,7 +749,7 @@ export default function Dashboard() {
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
         <div {...wrap('kpis')}>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard label="Miembros activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
+          <KpiCard label="Clientes activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
           <Card size="sm" className="gap-2.5">
             <CardContent className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
@@ -899,7 +899,7 @@ export default function Dashboard() {
                   href="/socios?nuevo=1"
                   className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                 >
-                  <UserPlus size={14} /> Nuevo miembro
+                  <UserPlus size={14} /> Nuevo cliente
                 </Link>
                 <Link
                   href="/calendario"
