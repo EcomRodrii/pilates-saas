@@ -6,9 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Calendar, Users, CreditCard,
   FileText, Settings, BarChart2, X,
-  Clock, MessageCircle, Play,
+  Clock, MessageCircle, Megaphone, Play,
   Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
-  LogOut, Users2, Check, PanelLeft, Compass,
+  LogOut, UserCog, Users2, Check, PanelLeft, Compass,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -54,6 +54,8 @@ const navSections = [
   {
     label: 'Estudio',
     items: [
+      { href: '/equipo', label: 'Equipo', icon: UserCog },
+      { href: '/marketing', label: 'Marketing', icon: Megaphone },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
       { href: '/configuracion', label: 'Mi estudio', icon: Settings },
