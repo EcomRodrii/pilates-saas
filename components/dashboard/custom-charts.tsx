@@ -105,29 +105,34 @@ export function CustomChartsSection() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <BarChart3 size={14} className="text-muted-foreground" />
-          <h2 className="text-[13px] font-semibold text-foreground">Gráficos personalizados</h2>
-        </div>
+      {dashboardCharts.length === 0 ? (
+        // Vacío → botón discreto (no un cajón grande que empuja el contenido).
         <button
           onClick={() => setModalOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors"
+          className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Plus size={13} /> Crear gráfico
+          <Plus size={13} /> Añadir un gráfico personalizado
         </button>
-      </div>
-
-      {dashboardCharts.length === 0 ? (
-        <div className="bg-card rounded-xl border border-border p-8 text-center">
-          <p className="text-[13px] text-muted-foreground">Aún no has creado ningún gráfico. Elige qué métrica quieres seguir y cómo verla.</p>
-        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {dashboardCharts.map(chart => (
-            <ChartCard key={chart.id} chart={chart} onDelete={() => deleteDashboardChart(chart.id)} />
-          ))}
-        </div>
+        <>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <BarChart3 size={14} className="text-muted-foreground" />
+              <h2 className="text-[13px] font-semibold text-foreground">Gráficos personalizados</h2>
+            </div>
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors"
+            >
+              <Plus size={13} /> Crear gráfico
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {dashboardCharts.map(chart => (
+              <ChartCard key={chart.id} chart={chart} onDelete={() => deleteDashboardChart(chart.id)} />
+            ))}
+          </div>
+        </>
       )}
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

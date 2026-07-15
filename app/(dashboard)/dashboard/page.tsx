@@ -48,6 +48,12 @@ function timeAgo(iso: string, now: Date) {
 
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
+// La etiqueta (Alta/Baja/…) ya se muestra aparte, así que en la actividad se
+// quita el prefijo verboso "X dio de alta/baja a " y se deja solo el nombre.
+function limpiarActividad(texto: string): string {
+  return texto.replace(/^.*?\bdio de (?:alta|baja) a\s+/i, '').trim() || texto;
+}
+
 const actividadConfig: Record<TipoActividad, { color: string; bg: string; label: string }> = {
   NUEVA_SOCIA:        { color: '#059669', bg: '#ECFDF5', label: 'Alta' },
   NUEVA_RESERVA:      { color: '#7AA80E', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', label: 'Reserva' },
@@ -434,7 +440,7 @@ export default function Dashboard() {
   });
 
   // ── Revenue 6-month data (for sparkline) ────────────────────────────────────
-  const { sparkData, sparkLabels, sparkCurrentIdx, ingresosMes, ingresosMesAnterior } =
+  const { sparkData, sparkLabels, sparkCurrentIdx, ingresosMes, ingresosMTD, ingresosMTDPrev } =
     useMemo(() => {
       const months = Array.from({ length: 6 }, (_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
@@ -445,11 +451,23 @@ export default function Dashboard() {
           total: 0,
         };
       });
+      // MTD (Month-To-Date): compara el mismo tramo del mes (día 1 → hoy) contra
+      // el mes anterior hasta el MISMO día. Sin esto, a mitad de mes se compara un
+      // mes incompleto contra el mes anterior entero y salen caídas ficticias.
+      const diaHoy = now.getDate();
+      const claveMesActual = monthKey(now);
+      const claveMesPrev = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+      let ingresosMTD = 0;
+      let ingresosMTDPrev = 0;
       recibos
         .filter(r => r.estado === 'COBRADO' && r.fechaCobro)
         .forEach(r => {
-          const m = months.find(x => x.key === monthKey(r.fechaCobro!));
+          const f = new Date(r.fechaCobro!);
+          const m = months.find(x => x.key === monthKey(f));
           if (m) m.total += r.importe;
+          const clave = monthKey(f);
+          if (clave === claveMesActual && f.getDate() <= diaHoy) ingresosMTD += r.importe;
+          else if (clave === claveMesPrev && f.getDate() <= diaHoy) ingresosMTDPrev += r.importe;
         });
       return {
         sparkData: months.map(m => m.total),
@@ -457,12 +475,15 @@ export default function Dashboard() {
         sparkCurrentIdx: 5,
         ingresosMes: months[5].total,
         ingresosMesAnterior: months[4].total,
+        ingresosMTD,
+        ingresosMTDPrev,
       };
     }, [recibos, now]);
 
+  // Comparativa MTD (mismo día del mes pasado), no mes-entero vs mes-parcial.
   const pctChange =
-    ingresosMesAnterior > 0
-      ? Math.round(((ingresosMes - ingresosMesAnterior) / ingresosMesAnterior) * 100)
+    ingresosMTDPrev > 0
+      ? Math.round(((ingresosMTD - ingresosMTDPrev) / ingresosMTDPrev) * 100)
       : 0;
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
@@ -500,7 +521,7 @@ export default function Dashboard() {
   }, [sesiones, reservas, now]);
 
   // ── MRR ─────────────────────────────────────────────────────────────────────
-  const { mrr, renovacionesProximas } = useMemo(() => {
+  const { renovacionesProximas } = useMemo(() => {
     const activas = suscripciones.filter(s => s.estado === 'ACTIVA');
     // A-16: el MRR (ingreso recurrente) solo cuenta planes MENSUAL. Antes sumaba
     // BONO/PUNTUAL (pago único) prorrateado por sesiones → MRR y ARR (mrr*12)
@@ -711,8 +732,8 @@ export default function Dashboard() {
                 </Badge>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                MRR estimado <span className="font-semibold text-foreground">{mrr.toFixed(0)} €</span>
-                {' · '}ARR <span className="font-semibold text-emerald-600">{(mrr * 12).toFixed(0)} €</span>
+                {pctChange >= 0 ? 'Vas por delante' : 'Vas por detrás'} del mismo día del mes pasado
+                {' · '}<span className="font-semibold text-foreground">{ingresosMTDPrev.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €</span> a estas alturas de {MONTH_LABELS[new Date(now.getFullYear(), now.getMonth() - 1, 1).getMonth()]}
               </p>
             </div>
             <Link href="/informes" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
@@ -986,7 +1007,7 @@ export default function Dashboard() {
                           {cfg.label}
                         </span>
                         <p className="flex-1 text-[12px] text-foreground min-w-0 truncate">
-                          {act.texto}
+                          {limpiarActividad(act.texto)}
                         </p>
                         <span className="text-[10px] text-muted-foreground shrink-0">
                           {timeAgo(act.creadoEn, now)}

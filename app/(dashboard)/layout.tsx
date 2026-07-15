@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <PanelThemeProvider className="min-h-screen bg-background">
       <Sidebar />
-      <main className="lg:pl-[var(--sidebar-w)] lg:pt-[var(--topnav-h)] min-h-screen transition-[padding] duration-200">
+      <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200">
         <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
           <Topbar />
           {children}
