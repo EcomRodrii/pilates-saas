@@ -63,13 +63,14 @@ export async function POST(req: NextRequest) {
   if (errPost) return NextResponse.json({ error: 'No se pudo leer el post' }, { status: 500 });
   if (!post) return NextResponse.json({ error: 'Post no encontrado' }, { status: 404 });
 
+  const inicial = sesion.nombre.trim().split(/\s+/).slice(0, 2).map(w => w[0] ?? '').join('').toUpperCase() || 'EQ';
   const fila = {
     id: `com-${uid()}`,
     studio_id: sesion.studioId,
     post_id: postId,
-    autor_id: null,
-    autor_nombre: 'Tentare',
-    autor_inicial: 'TE',
+    autor_id: sesion.userId,
+    autor_nombre: sesion.nombre,
+    autor_inicial: inicial,
     texto,
     creado_en: new Date().toISOString(),
   };

@@ -456,7 +456,8 @@ export default function ComunidadPage() {
     // Optimista: se pinta al momento con un id temporal y se persiste; al volver
     // del servidor se sustituye por la fila real (o se revierte si falla).
     const tempId = `temp-${Date.now()}`;
-    const optimista: Comment = { id: tempId, autorNombre: 'Tentare', texto, creadoEn: new Date().toISOString() };
+    // Nombre provisional; al volver del servidor se reconcilia con el autor real.
+    const optimista: Comment = { id: tempId, autorNombre: 'Tú', texto, creadoEn: new Date().toISOString() };
     setCommentsMap(prev => ({ ...prev, [postId]: [...(prev[postId] ?? []), optimista] }));
 
     const guardado = await dbAddComentarioComunidad(postId, texto);
