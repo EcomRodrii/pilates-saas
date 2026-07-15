@@ -16,7 +16,7 @@ import {
   ChevronDown, Send, CheckCircle2, Filter, RotateCcw, ShieldCheck, FileSignature,
   Bot, Loader2, Mic,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatEuro } from '@/lib/utils';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1010,7 +1010,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                   {r.concepto}
                                 </td>
                                 <td className="px-4 py-3 text-right font-extrabold text-foreground tabular-nums">
-                                  {r.importe.toFixed(2)} €
+                                  {formatEuro(r.importe)}
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   <span className={cn('text-xs font-bold px-2.5 py-1 rounded-full', BADGE_RECIBO[r.estado])}>
@@ -1036,7 +1036,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       <div className="flex justify-end mt-3 pt-3 border-t border-muted">
                         <div className="text-right">
                           <p className="text-xs font-medium text-muted-foreground">Total cobrado</p>
-                          <p className="text-xl font-extrabold text-foreground">{totalGastado.toFixed(2)} €</p>
+                          <p className="text-xl font-extrabold text-foreground">{formatEuro(totalGastado)}</p>
                         </div>
                       </div>
                     </>

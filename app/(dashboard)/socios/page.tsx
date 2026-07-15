@@ -456,9 +456,9 @@ export default function Socios() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight">Miembros</h1>
+          <h1 className="text-xl font-bold text-foreground tracking-tight">Clientes</h1>
           <p className="text-[12px] text-muted-foreground mt-0.5">
-            Gestiona y haz seguimiento de todos tus miembros
+            Gestiona y haz seguimiento de todos tus clientes
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -474,14 +474,14 @@ export default function Socios() {
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors shadow-sm"
           >
             <Plus size={14} />
-            Nuevo miembro
+            Nuevo cliente
           </button>
         </div>
       </div>
 
       {/* ── Stats row ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={Users} label="Total miembros" value={stats.total} color="var(--muted-foreground)" />
+        <StatCard icon={Users} label="Total clientes" value={stats.total} color="var(--muted-foreground)" />
         <StatCard icon={UserCheck} label="Activas" value={stats.activas} color="#059669" />
         <StatCard icon={Bookmark} label="Con bono vigente" value={stats.conBono} color="#6E9E0A" />
         <StatCard icon={Clock} label="Inactivas 30d" value={stats.inactivas30d} color="#D97706" />
@@ -594,12 +594,12 @@ export default function Socios() {
             <h3 className="text-[15px] font-semibold text-foreground mb-1">
               {busqueda || smartFilter !== 'todas'
                 ? 'No hay resultados'
-                : 'Aún no hay miembros'}
+                : 'Aún no hay clientes'}
             </h3>
             <p className="text-[13px] text-muted-foreground mb-5 max-w-xs">
               {busqueda || smartFilter !== 'todas'
                 ? 'Prueba con otros filtros o términos de búsqueda.'
-                : 'Añade tu primer miembro para empezar a gestionar el estudio.'}
+                : 'Añade tu primer cliente para empezar a gestionar el estudio.'}
             </p>
             {!busqueda && smartFilter === 'todas' && (
               <button
@@ -607,7 +607,7 @@ export default function Socios() {
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
               >
                 <Plus size={14} />
-                Añadir primer miembro
+                Añadir primer cliente
               </button>
             )}
             {(busqueda || smartFilter !== 'todas') && (
@@ -639,7 +639,7 @@ export default function Socios() {
                     onClick={() => toggleSort('nombre')}
                     className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    Miembro
+                    Cliente
                     <SortIcon active={sortKey === 'nombre'} dir={sortDir} />
                   </button>
                 </th>
@@ -864,7 +864,7 @@ export default function Socios() {
           <div className="px-5 py-3 border-t border-muted bg-[#FAFAFA] flex items-center justify-between gap-3 flex-wrap">
             <p className="text-[11px] text-muted-foreground">
               Mostrando {listaVisible.length} de {lista.length}
-              {lista.length !== socios.length ? ` (de ${socios.length})` : ''} miembros
+              {lista.length !== socios.length ? ` (de ${socios.length})` : ''} clientes
             </p>
             {visibles < lista.length && (
               <button
@@ -892,8 +892,8 @@ export default function Socios() {
                 </button>
               )}
               {showForm === 'nueva'
-                ? formStep === 1 ? 'Nuevo miembro' : 'Política y contrato'
-                : 'Editar miembro'}
+                ? formStep === 1 ? 'Nuevo cliente' : 'Política y contrato'
+                : 'Editar cliente'}
             </DialogTitle>
           </DialogHeader>
 
@@ -1106,7 +1106,7 @@ export default function Socios() {
                 }
                 className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
               >
-                {showForm === 'nueva' ? 'Crear miembro y firmar' : 'Guardar cambios'}
+                {showForm === 'nueva' ? 'Crear cliente y firmar' : 'Guardar cambios'}
               </button>
             )}
           </div>
@@ -1121,7 +1121,7 @@ export default function Socios() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-foreground">
-              Cambiar plan — {selected.size} miembro{selected.size !== 1 ? 's' : ''}
+              Cambiar plan — {selected.size} cliente{selected.size !== 1 ? 's' : ''}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
