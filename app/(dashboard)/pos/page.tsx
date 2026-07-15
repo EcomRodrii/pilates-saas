@@ -42,6 +42,7 @@ const METODOS: { label: string; value: MetodoPago }[] = [
 const METODO_LABEL: Record<string, string> = {
   EFECTIVO: 'Efectivo',
   TARJETA: 'Tarjeta',
+  DATAFONO: 'Datáfono',
   BIZUM: 'Bizum',
   TRANSFERENCIA: 'Transferencia',
 };
@@ -266,8 +267,10 @@ export default function POSPage() {
   const efectivoHoy = ventasHoy
     .filter(v => v.metodoPago === 'EFECTIVO')
     .reduce((sum, v) => sum + v.total, 0);
+  // Datáfono es un cobro con tarjeta → cuenta en "Tarjeta" (antes se quedaba
+  // fuera y la cabecera mostraba Tarjeta=0 aunque se cobrara por datáfono).
   const tarjetaHoy = ventasHoy
-    .filter(v => v.metodoPago === 'TARJETA')
+    .filter(v => v.metodoPago === 'TARJETA' || v.metodoPago === 'DATAFONO')
     .reduce((sum, v) => sum + v.total, 0);
 
   // ─── Carrito helpers ──────────────────────────────────────────────────────
@@ -307,7 +310,9 @@ export default function POSPage() {
   // ─── Totales ──────────────────────────────────────────────────────────────
 
   const subtotal = carrito.reduce((sum, i) => sum + i.producto.precio * i.cantidad, 0);
-  const descuentoNum = parseFloat(descuento) || 0;
+  // Clamp a ≥0: `min=0` del input no impide teclear/pegar un negativo, que
+  // convertiría el "descuento" en un recargo (cobrar de más).
+  const descuentoNum = Math.max(0, parseFloat(descuento) || 0);
   const descuentoAmt = descuentoTipo === '%'
     ? (subtotal * descuentoNum) / 100
     : descuentoNum;
