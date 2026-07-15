@@ -1170,15 +1170,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function pausarSuscripcion(susId: string) {
-    setSuscripciones(prev => prev.map(s =>
-      s.id === susId && s.estado === 'ACTIVA' ? { ...s, estado: 'PAUSADA' as const } : s
-    ));
+    // I7: persistir en BD (antes solo tocaba el estado local → pausar se perdía al
+    // recargar). Se guarda solo si la transición aplica, como hace assignPlan.
+    const sus = suscripciones.find(s => s.id === susId);
+    if (!sus || sus.estado !== 'ACTIVA') return;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'PAUSADA' as const } : s));
+    dbUpdateSuscripcion(susId, { estado: 'PAUSADA' });
   }
 
   function reanudarSuscripcion(susId: string) {
-    setSuscripciones(prev => prev.map(s =>
-      s.id === susId && s.estado === 'PAUSADA' ? { ...s, estado: 'ACTIVA' as const } : s
-    ));
+    // I7: idem — persistir la reanudación.
+    const sus = suscripciones.find(s => s.id === susId);
+    if (!sus || sus.estado !== 'PAUSADA') return;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'ACTIVA' as const } : s));
+    dbUpdateSuscripcion(susId, { estado: 'ACTIVA' });
   }
 
   // ── Sesiones ─────────────────────────────────────────────────────────────────

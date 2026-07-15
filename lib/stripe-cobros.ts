@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { applicationFeeAmount } from '@/lib/stripe-fees';
 
@@ -99,7 +100,19 @@ export async function cobrarReciboOffSession(params: {
     }, { stripeAccount: studio.stripe_account_id, idempotencyKey });
 
     if (paymentIntent.status === 'succeeded') {
-      await admin.from('recibos').update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString() }).eq('id', params.reciboId);
+      // I6: Stripe YA cobró. Si el update del recibo falla, no lo tragamos: la
+      // idempotency key evita el doble cargo, pero el recibo quedaría PENDIENTE y
+      // podría reaparecer para cobro → la reconciliación se rompe. Lo registramos
+      // en Sentry con el reciboId/paymentIntent para reconciliación manual.
+      const { error: updErr } = await admin
+        .from('recibos').update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString() }).eq('id', params.reciboId);
+      if (updErr) {
+        Sentry.captureException(new Error(`Cobro OK en Stripe pero no se pudo marcar el recibo COBRADO: ${updErr.message}`), {
+          level: 'error',
+          tags: { area: 'cobros', tipo: 'reconciliacion' },
+          extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
+        });
+      }
       return { ok: true, status: paymentIntent.status, importe: recibo.importe };
     }
 

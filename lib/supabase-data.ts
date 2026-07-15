@@ -1741,24 +1741,16 @@ export async function cancelarReservaPublica(params: {
 
 // Login del portal: resuelve email → socia dentro del estudio (service-role).
 // Sustituye la lectura anónima directa sobre socios en la página de login.
-export async function resolverLoginSocia(slug: string, email: string) {
-  const admin = getSupabaseAdmin();
-  if (!admin) throw new Error('Service role no configurada');
-  const { data: studio } = await admin.from('studios').select('id').eq('slug', slug).maybeSingle();
-  if (!studio) return null;
-  const { data } = await admin
-    .from('socios').select('id, nombre, apellidos, email')
-    .ilike('email', email.trim()).eq('studio_id', studio.id).maybeSingle();
-  if (!data) return null;
-  return { socioId: data.id, nombre: `${data.nombre} ${data.apellidos}`.trim(), email: data.email };
-}
+// I13: `resolverLoginSocia(slug, email)` se ELIMINÓ (junto a POST /api/public/login).
+// Devolvía socioId/nombre/email para cualquier email existente, sin prueba de
+// control → oráculo de enumeración de membresía/PII sin autenticar. La sustituye
+// resolverSociaAutenticada (JWT), única vía de login del portal.
 
 // Resuelve la socia de un usuario autenticado con Supabase Auth (portal con
-// magic link / OTP). A diferencia de resolverLoginSocia —que solo comprueba que
-// el email exista, sin ninguna prueba de control—, aquí el usuario YA demostró
-// que controla ese email al validar el JWT. Vincula la fila de la socia a su
-// usuario de auth la primera vez (claim), igual que el equipo con instructores.
-// Devuelve la misma forma que resolverLoginSocia para poder sustituirlo 1:1.
+// magic link / OTP). El usuario YA demostró que controla ese email al validar el
+// JWT (a diferencia del antiguo login por email suelto, ya retirado). Vincula la
+// fila de la socia a su usuario de auth la primera vez (claim), igual que el
+// equipo con instructores.
 export async function resolverSociaAutenticada(slug: string, authUserId: string, email: string) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -1879,9 +1871,28 @@ export async function guardarPreferenciasPublica(params: {
 
   const { data: existente } = await admin
     .from('preferencias_socio').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId).maybeSingle();
+  // I8: los cambios llegan en camelCase desde el portal (notifEmail,
+  // instructorFavoritoId…). Antes se hacían spread DIRECTO al upsert → columnas
+  // inexistentes → el write fallaba en silencio. Mapeamos camel→snake con lista
+  // blanca (misma correspondencia que dbUpsertPreferenciasSocio); las claves
+  // desconocidas se ignoran en vez de intentar escribir una columna que no existe.
+  const COLUMNA_PREF: Record<string, string> = {
+    disponibilidad: 'disponibilidad',
+    instructorFavoritoId: 'instructor_favorito_id',
+    tipoClaseFavorita: 'tipo_clase_favorita',
+    duracionPreferida: 'duracion_preferida',
+    nivel: 'nivel',
+    notifEmail: 'notif_email',
+    notifWhatsapp: 'notif_whatsapp',
+  };
+  const cambiosSnake: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(params.cambios)) {
+    const col = COLUMNA_PREF[k];
+    if (col) cambiosSnake[col] = v;
+  }
   const fila = {
     socio_id: params.socioId, studio_id: params.studioId,
-    ...(existente ?? {}), ...params.cambios, actualizado_en: new Date().toISOString(),
+    ...(existente ?? {}), ...cambiosSnake, actualizado_en: new Date().toISOString(),
   };
   const { error } = await admin.from('preferencias_socio').upsert(fila, { onConflict: 'socio_id' });
   if (error) return { error: error.message };
