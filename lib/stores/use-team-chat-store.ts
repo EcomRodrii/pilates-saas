@@ -38,15 +38,26 @@ export function useTeamChat(deps: { autorInstructorId: string | null; autorNombr
   const depsRef = useRef(deps);
   depsRef.current = deps;
 
-  // Cargar canales al montar y activar el primero (General).
+  // Cargar canales al montar y activar el primero (General). Si el estudio no
+  // tiene ningún canal (estudio nuevo, o creado antes de esta feature), se
+  // autoprovisiona "General" — si no, canalActivo quedaría null y el chat se
+  // colgaría en "cargando" para siempre.
   useEffect(() => {
     let vivo = true;
-    if (!getCurrentStudioId()) { setEstadoCarga('listo'); return; }
+    const sid = getCurrentStudioId();
+    if (!sid) { setEstadoCarga('listo'); return; }
     dbListCanalesEquipo().then(cs => {
       if (!vivo) return;
-      setCanales(cs);
-      setCanalActivo(prev => prev ?? cs[0]?.id ?? null);
-    });
+      if (cs.length === 0) {
+        const general: CanalEquipo = { id: `canal-${uid()}`, studioId: sid, nombre: 'General', creadoEn: new Date().toISOString() };
+        setCanales([general]);
+        setCanalActivo(general.id);
+        void dbCreateCanalEquipo(general);
+      } else {
+        setCanales(cs);
+        setCanalActivo(prev => prev ?? cs[0].id);
+      }
+    }).catch(() => { if (vivo) setEstadoCarga('error'); });
     return () => { vivo = false; };
   }, []);
 
@@ -67,7 +78,17 @@ export function useTeamChat(deps: { autorInstructorId: string | null; autorNombr
 
     const onFocus = () => {
       if (document.visibilityState === 'visible' && vivo) {
-        dbListMensajesEquipo(canalActivo).then(lista => { if (vivo) setMensajes(lista.map(m => ({ ...m, estado: 'enviado' as const }))); });
+        dbListMensajesEquipo(canalActivo).then(lista => {
+          if (!vivo) return;
+          // Merge en vez de reemplazo: conserva los mensajes locales aún no
+          // confirmados (enviando/fallido) para no perder un mensaje ni su reintento.
+          setMensajes(prev => {
+            const server = lista.map(m => ({ ...m, estado: 'enviado' as const }));
+            const ids = new Set(server.map(m => m.id));
+            const pendientes = prev.filter(m => m.estado !== 'enviado' && !ids.has(m.id));
+            return [...server, ...pendientes];
+          });
+        });
       }
     };
     document.addEventListener('visibilitychange', onFocus);
@@ -130,11 +151,17 @@ export function useTeamChat(deps: { autorInstructorId: string | null; autorNombr
     const nombre = nombreRaw.trim();
     if (!nombre) return;
     const canal: CanalEquipo = { id: `canal-${uid()}`, studioId: getCurrentStudioId(), nombre, creadoEn: new Date().toISOString() };
+    const prevActivo = canalActivo;
     setCanales(prev => [...prev, canal]);   // optimista
     setCanalActivo(canal.id);
     const ok = await dbCreateCanalEquipo(canal);
-    if (!ok) setCanales(prev => prev.filter(c => c.id !== canal.id));  // revertir si falla
-  }, []);
+    if (!ok) {
+      // Revertir: quitar el canal fantasma Y volver al canal activo anterior (si
+      // no, canalActivo apuntaría a un id inexistente y los mensajes violarían la FK).
+      setCanales(prev => prev.filter(c => c.id !== canal.id));
+      setCanalActivo(prevActivo);
+    }
+  }, [canalActivo]);
 
   return { canales, canalActivo, setCanalActivo, mensajes, estadoCarga, enviar, reintentar, crearCanal };
 }

@@ -86,7 +86,19 @@ export function useContentStore() {
     // Persistencia idempotente; reconcilia con la verdad del servidor (estado +
     // conteo real recomputado). Si falla, revierte al valor del servidor.
     dbToggleLikePost(postId, studioId).then(res => {
-      if (!res) return;
+      if (!res) {
+        // El servidor rechazó (red / NO_AUTH / STUDIO_MISMATCH): revertir el
+        // optimista para no dejar el corazón/contador divergiendo de la BD.
+        setLikedPostIds(prev => {
+          const n = new Set(prev);
+          if (yaLiked) n.add(postId); else n.delete(postId);
+          return n;
+        });
+        setPostsComunidad(prev => prev.map(p =>
+          p.id === postId ? { ...p, likes: Math.max(0, p.likes + (yaLiked ? 1 : -1)) } : p
+        ));
+        return;
+      }
       setLikedPostIds(prev => {
         const n = new Set(prev);
         if (res.liked) n.add(postId); else n.delete(postId);
