@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
@@ -87,6 +87,7 @@ interface CitaCardProps {
   esNuevo: boolean;
   onCompletar: (id: string) => void;
   onCancelar: (id: string) => void;
+  onTogglePagada: (id: string) => void;
   verPrecio: boolean;
 }
 
@@ -99,6 +100,7 @@ function CitaCard({
   esNuevo,
   onCompletar,
   onCancelar,
+  onTogglePagada,
   verPrecio,
 }: CitaCardProps) {
   const [hovered, setHovered] = useState(false);
@@ -158,11 +160,25 @@ function CitaCard({
         <span>{mins} min</span>
       </div>
 
-      {/* Price */}
+      {/* Price + estado de pago */}
       {verPrecio && (
-        <span className="text-sm font-medium text-foreground shrink-0 w-14 text-right">
-          {cita.precio != null ? `${cita.precio} €` : '—'}
-        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-sm font-medium text-foreground text-right tabular-nums">
+            {cita.precio != null ? formatEuro(cita.precio) : '—'}
+          </span>
+          {cita.precio != null && (
+            <button
+              onClick={() => onTogglePagada(cita.id)}
+              title={cita.pagada ? 'Pagado — clic para marcar como pendiente' : 'Pendiente de cobro — clic para marcar como pagado'}
+              aria-label={cita.pagada ? 'Pagado' : 'Pendiente de cobro'}
+              className="shrink-0 rounded-full hover:opacity-80 transition-opacity"
+            >
+              {cita.pagada
+                ? <CheckCircle2 size={16} className="text-[#059669]" />
+                : <CircleDashed size={16} className="text-[#B45309]" />}
+            </button>
+          )}
+        </div>
       )}
 
       {/* Status badge or action buttons */}
@@ -202,7 +218,7 @@ function CitaCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CitasPage() {
-  const { socios, instructores, citas, sesiones, addCita, completarCita, cancelarCita } = useStudio();
+  const { socios, instructores, citas, sesiones, addCita, updateCita, completarCita, cancelarCita } = useStudio();
   const rol = useRol();
   const verPrecio = rol !== 'INSTRUCTOR';
   const [tab, setTab] = useState<'proximas' | 'historial'>('proximas');
@@ -321,6 +337,11 @@ export default function CitasPage() {
     cancelarCita(id);
   }
 
+  function handleTogglePagada(id: string) {
+    const cita = citas.find((c) => c.id === id);
+    if (cita) updateCita(id, { pagada: !cita.pagada });
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.socioId || !form.instructorId || !form.fecha || !form.hora) return;
@@ -337,6 +358,7 @@ export default function CitasPage() {
       notas: form.notas || null,
       estado: 'PENDIENTE',
       precio: form.precio ? parseFloat(form.precio) : null,
+      pagada: false,
     });
     setShowModal(false);
     setForm({
@@ -466,6 +488,7 @@ export default function CitasPage() {
                 esNuevo={(sociosConVariasCitas.get(cita.socioId) ?? 0) <= 1}
                 onCompletar={handleCompletar}
                 onCancelar={handleCancelar}
+                onTogglePagada={handleTogglePagada}
                 verPrecio={verPrecio}
               />
             );

@@ -696,6 +696,7 @@ function mapCita(r: RowCitas): Cita {
     notas: r.notas ?? null,
     estado: r.estado,
     precio: r.precio ?? null,
+    pagada: r.pagada ?? false,
     creadoEn: r.creado_en,
   } as Cita;
 }
@@ -2164,6 +2165,7 @@ function citaToDb(cita: Cita) {
     notas: cita.notas ?? null,
     estado: cita.estado,
     precio: cita.precio ?? null,
+    pagada: cita.pagada ?? false,
     creado_en: cita.creadoEn,
   };
 }
@@ -2756,6 +2758,7 @@ export async function dbUpdateCita(id: string, changes: Partial<Cita>) {
   if ('notas' in changes) db.notas = changes.notas;
   if ('estado' in changes) db.estado = changes.estado;
   if ('precio' in changes) db.precio = changes.precio;
+  if ('pagada' in changes) db.pagada = changes.pagada;
   const { error } = await supabase.from('citas').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateCita]', error);
 }

@@ -391,6 +391,7 @@ export interface Cita {
   notas: string | null;
   estado: EstadoCita;
   precio: number | null;
+  pagada: boolean;
   creadoEn: string;
 }
 
