@@ -51,7 +51,7 @@ const LABEL_RECIBO: Record<string, string> = {
 };
 
 const BADGE_RESERVA: Record<string, { bg: string; text: string; label: string }> = {
-  CONFIRMADA:   { bg: '#FFF2F7', text: '#7AA80E', label: 'Confirmada' },
+  CONFIRMADA:   { bg: '#DBEAFE', text: '#1D4ED8', label: 'Confirmada' },
   ASISTIDA:     { bg: '#D1FAE5', text: '#059669', label: 'Asistida' },
   LISTA_ESPERA: { bg: '#FEF3C7', text: '#92400E', label: 'En espera' },
   CANCELADA:    { bg: 'var(--muted)', text: 'var(--muted-foreground)', label: 'Cancelada' },
