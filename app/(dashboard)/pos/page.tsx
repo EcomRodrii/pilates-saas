@@ -644,7 +644,7 @@ export default function POSPage() {
 
           {/* Grid */}
           <div className="flex-1 overflow-y-auto px-4 pb-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
               {productosFiltrados.map(p => {
                 const cs = catStyle(p.categoria);
                 return (
@@ -652,15 +652,15 @@ export default function POSPage() {
                     key={p.id}
                     onClick={() => addToCart(p)}
                     style={{ borderLeftColor: cs.accent }}
-                    className="bg-card border border-border border-l-[3px] rounded-r-xl rounded-l-sm p-3.5 text-left hover:border-foreground hover:shadow-sm transition-all group flex flex-col"
+                    className="bg-card border border-border border-l-[3px] rounded-r-xl rounded-l-sm p-3 text-left hover:border-foreground hover:shadow-sm transition-all group flex flex-col"
                   >
                     <span
-                      className="inline-block self-start text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 mb-1.5"
+                      className="inline-block self-start text-[9.5px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 mb-1.5"
                       style={{ backgroundColor: cs.tagBg, color: cs.tagText }}
                     >
                       {p.categoria}
                     </span>
-                    <p className="text-[14px] font-bold text-foreground leading-snug mb-2 line-clamp-2 flex-1">
+                    <p className="text-[13.5px] font-bold text-foreground leading-snug mb-2.5 line-clamp-2 min-h-[2.5em]">
                       {p.nombre}
                     </p>
                     <div className="flex items-center justify-between">
