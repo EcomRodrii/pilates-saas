@@ -4,7 +4,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  X, Menu, ExternalLink, LogOut, Check, PanelLeft,
+  LayoutDashboard, Calendar, Users, CreditCard,
+  FileText, Settings, BarChart2, X,
+  Clock, ShoppingCart, MessageCircle, Megaphone, Play, Bell,
+  Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
+  LogOut, UserCog, Users2, Check, PanelLeft, Compass,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -12,9 +16,67 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos } from '@/lib/permisos';
-import { fetchLayout } from '@/lib/api-client';
-import { navSections, bottomNavItems, ESSENTIAL_HREFS, MODULOS, type NavSection } from '@/lib/nav-config';
-import { aplicarLayout, DEFAULT_LAYOUT, type LayoutConfig } from '@/lib/layout-schema';
+
+// ─── Nav config ──────────────────────────────────────────────────────────────
+
+const navSections = [
+  // Decision OS (DECISION-OS-ARQUITECTURA.md §9): sección propia, arriba del
+  // todo — el sitio natural junto a "Automatizaciones IA". La página gatea el
+  // acceso por plan/feature flag; el propio dashboard sigue existiendo igual.
+  { items: [{ href: '/centro-de-control', label: 'Centro de Control', icon: Compass }] },
+  { items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
+  { items: [{ href: '/automatizaciones', label: 'Automatizaciones IA', icon: Bot }] },
+  {
+    label: 'Clases',
+    items: [
+      { href: '/calendario', label: 'Calendario', icon: Calendar },
+      { href: '/citas', label: 'Citas', icon: Clock },
+    ],
+  },
+  {
+    label: 'Miembros',
+    items: [
+      { href: '/socios', label: 'Miembros', icon: Users },
+      { href: '/mensajeria', label: 'Mensajería', icon: Inbox },
+      { href: '/comunidad', label: 'Comunidad', icon: MessageCircle },
+      { href: '/chat', label: 'Chat de equipo', icon: Users2 },
+    ],
+  },
+  {
+    label: 'Ventas',
+    items: [
+      { href: '/transacciones', label: 'Transacciones', icon: ArrowLeftRight },
+      { href: '/facturas', label: 'Facturas', icon: FileText },
+      { href: '/productos', label: 'Productos', icon: Package },
+      { href: '/pos', label: 'POS', icon: Store },
+    ],
+  },
+  {
+    label: 'Estudio',
+    items: [
+      { href: '/equipo', label: 'Equipo', icon: UserCog },
+      { href: '/marketing', label: 'Marketing', icon: Megaphone },
+      { href: '/ondemand', label: 'Oferta digital', icon: Play },
+      { href: '/informes', label: 'Informes', icon: BarChart2 },
+      { href: '/configuracion', label: 'Mi estudio', icon: Settings },
+      { href: '/suscripcion', label: 'Suscripción', icon: CreditCard },
+    ],
+  },
+];
+
+// Bottom nav shows 4 main items + "Más"
+const bottomNavItems = [
+  { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
+  { href: '/calendario', label: 'Clases', icon: Calendar },
+  { href: '/socios', label: 'Miembros', icon: Users },
+  { href: '/transacciones', label: 'Ventas', icon: ArrowLeftRight },
+];
+
+// Modo Esencial: lo que un estudio pequeño con una sola propietaria necesita
+// de verdad para el día a día — todo lo demás (IA, marketing, POS, oferta
+// digital, comunidad...) se desbloquea cambiando a Modo Avanzado. Preferencia
+// puramente de UI, guardada en este navegador (no en el negocio).
+const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/socios', '/transacciones', '/informes', '/configuracion'];
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -24,7 +86,6 @@ export function useNavMode() {
 
   useEffect(() => {
     const stored = localStorage.getItem('nav-mode');
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === 'avanzado') setMode('avanzado');
   }, []);
 
@@ -92,7 +153,7 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
 
 function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }: {
   onClose: () => void; userInitials: string; userEmail: string; handleSignOut: () => void;
-  sections: NavSection[];
+  sections: typeof navSections;
 }) {
   const pathname = usePathname();
 
@@ -168,55 +229,6 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
   grande: { aside: 'w-72', cssVar: '320px', label: 'Grande' },
 };
 
-// ─── Desktop: barra superior (menuPosition = 'superior') ──────────────────────
-
-function DesktopTopNav({ sections, studioSlug, userInitials, avatarAdmin, handleSignOut }: {
-  sections: NavSection[];
-  studioSlug: string;
-  userInitials: string;
-  avatarAdmin?: string | null;
-  handleSignOut: () => void;
-}) {
-  const pathname = usePathname();
-  const items = sections.flatMap((s) => s.items);
-  return (
-    <header
-      className="hidden lg:flex fixed top-0 inset-x-0 z-20 h-14 items-center gap-3 px-4"
-      style={{ backgroundColor: '#0A0A0A' }}
-    >
-      <Image src="/logo-horizontal.png" alt="Tentare" width={160} height={64} className="h-8 w-auto object-contain shrink-0" />
-      <nav className="flex-1 flex items-center gap-1 overflow-x-auto">
-        {items.map((item) => {
-          const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap transition-all',
-                active ? 'bg-brand text-[#131313] font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5',
-              )}
-            >
-              <Icon size={14} strokeWidth={active ? 2.5 : 2} />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-      <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal miembros" className="shrink-0 text-brand">
-        <ExternalLink size={15} />
-      </Link>
-      <Link href="/configuracion" title="Mi perfil" className="shrink-0">
-        <ProfileAvatar avatarId={avatarAdmin} nombre={userInitials} size="xs" />
-      </Link>
-      <button onClick={handleSignOut} title="Cerrar sesión" className="shrink-0 p-1.5 rounded-lg hover:bg-card/10">
-        <LogOut size={14} className="text-white/40" />
-      </button>
-    </header>
-  );
-}
-
 export function Sidebar() {
   const [masOpen, setMasOpen] = useState(false);
   const [size, setSize] = useState<SidebarSize>('normal');
@@ -227,51 +239,13 @@ export function Sidebar() {
   const { puedeVer } = usePermisos();
   const router = useRouter();
   const { mode: navMode, setNavMode } = useNavMode();
-  const [layout, setLayout] = useState<LayoutConfig>(DEFAULT_LAYOUT);
-
-  // Config de menú del estudio (reordenar/ocultar). Si falla, menú por defecto.
-  // Se recarga al vuelo cuando el editor guarda (evento 'tentare-layout-changed')
-  // → los cambios se ven sin recargar la página.
-  useEffect(() => {
-    let vivo = true;
-    const cargar = () => fetchLayout().then((l) => { if (vivo) setLayout(l); }).catch(() => {});
-    cargar();
-    const onCambio = () => cargar();
-    window.addEventListener('tentare-layout-changed', onCambio);
-    return () => { vivo = false; window.removeEventListener('tentare-layout-changed', onCambio); };
-  }, []);
-
-  // Variables de layout según la posición del menú: superior → sin sidebar
-  // izquierdo (--sidebar-w:0) y con hueco arriba (--topnav-h); lateral → ancho
-  // según el tamaño y sin hueco superior. Solo toca DOM, no estado.
-  useEffect(() => {
-    const root = document.documentElement.style;
-    if (layout.menuPosition === 'superior') {
-      root.setProperty('--sidebar-w', '0px');
-      root.setProperty('--topnav-h', '56px');
-    } else {
-      root.setProperty('--sidebar-w', SIDEBAR_SIZES[size].cssVar);
-      root.setProperty('--topnav-h', '0px');
-    }
-  }, [layout.menuPosition, size]);
 
   const collapsed = size === 'compacto';
 
-  // Si el estudio ha personalizado el menú (reordenado u ocultado algo), se
-  // renderiza una lista PLANA en el orden elegido (ignorando el toggle
-  // esencial/avanzado). Si no, se mantiene el agrupado por secciones de siempre.
-  const customizado = layout.orden.length > 0 || layout.ocultos.length > 0;
-  const seccionesVisibles: NavSection[] = customizado
-    ? [{
-        items: aplicarLayout(MODULOS.map((m) => m.href), layout)
-          .filter((href) => puedeVer(href))
-          .map((href) => MODULOS.find((m) => m.href === href))
-          .filter((m): m is (typeof MODULOS)[number] => Boolean(m)),
-      }]
-    : navSections
-        .map(s => ({ ...s, items: s.items.filter(i => puedeVer(i.href) && (navMode === 'avanzado' || ESSENTIAL_HREFS.includes(i.href))) }))
-        .filter(s => s.items.length > 0);
-  const bottomNavVisibles = bottomNavItems.filter(i => puedeVer(i.href) && !layout.ocultos.includes(i.href));
+  const seccionesVisibles = navSections
+    .map(s => ({ ...s, items: s.items.filter(i => puedeVer(i.href) && (navMode === 'avanzado' || ESSENTIAL_HREFS.includes(i.href))) }))
+    .filter(s => s.items.length > 0);
+  const bottomNavVisibles = bottomNavItems.filter(i => puedeVer(i.href));
 
   function applySize(next: SidebarSize) {
     setSize(next);
@@ -286,9 +260,9 @@ export function Sidebar() {
     const storedSize = localStorage.getItem('sidebar-size') as SidebarSize | null;
     const legacyCollapsed = localStorage.getItem('sidebar-collapsed');
     const initial: SidebarSize = storedSize ?? (legacyCollapsed === '1' ? 'compacto' : 'normal');
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSize(initial);
     document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[initial].cssVar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSignOut() {
@@ -332,20 +306,6 @@ export function Sidebar() {
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
       {masOpen && <MasDrawer onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />}
 
-      {/* ── Desktop: barra superior (menuPosition = 'superior') ─────────────── */}
-      {layout.menuPosition === 'superior' && (
-        <DesktopTopNav
-          sections={seccionesVisibles}
-          studioSlug={studioSlug}
-          userInitials={userInitials}
-          avatarAdmin={studio?.avatarAdmin}
-          handleSignOut={handleSignOut}
-        />
-      )}
-
-      {/* ── Desktop lateral (logo + píldora): solo si NO es superior ─────────── */}
-      {layout.menuPosition !== 'superior' && (
-      <>
       {/* ── Desktop logo (fuera de la píldora del menú) ─────────────────────── */}
       <div
         className={cn(
@@ -368,8 +328,8 @@ export function Sidebar() {
         )}
         style={{ backgroundColor: '#0A0A0A' }}
       >
-        {/* Modo Esencial / Avanzado (oculto si el estudio ya personalizó el menú) */}
-        {!collapsed && !customizado && (
+        {/* Modo Esencial / Avanzado */}
+        {!collapsed && (
           <div className="px-3 pt-2.5 pb-1">
             <div className="flex gap-0.5 p-0.5 rounded-full bg-card/5">
               {([['esencial', 'Esencial'], ['avanzado', 'Todo']] as const).map(([val, label]) => (
@@ -483,8 +443,6 @@ export function Sidebar() {
           </button>
         </div>
       </aside>
-      </>
-      )}
     </>
   );
 }
