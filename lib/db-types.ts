@@ -353,9 +353,17 @@ export interface RowActividadReciente {
   actor_nombre: string | null;
 }
 
+export interface RowCanalesEquipo {
+  id: string;
+  studio_id: string | null;
+  nombre: string;
+  creado_en: string | null;
+}
+
 export interface RowMensajesEquipo {
   id: string;
   studio_id: string | null;
+  canal_id: string | null;
   autor_instructor_id: string | null;
   autor_nombre: string;
   texto: string;

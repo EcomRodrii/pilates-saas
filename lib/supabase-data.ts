@@ -32,6 +32,7 @@ import type {
   RowLevelDefinitions,
   RowMemberCredits,
   RowMensajesEquipo,
+  RowCanalesEquipo,
   RowCondicionesSalud,
   RowRespuestasSesion,
   RowNotasInternas,
@@ -85,6 +86,7 @@ import type {
   LevelDefinition,
   MemberCredits,
   MensajeEquipo,
+  CanalEquipo,
   CondicionSalud,
   RespuestaSesionRow,
   NotaInterna,
@@ -856,11 +858,21 @@ export function mapMensajeEquipo(r: RowMensajesEquipo): MensajeEquipo {
   return {
     id: r.id,
     studioId: r.studio_id,
+    canalId: r.canal_id ?? '',
     autorInstructorId: r.autor_instructor_id ?? null,
     autorNombre: r.autor_nombre,
     texto: r.texto,
     creadoEn: r.creado_en,
   } as MensajeEquipo;
+}
+
+export function mapCanalEquipo(r: RowCanalesEquipo): CanalEquipo {
+  return {
+    id: r.id,
+    studioId: r.studio_id ?? '',
+    nombre: r.nombre,
+    creadoEn: r.creado_en ?? '',
+  };
 }
 
 function mapNotificacion(r: RowNotificaciones): Notificacion {
@@ -2202,6 +2214,7 @@ function mensajeEquipoToDb(m: MensajeEquipo) {
   return {
     id: m.id,
     studio_id: m.studioId ?? STUDIO_ID,
+    canal_id: m.canalId,
     autor_instructor_id: m.autorInstructorId ?? null,
     autor_nombre: m.autorNombre,
     texto: m.texto,
@@ -2776,11 +2789,12 @@ export async function dbInsertActividadReciente(act: ActividadReciente) {
 // Últimos N mensajes del estudio, en orden cronológico ascendente (más antiguo
 // primero) para pintarlos directamente. Acotado: se traen los más recientes y se
 // invierte, en vez de todo el histórico.
-export async function dbListMensajesEquipo(limite = 200): Promise<MensajeEquipo[]> {
+export async function dbListMensajesEquipo(canalId: string, limite = 200): Promise<MensajeEquipo[]> {
   const { data, error } = await supabase
     .from('mensajes_equipo')
     .select('*')
     .eq('studio_id', getCurrentStudioId())
+    .eq('canal_id', canalId)
     .order('creado_en', { ascending: false })
     .limit(limite);
   if (error) {
@@ -2788,6 +2802,34 @@ export async function dbListMensajesEquipo(limite = 200): Promise<MensajeEquipo[
     return [];
   }
   return (data ?? []).map(mapMensajeEquipo).reverse();
+}
+
+// Canales del chat de equipo del estudio actual (el más antiguo primero: "General").
+export async function dbListCanalesEquipo(): Promise<CanalEquipo[]> {
+  const { data, error } = await supabase
+    .from('canales_equipo')
+    .select('*')
+    .eq('studio_id', getCurrentStudioId())
+    .order('creado_en', { ascending: true });
+  if (error) {
+    reportDbError('[dbListCanalesEquipo]', error);
+    return [];
+  }
+  return (data ?? []).map(mapCanalEquipo);
+}
+
+export async function dbCreateCanalEquipo(canal: CanalEquipo): Promise<boolean> {
+  const { error } = await supabase.from('canales_equipo').insert({
+    id: canal.id,
+    studio_id: canal.studioId,
+    nombre: canal.nombre,
+    creado_en: canal.creadoEn,
+  });
+  if (error) {
+    reportDbError('[dbCreateCanalEquipo]', error);
+    return false;
+  }
+  return true;
 }
 
 // Devuelve true si el insert fue OK (para que el chat marque el mensaje como
