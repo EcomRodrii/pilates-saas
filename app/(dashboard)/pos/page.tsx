@@ -243,6 +243,9 @@ export default function POSPage() {
   const [lastSale, setLastSale] = useState<{ total: number; metodoPago: MetodoPago } | null>(null);
   const [busquedaCliente, setBusquedaCliente] = useState('');
   const [showCerrarCaja, setShowCerrarCaja] = useState(false);
+  // "Ventas recientes" colapsada por defecto: el catálogo + ticket (lo que se
+  // usa el 95% del tiempo cobrando) se queda con toda la altura.
+  const [showVentas, setShowVentas] = useState(false);
   const [posView, setPosView] = useState<'catalog' | 'cart'>('catalog');
 
   // A-14 (backstop): cobros por datáfono confirmados en Stripe sin venta
@@ -492,20 +495,13 @@ export default function POSPage() {
 
   return (
     <div className="fixed inset-0 lg:left-56 top-14 lg:top-0 flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--background)', zIndex: 10 }}>
-      {/* Header */}
-      <div className="shrink-0 px-6 py-4 border-b border-border bg-background">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-[18px] font-semibold text-foreground">Punto de Venta</h1>
-            <p className="text-[13px] text-muted-foreground mt-0.5">Terminal de cobro rápido</p>
-          </div>
-          <p className="text-[12px] text-muted-foreground hidden sm:block">↵ Enter para cobrar cuando el carrito está listo</p>
-        </div>
-      </div>
-
-      {/* Daily cash summary bar */}
+      {/* Barra superior única: título + resumen de caja + acciones */}
       <div className="shrink-0 px-4 sm:px-6 py-2.5 border-b border-border bg-card flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto">
+          <div className="shrink-0 hidden md:flex items-center gap-3 pr-1">
+            <h1 className="text-[15px] font-bold text-foreground whitespace-nowrap">Punto de venta</h1>
+            <div className="w-px h-7 bg-border" />
+          </div>
           <div className="shrink-0 rounded-xl bg-background shadow-sm px-3.5 py-2">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" /> Ventas hoy
@@ -930,10 +926,17 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* ── Recent sales ─────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-border bg-card max-h-[220px] flex flex-col">
-        <div className="px-6 py-3 border-b border-border flex items-center justify-between shrink-0">
-          <h3 className="text-[13px] font-semibold text-foreground">Ventas recientes</h3>
+      {/* ── Ventas recientes (colapsable: prioriza catálogo + ticket) ──────── */}
+      <div className="shrink-0 border-t border-border bg-card flex flex-col">
+        <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between shrink-0">
+          <button
+            onClick={() => setShowVentas(v => !v)}
+            className="flex items-center gap-2 text-foreground hover:opacity-80 transition-opacity"
+          >
+            <ChevronRight size={14} className={cn('text-muted-foreground transition-transform', showVentas && 'rotate-90')} />
+            <h3 className="text-[13px] font-semibold">Ventas recientes</h3>
+            <span className="text-[12px] font-normal text-muted-foreground">· {ventasHoy.length} hoy · {formatEuro(totalHoy)}</span>
+          </button>
           <Link
             href="/pagos"
             className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
@@ -942,7 +945,8 @@ export default function POSPage() {
             <ChevronRight size={12} />
           </Link>
         </div>
-        <div className="overflow-auto flex-1">
+        {showVentas && (
+        <div className="overflow-auto max-h-[220px] border-t border-border">
           <table className="w-full text-[12px]">
             <thead className="sticky top-0 bg-card z-10">
               <tr className="text-muted-foreground border-b border-border">
@@ -1050,6 +1054,7 @@ export default function POSPage() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* Cerrar caja modal */}
