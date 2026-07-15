@@ -35,7 +35,7 @@ import {
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
   dbUpdateStudio, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
-  setDbErrorListener,
+  setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
 import type {
   Studio,
@@ -293,6 +293,7 @@ interface StudioContextValue {
 
   // Comunidad
   postsComunidad: PostComunidad[];
+  likedPostIds: Set<string>;
   addPost: (texto: string) => void;
   toggleLikePost: (postId: string) => void;
   integraciones: Integracion[];
@@ -473,7 +474,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   // Dominio Contenido y Comunidad extraído a su propio store (Fase B).
   const content = useContentStore();
-  const { videosOnDemand, postsComunidad } = content;
+  const { videosOnDemand, postsComunidad, likedPostIds } = content;
   // Dominios extraídos a sus stores (Fase B).
   const dashboardChartsStore = useDashboardChartsStore();
   const { dashboardCharts } = dashboardChartsStore;
@@ -616,6 +617,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setNotificaciones(data.notificaciones);
       content.setVideosOnDemand(data.videosOnDemand);
       content.setPostsComunidad(data.postsComunidad);
+      dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
       integrationsStore.setIntegraciones(data.integraciones ?? []);
       memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
@@ -2536,6 +2538,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addVideo: content.addVideo,
     toggleVideo: content.toggleVideo,
     postsComunidad,
+    likedPostIds,
     addPost: content.addPost,
     toggleLikePost: content.toggleLikePost,
     integraciones,
@@ -2627,6 +2630,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setNotificaciones(data.notificaciones);
       content.setVideosOnDemand(data.videosOnDemand);
       content.setPostsComunidad(data.postsComunidad);
+      dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
       integrationsStore.setIntegraciones(data.integraciones ?? []);
       memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
