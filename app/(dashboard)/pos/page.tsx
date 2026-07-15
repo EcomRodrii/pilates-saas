@@ -505,22 +505,30 @@ export default function POSPage() {
 
       {/* Daily cash summary bar */}
       <div className="shrink-0 px-4 sm:px-6 py-2.5 border-b border-border bg-card flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto">
-          <div className="shrink-0 rounded-lg border border-border bg-background px-3 py-1.5">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Ventas hoy</p>
-            <p className="text-[15px] font-bold text-foreground leading-tight mt-0.5">{ventasHoy.length}</p>
+        <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto">
+          <div className="shrink-0 rounded-xl bg-background shadow-sm px-3.5 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" /> Ventas hoy
+            </p>
+            <p className="text-[16px] font-bold text-foreground leading-tight mt-1 tabular-nums">{ventasHoy.length}</p>
           </div>
-          <div className="shrink-0 rounded-lg border border-border bg-background px-3 py-1.5">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Total caja</p>
-            <p className="text-[15px] font-bold text-[#059669] leading-tight mt-0.5">{formatEuro(totalHoy)}</p>
+          <div className="shrink-0 rounded-xl bg-background shadow-sm px-3.5 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" /> Total caja
+            </p>
+            <p className="text-[16px] font-bold text-foreground leading-tight mt-1 tabular-nums">{formatEuro(totalHoy)}</p>
           </div>
-          <div className="shrink-0 hidden sm:block rounded-lg border border-border bg-background px-3 py-1.5">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Efectivo</p>
-            <p className="text-[15px] font-bold text-[#059669] leading-tight mt-0.5">{formatEuro(efectivoHoy)}</p>
+          <div className="shrink-0 hidden sm:block rounded-xl bg-background shadow-sm px-3.5 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" /> Efectivo
+            </p>
+            <p className="text-[16px] font-bold text-foreground leading-tight mt-1 tabular-nums">{formatEuro(efectivoHoy)}</p>
           </div>
-          <div className="shrink-0 hidden sm:block rounded-lg border border-border bg-background px-3 py-1.5">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">Tarjeta</p>
-            <p className="text-[15px] font-bold text-[#1D4ED8] leading-tight mt-0.5">{formatEuro(tarjetaHoy)}</p>
+          <div className="shrink-0 hidden sm:block rounded-xl bg-background shadow-sm px-3.5 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1D4ED8]" /> Tarjeta
+            </p>
+            <p className="text-[16px] font-bold text-foreground leading-tight mt-1 tabular-nums">{formatEuro(tarjetaHoy)}</p>
           </div>
         </div>
         <div className="shrink-0 flex items-center gap-2">
@@ -539,9 +547,10 @@ export default function POSPage() {
           </button>
           <button
             onClick={() => setShowCerrarCaja(true)}
-            className="px-3 py-2 rounded-lg border border-border text-[12px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+            title="Ver el resumen de caja del día"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-foreground/25 bg-foreground/[0.04] text-[12px] font-semibold text-foreground hover:bg-foreground/[0.08] transition-colors"
           >
-            Cerrar caja
+            <Receipt size={13} /> Cerrar caja
           </button>
         </div>
       </div>
@@ -647,7 +656,7 @@ export default function POSPage() {
                     key={p.id}
                     onClick={() => addToCart(p)}
                     style={{ borderLeftColor: cs.accent }}
-                    className="bg-card border border-border border-l-[3px] rounded-r-xl rounded-l-sm p-3 text-left hover:border-foreground hover:shadow-sm transition-all group flex flex-col"
+                    className="bg-card border border-border border-l-[3px] rounded-r-xl rounded-l-sm p-3.5 text-left hover:border-foreground hover:shadow-sm transition-all group flex flex-col"
                   >
                     <span
                       className="inline-block self-start text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 mb-1.5"
@@ -655,11 +664,11 @@ export default function POSPage() {
                     >
                       {p.categoria}
                     </span>
-                    <p className="text-[13px] font-medium text-foreground leading-snug mb-2 line-clamp-2 flex-1">
+                    <p className="text-[14px] font-bold text-foreground leading-snug mb-2 line-clamp-2 flex-1">
                       {p.nombre}
                     </p>
                     <div className="flex items-center justify-between">
-                      <span className="text-[15px] font-bold text-foreground tabular-nums">
+                      <span className="text-[13px] font-semibold text-muted-foreground tabular-nums">
                         {formatEuro(p.precio)}
                       </span>
                       <span
