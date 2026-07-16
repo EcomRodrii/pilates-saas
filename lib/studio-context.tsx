@@ -1656,6 +1656,46 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbInsertRecibo(nuevo);
   }
 
+  // I15: lógica de cobro extraída para que marcarCobrado y cobrarTodosPendientes
+  // NO dupliquen el refill de bono / extensión mensual ni el build+sellado de
+  // factura (antes copiados en ambas, con riesgo de divergencia — p. ej. el guard
+  // `sesionesRestantes === 0`). Ambos helpers operan sobre UN recibo ya cobrado y
+  // leen `suscripciones`/`planesTarifa`/`facturas` del snapshot actual, igual que
+  // antes, así que el comportamiento es idéntico.
+
+  // Refill del bono agotado o extensión del mensual al cobrar su renovación.
+  function aplicarRenovacionSuscripcion(recibo: Recibo) {
+    if (!recibo.suscripcionId) return;
+    const sus = suscripciones.find(s => s.id === recibo.suscripcionId);
+    if (!sus) return;
+    const plan = planesTarifa.find(p => p.id === sus.planId);
+    if (!plan) return;
+    if ((plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && sus.sesionesRestantes === 0) {
+      setSuscripciones(prev => prev.map(s =>
+        s.id === sus.id ? { ...s, sesionesRestantes: plan.sesiones, estado: 'ACTIVA' as const } : s
+      ));
+      dbUpdateSuscripcion(sus.id, { sesionesRestantes: plan.sesiones, estado: 'ACTIVA' });
+    } else if (plan.tipo === 'MENSUAL') {
+      const nuevaFin = new Date();
+      nuevaFin.setMonth(nuevaFin.getMonth() + 1);
+      const fechaFin = nuevaFin.toISOString().slice(0, 10);
+      setSuscripciones(prev => prev.map(s =>
+        s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const } : s
+      ));
+      dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
+    }
+  }
+
+  // Construye y sella la factura de un recibo cobrado si aún no existe (dedup por
+  // reciboId sobre las facturas actuales). Devuelve la factura nueva, o null si ya
+  // había una. La sella (side effect) igual que antes.
+  function construirFacturaCobro(reciboCobrado: Recibo, facturasActuales: Factura[]): Factura | null {
+    if (facturasActuales.some(f => f.reciboId === reciboCobrado.id)) return null;
+    const fac = buildFactura(reciboCobrado, facturasActuales);
+    void sellarFacturaYActualizar(fac);
+    return fac;
+  }
+
   function marcarCobrado(reciboId: string) {
     const fechaCobro = new Date().toISOString();
     setRecibos(prev => prev.map(r =>
@@ -1663,39 +1703,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     ));
     dbUpdateRecibo(reciboId, { estado: 'COBRADO', fechaCobro });
     setFacturas(prev => {
-      // Avoid duplicate facturas for same recibo
-      if (prev.some(f => f.reciboId === reciboId)) return prev;
       const recibo = recibos.find(r => r.id === reciboId) ??
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
       const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro: new Date().toISOString() };
-      const fac = buildFactura(updatedRecibo, prev);
-      void sellarFacturaYActualizar(fac);
-      return [...prev, fac];
+      const fac = construirFacturaCobro(updatedRecibo, prev);
+      return fac ? [...prev, fac] : prev;
     });
     // Refill bono or extend mensual when renewal payment is collected
     const recibo = recibos.find(r => r.id === reciboId);
-    if (recibo?.suscripcionId) {
-      const sus = suscripciones.find(s => s.id === recibo.suscripcionId);
-      if (sus) {
-        const plan = planesTarifa.find(p => p.id === sus.planId);
-        if (plan) {
-          if ((plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && sus.sesionesRestantes === 0) {
-            setSuscripciones(prev => prev.map(s =>
-              s.id === sus.id ? { ...s, sesionesRestantes: plan.sesiones, estado: 'ACTIVA' as const } : s
-            ));
-            dbUpdateSuscripcion(sus.id, { sesionesRestantes: plan.sesiones, estado: 'ACTIVA' });
-          } else if (plan.tipo === 'MENSUAL') {
-            const nuevaFin = new Date();
-            nuevaFin.setMonth(nuevaFin.getMonth() + 1);
-            const fechaFin = nuevaFin.toISOString().slice(0, 10);
-            setSuscripciones(prev => prev.map(s =>
-              s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const } : s
-            ));
-            dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
-          }
-        }
-      }
-    }
+    if (recibo) aplicarRenovacionSuscripcion(recibo);
     if (recibo) {
       const socio = socios.find(s => s.id === recibo.socioId);
       addActividadReciente(
@@ -1750,36 +1766,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setFacturas(prev => {
       let current = [...prev];
       for (const recibo of pendientes) {
-        if (!current.some(f => f.reciboId === recibo.id)) {
-          const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
-          const fac = buildFactura(cobrado, current);
-          void sellarFacturaYActualizar(fac);
-          current = [...current, fac];
-        }
+        const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
+        const fac = construirFacturaCobro(cobrado, current);
+        if (fac) current = [...current, fac];
       }
       return current;
     });
     // Refill bonos / extend mensual for every recibo being paid
     for (const recibo of pendientes) {
-      if (!recibo.suscripcionId) continue;
-      const sus = suscripciones.find(s => s.id === recibo.suscripcionId);
-      if (!sus) continue;
-      const plan = planesTarifa.find(p => p.id === sus.planId);
-      if (!plan) continue;
-      if ((plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && sus.sesionesRestantes === 0) {
-        setSuscripciones(prev => prev.map(s =>
-          s.id === sus.id ? { ...s, sesionesRestantes: plan.sesiones, estado: 'ACTIVA' as const } : s
-        ));
-        dbUpdateSuscripcion(sus.id, { sesionesRestantes: plan.sesiones, estado: 'ACTIVA' });
-      } else if (plan.tipo === 'MENSUAL') {
-        const nuevaFin = new Date();
-        nuevaFin.setMonth(nuevaFin.getMonth() + 1);
-        const fechaFin = nuevaFin.toISOString().slice(0, 10);
-        setSuscripciones(prev => prev.map(s =>
-          s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const } : s
-        ));
-        dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
-      }
+      aplicarRenovacionSuscripcion(recibo);
     }
   }
 
