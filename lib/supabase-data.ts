@@ -1157,10 +1157,15 @@ export async function fetchDeferredStudioData(studioId?: string) {
     notasProgresoRes,
     backupsRes,
   ] = await Promise.all([
-    db.from('reward_history').select('*').eq('studio_id', sid),
+    // I5: estos tres historiales son append-only y crecen sin fin, pero ninguna
+    // vista de STAFF los consume (el portal usa la versión member-scoped de otro
+    // fetch). Se cargan acotados a los más recientes en vez de años de filas.
+    // credit_transactions NO se acota: alimenta los gráficos del dashboard
+    // (computeSerieGrafico), que sí necesitan la serie completa.
+    db.from('reward_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('credit_transactions').select('*').eq('studio_id', sid),
-    db.from('achievement_history').select('*').eq('studio_id', sid),
-    db.from('challenge_history').select('*').eq('studio_id', sid),
+    db.from('achievement_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
+    db.from('challenge_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('notas_progreso').select('*').eq('studio_id', sid),
     db.from('backups').select('id, studio_id, tipo, creado_en').eq('studio_id', sid).order('creado_en', { ascending: false }),
   ]);
