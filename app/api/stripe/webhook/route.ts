@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { capturar } from '@/lib/analytics';
+import { webhookYaProcesado, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
 
 export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -28,6 +29,13 @@ export async function POST(req: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Webhook signature inválida' }, { status: 400 });
     }
+  }
+
+  // M10: idempotencia por event.id — si este evento ya se procesó con éxito
+  // (Stripe reintenta / re-entrega), lo reconocemos y salimos sin reprocesar.
+  const adminDedup = getSupabaseAdmin();
+  if (adminDedup && await webhookYaProcesado(adminDedup, event.id)) {
+    return NextResponse.json({ received: true, duplicate: true });
   }
 
   // Esta es la fuente de verdad real del pago — el redirect al navegador
@@ -155,5 +163,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // M10: marcar el evento como procesado (solo se llega aquí si todos los
+  // handlers fueron OK; los caminos de error devuelven 5xx antes y NO marcan,
+  // para que Stripe reintente).
+  if (adminDedup) await marcarWebhookProcesado(adminDedup, event.id, event.type);
   return NextResponse.json({ received: true });
 }
