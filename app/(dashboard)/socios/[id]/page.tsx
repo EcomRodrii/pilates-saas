@@ -3,6 +3,7 @@
 import { use, useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
+import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
 import { authHeader, enviarEmailCampana } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
@@ -224,7 +225,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // ── Hydration fix ──────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const now = mounted ? new Date() : new Date('2026-06-29');
+  // Estable entre renders (solo cambia al montar): así el useMemo del resumen no
+  // se invalida en cada tecleo por un `new Date()` nuevo.
+  const now = useMemo(() => mounted ? new Date() : new Date('2026-06-29'), [mounted]);
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<Tab>('resumen');
@@ -283,6 +286,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     notasInternas.filter(n => n.socioId === id).sort((a, b) => b.creadoEn.localeCompare(a.creadoEn)),
     [notasInternas, id]);
 
+  // I10: todo el resumen derivado (próximas reservas, asistencias, gasto, días sin
+  // venir, sparkline…) memoizado en un único selector puro. El useMemo va ANTES del
+  // guard `if (!socio)` (reglas de hooks); `resumenSocio` tolera socio undefined.
+  const resumen = useMemo(
+    () => resumenSocio({ socio, id, misReservas, misRecibos, sesionById, suscripciones, planesTarifa, now }),
+    [socio, id, misReservas, misRecibos, sesionById, suscripciones, planesTarifa, now],
+  );
+
   if (!socio) {
     return (
       <div className="text-center py-20">
@@ -294,56 +305,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     );
   }
 
-  // ── Derived data ───────────────────────────────────────────────────────────
-  const suscripcion = suscripciones.find(s => s.socioId === id && (s.estado === 'ACTIVA' || s.estado === 'PAUSADA'));
-  const plan = suscripcion ? planesTarifa.find(p => p.id === suscripcion.planId) : null;
-  const tags = socio.tags ?? [];
-
-  const proximasReservas = misReservas.filter(r => {
-    const ses = sesionById.get(r.sesionId);
-    return ses && new Date(ses.inicio) > now && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA');
-  }).slice(0, 3);
-
-  const asistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
-  const estesMes = misReservas.filter(r => {
-    const ses = sesionById.get(r.sesionId);
-    if (!ses) return false;
-    const d = new Date(ses.inicio);
-    return r.estado === 'ASISTIDA' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).length;
-  const bonosComprados = suscripciones.filter(s => s.socioId === id).length;
-  const totalGastado = misRecibos.filter(r => r.estado === 'COBRADO').reduce((acc, r) => acc + r.importe, 0);
-  const pendientes = misRecibos.filter(r => r.estado === 'PENDIENTE');
-
-  // ── Ficha rápida (CRM) ──────────────────────────────────────────────────────
-  const ultimaAsistidaFecha = misReservas
-    .filter(r => r.estado === 'ASISTIDA')
-    .map(r => sesionById.get(r.sesionId))
-    .filter((s): s is typeof sesiones[number] => !!s)
-    .sort((a, b) => b.inicio.localeCompare(a.inicio))[0]?.inicio ?? null;
-  const diasSinVenir = ultimaAsistidaFecha ? Math.floor((now.getTime() - new Date(ultimaAsistidaFecha).getTime()) / 86400000) : null;
-  const suscripcionActiva = suscripciones.find(s => s.socioId === id && s.estado === 'ACTIVA') ?? null;
-  const planActivo = suscripcionActiva ? planesTarifa.find(p => p.id === suscripcionActiva.planId) ?? null : null;
-  const bonosActivos = suscripciones.filter(s => s.socioId === id && s.estado === 'ACTIVA').length;
-  const pendientesImporte = pendientes.reduce((acc, r) => acc + r.importe, 0);
-  const cumpleanos = socio.fechaNacimiento
-    ? new Date(socio.fechaNacimiento).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })
-    : null;
-
-  // 12-week attendance sparkline
-  const sparklineWeeks = Array.from({ length: 12 }, (_, i) => {
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - (11 - i) * 7 - now.getDay());
-    weekStart.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 7);
-    return misReservas.some(r => {
-      const ses = sesionById.get(r.sesionId);
-      if (!ses) return false;
-      const d = new Date(ses.inicio);
-      return r.estado === 'ASISTIDA' && d >= weekStart && d < weekEnd;
-    });
-  });
+  // ── Derived data (memoizado en lib/socio-resumen, I10) ──────────────────────
+  const {
+    suscripcion, plan, tags, proximasReservas, asistidas, estesMes, bonosComprados,
+    totalGastado, pendientes, diasSinVenir, planActivo, bonosActivos,
+    pendientesImporte, cumpleanos, sparklineWeeks,
+  } = resumen;
 
   // Filtered reservas for "Reservas" tab
   const filteredReservas = misReservas.filter(r => {
