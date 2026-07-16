@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { applicationFeeAmount } from '@/lib/stripe-fees';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -16,6 +17,9 @@ import { applicationFeeAmount } from '@/lib/stripe-fees';
 // defensa correcta es validar el importe en el servidor, no exigir login de
 // staff. Se comprueba además que el recibo/plan pertenezca al `studioId`.
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'stripe-checkout', { max: 10, windowSeconds: 60 });
+  if (limited) return limited;
+
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
     return NextResponse.json({ error: 'Stripe no configurado. Añade STRIPE_SECRET_KEY en .env.local' }, { status: 503 });

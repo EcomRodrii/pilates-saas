@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { canjearRecompensaPublica, socioAutenticado } from '@/lib/supabase-data';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Canje de una recompensa desde el portal de la socia. Exige sesión real de
 // socia (JWT de Supabase Auth): la identidad se deriva del token verificado, no
 // del body — así nadie puede gastar los créditos de otra socia pasando su id.
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'public-canje', { max: 20, windowSeconds: 60 });
+  if (limited) return limited;
+
   const body = await req.json().catch(() => null) as {
     studioId?: string; catalogItemId?: string;
   } | null;

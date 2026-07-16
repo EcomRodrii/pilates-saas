@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { priceIdDe } from '@/lib/billing';
 import { PLANES, type Plan } from '@/lib/entitlements';
@@ -9,6 +10,9 @@ import { PLANES, type Plan } from '@/lib/entitlements';
 // suscribir su negocio. Crea (o reutiliza) el Customer de Stripe del estudio y
 // abre un Checkout en modo subscription para el plan elegido.
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'billing-checkout', { max: 10, windowSeconds: 60 });
+  if (limited) return limited;
+
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
     return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });

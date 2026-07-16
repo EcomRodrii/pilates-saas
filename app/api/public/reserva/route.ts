@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { crearReservaPublica, cancelarReservaPublica, socioAutenticado } from '@/lib/supabase-data';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Crear o cancelar una reserva desde las páginas públicas (reserva/portal).
 // SEGURIDAD: exige sesión real de socia (JWT de Supabase Auth) y deriva su id
 // del token verificado — ya NO se acepta {socioId,email} del body, así nadie
 // puede reservar/cancelar en nombre de otra socia conociendo su id+email.
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'public-reserva', { max: 20, windowSeconds: 60 });
+  if (limited) return limited;
+
   const body = await req.json().catch(() => null) as {
     accion?: 'crear' | 'cancelar';
     studioId?: string;

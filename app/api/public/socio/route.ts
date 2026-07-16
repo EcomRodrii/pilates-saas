@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { registrarSociaPublica, actualizarSociaPublica, guardarPreferenciasPublica, socioAutenticado } from '@/lib/supabase-data';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Operaciones de la propia socia desde el portal/reserva. SEGURIDAD: todas
 // exigen sesión real de socia (JWT de Supabase Auth); la identidad se deriva del
 // token, no del body. `registrar` es el alta de un walk-in ya autenticado por
 // magic link: se crea su ficha vinculada a su usuario de auth.
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'public-socio', { max: 20, windowSeconds: 60 });
+  if (limited) return limited;
+
   const body = await req.json().catch(() => null) as {
     accion?: 'registrar' | 'actualizar' | 'preferencias';
     studioId?: string;

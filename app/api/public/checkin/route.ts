@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkinPublico, validarKioskToken } from '@/lib/supabase-data';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Check-in de kiosk (service-role): marca la reserva ASISTIDA y otorga los
 // créditos/premios correspondientes. La reserva se valida contra el estudio.
@@ -9,6 +10,9 @@ import { checkinPublico, validarKioskToken } from '@/lib/supabase-data';
 // /api/public/studio-data. Con token inválido/ausente → 401, y la enumeración
 // de reservaId queda inofensiva.
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'public-checkin', { max: 60, windowSeconds: 60 });
+  if (limited) return limited;
+
   const body = await req.json().catch(() => null) as {
     studioId?: string; reservaId?: string;
   } | null;
