@@ -1413,8 +1413,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       }
       if (r.estado === 'CONFIRMADA') consumirSesionBono(socioId);
       if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
-      evaluarLogrosSocio(socioId, reservasActualizadas);
-      evaluarRetosSocio(socioId, reservasActualizadas);
+      // I12: evaluar logros/retos sobre el set con el estado AUTORITATIVO de la
+      // RPC, no sobre la estimación optimista. Si la estimación fue CONFIRMADA
+      // pero la BD devolvió LISTA_ESPERA, evaluar sobre reservasActualizadas
+      // otorgaría logros como si la clase contara.
+      const reservasFinales = reservasActualizadas.map(x => x.id === reservaId
+        ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera }
+        : x);
+      evaluarLogrosSocio(socioId, reservasFinales);
+      evaluarRetosSocio(socioId, reservasFinales);
     });
 
     return estado;
