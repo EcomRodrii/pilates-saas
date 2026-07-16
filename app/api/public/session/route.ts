@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { resolverSociaAutenticada } from '@/lib/supabase-data';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Resuelve la sesión de una socia del portal a partir de su JWT de Supabase Auth
 // (obtenido con magic link / OTP en el cliente). Sustituye a /api/public/login,
@@ -8,6 +9,8 @@ import { resolverSociaAutenticada } from '@/lib/supabase-data';
 // Aquí el usuario ya demostró que controla el email al autenticarse con
 // Supabase; este endpoint vincula (claim) su fila de socia y devuelve su perfil.
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'public-session', { max: 30, windowSeconds: 60 });
+  if (limited) return limited;
   const body = await req.json().catch(() => null) as { slug?: string } | null;
   if (!body?.slug) {
     return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });

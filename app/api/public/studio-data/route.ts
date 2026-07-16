@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPublicStudioData, resolveStudioIdBySlug, socioAutenticado } from '@/lib/supabase-data';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Datos para las páginas públicas (reserva/portal/kiosk): catálogo público del
 // estudio + (si hay socia autenticada) SUS datos.
@@ -8,6 +9,8 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 // de {socioId,email} del body. Sin token válido se devuelve solo el catálogo
 // (clases, salas, planes…), sin ningún dato personal/financiero.
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'public-studio-data', { max: 60, windowSeconds: 60 });
+  if (limited) return limited;
   const body = await req.json().catch(() => null) as { slug?: string } | null;
   const slug = body?.slug?.trim();
   if (!slug) {
