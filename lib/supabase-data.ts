@@ -1533,29 +1533,73 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
-  const { data: sesiones, error } = await admin
+  // I4: precarga en lote para evitar el N+1 anidado (antes ~6 queries por sesión
+  // + 1 por cada socia → miles de round-trips por ejecución del cron). Ahora es un
+  // número constante de queries y todo el emparejamiento se hace en memoria.
+
+  // 1) Sesiones de la ventana, con todo lo que el email necesita (1 query).
+  const { data: sesionesRaw, error } = await admin
     .from('sesiones')
-    .select('id, studio_id')
+    .select('id, studio_id, inicio, tipo_clase_id, sala_id, instructor_id')
     .eq('cancelada', false)
     .gte('inicio', desdeISO)
     .lt('inicio', hastaISO);
   if (error) throw new Error(error.message);
+  const sesiones = sesionesRaw ?? [];
+  if (sesiones.length === 0) return { sesiones: 0, enviados: 0, fallidos: 0, sinEmail: 0 };
+
+  const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter(Boolean) as string[])];
+  const sesionIds = sesiones.map(s => s.id as string);
+
+  // 2) Catálogos + reservas de TODAS las sesiones en paralelo (1 query cada uno).
+  const [{ data: tiposR }, { data: salasR }, { data: instR }, { data: studiosR }, { data: reservasR }] = await Promise.all([
+    admin.from('tipos_clase').select('id, nombre').in('id', uniq(sesiones.map(s => s.tipo_clase_id as string))),
+    admin.from('salas').select('id, nombre').in('id', uniq(sesiones.map(s => s.sala_id as string))),
+    admin.from('instructores').select('id, nombre').in('id', uniq(sesiones.map(s => s.instructor_id as string))),
+    admin.from('studios').select('id, nombre').in('id', uniq(sesiones.map(s => s.studio_id as string))),
+    admin.from('reservas').select('sesion_id, socio_id').in('sesion_id', sesionIds).in('estado', ['CONFIRMADA', 'ASISTIDA']),
+  ]);
+  const reservas = reservasR ?? [];
+
+  // 3) Socias implicadas (1 query) y mapas de lookup.
+  const socioIds = uniq(reservas.map(r => r.socio_id as string));
+  const { data: sociosR } = socioIds.length
+    ? await admin.from('socios').select('id, nombre, email').in('id', socioIds)
+    : { data: [] as { id: string; nombre: string | null; email: string | null }[] };
+
+  const nombrePorId = (rows: { id: string; nombre: string | null }[] | null) =>
+    new Map((rows ?? []).map(x => [x.id, x.nombre]));
+  const tipoNombre = nombrePorId(tiposR as { id: string; nombre: string | null }[] | null);
+  const salaNombre = nombrePorId(salasR as { id: string; nombre: string | null }[] | null);
+  const instNombre = nombrePorId(instR as { id: string; nombre: string | null }[] | null);
+  const studioNombre = nombrePorId(studiosR as { id: string; nombre: string | null }[] | null);
+  const sociaPorId = new Map((sociosR ?? []).map(x => [x.id, x]));
+  const reservasPorSesion = new Map<string, { socio_id: string }[]>();
+  for (const r of reservas) {
+    const arr = reservasPorSesion.get(r.sesion_id as string) ?? [];
+    arr.push({ socio_id: r.socio_id as string });
+    reservasPorSesion.set(r.sesion_id as string, arr);
+  }
 
   let enviados = 0;
   let fallidos = 0;
   let sinEmail = 0;
 
-  for (const ses of sesiones ?? []) {
-    const datos = await datosClaseParaEmail(admin, ses.studio_id as string, ses.id as string);
-    if (!datos) continue;
-    const { data: reservas } = await admin
-      .from('reservas')
-      .select('socio_id')
-      .eq('sesion_id', ses.id)
-      .in('estado', ['CONFIRMADA', 'ASISTIDA']);
-    for (const r of reservas ?? []) {
-      const { data: socia } = await admin
-        .from('socios').select('nombre, email').eq('id', r.socio_id).maybeSingle();
+  for (const ses of sesiones) {
+    const rs = reservasPorSesion.get(ses.id as string) ?? [];
+    if (rs.length === 0) continue;
+    const inicio = new Date(ses.inicio as string);
+    const datos = {
+      inicioISO: ses.inicio as string,
+      claseNombre: tipoNombre.get(ses.tipo_clase_id as string) ?? 'Clase',
+      fecha: inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }),
+      hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
+      sala: (ses.sala_id ? salaNombre.get(ses.sala_id as string) : '') ?? '',
+      instructor: (ses.instructor_id ? instNombre.get(ses.instructor_id as string) : '') ?? '',
+      estudioNombre: studioNombre.get(ses.studio_id as string) ?? 'Tentare',
+    };
+    for (const r of rs) {
+      const socia = sociaPorId.get(r.socio_id);
       if (!socia?.email) { sinEmail++; continue; }
       const res = await enviarEmailTransaccional({
         tipo: 'recordatorio', to: socia.email, toName: socia.nombre ?? 'Socia', data: datos,
@@ -1565,7 +1609,7 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
     }
   }
 
-  return { sesiones: (sesiones ?? []).length, enviados, fallidos, sinEmail };
+  return { sesiones: sesiones.length, enviados, fallidos, sinEmail };
 }
 
 // Lee la política de reservas/cancelaciones del estudio (con defaults sensatos
