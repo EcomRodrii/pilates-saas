@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
+import { useModo } from '@/lib/portal-modo';
 import { Clock, MapPin, BarChart2, CheckCircle, AlertCircle, Users } from 'lucide-react';
 
 type Tab = 'proximas' | 'mis-reservas';
@@ -21,6 +22,7 @@ export default function ClasesPage() {
   const { slug } = useParams<{ slug: string }>();
   const { session } = usePortalAuth();
   const { sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, addReserva, cancelarReserva } = useStudio();
+  const { t } = useModo();
   const [tab, setTab] = useState<Tab>('proximas');
   const now = new Date();
 
@@ -77,53 +79,58 @@ export default function ClasesPage() {
 
   const totalReservas = misReservas.filter(r => r.estado === 'CONFIRMADA').length;
 
+  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 22 };
+  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
+
   return (
-    <div className="bg-white min-h-full">
+    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
-        <h1 className="text-white text-[28px] font-extrabold tracking-tight leading-tight">Clases</h1>
-        <p className="text-white/50 text-[13px] mt-0.5">{totalReservas} reservas activas</p>
+      <div style={{ padding: '24px 20px 20px' }}>
+        <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1 }}>Clases</h1>
+        <p style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>{totalReservas} reservas activas</p>
 
         {/* Tabs */}
-        <div className="flex gap-2 mt-5">
-          {([['proximas', 'Todas las clases'], ['mis-reservas', 'Mis reservas']] as [Tab, string][]).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className="px-4 py-2 rounded-2xl text-[13px] font-bold transition-all"
-              style={{
-                backgroundColor: tab === key ? 'white' : 'rgba(255,255,255,0.12)',
-                color: tab === key ? '#171717' : 'rgba(255,255,255,0.7)',
-              }}
-            >
-              {label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+          {([['proximas', 'Todas las clases'], ['mis-reservas', 'Mis reservas']] as [Tab, string][]).map(([key, label]) => {
+            const active = tab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                style={{
+                  padding: '8px 16px', borderRadius: 16, fontSize: 13, fontWeight: 800, textTransform: 'uppercase', border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
+                  background: active ? 'var(--portal-brand)' : t.surface, color: active ? t.accentInk : t.muted,
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Content */}
-      <div className="px-4 pt-4 pb-4 space-y-6">
+      <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {groupedByDay.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 rounded-3xl bg-portal-brand/10 flex items-center justify-center mb-4">
-              <Clock size={28} className="text-portal-brand-secondary" />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 0', textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 24, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Clock size={28} style={{ color: t.heroAccent }} />
             </div>
-            <p className="font-bold text-[#171717] text-[16px]">
+            <p style={{ fontWeight: 800, color: t.ink, fontSize: 16 }}>
               {tab === 'mis-reservas' ? 'Sin reservas activas' : 'Sin clases disponibles'}
             </p>
-            <p className="text-[13px] text-[#8E8E93] mt-1">
+            <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>
               {tab === 'mis-reservas' ? 'Reserva una clase en la pestaña anterior' : 'Próximamente habrá nuevas clases'}
             </p>
           </div>
         ) : (
           groupedByDay.map(group => (
             <div key={group.dayKey}>
-              <p className="text-[13px] font-bold text-[#8E8E93] mb-3">{group.label}</p>
-              <div className="space-y-3">
+              <p style={{ ...microLabel, marginBottom: 12 }}>{group.label}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {group.items.map(ses => {
-                  const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
+                  const tipo = tiposClase.find(t2 => t2.id === ses.tipoClaseId);
                   const sala = salas.find(s => s.id === ses.salaId);
                   const instr = instructores.find(i => i.id === ses.instructorId);
                   const libres = getLibres(ses.id, ses.aforoMaximo);
@@ -131,90 +138,88 @@ export default function ClasesPage() {
                   const color = tipo?.color ?? 'var(--portal-brand)';
 
                   return (
-                    <div key={ses.id} className="bg-white rounded-3xl overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.08)' }}>
-                      <Link href={`/portal/${slug}/clases/${ses.id}`} className="block active:opacity-90 transition-opacity">
+                    <div key={ses.id} style={{ ...card, overflow: 'hidden' }}>
+                      <Link href={`/portal/${slug}/clases/${ses.id}`} style={{ display: 'block' }}>
                         {/* Foto (o bloque de color de respaldo) */}
-                        <div className="relative h-36">
+                        <div style={{ position: 'relative', height: 144 }}>
                           {tipo?.fotoUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={tipo.fotoUrl} alt={tipo.nombre} className="w-full h-full object-cover" />
+                            <img src={tipo.fotoUrl} alt={tipo.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: color }}>
-                              <BarChart2 size={28} className="text-white/40" />
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: color }}>
+                              <BarChart2 size={28} style={{ color: 'rgba(255,255,255,0.4)' }} />
                             </div>
                           )}
                           {!cubierta && precioClaseSuelta != null && (
-                            <span className="absolute top-3 left-3 bg-black/70 text-white text-[12px] font-bold px-3 py-1 rounded-full">
+                            <span style={{ position: 'absolute', top: 12, left: 12, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 12, fontWeight: 800, padding: '4px 12px', borderRadius: 999 }}>
                               {precioClaseSuelta} €
                             </span>
                           )}
                           {miReserva?.estado === 'CONFIRMADA' && (
-                            <div className="absolute top-3 right-3 flex items-center gap-1 bg-white px-2.5 py-1 rounded-full shadow">
-                              <CheckCircle size={11} className="text-green-600" />
-                              <span className="text-[11px] font-bold text-green-700">Reservada</span>
+                            <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', alignItems: 'center', gap: 4, background: t.surface, padding: '4px 10px', borderRadius: 999 }}>
+                              <CheckCircle size={11} style={{ color: '#3E9B6C' }} />
+                              <span style={{ fontSize: 11, fontWeight: 800, color: '#3E9B6C' }}>Reservada</span>
                             </div>
                           )}
                           {miReserva?.estado === 'LISTA_ESPERA' && (
-                            <div className="absolute top-3 right-3 flex items-center gap-1 bg-white px-2.5 py-1 rounded-full shadow">
-                              <AlertCircle size={11} className="text-amber-600" />
-                              <span className="text-[11px] font-bold text-amber-700">En espera</span>
+                            <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', alignItems: 'center', gap: 4, background: t.surface, padding: '4px 10px', borderRadius: 999 }}>
+                              <AlertCircle size={11} style={{ color: '#B45309' }} />
+                              <span style={{ fontSize: 11, fontWeight: 800, color: '#B45309' }}>En espera</span>
                             </div>
                           )}
                         </div>
 
-                        <div className="px-4 pt-4">
-                          <p className="text-[13px] font-semibold text-[#8E8E93] mb-1">
+                        <div style={{ padding: '16px 16px 0' }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: t.muted, marginBottom: 4 }}>
                             {formatTime(ses.inicio)} – {formatTime(ses.fin)}
                           </p>
-                          <p className="font-extrabold text-[#171717] text-[19px] leading-tight mb-3">{tipo?.nombre ?? 'Clase'}</p>
+                          <p style={{ fontWeight: 800, color: t.ink, fontSize: 19, lineHeight: 1.1, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '-0.01em' }}>{tipo?.nombre ?? 'Clase'}</p>
 
-                          <div className="flex flex-wrap items-center gap-2 mb-4">
+                          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                             <span
-                              className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-full"
                               style={{
-                                backgroundColor: libres === 0 ? '#FEE2E2' : libres <= 2 ? '#FEF3C7' : '#F1F1EC',
-                                color: libres === 0 ? '#DC2626' : libres <= 2 ? '#B45309' : '#3A3A32',
+                                display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999,
+                                backgroundColor: libres === 0 ? 'rgba(239,68,68,0.14)' : libres <= 2 ? 'rgba(217,119,6,0.14)' : t.surface2,
+                                color: libres === 0 ? '#DC2626' : libres <= 2 ? '#B45309' : t.muted2,
                               }}
                             >
                               <Users size={13} />
                               {libres > 0 ? `${libres} ${libres === 1 ? 'plaza' : 'plazas'}` : 'Completo'}
                             </span>
                             {sala && (
-                              <span className="flex items-center gap-1.5 bg-[#F1F1EC] text-[#3A3A32] text-[12.5px] font-semibold px-3 py-1.5 rounded-full">
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: t.surface2, color: t.muted2, fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999 }}>
                                 <MapPin size={13} />
                                 {sala.nombre}
                               </span>
                             )}
                             <span
-                              className="text-[12.5px] font-bold text-white px-3 py-1.5 rounded-full"
-                              style={{ backgroundColor: NIVEL_COLOR[tipo?.nivel ?? 'TODOS'] }}
+                              style={{ fontSize: 12.5, fontWeight: 800, color: '#fff', padding: '6px 12px', borderRadius: 999, backgroundColor: NIVEL_COLOR[tipo?.nivel ?? 'TODOS'] }}
                             >
                               {NIVEL_LABEL[tipo?.nivel ?? 'TODOS']}
                             </span>
                           </div>
 
                           {instr && (
-                            <div className="flex items-center gap-2.5 pb-4 mb-1 border-b border-[#F5F5F5]">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 16, marginBottom: 4, borderBottom: `1px solid ${t.line}` }}>
                               <div
-                                className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold text-white shrink-0"
-                                style={{ backgroundColor: instr.color }}
+                                style={{ width: 36, height: 36, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', flexShrink: 0, backgroundColor: instr.color }}
                               >
                                 {instr.nombre.charAt(0).toUpperCase()}
                               </div>
-                              <div className="min-w-0">
-                                <p className="text-[13.5px] font-bold text-[#171717] leading-tight truncate">{instr.nombre}</p>
-                                <p className="text-[11.5px] text-[#8E8E93]">{instr.rol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}</p>
+                              <div style={{ minWidth: 0 }}>
+                                <p style={{ fontSize: 13.5, fontWeight: 800, color: t.ink, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{instr.nombre}</p>
+                                <p style={{ fontSize: 11.5, color: t.muted }}>{instr.rol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}</p>
                               </div>
                             </div>
                           )}
                         </div>
                       </Link>
 
-                      <div className="px-4 pb-4 pt-3">
+                      <div style={{ padding: '12px 16px 16px' }}>
                         {miReserva?.estado === 'CONFIRMADA' ? (
                           <button
                             onClick={() => cancelarReserva(miReserva.id)}
-                            className="w-full text-[13px] font-bold text-red-500 py-2.5 rounded-2xl border border-red-100 active:opacity-70"
+                            style={{ width: '100%', fontSize: 13, fontWeight: 800, color: '#EF4444', padding: '10px 0', borderRadius: 16, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent' }}
                           >
                             Cancelar reserva
                           </button>
@@ -222,8 +227,10 @@ export default function ClasesPage() {
                           <button
                             onClick={() => session?.socioId && addReserva(ses.id, session.socioId)}
                             disabled={libres <= 0}
-                            className="w-full text-[14px] font-bold py-2.5 rounded-2xl text-white transition-opacity active:opacity-70 disabled:opacity-40"
-                            style={{ backgroundColor: libres > 0 ? '#171717' : '#C7C7CC' }}
+                            style={{
+                              width: '100%', fontSize: 14, fontWeight: 800, textTransform: 'uppercase', padding: '10px 0', borderRadius: 16, border: 'none',
+                              color: libres > 0 ? t.accentInk : t.muted, backgroundColor: libres > 0 ? 'var(--portal-brand)' : t.surface2, opacity: libres <= 0 ? 0.6 : 1,
+                            }}
                           >
                             {libres > 0
                               ? (cubierta || precioClaseSuelta == null ? 'Reservar' : `Reservar · ${precioClaseSuelta} €`)
