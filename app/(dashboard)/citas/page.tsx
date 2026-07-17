@@ -6,7 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
 import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
-import { cn, formatEuro } from '@/lib/utils';
+import { cn, formatEuro, formatFechaCorta, formatHoraCorta } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -38,19 +38,8 @@ function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function formatHoraCorta(iso: string): string {
-  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
 function formatFecha(iso: string): string {
-  const d = new Date(iso);
-  const fecha = d.toLocaleDateString('es-ES', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-  return `${fecha} · ${hora}`;
+  return `${formatFechaCorta(iso)} · ${formatHoraCorta(iso)}`;
 }
 
 function duracionMin(inicio: string, fin: string): number {
