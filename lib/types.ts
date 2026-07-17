@@ -446,6 +446,8 @@ export interface Campana {
   creadaEn: string;
   enviadaEn: string | null;
   programadaEn: string | null;
+  objetivo?: string | null;
+  presupuesto?: number | null;
 }
 
 export type TriggerAutomatizacion =
@@ -562,6 +564,8 @@ export interface CodigoDescuento {
   expira: string | null;
   activo: boolean;
   creadoEn: string;
+  minImporte?: number | null;
+  soloNuevas?: boolean;
 }
 
 export type TipoActividad =

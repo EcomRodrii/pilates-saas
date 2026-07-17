@@ -489,6 +489,8 @@ export default function MarketingPage() {
     asunto: '',
     destinatarios: 'TODAS',
     contenido: '',
+    objetivo: '',
+    presupuesto: '',
   })
 
   // Asistente IA de campañas
@@ -517,6 +519,8 @@ export default function MarketingPage() {
     valor: '',
     usosMaximos: '',
     expira: '',
+    minImporte: '',
+    soloNuevas: false,
   })
 
   // Hover state for campaign cards
@@ -582,8 +586,10 @@ export default function MarketingPage() {
       estado: 'BORRADOR',
       enviadaEn: null,
       programadaEn: null,
+      objetivo: newCampana.objetivo.trim() || null,
+      presupuesto: newCampana.presupuesto ? parseFloat(newCampana.presupuesto) : null,
     })
-    setNewCampana({ nombre: '', tipo: 'EMAIL', asunto: '', destinatarios: 'TODAS', contenido: '' })
+    setNewCampana({ nombre: '', tipo: 'EMAIL', asunto: '', destinatarios: 'TODAS', contenido: '', objetivo: '', presupuesto: '' })
     setSelectedTemplate(null)
     setShowPreview(false)
     setObjetivoIA('')
@@ -616,8 +622,10 @@ export default function MarketingPage() {
       usosMax: newCodigo.usosMaximos ? parseInt(newCodigo.usosMaximos) : null,
       expira: newCodigo.expira || null,
       activo: true,
+      minImporte: newCodigo.minImporte ? parseFloat(newCodigo.minImporte) : null,
+      soloNuevas: newCodigo.soloNuevas,
     })
-    setNewCodigo({ codigo: '', descripcion: '', tipo: 'PORCENTAJE', valor: '', usosMaximos: '', expira: '' })
+    setNewCodigo({ codigo: '', descripcion: '', tipo: 'PORCENTAJE', valor: '', usosMaximos: '', expira: '', minImporte: '', soloNuevas: false })
     setShowCodigoModal(false)
   }
 
@@ -793,6 +801,20 @@ export default function MarketingPage() {
                         <EstadoBadge estado={c.estado} programadaEn={c.programadaEn} enviadaEn={c.enviadaEn} />
                       </div>
                       <p className="text-xs text-muted-foreground mb-2">{destinatariosLabel[c.destinatarios] ?? c.destinatarios}</p>
+                      {(c.objetivo || (c.presupuesto != null && c.presupuesto > 0)) && (
+                        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                          {c.objetivo && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-muted text-muted-foreground rounded-md px-2 py-0.5">
+                              🎯 {c.objetivo}
+                            </span>
+                          )}
+                          {c.presupuesto != null && c.presupuesto > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-muted text-muted-foreground rounded-md px-2 py-0.5">
+                              Presupuesto: {c.presupuesto.toLocaleString('es-ES')} €
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         Enviados: {c.enviados} · Abiertos: {c.abiertos}{c.enviados > 0 ? ` (${Math.round((c.abiertos / c.enviados) * 100)}%)` : ''} · Clics: {c.clics}{c.enviados > 0 ? ` (${Math.round((c.clics / c.enviados) * 100)}%)` : ''}
                       </p>
@@ -1109,7 +1131,19 @@ export default function MarketingPage() {
                             <CopyButton text={cod.codigo} />
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{cod.descripcion || '—'}</td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          <span>{cod.descripcion || '—'}</span>
+                          {(cod.soloNuevas || (cod.minImporte != null && cod.minImporte > 0)) && (
+                            <div className="flex items-center gap-1 flex-wrap mt-1">
+                              {cod.minImporte != null && cod.minImporte > 0 && (
+                                <span className="text-[10px] font-medium bg-muted text-muted-foreground rounded px-1.5 py-0.5">mín. {cod.minImporte.toLocaleString('es-ES')} €</span>
+                              )}
+                              {cod.soloNuevas && (
+                                <span className="text-[10px] font-medium bg-muted text-muted-foreground rounded px-1.5 py-0.5">solo nuevas</span>
+                              )}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-foreground font-medium">
                           {cod.tipo === 'PORCENTAJE' ? `${cod.valor}%` : `${cod.valor} €`}
                         </td>
@@ -1173,6 +1207,12 @@ export default function MarketingPage() {
                         {cod.activo ? 'Activo' : 'Inactivo'}
                       </span>
                       <span className="text-[11px] text-muted-foreground">Expira {formatDateEs(cod.expira)}</span>
+                      {cod.minImporte != null && cod.minImporte > 0 && (
+                        <span className="text-[10px] font-medium bg-muted text-muted-foreground rounded px-1.5 py-0.5">mín. {cod.minImporte.toLocaleString('es-ES')} €</span>
+                      )}
+                      {cod.soloNuevas && (
+                        <span className="text-[10px] font-medium bg-muted text-muted-foreground rounded px-1.5 py-0.5">solo nuevas</span>
+                      )}
                     </div>
                     <UsageBar usos={cod.usos} usosMax={cod.usosMax} />
                   </div>
@@ -1271,6 +1311,28 @@ export default function MarketingPage() {
                 </span>
               </div>
             </FF>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FF label="Objetivo (opcional)">
+                <input
+                  className={inputCls}
+                  placeholder="Ej. recuperar socias inactivas"
+                  value={newCampana.objetivo}
+                  onChange={e => setNewCampana(p => ({ ...p, objetivo: e.target.value }))}
+                />
+              </FF>
+              <FF label="Presupuesto (opcional)">
+                <div className="relative">
+                  <input
+                    type="number" min="0" step="0.01"
+                    className={cn(inputCls, 'pr-7')}
+                    placeholder="0"
+                    value={newCampana.presupuesto}
+                    onChange={e => setNewCampana(p => ({ ...p, presupuesto: e.target.value }))}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+                </div>
+              </FF>
+            </div>
 
             {/* Content section */}
             <div className="space-y-3 pt-1">
@@ -1487,6 +1549,30 @@ export default function MarketingPage() {
                   onChange={e => setNewCodigo(p => ({ ...p, expira: e.target.value }))}
                 />
               </FF>
+            </div>
+            {/* Restricciones */}
+            <div className="grid grid-cols-2 gap-4 items-end">
+              <FF label="Importe mínimo (opcional)">
+                <div className="relative">
+                  <input
+                    className={cn(inputCls, 'pr-7')}
+                    type="number" min={0} step="0.01"
+                    placeholder="Sin mínimo"
+                    value={newCodigo.minImporte}
+                    onChange={e => setNewCodigo(p => ({ ...p, minImporte: e.target.value }))}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+                </div>
+              </FF>
+              <label className="flex items-center gap-2 h-[38px] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-border accent-[var(--brand)]"
+                  checked={newCodigo.soloNuevas}
+                  onChange={e => setNewCodigo(p => ({ ...p, soloNuevas: e.target.checked }))}
+                />
+                <span className="text-sm text-foreground">Solo clientas nuevas</span>
+              </label>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
