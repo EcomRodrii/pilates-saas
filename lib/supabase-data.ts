@@ -758,6 +758,7 @@ function mapCampana(r: RowCampanas): Campana {
     programadaEn: r.programada_en ?? null,
     objetivo: r.objetivo ?? null,
     presupuesto: r.presupuesto ?? null,
+    publicaciones: (r.publicaciones as Campana['publicaciones']) ?? null,
   } as Campana;
 }
 
@@ -773,6 +774,7 @@ function mapAutomatizacion(r: RowAutomatizaciones): Automatizacion {
     activa: r.activa,
     ejecutadas: r.ejecutadas,
     creadaEn: r.creada_en,
+    pasos: (r.pasos as Automatizacion['pasos']) ?? null,
   } as Automatizacion;
 }
 
@@ -2389,6 +2391,7 @@ function campanaToDb(c: Campana) {
     programada_en: c.programadaEn ?? null,
     objetivo: c.objetivo ?? null,
     presupuesto: c.presupuesto ?? null,
+    publicaciones: c.publicaciones ?? null,
   };
 }
 
@@ -2404,6 +2407,7 @@ function automatizacionToDb(a: Automatizacion) {
     activa: a.activa,
     ejecutadas: a.ejecutadas,
     creada_en: a.creadaEn,
+    pasos: a.pasos ?? null,
   };
 }
 
@@ -3428,6 +3432,7 @@ export async function dbUpdateCampana(id: string, changes: Partial<Campana>) {
   if ('programadaEn' in changes) db.programada_en = changes.programadaEn;
   if ('objetivo' in changes) db.objetivo = changes.objetivo;
   if ('presupuesto' in changes) db.presupuesto = changes.presupuesto;
+  if ('publicaciones' in changes) db.publicaciones = changes.publicaciones;
   const { error } = await supabase.from('campanas').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateCampana]', error);
 }
@@ -3451,6 +3456,7 @@ export async function dbUpdateAutomatizacion(id: string, changes: Partial<Automa
   if ('mensaje' in changes) db.mensaje = changes.mensaje;
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadas' in changes) db.ejecutadas = changes.ejecutadas;
+  if ('pasos' in changes) db.pasos = changes.pasos;
   const { error } = await (getSupabaseAdmin() ?? supabase).from('automatizaciones').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateAutomatizacion]', error);
 }

@@ -30,6 +30,9 @@ const DEDUP_DIAS: Record<Automatizacion['trigger'], number> = {
   BONO_QUEDA_1: 14,
   NUEVA_ALTA: UNA_VEZ,
   CITA_RECORDATORIO: 1,
+  // Trigger del constructor de flujos (Contenido). Este motor gym no lo procesa
+  // por-socia; se define para exhaustividad del Record.
+  CONTENIDO_PUBLICADO: UNA_VEZ,
 };
 
 function personalizar(texto: string, socio: Socio): string {
