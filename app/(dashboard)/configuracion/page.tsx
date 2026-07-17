@@ -178,19 +178,6 @@ export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
   );
 }
 
-function EstadoBadge({ activo }: { activo: boolean }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium',
-        activo ? 'bg-[#D1FAE5] text-[#059669]' : 'bg-background text-muted-foreground'
-      )}
-    >
-      {activo ? 'Activo' : 'Inactivo'}
-    </span>
-  );
-}
-
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
 type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'logros' | 'niveles' | 'retos' | 'integraciones' | 'estudio' | 'campos' | 'plantillas' | 'backups' | 'perfil';
