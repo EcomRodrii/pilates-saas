@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
+import { parseJsonIA } from '@/lib/ai/parse-ia';
 
 const client = new Anthropic();
 
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     };
 
     try {
-      parsed = JSON.parse(raw);
+      parsed = parseJsonIA(raw);
     } catch {
       return NextResponse.json({ error: 'Respuesta IA inválida', raw }, { status: 500 });
     }
