@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   Search, CalendarDays, CheckCircle2, TrendingUp, ChevronDown,
-  Clock, MapPin, Users, UserPlus, Pencil, Trash2, ArrowUpRight,
+  Clock, MapPin, Users, UserPlus, UserCheck, Pencil, Trash2, ArrowUpRight,
   Bot, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ import { enviarEmailCancelacionClase } from '@/lib/api-client';
 import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
+import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import type { Socio, Spot } from '@/lib/types';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -266,6 +267,7 @@ function SessionSidebar({
   onCancelarReserva,
   onAddReserva,
   onOpenEdit,
+  onOpenCobertura,
   onCancelarSesion,
   onCancelarSerie,
   onEliminarSesion,
@@ -284,6 +286,7 @@ function SessionSidebar({
   onCancelarReserva: (reservaId: string) => void;
   onAddReserva: (sesionId: string, socioId: string) => void;
   onOpenEdit: () => void;
+  onOpenCobertura: () => void;
   onCancelarSesion: () => void;
   onCancelarSerie: () => void;
   onEliminarSesion: () => void;
@@ -447,6 +450,12 @@ function SessionSidebar({
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors"
         >
           <Pencil size={12} />Editar
+        </button>
+        <button
+          onClick={onOpenCobertura}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors"
+        >
+          <UserCheck size={12} />Buscar sustituta
         </button>
         <button
           onClick={() => setShowConfirm('cancelar')}
@@ -1236,6 +1245,7 @@ export default function Calendario() {
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
+    addActividadReciente,
   } = useStudio();
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
@@ -1263,6 +1273,7 @@ export default function Calendario() {
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
   const [showRecurrentes, setShowRecurrentes] = useState(false);
   const [showNuevaMenu, setShowNuevaMenu] = useState(false);
+  const [showCobertura, setShowCobertura] = useState(false);
 
   // ── Filters ─────────────────────────────────────────────────────────────────
   const [filtroInstructor, setFiltroInstructor] = useState('');
@@ -1461,6 +1472,22 @@ export default function Calendario() {
     });
     setShowForm(null);
     setToast('Clase actualizada');
+  }
+
+  // Sustitución de instructora (avisa que no puede dar la clase, típicamente
+  // con poco margen): reasigna la sesión y deja rastro en Actividad reciente,
+  // igual que el resto de cambios de equipo.
+  function asignarSustituta(nuevoInstructorId: string) {
+    if (!sesionActual) return;
+    const anterior = nombreInstructor(sesionActual.instructorId);
+    const nueva = nombreInstructor(nuevoInstructorId);
+    updateSesion(sesionActual.id, { instructorId: nuevoInstructorId });
+    addActividadReciente(
+      'SESION_REASIGNADA',
+      `Clase de ${sesionActual.tipoClase.nombre} (${formatHora(sesionActual.inicio)}) reasignada: ${anterior} → ${nueva}`,
+    );
+    setShowCobertura(false);
+    setToast(`Sustituta asignada: ${nueva}`);
   }
 
   // Edita "esta y las siguientes" de la serie (I-3): aplica tipo/sala/instructora/
@@ -1741,6 +1768,7 @@ export default function Calendario() {
               onCancelarReserva={cancelarReserva}
               onAddReserva={handleAddReserva}
               onOpenEdit={openEdit}
+              onOpenCobertura={() => setShowCobertura(true)}
               onCancelarSesion={cancelarSesion}
               onCancelarSerie={cancelarSerie}
               onEliminarSesion={eliminarSesion}
@@ -1751,6 +1779,15 @@ export default function Calendario() {
         )}
       </div>
     </div>
+
+      <CoberturaDialog
+        open={showCobertura}
+        onOpenChange={setShowCobertura}
+        sesion={sesionActual}
+        sesiones={sesiones}
+        instructores={instructores}
+        onAsignar={asignarSustituta}
+      />
 
       {/* ── Panel lateral crear / editar ────────────────────────────────────────── */}
       {showForm && (

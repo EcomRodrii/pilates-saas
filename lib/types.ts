@@ -591,7 +591,8 @@ export type TipoActividad =
   | 'EQUIPO_EDITADO'
   | 'EQUIPO_BAJA'
   | 'AUTOMATIZACION_CAMBIO'
-  | 'DECISION_GESTIONADA';
+  | 'DECISION_GESTIONADA'
+  | 'SESION_REASIGNADA';
 
 export interface ActividadReciente {
   id: string;
