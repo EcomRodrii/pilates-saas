@@ -9,7 +9,7 @@ import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/billing/strip
 // que ella tenga que hacer nada. Solo se llama cuando alguien del estudio
 // aprueba la propuesta de cobro con un toque desde Automatizaciones — nunca
 // se dispara en automático sin esa aprobación humana explícita.
-// Lógica de cobro en lib/stripe-cobros.ts (compartida con el ejecutor del
+// Lógica de cobro en lib/billing/stripe-cobros.ts (compartida con el ejecutor del
 // Decision OS, DECISION-OS-ARQUITECTURA.md §12 punto 7).
 const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
   NO_CONFIGURADO: 503,

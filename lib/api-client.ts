@@ -1,7 +1,7 @@
 'use client';
 
-import { supabase } from '@/lib/supabase';
-import { supabasePortal } from '@/lib/supabase-portal';
+import { supabase } from '@/lib/db/supabase';
+import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';

@@ -4,7 +4,7 @@
 import { inngest, EVENTS } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
-import { requireSupabaseAdmin } from '@/lib/supabase-admin';
+import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';

@@ -1,7 +1,7 @@
 import { inngest, EVENTS } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/db/supabase';
 import { fetchAllStudioData, dbUpsertAutomationLog, dbUpdateAutomationRule, dbUpdateAutomatizacion } from '@/lib/supabase-data';
 import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/engines/automation-engine';
 import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/engines/marketing-automation-engine';

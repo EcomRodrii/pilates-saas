@@ -3,7 +3,7 @@
 // tablas nuevas — server-only, NO engorda lib/supabase-data.ts. Mismo patrón
 // de mappers (mapXxx/xxxToDb) y de errores (reportError) que ese archivo.
 import * as Sentry from '@sentry/nextjs';
-import { requireSupabaseAdmin } from '@/lib/supabase-admin';
+import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
 import type {
   AccionDecision, Confianza, DecisionFeatureFlag, DecisionFlag, DecisionSession, EspecialistaId,

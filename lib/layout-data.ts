@@ -6,7 +6,7 @@
 // aplica en vivo). Lecturas service-role + React cache (patrón studio-seo).
 
 import { cache } from 'react';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
   resolveLayout,
   layoutConfigSchema,

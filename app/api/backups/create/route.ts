@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { guardarBackup, podarBackupsAntiguos } from '@/lib/engines/backup-engine';
 
 // Backup manual, disparado desde el panel por cualquier miembro del equipo

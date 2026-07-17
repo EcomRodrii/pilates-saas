@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // A-3/A-4: baja de una socia con RETENCIÓN FISCAL. No se borra la fila (eso
 // destruía recibos/facturas con obligación de conservación, o fallaba a medias
