@@ -297,6 +297,9 @@ function mapSocio(r: RowSocios): Socio {
     avatar: r.avatar ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     stripePaymentMethodId: r.stripe_payment_method_id ?? null,
+    metodoPagoPreferido: (r.metodo_pago_preferido as Socio['metodoPagoPreferido']) ?? 'TARJETA',
+    sepaMandateId: r.sepa_mandate_id ?? null,
+    sepaPaymentMethodId: r.sepa_payment_method_id ?? null,
     fechaNacimiento: r.fecha_nacimiento ?? null,
     direccion: r.direccion ?? null,
     fotoUrl: r.foto_url ?? null,
@@ -663,6 +666,8 @@ function mapRecibo(r: RowRecibos): Recibo {
     fechaCobro: r.fecha_cobro ?? null,
     fechaDevolucion: r.fecha_devolucion ?? null,
     intentosReintento: r.intentos_reintento,
+    metodoCobro: (r.metodo_cobro as Recibo['metodoCobro']) ?? null,
+    sepaEstado: r.sepa_estado ?? null,
   } as Recibo;
 }
 
@@ -2123,6 +2128,7 @@ function socioToDb(socio: Socio) {
   const {
     aceptacionContrato, studioId, fechaAlta, leadStage,
     stripeCustomerId, stripePaymentMethodId, fechaNacimiento, fotoUrl, referidoPor,
+    metodoPagoPreferido, sepaMandateId, sepaPaymentMethodId,
     camposExtra,
     ...rest
   } = socio;
@@ -2133,6 +2139,9 @@ function socioToDb(socio: Socio) {
     lead_stage: leadStage ?? null,
     stripe_customer_id: stripeCustomerId ?? null,
     stripe_payment_method_id: stripePaymentMethodId ?? null,
+    metodo_pago_preferido: metodoPagoPreferido ?? 'TARJETA',
+    sepa_mandate_id: sepaMandateId ?? null,
+    sepa_payment_method_id: sepaPaymentMethodId ?? null,
     fecha_nacimiento: fechaNacimiento ?? null,
     foto_url: fotoUrl ?? null,
     referido_por: referidoPor ?? null,
@@ -2214,6 +2223,8 @@ function reciboToDb(rec: Recibo) {
     fecha_cobro: rec.fechaCobro ?? null,
     fecha_devolucion: rec.fechaDevolucion ?? null,
     intentos_reintento: rec.intentosReintento,
+    metodo_cobro: rec.metodoCobro ?? null,
+    sepa_estado: rec.sepaEstado ?? null,
   };
 }
 
@@ -2467,6 +2478,9 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>) {
   if ('avatar' in changes) db.avatar = changes.avatar;
   if ('stripeCustomerId' in changes) db.stripe_customer_id = changes.stripeCustomerId;
   if ('stripePaymentMethodId' in changes) db.stripe_payment_method_id = changes.stripePaymentMethodId;
+  if ('metodoPagoPreferido' in changes) db.metodo_pago_preferido = changes.metodoPagoPreferido;
+  if ('sepaMandateId' in changes) db.sepa_mandate_id = changes.sepaMandateId;
+  if ('sepaPaymentMethodId' in changes) db.sepa_payment_method_id = changes.sepaPaymentMethodId;
   if ('fechaNacimiento' in changes) db.fecha_nacimiento = changes.fechaNacimiento;
   if ('direccion' in changes) db.direccion = changes.direccion;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
@@ -2821,6 +2835,8 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>) {
   if ('fechaCobro' in changes) db.fecha_cobro = changes.fechaCobro;
   if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
+  if ('metodoCobro' in changes) db.metodo_cobro = changes.metodoCobro;
+  if ('sepaEstado' in changes) db.sepa_estado = changes.sepaEstado;
   const { error } = await supabase.from('recibos').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateRecibo]', error);
 }

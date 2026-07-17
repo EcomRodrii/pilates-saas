@@ -4,6 +4,9 @@ export type Rol = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION';
 export type EstadoSuscripcion = 'ACTIVA' | 'PAUSADA' | 'CANCELADA' | 'EXPIRADA';
 export type TipoPlan = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO';
+// Pagos España (0036): método recurrente preferido de la socia y método real de cada cobro.
+export type MetodoPagoPreferido = 'TARJETA' | 'SEPA';
+export type MetodoCobro = 'TARJETA' | 'SEPA' | 'BIZUM';
 export type EstadoReserva = 'CONFIRMADA' | 'LISTA_ESPERA' | 'ASISTIDA' | 'CANCELADA' | 'NO_ASISTIO';
 export type NivelClase = 'TODOS' | 'PRINCIPIANTE' | 'MEDIO' | 'AVANZADO';
 export type TipoSpot = 'REFORMER' | 'MAT' | 'OTRO';
@@ -97,6 +100,10 @@ export interface Socio {
   avatar?: string | null;
   stripeCustomerId?: string | null;
   stripePaymentMethodId?: string | null;
+  // Pagos España (0036): método recurrente preferido + mandato SEPA domiciliado.
+  metodoPagoPreferido?: MetodoPagoPreferido;
+  sepaMandateId?: string | null;
+  sepaPaymentMethodId?: string | null;
   fechaNacimiento?: string | null;
   direccion?: string | null;
   fotoUrl?: string | null;
@@ -336,6 +343,9 @@ export interface Recibo {
   fechaCobro: string | null;
   fechaDevolucion: string | null;
   intentosReintento: number;
+  // Pagos España (0036): método real del cobro + estado asíncrono del adeudo SEPA.
+  metodoCobro?: MetodoCobro | null;
+  sepaEstado?: string | null;
 }
 
 export interface Factura {

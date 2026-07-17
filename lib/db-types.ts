@@ -57,6 +57,10 @@ export interface RowSocios {
   auth_user_id: string | null;
   stripe_customer_id: string | null;
   stripe_payment_method_id: string | null;
+  // 0036 pagos España — método recurrente preferido + mandato SEPA.
+  metodo_pago_preferido: string | null;
+  sepa_mandate_id: string | null;
+  sepa_payment_method_id: string | null;
   fecha_nacimiento: string | null;
   direccion: string | null;
   foto_url: string | null;
@@ -210,6 +214,9 @@ export interface RowRecibos {
   fecha_cobro: string | null;
   fecha_devolucion: string | null;
   intentos_reintento: number | null;
+  // 0036 pagos España — método real del cobro y estado asíncrono SEPA.
+  metodo_cobro: string | null;
+  sepa_estado: string | null;
 }
 
 export interface RowFacturas {
@@ -265,6 +272,8 @@ export interface RowVentasPos {
   metodo_pago: string;
   notas: string | null;
   realizada_en: string | null;
+  // 0036 pagos España — PaymentIntent de Stripe para conciliar Bizum real.
+  stripe_payment_intent_id: string | null;
 }
 
 export interface RowCampanas {

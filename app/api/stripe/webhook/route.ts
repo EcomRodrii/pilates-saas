@@ -58,40 +58,77 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
     }
 
-    // El recibo es lo crítico (confirma el cobro). Idempotente: reintentar sobre
-    // un recibo ya COBRADO no cambia nada relevante.
-    if (reciboId) {
-      const { error } = await admin.from('recibos')
-        .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString() })
-        .eq('id', reciboId);
-      if (error) {
-        console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
-        return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
+    if (session.mode === 'setup' && session.metadata?.purpose === 'sepa_mandate') {
+      // Fase 1 · PR-2 — alta de mandato SEPA: la socia aceptó la domiciliación.
+      // Guardamos el PaymentMethod (sepa_debit) y el mandato para poder cobrar
+      // la mensualidad off-session (PR-3). El SetupIntent vive en la cuenta
+      // conectada (event.account) — hay que targetearla explícitamente.
+      if (socioId && typeof session.setup_intent === 'string') {
+        const si = await stripe.setupIntents.retrieve(
+          session.setup_intent,
+          {},
+          event.account ? { stripeAccount: event.account } : undefined,
+        );
+        const pmId = typeof si.payment_method === 'string' ? si.payment_method : si.payment_method?.id;
+        const mandateId = typeof si.mandate === 'string' ? si.mandate : (si.mandate?.id ?? null);
+        if (pmId) {
+          const update: Record<string, string | null> = {
+            sepa_payment_method_id: pmId,
+            sepa_mandate_id: mandateId,
+            metodo_pago_preferido: 'SEPA',
+          };
+          if (typeof session.customer === 'string') update.stripe_customer_id = session.customer;
+          const { error } = await admin.from('socios').update(update).eq('id', socioId);
+          if (error) {
+            console.error('[stripe webhook] no se pudo guardar el mandato SEPA', socioId, error);
+            return NextResponse.json({ error: 'Fallo al guardar el mandato SEPA' }, { status: 500 });
+          }
+        }
       }
-    }
-
-    // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la
-    // próxima vez. También crítico: un fallo aquí devuelve 5xx para reintentar
-    // (idempotente: mismos customer/payment_method).
-    if (socioId && typeof session.customer === 'string' && typeof session.payment_intent === 'string') {
-      // Este PaymentIntent vive en la cuenta conectada del estudio (event.account),
-      // no en la de la plataforma — hay que targetearla explícitamente o Stripe
-      // devuelve "no such payment_intent".
-      const paymentIntent = await stripe.paymentIntents.retrieve(
-        session.payment_intent,
-        {},
-        event.account ? { stripeAccount: event.account } : undefined
-      );
-      const paymentMethodId = typeof paymentIntent.payment_method === 'string'
-        ? paymentIntent.payment_method
-        : paymentIntent.payment_method?.id;
-      if (paymentMethodId) {
-        const { error } = await admin.from('socios')
-          .update({ stripe_customer_id: session.customer, stripe_payment_method_id: paymentMethodId })
-          .eq('id', socioId);
+    } else {
+      // El recibo es lo crítico (confirma el cobro). Idempotente: reintentar sobre
+      // un recibo ya COBRADO no cambia nada relevante. Registramos el método real
+      // del cobro (tarjeta/bizum) para la conciliación con el gestor.
+      if (reciboId) {
+        const pmTypes = (session.payment_method_types ?? []) as string[];
+        const metodoCobro = pmTypes.includes('bizum') ? 'BIZUM' : 'TARJETA';
+        const { error } = await admin.from('recibos')
+          .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro })
+          .eq('id', reciboId);
         if (error) {
-          console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
-          return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
+          console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
+          return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
+        }
+      }
+
+      // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la
+      // próxima vez. También crítico: un fallo aquí devuelve 5xx para reintentar
+      // (idempotente: mismos customer/payment_method). Bizum no es guardable, así
+      // que solo persiste tarjeta (setup_future_usage solo se pide en 'card').
+      if (socioId && typeof session.customer === 'string' && typeof session.payment_intent === 'string') {
+        // Este PaymentIntent vive en la cuenta conectada del estudio (event.account),
+        // no en la de la plataforma — hay que targetearla explícitamente o Stripe
+        // devuelve "no such payment_intent".
+        const paymentIntent = await stripe.paymentIntents.retrieve(
+          session.payment_intent,
+          {},
+          event.account ? { stripeAccount: event.account } : undefined
+        );
+        const paymentMethodId = typeof paymentIntent.payment_method === 'string'
+          ? paymentIntent.payment_method
+          : paymentIntent.payment_method?.id;
+        // Solo guardamos como método recurrente si es una tarjeta reutilizable.
+        const piPmTypes = (paymentIntent.payment_method_types ?? []) as string[];
+        const esTarjetaReutilizable = piPmTypes.includes('card')
+          && paymentIntent.setup_future_usage === 'off_session';
+        if (paymentMethodId && esTarjetaReutilizable) {
+          const { error } = await admin.from('socios')
+            .update({ stripe_customer_id: session.customer, stripe_payment_method_id: paymentMethodId })
+            .eq('id', socioId);
+          if (error) {
+            console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
+            return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
+          }
         }
       }
     }

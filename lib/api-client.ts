@@ -153,6 +153,22 @@ export async function crearCheckoutStripe(params: {
   return res.json() as Promise<{ url: string } | { error: string }>;
 }
 
+// Fase 1 · PR-2 — inicia el alta del mandato SEPA (domiciliación). Devuelve la
+// URL del Checkout hosted en modo 'setup' donde la socia introduce su IBAN y
+// acepta el mandato. Semipúblico como crearCheckoutStripe.
+export async function iniciarDomiciliacionSepa(params: {
+  studioId: string;
+  socioId: string;
+  slug: string;
+}): Promise<{ url: string } | { error: string }> {
+  const res = await fetch('/api/stripe/setup-sepa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  return res.json() as Promise<{ url: string } | { error: string }>;
+}
+
 // Aprobación de un toque: cobra un recibo pendiente con la tarjeta ya
 // guardada de la socia, sin redirigirla a ningún sitio.
 export async function aprobarCobroAutonomo(params: {
