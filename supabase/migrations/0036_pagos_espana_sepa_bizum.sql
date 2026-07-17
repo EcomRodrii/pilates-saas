@@ -1,5 +1,5 @@
--- 0034_pagos_espana_sepa_bizum.sql
--- Fase 1 · PR-1 (solo esquema, additivo, sin lógica).
+-- 0036_pagos_espana_sepa_bizum.sql
+-- Fase 1 · PR-1 (migr. 0036) (solo esquema, additivo, sin lógica).
 -- Prepara el terreno para: SEPA Direct Debit recurrente (mandato Stripe) y Bizum
 -- real (POS + online) sobre la infraestructura Stripe Connect existente.
 -- Decisiones: rail recurrente = Stripe SEPA Direct Debit; Bizum en POS + checkout.

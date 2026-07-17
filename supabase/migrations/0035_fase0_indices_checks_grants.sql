@@ -1,4 +1,4 @@
--- 0033_fase0_indices_checks_grants.sql
+-- 0035_fase0_indices_checks_grants.sql
 -- Auditoría Total 2026-07 · Fase 0 (cimientos). Tres bloques, todos de bajo riesgo:
 --   (1) Índices en FKs calientes que hoy hacen seq-scan (instructor_id, socio_id, y FKs sueltos).
 --   (2) CHECKs de integridad (no-negatividad de dinero/aforo, rol acotado) creados NOT VALID:
