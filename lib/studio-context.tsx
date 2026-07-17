@@ -106,11 +106,11 @@ import type {
 import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
-import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
-import { calcularMetrica } from '@/lib/achievement-engine';
-import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
-import { calcularNivel, type NivelInfo } from '@/lib/level-engine';
-import { calcularProgresoReto } from '@/lib/challenge-engine';
+import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
+import { calcularMetrica } from '@/lib/engines/achievement-engine';
+import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
+import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
+import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid } from '@/lib/utils';
 import {
   decidirReservaNueva,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { guardarBackup, podarBackupsAntiguos } from '@/lib/backup-engine';
+import { guardarBackup, podarBackupsAntiguos } from '@/lib/engines/backup-engine';
 
 // Backup manual, disparado desde el panel por cualquier miembro del equipo
 // con sesión — crear una copia no es una operación destructiva, a
