@@ -21,7 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_sesiones_instructor        ON public.sesiones    
 CREATE INDEX IF NOT EXISTS idx_citas_instructor           ON public.citas              (instructor_id);
 CREATE INDEX IF NOT EXISTS idx_notas_progreso_instructor  ON public.notas_progreso     (instructor_id);
 CREATE INDEX IF NOT EXISTS idx_videos_instructor          ON public.videos_on_demand   (instructor_id);
-CREATE INDEX IF NOT EXISTS idx_ventas_pos_instructor      ON public.ventas_pos         (instructor_id);
+-- (ventas_pos NO tiene instructor_id en prod — verificado contra el esquema real; omitido)
 CREATE INDEX IF NOT EXISTS idx_mensajes_equipo_autor      ON public.mensajes_equipo    (autor_instructor_id);
 CREATE INDEX IF NOT EXISTS idx_preferencias_instr_fav     ON public.preferencias_socio (instructor_favorito_id);
 
