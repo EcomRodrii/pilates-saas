@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { applicationFeeAmount } from '@/lib/stripe-fees';
-import { bloqueoPorSuscripcion } from '@/lib/billing-guard';
+import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
+import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lanza un cobro al datáfono físico (server-driven). Crea un PaymentIntent

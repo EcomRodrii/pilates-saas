@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbUpdateAutomationLog } from '@/lib/supabase-data';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { bloqueoPorSuscripcion } from '@/lib/billing-guard';
+import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { capturar } from '@/lib/analytics';
-import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/stripe-cobros';
+import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/billing/stripe-cobros';
 
 // Cobra un recibo pendiente usando la tarjeta ya guardada de la socia, sin
 // que ella tenga que hacer nada. Solo se llama cuando alguien del estudio

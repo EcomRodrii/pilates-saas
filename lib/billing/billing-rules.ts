@@ -9,7 +9,7 @@
 // está vivo. Ver también lib/stripe-fees.ts (mismo patrón "mecanismo apagado").
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { getSupabaseAdmin } from './supabase-admin.ts';
+import { getSupabaseAdmin } from '../supabase-admin.ts';
 import { accesoProducto, tieneFeature, entitlementsDe, type Entitlements } from './entitlements.ts';
 
 /** Motivo de denegación (sin acoplar a HTTP: el status es orientativo del código). */

@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { applicationFeeAmount } from '@/lib/stripe-fees';
+import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS

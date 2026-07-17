@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { planDePriceId } from '@/lib/billing';
+import { planDePriceId } from '@/lib/billing/billing';
 import { capturar } from '@/lib/analytics';
 import { webhookYaProcesado, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
 import type { SupabaseClient } from '@supabase/supabase-js';

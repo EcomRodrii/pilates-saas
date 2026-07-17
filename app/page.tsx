@@ -8,7 +8,7 @@ import { IBM_Plex_Mono } from 'next/font/google';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
-import { tieneFeature } from '@/lib/entitlements';
+import { tieneFeature } from '@/lib/billing/entitlements';
 
 const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' });
 

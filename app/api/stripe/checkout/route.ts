@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { applicationFeeAmount } from '@/lib/stripe-fees';
+import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
