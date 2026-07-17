@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send } from 'lucide-react'
+import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
 import { authHeader } from '@/lib/api-client'
@@ -446,7 +446,7 @@ function UsageBar({ usos, usosMax }: { usos: number; usosMax: number | null }) {
 
 export default function MarketingPage() {
   const {
-    campanas, addCampana, deleteCampana, duplicateCampana, enviarCampana,
+    campanas, addCampana, deleteCampana, duplicateCampana, updateCampana, enviarCampana,
     automatizaciones, addAutomatizacion, toggleAutomatizacion,
     codigosDescuento: codigos, addCodigoDescuento, toggleCodigoDescuento, deleteCodigoDescuento,
     socios,
@@ -497,8 +497,9 @@ export default function MarketingPage() {
   const [errorIA, setErrorIA] = useState<string | null>(null)
   const [razonSegmentoIA, setRazonSegmentoIA] = useState<string | null>(null)
 
-  // Automatizaciones modal
+  // Automatizaciones modal + vista (tabla vs flujo visual)
   const [showAutoModal, setShowAutoModal] = useState(false)
+  const [autoView, setAutoView] = useState<'tabla' | 'flujo'>('flujo')
   const [newAuto, setNewAuto] = useState({
     nombre: '',
     trigger: 'SUSCRIPCION_EXPIRA_7D' as TriggerAutomatizacion,
@@ -542,6 +543,7 @@ export default function MarketingPage() {
   }
 
   // Campañas stats
+  const campanasActivas = campanas.filter(c => c.estado === 'ACTIVA' || c.estado === 'PAUSADA').length
   const enviadas = campanas.filter(c => c.estado === 'ENVIADA')
   const tasaApertura = enviadas.length > 0
     ? Math.round(enviadas.reduce((acc, c) => acc + (c.enviados > 0 ? (c.abiertos / c.enviados) * 100 : 0), 0) / enviadas.length)
@@ -706,6 +708,21 @@ export default function MarketingPage() {
 
       {/* ==================== TAB 0: RESUMEN ==================== */}
       {tab === 'resumen' && (
+        <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'Campañas activas', value: String(campanasActivas), sub: `${enviadas.length} enviadas` },
+            { label: 'Conversión a socia', value: `${Math.round(tasaConversion)}%`, sub: `${activas} de ${totalConLeadStage} leads` },
+            { label: 'Automatizaciones activas', value: String(autoActivas), sub: `${totalEjecuciones} ejecuciones` },
+            { label: 'Apertura media (envíos)', value: `${tasaApertura}%`, sub: `${totalUsos} usos de códigos` },
+          ].map(k => (
+            <div key={k.label} className="bg-card border border-border rounded-2xl p-4">
+              <p className="text-[12px] text-muted-foreground mb-1">{k.label}</p>
+              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">{k.value}</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">{k.sub}</p>
+            </div>
+          ))}
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <ConversionFunnelCard socios={socios} />
           <KpiTrendCard
@@ -719,6 +736,7 @@ export default function MarketingPage() {
           <ConversionRatioCard activas={activas} total={totalConLeadStage} />
           <TopClasesCard sesiones={sesiones} reservas={reservas} tiposClase={tiposClase} />
           <RevenueDonutCard recibos={recibos} suscripciones={suscripciones} planesTarifa={planesTarifa} />
+        </div>
         </div>
       )}
 
@@ -793,6 +811,42 @@ export default function MarketingPage() {
                           {enviandoId === c.id ? 'Enviando…' : 'Enviar'}
                         </button>
                       )}
+                      {(c.estado === 'BORRADOR' || c.estado === 'PROGRAMADA') && (
+                        <button
+                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' })}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
+                          title="Activar como campaña en curso"
+                        >
+                          <Play className="w-3.5 h-3.5" /> Activar
+                        </button>
+                      )}
+                      {c.estado === 'ACTIVA' && (
+                        <button
+                          onClick={() => updateCampana(c.id, { estado: 'PAUSADA' })}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
+                          title="Pausar campaña"
+                        >
+                          <Pause className="w-3.5 h-3.5" /> Pausar
+                        </button>
+                      )}
+                      {c.estado === 'PAUSADA' && (
+                        <button
+                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' })}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
+                          title="Reanudar campaña"
+                        >
+                          <Play className="w-3.5 h-3.5" /> Reanudar
+                        </button>
+                      )}
+                      {(c.estado === 'ACTIVA' || c.estado === 'PAUSADA') && (
+                        <button
+                          onClick={() => updateCampana(c.id, { estado: 'ENVIADA', enviadaEn: c.enviadaEn ?? new Date().toISOString() })}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground text-xs font-medium hover:bg-muted transition-colors"
+                          title="Finalizar campaña"
+                        >
+                          <Flag className="w-3.5 h-3.5" /> Finalizar
+                        </button>
+                      )}
                       <span className="text-xs text-muted-foreground">{formatDateEs(c.creadaEn)}</span>
                       <div className={cn('flex gap-1 transition-opacity', hoveredCampana === c.id ? 'opacity-100' : 'opacity-0')}>
                         <button
@@ -834,17 +888,75 @@ export default function MarketingPage() {
                 </div>
               ))}
             </div>
-            <button
-              onClick={() => setShowAutoModal(true)}
-              className="flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2 text-sm font-medium hover:brightness-95 transition-colors shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              Nueva automatización
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center rounded-lg border border-border p-0.5">
+                {(['flujo', 'tabla'] as const).map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setAutoView(v)}
+                    className={cn('px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-colors', autoView === v ? 'bg-card border border-border text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowAutoModal(true)}
+                className="flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2 text-sm font-medium hover:brightness-95 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Nueva automatización
+              </button>
+            </div>
           </div>
 
           {automatizaciones.length === 0 ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground">Sin automatizaciones</div>
+          ) : autoView === 'flujo' ? (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              {automatizaciones.map(a => (
+                <div key={a.id} className={cn('bg-card border rounded-2xl p-4', a.activa ? 'border-border' : 'border-border opacity-70')}>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="font-semibold text-foreground text-[14px]">{a.nombre}</span>
+                    <button
+                      onClick={() => toggleAutomatizacion(a.id)}
+                      className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
+                      aria-label={a.activa ? 'Desactivar' : 'Activar'}
+                    >
+                      <span className={cn('absolute top-0.5 w-[18px] h-[18px] rounded-full bg-card shadow transition-all', a.activa ? 'left-[calc(100%-1.25rem-0.125rem)]' : 'left-0.5')} />
+                    </button>
+                  </div>
+                  <div className="flex items-stretch gap-2 overflow-x-auto no-scrollbar">
+                    {/* Desencadenante */}
+                    <div className="flex-1 min-w-[150px] rounded-xl border border-border bg-muted/40 p-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Zap className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Cuando</span>
+                      </div>
+                      <p className="text-[13px] font-semibold text-foreground leading-snug">{triggerLabel[a.trigger] ?? a.trigger}</p>
+                      <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">{triggerDesc[a.trigger] ?? ''}</p>
+                    </div>
+                    <div className="flex items-center text-muted-foreground shrink-0"><ArrowRight className="w-4 h-4" /></div>
+                    {/* Acción */}
+                    <div className="flex-1 min-w-[150px] rounded-xl border border-border bg-muted/40 p-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Entonces</span>
+                      </div>
+                      <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium', accionBadge(a.accion))}>
+                        {accionIcon(a.accion)}{a.accion}
+                      </span>
+                      <p className="text-[11px] text-muted-foreground leading-snug mt-1">{accionDesc[a.accion] ?? ''}</p>
+                    </div>
+                    <div className="flex items-center text-muted-foreground shrink-0"><ArrowRight className="w-4 h-4" /></div>
+                    {/* Resultado */}
+                    <div className="w-[92px] shrink-0 rounded-xl border border-border p-3 flex flex-col justify-center items-center text-center">
+                      <span className="text-lg font-bold text-foreground tabular-nums leading-none">{a.ejecutadas ?? 0}</span>
+                      <span className="text-[10px] text-muted-foreground mt-1">ejecuciones</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               {/* Desktop table */}
