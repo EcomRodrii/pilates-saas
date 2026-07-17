@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
+import { parseJsonIA } from '@/lib/ai/parse-ia';
 import { FICHA_CLINICA_CLASE_SYSTEM_PROMPT, buildFichaClinicaClaseUserPrompt } from '@/lib/ai/ficha-clinica-clase-prompt';
 import type { ResumenClaseSalud } from '@/lib/ficha-clinica';
 
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     let parsed: { resumen: string; evitar: string[]; variantes: string[] };
     try {
-      parsed = JSON.parse(raw);
+      parsed = parseJsonIA(raw);
     } catch {
       return NextResponse.json({ error: 'Respuesta IA inválida', raw }, { status: 500 });
     }

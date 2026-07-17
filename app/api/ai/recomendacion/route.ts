@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
+import { parseJsonIA } from '@/lib/ai/parse-ia';
 
 const client = new Anthropic();
 
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     let parsed: { asunto: string; mensaje: string };
     try {
-      parsed = JSON.parse(raw);
+      parsed = parseJsonIA(raw);
     } catch {
       return NextResponse.json({ error: 'Respuesta IA inválida', raw }, { status: 500 });
     }
