@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Target, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { ACHIEVEMENT_METRICS } from '@/lib/achievement-engine';
-import { estadoReto } from '@/lib/challenge-engine';
+import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
+import { estadoReto } from '@/lib/engines/challenge-engine';
 import type { ChallengeDefinition, AchievementMetric } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';

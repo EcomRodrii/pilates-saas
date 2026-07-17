@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { BarChart3, Plus, Trash2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { computeSerieGrafico, METRICAS_GRAFICO, AGRUPACIONES_GRAFICO } from '@/lib/dashboard-chart-engine';
+import { computeSerieGrafico, METRICAS_GRAFICO, AGRUPACIONES_GRAFICO } from '@/lib/engines/dashboard-chart-engine';
 import type { DashboardChart, TipoGraficoDashboard, MetricaGraficoDashboard, AgrupacionGraficoDashboard } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';

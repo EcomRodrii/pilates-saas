@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { restaurarSnapshot, cargarSnapshot, type BackupRow } from '@/lib/backup-engine';
+import { restaurarSnapshot, cargarSnapshot, type BackupRow } from '@/lib/engines/backup-engine';
 
 // Restaurar sobrescribe TODOS los datos actuales del negocio con los del
 // backup elegido — irreversible salvo que exista otro backup posterior.
