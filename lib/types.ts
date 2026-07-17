@@ -448,6 +448,14 @@ export interface Campana {
   programadaEn: string | null;
   objetivo?: string | null;
   presupuesto?: number | null;
+  // Publicaciones del módulo Contenido asociadas a la campaña (snapshot).
+  publicaciones?: PublicacionAsociada[] | null;
+}
+
+export interface PublicacionAsociada {
+  id: string;
+  titulo: string;
+  plataformas?: string[];
 }
 
 export type TriggerAutomatizacion =
@@ -460,7 +468,8 @@ export type TriggerAutomatizacion =
   | 'BONO_AGOTADO'
   | 'BONO_QUEDA_1'
   | 'NUEVA_ALTA'
-  | 'CITA_RECORDATORIO';
+  | 'CITA_RECORDATORIO'
+  | 'CONTENIDO_PUBLICADO';
 
 export interface Automatizacion {
   id: string;
@@ -473,6 +482,23 @@ export interface Automatizacion {
   activa: boolean;
   ejecutadas: number;
   creadaEn: string;
+  // Constructor visual de flujos (Fase 7): cadena de acciones. Si está vacío,
+  // la automatización usa el modo simple (campos accion/asunto/mensaje).
+  pasos?: PasoFlujo[] | null;
+}
+
+// Acciones disponibles en el constructor visual de flujos.
+export type AccionFlujo = 'EMAIL' | 'TAREA' | 'PUBLICAR_RED' | 'NOTIFICAR_EQUIPO';
+
+export interface PasoFlujo {
+  id: string;
+  accion: AccionFlujo;
+  // Config específica por acción (claves libres):
+  //  EMAIL: { asunto, mensaje }
+  //  TAREA: { titulo, asignadoA }
+  //  PUBLICAR_RED: { red, texto }
+  //  NOTIFICAR_EQUIPO: { mensaje }
+  config: Record<string, string>;
 }
 
 // ─── Motor de automatización avanzado ────────────────────────────────────────

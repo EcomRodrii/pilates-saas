@@ -284,6 +284,7 @@ export interface RowCampanas {
   programada_en: string | null;
   objetivo: string | null;
   presupuesto: number | null;
+  publicaciones: unknown | null;
 }
 
 export interface RowAutomatizaciones {
@@ -297,6 +298,7 @@ export interface RowAutomatizaciones {
   activa: boolean | null;
   ejecutadas: number | null;
   creada_en: string | null;
+  pasos: unknown | null;
 }
 
 export interface RowAutomationRules {

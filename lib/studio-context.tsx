@@ -31,7 +31,7 @@ import {
   dbInsertCondicion, dbUpdateCondicion, dbDeleteCondicion,
   dbInsertRespuestaSesion, dbUpdateRespuestaSesion,
   dbInsertCampana, dbDeleteCampana, dbUpdateCampana,
-  dbInsertAutomatizacion, dbUpdateAutomatizacion,
+  dbInsertAutomatizacion, dbUpdateAutomatizacion, dbDeleteAutomatizacion,
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
@@ -272,6 +272,8 @@ interface StudioContextValue {
   // Automatizaciones
   automatizaciones: Automatizacion[];
   addAutomatizacion: (fields: Omit<Automatizacion, 'id' | 'studioId' | 'ejecutadas' | 'creadaEn'>) => void;
+  updateAutomatizacion: (id: string, patch: Partial<Automatizacion>) => void;
+  deleteAutomatizacion: (id: string) => void;
   toggleAutomatizacion: (autoId: string) => void;
 
   // Códigos de descuento
@@ -1993,6 +1995,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbInsertAutomatizacion(nueva);
   }
 
+  function updateAutomatizacion(id: string, patch: Partial<Automatizacion>) {
+    setAutomatizaciones(prev => prev.map(a => (a.id === id ? { ...a, ...patch } : a)));
+    dbUpdateAutomatizacion(id, patch);
+  }
+
+  function deleteAutomatizacion(id: string) {
+    setAutomatizaciones(prev => prev.filter(a => a.id !== id));
+    dbDeleteAutomatizacion(id);
+  }
+
   function toggleAutomatizacion(autoId: string) {
     const actual = automatizaciones.find(a => a.id === autoId);
     setAutomatizaciones(prev => prev.map(a =>
@@ -2564,6 +2576,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     enviarCampana,
     automatizaciones,
     addAutomatizacion,
+    updateAutomatizacion,
+    deleteAutomatizacion,
     toggleAutomatizacion,
     codigosDescuento,
     addCodigoDescuento: discountCodes.addCodigoDescuento,
