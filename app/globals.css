@@ -159,6 +159,16 @@
 nextjs-portal { display: none !important; }
 #__next-build-watcher { display: none !important; }
 
+/* Utilidad: ocultar scrollbar (usada en sub-navs con scroll horizontal) */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* Contenido — animaciones suaves de entrada (Fase 3/métricas y tarjetas) */
+@keyframes contenido-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.contenido-anim { animation: contenido-rise .4s ease both; }
+
 /* Landing page (app/page.tsx) */
 @keyframes lp-riseIn { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
 @keyframes lp-floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
