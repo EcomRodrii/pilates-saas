@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing-guard';
+import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing/billing-guard';
 import { emailValido } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 

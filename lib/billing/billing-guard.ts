@@ -16,10 +16,10 @@ import {
   evaluarFeature,
   evaluarLimiteSocias,
   type Denegacion,
-} from '@/lib/billing-rules';
-import type { Entitlements } from '@/lib/entitlements';
+} from '@/lib/billing/billing-rules';
+import type { Entitlements } from '@/lib/billing/entitlements';
 
-export { billingEnforced } from '@/lib/billing-rules';
+export { billingEnforced } from '@/lib/billing/billing-rules';
 
 function aRespuesta(denegacion: Denegacion | null): NextResponse | null {
   if (!denegacion) return null;

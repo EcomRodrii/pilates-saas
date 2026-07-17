@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { bloqueoPorFeature } from '@/lib/billing-guard';
+import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
 
 const client = new Anthropic();
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { bloqueoPorFeature } from '@/lib/billing-guard';
+import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
 
 const client = new Anthropic();
 

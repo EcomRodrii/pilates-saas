@@ -3,8 +3,8 @@ import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { priceIdDe } from '@/lib/billing';
-import { PLANES, type Plan } from '@/lib/entitlements';
+import { priceIdDe } from '@/lib/billing/billing';
+import { PLANES, type Plan } from '@/lib/billing/entitlements';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
 // suscribir su negocio. Crea (o reutiliza) el Customer de Stripe del estudio y

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { bloqueoPorFeature } from '@/lib/billing-guard';
+import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
 import { enviarMensajeTwilio, twilioConfigurado, type CanalMensaje } from '@/lib/twilio';
 
 // Envío de un mensaje WhatsApp/SMS por Twilio. Igual que /api/emails/send: solo

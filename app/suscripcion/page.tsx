@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-import { PLANES, PLAN_INFO, type Plan } from '@/lib/entitlements';
+import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, type EstadoBilling } from '@/lib/api-client';
 
 const ACC = '#FFC8E2';
