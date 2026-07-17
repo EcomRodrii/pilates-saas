@@ -14,7 +14,7 @@ const PERMITIDO_INSTRUCTOR = [
 // marketing, automatizaciones, informes o gestión del equipo.
 // '/centro-de-control' (Decision OS, MVP): solo PROPIETARIO — la apertura
 // parcial a RECEPCION se decidirá post-MVP (DECISION-OS-ANALISIS.md §8).
-const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control'];
+const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control'];
 
 function coincide(path: string, prefijo: string) {
   return path === prefijo || path.startsWith(`${prefijo}/`);

@@ -282,6 +282,8 @@ export interface RowCampanas {
   creada_en: string | null;
   enviada_en: string | null;
   programada_en: string | null;
+  objetivo: string | null;
+  presupuesto: number | null;
 }
 
 export interface RowAutomatizaciones {
@@ -340,6 +342,8 @@ export interface RowCodigosDescuento {
   expira: string | null;
   activo: boolean | null;
   creado_en: string | null;
+  min_importe: number | null;
+  solo_nuevas: boolean | null;
 }
 
 export interface RowActividadReciente {
