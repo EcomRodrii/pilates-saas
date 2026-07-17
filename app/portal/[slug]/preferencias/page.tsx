@@ -5,11 +5,13 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { DIAS_SEMANA, FRANJAS, NIVELES, DURACIONES, disponibilidadVacia } from '@/lib/portal-preferencias';
 import type { Disponibilidad, NivelSocio } from '@/lib/types';
+import { useModo } from '@/lib/portal-modo';
 import { Check } from 'lucide-react';
 
 export default function PreferenciasPage() {
   const { session } = usePortalAuth();
   const { instructores, tiposClase, preferenciasSocio, upsertPreferenciasSocio } = useStudio();
+  const { t } = useModo();
   const socioId = session?.socioId;
   const prefs = preferenciasSocio.find(p => p.socioId === socioId);
   const disponibilidad: Disponibilidad = prefs?.disponibilidad && Object.keys(prefs.disponibilidad).length > 0
@@ -44,46 +46,47 @@ export default function PreferenciasPage() {
   }
 
   const instructoresActivos = instructores.filter(i => i.activo);
+  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 24, padding: 20 };
+  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
 
   return (
-    <div className="bg-white min-h-full">
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
-        <h1 className="text-white text-[28px] font-extrabold tracking-tight">Preferencias</h1>
-        <p className="text-white/50 text-[13px] mt-0.5">Cuéntanos cómo te gusta entrenar</p>
+    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <div style={{ padding: '24px 20px 20px' }}>
+        <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1 }}>Preferencias</h1>
+        <p style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>Cuéntanos cómo te gusta entrenar</p>
       </div>
 
-      <div className="px-4 pt-5 pb-6 space-y-5">
+      <div style={{ padding: '0 16px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         {guardado && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#171717] text-white text-[12px] font-semibold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-lg">
+          <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 50, background: t.ink, color: t.bg, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Check size={13} />Guardado
           </div>
         )}
 
         {/* Disponibilidad */}
-        <div className="bg-white rounded-3xl border border-black/[0.06] p-5" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-1">Mi disponibilidad</p>
-          <p className="text-[12px] text-[#A8A89E] mb-4">Marca cuándo puedes entrenar — nos ayuda a recomendarte mejores horarios.</p>
-          <div className="space-y-1">
-            <div className="grid grid-cols-4 gap-2 mb-1 px-1">
+        <div style={card}>
+          <p style={{ ...microLabel, marginBottom: 4 }}>Mi disponibilidad</p>
+          <p style={{ fontSize: 12, color: t.muted, marginBottom: 16 }}>Marca cuándo puedes entrenar — nos ayuda a recomendarte mejores horarios.</p>
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 4, padding: '0 4px' }}>
               <span />
               {FRANJAS.map(f => (
-                <span key={f.id} className="text-[10px] font-bold text-[#A8A89E] uppercase text-center">{f.label}</span>
+                <span key={f.id} style={{ fontSize: 10, fontWeight: 800, color: t.muted, textTransform: 'uppercase', textAlign: 'center' }}>{f.label}</span>
               ))}
             </div>
-            {DIAS_SEMANA.map(dia => (
-              <div key={dia.id} className="grid grid-cols-4 gap-2 items-center py-1.5 border-t border-[#F1F1EC] first:border-0">
-                <span className="text-[13px] font-semibold text-[#171717]">{dia.label}</span>
+            {DIAS_SEMANA.map((dia, i) => (
+              <div key={dia.id} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, alignItems: 'center', padding: '6px 0', borderTop: i === 0 ? 'none' : `1px solid ${t.line}` }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: t.ink }}>{dia.label}</span>
                 {FRANJAS.map(franja => {
                   const activo = disponibilidad[dia.id]?.[franja.id] ?? false;
                   return (
                     <button
                       key={franja.id}
                       onClick={() => toggleFranja(dia.id, franja.id)}
-                      className="mx-auto w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
-                      style={{ backgroundColor: activo ? 'var(--portal-brand)' : '#F5F5F1' }}
+                      style={{ margin: '0 auto', width: 36, height: 36, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', backgroundColor: activo ? 'var(--portal-brand)' : t.surface2 }}
                       aria-label={`${dia.label} ${franja.label}`}
                     >
-                      {activo && <Check size={15} className="text-[#171717]" />}
+                      {activo && <Check size={15} style={{ color: t.accentInk }} />}
                     </button>
                   );
                 })}
@@ -93,63 +96,60 @@ export default function PreferenciasPage() {
         </div>
 
         {/* Instructor favorito */}
-        <div className="bg-white rounded-3xl border border-black/[0.06] p-5" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">Instructor favorito</p>
-          <div className="flex flex-wrap gap-2">
+        <div style={card}>
+          <p style={{ ...microLabel, marginBottom: 12 }}>Instructor favorito</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {instructoresActivos.map(i => {
               const selected = prefs?.instructorFavoritoId === i.id;
               return (
                 <button
                   key={i.id}
                   onClick={() => setCampo('instructorFavoritoId', selected ? null : i.id)}
-                  className="px-3.5 py-2 rounded-2xl text-[13px] font-semibold transition-all"
-                  style={{ backgroundColor: selected ? '#171717' : '#F1F1EC', color: selected ? 'white' : '#3A3A34' }}
+                  style={{ padding: '8px 14px', borderRadius: 16, fontSize: 13, fontWeight: 700, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? t.accentInk : t.muted2 }}
                 >
                   {i.nombre}
                 </button>
               );
             })}
             {instructoresActivos.length === 0 && (
-              <p className="text-[13px] text-[#A8A89E]">Aún no hay instructoras dadas de alta.</p>
+              <p style={{ fontSize: 13, color: t.muted }}>Aún no hay instructoras dadas de alta.</p>
             )}
           </div>
         </div>
 
         {/* Tipo de clase favorita */}
-        <div className="bg-white rounded-3xl border border-black/[0.06] p-5" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">Tipo de clase favorita</p>
-          <div className="flex flex-wrap gap-2">
-            {tiposClase.map(t => {
-              const selected = prefs?.tipoClaseFavorita === t.nombre;
+        <div style={card}>
+          <p style={{ ...microLabel, marginBottom: 12 }}>Tipo de clase favorita</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {tiposClase.map(tc => {
+              const selected = prefs?.tipoClaseFavorita === tc.nombre;
               return (
                 <button
-                  key={t.id}
-                  onClick={() => setCampo('tipoClaseFavorita', selected ? null : t.nombre)}
-                  className="px-3.5 py-2 rounded-2xl text-[13px] font-semibold transition-all"
-                  style={{ backgroundColor: selected ? t.color : '#F1F1EC', color: selected ? 'white' : '#3A3A34' }}
+                  key={tc.id}
+                  onClick={() => setCampo('tipoClaseFavorita', selected ? null : tc.nombre)}
+                  style={{ padding: '8px 14px', borderRadius: 16, fontSize: 13, fontWeight: 700, border: 'none', backgroundColor: selected ? tc.color : t.surface2, color: selected ? '#fff' : t.muted2 }}
                 >
-                  {t.nombre}
+                  {tc.nombre}
                 </button>
               );
             })}
             {tiposClase.length === 0 && (
-              <p className="text-[13px] text-[#A8A89E]">Aún no hay tipos de clase configurados.</p>
+              <p style={{ fontSize: 13, color: t.muted }}>Aún no hay tipos de clase configurados.</p>
             )}
           </div>
         </div>
 
         {/* Duración preferida */}
-        <div className="bg-white rounded-3xl border border-black/[0.06] p-5" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">Duración preferida</p>
-          <div className="flex gap-2">
+        <div style={card}>
+          <p style={{ ...microLabel, marginBottom: 12 }}>Duración preferida</p>
+          <div style={{ display: 'flex', gap: 8 }}>
             {DURACIONES.map(min => {
               const selected = prefs?.duracionPreferida === min;
               return (
                 <button
                   key={min}
                   onClick={() => setCampo('duracionPreferida', selected ? null : min)}
-                  className="flex-1 py-2.5 rounded-2xl text-[13px] font-bold transition-all"
-                  style={{ backgroundColor: selected ? '#171717' : '#F1F1EC', color: selected ? 'white' : '#3A3A34' }}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 16, fontSize: 13, fontWeight: 800, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? t.accentInk : t.muted2 }}
                 >
                   {min} min
                 </button>
@@ -159,17 +159,16 @@ export default function PreferenciasPage() {
         </div>
 
         {/* Nivel */}
-        <div className="bg-white rounded-3xl border border-black/[0.06] p-5" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">Nivel</p>
-          <div className="flex gap-2">
+        <div style={card}>
+          <p style={{ ...microLabel, marginBottom: 12 }}>Nivel</p>
+          <div style={{ display: 'flex', gap: 8 }}>
             {NIVELES.map(n => {
               const selected = prefs?.nivel === n.id;
               return (
                 <button
                   key={n.id}
                   onClick={() => setCampo('nivel', selected ? null : (n.id as NivelSocio))}
-                  className="flex-1 py-2.5 rounded-2xl text-[13px] font-bold transition-all"
-                  style={{ backgroundColor: selected ? '#171717' : '#F1F1EC', color: selected ? 'white' : '#3A3A34' }}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 16, fontSize: 13, fontWeight: 800, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? t.accentInk : t.muted2 }}
                 >
                   {n.label}
                 </button>
