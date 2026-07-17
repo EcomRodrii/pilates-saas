@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// R7 · Envoltorio HTTP de las reglas de billing (lib/billing-rules.ts).
+// R7 · Envoltorio HTTP de las reglas de billing (lib/billing/billing-rules.ts).
 // Esto es lo que importan las rutas API: cada guarda devuelve `null` si se puede
 // continuar, o un `NextResponse` de error que el llamador devuelve tal cual:
 //
@@ -16,10 +16,10 @@ import {
   evaluarFeature,
   evaluarLimiteSocias,
   type Denegacion,
-} from '@/lib/billing-rules';
-import type { Entitlements } from '@/lib/entitlements';
+} from '@/lib/billing/billing-rules';
+import type { Entitlements } from '@/lib/billing/entitlements';
 
-export { billingEnforced } from '@/lib/billing-rules';
+export { billingEnforced } from '@/lib/billing/billing-rules';
 
 function aRespuesta(denegacion: Denegacion | null): NextResponse | null {
   if (!denegacion) return null;

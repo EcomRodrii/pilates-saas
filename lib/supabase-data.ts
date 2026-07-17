@@ -1,11 +1,11 @@
 import * as Sentry from '@sentry/nextjs';
-import { supabase } from '@/lib/supabase';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { supabase } from '@/lib/db/supabase';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
-import { validarCanje, decidirOtorgarCreditos } from '@/lib/reward-engine';
+import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import type { SupabaseClient } from '@supabase/supabase-js';

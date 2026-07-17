@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { tieneFeature } from '@/lib/entitlements';
-import { requireSupabaseAdmin } from '@/lib/supabase-admin';
+import { tieneFeature } from '@/lib/billing/entitlements';
+import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 
 // POST /api/decisiones/analizar — "Ejecutar ahora" manual (equivalente al

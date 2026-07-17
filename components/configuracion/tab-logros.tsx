@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Trophy, Plus, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { ACHIEVEMENT_METRICS } from '@/lib/achievement-engine';
+import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
 import type { AchievementDefinition, AchievementMetric } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';

@@ -1,6 +1,6 @@
 // Señales: hechos derivados del snapshot, compartidos por todos los
 // especialistas (DECISION-OS-NUCLEO.md §1). Índices Map precomputados UNA vez
-// (patrón P0-19 de lib/automation-engine.ts) — nadie vuelve a iterar las
+// (patrón P0-19 de lib/engines/automation-engine.ts) — nadie vuelve a iterar las
 // colecciones completas por socia.
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
 import type { SnapshotEstudio } from './tipos.ts';
@@ -288,7 +288,7 @@ export interface FranjaRecurrente {
 /**
  * Agrupa sesiones YA celebradas por franja recurrente (mismo día de la semana +
  * hora + tipo de clase), acotado a una ventana reciente — mismo patrón P0-19
- * que lib/automation-engine.ts CLASE_LLENA_RECURRENTE.
+ * que lib/engines/automation-engine.ts CLASE_LLENA_RECURRENTE.
  */
 export function agruparFranjasRecurrentes(idx: IndicesSenal, s: SnapshotEstudio, now: Date, ocurrenciasMinimas: number): Map<string, FranjaRecurrente> {
   const ventanaMs = (ocurrenciasMinimas + 3) * 7 * MS_DIA;

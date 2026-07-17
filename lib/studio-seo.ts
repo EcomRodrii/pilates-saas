@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // Datos mínimos del estudio para SEO y primer paint de la página pública (I-9).
 // Se resuelve en el SERVIDOR y se cachea por request con React cache, de modo

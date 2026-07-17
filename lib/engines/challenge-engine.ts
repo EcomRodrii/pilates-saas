@@ -1,5 +1,5 @@
 import type { ChallengeDefinition, EstadoReto, Reserva, Sesion, Socio } from '@/lib/types';
-import { calcularMetrica } from '@/lib/achievement-engine';
+import { calcularMetrica } from '@/lib/engines/achievement-engine';
 
 export function estadoReto(reto: ChallengeDefinition, completado: boolean, now: Date): EstadoReto {
   if (completado) return 'COMPLETADO';

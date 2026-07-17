@@ -4,9 +4,9 @@
 import { inngest, EVENTS } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
-import { requireSupabaseAdmin } from '@/lib/supabase-admin';
-import { tieneFeature } from '@/lib/entitlements';
-import { cobrarReciboOffSession } from '@/lib/stripe-cobros';
+import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { tieneFeature } from '@/lib/billing/entitlements';
+import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { uid } from '@/lib/utils';
 import { construirSnapshot } from '@/lib/decision/snapshot';

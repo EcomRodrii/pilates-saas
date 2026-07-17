@@ -1,5 +1,5 @@
 import type { Reserva, Sesion, Suscripcion, PlanTarifa, TipoClase, Sala, Instructor } from '@/lib/types';
-import type { RachaInfo } from '@/lib/streak-engine';
+import type { RachaInfo } from '@/lib/engines/streak-engine';
 
 // ¿Esta socia puede reservar sin pagar por clase suelta ahora mismo? — true si
 // tiene una suscripción activa que cubre la sesión: mensual ilimitado, o bono

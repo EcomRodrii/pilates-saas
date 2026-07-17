@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // Estado de un cobro en curso en el datáfono. El POS lo consulta en bucle hasta
 // que el PaymentIntent queda en `succeeded` (o `canceled`). Devuelve el status
