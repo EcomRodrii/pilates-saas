@@ -42,13 +42,22 @@ export default function PortalLogin() {
       {/* Hero con la identidad del estudio */}
       <div
         style={{
-          flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-          padding: '80px 24px 48px', minHeight: '45vh', background: t.hero, borderBottom: `1px solid ${t.heroLine}`,
+          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
+          padding: '80px 24px 48px', minHeight: '45vh', background: t.hero, borderBottom: `1px solid ${t.heroLine}`, textAlign: 'center',
         }}
       >
-        <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, border: `1px solid ${t.heroLine}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.heroText, fontWeight: 800, fontSize: 22, marginBottom: 16 }}>
-          {inicial}
-        </div>
+        {studio?.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={studio.logoUrl}
+            alt={studio?.nombre ?? 'Logo'}
+            style={{ width: 72, height: 72, borderRadius: 18, objectFit: 'cover', marginBottom: 16, background: t.surface2, border: `1px solid ${t.heroLine}` }}
+          />
+        ) : (
+          <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, border: `1px solid ${t.heroLine}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.heroText, fontWeight: 800, fontSize: 22, marginBottom: 16 }}>
+            {inicial}
+          </div>
+        )}
         <h1 style={{ color: t.heroText, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1.05 }}>
           {studio?.nombre ?? 'Tentare'}
         </h1>
