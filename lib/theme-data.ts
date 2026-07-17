@@ -16,7 +16,7 @@
 // en la Fase 3, que verifica antes que el llamante es PROPIETARIO del estudio.
 
 import { cache } from 'react';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
   resolveTheme,
   themeDraftSchema,

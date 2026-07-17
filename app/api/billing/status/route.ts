@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { priceIdDe } from '@/lib/billing';
-import { accesoProducto, PLANES } from '@/lib/entitlements';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { priceIdDe } from '@/lib/billing/billing';
+import { accesoProducto, PLANES } from '@/lib/billing/entitlements';
 
 // Estado de suscripción del estudio para el cliente (gate de acceso + página de
 // suscripción). Diseño a prueba de foot-guns: `bloqueado` solo es true cuando la

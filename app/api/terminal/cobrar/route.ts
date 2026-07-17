@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { applicationFeeAmount } from '@/lib/stripe-fees';
-import { bloqueoPorSuscripcion } from '@/lib/billing-guard';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
+import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lanza un cobro al datáfono físico (server-driven). Crea un PaymentIntent
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   if (!stripeAccount) return NextResponse.json({ error: 'El estudio no tiene Stripe conectado' }, { status: 409 });
   if (!readerId) return NextResponse.json({ error: 'No hay datáfono emparejado. Configúralo primero.' }, { status: 409 });
 
-  // R2: take-rate de plataforma (apagado por defecto; ver lib/stripe-fees.ts).
+  // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
   const fee = applicationFeeAmount(amount);
 
   try {

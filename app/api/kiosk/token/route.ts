@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // C-2: genera/rota el token de dispositivo del kiosko del estudio. Solo el
 // PROPIETARIO autenticado. El token se guarda en studios.kiosk_token (service

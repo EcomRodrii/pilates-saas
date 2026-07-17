@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import type { NivelRiesgoDependencia, AlumnaCautiva } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────────────────────

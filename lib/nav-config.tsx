@@ -7,6 +7,7 @@ import {
   Clock, MessageCircle, Megaphone, Play,
   Bot, ArrowLeftRight, Package, Store, Inbox,
   UserCog, Users2, Compass,
+  Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
 } from 'lucide-react';
 
 export interface NavItemDef {
@@ -23,6 +24,18 @@ export const navSections: NavSection[] = [
   { items: [{ href: '/centro-de-control', label: 'Centro de Control', icon: Compass }] },
   { items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
   { items: [{ href: '/automatizaciones', label: 'Automatizaciones IA', icon: Bot }] },
+  {
+    label: 'Contenido',
+    items: [
+      { href: '/contenido', label: 'Panel de contenido', icon: Sparkles },
+      { href: '/contenido/calendario', label: 'Calendario de contenido', icon: CalendarDays },
+      { href: '/contenido/biblioteca', label: 'Biblioteca', icon: Library },
+      { href: '/contenido/ideas', label: 'Ideas', icon: Lightbulb },
+      { href: '/contenido/metricas', label: 'Métricas de redes', icon: LineChart },
+      { href: '/contenido/guiones', label: 'Guiones IA', icon: ScrollText },
+      { href: '/contenido/carruseles', label: 'Carruseles IA', icon: GalleryHorizontalEnd },
+    ],
+  },
   {
     label: 'Clases',
     items: [

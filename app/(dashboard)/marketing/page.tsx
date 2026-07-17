@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send } from 'lucide-react'
+import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
 import { authHeader } from '@/lib/api-client'
@@ -446,7 +446,7 @@ function UsageBar({ usos, usosMax }: { usos: number; usosMax: number | null }) {
 
 export default function MarketingPage() {
   const {
-    campanas, addCampana, deleteCampana, duplicateCampana, enviarCampana,
+    campanas, addCampana, deleteCampana, duplicateCampana, updateCampana, enviarCampana,
     automatizaciones, addAutomatizacion, toggleAutomatizacion,
     codigosDescuento: codigos, addCodigoDescuento, toggleCodigoDescuento, deleteCodigoDescuento,
     socios,
@@ -489,6 +489,8 @@ export default function MarketingPage() {
     asunto: '',
     destinatarios: 'TODAS',
     contenido: '',
+    objetivo: '',
+    presupuesto: '',
   })
 
   // Asistente IA de campañas
@@ -497,8 +499,9 @@ export default function MarketingPage() {
   const [errorIA, setErrorIA] = useState<string | null>(null)
   const [razonSegmentoIA, setRazonSegmentoIA] = useState<string | null>(null)
 
-  // Automatizaciones modal
+  // Automatizaciones modal + vista (tabla vs flujo visual)
   const [showAutoModal, setShowAutoModal] = useState(false)
+  const [autoView, setAutoView] = useState<'tabla' | 'flujo'>('flujo')
   const [newAuto, setNewAuto] = useState({
     nombre: '',
     trigger: 'SUSCRIPCION_EXPIRA_7D' as TriggerAutomatizacion,
@@ -516,6 +519,8 @@ export default function MarketingPage() {
     valor: '',
     usosMaximos: '',
     expira: '',
+    minImporte: '',
+    soloNuevas: false,
   })
 
   // Hover state for campaign cards
@@ -542,6 +547,7 @@ export default function MarketingPage() {
   }
 
   // Campañas stats
+  const campanasActivas = campanas.filter(c => c.estado === 'ACTIVA' || c.estado === 'PAUSADA').length
   const enviadas = campanas.filter(c => c.estado === 'ENVIADA')
   const tasaApertura = enviadas.length > 0
     ? Math.round(enviadas.reduce((acc, c) => acc + (c.enviados > 0 ? (c.abiertos / c.enviados) * 100 : 0), 0) / enviadas.length)
@@ -580,8 +586,10 @@ export default function MarketingPage() {
       estado: 'BORRADOR',
       enviadaEn: null,
       programadaEn: null,
+      objetivo: newCampana.objetivo.trim() || null,
+      presupuesto: newCampana.presupuesto ? parseFloat(newCampana.presupuesto) : null,
     })
-    setNewCampana({ nombre: '', tipo: 'EMAIL', asunto: '', destinatarios: 'TODAS', contenido: '' })
+    setNewCampana({ nombre: '', tipo: 'EMAIL', asunto: '', destinatarios: 'TODAS', contenido: '', objetivo: '', presupuesto: '' })
     setSelectedTemplate(null)
     setShowPreview(false)
     setObjetivoIA('')
@@ -614,8 +622,10 @@ export default function MarketingPage() {
       usosMax: newCodigo.usosMaximos ? parseInt(newCodigo.usosMaximos) : null,
       expira: newCodigo.expira || null,
       activo: true,
+      minImporte: newCodigo.minImporte ? parseFloat(newCodigo.minImporte) : null,
+      soloNuevas: newCodigo.soloNuevas,
     })
-    setNewCodigo({ codigo: '', descripcion: '', tipo: 'PORCENTAJE', valor: '', usosMaximos: '', expira: '' })
+    setNewCodigo({ codigo: '', descripcion: '', tipo: 'PORCENTAJE', valor: '', usosMaximos: '', expira: '', minImporte: '', soloNuevas: false })
     setShowCodigoModal(false)
   }
 
@@ -706,6 +716,21 @@ export default function MarketingPage() {
 
       {/* ==================== TAB 0: RESUMEN ==================== */}
       {tab === 'resumen' && (
+        <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'Campañas activas', value: String(campanasActivas), sub: `${enviadas.length} enviadas` },
+            { label: 'Conversión a socia', value: `${Math.round(tasaConversion)}%`, sub: `${activas} de ${totalConLeadStage} leads` },
+            { label: 'Automatizaciones activas', value: String(autoActivas), sub: `${totalEjecuciones} ejecuciones` },
+            { label: 'Apertura media (envíos)', value: `${tasaApertura}%`, sub: `${totalUsos} usos de códigos` },
+          ].map(k => (
+            <div key={k.label} className="bg-card border border-border rounded-2xl p-4">
+              <p className="text-[12px] text-muted-foreground mb-1">{k.label}</p>
+              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">{k.value}</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">{k.sub}</p>
+            </div>
+          ))}
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <ConversionFunnelCard socios={socios} />
           <KpiTrendCard
@@ -719,6 +744,7 @@ export default function MarketingPage() {
           <ConversionRatioCard activas={activas} total={totalConLeadStage} />
           <TopClasesCard sesiones={sesiones} reservas={reservas} tiposClase={tiposClase} />
           <RevenueDonutCard recibos={recibos} suscripciones={suscripciones} planesTarifa={planesTarifa} />
+        </div>
         </div>
       )}
 
@@ -775,6 +801,20 @@ export default function MarketingPage() {
                         <EstadoBadge estado={c.estado} programadaEn={c.programadaEn} enviadaEn={c.enviadaEn} />
                       </div>
                       <p className="text-xs text-muted-foreground mb-2">{destinatariosLabel[c.destinatarios] ?? c.destinatarios}</p>
+                      {(c.objetivo || (c.presupuesto != null && c.presupuesto > 0)) && (
+                        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                          {c.objetivo && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-muted text-muted-foreground rounded-md px-2 py-0.5">
+                              🎯 {c.objetivo}
+                            </span>
+                          )}
+                          {c.presupuesto != null && c.presupuesto > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-muted text-muted-foreground rounded-md px-2 py-0.5">
+                              Presupuesto: {c.presupuesto.toLocaleString('es-ES')} €
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         Enviados: {c.enviados} · Abiertos: {c.abiertos}{c.enviados > 0 ? ` (${Math.round((c.abiertos / c.enviados) * 100)}%)` : ''} · Clics: {c.clics}{c.enviados > 0 ? ` (${Math.round((c.clics / c.enviados) * 100)}%)` : ''}
                       </p>
@@ -791,6 +831,42 @@ export default function MarketingPage() {
                             ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             : <Send className="w-3.5 h-3.5" />}
                           {enviandoId === c.id ? 'Enviando…' : 'Enviar'}
+                        </button>
+                      )}
+                      {(c.estado === 'BORRADOR' || c.estado === 'PROGRAMADA') && (
+                        <button
+                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' })}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
+                          title="Activar como campaña en curso"
+                        >
+                          <Play className="w-3.5 h-3.5" /> Activar
+                        </button>
+                      )}
+                      {c.estado === 'ACTIVA' && (
+                        <button
+                          onClick={() => updateCampana(c.id, { estado: 'PAUSADA' })}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
+                          title="Pausar campaña"
+                        >
+                          <Pause className="w-3.5 h-3.5" /> Pausar
+                        </button>
+                      )}
+                      {c.estado === 'PAUSADA' && (
+                        <button
+                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' })}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
+                          title="Reanudar campaña"
+                        >
+                          <Play className="w-3.5 h-3.5" /> Reanudar
+                        </button>
+                      )}
+                      {(c.estado === 'ACTIVA' || c.estado === 'PAUSADA') && (
+                        <button
+                          onClick={() => updateCampana(c.id, { estado: 'ENVIADA', enviadaEn: c.enviadaEn ?? new Date().toISOString() })}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground text-xs font-medium hover:bg-muted transition-colors"
+                          title="Finalizar campaña"
+                        >
+                          <Flag className="w-3.5 h-3.5" /> Finalizar
                         </button>
                       )}
                       <span className="text-xs text-muted-foreground">{formatDateEs(c.creadaEn)}</span>
@@ -834,17 +910,75 @@ export default function MarketingPage() {
                 </div>
               ))}
             </div>
-            <button
-              onClick={() => setShowAutoModal(true)}
-              className="flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2 text-sm font-medium hover:brightness-95 transition-colors shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              Nueva automatización
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center rounded-lg border border-border p-0.5">
+                {(['flujo', 'tabla'] as const).map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setAutoView(v)}
+                    className={cn('px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-colors', autoView === v ? 'bg-card border border-border text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowAutoModal(true)}
+                className="flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2 text-sm font-medium hover:brightness-95 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Nueva automatización
+              </button>
+            </div>
           </div>
 
           {automatizaciones.length === 0 ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground">Sin automatizaciones</div>
+          ) : autoView === 'flujo' ? (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              {automatizaciones.map(a => (
+                <div key={a.id} className={cn('bg-card border rounded-2xl p-4', a.activa ? 'border-border' : 'border-border opacity-70')}>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="font-semibold text-foreground text-[14px]">{a.nombre}</span>
+                    <button
+                      onClick={() => toggleAutomatizacion(a.id)}
+                      className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
+                      aria-label={a.activa ? 'Desactivar' : 'Activar'}
+                    >
+                      <span className={cn('absolute top-0.5 w-[18px] h-[18px] rounded-full bg-card shadow transition-all', a.activa ? 'left-[calc(100%-1.25rem-0.125rem)]' : 'left-0.5')} />
+                    </button>
+                  </div>
+                  <div className="flex items-stretch gap-2 overflow-x-auto no-scrollbar">
+                    {/* Desencadenante */}
+                    <div className="flex-1 min-w-[150px] rounded-xl border border-border bg-muted/40 p-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Zap className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Cuando</span>
+                      </div>
+                      <p className="text-[13px] font-semibold text-foreground leading-snug">{triggerLabel[a.trigger] ?? a.trigger}</p>
+                      <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">{triggerDesc[a.trigger] ?? ''}</p>
+                    </div>
+                    <div className="flex items-center text-muted-foreground shrink-0"><ArrowRight className="w-4 h-4" /></div>
+                    {/* Acción */}
+                    <div className="flex-1 min-w-[150px] rounded-xl border border-border bg-muted/40 p-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Entonces</span>
+                      </div>
+                      <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium', accionBadge(a.accion))}>
+                        {accionIcon(a.accion)}{a.accion}
+                      </span>
+                      <p className="text-[11px] text-muted-foreground leading-snug mt-1">{accionDesc[a.accion] ?? ''}</p>
+                    </div>
+                    <div className="flex items-center text-muted-foreground shrink-0"><ArrowRight className="w-4 h-4" /></div>
+                    {/* Resultado */}
+                    <div className="w-[92px] shrink-0 rounded-xl border border-border p-3 flex flex-col justify-center items-center text-center">
+                      <span className="text-lg font-bold text-foreground tabular-nums leading-none">{a.ejecutadas ?? 0}</span>
+                      <span className="text-[10px] text-muted-foreground mt-1">ejecuciones</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               {/* Desktop table */}
@@ -997,7 +1131,19 @@ export default function MarketingPage() {
                             <CopyButton text={cod.codigo} />
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{cod.descripcion || '—'}</td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          <span>{cod.descripcion || '—'}</span>
+                          {(cod.soloNuevas || (cod.minImporte != null && cod.minImporte > 0)) && (
+                            <div className="flex items-center gap-1 flex-wrap mt-1">
+                              {cod.minImporte != null && cod.minImporte > 0 && (
+                                <span className="text-[10px] font-medium bg-muted text-muted-foreground rounded px-1.5 py-0.5">mín. {cod.minImporte.toLocaleString('es-ES')} €</span>
+                              )}
+                              {cod.soloNuevas && (
+                                <span className="text-[10px] font-medium bg-muted text-muted-foreground rounded px-1.5 py-0.5">solo nuevas</span>
+                              )}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-foreground font-medium">
                           {cod.tipo === 'PORCENTAJE' ? `${cod.valor}%` : `${cod.valor} €`}
                         </td>
@@ -1061,6 +1207,12 @@ export default function MarketingPage() {
                         {cod.activo ? 'Activo' : 'Inactivo'}
                       </span>
                       <span className="text-[11px] text-muted-foreground">Expira {formatDateEs(cod.expira)}</span>
+                      {cod.minImporte != null && cod.minImporte > 0 && (
+                        <span className="text-[10px] font-medium bg-muted text-muted-foreground rounded px-1.5 py-0.5">mín. {cod.minImporte.toLocaleString('es-ES')} €</span>
+                      )}
+                      {cod.soloNuevas && (
+                        <span className="text-[10px] font-medium bg-muted text-muted-foreground rounded px-1.5 py-0.5">solo nuevas</span>
+                      )}
                     </div>
                     <UsageBar usos={cod.usos} usosMax={cod.usosMax} />
                   </div>
@@ -1159,6 +1311,28 @@ export default function MarketingPage() {
                 </span>
               </div>
             </FF>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FF label="Objetivo (opcional)">
+                <input
+                  className={inputCls}
+                  placeholder="Ej. recuperar socias inactivas"
+                  value={newCampana.objetivo}
+                  onChange={e => setNewCampana(p => ({ ...p, objetivo: e.target.value }))}
+                />
+              </FF>
+              <FF label="Presupuesto (opcional)">
+                <div className="relative">
+                  <input
+                    type="number" min="0" step="0.01"
+                    className={cn(inputCls, 'pr-7')}
+                    placeholder="0"
+                    value={newCampana.presupuesto}
+                    onChange={e => setNewCampana(p => ({ ...p, presupuesto: e.target.value }))}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+                </div>
+              </FF>
+            </div>
 
             {/* Content section */}
             <div className="space-y-3 pt-1">
@@ -1375,6 +1549,30 @@ export default function MarketingPage() {
                   onChange={e => setNewCodigo(p => ({ ...p, expira: e.target.value }))}
                 />
               </FF>
+            </div>
+            {/* Restricciones */}
+            <div className="grid grid-cols-2 gap-4 items-end">
+              <FF label="Importe mínimo (opcional)">
+                <div className="relative">
+                  <input
+                    className={cn(inputCls, 'pr-7')}
+                    type="number" min={0} step="0.01"
+                    placeholder="Sin mínimo"
+                    value={newCodigo.minImporte}
+                    onChange={e => setNewCodigo(p => ({ ...p, minImporte: e.target.value }))}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+                </div>
+              </FF>
+              <label className="flex items-center gap-2 h-[38px] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-border accent-[var(--brand)]"
+                  checked={newCodigo.soloNuevas}
+                  onChange={e => setNewCodigo(p => ({ ...p, soloNuevas: e.target.checked }))}
+                />
+                <span className="text-sm text-foreground">Solo clientas nuevas</span>
+              </label>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button

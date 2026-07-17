@@ -6,6 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { Calendar, Clock, MapPin, User as UserIcon, X } from 'lucide-react';
 import type { Reserva, Sesion } from '@/lib/types';
+import { formatFechaCorta as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
 
 type Tab = 'PROXIMAS' | 'PASADAS' | 'CANCELADAS' | 'ESPERA';
 
@@ -50,9 +51,6 @@ export default function MisReservasPage() {
   }, [misReservas, now]);
 
   const lista = porTab[tab];
-
-  const formatFecha = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
-  const formatHora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'PROXIMAS', label: 'Próximas' },

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Coins, Gift, Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { REWARD_TRIGGERS } from '@/lib/reward-engine';
+import { REWARD_TRIGGERS } from '@/lib/engines/reward-engine';
 import type { RewardCatalogItem } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';

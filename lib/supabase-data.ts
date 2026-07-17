@@ -1,11 +1,11 @@
 import * as Sentry from '@sentry/nextjs';
-import { supabase } from '@/lib/supabase';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { supabase } from '@/lib/db/supabase';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
-import { validarCanje, decidirOtorgarCreditos } from '@/lib/reward-engine';
+import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -756,6 +756,8 @@ function mapCampana(r: RowCampanas): Campana {
     creadaEn: r.creada_en,
     enviadaEn: r.enviada_en ?? null,
     programadaEn: r.programada_en ?? null,
+    objetivo: r.objetivo ?? null,
+    presupuesto: r.presupuesto ?? null,
   } as Campana;
 }
 
@@ -838,6 +840,8 @@ function mapCodigoDescuento(r: RowCodigosDescuento): CodigoDescuento {
     expira: r.expira ?? null,
     activo: r.activo,
     creadoEn: r.creado_en,
+    minImporte: r.min_importe ?? null,
+    soloNuevas: r.solo_nuevas ?? false,
   } as CodigoDescuento;
 }
 
@@ -2346,6 +2350,8 @@ function codigoDescuentoToDb(c: CodigoDescuento) {
     expira: c.expira,
     activo: c.activo,
     creado_en: c.creadoEn,
+    min_importe: c.minImporte ?? null,
+    solo_nuevas: c.soloNuevas ?? false,
   };
 }
 
@@ -2381,6 +2387,8 @@ function campanaToDb(c: Campana) {
     creada_en: c.creadaEn,
     enviada_en: c.enviadaEn ?? null,
     programada_en: c.programadaEn ?? null,
+    objetivo: c.objetivo ?? null,
+    presupuesto: c.presupuesto ?? null,
   };
 }
 
@@ -3342,6 +3350,8 @@ export async function dbUpdateCodigoDescuento(id: string, changes: Partial<Codig
   const db: Record<string, unknown> = {};
   if ('activo' in changes) db.activo = changes.activo;
   if ('usos' in changes) db.usos = changes.usos;
+  if ('minImporte' in changes) db.min_importe = changes.minImporte;
+  if ('soloNuevas' in changes) db.solo_nuevas = changes.soloNuevas;
   const { error } = await supabase.from('codigos_descuento').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateCodigoDescuento]', error);
 }
@@ -3416,6 +3426,8 @@ export async function dbUpdateCampana(id: string, changes: Partial<Campana>) {
   if ('clics' in changes) db.clics = changes.clics;
   if ('enviadaEn' in changes) db.enviada_en = changes.enviadaEn;
   if ('programadaEn' in changes) db.programada_en = changes.programadaEn;
+  if ('objetivo' in changes) db.objetivo = changes.objetivo;
+  if ('presupuesto' in changes) db.presupuesto = changes.presupuesto;
   const { error } = await supabase.from('campanas').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateCampana]', error);
 }
