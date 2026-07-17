@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
+import { Toast } from '@/components/ui/toast';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -108,21 +109,6 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">{children}</h3>
-  );
-}
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-
-function Toast({ message, onHide }: { message: string; onHide: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onHide, 3000);
-    return () => clearTimeout(t);
-  }, [onHide]);
-  return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-brand text-brand-foreground px-4 py-3 rounded-xl shadow-xl text-sm font-semibold animate-in slide-in-from-bottom-2">
-      <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-      {message}
-    </div>
   );
 }
 
@@ -1529,7 +1515,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       </Dialog>
 
       {/* Toast */}
-      {toast && <Toast message={toast} onHide={() => setToast(null)} />}
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </div>
   );
 }
