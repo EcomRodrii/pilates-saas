@@ -6,6 +6,7 @@ import type { Instructor, Rol } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
+import { formatFechaHora } from '@/lib/utils';
 
 const COLORES = ['#F7A6C4', '#14B8A6', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
 
@@ -343,10 +344,6 @@ const TIPO_AUDITORIA = new Set([
   'PLAN_ASIGNADO', 'COBRO_MANUAL', 'EQUIPO_ALTA', 'EQUIPO_EDITADO', 'EQUIPO_BAJA',
   'AUTOMATIZACION_CAMBIO', 'NUEVA_SOCIA',
 ]);
-
-function formatFechaHora(iso: string) {
-  return new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
 
 function ActividadTab({ actividadReciente }: { actividadReciente: import('@/lib/types').ActividadReciente[] }) {
   const relevantes = actividadReciente

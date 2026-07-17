@@ -9,19 +9,11 @@ import {
   MessageSquare, Mail, CreditCard, Bell, Gift, TrendingUp,
   Send, X, Eye,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatFechaHora as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
 import { aprobarCobroAutonomo } from '@/lib/api-client';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatHora(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatFecha(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
 
 function horasRestantes(iso: string) {
   const diff = new Date(iso).getTime() - Date.now();

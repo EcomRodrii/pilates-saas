@@ -14,7 +14,7 @@ import {
   Trash2, AlertTriangle, CheckCircle2, Upload, X, UserX,
   Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatFechaLarga as formatDate } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 
@@ -77,14 +77,6 @@ function relativeTime(iso: string | null | undefined): string {
   if (days < 30) return `Hace ${Math.floor(days / 7)} sem.`;
   if (days < 365) return `Hace ${Math.floor(days / 30)} meses`;
   return `Hace ${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? 's' : ''}`;
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

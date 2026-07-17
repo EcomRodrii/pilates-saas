@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { CheckCircle2, Clock, XCircle, FileText, CreditCard, AlertCircle } from 'lucide-react';
+import { formatFechaLarga as formatDate } from '@/lib/utils';
 
 type Filtro = 'TODOS' | 'COBRADO' | 'PENDIENTE';
 
@@ -34,8 +35,6 @@ export default function MiPlanPage() {
     return misRecibos;
   }, [misRecibos, filtro]);
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
   const formatEur = (n: number) =>
     n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
