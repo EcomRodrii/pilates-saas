@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { restaurarSnapshot, cargarSnapshot, type BackupRow } from '@/lib/engines/backup-engine';
 
 // Restaurar sobrescribe TODOS los datos actuales del negocio con los del

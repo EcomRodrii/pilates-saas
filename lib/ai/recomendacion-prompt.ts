@@ -1,7 +1,7 @@
 // Prompt compartido por app/api/ai/recomendacion/route.ts (llamado desde el
 // cliente) y app/api/cron/automatizaciones/route.ts (llamado desde el cron de
 // servidor) — para que la redacción de la IA nunca diverja entre las dos vías
-// de ejecución, igual que lib/automation-engine.ts hace con la detección.
+// de ejecución, igual que lib/engines/automation-engine.ts hace con la detección.
 
 export const RECOMENDACION_SYSTEM_PROMPT = `Eres el asistente de marketing y retención de un estudio de Pilates.
 Recibes datos de una situación real detectada automáticamente a partir de los datos del negocio y debes redactar el texto adecuado. Tono cercano y profesional — nunca infantil, como Apple Fitness o Strava, no como un chiringuito.

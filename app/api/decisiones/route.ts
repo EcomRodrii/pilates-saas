@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { tieneFeature } from '@/lib/billing/entitlements';
-import { requireSupabaseAdmin } from '@/lib/supabase-admin';
+import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { dbListPendientes, dbGetResumenDiarioReciente } from '@/lib/decision/db';
 import { calcularEstadoEspecialista } from '@/lib/decision/director';
 import { seleccionarPrioridadesHome } from '@/lib/decision/prioridad';

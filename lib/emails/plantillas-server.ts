@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resuelve el override de plantilla de email de un estudio (asunto + intro).

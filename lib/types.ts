@@ -691,7 +691,7 @@ export interface ComentarioComunidad {
 
 // ─── Gamificación: créditos y recompensas ─────────────────────────────────────
 // El estudio configura CUÁNTO vale cada acción (RewardRule) — el motor
-// (lib/reward-engine.ts) nunca usa números fijos, siempre lee la regla.
+// (lib/engines/reward-engine.ts) nunca usa números fijos, siempre lee la regla.
 
 export type RewardTrigger =
   | 'ASISTENCIA_CLASE'
@@ -914,7 +914,7 @@ export type EstadoReto = 'ACTIVO' | 'COMPLETADO' | 'CADUCADO';
 
 // ─── Dashboard: gráficos personalizados ────────────────────────────────────
 // El estudio arma su propio panel eligiendo qué métrica graficar y cómo — el
-// motor (lib/dashboard-chart-engine.ts) solo sabe calcular las métricas del
+// motor (lib/engines/dashboard-chart-engine.ts) solo sabe calcular las métricas del
 // catálogo fijo, todo lo demás (nombre, tipo, rango, color) es su elección.
 
 export type TipoGraficoDashboard = 'LINEA' | 'BARRAS';
@@ -937,7 +937,7 @@ export interface DashboardChart {
 // ─── Copias de seguridad ────────────────────────────────────────────────────
 // El contenido real (jsonb con todas las tablas) nunca llega al cliente —
 // solo se lee/escribe desde rutas de servidor con la service role key (ver
-// lib/backup-engine.ts). El panel solo ve estos metadatos.
+// lib/engines/backup-engine.ts). El panel solo ve estos metadatos.
 
 export type TipoBackup = 'DIARIO' | 'SEMANAL' | 'MENSUAL' | 'MANUAL';
 

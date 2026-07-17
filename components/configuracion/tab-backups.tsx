@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { DatabaseBackup, RotateCcw, ShieldAlert, Loader2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/db/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { BackupMeta, TipoBackup } from '@/lib/types';

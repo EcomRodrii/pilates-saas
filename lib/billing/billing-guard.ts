@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// R7 · Envoltorio HTTP de las reglas de billing (lib/billing-rules.ts).
+// R7 · Envoltorio HTTP de las reglas de billing (lib/billing/billing-rules.ts).
 // Esto es lo que importan las rutas API: cada guarda devuelve `null` si se puede
 // continuar, o un `NextResponse` de error que el llamador devuelve tal cual:
 //

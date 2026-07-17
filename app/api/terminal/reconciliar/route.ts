@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // A-14 (backstop): marca un cobro por datáfono como RECONCILIADO una vez que su
 // venta está registrada. Lo llama el POS tanto en el flujo normal (tras el tap

@@ -2279,7 +2279,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Gamificación: retos ────────────────────────────────────────────────────────
   // A diferencia de un logro, un reto tiene fechaInicio/fechaFin — solo cuenta
-  // lo ocurrido dentro de esa ventana (ver lib/challenge-engine.ts).
+  // lo ocurrido dentro de esa ventana (ver lib/engines/challenge-engine.ts).
 
   function addChallengeDefinition(fields: Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'>) {
     const nuevo: ChallengeDefinition = { ...fields, id: `cha-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };

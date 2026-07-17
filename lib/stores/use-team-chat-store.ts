@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { uid } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/db/supabase';
 import {
   getCurrentStudioId,
   dbInsertMensajeEquipo,
