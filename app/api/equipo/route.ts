@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // A-2: gestión del equipo (alta/edición/baja de instructoras y su ROL) con
 // enforcement de servidor. Antes el cliente escribía `rol` —incluido PROPIETARIO—

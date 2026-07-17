@@ -1,4 +1,4 @@
-import type { Plan } from '@/lib/entitlements';
+import type { Plan } from '@/lib/billing/entitlements';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Billing del SaaS (Stripe Billing — la plataforma cobra al estudio).

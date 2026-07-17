@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
-import { applicationFeeAmount } from '@/lib/stripe-fees';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -86,7 +86,7 @@ export async function cobrarReciboOffSession(params: {
 
   try {
     const amountCents = Math.round(recibo.importe * 100);
-    // R2: take-rate de plataforma (apagado por defecto; ver lib/stripe-fees.ts).
+    // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
     const fee = applicationFeeAmount(amountCents);
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,

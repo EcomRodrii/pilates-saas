@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { supabase } from '@/lib/db/supabase';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 export interface SesionStaff {
   userId: string;

@@ -31,7 +31,7 @@ import {
   dbInsertCondicion, dbUpdateCondicion, dbDeleteCondicion,
   dbInsertRespuestaSesion, dbUpdateRespuestaSesion,
   dbInsertCampana, dbDeleteCampana, dbUpdateCampana,
-  dbInsertAutomatizacion, dbUpdateAutomatizacion,
+  dbInsertAutomatizacion, dbUpdateAutomatizacion, dbDeleteAutomatizacion,
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
@@ -106,11 +106,11 @@ import type {
 import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
-import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/reward-engine';
-import { calcularMetrica } from '@/lib/achievement-engine';
-import { calcularRacha, type RachaInfo } from '@/lib/streak-engine';
-import { calcularNivel, type NivelInfo } from '@/lib/level-engine';
-import { calcularProgresoReto } from '@/lib/challenge-engine';
+import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
+import { calcularMetrica } from '@/lib/engines/achievement-engine';
+import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
+import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
+import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid } from '@/lib/utils';
 import {
   decidirReservaNueva,
@@ -266,11 +266,14 @@ interface StudioContextValue {
   addCampana: (fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>) => void;
   deleteCampana: (id: string) => void;
   duplicateCampana: (campana: Campana) => void;
+  updateCampana: (id: string, patch: Partial<Campana>) => void;
   enviarCampana: (campana: Campana) => Promise<{ enviados: number; total: number }>;
 
   // Automatizaciones
   automatizaciones: Automatizacion[];
   addAutomatizacion: (fields: Omit<Automatizacion, 'id' | 'studioId' | 'ejecutadas' | 'creadaEn'>) => void;
+  updateAutomatizacion: (id: string, patch: Partial<Automatizacion>) => void;
+  deleteAutomatizacion: (id: string) => void;
   toggleAutomatizacion: (autoId: string) => void;
 
   // Códigos de descuento
@@ -1907,6 +1910,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbInsertCampana(copy);
   }
 
+  // Actualiza campos de una campaña (usado para el ciclo de vida:
+  // pausar/reanudar/finalizar → cambios de `estado`). Persiste en BD con el
+  // mismo helper que ya usa el envío.
+  function updateCampana(id: string, patch: Partial<Campana>) {
+    setCampanas(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)));
+    dbUpdateCampana(id, patch);
+  }
+
   // Resuelve las destinatarias de una campaña a partir de su segmento.
   function resolverDestinatariasCampana(destinatarios: DestinatariosCampana): Socio[] {
     const conSusActiva = new Set(
@@ -1982,6 +1993,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     };
     setAutomatizaciones(prev => [nueva, ...prev]);
     dbInsertAutomatizacion(nueva);
+  }
+
+  function updateAutomatizacion(id: string, patch: Partial<Automatizacion>) {
+    setAutomatizaciones(prev => prev.map(a => (a.id === id ? { ...a, ...patch } : a)));
+    dbUpdateAutomatizacion(id, patch);
+  }
+
+  function deleteAutomatizacion(id: string) {
+    setAutomatizaciones(prev => prev.filter(a => a.id !== id));
+    dbDeleteAutomatizacion(id);
   }
 
   function toggleAutomatizacion(autoId: string) {
@@ -2279,7 +2300,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Gamificación: retos ────────────────────────────────────────────────────────
   // A diferencia de un logro, un reto tiene fechaInicio/fechaFin — solo cuenta
-  // lo ocurrido dentro de esa ventana (ver lib/challenge-engine.ts).
+  // lo ocurrido dentro de esa ventana (ver lib/engines/challenge-engine.ts).
 
   function addChallengeDefinition(fields: Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'>) {
     const nuevo: ChallengeDefinition = { ...fields, id: `cha-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
@@ -2551,9 +2572,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addCampana,
     deleteCampana,
     duplicateCampana,
+    updateCampana,
     enviarCampana,
     automatizaciones,
     addAutomatizacion,
+    updateAutomatizacion,
+    deleteAutomatizacion,
     toggleAutomatizacion,
     codigosDescuento,
     addCodigoDescuento: discountCodes.addCodigoDescuento,

@@ -7,7 +7,7 @@
 // PERMITE la petición. Un limitador nunca debe tumbar la app; su ausencia degrada
 // a "sin límite", igual que el resto de integraciones gated por env del proyecto.
 
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
   type RateLimitOptions, rateLimitKey, retryAfterSeconds, tooManyRequestsResponse,
 } from '@/lib/rate-limit-core';

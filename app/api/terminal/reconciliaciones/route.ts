@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // A-14 (backstop): cobros por datáfono confirmados en Stripe pero aún sin venta
 // registrada (el POS se cerró tras el tap). Scopeado al estudio del JWT.

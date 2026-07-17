@@ -446,6 +446,16 @@ export interface Campana {
   creadaEn: string;
   enviadaEn: string | null;
   programadaEn: string | null;
+  objetivo?: string | null;
+  presupuesto?: number | null;
+  // Publicaciones del módulo Contenido asociadas a la campaña (snapshot).
+  publicaciones?: PublicacionAsociada[] | null;
+}
+
+export interface PublicacionAsociada {
+  id: string;
+  titulo: string;
+  plataformas?: string[];
 }
 
 export type TriggerAutomatizacion =
@@ -458,7 +468,8 @@ export type TriggerAutomatizacion =
   | 'BONO_AGOTADO'
   | 'BONO_QUEDA_1'
   | 'NUEVA_ALTA'
-  | 'CITA_RECORDATORIO';
+  | 'CITA_RECORDATORIO'
+  | 'CONTENIDO_PUBLICADO';
 
 export interface Automatizacion {
   id: string;
@@ -471,6 +482,23 @@ export interface Automatizacion {
   activa: boolean;
   ejecutadas: number;
   creadaEn: string;
+  // Constructor visual de flujos (Fase 7): cadena de acciones. Si está vacío,
+  // la automatización usa el modo simple (campos accion/asunto/mensaje).
+  pasos?: PasoFlujo[] | null;
+}
+
+// Acciones disponibles en el constructor visual de flujos.
+export type AccionFlujo = 'EMAIL' | 'TAREA' | 'PUBLICAR_RED' | 'NOTIFICAR_EQUIPO';
+
+export interface PasoFlujo {
+  id: string;
+  accion: AccionFlujo;
+  // Config específica por acción (claves libres):
+  //  EMAIL: { asunto, mensaje }
+  //  TAREA: { titulo, asignadoA }
+  //  PUBLICAR_RED: { red, texto }
+  //  NOTIFICAR_EQUIPO: { mensaje }
+  config: Record<string, string>;
 }
 
 // ─── Motor de automatización avanzado ────────────────────────────────────────
@@ -562,6 +590,8 @@ export interface CodigoDescuento {
   expira: string | null;
   activo: boolean;
   creadoEn: string;
+  minImporte?: number | null;
+  soloNuevas?: boolean;
 }
 
 export type TipoActividad =
@@ -587,7 +617,8 @@ export type TipoActividad =
   | 'EQUIPO_EDITADO'
   | 'EQUIPO_BAJA'
   | 'AUTOMATIZACION_CAMBIO'
-  | 'DECISION_GESTIONADA';
+  | 'DECISION_GESTIONADA'
+  | 'SESION_REASIGNADA';
 
 export interface ActividadReciente {
   id: string;
@@ -691,7 +722,7 @@ export interface ComentarioComunidad {
 
 // ─── Gamificación: créditos y recompensas ─────────────────────────────────────
 // El estudio configura CUÁNTO vale cada acción (RewardRule) — el motor
-// (lib/reward-engine.ts) nunca usa números fijos, siempre lee la regla.
+// (lib/engines/reward-engine.ts) nunca usa números fijos, siempre lee la regla.
 
 export type RewardTrigger =
   | 'ASISTENCIA_CLASE'
@@ -914,7 +945,7 @@ export type EstadoReto = 'ACTIVO' | 'COMPLETADO' | 'CADUCADO';
 
 // ─── Dashboard: gráficos personalizados ────────────────────────────────────
 // El estudio arma su propio panel eligiendo qué métrica graficar y cómo — el
-// motor (lib/dashboard-chart-engine.ts) solo sabe calcular las métricas del
+// motor (lib/engines/dashboard-chart-engine.ts) solo sabe calcular las métricas del
 // catálogo fijo, todo lo demás (nombre, tipo, rango, color) es su elección.
 
 export type TipoGraficoDashboard = 'LINEA' | 'BARRAS';
@@ -937,7 +968,7 @@ export interface DashboardChart {
 // ─── Copias de seguridad ────────────────────────────────────────────────────
 // El contenido real (jsonb con todas las tablas) nunca llega al cliente —
 // solo se lee/escribe desde rutas de servidor con la service role key (ver
-// lib/backup-engine.ts). El panel solo ve estos metadatos.
+// lib/engines/backup-engine.ts). El panel solo ve estos metadatos.
 
 export type TipoBackup = 'DIARIO' | 'SEMANAL' | 'MENSUAL' | 'MANUAL';
 

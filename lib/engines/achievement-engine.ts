@@ -1,5 +1,5 @@
 import type { AchievementMetric, AchievementMetricDef, Reserva, Sesion, Socio } from '@/lib/types';
-import { calcularRacha } from '@/lib/streak-engine';
+import { calcularRacha } from '@/lib/engines/streak-engine';
 
 // Catálogo de métricas que la app sabe calcular. El estudio no inventa
 // métricas nuevas (eso es código), pero SÍ decide el umbral de cada logro

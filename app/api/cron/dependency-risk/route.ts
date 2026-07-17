@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { calcularDependenciaTodosLosEstudios } from '@/lib/instructor-dependency';
 
 export const dynamic = 'force-dynamic';

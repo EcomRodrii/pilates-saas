@@ -1,15 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // R7 · Reglas de enforcement de plan/suscripción — LÓGICA PURA (sin next/server,
 // testeable con `node --test`). El envoltorio HTTP (NextResponse) vive en
-// lib/billing-guard.ts, que es lo que importan las rutas.
+// lib/billing/billing-guard.ts, que es lo que importan las rutas.
 //
 // FILOSOFÍA: todo detrás de `BILLING_ENFORCED`. Con la env sin poner (estado
 // actual de prod, sin planes asignados) las reglas FALLAN ABIERTO — no bloquean
 // a nadie. Se encienden con BILLING_ENFORCED=true en Vercel cuando el billing
-// está vivo. Ver también lib/stripe-fees.ts (mismo patrón "mecanismo apagado").
+// está vivo. Ver también lib/billing/stripe-fees.ts (mismo patrón "mecanismo apagado").
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { getSupabaseAdmin } from './supabase-admin.ts';
+import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { accesoProducto, tieneFeature, entitlementsDe, type Entitlements } from './entitlements.ts';
 
 /** Motivo de denegación (sin acoplar a HTTP: el status es orientativo del código). */

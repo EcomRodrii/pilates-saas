@@ -1,5 +1,5 @@
 import { AwsClient } from 'aws4fetch';
-import type { BackupSnapshot } from '@/lib/backup-engine';
+import type { BackupSnapshot } from '@/lib/engines/backup-engine';
 
 // Cloudflare R2 (S3-compatible) para guardar los snapshots de backup FUERA de
 // Postgres (P0-13/14). Guardar el backup dentro de la misma BD que respalda es

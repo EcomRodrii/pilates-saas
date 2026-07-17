@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllStudioData, dbUpdateAutomationRule } from '@/lib/supabase-data';
-import { computeAutomationCandidatos } from '@/lib/automation-engine';
+import { computeAutomationCandidatos } from '@/lib/engines/automation-engine';
 import { procesarCandidato } from '@/lib/inngest/automatizaciones';
 import { mapLimit } from '@/lib/concurrency';
 import type { AutomationLog } from '@/lib/types';

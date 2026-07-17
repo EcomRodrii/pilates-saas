@@ -3,13 +3,16 @@
 import { useMemo, useState } from 'react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { CheckCircle2, Clock, XCircle, FileText, CreditCard, AlertCircle } from 'lucide-react';
+import { useModo } from '@/lib/portal-modo';
+import { CheckCircle2, Clock, XCircle, CreditCard, AlertCircle } from 'lucide-react';
+import { formatFechaLarga as formatDate } from '@/lib/utils';
 
 type Filtro = 'TODOS' | 'COBRADO' | 'PENDIENTE';
 
 export default function MiPlanPage() {
   const { session } = usePortalAuth();
   const { suscripciones, planesTarifa, recibos, facturas } = useStudio();
+  const { t } = useModo();
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
   const socioId = session?.socioId;
 
@@ -34,8 +37,6 @@ export default function MiPlanPage() {
     return misRecibos;
   }, [misRecibos, filtro]);
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
   const formatEur = (n: number) =>
     n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
@@ -48,136 +49,142 @@ export default function MiPlanPage() {
   const hoyStr = new Date().toISOString().slice(0, 10);
   const caducada = !!(suscripcion?.fechaFin && suscripcion.fechaFin < hoyStr);
 
+  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 22 };
+  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
+
   return (
-    <div className="bg-white min-h-full">
+    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
 
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
-        <h1 className="text-white text-[28px] font-extrabold tracking-tight">Mi plan</h1>
-        <p className="text-white/50 text-[13px] mt-0.5">{formatEur(totalPagado)} pagado en total</p>
+      <div style={{ padding: '24px 20px 20px' }}>
+        <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1 }}>Mi plan</h1>
+        <p style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>{formatEur(totalPagado)} pagado en total</p>
       </div>
 
-      <div className="px-4 pt-4 pb-6 space-y-5">
+      <div style={{ padding: '0 16px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {/* Plan card */}
         {plan && suscripcion ? (
-          <div className="rounded-3xl overflow-hidden shadow-md" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
-            <div className="p-5" style={{ background: 'linear-gradient(135deg, #1A1A1A, var(--portal-brand-secondary))' }}>
-              <div className="flex items-start justify-between mb-4">
+          <div style={{ borderRadius: 26, overflow: 'hidden', border: `1px solid ${t.heroLine}` }}>
+            <div style={{ padding: 20, background: t.hero }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
                 <div>
-                  <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-1">
+                  <p style={{ ...microLabel, color: t.heroAccent, marginBottom: 4 }}>
                     {plan.tipo === 'MENSUAL' ? 'Suscripción mensual' : 'Bono de sesiones'}
                   </p>
-                  <p className="text-white text-[22px] font-extrabold leading-tight">{plan.nombre}</p>
+                  <p style={{ color: t.heroText, fontSize: 22, fontWeight: 800, lineHeight: 1.1, textTransform: 'uppercase' }}>{plan.nombre}</p>
                 </div>
                 {caducada ? (
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-red-500 text-white">Caducado</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '5px 10px', borderRadius: 999, background: '#DC2626', color: '#fff' }}>Caducado</span>
                 ) : (
-                  <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center">
-                    <CreditCard size={18} className="text-white" />
+                  <div style={{ width: 40, height: 40, borderRadius: 14, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CreditCard size={18} style={{ color: t.heroAccent }} />
                   </div>
                 )}
               </div>
               {caducada && (
-                <div className="flex items-center gap-2 bg-white/15 rounded-2xl px-4 py-2.5 mb-3">
-                  <AlertCircle size={15} className="text-white shrink-0" />
-                  <p className="text-white text-[12px] font-medium leading-tight">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: t.surface2, borderRadius: 16, padding: '10px 16px', marginBottom: 12 }}>
+                  <AlertCircle size={15} style={{ color: '#DC2626', flexShrink: 0 }} />
+                  <p style={{ color: t.heroText, fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>
                     Venció el {formatDate(suscripcion.fechaFin!)}. Habla con tu instructor para renovar.
                   </p>
                 </div>
               )}
 
               {sesionesProgress !== null && suscripcion.sesionesRestantes != null && plan.sesiones ? (
-                <div className="bg-white/10 rounded-2xl p-4">
-                  <div className="flex justify-between items-baseline mb-2">
-                    <span className="text-white text-[24px] font-extrabold">{suscripcion.sesionesRestantes}</span>
-                    <span className="text-white/60 text-[13px]">de {plan.sesiones} sesiones</span>
+                <div style={{ background: t.surface2, borderRadius: 16, padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                    <span style={{ color: t.heroText, fontSize: 24, fontWeight: 800 }}>{suscripcion.sesionesRestantes}</span>
+                    <span style={{ color: t.heroSub, fontSize: 13 }}>de {plan.sesiones} sesiones</span>
                   </div>
-                  <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{
-                      width: `${sesionesProgress}%`,
-                      backgroundColor: suscripcion.sesionesRestantes > 3 ? '#A5F3FC' : '#FCA5A5',
+                  <div style={{ height: 8, background: t.bar, borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${sesionesProgress}%`, height: '100%', borderRadius: 999,
+                      backgroundColor: suscripcion.sesionesRestantes > 3 ? 'var(--portal-brand)' : '#EF4444',
                     }} />
                   </div>
                 </div>
               ) : (
-                <div className="bg-white/10 rounded-2xl px-4 py-3 flex justify-between items-center">
+                <div style={{ background: t.surface2, borderRadius: 16, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <p className="text-white/60 text-[11px]">Inicio</p>
-                    <p className="text-white font-bold text-[14px]">{formatDate(suscripcion.fechaInicio)}</p>
+                    <p style={{ color: t.heroSub, fontSize: 11 }}>Inicio</p>
+                    <p style={{ color: t.heroText, fontWeight: 800, fontSize: 14 }}>{formatDate(suscripcion.fechaInicio)}</p>
                   </div>
                   {suscripcion.fechaFin && (
-                    <div className="text-right">
-                      <p className="text-white/60 text-[11px]">Vence</p>
-                      <p className="text-white font-bold text-[14px]">{formatDate(suscripcion.fechaFin)}</p>
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ color: t.heroSub, fontSize: 11 }}>Vence</p>
+                      <p style={{ color: t.heroText, fontWeight: 800, fontSize: 14 }}>{formatDate(suscripcion.fechaFin)}</p>
                     </div>
                   )}
-                  <div className="text-right">
-                    <p className="text-white/60 text-[11px]">Precio</p>
-                    <p className="text-white font-extrabold text-[16px]">{formatEur(plan.precio)}/mes</p>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ color: t.heroSub, fontSize: 11 }}>Precio</p>
+                    <p style={{ color: t.heroText, fontWeight: 800, fontSize: 16 }}>{formatEur(plan.precio)}/mes</p>
                   </div>
                 </div>
               )}
             </div>
           </div>
         ) : (
-          <div className="bg-[#F5F5F1] rounded-3xl p-8 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-portal-brand/10 flex items-center justify-center mx-auto mb-3">
-              <CreditCard size={24} className="text-portal-brand-secondary" />
+          <div style={{ ...card, padding: 32, textAlign: 'center' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+              <CreditCard size={24} style={{ color: t.heroAccent }} />
             </div>
-            <p className="font-bold text-[#171717] text-[16px]">Sin plan activo</p>
-            <p className="text-[13px] text-[#8E8E93] mt-1">Habla con tu instructor para contratar un plan</p>
+            <p style={{ fontWeight: 800, color: t.ink, fontSize: 16 }}>Sin plan activo</p>
+            <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>Habla con tu instructor para contratar un plan</p>
           </div>
         )}
 
         {/* Historial */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest">Historial de pagos</p>
-          </div>
+          <p style={{ ...microLabel, marginBottom: 12 }}>Historial de pagos</p>
 
           {/* Filtros */}
-          <div className="flex gap-2 mb-4">
-            {(['TODOS', 'COBRADO', 'PENDIENTE'] as Filtro[]).map(f => (
-              <button
-                key={f}
-                onClick={() => setFiltro(f)}
-                className="px-3.5 py-1.5 rounded-2xl text-[12px] font-bold transition-all"
-                style={{
-                  backgroundColor: filtro === f ? '#171717' : '#F1F1EC',
-                  color: filtro === f ? 'white' : '#8E8E86',
-                }}
-              >
-                {f === 'TODOS' ? 'Todos' : f === 'COBRADO' ? 'Pagados' : 'Pendientes'}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {(['TODOS', 'COBRADO', 'PENDIENTE'] as Filtro[]).map(f => {
+              const active = filtro === f;
+              return (
+                <button
+                  key={f}
+                  onClick={() => setFiltro(f)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 16, fontSize: 12, fontWeight: 800, border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
+                    backgroundColor: active ? 'var(--portal-brand)' : t.surface2, color: active ? t.accentInk : t.muted,
+                  }}
+                >
+                  {f === 'TODOS' ? 'Todos' : f === 'COBRADO' ? 'Pagados' : 'Pendientes'}
+                </button>
+              );
+            })}
           </div>
 
           {recibosFiltrados.length === 0 ? (
-            <div className="rounded-2xl bg-[#F5F5F1] p-8 text-center">
-              <p className="text-[14px] text-[#8E8E93]">Sin recibos en esta categoría</p>
+            <div style={{ borderRadius: 18, background: t.surface2, padding: 32, textAlign: 'center' }}>
+              <p style={{ fontSize: 14, color: t.muted }}>Sin recibos en esta categoría</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {recibosFiltrados.map(rec => {
                 const factura = facturas.find(f => f.reciboId === rec.id);
                 const cobrado = rec.estado === 'COBRADO';
                 const devuelto = rec.estado === 'DEVUELTO';
                 return (
-                  <div key={rec.id} className="bg-white rounded-2xl px-4 py-3.5 flex items-center gap-3" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${cobrado ? 'bg-green-50' : devuelto ? 'bg-red-50' : 'bg-amber-50'}`}>
-                      {cobrado ? <CheckCircle2 size={18} className="text-green-600" />
-                        : devuelto ? <XCircle size={18} className="text-red-500" />
-                        : <Clock size={18} className="text-amber-500" />}
+                  <div key={rec.id} style={{ ...card, borderRadius: 18, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      background: cobrado ? 'rgba(62,155,108,0.12)' : devuelto ? 'rgba(239,68,68,0.12)' : 'rgba(217,119,6,0.12)',
+                    }}>
+                      {cobrado ? <CheckCircle2 size={18} style={{ color: '#3E9B6C' }} />
+                        : devuelto ? <XCircle size={18} style={{ color: '#EF4444' }} />
+                        : <Clock size={18} style={{ color: '#D97706' }} />}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-semibold text-[#171717] truncate">{rec.concepto}</p>
-                      <p className="text-[11px] text-[#8E8E93] mt-0.5">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.concepto}</p>
+                      <p style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
                         {formatDate(rec.fechaCobro ?? rec.fechaVencimiento)}
-                        {factura && <span className="text-portal-brand-secondary ml-2 font-semibold">· Factura</span>}
+                        {factura && <span style={{ color: t.heroAccent, marginLeft: 8, fontWeight: 700 }}>· Factura</span>}
                       </p>
                     </div>
-                    <p className="text-[15px] font-extrabold shrink-0" style={{ color: cobrado ? '#059669' : '#8E8E93' }}>
+                    <p style={{ fontSize: 15, fontWeight: 800, flexShrink: 0, color: cobrado ? '#3E9B6C' : t.muted }}>
                       {formatEur(rec.importe)}
                     </p>
                   </div>

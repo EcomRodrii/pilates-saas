@@ -78,6 +78,7 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   EQUIPO_BAJA:        { color: '#DC2626', bg: '#FEF2F2', label: 'Baja equipo' },
   AUTOMATIZACION_CAMBIO: { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Automatización' },
   DECISION_GESTIONADA: { color: '#7C3AED', bg: '#EDE9FE', label: 'Centro de Control' },
+  SESION_REASIGNADA:  { color: '#0891B2', bg: '#ECFEFF', label: 'Sustitución' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────
