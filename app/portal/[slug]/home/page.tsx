@@ -1,5 +1,10 @@
 'use client';
 
+// Reemplazo drop-in de app/portal/[slug]/home/page.tsx
+// Rediseño "Impulso" (deportivo, data-forward) con modo día/noche.
+// La CAPA DE DATOS es idéntica a la original: mismos hooks, mismos cálculos,
+// mismos href y handlers. Solo cambian el markup y los estilos.
+
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -8,15 +13,18 @@ import { useStudio } from '@/lib/studio-context';
 import {
   Calendar, CreditCard, Play, Clock, ChevronRight, Zap,
   AlertCircle, ListChecks, User, AlertTriangle, Coins, UserPlus, Bell,
+  Sun, Moon, MapPin, QrCode, Flame,
 } from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext } from '@/lib/portal-home-logic';
 import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
+import { useModo } from '@/lib/portal-modo';
 
 export default function PortalHome() {
   const { slug } = useParams<{ slug: string }>();
   const { session } = usePortalAuth();
   const { socios, suscripciones, planesTarifa, sesiones, reservas, recibos, tiposClase, salas, instructores, saldoCreditos, rachaSocio, addReserva } = useStudio();
+  const { noche, toggle, t } = useModo();
 
   const socio = socios.find(s => s.id === session?.socioId);
   const activeSus = suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA') ?? null;
@@ -56,14 +64,12 @@ export default function PortalHome() {
   const formatDayShort = (iso: string) =>
     new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
 
-  // ── Notificaciones (campana) ──────────────────────
   const notifItems = useMemo(() => {
     if (!session?.socioId) return [];
     return buildPortalNotifications({ socioId: session.socioId, reservas, recibos, sesiones, tiposClase, instructores });
   }, [session?.socioId, reservas, recibos, sesiones, tiposClase, instructores]);
   const unreadCount = usePortalNotifUnreadCount(session?.socioId, notifItems);
 
-  // ── Reserva rápida: próximos 5 días + clases del día seleccionado ──
   const proximosDias = useMemo(() => {
     return Array.from({ length: 5 }, (_, i) => {
       const d = new Date(now); d.setDate(d.getDate() + i); d.setHours(0, 0, 0, 0);
@@ -87,330 +93,217 @@ export default function PortalHome() {
   const getMiReserva = (sesionId: string) =>
     misReservas.find(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')) ?? null;
 
+  // ── Estilos derivados del tema ──────────────────────────────
+  const accentBg = noche ? 'var(--portal-brand)' : t.ink;
+  const accentInk = t.accentInk;
+  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 22 };
+  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
+
   return (
-    <div className="bg-white min-h-full">
+    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <div style={{ padding: '20px 20px 8px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* ── Header gradient ─────────────────────────── */}
-      <div
-        className="px-5 pt-6 pb-8"
-        style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}
-      >
-        {/* Top row */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <p className="text-white/50 text-[13px] font-medium">{greeting}</p>
-            <h1 className="text-white text-[28px] font-extrabold leading-tight tracking-tight mt-0.5">
-              {nombre} 👋
-            </h1>
-            {racha && racha.semanas > 0 && (
-              <Link
-                href={`/portal/${slug}/progreso?tab=logros`}
-                className="inline-flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 mt-2 active:opacity-80 transition-opacity"
-              >
-                <span className="text-[13px]">🔥</span>
-                <span className="text-white text-[11px] font-bold">{racha.semanas} {racha.semanas === 1 ? 'semana' : 'semanas'} seguidas</span>
-              </Link>
-            )}
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: t.muted }}>{greeting}</span>
+            <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', color: t.ink, lineHeight: 1 }}>Hola, {nombre}</h1>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/portal/${slug}/notificaciones`}
-                className="relative w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:opacity-80 transition-opacity"
-              >
-                <Bell size={16} className="text-white" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-portal-brand ring-2 ring-[#1A1A1A]" />
-                )}
-              </Link>
-              <Link
-                href={`/portal/${slug}/perfil`}
-                className="rounded-full ring-2 ring-white/20 active:opacity-80 transition-opacity"
-              >
-                <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
-              </Link>
-            </div>
-            <Link
-              href={`/portal/${slug}/progreso?tab=recompensas`}
-              className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 active:opacity-80 transition-opacity"
-            >
-              <Coins size={11} className="text-portal-brand" />
-              <span className="text-white text-[11px] font-bold">{socio ? saldoCreditos(socio.id) : 0}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <button onClick={toggle} aria-label="Cambiar tema" style={{ width: 42, height: 42, borderRadius: 13, background: t.surface, border: `1px solid ${t.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {noche ? <Sun size={19} style={{ color: t.ink }} /> : <Moon size={19} style={{ color: t.ink }} />}
+            </button>
+            <Link href={`/portal/${slug}/notificaciones`} style={{ position: 'relative', width: 42, height: 42, borderRadius: 13, background: t.surface, border: `1px solid ${t.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bell size={18} style={{ color: t.ink }} />
+              {unreadCount > 0 && <span style={{ position: 'absolute', top: 8, right: 9, width: 8, height: 8, borderRadius: 999, background: 'var(--portal-brand)', border: `1.5px solid ${t.surface}` }} />}
+            </Link>
+            <Link href={`/portal/${slug}/perfil`} style={{ borderRadius: 13, overflow: 'hidden' }}>
+              <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
             </Link>
           </div>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { value: clasesEsteMes, label: 'Este mes' },
-            { value: totalAsistidas, label: 'Total' },
-            {
-              value: activeSus?.sesionesRestantes != null ? activeSus.sesionesRestantes : '∞',
-              label: 'Restantes',
-              highlight: activeSus?.sesionesRestantes != null && activeSus.sesionesRestantes <= 3,
-            },
-          ].map(({ value, label, highlight }) => (
-            <div key={label} className="bg-white/10 rounded-2xl px-3 py-3 text-center">
-              <p className={`text-[26px] font-extrabold leading-none ${highlight ? 'text-red-400' : 'text-white'}`}>
-                {value}
-              </p>
-              <p className="text-white/50 text-[10px] font-semibold mt-1.5 uppercase tracking-wider">{label}</p>
+        {/* ── Stats: racha grande + mes/total ── */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link href={`/portal/${slug}/progreso?tab=logros`} style={{ flex: 1.3, ...card, padding: 18, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 10, textDecoration: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={microLabel}>Racha</span>
+              <Flame size={17} style={{ color: 'var(--portal-brand)' }} />
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Reserva rápida ───────────────────────────── */}
-      <div className="px-4 -mt-4">
-        <div className="bg-white rounded-3xl shadow-sm border border-black/[0.06] p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[15px] font-extrabold text-[#171717]">Reserva rápida</p>
-            <Link href={`/portal/${slug}/clases`} className="flex items-center gap-0.5 text-[12px] font-bold text-portal-brand-secondary active:opacity-70">
-              Ver agenda <ChevronRight size={13} />
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+              <span style={{ fontSize: 42, fontWeight: 800, color: t.ink, lineHeight: 0.9 }}>{racha?.semanas ?? 0}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: t.muted }}>sem</span>
+            </div>
+          </Link>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ flex: 1, ...card, borderRadius: 18, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ ...microLabel, fontSize: 10.5, letterSpacing: '0.08em' }}>Mes</span>
+              <span style={{ fontSize: 22, fontWeight: 800, color: t.ink }}>{clasesEsteMes}</span>
+            </div>
+            <Link href={`/portal/${slug}/progreso?tab=recompensas`} style={{ flex: 1, ...card, borderRadius: 18, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, ...microLabel, fontSize: 10.5, letterSpacing: '0.08em' }}><Coins size={12} style={{ color: 'var(--portal-brand)' }} />Créditos</span>
+              <span style={{ fontSize: 22, fontWeight: 800, color: t.ink }}>{socio ? saldoCreditos(socio.id) : 0}</span>
             </Link>
           </div>
-
-          {/* Tira de días */}
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
-            {proximosDias.map((d, i) => {
-              const activo = i === diaSeleccionado;
-              return (
-                <button
-                  key={d.toISOString()}
-                  onClick={() => setDiaSeleccionado(i)}
-                  className="shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-colors"
-                  style={{ backgroundColor: activo ? '#171717' : '#F1F1EC' }}
-                >
-                  <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: activo ? 'rgba(255,255,255,0.6)' : '#A8A89E' }}>
-                    {d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}
-                  </span>
-                  <span className="text-[16px] font-extrabold" style={{ color: activo ? 'white' : '#171717' }}>
-                    {d.getDate()}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Clases del día */}
-          <div className="mt-3 space-y-2">
-            {clasesDelDia.length === 0 ? (
-              <p className="text-[13px] text-[#8E8E93] py-4 text-center">Sin clases este día</p>
-            ) : (
-              clasesDelDia.map(ses => {
-                const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
-                const instr = instructores.find(i => i.id === ses.instructorId);
-                const libres = getLibres(ses.id, ses.aforoMaximo);
-                const miReserva = getMiReserva(ses.id);
-                return (
-                  <div key={ses.id} className="flex items-center gap-3 py-2 border-b border-[#F5F5F5] last:border-0">
-                    <Link href={`/portal/${slug}/clases/${ses.id}`} className="flex items-center gap-3 flex-1 min-w-0 active:opacity-70">
-                      <p className="text-[13px] font-bold text-[#171717] w-12 shrink-0">{formatTime(ses.inicio)}</p>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13.5px] font-bold text-[#171717] truncate">{tipo?.nombre ?? 'Clase'}</p>
-                        <p className="text-[11.5px] text-[#8E8E93] truncate">
-                          {instr?.nombre ?? ''}{instr ? ' · ' : ''}{libres > 0 ? `${libres} libre${libres !== 1 ? 's' : ''}` : 'Completo'}
-                        </p>
-                      </div>
-                    </Link>
-                    {miReserva ? (
-                      <span className="shrink-0 text-[11px] font-bold text-green-700 bg-green-50 px-3 py-1.5 rounded-xl">Reservada</span>
-                    ) : (
-                      <button
-                        onClick={() => session?.socioId && addReserva(ses.id, session.socioId)}
-                        disabled={libres <= 0}
-                        className="shrink-0 text-[12px] font-bold text-white px-3.5 py-1.5 rounded-xl active:opacity-70 disabled:opacity-40 transition-opacity"
-                        style={{ backgroundColor: '#171717' }}
-                      >
-                        Reservar
-                      </button>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
         </div>
-      </div>
 
-      {/* ── Tarjeta principal contextual ─────────────── */}
-      <div className="px-4 mt-4">
-        {homeCard.caso === 'PROXIMA_CLASE' && (() => {
-          const color = homeCard.tipo?.color ?? 'var(--portal-brand)';
-          return (
-            <Link href={`/portal/${slug}/reservas`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
-              <div className="p-5 text-white" style={{ background: `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-1">Tu próxima clase</p>
-                    <p className="text-white text-[22px] font-extrabold leading-tight">{homeCard.tipo?.nombre ?? 'Clase'}</p>
-                    {homeCard.instructor && <p className="text-white/70 text-[13px] mt-0.5">con {homeCard.instructor.nombre}</p>}
-                  </div>
-                  <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
-                    <Zap size={20} className="text-white" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 bg-white/15 rounded-2xl px-4 py-3">
-                  <div className="flex items-center gap-1.5 text-white text-[13px] font-semibold">
-                    <Clock size={14} className="text-white/70" />
-                    {formatDayShort(homeCard.sesion.inicio)} · {formatTime(homeCard.sesion.inicio)}
-                  </div>
-                  {homeCard.sala && (
-                    <p className="text-white/60 text-[12px] ml-auto">{homeCard.sala.nombre}</p>
-                  )}
-                </div>
-                <p className="text-white/70 text-[12px] font-semibold mt-3 flex items-center gap-1">
-                  Ver reserva <ChevronRight size={13} />
-                </p>
+        {/* ── Tarjeta contextual ── */}
+        {homeCard.caso === 'PROXIMA_CLASE' && (
+          <Link href={`/portal/${slug}/reservas`} style={{ display: 'block', borderRadius: 26, overflow: 'hidden', textDecoration: 'none' }}>
+            <div style={{ background: t.hero, border: `1px solid ${t.heroLine}`, padding: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.heroAccent }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 999, background: t.heroAccent }} />Tu próxima clase
+                </span>
+                <Zap size={18} style={{ color: t.heroAccent }} />
               </div>
-            </Link>
-          );
-        })()}
+              <h3 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', color: t.heroText, lineHeight: 0.98 }}>{homeCard.tipo?.nombre ?? 'Clase'}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, fontSize: 12.5, fontWeight: 600, color: t.heroSub }}>
+                {homeCard.instructor && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><User size={14} />{homeCard.instructor.nombre}</span>}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Clock size={14} />{formatDayShort(homeCard.sesion.inicio)} · {formatTime(homeCard.sesion.inicio)}</span>
+                {homeCard.sala && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><MapPin size={14} />{homeCard.sala.nombre}</span>}
+              </div>
+              <div style={{ marginTop: 18, height: 50, borderRadius: 14, background: accentBg, color: accentInk, fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <QrCode size={17} />Ver reserva
+              </div>
+            </div>
+          </Link>
+        )}
 
         {homeCard.caso === 'ULTIMA_SESION' && (
-          <Link href={`/portal/${slug}/mi-plan`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
-            <div className="p-5 bg-gradient-to-br from-[#B45309] to-[#92400E] text-white">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertCircle size={18} className="text-white" />
-                <p className="text-white/70 text-[11px] font-bold uppercase tracking-widest">Último aviso</p>
-              </div>
-              <p className="text-white text-[20px] font-extrabold mb-1">Solo te queda una sesión del bono</p>
-              <p className="text-white/70 text-[13px] mb-4">Renueva antes de perder tu plaza.</p>
-              <div className="inline-flex items-center gap-2 bg-white text-[#92400E] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
-                Renovar
-              </div>
+          <Link href={`/portal/${slug}/mi-plan`} style={{ display: 'block', borderRadius: 26, overflow: 'hidden', textDecoration: 'none' }}>
+            <div style={{ padding: 20, background: 'linear-gradient(135deg,#B45309,#92400E)', color: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}><AlertCircle size={18} /><span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.75 }}>Último aviso</span></div>
+              <p style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Solo te queda una sesión del bono</p>
+              <p style={{ fontSize: 13, opacity: 0.75, marginBottom: 16 }}>Renueva antes de perder tu plaza.</p>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#92400E', fontSize: 13, fontWeight: 800, padding: '11px 18px', borderRadius: 14, textTransform: 'uppercase' }}>Renovar</span>
             </div>
           </Link>
         )}
 
         {homeCard.caso === 'RACHA_EN_RIESGO' && (
-          <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
-            <div className="p-5 bg-gradient-to-br from-[#EA580C] to-[#9A3412] text-white">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[18px]">🔥</span>
-                <p className="text-white/70 text-[11px] font-bold uppercase tracking-widest">Racha de {homeCard.semanas} semanas</p>
-              </div>
-              <p className="text-white text-[20px] font-extrabold mb-1">
-                Te quedan {homeCard.diasParaPerder} {homeCard.diasParaPerder === 1 ? 'día' : 'días'} para mantener tu racha
-              </p>
-              <p className="text-white/70 text-[13px] mb-4">Reserva una clase esta semana para no perderla.</p>
-              <div className="inline-flex items-center gap-2 bg-white text-[#9A3412] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
-                <Calendar size={15} />
-                Reservar ahora
-              </div>
+          <Link href={`/portal/${slug}/clases`} style={{ display: 'block', borderRadius: 26, overflow: 'hidden', textDecoration: 'none' }}>
+            <div style={{ padding: 20, background: 'linear-gradient(135deg,#EA580C,#9A3412)', color: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}><Flame size={18} /><span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.75 }}>Racha de {homeCard.semanas} semanas</span></div>
+              <p style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Te quedan {homeCard.diasParaPerder} {homeCard.diasParaPerder === 1 ? 'día' : 'días'} para mantener tu racha</p>
+              <p style={{ fontSize: 13, opacity: 0.75, marginBottom: 16 }}>Reserva una clase esta semana para no perderla.</p>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#9A3412', fontSize: 13, fontWeight: 800, padding: '11px 18px', borderRadius: 14, textTransform: 'uppercase' }}><Calendar size={15} />Reservar ahora</span>
             </div>
           </Link>
         )}
 
-        {homeCard.caso === 'INACTIVA' && (
-          <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
-            <div className="p-5 bg-gradient-to-br from-[#1A1A1A] to-[#3A3A34] text-white">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle size={18} className="text-portal-brand" />
-                <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest">
-                  {homeCard.diasSinVenir} días sin venir
-                </p>
-              </div>
-              <p className="text-white text-[20px] font-extrabold mb-1">Hace tiempo que no entrenas</p>
-              <p className="text-white/60 text-[13px] mb-4">Tenemos clases disponibles esta semana.</p>
-              <div className="inline-flex items-center gap-2 bg-white text-[#1A1A1A] text-[13px] font-bold px-4 py-2.5 rounded-2xl">
-                <Calendar size={15} />
-                Reservar
-              </div>
+        {(homeCard.caso === 'INACTIVA' || homeCard.caso === 'SIN_CLASES') && (
+          <Link href={`/portal/${slug}/clases`} style={{ display: 'block', borderRadius: 26, overflow: 'hidden', textDecoration: 'none' }}>
+            <div style={{ background: t.hero, border: `1px solid ${t.heroLine}`, padding: 20 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.heroAccent }}>{homeCard.caso === 'INACTIVA' ? `${homeCard.diasSinVenir} días sin venir` : 'Próxima clase'}</span>
+              <p style={{ fontSize: 20, fontWeight: 800, color: t.heroText, margin: '8px 0 4px', letterSpacing: '-0.01em' }}>{homeCard.caso === 'INACTIVA' ? 'Hace tiempo que no entrenas' : 'Aún no tienes ninguna clase reservada'}</p>
+              <p style={{ fontSize: 13, color: t.heroSub, marginBottom: 16 }}>Tenemos clases disponibles esta semana.</p>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: accentBg, color: accentInk, fontSize: 13, fontWeight: 800, padding: '12px 18px', borderRadius: 14, textTransform: 'uppercase' }}><Calendar size={15} />Reservar clase</div>
             </div>
           </Link>
         )}
 
-        {homeCard.caso === 'SIN_CLASES' && (
-          <Link href={`/portal/${slug}/clases`} className="block rounded-3xl overflow-hidden shadow-lg active:scale-[0.98] transition-transform">
-            <div className="p-5 bg-gradient-to-br from-[#1A1A1A] to-portal-brand-secondary text-white">
-              <p className="text-white/60 text-[11px] font-bold uppercase tracking-widest mb-3">Próxima clase</p>
-              <p className="text-white text-[20px] font-extrabold mb-1">Aún no tienes ninguna clase reservada</p>
-              <p className="text-white/60 text-[13px] mb-4">Reserva tu próxima sesión ahora</p>
-              <div className="inline-flex items-center gap-2 bg-white text-portal-brand-secondary text-[13px] font-bold px-4 py-2.5 rounded-2xl">
-                <Calendar size={15} />
-                Reservar clase
-              </div>
-            </div>
-          </Link>
-        )}
-      </div>
+        {/* ── Reserva rápida ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 15, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', color: t.ink }}>Reserva rápida</span>
+            <Link href={`/portal/${slug}/clases`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 12, fontWeight: 700, color: t.heroAccent }}>Ver agenda <ChevronRight size={13} /></Link>
+          </div>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
+            {proximosDias.map((d, i) => {
+              const activo = i === diaSeleccionado;
+              return (
+                <button key={d.toISOString()} onClick={() => setDiaSeleccionado(i)} style={{ flex: '0 0 auto', width: 52, height: 66, borderRadius: 16, border: `1px solid ${activo ? accentBg : t.line}`, background: activo ? accentBg : t.surface, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: activo ? accentInk : t.muted }}>{d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}</span>
+                  <span style={{ fontSize: 20, fontWeight: 800, color: activo ? accentInk : t.ink }}>{d.getDate()}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {clasesDelDia.length === 0 ? (
+              <p style={{ fontSize: 13, color: t.muted, padding: '16px 0', textAlign: 'center' }}>Sin clases este día</p>
+            ) : clasesDelDia.map(ses => {
+              const tipo = tiposClase.find(t2 => t2.id === ses.tipoClaseId);
+              const instr = instructores.find(i => i.id === ses.instructorId);
+              const libres = getLibres(ses.id, ses.aforoMaximo);
+              const miReserva = getMiReserva(ses.id);
+              return (
+                <div key={ses.id} style={{ ...card, borderRadius: 18, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <Link href={`/portal/${slug}/clases/${ses.id}`} style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: t.ink, width: 46 }}>{formatTime(ses.inicio)}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tipo?.nombre ?? 'Clase'}</p>
+                      <p style={{ fontSize: 11.5, color: t.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{instr?.nombre ?? ''}{instr ? ' · ' : ''}{libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''}` : 'Completo'}</p>
+                    </div>
+                  </Link>
+                  {miReserva ? (
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#3E9B6C', background: 'rgba(62,155,108,0.12)', padding: '8px 12px', borderRadius: 12, textTransform: 'uppercase' }}>Reservada</span>
+                  ) : (
+                    <button onClick={() => session?.socioId && addReserva(ses.id, session.socioId)} disabled={libres <= 0} style={{ fontSize: 12, fontWeight: 800, color: accentInk, background: accentBg, padding: '9px 16px', borderRadius: 12, textTransform: 'uppercase', opacity: libres <= 0 ? 0.4 : 1 }}>Reservar</button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-      {/* ── Mi bono ──────────────────────────────────── */}
-      {plan && activeSus && (
-        <div className="px-4 mt-5">
-          <Link href={`/portal/${slug}/mi-plan`} className={`block bg-white rounded-3xl shadow-sm border p-5 active:scale-[0.98] transition-transform ${bonoCaducado ? 'border-red-200' : 'border-black/[0.06]'}`}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-1">Mi bono</p>
-                <p className="text-[18px] font-extrabold text-[#171717] leading-tight">{plan.nombre}</p>
+        {/* ── Mi bono ── */}
+        {plan && activeSus && (
+          <Link href={`/portal/${slug}/mi-plan`} style={{ ...card, borderColor: bonoCaducado ? 'rgba(239,68,68,0.4)' : t.line, padding: 20, display: 'flex', flexDirection: 'column', gap: 14, textDecoration: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={microLabel}>Mi bono</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: t.ink }}>{plan.nombre}</span>
               </div>
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${bonoCaducado ? 'bg-red-50' : 'bg-portal-brand/10'}`}>
-                <CreditCard size={18} className={bonoCaducado ? 'text-red-500' : 'text-portal-brand-secondary'} />
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: bonoCaducado ? 'rgba(239,68,68,0.12)' : t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CreditCard size={18} style={{ color: bonoCaducado ? '#EF4444' : t.heroAccent }} />
               </div>
             </div>
             {bonoCaducado ? (
-              <div className="flex items-center gap-2 bg-red-50 rounded-2xl px-4 py-3">
-                <AlertCircle size={16} className="text-red-500 shrink-0" />
-                <p className="text-[13px] font-semibold text-red-700 leading-tight">
-                  Caducado el {new Date(activeSus.fechaFin!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} · renueva con tu instructor
-                </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(239,68,68,0.1)', borderRadius: 14, padding: '12px 14px' }}>
+                <AlertCircle size={16} style={{ color: '#EF4444', flexShrink: 0 }} />
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: '#EF4444', lineHeight: 1.2 }}>Caducado el {new Date(activeSus.fechaFin!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} · renueva con tu instructor</p>
               </div>
             ) : activeSus.sesionesRestantes != null && plan.sesiones != null ? (
               <>
-                <div className="flex justify-between items-baseline mb-2">
-                  <span className="text-[22px] font-extrabold text-[#171717]">{activeSus.sesionesRestantes}</span>
-                  <span className="text-[13px] text-[#8E8E93]">de {plan.sesiones} sesiones</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: t.muted }}><span style={{ fontSize: 22, fontWeight: 800, color: t.ink }}>{activeSus.sesionesRestantes}</span> / {plan.sesiones}</span>
+                  <span style={{ fontSize: 12, color: t.muted }}>sesiones restantes</span>
                 </div>
-                <div className="h-2.5 bg-[#F1F1EC] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${Math.min(100, Math.round((activeSus.sesionesRestantes / plan.sesiones) * 100))}%`,
-                      backgroundColor: activeSus.sesionesRestantes > 3 ? 'var(--portal-brand)' : '#EF4444',
-                    }}
-                  />
+                <div style={{ height: 8, background: t.bar, borderRadius: 999, overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(100, Math.round((activeSus.sesionesRestantes / plan.sesiones) * 100))}%`, height: '100%', borderRadius: 999, background: activeSus.sesionesRestantes > 3 ? 'var(--portal-brand)' : '#EF4444' }} />
                 </div>
               </>
             ) : (
-              <div className="flex items-center justify-between">
-                <p className="text-[14px] text-[#8E8E86]">
-                  {activeSus.fechaFin
-                    ? `Válido hasta el ${new Date(activeSus.fechaFin).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}`
-                    : 'Sesiones ilimitadas'}
-                </p>
-                <ChevronRight size={16} className="text-[#C7C7CC]" />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ fontSize: 13.5, color: t.muted }}>{activeSus.fechaFin ? `Válido hasta el ${new Date(activeSus.fechaFin).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : 'Sesiones ilimitadas'}</p>
+                <ChevronRight size={16} style={{ color: t.muted }} />
               </div>
             )}
           </Link>
-        </div>
-      )}
+        )}
 
-      {/* ── Acceso rápido ────────────────────────────── */}
-      <div className="px-4 mt-5">
-        <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-3">Acceso rápido</p>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { href: `/portal/${slug}/clases`, icon: Calendar, label: 'Reservar clase', color: 'var(--portal-brand-secondary)', bg: 'color-mix(in srgb, var(--portal-brand) 10%, white)' },
-            { href: `/portal/${slug}/reservas`, icon: ListChecks, label: 'Mis reservas', color: '#0369A1', bg: '#EAF6FF' },
-            { href: `/portal/${slug}/mi-plan`, icon: CreditCard, label: 'Mi plan', color: '#059669', bg: '#ECFDF5' },
-            { href: `/portal/${slug}/videos`, icon: Play, label: 'Vídeos', color: '#D97706', bg: '#FFFBEB' },
-            { href: `/portal/${slug}/invitar`, icon: UserPlus, label: 'Invita a una amiga', color: '#2E7D4F', bg: '#ECFDF5' },
-            { href: `/portal/${slug}/perfil`, icon: User, label: 'Perfil', color: '#6D28D9', bg: '#F3EEFF' },
-          ].map(({ href, icon: Icon, label, color, bg }) => (
-            <Link
-              key={href}
-              href={href}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-black/[0.05] active:scale-[0.97] transition-transform flex flex-col gap-3"
-            >
-              <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: bg }}>
-                <Icon size={20} style={{ color }} />
-              </div>
-              <p className="text-[14px] font-bold text-[#171717] leading-tight">{label}</p>
-            </Link>
-          ))}
+        {/* ── Acceso rápido ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span style={microLabel}>Acceso rápido</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {[
+              { href: `/portal/${slug}/clases`, icon: Calendar, label: 'Reservar clase' },
+              { href: `/portal/${slug}/reservas`, icon: ListChecks, label: 'Mis reservas' },
+              { href: `/portal/${slug}/videos`, icon: Play, label: 'Vídeos' },
+              { href: `/portal/${slug}/invitar`, icon: UserPlus, label: 'Invita a una amiga' },
+            ].map(({ href, icon: Icon, label }) => (
+              <Link key={href} href={href} style={{ ...card, borderRadius: 18, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, textDecoration: 'none' }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon size={20} style={{ color: t.heroAccent }} />
+                </div>
+                <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, lineHeight: 1.15 }}>{label}</p>
+              </Link>
+            ))}
+          </div>
         </div>
+
       </div>
     </div>
   );

@@ -3,27 +3,29 @@
 import { useMemo, useState } from 'react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
+import { useModo } from '@/lib/portal-modo';
 import { Calendar, Clock, MapPin, User as UserIcon, X } from 'lucide-react';
 import type { Reserva, Sesion } from '@/lib/types';
 import { formatFechaCorta as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
 
 type Tab = 'PROXIMAS' | 'PASADAS' | 'CANCELADAS' | 'ESPERA';
 
-const ESTADO_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-  CONFIRMADA: { label: 'Confirmada', bg: '#ECFDF5', color: '#059669' },
-  LISTA_ESPERA: { label: 'Lista de espera', bg: '#FFFBEB', color: '#D97706' },
-  ASISTIDA: { label: 'Asistida', bg: '#EAF6FF', color: '#0369A1' },
-  CANCELADA: { label: 'Cancelada', bg: '#F5F5F1', color: '#8E8E93' },
-  NO_ASISTIO: { label: 'No asistió', bg: '#FEF2F2', color: '#DC2626' },
-};
-
 export default function MisReservasPage() {
   const { session } = usePortalAuth();
   const { reservas, sesiones, tiposClase, salas, instructores, cancelarReserva } = useStudio();
+  const { t } = useModo();
   const [tab, setTab] = useState<Tab>('PROXIMAS');
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
   const socioId = session?.socioId;
   const now = new Date();
+
+  const ESTADO_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+    CONFIRMADA: { label: 'Confirmada', bg: 'rgba(62,155,108,0.14)', color: '#3E9B6C' },
+    LISTA_ESPERA: { label: 'Lista de espera', bg: 'rgba(217,119,6,0.14)', color: '#D97706' },
+    ASISTIDA: { label: 'Asistida', bg: 'rgba(3,105,161,0.14)', color: '#0369A1' },
+    CANCELADA: { label: 'Cancelada', bg: t.surface2, color: t.muted },
+    NO_ASISTIO: { label: 'No asistió', bg: 'rgba(220,38,38,0.14)', color: '#DC2626' },
+  };
 
   const misReservas = useMemo(() =>
     reservas
@@ -57,70 +59,73 @@ export default function MisReservasPage() {
     { id: 'ESPERA', label: 'Lista de espera' },
   ];
 
+  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 18 };
+
   return (
-    <div className="bg-white min-h-full">
+    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       {/* Header */}
-      <div className="px-5 pt-6 pb-6" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
-        <h1 className="text-white text-[28px] font-extrabold tracking-tight">Mis reservas</h1>
-        <p className="text-white/50 text-[13px] mt-0.5">Historial completo de tus clases</p>
+      <div style={{ padding: '24px 20px 20px' }}>
+        <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1 }}>Mis reservas</h1>
+        <p style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>Historial completo de tus clases</p>
       </div>
 
-      <div className="px-4 pt-4 pb-6">
+      <div style={{ padding: '0 16px 24px' }}>
         {/* Tabs */}
-        <div className="relative mb-4 -mx-4 px-4">
-          <div className="flex gap-2 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-            {TABS.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className="shrink-0 px-3.5 py-1.5 rounded-2xl text-[12px] font-bold transition-all"
-                style={{
-                  backgroundColor: tab === t.id ? '#171717' : '#F1F1EC',
-                  color: tab === t.id ? 'white' : '#8E8E86',
-                }}
-              >
-                {t.label}
-                {porTab[t.id].length > 0 && ` (${porTab[t.id].length})`}
-              </button>
-            ))}
+        <div style={{ position: 'relative', marginBottom: 16, marginLeft: -16, marginRight: -16, paddingLeft: 16, paddingRight: 16 }}>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' } as React.CSSProperties}>
+            {TABS.map(tb => {
+              const active = tab === tb.id;
+              return (
+                <button
+                  key={tb.id}
+                  onClick={() => setTab(tb.id)}
+                  style={{
+                    flexShrink: 0, padding: '6px 14px', borderRadius: 16, fontSize: 12, fontWeight: 800, border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
+                    backgroundColor: active ? 'var(--portal-brand)' : t.surface2, color: active ? t.accentInk : t.muted,
+                  }}
+                >
+                  {tb.label}
+                  {porTab[tb.id].length > 0 && ` (${porTab[tb.id].length})`}
+                </button>
+              );
+            })}
           </div>
-          <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8" style={{ background: 'linear-gradient(to right, transparent, white)' }} />
         </div>
 
         {lista.length === 0 ? (
-          <div className="rounded-2xl bg-[#F5F5F1] p-8 text-center">
-            <Calendar size={28} className="text-[#C7C7CC] mx-auto mb-2" />
-            <p className="text-[14px] text-[#8E8E93]">Nada por aquí todavía</p>
+          <div style={{ borderRadius: 20, background: t.surface2, padding: 32, textAlign: 'center' }}>
+            <Calendar size={28} style={{ color: t.muted, margin: '0 auto 8px' }} />
+            <p style={{ fontSize: 14, color: t.muted }}>Nada por aquí todavía</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {lista.map(({ r, s }) => {
-              const tipo = tiposClase.find(t => t.id === s.tipoClaseId);
+              const tipo = tiposClase.find(tc => tc.id === s.tipoClaseId);
               const sala = salas.find(x => x.id === s.salaId);
               const instr = instructores.find(i => i.id === s.instructorId);
               const badge = ESTADO_BADGE[r.estado] ?? ESTADO_BADGE.CANCELADA;
               const puedeCancel = r.estado === 'CONFIRMADA' && new Date(s.inicio) > now;
               return (
-                <div key={r.id} className="bg-white rounded-2xl px-4 py-3.5" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="min-w-0">
-                      <p className="text-[14px] font-bold text-[#171717] truncate">{tipo?.nombre ?? 'Clase'}</p>
-                      <p className="text-[12px] text-[#8E8E93] mt-0.5 flex items-center gap-1">
-                        <Calendar size={11} /> {formatFecha(s.inicio)} <Clock size={11} className="ml-1.5" /> {formatHora(s.inicio)}
+                <div key={r.id} style={{ ...card, padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>{tipo?.nombre ?? 'Clase'}</p>
+                      <p style={{ fontSize: 12, color: t.muted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Calendar size={11} /> {formatFecha(s.inicio)} <Clock size={11} style={{ marginLeft: 6 }} /> {formatHora(s.inicio)}
                       </p>
                     </div>
-                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full" style={{ backgroundColor: badge.bg, color: badge.color }}>
+                    <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '4px 8px', borderRadius: 999, backgroundColor: badge.bg, color: badge.color }}>
                       {badge.label}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] text-[#8E8E93]">
-                    {instr && <span className="flex items-center gap-1"><UserIcon size={11} />{instr.nombre}</span>}
-                    {sala && <span className="flex items-center gap-1"><MapPin size={11} />{sala.nombre}</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: t.muted }}>
+                    {instr && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><UserIcon size={11} />{instr.nombre}</span>}
+                    {sala && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={11} />{sala.nombre}</span>}
                   </div>
                   {puedeCancel && (
                     <button
                       onClick={() => setCancelando(r)}
-                      className="mt-3 w-full py-2 rounded-xl border border-red-200 text-red-600 text-[12px] font-bold active:bg-red-50 transition-colors"
+                      style={{ marginTop: 12, width: '100%', padding: '8px 0', borderRadius: 14, border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 12, fontWeight: 800, background: 'transparent' }}
                     >
                       Cancelar reserva
                     </button>
@@ -134,23 +139,23 @@ export default function MisReservasPage() {
 
       {/* Confirm cancel */}
       {cancelando && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setCancelando(null)} />
-          <div className="relative w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[17px] font-bold text-[#171717]">¿Cancelar esta clase?</h2>
-              <button onClick={() => setCancelando(null)} className="w-8 h-8 rounded-full flex items-center justify-center bg-[#F1F1EC] text-[#8E8E86]">
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setCancelando(null)} />
+          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px 32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Cancelar esta clase?</h2>
+              <button onClick={() => setCancelando(null)} style={{ width: 32, height: 32, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.surface2, color: t.muted, border: 'none' }}>
                 <X size={16} />
               </button>
             </div>
-            <p className="text-[13px] text-[#8E8E86] mb-5">Perderás tu plaza y liberarás el hueco para otra socia.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setCancelando(null)} className="flex-1 py-3 rounded-2xl border border-[#E7E7E0] text-[#3A3A34] text-[14px] font-semibold">
+            <p style={{ fontSize: 13, color: t.muted, marginBottom: 20 }}>Perderás tu plaza y liberarás el hueco para otra socia.</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setCancelando(null)} style={{ flex: 1, padding: '12px 0', borderRadius: 16, border: `1px solid ${t.line}`, color: t.muted2, fontSize: 14, fontWeight: 700, background: 'transparent' }}>
                 Volver
               </button>
               <button
                 onClick={() => { cancelarReserva(cancelando.id); setCancelando(null); }}
-                className="flex-1 py-3 rounded-2xl bg-red-500 text-white text-[14px] font-bold active:bg-red-600 transition-colors"
+                style={{ flex: 1, padding: '12px 0', borderRadius: 16, background: '#EF4444', color: '#fff', fontSize: 14, fontWeight: 800, border: 'none' }}
               >
                 Sí, cancelar
               </button>

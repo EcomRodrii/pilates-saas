@@ -7,12 +7,10 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { subirFotoPerfil, eliminarFotoPerfil } from '@/lib/portal-storage';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
+import { useModo } from '@/lib/portal-modo';
 import {
   Camera, Trash2, LogOut, ChevronRight, Bell, SlidersHorizontal, Loader2, Check, Trophy,
 } from 'lucide-react';
-
-const inputCls = 'w-full rounded-2xl border border-[#E7E7E0] bg-white px-4 py-3 text-[14px] text-[#171717] placeholder:text-[#A8A89E] outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition-all';
-const labelCls = 'text-[12px] font-semibold text-[#3A3A34] block mb-1.5';
 
 export default function PerfilPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -22,6 +20,7 @@ export default function PerfilPage() {
     socios, updateSocio, preferenciasSocio, upsertPreferenciasSocio,
     reservas, sesiones, nivelSocio, rachaSocio, achievementDefinitions, achievementProgress,
   } = useStudio();
+  const { t } = useModo();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const socio = socios.find(s => s.id === session?.socioId);
@@ -113,45 +112,49 @@ export default function PerfilPage() {
     router.replace(`/portal/${slug}/login`);
   }
 
+  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 26 };
+  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
+  const inputStyle: React.CSSProperties = { width: '100%', borderRadius: 16, border: `1px solid ${t.line}`, background: t.bg, padding: '12px 16px', fontSize: 14, color: t.ink, outline: 'none' };
+  const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: t.muted2, display: 'block', marginBottom: 6 };
+
   return (
-    <div className="bg-white min-h-full">
+    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       {/* Header */}
-      <div className="px-5 pt-6 pb-8" style={{ background: 'linear-gradient(160deg, #131313 0%, #1A1A1A 55%, var(--portal-brand) 100%)' }}>
-        <h1 className="text-white text-[28px] font-extrabold tracking-tight mb-6">Tu perfil</h1>
+      <div style={{ padding: '24px 20px 32px' }}>
+        <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1, marginBottom: 24 }}>Tu perfil</h1>
 
         {/* Foto */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ position: 'relative' }}>
             <ProfileAvatar avatarId={socio.avatar} fotoUrl={socio.fotoUrl} nombre={socio.nombre} apellidos={socio.apellidos} size="xl" />
             {subiendoFoto && (
-              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
-                <Loader2 size={20} className="text-white animate-spin" />
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 999, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Loader2 size={20} style={{ color: '#fff' }} className="animate-spin" />
               </div>
             )}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-md active:scale-95 transition-transform"
+              style={{ position: 'absolute', bottom: -4, right: -4, width: 32, height: 32, borderRadius: 999, background: t.surface, border: `1px solid ${t.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              <Camera size={14} className="text-[#171717]" />
+              <Camera size={14} style={{ color: t.ink }} />
             </button>
           </div>
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
-          <div className="flex items-center gap-3">
-            <button onClick={() => setShowAvatarPicker(true)} className="text-white/70 text-[12px] font-semibold underline underline-offset-2">
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoChange} style={{ display: 'none' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button onClick={() => setShowAvatarPicker(true)} style={{ color: t.muted, fontSize: 12, fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none' }}>
               Elegir avatar
             </button>
             {socio.fotoUrl && (
-              <button onClick={handleEliminarFoto} className="text-white/70 text-[12px] font-semibold flex items-center gap-1">
+              <button onClick={handleEliminarFoto} style={{ color: t.muted, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none' }}>
                 <Trash2 size={12} />Quitar foto
               </button>
             )}
           </div>
-          <p className="text-white font-extrabold text-[16px] mt-1">{socio.nombre} {socio.apellidos}</p>
-          <p className="text-white/40 text-[12px]">{socio.email}</p>
+          <p style={{ color: t.ink, fontWeight: 800, fontSize: 16, marginTop: 4, textTransform: 'uppercase' }}>{socio.nombre} {socio.apellidos}</p>
+          <p style={{ color: t.muted, fontSize: 12 }}>{socio.email}</p>
           {nivel?.actual && (
             <span
-              className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full text-[11px] font-bold"
-              style={{ backgroundColor: `${nivel.actual.color}33`, color: '#fff' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800, backgroundColor: `${nivel.actual.color}33`, color: t.ink }}
             >
               {nivel.actual.icono} Nivel {nivel.actual.nombre}
             </span>
@@ -159,112 +162,109 @@ export default function PerfilPage() {
         </div>
       </div>
 
-      <div className="px-4 -mt-4">
-        <div className="grid grid-cols-3 gap-2.5">
+      <div style={{ padding: '0 16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
           {[
             { v: clasesEsteMes, l: 'Este mes' },
             { v: racha?.semanas ?? 0, l: 'Racha 🔥' },
             { v: asistidas.length, l: 'Total clases' },
           ].map(({ v, l }) => (
-            <div key={l} className="bg-white rounded-2xl border border-black/[0.06] px-2 py-3 text-center" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
-              <p className="text-[20px] font-extrabold text-[#171717] leading-none">{v}</p>
-              <p className="text-[9px] font-bold text-[#A8A89F] mt-1.5 uppercase tracking-wider">{l}</p>
+            <div key={l} style={{ ...card, borderRadius: 18, padding: '12px 8px', textAlign: 'center' }}>
+              <p style={{ fontSize: 20, fontWeight: 800, color: t.ink, lineHeight: 1 }}>{v}</p>
+              <p style={{ fontSize: 9, fontWeight: 800, color: t.muted, marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</p>
             </div>
           ))}
         </div>
       </div>
 
       {logrosPreview.length > 0 && (
-        <div className="px-4 pt-4">
-          <Link href={`/portal/${slug}/progreso?tab=logros`} className="flex items-center justify-between mb-2.5">
-            <div className="flex items-center gap-1.5">
-              <Trophy size={13} className="text-[#8E8E86]" />
-              <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest">Logros</p>
+        <div style={{ padding: '16px 16px 0' }}>
+          <Link href={`/portal/${slug}/progreso?tab=logros`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, textDecoration: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Trophy size={13} style={{ color: t.muted }} />
+              <p style={microLabel}>Logros</p>
             </div>
-            <span className="text-[11px] font-semibold text-portal-brand-secondary flex items-center gap-0.5">Ver todos <ChevronRight size={12} /></span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: t.heroAccent, display: 'flex', alignItems: 'center', gap: 2 }}>Ver todos <ChevronRight size={12} /></span>
           </Link>
-          <div className="grid grid-cols-4 gap-2">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
             {logrosPreview.map(({ def, completado }) => (
               <div
                 key={def.id}
-                className="rounded-2xl p-2.5 flex flex-col items-center gap-1 text-center"
-                style={{ backgroundColor: completado ? 'color-mix(in srgb, var(--portal-brand) 10%, white)' : '#F5F5F1', opacity: completado ? 1 : 0.45 }}
+                style={{ borderRadius: 18, padding: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textAlign: 'center', backgroundColor: completado ? 'color-mix(in srgb, var(--portal-brand) 12%, transparent)' : t.surface2, opacity: completado ? 1 : 0.45 }}
               >
-                <span className="text-[22px] leading-none">{def.icono}</span>
+                <span style={{ fontSize: 22, lineHeight: 1 }}>{def.icono}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="px-4 pt-5 pb-6 space-y-5">
+      <div style={{ padding: '20px 16px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         {error && (
-          <div className="bg-red-50 text-red-700 text-[13px] font-medium rounded-2xl px-4 py-3">{error}</div>
+          <div style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', fontSize: 13, fontWeight: 600, borderRadius: 16, padding: '12px 16px' }}>{error}</div>
         )}
 
         {/* Datos personales */}
-        <div className="bg-white rounded-3xl border border-black/[0.06] p-5" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-          <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest mb-4">Datos personales</p>
-          <div className="space-y-3.5">
-            <div className="grid grid-cols-2 gap-3">
+        <div style={{ ...card, padding: 20 }}>
+          <p style={{ ...microLabel, marginBottom: 16 }}>Datos personales</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label className={labelCls}>Nombre</label>
-                <input className={inputCls} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+                <label style={labelStyle}>Nombre</label>
+                <input style={inputStyle} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
               </div>
               <div>
-                <label className={labelCls}>Apellidos</label>
-                <input className={inputCls} value={form.apellidos} onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
+                <label style={labelStyle}>Apellidos</label>
+                <input style={inputStyle} value={form.apellidos} onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
               </div>
             </div>
             <div>
-              <label className={labelCls}>Email</label>
-              <input type="email" className={inputCls} value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              <label style={labelStyle}>Email</label>
+              <input type="email" style={inputStyle} value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
             </div>
             <div>
-              <label className={labelCls}>Teléfono</label>
-              <input type="tel" className={inputCls} placeholder="+34 600 000 000" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+              <label style={labelStyle}>Teléfono</label>
+              <input type="tel" style={inputStyle} placeholder="+34 600 000 000" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
             </div>
             <div>
-              <label className={labelCls}>Fecha de nacimiento</label>
-              <input type="date" className={inputCls} value={form.fechaNacimiento} onChange={e => setForm(f => ({ ...f, fechaNacimiento: e.target.value }))} />
+              <label style={labelStyle}>Fecha de nacimiento</label>
+              <input type="date" style={inputStyle} value={form.fechaNacimiento} onChange={e => setForm(f => ({ ...f, fechaNacimiento: e.target.value }))} />
             </div>
             <div>
-              <label className={labelCls}>Dirección</label>
-              <input className={inputCls} placeholder="Calle, número, ciudad" value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
+              <label style={labelStyle}>Dirección</label>
+              <input style={inputStyle} placeholder="Calle, número, ciudad" value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
             </div>
           </div>
           <button
             onClick={handleGuardar}
-            className="w-full mt-5 py-3 rounded-2xl bg-portal-brand text-[#171717] font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            style={{ width: '100%', marginTop: 20, padding: '13px 0', borderRadius: 16, background: 'var(--portal-brand)', color: t.accentInk, fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 'none', textTransform: 'uppercase' }}
           >
             {guardado ? <><Check size={15} />Guardado</> : 'Guardar cambios'}
           </button>
         </div>
 
         {/* Notificaciones */}
-        <div className="bg-white rounded-3xl border border-black/[0.06] p-5" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-          <div className="flex items-center gap-2 mb-4">
-            <Bell size={15} className="text-[#8E8E93]" />
-            <p className="text-[11px] font-bold text-[#8E8E93] uppercase tracking-widest">Notificaciones</p>
+        <div style={{ ...card, padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <Bell size={15} style={{ color: t.muted }} />
+            <p style={microLabel}>Notificaciones</p>
           </div>
-          <div className="space-y-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {([
               { key: 'notifEmail' as const, label: 'Recordatorios por email' },
               { key: 'notifWhatsapp' as const, label: 'Recordatorios por WhatsApp' },
             ]).map(({ key, label }) => {
               const activo = prefs ? prefs[key] : true;
               return (
-                <label key={key} className="flex items-center justify-between">
-                  <span className="text-[14px] text-[#171717]">{label}</span>
+                <label key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 14, color: t.ink }}>{label}</span>
                   <button
                     type="button"
                     onClick={() => upsertPreferenciasSocio(socio.id, { [key]: !activo })}
-                    className="w-11 h-6 rounded-full transition-colors relative shrink-0"
-                    style={{ backgroundColor: activo ? '#171717' : '#E7E7E0' }}
+                    style={{ width: 44, height: 24, borderRadius: 999, position: 'relative', flexShrink: 0, border: 'none', backgroundColor: activo ? 'var(--portal-brand)' : t.surface2 }}
                   >
                     <span
-                      className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
-                      style={{ transform: activo ? 'translateX(22px)' : 'translateX(2px)' }}
+                      style={{ position: 'absolute', top: 2, width: 20, height: 20, borderRadius: 999, background: t.surface, transition: 'transform 0.15s', transform: activo ? 'translateX(22px)' : 'translateX(2px)' }}
                     />
                   </button>
                 </label>
@@ -276,35 +276,34 @@ export default function PerfilPage() {
         {/* Link a preferencias / disponibilidad */}
         <Link
           href={`/portal/${slug}/preferencias`}
-          className="flex items-center justify-between bg-white rounded-3xl border border-black/[0.06] p-5 active:scale-[0.98] transition-transform"
-          style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}
+          style={{ ...card, padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none' }}
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#F3EEFF] flex items-center justify-center">
-              <SlidersHorizontal size={17} className="text-[#6D28D9]" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 14, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <SlidersHorizontal size={17} style={{ color: t.heroAccent }} />
             </div>
             <div>
-              <p className="text-[14px] font-bold text-[#171717]">Disponibilidad y preferencias</p>
-              <p className="text-[12px] text-[#8E8E93]">Instructor favorito, tipo de clase, horarios…</p>
+              <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>Disponibilidad y preferencias</p>
+              <p style={{ fontSize: 12, color: t.muted }}>Instructor favorito, tipo de clase, horarios…</p>
             </div>
           </div>
-          <ChevronRight size={16} className="text-[#C7C7CC] shrink-0" />
+          <ChevronRight size={16} style={{ color: t.muted, flexShrink: 0 }} />
         </Link>
 
         {/* Logout */}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-[#E7E7E0] text-[#B91C1C] text-[14px] font-semibold active:bg-[#FEF2F2] transition-colors"
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 0', borderRadius: 16, border: `1px solid ${t.line}`, color: '#EF4444', fontSize: 14, fontWeight: 700, background: 'transparent' }}
         >
           <LogOut size={15} />Cerrar sesión
         </button>
       </div>
 
       {showAvatarPicker && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowAvatarPicker(false)} />
-          <div className="relative w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-6 max-h-[85vh] overflow-y-auto">
-            <p className="text-[15px] font-bold text-[#171717] mb-3">Elige tu avatar</p>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowAvatarPicker(false)} />
+          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px 32px', maxHeight: '85vh', overflowY: 'auto' }}>
+            <p style={{ fontSize: 15, fontWeight: 800, color: t.ink, marginBottom: 12 }}>Elige tu avatar</p>
             <AvatarPicker
               value={socio.avatar ?? null}
               onChange={id => { updateSocio(socio.id, { avatar: id }); setShowAvatarPicker(false); }}
