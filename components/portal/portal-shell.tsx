@@ -2,7 +2,7 @@
 
 // Reemplazo drop-in de components/portal/portal-shell.tsx
 // Mantiene toda la lógica de auth/redirección original; solo cambia el aspecto
-// (fondo por tema, tab bar flotante con animación "gooey" estilo burbuja líquida).
+// (fondo por tema, tab bar flotante con indicador animado por transform).
 
 import { useEffect } from 'react';
 import { usePathname, useRouter, useParams } from 'next/navigation';
@@ -83,7 +83,6 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   }
 
   const activeIndex = NAV.findIndex(({ seg }) => pathname.startsWith(`/portal/${slug}/${seg}`));
-  const blobLeft = (i: number) => `calc(${(i + 0.5) * SLOT}% - 23px)`;
 
   return (
     <div className="fixed inset-0" style={{ background: t.bg }}>
@@ -95,19 +94,6 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           {children}
           <div style={{ height: 'calc(96px + env(safe-area-inset-bottom))' }} />
         </main>
-
-        {/* Filtro SVG "gooey": funde dos círculos superpuestos en una gota líquida.
-            Sin esto las dos burbujas del blob solo se verían como dos círculos
-            separados en vez de un chicle estirándose entre pestañas. */}
-        <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-          <defs>
-            <filter id="portal-tab-goo">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
-              <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10" result="goo" />
-              <feBlend in="SourceGraphic" in2="goo" />
-            </filter>
-          </defs>
-        </svg>
 
         <nav
           className="absolute left-1/2"
@@ -123,25 +109,25 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
           }}
         >
-          {/* Capa del blob líquido: dos burbujas con distinta duración de
-              transición (la de detrás va más lenta) para que se estiren entre
-              posiciones antes de fundirse de nuevo en un círculo. */}
+          {/* Indicador de pestaña activa: una sola burbuja, animada solo con
+              transform (GPU/compositor) — nada de filtros SVG ni de `left`,
+              que en Safari de iOS renderizan por software y dan tirones. El
+              rebote lo pone la curva "back-out" (overshoot), no un blur. */}
           {activeIndex >= 0 && (
-            <div className="absolute inset-0" style={{ filter: 'url(#portal-tab-goo)', pointerEvents: 'none' }}>
+            <div
+              className="absolute inset-y-0"
+              style={{
+                left: 0, width: `${SLOT}%`, pointerEvents: 'none',
+                transform: `translateX(${activeIndex * 100}%)`,
+                transition: 'transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+                willChange: 'transform',
+              }}
+            >
               <div
-                className="absolute top-1/2"
+                className="absolute top-1/2 left-1/2"
                 style={{
-                  left: blobLeft(activeIndex), width: 46, height: 46, borderRadius: 999,
-                  background: 'var(--portal-brand)', transform: 'translateY(-50%)',
-                  transition: 'left 340ms cubic-bezier(0.22, 1, 0.36, 1)',
-                }}
-              />
-              <div
-                className="absolute top-1/2"
-                style={{
-                  left: blobLeft(activeIndex), width: 46, height: 46, borderRadius: 999,
-                  background: 'var(--portal-brand)', transform: 'translateY(-50%)',
-                  transition: 'left 190ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  width: 46, height: 46, borderRadius: 999,
+                  background: 'var(--portal-brand)', transform: 'translate(-50%, -50%)',
                 }}
               />
             </div>
