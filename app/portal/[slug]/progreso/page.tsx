@@ -581,7 +581,7 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
               <button onClick={() => setCanjeando(null)} style={{ flex: 1, padding: '12px 0', borderRadius: 16, border: `1px solid ${t.line}`, color: t.muted2, fontSize: 14, fontWeight: 700, background: 'transparent' }}>
                 Cancelar
               </button>
-              <button onClick={confirmarCanje} style={{ flex: 1, padding: '12px 0', borderRadius: 16, background: 'var(--portal-brand)', color: t.accentInk, fontSize: 14, fontWeight: 800, border: 'none' }}>
+              <button onClick={confirmarCanje} style={{ flex: 1, padding: '12px 0', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontSize: 14, fontWeight: 800, border: 'none' }}>
                 Confirmar
               </button>
             </div>

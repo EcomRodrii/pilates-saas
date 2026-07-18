@@ -76,7 +76,7 @@ export default function InvitarPage() {
           </div>
           <button
             onClick={compartir}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 16px', borderRadius: 16, background: 'var(--portal-brand)', color: t.accentInk, fontSize: 13.5, fontWeight: 800, textTransform: 'uppercase', border: 'none' }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 16px', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontSize: 13.5, fontWeight: 800, textTransform: 'uppercase', border: 'none' }}
           >
             <Share2 size={15} />
             Compartir invitación

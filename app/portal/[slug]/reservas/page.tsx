@@ -81,7 +81,7 @@ export default function MisReservasPage() {
                   onClick={() => setTab(tb.id)}
                   style={{
                     flexShrink: 0, padding: '6px 14px', borderRadius: 16, fontSize: 12, fontWeight: 800, border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
-                    backgroundColor: active ? 'var(--portal-brand)' : t.surface2, color: active ? t.accentInk : t.muted,
+                    backgroundColor: active ? 'var(--portal-brand)' : t.surface2, color: active ? 'var(--portal-brand-foreground)' : t.muted,
                   }}
                 >
                   {tb.label}

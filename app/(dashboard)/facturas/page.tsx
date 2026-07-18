@@ -608,7 +608,7 @@ ${bloqueVerifactu}
                 </button>
                 <button
                   onClick={() => descargarPDF(previewFactura, previewSocio)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-[#6E9E0A] transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-semibold hover:brightness-95 transition-colors"
                 >
                   <Download size={14} />
                   Descargar PDF

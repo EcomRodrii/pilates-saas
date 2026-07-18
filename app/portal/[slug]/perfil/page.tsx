@@ -237,7 +237,7 @@ export default function PerfilPage() {
           </div>
           <button
             onClick={handleGuardar}
-            style={{ width: '100%', marginTop: 20, padding: '13px 0', borderRadius: 16, background: 'var(--portal-brand)', color: t.accentInk, fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 'none', textTransform: 'uppercase' }}
+            style={{ width: '100%', marginTop: 20, padding: '13px 0', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 'none', textTransform: 'uppercase' }}
           >
             {guardado ? <><Check size={15} />Guardado</> : 'Guardar cambios'}
           </button>

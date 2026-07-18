@@ -79,7 +79,7 @@ export default function VideosPage() {
                 onClick={() => setCat(c.value)}
                 style={{
                   flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 16, fontSize: 12, fontWeight: 800,
-                  border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`, background: active ? 'var(--portal-brand)' : t.surface, color: active ? t.accentInk : t.muted,
+                  border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`, background: active ? 'var(--portal-brand)' : t.surface, color: active ? 'var(--portal-brand-foreground)' : t.muted,
                 }}
               >
                 <span>{c.emoji}</span>

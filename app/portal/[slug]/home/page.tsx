@@ -96,7 +96,12 @@ export default function PortalHome() {
 
   // ── Estilos derivados del tema ──────────────────────────────
   const accentBg = noche ? 'var(--portal-brand)' : t.ink;
-  const accentInk = t.accentInk;
+  // De noche accentBg es el color de marca (varía por estudio/preset), así que
+  // el texto encima debe ser el foreground de ESE preset, no el fijo de t.accentInk
+  // — si no, un preset con marca oscura (ej. burgundy) queda con texto oscuro
+  // sobre fondo oscuro. De día accentBg es siempre t.ink (oscuro fijo), así que
+  // el t.accentInk de día (blanco fijo) sigue siendo correcto.
+  const accentInk = noche ? 'var(--portal-brand-foreground)' : t.accentInk;
   const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 22 };
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
 

@@ -69,7 +69,7 @@ export default function PortalClaveNueva() {
             </p>
             <Link
               href={`/portal/${slug}/acceso`}
-              style={{ display: 'inline-block', marginTop: 20, fontSize: 13, fontWeight: 800, color: t.accentInk, background: 'var(--portal-brand)', padding: '10px 20px', borderRadius: 14, textDecoration: 'none' }}
+              style={{ display: 'inline-block', marginTop: 20, fontSize: 13, fontWeight: 800, color: 'var(--portal-brand-foreground)', background: 'var(--portal-brand)', padding: '10px 20px', borderRadius: 14, textDecoration: 'none' }}
             >
               Pedir un enlace nuevo
             </Link>
@@ -134,7 +134,7 @@ export default function PortalClaveNueva() {
                 type="submit"
                 disabled={loading || !password || !confirmar}
                 style={{
-                  width: '100%', padding: '14px 0', borderRadius: 16, background: 'var(--portal-brand)', color: t.accentInk,
+                  width: '100%', padding: '14px 0', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
                   fontWeight: 800, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
                   opacity: loading || !password || !confirmar ? 0.5 : 1,
                 }}
