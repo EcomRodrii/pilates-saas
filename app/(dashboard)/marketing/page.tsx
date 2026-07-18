@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags'
 import { cn } from '@/lib/utils'
 import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight, Pencil } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -456,6 +458,11 @@ export default function MarketingPage() {
     suscripciones,
     recibos, planesTarifa, sesiones, reservas, tiposClase,
   } = useStudio()
+  const router = useRouter()
+  // Módulo oculto temporalmente: redirige el acceso directo a /dashboard.
+  useEffect(() => {
+    if (!MARKETING_MODULE_ENABLED) router.replace('/dashboard')
+  }, [router])
   const [tab, setTab] = useState<'resumen' | 'campanas' | 'automatizaciones' | 'codigos'>('resumen')
 
   // ── Resumen: leads captados por mes (últimos 6 meses, para el sparkline) ────
@@ -716,6 +723,8 @@ export default function MarketingPage() {
     if (accion === 'WHATSAPP') return <MessageSquare className="w-3 h-3" />
     return <Bell className="w-3 h-3" />
   }
+
+  if (!MARKETING_MODULE_ENABLED) return null
 
   return (
     <div className="min-h-screen bg-background p-6">

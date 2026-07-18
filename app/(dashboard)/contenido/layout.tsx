@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ContenidoProvider } from '@/lib/contenido/store';
+import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 import {
   Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
 } from 'lucide-react';
@@ -20,6 +22,12 @@ const SUBNAV = [
 
 export default function ContenidoLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  // Módulo oculto temporalmente: redirige el acceso directo a /dashboard.
+  useEffect(() => {
+    if (!MARKETING_MODULE_ENABLED) router.replace('/dashboard');
+  }, [router]);
+  if (!MARKETING_MODULE_ENABLED) return null;
   return (
     <ContenidoProvider>
       <nav className="mb-6 -mx-1 overflow-x-auto no-scrollbar">
