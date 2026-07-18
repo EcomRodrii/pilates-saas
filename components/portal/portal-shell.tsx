@@ -2,7 +2,7 @@
 
 // Reemplazo drop-in de components/portal/portal-shell.tsx
 // Mantiene toda la lógica de auth/redirección original; solo cambia el aspecto
-// (fondo por tema, tab bar rediseñada estilo "Impulso").
+// (fondo por tema, tab bar flotante con animación "gooey" estilo burbuja líquida).
 
 import { useEffect } from 'react';
 import { usePathname, useRouter, useParams } from 'next/navigation';
@@ -21,6 +21,8 @@ const NAV = [
   { seg: 'progreso', icon: TrendingUp, label: 'Progreso' },
 ];
 
+const SLOT = 100 / NAV.length;
+
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
   const { studio } = useStudio();
@@ -29,7 +31,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
   const themeStyle = portalThemeStyle(studio?.temaPortal);
-  const { noche, t } = useModo();
+  const { t } = useModo();
 
   const isLoginPage = pathname === `/portal/${slug}` || pathname === `/portal/${slug}/login`;
 
@@ -51,6 +53,9 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   if (session && isLoginPage) return null;
   if (isLoginPage) return <div style={themeStyle}>{children}</div>;
 
+  const activeIndex = NAV.findIndex(({ seg }) => pathname.startsWith(`/portal/${slug}/${seg}`));
+  const blobLeft = (i: number) => `calc(${(i + 0.5) * SLOT}% - 23px)`;
+
   return (
     <div
       className="fixed inset-0 flex flex-col overflow-hidden"
@@ -58,33 +63,76 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     >
       <main className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
         {children}
-        <div style={{ height: 'calc(80px + env(safe-area-inset-bottom))' }} />
+        <div style={{ height: 'calc(96px + env(safe-area-inset-bottom))' }} />
       </main>
 
+      {/* Filtro SVG "gooey": funde dos círculos superpuestos en una gota líquida.
+          Sin esto las dos burbujas del blob solo se verían como dos círculos
+          separados en vez de un chicle estirándose entre pestañas. */}
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <defs>
+          <filter id="portal-tab-goo">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10" result="goo" />
+            <feBlend in="SourceGraphic" in2="goo" />
+          </filter>
+        </defs>
+      </svg>
+
       <nav
-        className="absolute bottom-0 inset-x-0"
+        className="absolute left-1/2"
         style={{
+          bottom: 'calc(18px + env(safe-area-inset-bottom))',
+          transform: 'translateX(-50%)',
+          width: 'min(340px, calc(100% - 48px))',
+          height: 60,
+          borderRadius: 999,
           background: t.tabbar,
-          borderTop: `1px solid ${t.line}`,
+          border: `1px solid ${t.line}`,
           backdropFilter: 'blur(20px)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
+          boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
         }}
       >
-        <div className="flex h-[62px] px-1.5">
-          {NAV.map(({ seg, icon: Icon, label }) => {
+        {/* Capa del blob líquido: dos burbujas con distinta duración de
+            transición (la de detrás va más lenta) para que se estiren entre
+            posiciones antes de fundirse de nuevo en un círculo. */}
+        {activeIndex >= 0 && (
+          <div className="absolute inset-0" style={{ filter: 'url(#portal-tab-goo)', pointerEvents: 'none' }}>
+            <div
+              className="absolute top-1/2"
+              style={{
+                left: blobLeft(activeIndex), width: 46, height: 46, borderRadius: 999,
+                background: 'var(--portal-brand)', transform: 'translateY(-50%)',
+                transition: 'left 480ms cubic-bezier(0.22, 1, 0.36, 1)',
+              }}
+            />
+            <div
+              className="absolute top-1/2"
+              style={{
+                left: blobLeft(activeIndex), width: 46, height: 46, borderRadius: 999,
+                background: 'var(--portal-brand)', transform: 'translateY(-50%)',
+                transition: 'left 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+              }}
+            />
+          </div>
+        )}
+
+        <div className="relative flex h-full">
+          {NAV.map(({ seg, icon: Icon, label }, i) => {
             const href = `/portal/${slug}/${seg}`;
-            const active = pathname.startsWith(href);
-            const activeColor = noche ? 'var(--portal-brand)' : t.ink;
+            const active = i === activeIndex;
             return (
               <Link
                 key={seg}
                 href={href}
-                className="flex-1 flex flex-col items-center justify-center gap-[4px] active:opacity-70 transition-opacity"
+                aria-label={label}
+                className="flex-1 flex items-center justify-center active:opacity-70"
               >
-                <Icon size={22} strokeWidth={active ? 2.4 : 1.9} style={{ color: active ? activeColor : t.muted }} />
-                <span className="text-[9.5px] tracking-wide" style={{ color: active ? activeColor : t.muted, fontWeight: active ? 800 : 700 }}>
-                  {label}
-                </span>
+                <Icon
+                  size={21}
+                  strokeWidth={active ? 2.4 : 1.9}
+                  style={{ color: active ? t.accentInk : t.muted, transition: 'color 200ms ease 80ms' }}
+                />
               </Link>
             );
           })}
