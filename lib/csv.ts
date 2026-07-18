@@ -142,14 +142,18 @@ const normaliza = (s: string) =>
  * Adivina qué columna del CSV corresponde a cada campo de Tentare.
  * Devuelve el índice de columna por campo, o -1 si no se encontró.
  */
-export function autoMapear(headers: string[]): Record<CampoSocia, number> {
+/** Mapea columnas del CSV a un conjunto de campos por sus sinónimos (genérico). */
+function mapearColumnas<T extends string>(
+  headers: string[],
+  orden: readonly T[],
+  sinonimos: Record<T, string[]>,
+): Record<T, number> {
   const H = headers.map(normaliza);
   const usados = new Set<number>();
-  const out = {} as Record<CampoSocia, number>;
-
-  for (const { campo } of CAMPOS_SOCIA) {
+  const out = {} as Record<T, number>;
+  for (const campo of orden) {
     let idx = -1;
-    for (const syn of SINONIMOS[campo]) {
+    for (const syn of sinonimos[campo]) {
       const s = normaliza(syn);
       idx = H.findIndex((h, i) => !usados.has(i) && h === s); // coincidencia exacta
       if (idx === -1) idx = H.findIndex((h, i) => !usados.has(i) && h.includes(s)); // parcial
@@ -159,6 +163,10 @@ export function autoMapear(headers: string[]): Record<CampoSocia, number> {
     out[campo] = idx;
   }
   return out;
+}
+
+export function autoMapear(headers: string[]): Record<CampoSocia, number> {
+  return mapearColumnas(headers, CAMPOS_SOCIA.map((c) => c.campo), SINONIMOS);
 }
 
 // ─── Validación ──────────────────────────────────────────────────────────────
@@ -253,6 +261,93 @@ export function validarFilas(
     if (emailsVistos.has(email)) return { ...base, estado: 'duplicada' as const, motivo: 'Email repetido en el archivo' };
 
     emailsVistos.add(email);
+    return { ...base, estado: 'ok' as const };
+  });
+}
+
+// ─── Importación de MEMBRESÍAS / BONOS (suscripciones) ───────────────────────
+// Segundo importador de la migración: trae las membresías activas de las socias
+// del software anterior. Se empareja por EMAIL (la socia ya debe existir) y por
+// NOMBRE de plan (el plan ya debe existir en el catálogo del estudio).
+
+export type CampoMembresia = 'email' | 'plan' | 'sesiones' | 'fecha_inicio' | 'fecha_fin' | 'estado';
+
+export const CAMPOS_MEMBRESIA: CampoMeta2[] = [
+  { campo: 'email', etiqueta: 'Email de la socia', obligatorio: true },
+  { campo: 'plan', etiqueta: 'Plan / Tarifa', obligatorio: true },
+  { campo: 'sesiones', etiqueta: 'Sesiones restantes (bono)', obligatorio: false },
+  { campo: 'fecha_inicio', etiqueta: 'Fecha de inicio', obligatorio: false },
+  { campo: 'fecha_fin', etiqueta: 'Fecha de fin', obligatorio: false },
+  { campo: 'estado', etiqueta: 'Estado', obligatorio: false },
+];
+
+interface CampoMeta2 { campo: CampoMembresia; etiqueta: string; obligatorio: boolean }
+
+const SINONIMOS_MEMBRESIA: Record<CampoMembresia, string[]> = {
+  email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'socia', 'socio', 'cliente'],
+  plan: ['plan', 'tarifa', 'membresia', 'membership', 'bono', 'producto', 'suscripcion', 'subscription', 'paquete'],
+  sesiones: ['sesiones', 'sesiones restantes', 'clases restantes', 'saldo', 'creditos', 'sessions', 'restantes', 'bonos restantes'],
+  fecha_inicio: ['fecha inicio', 'fecha de inicio', 'inicio', 'alta', 'start', 'start date', 'desde'],
+  fecha_fin: ['fecha fin', 'fecha de fin', 'fin', 'vencimiento', 'caducidad', 'end', 'end date', 'hasta', 'expira'],
+  estado: ['estado', 'status', 'activa', 'activo'],
+};
+
+export function autoMapearMembresia(headers: string[]): Record<CampoMembresia, number> {
+  return mapearColumnas(headers, CAMPOS_MEMBRESIA.map((c) => c.campo), SINONIMOS_MEMBRESIA);
+}
+
+export interface FilaMembresia {
+  email: string;
+  plan: string;
+  sesiones: number | null;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  estado: string | null;
+}
+
+export interface FilaMembresiaValidada {
+  fila: number;
+  datos: FilaMembresia;
+  estado: 'ok' | 'error';
+  motivo?: string;
+}
+
+const ESTADOS_MEMBRESIA = ['ACTIVA', 'PAUSADA', 'CANCELADA', 'EXPIRADA'];
+
+/** Normaliza el estado del CSV al enum de suscripciones (o null si no encaja). */
+export function normalizarEstadoMembresia(celda: string): string | null {
+  const s = celda.trim().toUpperCase();
+  if (!s) return null;
+  if (ESTADOS_MEMBRESIA.includes(s)) return s;
+  if (['ACTIVE', 'ACTIVO'].includes(s)) return 'ACTIVA';
+  if (['PAUSED', 'PAUSADO'].includes(s)) return 'PAUSADA';
+  if (['CANCELED', 'CANCELLED', 'CANCELADO', 'BAJA'].includes(s)) return 'CANCELADA';
+  if (['EXPIRED', 'EXPIRADO', 'CADUCADA', 'CADUCADO'].includes(s)) return 'EXPIRADA';
+  return null;
+}
+
+/** Aplica el mapeo y valida las filas de membresías (email y plan obligatorios). */
+export function validarFilasMembresia(
+  rows: string[][],
+  mapeo: Record<CampoMembresia, number>,
+): FilaMembresiaValidada[] {
+  const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+  return rows.map((fila, i) => {
+    const emailRaw = val(fila, mapeo.email);
+    const email = emailRaw.toLowerCase();
+    const plan = val(fila, mapeo.plan);
+    const sesionesRaw = mapeo.sesiones >= 0 ? val(fila, mapeo.sesiones) : '';
+    const sesiones = sesionesRaw !== '' && Number.isFinite(Number(sesionesRaw)) ? Math.trunc(Number(sesionesRaw)) : null;
+    const fechaInicio = mapeo.fecha_inicio >= 0 ? parsearFecha(val(fila, mapeo.fecha_inicio)) : null;
+    const fechaFin = mapeo.fecha_fin >= 0 ? parsearFecha(val(fila, mapeo.fecha_fin)) : null;
+    const estado = mapeo.estado >= 0 ? normalizarEstadoMembresia(val(fila, mapeo.estado)) : null;
+
+    const datos: FilaMembresia = { email, plan, sesiones, fechaInicio, fechaFin, estado };
+    const base = { fila: i + 1, datos };
+
+    if (!emailRaw) return { ...base, estado: 'error' as const, motivo: 'Falta el email de la socia' };
+    if (!emailValido(emailRaw)) return { ...base, estado: 'error' as const, motivo: 'Email no válido' };
+    if (!plan) return { ...base, estado: 'error' as const, motivo: 'Falta el plan' };
     return { ...base, estado: 'ok' as const };
   });
 }

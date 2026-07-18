@@ -398,7 +398,7 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
-import type { FilaSocia } from '@/lib/csv';
+import type { FilaSocia, FilaMembresia } from '@/lib/csv';
 
 export interface ResultadoImport {
   total: number;
@@ -413,6 +413,31 @@ export interface ResultadoImport {
 export async function importarSocias(rows: FilaSocia[]): Promise<ResultadoImport> {
   try {
     const res = await fetch('/api/socios/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rows }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return {
+        total: 0,
+        importadas: data.importadas ?? 0,
+        duplicadas: data.duplicadas ?? 0,
+        errores: data.errores ?? [],
+        error: data.error ?? `Error HTTP ${res.status}`,
+      };
+    }
+    return data as ResultadoImport;
+  } catch {
+    return { total: 0, importadas: 0, duplicadas: 0, errores: [], error: 'No se pudo conectar con el servidor' };
+  }
+}
+
+// Importa membresías/bonos (suscripciones). Empareja por email de socia y nombre
+// de plan en el servidor; el studio_id sale del JWT. Misma forma de resultado.
+export async function importarMembresias(rows: FilaMembresia[]): Promise<ResultadoImport> {
+  try {
+    const res = await fetch('/api/suscripciones/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ rows }),
