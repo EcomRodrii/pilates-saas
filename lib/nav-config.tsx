@@ -9,6 +9,7 @@ import {
   UserCog, Users2, Compass,
   Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
 } from 'lucide-react';
+import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 
 export interface NavItemDef {
   href: string;
@@ -20,7 +21,7 @@ export interface NavSection {
   items: NavItemDef[];
 }
 
-export const navSections: NavSection[] = [
+const allSections: NavSection[] = [
   { items: [{ href: '/centro-de-control', label: 'Centro de Control', icon: Compass }] },
   { items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
   { items: [{ href: '/automatizaciones', label: 'Automatizaciones IA', icon: Bot }] },
@@ -73,6 +74,15 @@ export const navSections: NavSection[] = [
     ],
   },
 ];
+
+// Interruptor temporal: oculta el módulo Contenido (/contenido/*) y el módulo
+// Marketing del estudio (/marketing) del menú. El código sigue en el repo; para
+// reactivar, poner MARKETING_MODULE_ENABLED a true en lib/feature-flags.ts.
+export const navSections: NavSection[] = MARKETING_MODULE_ENABLED
+  ? allSections
+  : allSections
+      .filter((s) => s.label !== 'Contenido')
+      .map((s) => ({ ...s, items: s.items.filter((i) => i.href !== '/marketing') }));
 
 // Lista plana de todos los módulos, en orden natural.
 export const MODULOS: NavItemDef[] = navSections.flatMap((s) => s.items);
