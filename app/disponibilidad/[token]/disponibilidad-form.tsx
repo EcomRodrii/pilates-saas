@@ -53,7 +53,7 @@ export function DisponibilidadForm({
           <h1 className="text-lg font-semibold text-slate-900">¡Guardado!</h1>
           <p className="mt-2 text-sm text-slate-500">
             Tu estudio ya sabe cuándo puedes cubrir clases. Puedes cerrar esta página o
-            <button onClick={() => setEstado('idle')} className="ml-1 text-indigo-600 underline">
+            <button onClick={() => setEstado('idle')} className="ml-1 text-brand underline">
               volver a editar
             </button>
             .
@@ -96,7 +96,7 @@ export function DisponibilidadForm({
           <button
             onClick={guardar}
             disabled={estado === 'guardando'}
-            className="w-full rounded-xl bg-indigo-600 py-3.5 text-center text-base font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+            className="w-full rounded-xl bg-brand py-3.5 text-center text-base font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
           >
             {estado === 'guardando' ? 'Guardando…' : 'Guardar disponibilidad'}
           </button>
@@ -141,7 +141,7 @@ function FilaDia({
             aria-pressed={on}
             className={`m-1 flex h-12 items-center justify-center rounded-lg border text-sm font-medium transition ${
               on
-                ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                ? 'border-brand bg-brand text-white shadow-sm'
                 : 'border-slate-200 bg-white text-slate-300 hover:border-slate-300'
             }`}
           >

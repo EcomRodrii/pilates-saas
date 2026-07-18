@@ -62,7 +62,7 @@ export function AceptarForm({
         </div>
         <button
           onClick={() => responder('aceptar')} disabled={estado === 'enviando'}
-          className="mt-5 w-full rounded-xl bg-indigo-600 py-3.5 text-center text-base font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+          className="mt-5 w-full rounded-xl bg-brand py-3.5 text-center text-base font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
         >
           {estado === 'enviando' ? 'Un momento…' : '✓ Acepto, la cubro'}
         </button>
