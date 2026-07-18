@@ -110,7 +110,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
               style={{
                 left: blobLeft(activeIndex), width: 46, height: 46, borderRadius: 999,
                 background: 'var(--portal-brand)', transform: 'translateY(-50%)',
-                transition: 'left 480ms cubic-bezier(0.22, 1, 0.36, 1)',
+                transition: 'left 340ms cubic-bezier(0.22, 1, 0.36, 1)',
               }}
             />
             <div
@@ -118,7 +118,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
               style={{
                 left: blobLeft(activeIndex), width: 46, height: 46, borderRadius: 999,
                 background: 'var(--portal-brand)', transform: 'translateY(-50%)',
-                transition: 'left 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+                transition: 'left 190ms cubic-bezier(0.22, 1, 0.36, 1)',
               }}
             />
           </div>
@@ -138,7 +138,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                 <Icon
                   size={21}
                   strokeWidth={active ? 2.4 : 1.9}
-                  style={{ color: active ? t.accentInk : t.muted, transition: 'color 200ms ease 80ms' }}
+                  style={{ color: active ? t.accentInk : t.muted, transition: 'color 160ms ease 60ms' }}
                 />
               </Link>
             );
