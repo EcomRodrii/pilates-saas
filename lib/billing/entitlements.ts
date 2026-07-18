@@ -2,11 +2,15 @@
 // Entitlements: qué puede hacer un estudio según su PLAN de suscripción del SaaS.
 // Fuente de verdad única, sin React ni Supabase (testeable).
 //
-// Modelo de negocio (Fase 2): sin trial — se cobra desde el día 1. Un estudio
-// sin suscripción ACTIVA no tiene acceso al producto (ver accesoProducto()).
+// Modelo de negocio: prueba gratuita de TRIAL_DIAS días (con tarjeta, vía Stripe
+// Checkout) en la PRIMERA suscripción del estudio; después se cobra. Un estudio
+// sin suscripción activa NI en prueba no tiene acceso al producto (accesoProducto()).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type Plan = 'BASE' | 'ESTUDIO' | 'CADENA';
+
+/** Días de prueba gratuita de la primera suscripción del estudio al SaaS. */
+export const TRIAL_DIAS = 14;
 
 export interface Entitlements {
   /** Tope de socias activas. Infinity = ilimitado. */
@@ -53,7 +57,7 @@ export function suscripcionActiva(status: string | null | undefined): boolean {
   return status === 'active' || status === 'trialing' || status === 'past_due';
 }
 
-/** ¿Este estudio puede usar el producto? Sin trial: solo con suscripción activa. */
+/** ¿Este estudio puede usar el producto? En prueba (trialing) o con suscripción activa. */
 export function accesoProducto(studio: { subscriptionStatus?: string | null }): boolean {
   return suscripcionActiva(studio.subscriptionStatus);
 }

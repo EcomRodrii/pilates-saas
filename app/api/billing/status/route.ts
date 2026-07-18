@@ -21,13 +21,16 @@ export async function GET(req: NextRequest) {
 
   const { data: studio } = await admin
     .from('studios')
-    .select('plan, subscription_status')
+    .select('plan, subscription_status, current_period_end')
     .eq('id', sesion.studioId)
     .single();
 
   const subscriptionStatus = studio?.subscription_status ?? null;
   const plan = studio?.plan ?? 'BASE';
   const activo = accesoProducto({ subscriptionStatus });
+  // En prueba: durante el trial, current_period_end de Stripe = fin de la prueba.
+  const enPrueba = subscriptionStatus === 'trialing';
+  const pruebaTermina = enPrueba ? (studio?.current_period_end ?? null) : null;
 
   const key = process.env.STRIPE_SECRET_KEY;
   const stripeListo = Boolean(key && !key.startsWith('sk_test_XXXX'));
@@ -45,5 +48,7 @@ export async function GET(req: NextRequest) {
     configurado,
     esPropietaria: sesion.rol === 'PROPIETARIO',
     bloqueado,
+    enPrueba,
+    pruebaTermina,
   });
 }
