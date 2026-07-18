@@ -14,8 +14,9 @@ import { createHmac, timingSafeEqual } from 'crypto';
 // `ahora` se inyecta para poder testear de forma determinista.
 
 const TTL_DISPONIBILIDAD_MS = 30 * 24 * 60 * 60 * 1000; // 30 días: onboarding sin prisa
+const TTL_ACEPTAR_MS = 3 * 60 * 60 * 1000;             // 3 h: aceptar una sustitución concreta
 
-export type ScopeToken = 'disponibilidad';
+export type ScopeToken = 'disponibilidad' | 'aceptar_sustitucion';
 
 function secret(): string {
   const s = process.env.SUSTITUCION_TOKEN_SECRET || process.env.OAUTH_STATE_SECRET;
@@ -31,10 +32,14 @@ export function firmarTokenInstructora(
   instructorId: string,
   studioId: string,
   scope: ScopeToken,
+  ref: string | null = null,
   ahora: number = Date.now(),
 ): string {
+  // 'aceptar_sustitucion' es un enlace de un solo uso y ventana corta; el resto
+  // (onboarding de disponibilidad) puede vivir 30 días.
+  const ttl = scope === 'aceptar_sustitucion' ? TTL_ACEPTAR_MS : TTL_DISPONIBILIDAD_MS;
   const payloadB64 = Buffer.from(
-    JSON.stringify({ instructorId, studioId, scope, exp: ahora + TTL_DISPONIBILIDAD_MS }),
+    JSON.stringify({ instructorId, studioId, scope, ref, exp: ahora + ttl }),
   ).toString('base64url');
   return `${payloadB64}.${firmar(payloadB64)}`;
 }
@@ -43,7 +48,7 @@ export function verificarTokenInstructora(
   token: string | null | undefined,
   scope: ScopeToken,
   ahora: number = Date.now(),
-): { instructorId: string; studioId: string } | null {
+): { instructorId: string; studioId: string; ref: string | null } | null {
   if (!token) return null;
   const punto = token.indexOf('.');
   if (punto <= 0) return null;
@@ -57,13 +62,14 @@ export function verificarTokenInstructora(
 
   try {
     const data = JSON.parse(Buffer.from(payloadB64, 'base64url').toString()) as {
-      instructorId?: unknown; studioId?: unknown; scope?: unknown; exp?: unknown;
+      instructorId?: unknown; studioId?: unknown; scope?: unknown; ref?: unknown; exp?: unknown;
     };
     if (data.scope !== scope) return null;
     if (typeof data.exp !== 'number' || data.exp < ahora) return null;
     if (typeof data.instructorId !== 'string' || data.instructorId.length === 0) return null;
     if (typeof data.studioId !== 'string' || data.studioId.length === 0) return null;
-    return { instructorId: data.instructorId, studioId: data.studioId };
+    const ref = typeof data.ref === 'string' && data.ref.length > 0 ? data.ref : null;
+    return { instructorId: data.instructorId, studioId: data.studioId, ref };
   } catch {
     return null;
   }
