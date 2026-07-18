@@ -217,6 +217,25 @@ export async function confirmarSustituta(sustitucionId: string, instructorId: st
   }
 }
 
+// Avisa a una candidata por email (deep link ACEPTO/No puedo). El sistema
+// contacta; ella confirma desde su móvil.
+export async function avisarSustituta(
+  sustitucionId: string, instructorId: string,
+): Promise<{ ok: true; candidata: string; emailEnviado: boolean; emailSkipped: boolean } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sustitucionId, action: 'contactar', instructorId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { candidata?: string; emailEnviado?: boolean; emailSkipped?: boolean; error?: string };
+    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return { ok: true, candidata: data.candidata ?? '', emailEnviado: !!data.emailEnviado, emailSkipped: !!data.emailSkipped };
+  } catch {
+    return { error: 'No se pudo avisar' };
+  }
+}
+
 // Descarta la sustitución (resuelto fuera del sistema).
 export async function descartarSustitucion(sustitucionId: string): Promise<{ ok: true } | { error: string }> {
   try {

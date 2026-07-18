@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import {
-  listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion,
+  listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
   type SustitucionPanel,
 } from '@/lib/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
-  Plus, Check, X, Clock, AlertTriangle, CheckCircle2, CalendarX2, ChevronRight, Sparkles,
+  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck,
 } from 'lucide-react';
 
 type EstadoMeta = { label: string; cls: string; activa: boolean };
@@ -37,6 +37,7 @@ export default function SustitucionesPage() {
   const [cargando, setCargando] = useState(true);
   const [nuevaBaja, setNuevaBaja] = useState(false);
   const [accion, setAccion] = useState<string | null>(null); // id en proceso
+  const [aviso, setAviso] = useState<string | null>(null);   // toast breve
 
   const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'Instructora';
   const tipoDe = (id: string | null | undefined) => tiposClase.find(t => t.id === id);
@@ -45,7 +46,11 @@ export default function SustitucionesPage() {
     setItems(await listarSustituciones());
     setCargando(false);
   }
-  useEffect(() => { void recargar(); }, []);
+  useEffect(() => {
+    let vivo = true;
+    listarSustituciones().then(r => { if (vivo) { setItems(r); setCargando(false); } });
+    return () => { vivo = false; };
+  }, []);
 
   const activas = items.filter(s => ESTADO[s.estado]?.activa);
   const resueltas = items.filter(s => !ESTADO[s.estado]?.activa);
@@ -56,6 +61,17 @@ export default function SustitucionesPage() {
     if ('error' in r) { alert(r.error); setAccion(null); return; }
     await recargar();
     setAccion(null);
+  }
+  async function avisar(s: SustitucionPanel, instructorId: string) {
+    setAccion(s.id);
+    const r = await avisarSustituta(s.id, instructorId);
+    if ('error' in r) { alert(r.error); setAccion(null); return; }
+    setAviso(r.emailSkipped
+      ? `Marcada como avisada a ${r.candidata} (el email no está configurado — envíaselo tú).`
+      : `Email enviado a ${r.candidata}. Cuando acepte, la clase se reasigna sola.`);
+    await recargar();
+    setAccion(null);
+    setTimeout(() => setAviso(null), 6000);
   }
   async function descartar(s: SustitucionPanel) {
     setAccion(s.id);
@@ -75,6 +91,12 @@ export default function SustitucionesPage() {
           <Plus size={16} /> Marcar una baja
         </button>
       </div>
+
+      {aviso && (
+        <div className="flex items-start gap-2 rounded-xl bg-[#DCFCE7] border border-[#86EFAC] px-4 py-3 text-[13px] text-[#166534]">
+          <MailCheck size={16} className="shrink-0 mt-0.5" /> {aviso}
+        </div>
+      )}
 
       {cargando ? (
         <p className="text-sm text-muted-foreground py-16 text-center">Cargando…</p>
@@ -97,7 +119,7 @@ export default function SustitucionesPage() {
                 <SustitucionCard
                   key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor}
                   instructores={instructores} enProceso={accion === s.id}
-                  onConfirmar={confirmar} onDescartar={descartar}
+                  onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisar}
                 />
               ))}
             </div>
@@ -124,7 +146,7 @@ export default function SustitucionesPage() {
 }
 
 function SustitucionCard({
-  s, tipo, nombreInstructor, instructores, enProceso, onConfirmar, onDescartar,
+  s, tipo, nombreInstructor, instructores, enProceso, onConfirmar, onDescartar, onAvisar,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
@@ -133,6 +155,7 @@ function SustitucionCard({
   enProceso: boolean;
   onConfirmar: (s: SustitucionPanel, instructorId: string) => void;
   onDescartar: (s: SustitucionPanel) => void;
+  onAvisar: (s: SustitucionPanel, instructorId: string) => void;
 }) {
   const meta = ESTADO[s.estado] ?? ESTADO.buscando;
   const ranking = Array.isArray(s.ranking) ? s.ranking : [];
@@ -161,7 +184,9 @@ function SustitucionCard({
         </div>
       ) : (
         <div className="mt-4 space-y-2">
-          <p className="text-[12px] font-semibold text-foreground">Candidatas — elige a quién confirmar:</p>
+          <p className="text-[12px] font-semibold text-foreground">
+            {s.estado === 'contactando' ? 'Avisada — esperando su respuesta. Puedes avisar a otra o confirmar tú:' : 'Avísalas y confirman ellas, o confírmalas tú directo:'}
+          </p>
           {ranking.map((c, idx) => (
             <div key={c.instructor_id} className="flex items-center gap-3 rounded-xl border border-border p-3">
               <ProfileAvatar avatarId={instructores.find(i => i.id === c.instructor_id)?.avatar ?? null} nombre={c.nombre} color={instructores.find(i => i.id === c.instructor_id)?.color ?? '#7C3AED'} size="sm" />
@@ -172,12 +197,20 @@ function SustitucionCard({
                 </p>
                 <p className="text-[12px] text-muted-foreground leading-snug">{(c.motivos ?? []).join(' · ')}</p>
               </div>
-              <button
-                onClick={() => onConfirmar(s, c.instructor_id)} disabled={enProceso}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
-              >
-                <Check size={13} /> Confirmar
-              </button>
+              <div className="flex flex-col gap-1.5 shrink-0">
+                <button
+                  onClick={() => onAvisar(s, c.instructor_id)} disabled={enProceso}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
+                >
+                  <Mail size={13} /> Avisar
+                </button>
+                <button
+                  onClick={() => onConfirmar(s, c.instructor_id)} disabled={enProceso}
+                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground text-[11px] font-semibold hover:bg-muted disabled:opacity-50 transition"
+                >
+                  <Check size={12} /> Confirmar
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -230,15 +263,17 @@ function NuevaBajaDialog({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [ahoraMs, setAhoraMs] = useState(0);
   const proximas = useMemo(() => {
-    const ahora = Date.now();
     return sesiones
-      .filter(s => !s.cancelada && new Date(s.inicio).getTime() > ahora && !yaConBaja.has(s.id))
+      .filter(s => !s.cancelada && new Date(s.inicio).getTime() > ahoraMs && !yaConBaja.has(s.id))
       .sort((a, b) => a.inicio.localeCompare(b.inicio))
       .slice(0, 40);
-  }, [sesiones, yaConBaja]);
+  }, [sesiones, yaConBaja, ahoraMs]);
 
-  useEffect(() => { if (open) { setSesionId(null); setMotivo(''); setError(null); } }, [open]);
+  // Reset al abrir (patrón estándar de diálogo controlado).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (open) { setSesionId(null); setMotivo(''); setError(null); setAhoraMs(Date.now()); } }, [open]);
 
   async function crear() {
     if (!sesionId) return;
