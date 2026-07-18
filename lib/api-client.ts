@@ -190,14 +190,46 @@ export async function crearBaja(sesionId: string, motivo?: string): Promise<{ ok
   }
 }
 
-export async function listarSustituciones(): Promise<SustitucionPanel[]> {
+export async function listarSustituciones(): Promise<{ items: SustitucionPanel[]; avisarAlumnas: boolean }> {
   try {
     const res = await fetch('/api/sustituciones', { headers: await authHeader() });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { sustituciones?: SustitucionPanel[] };
-    return data.sustituciones ?? [];
+    if (!res.ok) return { items: [], avisarAlumnas: false };
+    const data = (await res.json()) as { sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean };
+    return { items: data.sustituciones ?? [], avisarAlumnas: !!data.avisarAlumnas };
   } catch {
-    return [];
+    return { items: [], avisarAlumnas: false };
+  }
+}
+
+// Cancela la clase (no hay sustituta) y avisa a las alumnas apuntadas.
+export async function cancelarClase(sustitucionId: string): Promise<{ ok: true; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sustitucionId, action: 'cancelar_clase' }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } };
+    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return { ok: true, alumnas: data.alumnas };
+  } catch {
+    return { error: 'No se pudo cancelar' };
+  }
+}
+
+// Activa/desactiva el aviso automático a las alumnas (solo propietaria).
+export async function setAvisarAlumnas(avisar: boolean): Promise<{ ok: true } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ action: 'config_avisar', avisar }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return { ok: true };
+  } catch {
+    return { error: 'No se pudo cambiar el ajuste' };
   }
 }
 

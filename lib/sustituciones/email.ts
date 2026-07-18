@@ -42,13 +42,54 @@ export async function enviarEmailContactoSustituta(params: {
     </p>
   </div>`;
 
+  return enviar(params.to, `¿Puedes cubrir ${claseNombre}? — ${estudioNombre}`, html);
+}
+
+// ── Avisos a las alumnas apuntadas ──────────────────────────────────────────
+
+// Se ha confirmado sustituta: la clase sigue en pie (mensaje tranquilizador).
+export async function enviarEmailAlumnaClaseCubierta(params: {
+  to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; sustituta: string;
+}): Promise<EnvioResultado> {
+  const html = `
+  <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0f172a">
+    <p style="font-size:16px;margin:0 0 14px">Hola ${esc(params.toName)},</p>
+    <p style="font-size:16px;line-height:1.5;margin:0 0 18px">
+      Tu clase <strong>${esc(params.claseNombre)}</strong> del ${esc(params.cuando)} <strong>sigue en pie</strong>.
+      La dará <strong>${esc(params.sustituta)}</strong>. No tienes que hacer nada.
+    </p>
+    <p style="font-size:13px;color:#94a3b8;margin:18px 0 0">${esc(params.estudioNombre)}</p>
+  </div>`;
+  return enviar(params.to, `Tu clase sigue en pie — ${params.claseNombre}`, html);
+}
+
+// No hay sustituta: la clase se cancela (que se entere por ti, no en la puerta).
+export async function enviarEmailAlumnaClaseCancelada(params: {
+  to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string;
+}): Promise<EnvioResultado> {
+  const html = `
+  <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0f172a">
+    <p style="font-size:16px;margin:0 0 14px">Hola ${esc(params.toName)},</p>
+    <p style="font-size:16px;line-height:1.5;margin:0 0 18px">
+      Sentimos avisarte de que tu clase <strong>${esc(params.claseNombre)}</strong> del ${esc(params.cuando)}
+      <strong>se cancela</strong>. Disculpa las molestias — te esperamos en la próxima.
+    </p>
+    <p style="font-size:13px;color:#94a3b8;margin:18px 0 0">${esc(params.estudioNombre)}</p>
+  </div>`;
+  return enviar(params.to, `Clase cancelada — ${params.claseNombre}`, html);
+}
+
+type EnvioResultado = { ok: true; id?: string } | { ok: false; skipped: true } | { ok: false; error: string };
+
+async function enviar(to: string, subject: string, html: string): Promise<EnvioResultado> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
+  if (!to) return { ok: false, error: 'Sin destinatario' };
   try {
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
-      to: [params.to],
-      subject: `¿Puedes cubrir ${claseNombre}? — ${estudioNombre}`,
-      html,
+      to: [to], subject, html,
     });
     if (error) { console.error('[sustituciones/email]', error); return { ok: false, error: error.message }; }
     return { ok: true, id: data?.id };

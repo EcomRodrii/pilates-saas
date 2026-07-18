@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
+import { avisarAlumnas } from '@/lib/sustituciones/avisos';
 
 // Endpoint PÚBLICO (sin login): la candidata responde al deep link del email.
 // 'aceptar' → confirmación atómica (RPC confirmar_sustitucion) + reasigna la clase.
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
       p_aprobada_por: null,
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    const r = (data ?? {}) as { ok?: boolean; motivo?: string };
+    const r = (data ?? {}) as { ok?: boolean; motivo?: string; sesion_id?: string };
     if (!r.ok) {
       // Otra persona la cubrió antes (o se canceló): el token llega tarde.
       return NextResponse.json({ ok: false, motivo: 'ya_resuelta' }, { status: 409 });
@@ -36,6 +37,12 @@ export async function POST(req: NextRequest) {
     await admin.from('sustitucion_contactos')
       .update({ estado: 'aceptado', respondido_en: new Date().toISOString() })
       .eq('token', body?.token ?? '');
+
+    // Avisa a las alumnas (si el estudio lo tiene activado): "tu clase sigue en pie".
+    if (r.sesion_id) {
+      const { data: cand } = await admin.from('instructores').select('nombre').eq('id', claim.instructorId).maybeSingle();
+      await avisarAlumnas(admin, { sesionId: r.sesion_id, studioId: claim.studioId, tipo: 'cubierta', sustituta: cand?.nombre });
+    }
     return NextResponse.json({ ok: true });
   }
 
