@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
@@ -430,6 +431,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [dataLoaded, setDataLoaded] = useState(false);
   const [dbError, setDbError] = useState<{ msg: string; key: number } | null>(null);
 
+  // /portal, /reservar y /kiosk montan SU PROPIO StudioProvider (con
+  // publicSlug) vía StudioSlugGate, anidado dentro de este — el de la raíz
+  // (app/layout.tsx, sin publicSlug) queda sombreado y nadie lee su contexto.
+  // Aun así su efecto se ejecutaba igual: intentaba el fetch admin completo
+  // sin sesión de staff, fallando en RLS y disparando el toast/Sentry de
+  // "no se pudo guardar" en cada visita del portal. Si esta instancia no
+  // tiene publicSlug pero SÍ estamos en una de esas rutas, es la sombreada:
+  // no hace falta que traiga nada.
+  const pathname = usePathname();
+  const shadowedByPublicRoute = !publicSlug && /^\/(portal|reservar|kiosk)\//.test(pathname ?? '');
+
   // Surface fire-and-forget DB write failures to the user instead of losing them.
   useEffect(() => {
     setDbErrorListener(() => {
@@ -577,6 +589,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       cargarPublico();
       return;
     }
+    // Nadie lee el contexto de esta instancia sombreada (ver comentario arriba),
+    // así que no hace falta tocar dataLoaded ni ningún otro estado.
+    if (shadowedByPublicRoute) return;
 
     (async () => {
       // Multi-tenancy: figure out which studio this session belongs to
@@ -662,7 +677,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setDataLoaded(true);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUserId, studioIdOverride, publicSlug]);
+  }, [authUserId, studioIdOverride, publicSlug, shadowedByPublicRoute]);
 
   // ── Auto-increment factura counter ──────────────────────────────────────────
   function nextFacturaNumero(existingFacturas: Factura[]): string {
