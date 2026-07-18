@@ -4,7 +4,7 @@
 // Mantiene toda la lógica de auth/redirección original; solo cambia el aspecto
 // (fondo por tema, tab bar flotante con indicador animado por transform).
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home, Calendar, CreditCard, Play, TrendingUp } from 'lucide-react';
@@ -50,6 +50,26 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     if (session && isLoginPage) router.replace(`/portal/${slug}/clases`);
   }, [session, isLoading, isLoginPage, isClaveNueva, router, slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Transición entre pantallas del portal (clases/home/mi-plan/...): la
+  // pantalla saliente se queda montada (misma key, así React la conserva en
+  // vez de desmontarla) y se superpone en absolute mientras se desvanece; la
+  // entrante hace fade-in encima. Así nunca hay un instante sin nada pintado
+  // que deje ver el fondo del shell — que en modo noche es casi negro y se
+  // veía como un parpadeo al cambiar de pestaña.
+  const [screen, setScreen] = useState<{ path: string; node: React.ReactNode }>({ path: pathname, node: children });
+  const [leaving, setLeaving] = useState<{ path: string; node: React.ReactNode } | null>(null);
+  if (screen.path !== pathname) {
+    setLeaving(screen);
+    setScreen({ path: pathname, node: children });
+  } else if (screen.node !== children) {
+    setScreen({ path: pathname, node: children });
+  }
+  useEffect(() => {
+    if (!leaving) return;
+    const id = setTimeout(() => setLeaving(null), 220);
+    return () => clearTimeout(id);
+  }, [leaving]);
+
   // El portal es una app de móvil, no un sitio responsive: en pantallas anchas
   // (alguien lo abre en el navegador del ordenador) FRAME la limita al ancho de
   // un teléfono y la centra, en vez de estirarla borde a borde — así se evita
@@ -90,8 +110,15 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
         className="flex flex-col overflow-hidden"
         style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", ...themeStyle }}
       >
-        <main className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-          {children}
+        <main className="flex-1 overflow-y-auto relative" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+          {leaving && (
+            <div key={leaving.path} className="absolute inset-0 portal-page-out" style={{ pointerEvents: 'none', background: t.bg }} aria-hidden>
+              {leaving.node}
+            </div>
+          )}
+          <div key={screen.path} className={leaving ? 'portal-page-in' : undefined}>
+            {screen.node}
+          </div>
           <div style={{ height: 'calc(96px + env(safe-area-inset-bottom))' }} />
         </main>
 
