@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
+import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -62,8 +63,14 @@ export async function cobrarReciboOffSession(params: {
   if (recibo.estado !== 'PENDIENTE') {
     return { ok: false, error: 'Este recibo ya no está pendiente', errorCode: 'NO_PENDIENTE' };
   }
-  if (socioError || !socio?.stripe_customer_id || !socio?.stripe_payment_method_id) {
-    return { ok: false, error: 'La socia no tiene tarjeta guardada', errorCode: 'SIN_TARJETA' };
+  if (socioError || !socio?.stripe_customer_id) {
+    return { ok: false, error: 'La socia no tiene método de pago guardado', errorCode: 'SIN_TARJETA' };
+  }
+  // Elige método: SEPA domiciliado (si la socia lo tiene listo y preferido) o
+  // tarjeta guardada. Si no hay ninguno, no se puede cobrar sola.
+  const metodo = elegirMetodoCobro(socio);
+  if (!metodo.ok) {
+    return { ok: false, error: 'La socia no tiene tarjeta ni mandato SEPA guardado', errorCode: 'SIN_TARJETA' };
   }
   if (studioError || !studio?.stripe_account_id) {
     return { ok: false, error: 'El estudio no tiene Stripe conectado', errorCode: 'SIN_STRIPE_CONECTADO' };
@@ -88,16 +95,37 @@ export async function cobrarReciboOffSession(params: {
     const amountCents = Math.round(recibo.importe * 100);
     // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
     const fee = applicationFeeAmount(amountCents);
+    const esSepa = metodo.metodo === 'SEPA';
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: 'eur',
       customer: socio.stripe_customer_id,
-      payment_method: socio.stripe_payment_method_id,
+      payment_method: metodo.paymentMethodId,
+      // SEPA se cobra por adeudo domiciliado; la tarjeta usa el flujo por defecto.
+      ...(esSepa ? { payment_method_types: ['sepa_debit'] } : {}),
+      ...(esSepa && metodo.mandateId ? { mandate: metodo.mandateId } : {}),
       off_session: true,
       confirm: true,
-      metadata: { reciboId: params.reciboId, socioId: params.socioId },
+      metadata: { reciboId: params.reciboId, socioId: params.socioId, origen: esSepa ? 'sepa_recibo' : 'tarjeta_recibo' },
       ...(fee !== undefined ? { application_fee_amount: fee } : {}),
     }, { stripeAccount: studio.stripe_account_id, idempotencyKey });
+
+    // SEPA es ASÍNCRONO: tras confirmar off-session el estado normal es
+    // 'processing' (el adeudo tarda días y puede devolverse hasta 8 semanas).
+    // NO es un fallo: el recibo pasa a EN_CURSO y el webhook
+    // (payment_intent.succeeded / .payment_failed) lo resolverá — PR-4. Solo se
+    // marca COBRADO cuando Stripe confirma 'succeeded'.
+    if (esSepa && paymentIntent.status === 'processing') {
+      const { error: updErr } = await admin
+        .from('recibos').update({ estado: 'EN_CURSO', metodo_cobro: 'SEPA', sepa_estado: 'processing' }).eq('id', params.reciboId);
+      if (updErr) {
+        Sentry.captureException(new Error(`Adeudo SEPA enviado pero no se pudo marcar el recibo EN_CURSO: ${updErr.message}`), {
+          level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
+          extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
+        });
+      }
+      return { ok: true, status: paymentIntent.status, importe: recibo.importe };
+    }
 
     if (paymentIntent.status === 'succeeded') {
       // I6: Stripe YA cobró. Si el update del recibo falla, no lo tragamos: la
@@ -105,7 +133,10 @@ export async function cobrarReciboOffSession(params: {
       // podría reaparecer para cobro → la reconciliación se rompe. Lo registramos
       // en Sentry con el reciboId/paymentIntent para reconciliación manual.
       const { error: updErr } = await admin
-        .from('recibos').update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString() }).eq('id', params.reciboId);
+        .from('recibos').update({
+          estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodo.metodo,
+          ...(esSepa ? { sepa_estado: 'succeeded' } : {}),
+        }).eq('id', params.reciboId);
       if (updErr) {
         Sentry.captureException(new Error(`Cobro OK en Stripe pero no se pudo marcar el recibo COBRADO: ${updErr.message}`), {
           level: 'error',
@@ -120,7 +151,9 @@ export async function cobrarReciboOffSession(params: {
     // autenticación (3DS) que no se puede completar sin la socia presente.
     return {
       ok: false, status: paymentIntent.status, errorCode: 'FALLO_COBRO',
-      error: 'El banco pidió autenticación adicional (3DS) que no se puede completar sin la socia presente. Pídele que pague desde un enlace de cobro normal.',
+      error: esSepa
+        ? `El adeudo SEPA no se pudo iniciar (estado: ${paymentIntent.status}). Revisa el mandato de la socia.`
+        : 'El banco pidió autenticación adicional (3DS) que no se puede completar sin la socia presente. Pídele que pague desde un enlace de cobro normal.',
     };
   } catch (err) {
     const mensaje = err instanceof Stripe.errors.StripeError
