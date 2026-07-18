@@ -346,6 +346,9 @@ export interface EstadoBilling {
   configurado: boolean;
   esPropietaria: boolean;
   bloqueado: boolean;
+  // Trial: enPrueba = suscripción en periodo de prueba; pruebaTermina = ISO fin.
+  enPrueba?: boolean;
+  pruebaTermina?: string | null;
 }
 
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve

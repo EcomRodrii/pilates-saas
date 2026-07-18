@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
+import { PLANES, PLAN_INFO, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
 import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, type EstadoBilling } from '@/lib/api-client';
 
 const ACC = '#FFC8E2';
@@ -69,6 +69,12 @@ export default function SuscripcionPage() {
   const activo = estado?.activo ?? false;
   const esPropietaria = estado?.esPropietaria ?? true;
   const stripeListo = estado?.configurado ?? false;
+  const enPrueba = estado?.enPrueba ?? false;
+  // Primera suscripción (nunca se ha suscrito) → tiene derecho a la prueba gratis.
+  const primeraVez = !estado?.subscriptionStatus;
+  const diasPrueba = estado?.pruebaTermina
+    ? Math.max(0, Math.ceil((new Date(estado.pruebaTermina).getTime() - Date.now()) / 86400000))
+    : null;
 
   return (
     <div style={{ minHeight: '100vh', background: '#EEEEE8', color: '#1A1A1A' }}>
@@ -83,7 +89,9 @@ export default function SuscripcionPage() {
           <p style={{ fontSize: 18, color: '#5A5A52', margin: 0 }}>
             {activo
               ? 'Tu suscripción está al día. Puedes cambiar de plan o gestionar tu facturación cuando quieras.'
-              : 'Sin permanencia. Cancela cuando quieras. Precios con todo incluido.'}
+              : primeraVez
+                ? `Empieza con ${TRIAL_DIAS} días gratis. Sin permanencia, cancela cuando quieras.`
+                : 'Sin permanencia. Cancela cuando quieras. Precios con todo incluido.'}
           </p>
         </header>
 
@@ -104,6 +112,11 @@ export default function SuscripcionPage() {
             <div style={{ fontSize: 13, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 8 }}>Plan actual</div>
             <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>{PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].nombre}</div>
             <div style={{ fontSize: 14, color: '#5A5A52', marginBottom: 24 }}>{PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].resumen}</div>
+            {enPrueba && diasPrueba !== null && (
+              <div style={{ background: '#E7F6EC', border: '1px solid #B6E0C4', color: '#1E7A43', borderRadius: 10, padding: '10px 14px', fontSize: 13.5, marginBottom: 20 }}>
+                Prueba gratuita — te quedan <strong>{diasPrueba} día{diasPrueba === 1 ? '' : 's'}</strong>. Después se activará tu plan automáticamente.
+              </div>
+            )}
             {esPropietaria ? (
               <button onClick={abrirPortal} disabled={accion === 'portal'} style={btnPrimary}>
                 {accion === 'portal' ? 'Abriendo…' : 'Gestionar suscripción'}
@@ -164,7 +177,7 @@ export default function SuscripcionPage() {
                           cursor: !stripeListo || accion !== null ? 'not-allowed' : 'pointer',
                         }}
                       >
-                        {accion === plan ? 'Redirigiendo…' : `Suscribirme a ${info.nombre}`}
+                        {accion === plan ? 'Redirigiendo…' : primeraVez ? `Probar ${info.nombre} gratis` : `Suscribirme a ${info.nombre}`}
                       </button>
                     ) : (
                       <div style={{ fontSize: 13, color: '#8E8E86', textAlign: 'center' }}>Pídeselo a la propietaria</div>

@@ -4,7 +4,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { priceIdDe } from '@/lib/billing/billing';
-import { PLANES, type Plan } from '@/lib/billing/entitlements';
+import { PLANES, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
 // suscribir su negocio. Crea (o reutiliza) el Customer de Stripe del estudio y
@@ -37,9 +37,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: studio } = await admin
-    .from('studios').select('id, nombre, email, stripe_customer_id')
+    .from('studios').select('id, nombre, email, stripe_customer_id, subscription_status')
     .eq('id', sesion.studioId).single();
   if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
+
+  // Prueba gratuita solo en la PRIMERA suscripción: si el estudio nunca ha tenido
+  // suscripción (subscription_status vacío) le damos TRIAL_DIAS días. Un estudio
+  // que ya se suscribió antes (aunque cancelara) no vuelve a tener prueba.
+  const primeraVez = !studio.subscription_status;
 
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
 
@@ -60,8 +65,13 @@ export async function POST(req: NextRequest) {
     mode: 'subscription',
     customer: customerId,
     line_items: [{ price, quantity: 1 }],
-    // Vincula la suscripción al estudio y al plan (lo lee el webhook).
-    subscription_data: { metadata: { studioId: studio.id, plan } },
+    // Vincula la suscripción al estudio y al plan (lo lee el webhook). En la
+    // primera suscripción añade la prueba gratuita: el Checkout recoge la tarjeta
+    // pero no cobra hasta que termina el trial (se convierte sola).
+    subscription_data: {
+      metadata: { studioId: studio.id, plan },
+      ...(primeraVez ? { trial_period_days: TRIAL_DIAS } : {}),
+    },
     metadata: { studioId: studio.id, plan },
     success_url: `${appUrl}/configuracion?suscripcion=ok`,
     cancel_url: `${appUrl}/configuracion?suscripcion=cancel`,
