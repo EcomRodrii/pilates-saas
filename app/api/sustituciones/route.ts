@@ -76,3 +76,67 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ sustitucion: insertada, yaExistia: false });
 }
+
+// GET /api/sustituciones — lista las sustituciones del estudio (activas +
+// resueltas recientes) con el ranking y los datos de la clase, para el panel.
+export async function GET(req: NextRequest) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  const { data, error } = await admin
+    .from('sustituciones')
+    .select('id, estado, motivo, creado_en, resuelto_en, instructor_original_id, sustituta_final_id, ranking, sesion_id, sesiones(inicio, fin, tipo_clase_id, cancelada)')
+    .eq('studio_id', sesion.studioId)
+    .order('creado_en', { ascending: false })
+    .limit(50);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ sustituciones: data ?? [] });
+}
+
+// PATCH /api/sustituciones — confirmar una candidata (aceptación atómica) o
+// descartar la sustitución ("resuelto fuera del sistema").
+export async function PATCH(req: NextRequest) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  const body = (await req.json().catch(() => null)) as
+    { sustitucionId?: string; action?: string; instructorId?: string } | null;
+  const sustitucionId = typeof body?.sustitucionId === 'string' ? body.sustitucionId : null;
+  if (!sustitucionId) return NextResponse.json({ error: 'Falta sustitucionId' }, { status: 400 });
+
+  if (body?.action === 'confirmar') {
+    const instructorId = typeof body?.instructorId === 'string' ? body.instructorId : null;
+    if (!instructorId) return NextResponse.json({ error: 'Falta la candidata (instructorId)' }, { status: 400 });
+
+    // Aceptación atómica + reasignación de la clase, en una transacción (función 0040).
+    const { data, error } = await admin.rpc('confirmar_sustitucion', {
+      p_sustitucion_id: sustitucionId,
+      p_instructor_id: instructorId,
+      p_studio_id: sesion.studioId,
+      p_aprobada_por: sesion.userId,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    const r = (data ?? {}) as { ok?: boolean; motivo?: string };
+    if (!r.ok) return NextResponse.json({ error: 'Esta sustitución ya está resuelta', ...r }, { status: 409 });
+    return NextResponse.json(r);
+  }
+
+  if (body?.action === 'descartar') {
+    const { error } = await admin
+      .from('sustituciones')
+      .update({ estado: 'resuelta_fuera', resuelto_en: new Date().toISOString() })
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId)
+      .in('estado', ['buscando', 'pendiente_aprobacion', 'contactando']);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
+}

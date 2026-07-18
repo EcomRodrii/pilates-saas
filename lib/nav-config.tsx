@@ -6,7 +6,7 @@ import {
   FileText, Settings, BarChart2,
   Clock, MessageCircle, Megaphone, Play,
   Bot, ArrowLeftRight, Package, Store, Inbox,
-  UserCog, Users2, Compass,
+  UserCog, Users2, Compass, Replace,
   Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
 } from 'lucide-react';
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
@@ -42,6 +42,7 @@ const allSections: NavSection[] = [
     items: [
       { href: '/calendario', label: 'Calendario', icon: Calendar },
       { href: '/citas', label: 'Citas', icon: Clock },
+      { href: '/sustituciones', label: 'Sustituciones', icon: Replace },
     ],
   },
   {
