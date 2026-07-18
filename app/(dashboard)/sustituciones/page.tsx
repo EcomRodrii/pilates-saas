@@ -175,6 +175,11 @@ export default function SustitucionesPage() {
   );
 }
 
+function fmtHora(inicio?: string | null): string {
+  if (!inicio) return '';
+  return new Date(inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+}
+
 function SustitucionCard({
   s, tipo, nombreInstructor, instructores, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar,
 }: {
@@ -190,25 +195,32 @@ function SustitucionCard({
 }) {
   const meta = ESTADO[s.estado] ?? ESTADO.buscando;
   const ranking = Array.isArray(s.ranking) ? s.ranking : [];
+  const hero = ranking[0];
+  const resto = ranking.slice(1);
+  const esp = tipo?.nombre ?? 'Clase';
+  const contactada = s.estado === 'contactando';
+  const insDe = (id: string) => instructores.find(i => i.id === id);
+
   return (
-    <div className="bg-card border border-border rounded-2xl p-5">
+    <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 shadow-sm">
+      {/* Cabecera: la clase que hay que cubrir */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tipo?.color ?? '#94A3B8' }} />
           <div className="min-w-0">
-            <p className="font-bold text-foreground text-[15px] leading-tight">{tipo?.nombre ?? 'Clase'}</p>
+            <p className="font-bold text-foreground text-[15px] leading-tight">{esp}</p>
             <p className="text-[13px] text-muted-foreground">{fmtClase(s.sesiones?.inicio)}</p>
           </div>
         </div>
         <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${meta.cls}`}>{meta.label}</span>
       </div>
-
-      <p className="text-[13px] text-muted-foreground mt-3">
+      <p className="text-[13px] text-muted-foreground mt-2.5">
         Falta <strong className="text-foreground">{nombreInstructor(s.instructor_original_id)}</strong>
         {s.motivo ? <> — <span className="italic">{s.motivo}</span></> : null}
       </p>
 
-      {ranking.length === 0 ? (
+      {!hero ? (
+        // Sin candidatas disponibles
         <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3">
           <div className="flex items-start gap-2">
             <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
@@ -222,41 +234,105 @@ function SustitucionCard({
           </button>
         </div>
       ) : (
-        <div className="mt-4 space-y-2">
-          <p className="text-[12px] font-semibold text-foreground">
-            {s.estado === 'contactando' ? 'Avisada — esperando su respuesta. Puedes avisar a otra o confirmar tú:' : 'Avísalas y confirman ellas, o confírmalas tú directo:'}
-          </p>
-          {ranking.map((c, idx) => (
-            <div key={c.instructor_id} className="flex items-center gap-3 rounded-xl border border-border p-3">
-              <ProfileAvatar avatarId={instructores.find(i => i.id === c.instructor_id)?.avatar ?? null} nombre={c.nombre} color={instructores.find(i => i.id === c.instructor_id)?.color ?? '#7C3AED'} size="sm" />
+        <>
+          {/* HERO: la sustituta ideal */}
+          <div className="mt-4 rounded-2xl border border-brand/20 bg-brand/[0.05] p-4 sm:p-5">
+            <div className="flex items-center gap-1.5 mb-3.5">
+              <CheckCircle2 size={15} className="text-[#22C55E]" />
+              <span className="text-[12px] font-bold text-foreground">Sustituta ideal encontrada</span>
+            </div>
+
+            <div className="flex items-center gap-3.5">
+              <ProfileAvatar avatarId={insDe(hero.instructor_id)?.avatar ?? null} nombre={hero.nombre} color={insDe(hero.instructor_id)?.color ?? '#6D28D9'} size="lg" />
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-bold text-foreground flex items-center gap-1.5">
-                  {c.nombre}
-                  {idx === 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand/10 text-brand-secondary">Mejor opción</span>}
-                </p>
-                <p className="text-[12px] text-muted-foreground leading-snug">{(c.motivos ?? []).join(' · ')}</p>
-              </div>
-              <div className="flex flex-col gap-1.5 shrink-0">
-                <button
-                  onClick={() => onAvisar(s, c.instructor_id)} disabled={enProceso}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
-                >
-                  <Mail size={13} /> Avisar
-                </button>
-                <button
-                  onClick={() => onConfirmar(s, c.instructor_id)} disabled={enProceso}
-                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground text-[11px] font-semibold hover:bg-muted disabled:opacity-50 transition"
-                >
-                  <Check size={12} /> Confirmar
-                </button>
+                <p className="text-[18px] font-extrabold text-foreground leading-tight truncate">{hero.nombre}</p>
+                <p className="text-[13px] font-semibold text-brand-secondary">Instructora de {esp}</p>
               </div>
             </div>
-          ))}
-        </div>
+
+            {/* Compatibilidad */}
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[12px] font-semibold text-foreground">Compatibilidad</span>
+                <span className="text-[14px] font-extrabold text-[#16A34A] tabular-nums">{hero.compatibilidad}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-black/[0.06] overflow-hidden">
+                <div className="h-full rounded-full bg-[#22C55E] transition-all duration-500" style={{ width: `${hero.compatibilidad}%` }} />
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="mt-4 grid grid-cols-2 rounded-xl border border-border bg-card overflow-hidden">
+              <div className="p-3">
+                <p className="text-[11px] text-muted-foreground">Disponible</p>
+                <p className="text-[13px] font-bold text-foreground mt-0.5">{fmtHora(s.sesiones?.inicio)} h</p>
+              </div>
+              <div className="p-3 border-l border-border">
+                <p className="text-[11px] text-muted-foreground">Clases de {esp}</p>
+                <p className="text-[13px] font-bold text-foreground mt-0.5">{hero.veces > 0 ? `${hero.veces} impartidas` : 'Primera vez'}</p>
+              </div>
+            </div>
+
+            {/* Motivos en lenguaje humano */}
+            <p className="mt-3 text-[12px] text-muted-foreground leading-relaxed">{(hero.motivos ?? []).join(' · ')}</p>
+
+            {/* Acciones */}
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => onAvisar(s, hero.instructor_id)} disabled={enProceso}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-brand text-brand-foreground text-[14px] font-bold hover:brightness-95 disabled:opacity-50 transition active:scale-[0.99]"
+              >
+                <Mail size={15} /> {contactada ? 'Volver a avisar' : `Avisar a ${hero.nombre.split(' ')[0]}`}
+              </button>
+              <button
+                onClick={() => onConfirmar(s, hero.instructor_id)} disabled={enProceso}
+                title="Confirmar directamente (sin email)"
+                className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-border text-foreground text-[13px] font-semibold hover:bg-muted disabled:opacity-50 transition"
+              >
+                <Check size={14} /> Confirmar
+              </button>
+            </div>
+            {contactada && (
+              <p className="mt-2.5 text-[11px] text-center text-muted-foreground">✉️ Avisada — esperando su respuesta</p>
+            )}
+          </div>
+
+          {/* Otras candidatas */}
+          {resto.length > 0 && (
+            <div className="mt-3.5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">Otras opciones</p>
+              <div className="space-y-1.5">
+                {resto.map(c => (
+                  <div key={c.instructor_id} className="flex items-center gap-3 rounded-xl border border-border p-2.5">
+                    <ProfileAvatar avatarId={insDe(c.instructor_id)?.avatar ?? null} nombre={c.nombre} color={insDe(c.instructor_id)?.color ?? '#7C3AED'} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-bold text-foreground flex items-center gap-1.5">
+                        {c.nombre}
+                        <span className="text-[11px] font-bold text-[#16A34A] tabular-nums">{c.compatibilidad}%</span>
+                      </p>
+                      <p className="text-[11px] text-muted-foreground truncate">{(c.motivos ?? []).join(' · ')}</p>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <button onClick={() => onAvisar(s, c.instructor_id)} disabled={enProceso} title="Avisar por email"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand-secondary text-[11px] font-bold hover:bg-brand/20 disabled:opacity-50 transition">
+                        <Mail size={12} /> Avisar
+                      </button>
+                      <button onClick={() => onConfirmar(s, c.instructor_id)} disabled={enProceso} title="Confirmar directamente"
+                        className="flex items-center justify-center w-8 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-50 transition">
+                        <Check size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      <div className="mt-3 flex justify-end gap-4">
-        {ranking.length > 0 && (
+      {/* Pie */}
+      <div className="mt-4 flex justify-end gap-4">
+        {hero && (
           <button onClick={() => onCancelar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-red-600 disabled:opacity-50 transition-colors">
             Cancelar clase
           </button>

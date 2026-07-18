@@ -159,6 +159,8 @@ export interface SustitucionCandidata {
   instructor_id: string;
   nombre: string;
   score: number;
+  compatibilidad: number; // 0-100, para la barra de la card
+  veces: number;          // clases impartidas de este tipo
   motivos: string[];
 }
 export interface SustitucionPanel {
