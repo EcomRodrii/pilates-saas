@@ -217,6 +217,8 @@ export interface RowRecibos {
   // 0036 pagos España — método real del cobro y estado asíncrono SEPA.
   metodo_cobro: string | null;
   sepa_estado: string | null;
+  // 0041 dunning — próximo reintento programado del cobro.
+  proximo_reintento: string | null;
 }
 
 export interface RowFacturas {

@@ -12,6 +12,10 @@ import {
   ejecutarRecomendacion,
   medirOutcomeFn,
 } from '@/lib/inngest/decision';
+import {
+  dunningDispatcher,
+  procesarDunningEstudio,
+} from '@/lib/inngest/dunning';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -27,5 +31,7 @@ export const { GET, POST, PUT } = serve({
     analizarEstudio,
     ejecutarRecomendacion,
     medirOutcomeFn,
+    dunningDispatcher,
+    procesarDunningEstudio,
   ],
 });

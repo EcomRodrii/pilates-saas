@@ -32,14 +32,13 @@ export async function cobrarReciboOffSession(params: {
   socioId: string;
   studioId: string;
 }): Promise<ResultadoCobro> {
-  // A-10: la Idempotency-Key de Stripe se deriva SOLO del reciboId. Antes cada
-  // disparador pasaba una clave distinta (la ruta manual usaba el logId; el
-  // ejecutor del Decision OS usaba `${recomendacion.id}-${reciboId}`), así que si
-  // ambos aprobaban el cobro del MISMO recibo casi a la vez —antes de que el
-  // primero marcara el recibo COBRADO— Stripe no los deduplicaba y la socia
-  // pagaba dos veces. Con la clave anclada al recibo, un segundo intento del
-  // mismo cobro devuelve el mismo PaymentIntent en lugar de crear otro cargo.
-  const idempotencyKey = `offsession-cobro-${params.reciboId}`;
+  // A-10 + Dunning (0041): la Idempotency-Key de Stripe se ancla al recibo Y al
+  // número de intento (intentos_reintento). Anclarla SOLO al recibo evitaba el
+  // doble cargo de dos aprobaciones simultáneas del MISMO cobro, pero rompía el
+  // dunning: un reintento devolvía el MISMO PaymentIntent ya fallido en lugar de
+  // intentar de nuevo. Con `-i${intento}` cada reintento es un cargo nuevo, y dos
+  // disparadores del mismo intento siguen deduplicados. Se calcula más abajo, tras
+  // cargar el recibo (necesita su intentos_reintento).
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
     return { ok: false, error: 'Stripe no configurado', errorCode: 'NO_CONFIGURADO' };
@@ -60,9 +59,14 @@ export async function cobrarReciboOffSession(params: {
   if (reciboError || !recibo) {
     return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
   }
-  if (recibo.estado !== 'PENDIENTE') {
+  // Se puede cobrar un recibo PENDIENTE o uno FALLIDO (recuperación manual tras
+  // agotar el dunning: si la socia paga más adelante, se vuelve a intentar). El
+  // barrido automático solo reintenta los PENDIENTE.
+  if (recibo.estado !== 'PENDIENTE' && recibo.estado !== 'FALLIDO') {
     return { ok: false, error: 'Este recibo ya no está pendiente', errorCode: 'NO_PENDIENTE' };
   }
+  // Idempotency-Key anclada al recibo + nº de intento (ver nota al inicio).
+  const idempotencyKey = `offsession-cobro-${params.reciboId}-i${recibo.intentos_reintento ?? 0}`;
   if (socioError || !socio?.stripe_customer_id) {
     return { ok: false, error: 'La socia no tiene método de pago guardado', errorCode: 'SIN_TARJETA' };
   }

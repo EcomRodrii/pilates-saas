@@ -1382,10 +1382,14 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
   if (error || nuevoSaldo == null) return false;
   if (nuevoSaldo === 0) {
     const hoy = new Date().toISOString().slice(0, 10);
+    // Dunning (0041): el recibo entra al ciclo con su primer reintento programado
+    // al día +1 del vencimiento (= hoy + 1 día). El barrido diario lo cobrará.
+    const primerReintento = new Date(new Date(hoy).getTime() + 24 * 60 * 60 * 1000).toISOString();
     await admin.from('recibos').insert({
       id: `rec-renov-${uid()}`, studio_id: studioId, socio_id: socioId, suscripcion_id: sus.id,
       concepto: `Renovación ${plan.nombre}`, importe: plan.precio, estado: 'PENDIENTE',
       fecha_vencimiento: hoy, fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0,
+      proximo_reintento: primerReintento,
     });
   }
   return true;
@@ -2225,6 +2229,7 @@ function reciboToDb(rec: Recibo) {
     intentos_reintento: rec.intentosReintento,
     metodo_cobro: rec.metodoCobro ?? null,
     sepa_estado: rec.sepaEstado ?? null,
+    proximo_reintento: rec.proximoReintento ?? null,
   };
 }
 
@@ -2837,6 +2842,7 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>) {
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
   if ('metodoCobro' in changes) db.metodo_cobro = changes.metodoCobro;
   if ('sepaEstado' in changes) db.sepa_estado = changes.sepaEstado;
+  if ('proximoReintento' in changes) db.proximo_reintento = changes.proximoReintento;
   const { error } = await supabase.from('recibos').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateRecibo]', error);
 }

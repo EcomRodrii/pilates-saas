@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
 import { webhookYaProcesado, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { registrarFalloCobro } from '@/lib/billing/dunning-server';
 
 export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -243,12 +244,13 @@ export async function POST(req: NextRequest) {
         console.error('[stripe webhook] service role no configurada (SEPA failed)');
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
-      const { data: rec } = await admin.from('recibos').select('intentos_reintento').eq('id', reciboId).maybeSingle();
-      const { error } = await admin.from('recibos')
-        .update({ estado: 'PENDIENTE', sepa_estado: 'failed', intentos_reintento: (rec?.intentos_reintento ?? 0) + 1 })
-        .eq('id', reciboId);
-      if (error) {
-        console.error('[stripe webhook] no se pudo marcar el recibo SEPA fallido', reciboId, error);
+      // Dunning (0041): cuenta el intento, reprograma el siguiente reintento
+      // (+3/+7 días) o marca el recibo FALLIDO tras el tercero, y notifica a la
+      // socia (1.er fallo / fallo definitivo) y al estudio (fallo definitivo).
+      try {
+        await registrarFalloCobro({ admin, reciboId, esSepa: true, ahoraISO: new Date().toISOString() });
+      } catch (e) {
+        console.error('[stripe webhook] no se pudo registrar el adeudo SEPA fallido (dunning)', reciboId, e);
         return NextResponse.json({ error: 'Fallo al registrar el adeudo SEPA fallido' }, { status: 500 });
       }
     }
