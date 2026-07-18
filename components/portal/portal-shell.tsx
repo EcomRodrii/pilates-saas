@@ -12,14 +12,18 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { portalThemeStyle } from '@/lib/portal-theme';
 import { useModo } from '@/lib/portal-modo';
+import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 
-const NAV = [
+const ALL_NAV = [
   { seg: 'clases', icon: Calendar, label: 'Clases' },
   { seg: 'home', icon: Home, label: 'Inicio' },
   { seg: 'mi-plan', icon: CreditCard, label: 'Mi plan' },
   { seg: 'videos', icon: Play, label: 'Vídeos' },
   { seg: 'progreso', icon: TrendingUp, label: 'Progreso' },
 ];
+
+// Oferta digital oculta temporalmente (ver lib/feature-flags.ts): sin "Vídeos".
+const NAV = MARKETING_MODULE_ENABLED ? ALL_NAV : ALL_NAV.filter((n) => n.seg !== 'videos');
 
 const SLOT = 100 / NAV.length;
 

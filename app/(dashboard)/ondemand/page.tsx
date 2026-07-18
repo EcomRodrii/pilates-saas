@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Play, Eye, Heart, Upload, X, Search, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
+import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 import { pedirSubidaVideo, subirVideoAStream } from '@/lib/api-client';
 import { urlIframeStream } from '@/lib/stream-playback';
 import type { VideoOnDemand, CategoriaVideo, NivelClase } from '@/lib/types';
@@ -359,10 +361,17 @@ function VideoCard({
 
 export default function OnDemandPage() {
   const { videosOnDemand: videos, addVideo, toggleVideo, instructores } = useStudio();
+  const router = useRouter();
+  // Oferta digital oculta temporalmente (ver lib/feature-flags.ts): redirige.
+  useEffect(() => {
+    if (!MARKETING_MODULE_ENABLED) router.replace('/dashboard');
+  }, [router]);
   const [categoriaActiva, setCategoriaActiva] = useState<CategoriaVideo | 'TODOS'>('TODOS');
   const [nivelActivo, setNivelActivo] = useState<NivelClase | 'TODOS_NIVOS'>('TODOS_NIVOS');
   const [busqueda, setBusqueda] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+
+  if (!MARKETING_MODULE_ENABLED) return null;
 
   // Stats
   const totalVistas = videos.reduce((s, v) => s + v.vistas, 0);

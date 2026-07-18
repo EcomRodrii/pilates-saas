@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { CategoriaVideo, NivelClase, VideoOnDemand } from '@/lib/types';
 import { urlIframeStream } from '@/lib/stream-playback';
 import { useModo } from '@/lib/portal-modo';
+import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 import { X, Play, Clock, Eye } from 'lucide-react';
 
 const CATEGORIAS: { value: CategoriaVideo | 'TODOS'; label: string; emoji: string }[] = [
@@ -36,6 +38,13 @@ const NIVEL_COLOR: Record<NivelClase, string> = {
 export default function VideosPage() {
   const { videosOnDemand, instructores } = useStudio();
   const { t } = useModo();
+  const router = useRouter();
+  const params = useParams<{ slug: string }>();
+  // Oferta digital oculta temporalmente (ver lib/feature-flags.ts): redirige al
+  // inicio del portal.
+  useEffect(() => {
+    if (!MARKETING_MODULE_ENABLED) router.replace(`/portal/${params.slug}/home`);
+  }, [router, params.slug]);
   const [cat, setCat] = useState<CategoriaVideo | 'TODOS'>('TODOS');
   const [selected, setSelected] = useState<VideoOnDemand | null>(null);
   const [avisoPendiente, setAvisoPendiente] = useState(false);
