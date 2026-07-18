@@ -8,7 +8,7 @@ import {
   FileText, Settings, BarChart2, X,
   Clock, MessageCircle, Megaphone, Play,
   Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
-  LogOut, UserCog, Users2, Check, PanelLeft, Compass,
+  LogOut, UserCog, Users2, Check, PanelLeft, Compass, Replace,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,7 @@ const RAW_NAV_SECTIONS = [
     items: [
       { href: '/calendario', label: 'Calendario', icon: Calendar },
       { href: '/citas', label: 'Citas', icon: Clock },
+      { href: '/sustituciones', label: 'Sustituciones', icon: Replace },
     ],
   },
   {
