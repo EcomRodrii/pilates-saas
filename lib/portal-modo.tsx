@@ -16,17 +16,20 @@ export interface ModoTokens {
   hero: string; heroLine: string; heroText: string; heroSub: string; heroAccent: string;
 }
 
+// `muted` es texto de contenido real (subtítulos, nombres, estados), no solo
+// decorativo — por eso está calibrado para pasar 4.5:1 (WCAG AA texto normal)
+// contra `surface` en su propio modo, no solo "gris más clarito que ink".
 export const MODO_TOKENS: Record<Modo, ModoTokens> = {
   noche: {
     bg: '#0D0D0F', surface: '#16161A', surface2: '#1A1A1F', line: 'rgba(255,255,255,0.07)',
-    ink: '#FFFFFF', muted: '#6E6E78', muted2: '#B8B8C0',
+    ink: '#FFFFFF', muted: '#8C8C99', muted2: '#B8B8C0',
     accentInk: '#1A1216', tabbar: 'rgba(13,13,15,0.92)', bar: '#26262C',
     hero: 'linear-gradient(150deg,#2A1C24 0%,#1A1216 60%,#0D0D0F 100%)', heroLine: 'rgba(255,200,226,0.14)',
     heroText: '#FFFFFF', heroSub: '#B8B8C0', heroAccent: 'var(--portal-brand)',
   },
   dia: {
     bg: '#F3F2EE', surface: '#FFFFFF', surface2: '#F7F6F2', line: 'rgba(0,0,0,0.06)',
-    ink: '#14141A', muted: '#9A9AA2', muted2: '#6E6A72',
+    ink: '#14141A', muted: '#717177', muted2: '#6E6A72',
     accentInk: '#FFFFFF', tabbar: 'rgba(243,242,238,0.92)', bar: '#ECEAE4',
     hero: 'linear-gradient(150deg,#FFE1EE 0%,#FBEEF2 55%,#FFFFFF 100%)', heroLine: 'rgba(255,200,226,0.6)',
     heroText: '#14141A', heroSub: '#6E6A72', heroAccent: '#B4557E',

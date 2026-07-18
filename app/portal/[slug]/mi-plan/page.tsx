@@ -203,7 +203,7 @@ export default function MiPlanPage() {
                   onClick={() => setFiltro(f)}
                   style={{
                     padding: '6px 14px', borderRadius: 16, fontSize: 12, fontWeight: 800, border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
-                    backgroundColor: active ? 'var(--portal-brand)' : t.surface2, color: active ? t.accentInk : t.muted,
+                    backgroundColor: active ? 'var(--portal-brand)' : t.surface2, color: active ? 'var(--portal-brand-foreground)' : t.muted,
                   }}
                 >
                   {f === 'TODOS' ? 'Todos' : f === 'COBRADO' ? 'Pagados' : 'Pendientes'}

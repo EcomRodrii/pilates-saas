@@ -158,7 +158,7 @@ export default function ClaseDetallePage() {
           ) : (
             <button
               onClick={() => session?.socioId && addReserva(ses.id, session.socioId)}
-              style={{ width: '100%', fontSize: 15, fontWeight: 800, textTransform: 'uppercase', padding: '14px 0', borderRadius: 18, color: t.accentInk, border: 'none', backgroundColor: 'var(--portal-brand)' }}
+              style={{ width: '100%', fontSize: 15, fontWeight: 800, textTransform: 'uppercase', padding: '14px 0', borderRadius: 18, color: 'var(--portal-brand-foreground)', border: 'none', backgroundColor: 'var(--portal-brand)' }}
             >
               {libres > 0
                 ? (cubierta || precioClaseSuelta == null ? 'Reservar' : `Reservar · ${precioClaseSuelta} €`)

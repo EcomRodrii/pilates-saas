@@ -86,7 +86,7 @@ export default function PreferenciasPage() {
                       style={{ margin: '0 auto', width: 36, height: 36, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', backgroundColor: activo ? 'var(--portal-brand)' : t.surface2 }}
                       aria-label={`${dia.label} ${franja.label}`}
                     >
-                      {activo && <Check size={15} style={{ color: t.accentInk }} />}
+                      {activo && <Check size={15} style={{ color: 'var(--portal-brand-foreground)' }} />}
                     </button>
                   );
                 })}
@@ -105,7 +105,7 @@ export default function PreferenciasPage() {
                 <button
                   key={i.id}
                   onClick={() => setCampo('instructorFavoritoId', selected ? null : i.id)}
-                  style={{ padding: '8px 14px', borderRadius: 16, fontSize: 13, fontWeight: 700, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? t.accentInk : t.muted2 }}
+                  style={{ padding: '8px 14px', borderRadius: 16, fontSize: 13, fontWeight: 700, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? 'var(--portal-brand-foreground)' : t.muted2 }}
                 >
                   {i.nombre}
                 </button>
@@ -149,7 +149,7 @@ export default function PreferenciasPage() {
                 <button
                   key={min}
                   onClick={() => setCampo('duracionPreferida', selected ? null : min)}
-                  style={{ flex: 1, padding: '10px 0', borderRadius: 16, fontSize: 13, fontWeight: 800, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? t.accentInk : t.muted2 }}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 16, fontSize: 13, fontWeight: 800, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? 'var(--portal-brand-foreground)' : t.muted2 }}
                 >
                   {min} min
                 </button>
@@ -168,7 +168,7 @@ export default function PreferenciasPage() {
                 <button
                   key={n.id}
                   onClick={() => setCampo('nivel', selected ? null : (n.id as NivelSocio))}
-                  style={{ flex: 1, padding: '10px 0', borderRadius: 16, fontSize: 13, fontWeight: 800, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? t.accentInk : t.muted2 }}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 16, fontSize: 13, fontWeight: 800, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? 'var(--portal-brand-foreground)' : t.muted2 }}
                 >
                   {n.label}
                 </button>

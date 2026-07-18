@@ -100,7 +100,7 @@ export default function ClasesPage() {
                 onClick={() => setTab(key)}
                 style={{
                   padding: '8px 16px', borderRadius: 16, fontSize: 13, fontWeight: 800, textTransform: 'uppercase', border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
-                  background: active ? 'var(--portal-brand)' : t.surface, color: active ? t.accentInk : t.muted,
+                  background: active ? 'var(--portal-brand)' : t.surface, color: active ? 'var(--portal-brand-foreground)' : t.muted,
                 }}
               >
                 {label}
@@ -229,7 +229,7 @@ export default function ClasesPage() {
                             disabled={libres <= 0}
                             style={{
                               width: '100%', fontSize: 14, fontWeight: 800, textTransform: 'uppercase', padding: '10px 0', borderRadius: 16, border: 'none',
-                              color: libres > 0 ? t.accentInk : t.muted, backgroundColor: libres > 0 ? 'var(--portal-brand)' : t.surface2, opacity: libres <= 0 ? 0.6 : 1,
+                              color: libres > 0 ? 'var(--portal-brand-foreground)' : t.muted, backgroundColor: libres > 0 ? 'var(--portal-brand)' : t.surface2, opacity: libres <= 0 ? 0.6 : 1,
                             }}
                           >
                             {libres > 0

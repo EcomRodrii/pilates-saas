@@ -174,7 +174,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                   <Icon
                     size={21}
                     strokeWidth={active ? 2.4 : 1.9}
-                    style={{ color: active ? t.accentInk : t.muted, transition: 'color 160ms ease 60ms' }}
+                    style={{ color: active ? 'var(--portal-brand-foreground)' : t.muted, transition: 'color 160ms ease 60ms' }}
                   />
                 </Link>
               );
