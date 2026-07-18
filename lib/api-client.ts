@@ -356,6 +356,19 @@ export async function terminalCobrar(params: { studioId: string; amount: number;
   } catch { return { error: 'No se pudo iniciar el cobro' }; }
 }
 
+// Fase 1 · PR-5 — Bizum presencial: pide una URL de Checkout Bizum para el
+// importe de la venta. El POS la muestra como enlace/QR para el móvil del cliente.
+export async function posBizumCheckout(params: { amount: number; concepto: string }): Promise<{ url?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/stripe/pos-bizum', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(params),
+    });
+    return await res.json();
+  } catch { return { error: 'No se pudo iniciar el cobro Bizum' }; }
+}
+
 export async function terminalEstadoCobro(params: { studioId: string; paymentIntentId: string }): Promise<{ ok?: boolean; status?: string; error?: string }> {
   try {
     const res = await fetch('/api/terminal/estado', {

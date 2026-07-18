@@ -5,7 +5,8 @@ import { ShoppingCart, X, Plus, Minus, Receipt, CheckCircle2, Search, Printer, C
 import Link from 'next/link';
 import { cn, formatEuro } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import { terminalCobrar, terminalEstadoCobro, terminalRegistrarLector, terminalEstadoLector, terminalReconciliacionesPendientes, terminalMarcarReconciliado, type ReconciliacionPendiente } from '@/lib/api-client';
+import { terminalCobrar, terminalEstadoCobro, terminalRegistrarLector, terminalEstadoLector, terminalReconciliacionesPendientes, terminalMarcarReconciliado, posBizumCheckout, type ReconciliacionPendiente } from '@/lib/api-client';
+import { qrSvgMarkup } from '@/lib/qr-svg';
 import type { ProductoPOS, VentaPOS, MetodoPago } from '@/lib/types';
 
 type CartItem = {
@@ -242,6 +243,8 @@ export default function POSPage() {
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('EFECTIVO');
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastSale, setLastSale] = useState<{ total: number; metodoPago: MetodoPago } | null>(null);
+  // PR-5 — Bizum presencial: URL del Checkout que el cliente abre/escanea.
+  const [bizum, setBizum] = useState<{ url: string; total: number } | null>(null);
   const [busquedaCliente, setBusquedaCliente] = useState('');
   const [showCerrarCaja, setShowCerrarCaja] = useState(false);
   // "Ventas recientes" colapsada por defecto: el catálogo + ticket (lo que se
@@ -368,7 +371,7 @@ export default function POSPage() {
     // Bloquea también en estado 'error': tras un fallo/timeout de datáfono hay
     // que descartar el aviso ("Entendido" → idle) antes de reintentar, para no
     // lanzar un 2º cobro mientras el 1er PaymentIntent pueda seguir vivo.
-    if (carrito.length === 0 || showSuccess || terminal.fase !== 'idle') return;
+    if (carrito.length === 0 || showSuccess || bizum || terminal.fase !== 'idle') return;
 
     // Pago con datáfono físico: se lanza el importe al lector y se espera a que
     // la clienta pase la tarjeta; solo al confirmarse se registra la venta.
@@ -413,6 +416,21 @@ export default function POSPage() {
         setTimeout(poll, 1500);
       };
       setTimeout(poll, 1500);
+      return;
+    }
+
+    // Bizum presencial: genera el Checkout Bizum y muestra un QR para que el
+    // cliente pague desde su móvil. Si Stripe/Bizum no está disponible, cae al
+    // registro manual (etiqueta), como el comportamiento anterior.
+    if (metodoPago === 'BIZUM') {
+      const conceptoVenta = carrito.map(i => i.producto.nombre).join(', ') || 'Venta POS';
+      const r = await posBizumCheckout({ amount: Math.round(total * 100), concepto: conceptoVenta });
+      if (r.url) {
+        setBizum({ url: r.url, total });
+        return;
+      }
+      // fallback: registro manual (el cobro Bizum se hizo/hará por fuera).
+      finalizarVenta();
       return;
     }
 
@@ -712,6 +730,24 @@ export default function POSPage() {
             {/* Success overlay */}
             {showSuccess && lastSale && (
               <SuccessOverlay total={lastSale.total} metodoPago={lastSale.metodoPago} />
+            )}
+
+            {/* Bizum presencial: QR para que el cliente pague desde su móvil */}
+            {bizum && !showSuccess && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-card/95 text-center px-6">
+                <p className="text-[15px] font-semibold text-foreground">Cobro por Bizum · {formatEuro(bizum.total)}</p>
+                <div className="w-40 h-40" dangerouslySetInnerHTML={{ __html: qrSvgMarkup(bizum.url) }} />
+                <p className="text-[12px] text-muted-foreground max-w-[240px]">Pídele al cliente que escanee el código y confirme el pago en su app bancaria.</p>
+                <a href={bizum.url} target="_blank" rel="noopener noreferrer" className="text-[12px] text-brand underline">Abrir enlace de pago</a>
+                <div className="flex gap-2 mt-1">
+                  <button onClick={() => setBizum(null)} className="px-4 py-2 rounded-lg text-[13px] font-medium border border-border text-muted-foreground">
+                    Cancelar
+                  </button>
+                  <button onClick={() => { setBizum(null); finalizarVenta(); }} className="px-4 py-2 rounded-lg text-[13px] font-semibold bg-brand text-brand-foreground">
+                    Cobro realizado
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* Datáfono: overlay de espera / error */}

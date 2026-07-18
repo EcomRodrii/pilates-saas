@@ -92,8 +92,21 @@ export async function POST(req: NextRequest) {
       // un recibo ya COBRADO no cambia nada relevante. Registramos el método real
       // del cobro (tarjeta/bizum) para la conciliación con el gestor.
       if (reciboId) {
+        // Si se ofreció Bizum, el método real puede ser bizum O tarjeta → lo
+        // leemos del cargo para registrar metodo_cobro con exactitud. Si no se
+        // ofreció Bizum, es tarjeta y evitamos la llamada extra.
         const pmTypes = (session.payment_method_types ?? []) as string[];
-        const metodoCobro = pmTypes.includes('bizum') ? 'BIZUM' : 'TARJETA';
+        let metodoCobro = 'TARJETA';
+        if (pmTypes.includes('bizum') && typeof session.payment_intent === 'string') {
+          try {
+            const piPago = await stripe.paymentIntents.retrieve(
+              session.payment_intent, { expand: ['latest_charge'] },
+              event.account ? { stripeAccount: event.account } : undefined,
+            );
+            const tipo = (piPago.latest_charge as Stripe.Charge | null)?.payment_method_details?.type;
+            metodoCobro = tipo === 'bizum' ? 'BIZUM' : 'TARJETA';
+          } catch { /* si falla la lectura, dejamos TARJETA por defecto */ }
+        }
         const { error } = await admin.from('recibos')
           .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro })
           .eq('id', reciboId);
@@ -151,7 +164,11 @@ export async function POST(req: NextRequest) {
   // ignora (los cobros con checkout ya se persisten vía checkout.session.completed).
   if (event.type === 'payment_intent.succeeded') {
     const pi = event.data.object as Stripe.PaymentIntent;
-    if (pi.metadata?.origen === 'pos_terminal') {
+    // Backstop de reconciliación POS: datáfono (pos_terminal) y Bizum presencial
+    // (pos_bizum) comparten el mismo mecanismo — si el POS se cerró antes de
+    // registrar la venta, el cobro aparece en "cobros sin registrar".
+    const origenPos = pi.metadata?.origen;
+    if (origenPos === 'pos_terminal' || origenPos === 'pos_bizum') {
       const studioId = pi.metadata.studioId;
       if (!studioId) {
         console.error('[stripe webhook] PI de terminal sin studioId en metadata', pi.id);
@@ -177,8 +194,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Fallo al registrar la reconciliación' }, { status: 500 });
       }
 
-      // R4: señal de GMV del datáfono.
-      capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'terminal' } });
+      // R4: señal de GMV del cobro presencial (datáfono o Bizum).
+      capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: origenPos === 'pos_bizum' ? 'bizum' : 'terminal' } });
     }
 
     // Fase 1 · PR-4 — cobro SEPA CONFIRMADO (asíncrono): el adeudo domiciliado
