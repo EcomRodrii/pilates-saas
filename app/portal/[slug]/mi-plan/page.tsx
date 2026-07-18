@@ -7,7 +7,8 @@ import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { CheckCircle2, Clock, XCircle, CreditCard, AlertCircle, Landmark } from 'lucide-react';
 import { formatFechaLarga as formatDate } from '@/lib/utils';
-import { iniciarDomiciliacionSepa } from '@/lib/api-client';
+import { iniciarDomiciliacionSepa, crearCheckoutStripe } from '@/lib/api-client';
+import { abrirFacturaPDF } from '@/lib/factura-pdf';
 
 type Filtro = 'TODOS' | 'COBRADO' | 'PENDIENTE';
 
@@ -19,10 +20,40 @@ export default function MiPlanPage() {
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
   const [sepaLoading, setSepaLoading] = useState(false);
   const [sepaError, setSepaError] = useState<string | null>(null);
+  const [pagoLoading, setPagoLoading] = useState<string | null>(null);
+  const [pagoError, setPagoError] = useState<string | null>(null);
   const socioId = session?.socioId;
 
   const socia = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
   const sepaActiva = socia?.metodoPagoPreferido === 'SEPA' && !!socia?.sepaMandateId;
+
+  // Antes este historial solo mostraba recibos pendientes; no había forma de
+  // pagarlos desde el portal (Stripe Connect ya funcionaba en /reservar, pero
+  // no aquí). Reutiliza el mismo endpoint semipúblico que usa /reservar y el
+  // panel de Pagos — el importe/concepto los valida siempre el servidor contra
+  // el recibo real, así que lo que mandemos aquí no es una superficie de fraude.
+  async function pagarRecibo(reciboId: string) {
+    if (!studio?.id || pagoLoading) return;
+    const recibo = misRecibos.find(r => r.id === reciboId);
+    if (!recibo) return;
+    setPagoLoading(reciboId);
+    setPagoError(null);
+    const result = await crearCheckoutStripe({
+      reciboId,
+      socioId: socioId ?? '',
+      studioId: studio.id,
+      concepto: recibo.concepto,
+      importe: recibo.importe,
+      socioEmail: socia?.email ?? null,
+      socioNombre: socia?.nombre ?? 'Socia',
+    });
+    if ('url' in result && result.url) {
+      window.location.href = result.url;
+    } else {
+      setPagoError('error' in result ? result.error : 'No se pudo iniciar el pago.');
+      setPagoLoading(null);
+    }
+  }
 
   async function handleDomiciliar() {
     if (!studio?.id || !socioId || sepaLoading) return;
@@ -212,6 +243,12 @@ export default function MiPlanPage() {
             })}
           </div>
 
+          {pagoError && (
+            <div style={{ borderRadius: 14, background: 'rgba(239,68,68,0.1)', padding: '10px 14px', marginBottom: 12 }}>
+              <p style={{ fontSize: 12.5, color: '#EF4444', fontWeight: 600 }}>{pagoError}</p>
+            </div>
+          )}
+
           {recibosFiltrados.length === 0 ? (
             <div style={{ borderRadius: 18, background: t.surface2, padding: 32, textAlign: 'center' }}>
               <p style={{ fontSize: 14, color: t.muted }}>Sin recibos en esta categoría</p>
@@ -222,26 +259,53 @@ export default function MiPlanPage() {
                 const factura = facturas.find(f => f.reciboId === rec.id);
                 const cobrado = rec.estado === 'COBRADO';
                 const devuelto = rec.estado === 'DEVUELTO';
+                const pendiente = rec.estado === 'PENDIENTE' || rec.estado === 'EN_CURSO';
                 return (
-                  <div key={rec.id} style={{ ...card, borderRadius: 18, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{
-                      width: 36, height: 36, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                      background: cobrado ? 'rgba(62,155,108,0.12)' : devuelto ? 'rgba(239,68,68,0.12)' : 'rgba(217,119,6,0.12)',
-                    }}>
-                      {cobrado ? <CheckCircle2 size={18} style={{ color: '#3E9B6C' }} />
-                        : devuelto ? <XCircle size={18} style={{ color: '#EF4444' }} />
-                        : <Clock size={18} style={{ color: '#D97706' }} />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.concepto}</p>
-                      <p style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
-                        {formatDate(rec.fechaCobro ?? rec.fechaVencimiento)}
-                        {factura && <span style={{ color: t.heroAccent, marginLeft: 8, fontWeight: 700 }}>· Factura</span>}
+                  <div key={rec.id} style={{ ...card, borderRadius: 18, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        background: cobrado ? 'rgba(62,155,108,0.12)' : devuelto ? 'rgba(239,68,68,0.12)' : 'rgba(217,119,6,0.12)',
+                      }}>
+                        {cobrado ? <CheckCircle2 size={18} style={{ color: '#3E9B6C' }} />
+                          : devuelto ? <XCircle size={18} style={{ color: '#EF4444' }} />
+                          : <Clock size={18} style={{ color: '#D97706' }} />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.concepto}</p>
+                        <p style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
+                          {formatDate(rec.fechaCobro ?? rec.fechaVencimiento)}
+                          {factura && (
+                            <button
+                              onClick={() => abrirFacturaPDF(
+                                factura,
+                                { nombre: studio?.nombre ?? 'Tentare', nif: studio?.nif ?? '—', direccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || '—' },
+                                { telefono: socia?.telefono, email: socia?.email },
+                              )}
+                              style={{ color: t.heroAccent, marginLeft: 8, fontWeight: 700, background: 'none', border: 'none', padding: 0, fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}
+                            >
+                              · Descargar factura
+                            </button>
+                          )}
+                        </p>
+                      </div>
+                      <p style={{ fontSize: 15, fontWeight: 800, flexShrink: 0, color: cobrado ? '#3E9B6C' : t.muted }}>
+                        {formatEur(rec.importe)}
                       </p>
                     </div>
-                    <p style={{ fontSize: 15, fontWeight: 800, flexShrink: 0, color: cobrado ? '#3E9B6C' : t.muted }}>
-                      {formatEur(rec.importe)}
-                    </p>
+                    {pendiente && (
+                      <button
+                        onClick={() => pagarRecibo(rec.id)}
+                        disabled={pagoLoading === rec.id}
+                        style={{
+                          alignSelf: 'flex-start', padding: '8px 16px', borderRadius: 12, fontSize: 12.5, fontWeight: 800,
+                          border: 'none', background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+                          opacity: pagoLoading === rec.id ? 0.6 : 1, cursor: pagoLoading === rec.id ? 'default' : 'pointer',
+                        }}
+                      >
+                        {pagoLoading === rec.id ? 'Abriendo…' : 'Pagar ahora'}
+                      </button>
+                    )}
                   </div>
                 );
               })}

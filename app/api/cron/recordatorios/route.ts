@@ -22,11 +22,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || apiKey.startsWith('re_XXXX')) {
-    return NextResponse.json({ error: 'Resend no configurado' }, { status: 503 });
-  }
-
+  // No exigimos Resend aquí: enviarRecordatoriosClasesProximas ya hace no-op
+  // (skipped) por socia si Resend no está configurado, y ahora también envía
+  // por WhatsApp cuando la socia lo prefiere — no queremos que la falta de
+  // Resend bloquee ese canal.
   const desde = new Date();
   const hasta = new Date(desde.getTime() + 24 * 60 * 60 * 1000);
 
