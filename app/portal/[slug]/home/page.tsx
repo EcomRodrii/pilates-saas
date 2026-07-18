@@ -19,6 +19,7 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext } from '@/lib/portal-home-logic';
 import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
 import { useModo } from '@/lib/portal-modo';
+import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 
 export default function PortalHome() {
   const { slug } = useParams<{ slug: string }>();
@@ -291,7 +292,8 @@ export default function PortalHome() {
             {[
               { href: `/portal/${slug}/clases`, icon: Calendar, label: 'Reservar clase' },
               { href: `/portal/${slug}/reservas`, icon: ListChecks, label: 'Mis reservas' },
-              { href: `/portal/${slug}/videos`, icon: Play, label: 'Vídeos' },
+              // Oferta digital oculta temporalmente (ver lib/feature-flags.ts).
+              ...(MARKETING_MODULE_ENABLED ? [{ href: `/portal/${slug}/videos`, icon: Play, label: 'Vídeos' }] : []),
               { href: `/portal/${slug}/invitar`, icon: UserPlus, label: 'Invita a una amiga' },
             ].map(({ href, icon: Icon, label }) => (
               <Link key={href} href={href} style={{ ...card, borderRadius: 18, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, textDecoration: 'none' }}>

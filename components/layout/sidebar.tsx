@@ -16,10 +16,11 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos } from '@/lib/permisos';
+import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 
 // ─── Nav config ──────────────────────────────────────────────────────────────
 
-const navSections = [
+const RAW_NAV_SECTIONS = [
   // Decision OS (DECISION-OS-ARQUITECTURA.md §9): sección propia, arriba del
   // todo — el sitio natural junto a "Automatizaciones IA". La página gatea el
   // acceso por plan/feature flag; el propio dashboard sigue existiendo igual.
@@ -63,6 +64,13 @@ const navSections = [
     ],
   },
 ];
+
+// Oferta digital + Marketing ocultos temporalmente (ver lib/feature-flags.ts):
+// se filtran del menú lateral. El código permanece; reactivar = flag a true.
+const OCULTOS_MARKETING = ['/marketing', '/ondemand'];
+const navSections = MARKETING_MODULE_ENABLED
+  ? RAW_NAV_SECTIONS
+  : RAW_NAV_SECTIONS.map((s) => ({ ...s, items: s.items.filter((i) => !OCULTOS_MARKETING.includes(i.href)) }));
 
 // Bottom nav shows 4 main items + "Más"
 const bottomNavItems = [
