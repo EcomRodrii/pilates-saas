@@ -10,7 +10,7 @@ export interface ThemePreset {
 }
 
 export const THEME_PRESETS: ThemePreset[] = [
-  { id: 'original', label: 'Original', primary: '#FFC8E2', secondary: '#B57A8E', neutral: '#EEEEE8', foreground: '#131313' },
+  { id: 'original', label: 'Original', primary: '#6D28D9', secondary: '#7C3AED', neutral: '#F6F7F9', foreground: '#FFFFFF' },
   { id: 'terracotta', label: 'Terracota', primary: '#C2410C', secondary: '#EAB308', neutral: '#FFF7E6', foreground: '#FFFFFF' },
   { id: 'plum', label: 'Ciruela', primary: '#6D28D9', secondary: '#C4B5FD', neutral: '#FAF7FF', foreground: '#FFFFFF' },
   { id: 'teal', label: 'Verde azulado', primary: '#0F766E', secondary: '#FF7F50', neutral: '#F5E6CA', foreground: '#FFFFFF' },

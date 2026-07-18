@@ -46,7 +46,7 @@ test('themeToCssVars: valores crudos/parciales caen a default por token', () => 
 test('themeToCssText: envuelve las vars en el selector dado', () => {
   const css = themeToCssText(DEFAULT_THEME, ':root');
   assert.match(css, /^:root \{/);
-  assert.match(css, /--portal-brand: #FFC8E2;/);
+  assert.match(css, /--portal-brand: #6D28D9;/);
   assert.match(css, /--radius: 1rem;/); // rounded
   const scoped = themeToCssText(DEFAULT_THEME, '.portal-scope');
   assert.match(scoped, /^\.portal-scope \{/);
