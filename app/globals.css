@@ -176,3 +176,13 @@ nextjs-portal { display: none !important; }
 @keyframes lp-marq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @keyframes lp-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(.7); } }
 @keyframes lp-dash { to { stroke-dashoffset: 0; } }
+
+/* Portal de socias — crossfade suave al cambiar de pantalla (clases, home,
+   mi-plan…): la pantalla saliente se desvanece mientras la entrante aparece
+   encima, superpuestas todo el tiempo. Así nunca hay un instante sin nada
+   pintado que deje ver el fondo del shell (casi negro en modo noche), que es
+   lo que se percibía como un parpadeo al cambiar de pestaña. */
+@keyframes portal-page-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes portal-page-out { from { opacity: 1; } to { opacity: 0; } }
+.portal-page-in { animation: portal-page-in .22s ease both; }
+.portal-page-out { animation: portal-page-out .2s ease both; }
