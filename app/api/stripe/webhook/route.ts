@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
 import { webhookYaProcesado, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
+import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 
 export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -177,6 +179,89 @@ export async function POST(req: NextRequest) {
 
       // R4: señal de GMV del datáfono.
       capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'terminal' } });
+    }
+
+    // Fase 1 · PR-4 — cobro SEPA CONFIRMADO (asíncrono): el adeudo domiciliado
+    // liquidó días después de enviarse. Marcamos el recibo COBRADO y sellamos su
+    // factura del ciclo. El sellado es best-effort: un fallo NO bloquea la
+    // confirmación del pago (se puede sellar a mano después) — evita reintentos
+    // infinitos del webhook por un caso borde de facturación.
+    if (pi.metadata?.origen === 'sepa_recibo' && pi.metadata?.reciboId) {
+      const reciboId = pi.metadata.reciboId;
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        console.error('[stripe webhook] service role no configurada (SEPA succeeded)');
+        return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      const { data: rec, error: updErr } = await admin.from('recibos')
+        .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: 'SEPA', sepa_estado: 'succeeded' })
+        .eq('id', reciboId).select('studio_id').maybeSingle();
+      if (updErr) {
+        console.error('[stripe webhook] no se pudo marcar el recibo SEPA COBRADO', reciboId, updErr);
+        return NextResponse.json({ error: 'Fallo al confirmar el cobro SEPA' }, { status: 500 });
+      }
+      if (rec?.studio_id) {
+        try {
+          const sell = await sellarFacturaDeRecibo(admin, { studioId: rec.studio_id, reciboId, facturaId: `fac-sepa-${reciboId}` });
+          if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
+        } catch (e) {
+          Sentry.captureException(e instanceof Error ? e : new Error('Fallo al sellar la factura del cobro SEPA'), {
+            level: 'warning', tags: { area: 'facturacion', tipo: 'sepa_ciclo' }, extra: { reciboId },
+          });
+        }
+      }
+      capturar(pi.metadata.studioId ?? rec?.studio_id ?? '', { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'sepa' } });
+    }
+  }
+
+  // Fase 1 · PR-4 — adeudo SEPA FALLIDO (p. ej. fondos insuficientes al liquidar).
+  // El recibo vuelve a PENDIENTE (para que el dunning pueda reintentar con un
+  // adeudo nuevo) y contamos el intento. sepa_estado='failed' deja rastro.
+  if (event.type === 'payment_intent.payment_failed') {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    if (pi.metadata?.origen === 'sepa_recibo' && pi.metadata?.reciboId) {
+      const reciboId = pi.metadata.reciboId;
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        console.error('[stripe webhook] service role no configurada (SEPA failed)');
+        return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      const { data: rec } = await admin.from('recibos').select('intentos_reintento').eq('id', reciboId).maybeSingle();
+      const { error } = await admin.from('recibos')
+        .update({ estado: 'PENDIENTE', sepa_estado: 'failed', intentos_reintento: (rec?.intentos_reintento ?? 0) + 1 })
+        .eq('id', reciboId);
+      if (error) {
+        console.error('[stripe webhook] no se pudo marcar el recibo SEPA fallido', reciboId, error);
+        return NextResponse.json({ error: 'Fallo al registrar el adeudo SEPA fallido' }, { status: 500 });
+      }
+    }
+  }
+
+  // Fase 1 · PR-4 — DEVOLUCIÓN / reembolso (el adeudo SEPA se devolvió dentro de
+  // las 8 semanas, o un reembolso manual). El recibo pasa a DEVUELTO. Los datos
+  // de metadata viven en el PaymentIntent (no en el charge), así que lo
+  // recuperamos targeteando la cuenta conectada.
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object as Stripe.Charge;
+    const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+    if (piId) {
+      const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
+      const reciboId = pi.metadata?.reciboId;
+      const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
+      if (reciboId && esRecibo) {
+        const admin = getSupabaseAdmin();
+        if (!admin) {
+          console.error('[stripe webhook] service role no configurada (refund)');
+          return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+        }
+        const { error } = await admin.from('recibos')
+          .update({ estado: 'DEVUELTO', fecha_devolucion: new Date().toISOString(), sepa_estado: pi.metadata?.origen === 'sepa_recibo' ? 'returned' : null })
+          .eq('id', reciboId);
+        if (error) {
+          console.error('[stripe webhook] no se pudo marcar el recibo DEVUELTO', reciboId, error);
+          return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
+        }
+      }
     }
   }
 
