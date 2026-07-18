@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
 import { firmarTokenInstructora } from '@/lib/sustituciones/token';
 import { enviarEmailContactoSustituta } from '@/lib/sustituciones/email';
+import { avisarAlumnas } from '@/lib/sustituciones/avisos';
 
 // Fecha/hora de la clase en texto legible (España).
 function formatCuando(inicio: string): string {
@@ -104,7 +105,11 @@ export async function GET(req: NextRequest) {
     .limit(50);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ sustituciones: data ?? [] });
+
+  const { data: estudio } = await admin
+    .from('studios').select('avisar_alumnas').eq('id', sesion.studioId).maybeSingle();
+
+  return NextResponse.json({ sustituciones: data ?? [], avisarAlumnas: !!estudio?.avisar_alumnas });
 }
 
 // PATCH /api/sustituciones — confirmar una candidata (aceptación atómica) o
@@ -117,7 +122,17 @@ export async function PATCH(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   const body = (await req.json().catch(() => null)) as
-    { sustitucionId?: string; action?: string; instructorId?: string } | null;
+    { sustitucionId?: string; action?: string; instructorId?: string; avisar?: boolean } | null;
+
+  // Toggle de "avisar a alumnas" (ajuste del estudio, no necesita sustitución).
+  if (body?.action === 'config_avisar') {
+    if (typeof body?.avisar !== 'boolean') return NextResponse.json({ error: 'Falta el valor' }, { status: 400 });
+    if (sesion.rol !== 'PROPIETARIO') return NextResponse.json({ error: 'Solo la propietaria' }, { status: 403 });
+    const { error } = await admin.from('studios').update({ avisar_alumnas: body.avisar }).eq('id', sesion.studioId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, avisarAlumnas: body.avisar });
+  }
+
   const sustitucionId = typeof body?.sustitucionId === 'string' ? body.sustitucionId : null;
   if (!sustitucionId) return NextResponse.json({ error: 'Falta sustitucionId' }, { status: 400 });
 
@@ -133,9 +148,37 @@ export async function PATCH(req: NextRequest) {
       p_aprobada_por: sesion.userId,
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    const r = (data ?? {}) as { ok?: boolean; motivo?: string };
+    const r = (data ?? {}) as { ok?: boolean; motivo?: string; sesion_id?: string };
     if (!r.ok) return NextResponse.json({ error: 'Esta sustitución ya está resuelta', ...r }, { status: 409 });
-    return NextResponse.json(r);
+
+    // Aviso a las alumnas (si el estudio lo tiene activado): "tu clase sigue en pie".
+    let alumnas = { avisadas: 0, total: 0, skipped: false, desactivado: true };
+    if (r.sesion_id) {
+      const { data: cand } = await admin.from('instructores').select('nombre').eq('id', instructorId).maybeSingle();
+      alumnas = await avisarAlumnas(admin, {
+        sesionId: r.sesion_id, studioId: sesion.studioId, tipo: 'cubierta', sustituta: cand?.nombre,
+      });
+    }
+    return NextResponse.json({ ...r, alumnas });
+  }
+
+  if (body?.action === 'cancelar_clase') {
+    // No hay sustituta posible: cancela la clase y avisa a las alumnas (que se
+    // enteren por el estudio, no en la puerta — el miedo nº1 de la propietaria).
+    const { data: sust } = await admin
+      .from('sustituciones').select('id, estado, sesion_id')
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId).maybeSingle();
+    if (!sust) return NextResponse.json({ error: 'Sustitución no encontrada' }, { status: 404 });
+
+    await admin.from('sesiones').update({ cancelada: true }).eq('id', sust.sesion_id).eq('studio_id', sesion.studioId);
+    await admin.from('sustituciones')
+      .update({ estado: 'sin_sustituta', resuelto_en: new Date().toISOString() })
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId);
+
+    const alumnas = await avisarAlumnas(admin, {
+      sesionId: sust.sesion_id as string, studioId: sesion.studioId, tipo: 'cancelada',
+    });
+    return NextResponse.json({ ok: true, alumnas });
   }
 
   if (body?.action === 'contactar') {

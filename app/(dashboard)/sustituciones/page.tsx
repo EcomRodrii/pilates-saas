@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
-  type SustitucionPanel,
+  cancelarClase, setAvisarAlumnas, type SustitucionPanel,
 } from '@/lib/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
-  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck,
+  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff,
 } from 'lucide-react';
 
 type EstadoMeta = { label: string; cls: string; activa: boolean };
@@ -38,19 +38,38 @@ export default function SustitucionesPage() {
   const [nuevaBaja, setNuevaBaja] = useState(false);
   const [accion, setAccion] = useState<string | null>(null); // id en proceso
   const [aviso, setAviso] = useState<string | null>(null);   // toast breve
+  const [avisar, setAvisar] = useState(false);               // toggle avisar_alumnas
 
   const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'Instructora';
   const tipoDe = (id: string | null | undefined) => tiposClase.find(t => t.id === id);
 
   async function recargar() {
-    setItems(await listarSustituciones());
-    setCargando(false);
+    const r = await listarSustituciones();
+    setItems(r.items); setAvisar(r.avisarAlumnas); setCargando(false);
   }
   useEffect(() => {
     let vivo = true;
-    listarSustituciones().then(r => { if (vivo) { setItems(r); setCargando(false); } });
+    listarSustituciones().then(r => { if (vivo) { setItems(r.items); setAvisar(r.avisarAlumnas); setCargando(false); } });
     return () => { vivo = false; };
   }, []);
+
+  async function toggleAvisar() {
+    const nuevo = !avisar;
+    setAvisar(nuevo); // optimista
+    const r = await setAvisarAlumnas(nuevo);
+    if ('error' in r) { setAvisar(!nuevo); alert(r.error); }
+  }
+  async function cancelar(s: SustitucionPanel) {
+    if (!confirm('¿Cancelar esta clase? Si el aviso a alumnas está activado, se les enviará un email.')) return;
+    setAccion(s.id);
+    const r = await cancelarClase(s.id);
+    if ('error' in r) { alert(r.error); setAccion(null); return; }
+    const a = r.alumnas;
+    setAviso(a && !a.desactivado ? `Clase cancelada. ${a.avisadas} de ${a.total} alumnas avisadas por email.` : 'Clase cancelada.');
+    await recargar();
+    setAccion(null);
+    setTimeout(() => setAviso(null), 6000);
+  }
 
   const activas = items.filter(s => ESTADO[s.estado]?.activa);
   const resueltas = items.filter(s => !ESTADO[s.estado]?.activa);
@@ -62,7 +81,7 @@ export default function SustitucionesPage() {
     await recargar();
     setAccion(null);
   }
-  async function avisar(s: SustitucionPanel, instructorId: string) {
+  async function avisarCandidata(s: SustitucionPanel, instructorId: string) {
     setAccion(s.id);
     const r = await avisarSustituta(s.id, instructorId);
     if ('error' in r) { alert(r.error); setAccion(null); return; }
@@ -92,6 +111,17 @@ export default function SustitucionesPage() {
         </button>
       </div>
 
+      <label className="flex items-center gap-2.5 cursor-pointer text-[13px] text-muted-foreground select-none">
+        <button
+          type="button" role="switch" aria-checked={avisar} onClick={toggleAvisar}
+          className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${avisar ? 'bg-brand' : 'bg-muted'}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${avisar ? 'translate-x-4' : ''}`} />
+        </button>
+        <Users size={14} className="shrink-0" />
+        Avisar a las alumnas por email cuando se confirma sustituta o se cancela una clase
+      </label>
+
       {aviso && (
         <div className="flex items-start gap-2 rounded-xl bg-[#DCFCE7] border border-[#86EFAC] px-4 py-3 text-[13px] text-[#166534]">
           <MailCheck size={16} className="shrink-0 mt-0.5" /> {aviso}
@@ -119,7 +149,7 @@ export default function SustitucionesPage() {
                 <SustitucionCard
                   key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor}
                   instructores={instructores} enProceso={accion === s.id}
-                  onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisar}
+                  onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={cancelar}
                 />
               ))}
             </div>
@@ -146,7 +176,7 @@ export default function SustitucionesPage() {
 }
 
 function SustitucionCard({
-  s, tipo, nombreInstructor, instructores, enProceso, onConfirmar, onDescartar, onAvisar,
+  s, tipo, nombreInstructor, instructores, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
@@ -156,6 +186,7 @@ function SustitucionCard({
   onConfirmar: (s: SustitucionPanel, instructorId: string) => void;
   onDescartar: (s: SustitucionPanel) => void;
   onAvisar: (s: SustitucionPanel, instructorId: string) => void;
+  onCancelar: (s: SustitucionPanel) => void;
 }) {
   const meta = ESTADO[s.estado] ?? ESTADO.buscando;
   const ranking = Array.isArray(s.ranking) ? s.ranking : [];
@@ -178,9 +209,17 @@ function SustitucionCard({
       </p>
 
       {ranking.length === 0 ? (
-        <div className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-3">
-          <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
-          <p className="text-[13px] text-red-700">Ninguna candidata disponible para esta franja. Tendrás que cancelar la clase o resolverlo por tu cuenta.</p>
+        <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+            <p className="text-[13px] text-red-700">Ninguna candidata disponible para esta franja. Cancela la clase (avisamos a las alumnas) o resuélvelo por tu cuenta.</p>
+          </div>
+          <button
+            onClick={() => onCancelar(s)} disabled={enProceso}
+            className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-[12px] font-bold hover:bg-red-600 disabled:opacity-50 transition"
+          >
+            <CalendarOff size={13} /> Cancelar clase y avisar a las alumnas
+          </button>
         </div>
       ) : (
         <div className="mt-4 space-y-2">
@@ -216,7 +255,12 @@ function SustitucionCard({
         </div>
       )}
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex justify-end gap-4">
+        {ranking.length > 0 && (
+          <button onClick={() => onCancelar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-red-600 disabled:opacity-50 transition-colors">
+            Cancelar clase
+          </button>
+        )}
         <button onClick={() => onDescartar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors">
           Lo resuelvo por mi cuenta
         </button>
