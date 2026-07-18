@@ -3,7 +3,8 @@
 export type Rol = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION';
 export type EstadoSuscripcion = 'ACTIVA' | 'PAUSADA' | 'CANCELADA' | 'EXPIRADA';
 export type TipoPlan = 'MENSUAL' | 'BONO' | 'PUNTUAL';
-export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO';
+// FALLIDO (0041): estado terminal tras agotar los reintentos de dunning (+1/+3/+7).
+export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO' | 'FALLIDO';
 // Pagos España (0036): método recurrente preferido de la socia y método real de cada cobro.
 export type MetodoPagoPreferido = 'TARJETA' | 'SEPA';
 export type MetodoCobro = 'TARJETA' | 'SEPA' | 'BIZUM';
@@ -346,6 +347,8 @@ export interface Recibo {
   // Pagos España (0036): método real del cobro + estado asíncrono del adeudo SEPA.
   metodoCobro?: MetodoCobro | null;
   sepaEstado?: string | null;
+  // Dunning (0041): cuándo el barrido diario debe reintentar el cobro (null = sin reintento).
+  proximoReintento?: string | null;
 }
 
 export interface Factura {

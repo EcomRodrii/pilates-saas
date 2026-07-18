@@ -118,6 +118,7 @@ const BADGE: Record<string, { bg: string; text: string; label: string }> = {
   PENDIENTE: { bg: '#FEF3C7', text: '#D97706', label: 'Pendiente' },
   DEVUELTO:  { bg: '#FEE2E2', text: '#DC2626', label: 'Devuelto' },
   EN_CURSO:  { bg: '#DBEAFE', text: '#7AA80E', label: 'En curso' },
+  FALLIDO:   { bg: '#FEE2E2', text: '#991B1B', label: 'Fallido' },
 };
 
 type SortKey = 'reciente' | 'antiguo' | 'mayor' | 'menor';
@@ -652,6 +653,7 @@ export default function Pagos() {
                 { label: 'Cobrado',    value: 'COBRADO'   },
                 { label: 'Devuelto',   value: 'DEVUELTO'  },
                 { label: 'En curso',   value: 'EN_CURSO'  },
+                { label: 'Fallido',    value: 'FALLIDO'   },
               ] as { label: string; value: EstadoRecibo | 'TODOS' }[]).map(({ label, value }) => {
                 const count = tabCount(value);
                 const active = statusTab === value;
@@ -1075,6 +1077,7 @@ export default function Pagos() {
                 <option value="PENDIENTE">Pendiente</option>
                 <option value="DEVUELTO">Devuelto</option>
                 <option value="EN_CURSO">En curso</option>
+                <option value="FALLIDO">Fallido</option>
               </select>
               <button
                 onClick={exportCSV}
