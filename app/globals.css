@@ -66,39 +66,39 @@
   --secondary-foreground: #1A1A1A;
   --muted: #F5F5F1;
   --muted-foreground: #8E8E86;
-  --accent: #FFF2F7;
-  --accent-foreground: #B57A8E;
+  --accent: #F5F3FF;
+  --accent-foreground: #6D28D9;
   --destructive: oklch(0.577 0.245 27.325);
   --border: #E7E7E0;
   --input: #E7E7E0;
-  --ring: #FFC8E2;
+  --ring: #6D28D9;
   --radius: 1rem;
   --sidebar: #0F0F0F;
   --sidebar-foreground: #E8E8E4;
-  --sidebar-primary: #FFC8E2;
-  --sidebar-primary-foreground: #131313;
+  --sidebar-primary: #6D28D9;
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: rgba(255,255,255,0.06);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255,255,255,0.06);
-  --sidebar-ring: rgba(255,200,226,0.4);
+  --sidebar-ring: rgba(109,40,217,0.4);
 
-  /* Lime accent scale (Midbox) */
-  --lime: #FFC8E2;
-  --lime-dark: #F7A6C4;
-  --lime-bg: #FFF2F7;
+  /* Lime accent scale (Midbox) — ahora paleta morada del sistema */
+  --lime: #6D28D9;
+  --lime-dark: #5B21B6;
+  --lime-bg: #F5F3FF;
 
   /* Marca del panel — sobreescrito en tiempo real por lib/panel-theme.tsx según
      la paleta elegida por cada usuario (personal, localStorage). El valor de
-     aquí es la paleta "Original". */
-  --brand: #FFC8E2;
-  --brand-foreground: #131313;
-  --brand-secondary: #B57A8E;
+     aquí es la paleta "Tentare" (morado). */
+  --brand: #6D28D9;
+  --brand-foreground: #ffffff;
+  --brand-secondary: #7C3AED;
 
   /* Marca de la app de socias — sobreescrito por lib/portal-theme.tsx según
      studio.temaPortal (compartido, Supabase, solo editable por el propietario). */
-  --portal-brand: #FFC8E2;
-  --portal-brand-foreground: #131313;
-  --portal-brand-secondary: #B57A8E;
+  --portal-brand: #6D28D9;
+  --portal-brand-foreground: #ffffff;
+  --portal-brand-secondary: #7C3AED;
 }
 
 /* Modo oscuro del panel — personal, activado por lib/panel-theme.tsx añadiendo

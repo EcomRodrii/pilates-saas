@@ -119,7 +119,7 @@ function NavItem({ href, label, Icon, onClick, collapsed }: { href: string; labe
       className={cn(
         'flex items-center rounded-full text-[13px] font-medium transition-all relative',
         collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
-        active ? 'bg-brand text-[#131313] font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-card/5'
+        active ? 'bg-brand text-brand-foreground font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-card/5'
       )}
     >
       <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
@@ -145,7 +145,7 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
         <Icon
           size={20}
           strokeWidth={active ? 2.5 : 1.8}
-          className={active ? 'text-[#131313]' : 'text-muted-foreground'}
+          className={active ? 'text-brand-foreground' : 'text-muted-foreground'}
         />
       </div>
       <span className={cn(
@@ -198,7 +198,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
                   onClick={onClose}
                   className={cn(
                     'flex items-center gap-3.5 px-4 py-3.5 rounded-full text-[15px] font-medium transition-all mb-1',
-                    active ? 'bg-brand text-[#131313] font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5'
+                    active ? 'bg-brand text-brand-foreground font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5'
                   )}
                 >
                   <item.icon size={18} strokeWidth={active ? 2.5 : 2} />
@@ -348,7 +348,7 @@ export function Sidebar() {
                   title={val === 'esencial' ? 'Solo lo esencial: Dashboard, Calendario, Clientes, Transacciones, Informes' : 'Todas las funciones'}
                   className={cn(
                     'flex-1 py-1 rounded-full text-[10.5px] font-bold transition-all',
-                    navMode === val ? 'bg-brand text-[#131313]' : 'text-white/40',
+                    navMode === val ? 'bg-brand text-brand-foreground' : 'text-white/40',
                   )}
                 >
                   {label}
