@@ -155,6 +155,84 @@ export async function generarEnlaceDisponibilidad(
   }
 }
 
+export interface SustitucionCandidata {
+  instructor_id: string;
+  nombre: string;
+  score: number;
+  motivos: string[];
+}
+export interface SustitucionPanel {
+  id: string;
+  estado: string;
+  motivo: string | null;
+  creado_en: string;
+  resuelto_en: string | null;
+  instructor_original_id: string | null;
+  sustituta_final_id: string | null;
+  ranking: SustitucionCandidata[];
+  sesion_id: string;
+  sesiones: { inicio: string; fin: string; tipo_clase_id: string | null; cancelada: boolean } | null;
+}
+
+// Marca una baja: "no puedo dar esta clase" → crea la sustitución + ranking.
+export async function crearBaja(sesionId: string, motivo?: string): Promise<{ ok: true } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sesionId, motivo }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return { ok: true };
+  } catch {
+    return { error: 'No se pudo crear la baja' };
+  }
+}
+
+export async function listarSustituciones(): Promise<SustitucionPanel[]> {
+  try {
+    const res = await fetch('/api/sustituciones', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { sustituciones?: SustitucionPanel[] };
+    return data.sustituciones ?? [];
+  } catch {
+    return [];
+  }
+}
+
+// Confirma a una candidata (aceptación atómica + reasigna la clase).
+export async function confirmarSustituta(sustitucionId: string, instructorId: string): Promise<{ ok: true } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sustitucionId, action: 'confirmar', instructorId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return { ok: true };
+  } catch {
+    return { error: 'No se pudo confirmar' };
+  }
+}
+
+// Descarta la sustitución (resuelto fuera del sistema).
+export async function descartarSustitucion(sustitucionId: string): Promise<{ ok: true } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sustitucionId, action: 'descartar' }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return { ok: true };
+  } catch {
+    return { error: 'No se pudo descartar' };
+  }
+}
+
 // ── Stripe ────────────────────────────────────────────────────────────────────
 
 export async function crearCheckoutStripe(params: {
