@@ -16,7 +16,7 @@
 
 export type EventoAnalitica =
   // Un cobro a una socia se completó. La señal de GMV del negocio.
-  | { nombre: 'pago_completado'; props: { importe_centimos: number; via: 'checkout' | 'off_session' | 'terminal' } }
+  | { nombre: 'pago_completado'; props: { importe_centimos: number; via: 'checkout' | 'off_session' | 'terminal' | 'sepa' | 'bizum' } }
   // El estado de la suscripción del estudio al SaaS cambió (alta/renovación/impago/baja).
   | { nombre: 'suscripcion_cambiada'; props: { plan: string | null; estado: string } };
 

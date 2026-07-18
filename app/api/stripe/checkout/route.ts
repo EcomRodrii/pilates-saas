@@ -38,6 +38,10 @@ export async function POST(req: NextRequest) {
     socioId?: string | null;
     socioEmail?: string | null;
     socioNombre?: string;
+    // Pagos España (PR-5): ofrecer Bizum además de tarjeta en pagos PUNTUALES
+    // (clase suelta / bono / primer pago). Bizum no es recurrente ni guardable,
+    // así que activarlo desactiva el guardado de tarjeta (setup_future_usage).
+    bizum?: boolean;
   } | null;
 
   if (!body?.studioId) {
@@ -113,9 +117,15 @@ export async function POST(req: NextRequest) {
   // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
   const fee = applicationFeeAmount(Math.round(importe * 100));
 
+  // Con Bizum: ofrecemos Bizum + tarjeta pero NO guardamos la tarjeta (Bizum no
+  // admite setup_future_usage y es solo puntual). Sin Bizum: solo tarjeta y la
+  // guardamos para cobros recurrentes off-session.
+  const conBizum = body.bizum === true;
+  const paymentMethodTypes: Array<'card' | 'bizum'> = conBizum ? ['card', 'bizum'] : ['card'];
+
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
-    payment_method_types: ['card'],
+    payment_method_types: paymentMethodTypes,
     line_items: [
       {
         price_data: {
@@ -130,11 +140,10 @@ export async function POST(req: NextRequest) {
       },
     ],
     customer_email: body.socioEmail ?? undefined,
-    // Crea un Customer de Stripe y guarda la tarjeta para poder cobrar sola
-    // (off_session) la próxima vez, sin que la socia reintroduzca la tarjeta.
-    customer_creation: 'always',
+    // Solo creamos Customer + guardamos tarjeta cuando NO hay Bizum (flujo recurrente).
+    ...(conBizum ? {} : { customer_creation: 'always' as const }),
     payment_intent_data: {
-      setup_future_usage: 'off_session',
+      ...(conBizum ? {} : { setup_future_usage: 'off_session' as const }),
       ...(fee !== undefined ? { application_fee_amount: fee } : {}),
     },
     metadata,

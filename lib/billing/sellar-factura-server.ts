@@ -1,0 +1,164 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { calcularHuellaAlta, type RegistroAltaVerifactu } from '@/lib/verifactu';
+import { fechaExpedicionDesdeISO, fechaHoraHusoMadrid, urlQrVerifactu } from '@/lib/verifactu-qr';
+
+// Núcleo del sellado Veri*Factu, extraído de app/api/facturas/sellar para que lo
+// puedan invocar TANTO la ruta (staff autenticado) COMO el webhook de Stripe
+// (cobro SEPA confirmado → factura por ciclo, sin sesión de usuario). Todo el
+// contenido fiscal se recalcula en servidor desde el recibo; el llamador solo
+// aporta studioId + reciboId + un id de factura.
+//
+// Idempotente por id o recibo_id: llamarlo dos veces sobre el mismo recibo no
+// duplica la factura ni bifurca la cadena.
+//
+// ⚠️ Follow-up C-5 (preexistente): la lectura del extremo de la cadena + inserción
+// no es atómica; bajo dos sellados simultáneos del MISMO estudio puede
+// bifurcarse. Endurecer con UNIQUE(studio_id, verifactu_seq/numero_completo) +
+// advisory lock. No se agrava aquí (misma idempotencia por recibo_id).
+
+export interface ResultadoSellado {
+  ok: boolean;
+  error?: string;
+  yaExistia?: boolean;
+  sellada?: boolean;
+  aviso?: string | null;
+  factura?: Record<string, unknown>;
+}
+
+export async function sellarFacturaDeRecibo(
+  admin: SupabaseClient,
+  params: { studioId: string; reciboId: string; facturaId: string },
+): Promise<ResultadoSellado> {
+  const { studioId, reciboId, facturaId } = params;
+
+  // Idempotencia: si ya existe (mismo id o mismo recibo) no re-sellar ni duplicar.
+  const { data: existente } = await admin
+    .from('facturas')
+    .select('id, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq')
+    .or(`id.eq.${facturaId},recibo_id.eq.${reciboId}`)
+    .limit(1)
+    .maybeSingle();
+  if (existente) {
+    return { ok: true, yaExistia: true, factura: mapSalida(existente) };
+  }
+
+  const { data: studio } = await admin
+    .from('studios')
+    .select('nif, iva_por_defecto')
+    .eq('id', studioId)
+    .maybeSingle();
+  const nifEmisor = studio?.nif?.trim() || '';
+
+  const { data: recibo } = await admin
+    .from('recibos').select('importe, socio_id')
+    .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
+  if (!recibo) {
+    return { ok: false, error: 'Recibo no encontrado' };
+  }
+
+  // El importe del recibo es IVA INCLUIDO; el tipo solo reparte total → base+cuota.
+  const tipoIVA = Number(studio?.iva_por_defecto ?? 21);
+  const divisor = 1 + tipoIVA / 100;
+  const total = Math.round(Number(recibo.importe) * 100) / 100;
+  const baseImponible = Math.round((total / divisor) * 100) / 100;
+  const cuotaIVA = Math.round((total - baseImponible) * 100) / 100;
+
+  let receptorNombre = 'Cliente de mostrador';
+  let receptorNIF: string | null = null;
+  if (recibo.socio_id) {
+    const { data: socio } = await admin
+      .from('socios').select('nombre, apellidos, nif').eq('id', recibo.socio_id).maybeSingle();
+    if (socio) {
+      receptorNombre = `${socio.nombre ?? ''} ${socio.apellidos ?? ''}`.trim() || 'Cliente';
+      receptorNIF = (socio.nif as string | null) ?? null;
+    }
+  }
+
+  // Número correlativo por estudio y año (A-{año}-{NNNN}), max+1.
+  const fechaEmision = new Date().toISOString();
+  const anio = new Date(fechaEmision).getFullYear();
+  const { data: delAnio } = await admin
+    .from('facturas').select('numero_completo')
+    .eq('studio_id', studioId).like('numero_completo', `A-${anio}-%`);
+  let maxN = 0;
+  for (const row of delAnio ?? []) {
+    const m = /A-\d{4}-(\d+)/.exec((row.numero_completo as string | null) ?? '');
+    if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+  }
+  const numeroCompleto = `A-${anio}-${String(maxN + 1).padStart(4, '0')}`;
+
+  // Extremo actual de la cadena del estudio.
+  const { data: tip } = await admin
+    .from('facturas')
+    .select('verifactu_hash, verifactu_seq')
+    .eq('studio_id', studioId)
+    .not('verifactu_seq', 'is', null)
+    .order('verifactu_seq', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const huellaAnterior = tip?.verifactu_hash ?? '';
+  const seq = (tip?.verifactu_seq ?? 0) + 1;
+
+  const fila: Record<string, unknown> = {
+    id: facturaId,
+    studio_id: studioId,
+    recibo_id: reciboId,
+    numero_completo: numeroCompleto,
+    fecha_emision: fechaEmision,
+    receptor_nombre: receptorNombre,
+    receptor_nif: receptorNIF,
+    base_imponible: baseImponible,
+    tipo_iva: tipoIVA,
+    cuota_iva: cuotaIVA,
+    total,
+  };
+
+  let salida: Record<string, unknown> = {};
+  if (nifEmisor) {
+    const ts = fechaHoraHusoMadrid(new Date());
+    const registro: RegistroAltaVerifactu = {
+      idEmisorFactura: nifEmisor,
+      numSerieFactura: numeroCompleto,
+      fechaExpedicionFactura: fechaExpedicionDesdeISO(fechaEmision),
+      tipoFactura: receptorNIF ? 'F1' : 'F2',
+      cuotaTotal: cuotaIVA,
+      importeTotal: total,
+      fechaHoraHusoGenRegistro: ts,
+    };
+    const huella = calcularHuellaAlta(registro, huellaAnterior);
+    const produccion = process.env.VERIFACTU_ENTORNO === 'produccion';
+    const qrUrl = urlQrVerifactu(
+      { nif: nifEmisor, numSerie: numeroCompleto, fecha: registro.fechaExpedicionFactura, importeTotal: total },
+      { produccion },
+    );
+    fila.verifactu_hash = huella;
+    fila.verifactu_prev_hash = huellaAnterior;
+    fila.verifactu_ts = ts;
+    fila.verifactu_seq = seq;
+    salida = {
+      verifactuHash: huella, verifactuPrevHash: huellaAnterior, verifactuTs: ts, verifactuSeq: seq,
+      qrUrl, entorno: produccion ? 'produccion' : 'pruebas',
+    };
+  }
+
+  const { error } = await admin.from('facturas').insert(fila);
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return {
+    ok: true,
+    sellada: Boolean(nifEmisor),
+    aviso: nifEmisor ? null : 'La factura se guardó sin huella Veri*Factu: falta el NIF fiscal del estudio.',
+    factura: { ...salida, numeroCompleto, fechaEmision, receptorNombre, receptorNIF, baseImponible, cuotaIVA, total },
+  };
+}
+
+export function mapSalida(row: { verifactu_hash: string | null; verifactu_prev_hash: string | null; verifactu_ts: string | null; verifactu_seq: number | null }) {
+  return {
+    verifactuHash: row.verifactu_hash,
+    verifactuPrevHash: row.verifactu_prev_hash,
+    verifactuTs: row.verifactu_ts,
+    verifactuSeq: row.verifactu_seq,
+  };
+}

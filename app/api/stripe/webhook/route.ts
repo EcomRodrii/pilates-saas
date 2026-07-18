@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
 import { webhookYaProcesado, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
+import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 
 export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -58,40 +60,90 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
     }
 
-    // El recibo es lo crítico (confirma el cobro). Idempotente: reintentar sobre
-    // un recibo ya COBRADO no cambia nada relevante.
-    if (reciboId) {
-      const { error } = await admin.from('recibos')
-        .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString() })
-        .eq('id', reciboId);
-      if (error) {
-        console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
-        return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
+    if (session.mode === 'setup' && session.metadata?.purpose === 'sepa_mandate') {
+      // Fase 1 · PR-2 — alta de mandato SEPA: la socia aceptó la domiciliación.
+      // Guardamos el PaymentMethod (sepa_debit) y el mandato para poder cobrar
+      // la mensualidad off-session (PR-3). El SetupIntent vive en la cuenta
+      // conectada (event.account) — hay que targetearla explícitamente.
+      if (socioId && typeof session.setup_intent === 'string') {
+        const si = await stripe.setupIntents.retrieve(
+          session.setup_intent,
+          {},
+          event.account ? { stripeAccount: event.account } : undefined,
+        );
+        const pmId = typeof si.payment_method === 'string' ? si.payment_method : si.payment_method?.id;
+        const mandateId = typeof si.mandate === 'string' ? si.mandate : (si.mandate?.id ?? null);
+        if (pmId) {
+          const update: Record<string, string | null> = {
+            sepa_payment_method_id: pmId,
+            sepa_mandate_id: mandateId,
+            metodo_pago_preferido: 'SEPA',
+          };
+          if (typeof session.customer === 'string') update.stripe_customer_id = session.customer;
+          const { error } = await admin.from('socios').update(update).eq('id', socioId);
+          if (error) {
+            console.error('[stripe webhook] no se pudo guardar el mandato SEPA', socioId, error);
+            return NextResponse.json({ error: 'Fallo al guardar el mandato SEPA' }, { status: 500 });
+          }
+        }
       }
-    }
-
-    // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la
-    // próxima vez. También crítico: un fallo aquí devuelve 5xx para reintentar
-    // (idempotente: mismos customer/payment_method).
-    if (socioId && typeof session.customer === 'string' && typeof session.payment_intent === 'string') {
-      // Este PaymentIntent vive en la cuenta conectada del estudio (event.account),
-      // no en la de la plataforma — hay que targetearla explícitamente o Stripe
-      // devuelve "no such payment_intent".
-      const paymentIntent = await stripe.paymentIntents.retrieve(
-        session.payment_intent,
-        {},
-        event.account ? { stripeAccount: event.account } : undefined
-      );
-      const paymentMethodId = typeof paymentIntent.payment_method === 'string'
-        ? paymentIntent.payment_method
-        : paymentIntent.payment_method?.id;
-      if (paymentMethodId) {
-        const { error } = await admin.from('socios')
-          .update({ stripe_customer_id: session.customer, stripe_payment_method_id: paymentMethodId })
-          .eq('id', socioId);
+    } else {
+      // El recibo es lo crítico (confirma el cobro). Idempotente: reintentar sobre
+      // un recibo ya COBRADO no cambia nada relevante. Registramos el método real
+      // del cobro (tarjeta/bizum) para la conciliación con el gestor.
+      if (reciboId) {
+        // Si se ofreció Bizum, el método real puede ser bizum O tarjeta → lo
+        // leemos del cargo para registrar metodo_cobro con exactitud. Si no se
+        // ofreció Bizum, es tarjeta y evitamos la llamada extra.
+        const pmTypes = (session.payment_method_types ?? []) as string[];
+        let metodoCobro = 'TARJETA';
+        if (pmTypes.includes('bizum') && typeof session.payment_intent === 'string') {
+          try {
+            const piPago = await stripe.paymentIntents.retrieve(
+              session.payment_intent, { expand: ['latest_charge'] },
+              event.account ? { stripeAccount: event.account } : undefined,
+            );
+            const tipo = (piPago.latest_charge as Stripe.Charge | null)?.payment_method_details?.type;
+            metodoCobro = tipo === 'bizum' ? 'BIZUM' : 'TARJETA';
+          } catch { /* si falla la lectura, dejamos TARJETA por defecto */ }
+        }
+        const { error } = await admin.from('recibos')
+          .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro })
+          .eq('id', reciboId);
         if (error) {
-          console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
-          return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
+          console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
+          return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
+        }
+      }
+
+      // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la
+      // próxima vez. También crítico: un fallo aquí devuelve 5xx para reintentar
+      // (idempotente: mismos customer/payment_method). Bizum no es guardable, así
+      // que solo persiste tarjeta (setup_future_usage solo se pide en 'card').
+      if (socioId && typeof session.customer === 'string' && typeof session.payment_intent === 'string') {
+        // Este PaymentIntent vive en la cuenta conectada del estudio (event.account),
+        // no en la de la plataforma — hay que targetearla explícitamente o Stripe
+        // devuelve "no such payment_intent".
+        const paymentIntent = await stripe.paymentIntents.retrieve(
+          session.payment_intent,
+          {},
+          event.account ? { stripeAccount: event.account } : undefined
+        );
+        const paymentMethodId = typeof paymentIntent.payment_method === 'string'
+          ? paymentIntent.payment_method
+          : paymentIntent.payment_method?.id;
+        // Solo guardamos como método recurrente si es una tarjeta reutilizable.
+        const piPmTypes = (paymentIntent.payment_method_types ?? []) as string[];
+        const esTarjetaReutilizable = piPmTypes.includes('card')
+          && paymentIntent.setup_future_usage === 'off_session';
+        if (paymentMethodId && esTarjetaReutilizable) {
+          const { error } = await admin.from('socios')
+            .update({ stripe_customer_id: session.customer, stripe_payment_method_id: paymentMethodId })
+            .eq('id', socioId);
+          if (error) {
+            console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
+            return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
+          }
         }
       }
     }
@@ -112,7 +164,11 @@ export async function POST(req: NextRequest) {
   // ignora (los cobros con checkout ya se persisten vía checkout.session.completed).
   if (event.type === 'payment_intent.succeeded') {
     const pi = event.data.object as Stripe.PaymentIntent;
-    if (pi.metadata?.origen === 'pos_terminal') {
+    // Backstop de reconciliación POS: datáfono (pos_terminal) y Bizum presencial
+    // (pos_bizum) comparten el mismo mecanismo — si el POS se cerró antes de
+    // registrar la venta, el cobro aparece en "cobros sin registrar".
+    const origenPos = pi.metadata?.origen;
+    if (origenPos === 'pos_terminal' || origenPos === 'pos_bizum') {
       const studioId = pi.metadata.studioId;
       if (!studioId) {
         console.error('[stripe webhook] PI de terminal sin studioId en metadata', pi.id);
@@ -138,8 +194,91 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Fallo al registrar la reconciliación' }, { status: 500 });
       }
 
-      // R4: señal de GMV del datáfono.
-      capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'terminal' } });
+      // R4: señal de GMV del cobro presencial (datáfono o Bizum).
+      capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: origenPos === 'pos_bizum' ? 'bizum' : 'terminal' } });
+    }
+
+    // Fase 1 · PR-4 — cobro SEPA CONFIRMADO (asíncrono): el adeudo domiciliado
+    // liquidó días después de enviarse. Marcamos el recibo COBRADO y sellamos su
+    // factura del ciclo. El sellado es best-effort: un fallo NO bloquea la
+    // confirmación del pago (se puede sellar a mano después) — evita reintentos
+    // infinitos del webhook por un caso borde de facturación.
+    if (pi.metadata?.origen === 'sepa_recibo' && pi.metadata?.reciboId) {
+      const reciboId = pi.metadata.reciboId;
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        console.error('[stripe webhook] service role no configurada (SEPA succeeded)');
+        return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      const { data: rec, error: updErr } = await admin.from('recibos')
+        .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: 'SEPA', sepa_estado: 'succeeded' })
+        .eq('id', reciboId).select('studio_id').maybeSingle();
+      if (updErr) {
+        console.error('[stripe webhook] no se pudo marcar el recibo SEPA COBRADO', reciboId, updErr);
+        return NextResponse.json({ error: 'Fallo al confirmar el cobro SEPA' }, { status: 500 });
+      }
+      if (rec?.studio_id) {
+        try {
+          const sell = await sellarFacturaDeRecibo(admin, { studioId: rec.studio_id, reciboId, facturaId: `fac-sepa-${reciboId}` });
+          if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
+        } catch (e) {
+          Sentry.captureException(e instanceof Error ? e : new Error('Fallo al sellar la factura del cobro SEPA'), {
+            level: 'warning', tags: { area: 'facturacion', tipo: 'sepa_ciclo' }, extra: { reciboId },
+          });
+        }
+      }
+      capturar(pi.metadata.studioId ?? rec?.studio_id ?? '', { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'sepa' } });
+    }
+  }
+
+  // Fase 1 · PR-4 — adeudo SEPA FALLIDO (p. ej. fondos insuficientes al liquidar).
+  // El recibo vuelve a PENDIENTE (para que el dunning pueda reintentar con un
+  // adeudo nuevo) y contamos el intento. sepa_estado='failed' deja rastro.
+  if (event.type === 'payment_intent.payment_failed') {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    if (pi.metadata?.origen === 'sepa_recibo' && pi.metadata?.reciboId) {
+      const reciboId = pi.metadata.reciboId;
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        console.error('[stripe webhook] service role no configurada (SEPA failed)');
+        return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      const { data: rec } = await admin.from('recibos').select('intentos_reintento').eq('id', reciboId).maybeSingle();
+      const { error } = await admin.from('recibos')
+        .update({ estado: 'PENDIENTE', sepa_estado: 'failed', intentos_reintento: (rec?.intentos_reintento ?? 0) + 1 })
+        .eq('id', reciboId);
+      if (error) {
+        console.error('[stripe webhook] no se pudo marcar el recibo SEPA fallido', reciboId, error);
+        return NextResponse.json({ error: 'Fallo al registrar el adeudo SEPA fallido' }, { status: 500 });
+      }
+    }
+  }
+
+  // Fase 1 · PR-4 — DEVOLUCIÓN / reembolso (el adeudo SEPA se devolvió dentro de
+  // las 8 semanas, o un reembolso manual). El recibo pasa a DEVUELTO. Los datos
+  // de metadata viven en el PaymentIntent (no en el charge), así que lo
+  // recuperamos targeteando la cuenta conectada.
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object as Stripe.Charge;
+    const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+    if (piId) {
+      const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
+      const reciboId = pi.metadata?.reciboId;
+      const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
+      if (reciboId && esRecibo) {
+        const admin = getSupabaseAdmin();
+        if (!admin) {
+          console.error('[stripe webhook] service role no configurada (refund)');
+          return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+        }
+        const { error } = await admin.from('recibos')
+          .update({ estado: 'DEVUELTO', fecha_devolucion: new Date().toISOString(), sepa_estado: pi.metadata?.origen === 'sepa_recibo' ? 'returned' : null })
+          .eq('id', reciboId);
+        if (error) {
+          console.error('[stripe webhook] no se pudo marcar el recibo DEVUELTO', reciboId, error);
+          return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
+        }
+      }
     }
   }
 

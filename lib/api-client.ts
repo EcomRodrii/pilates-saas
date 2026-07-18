@@ -252,6 +252,22 @@ export async function crearCheckoutStripe(params: {
   return res.json() as Promise<{ url: string } | { error: string }>;
 }
 
+// Fase 1 · PR-2 — inicia el alta del mandato SEPA (domiciliación). Devuelve la
+// URL del Checkout hosted en modo 'setup' donde la socia introduce su IBAN y
+// acepta el mandato. Semipúblico como crearCheckoutStripe.
+export async function iniciarDomiciliacionSepa(params: {
+  studioId: string;
+  socioId: string;
+  slug: string;
+}): Promise<{ url: string } | { error: string }> {
+  const res = await fetch('/api/stripe/setup-sepa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  return res.json() as Promise<{ url: string } | { error: string }>;
+}
+
 // Aprobación de un toque: cobra un recibo pendiente con la tarjeta ya
 // guardada de la socia, sin redirigirla a ningún sitio.
 export async function aprobarCobroAutonomo(params: {
@@ -437,6 +453,19 @@ export async function terminalCobrar(params: { studioId: string; amount: number;
     });
     return await res.json();
   } catch { return { error: 'No se pudo iniciar el cobro' }; }
+}
+
+// Fase 1 · PR-5 — Bizum presencial: pide una URL de Checkout Bizum para el
+// importe de la venta. El POS la muestra como enlace/QR para el móvil del cliente.
+export async function posBizumCheckout(params: { amount: number; concepto: string }): Promise<{ url?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/stripe/pos-bizum', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(params),
+    });
+    return await res.json();
+  } catch { return { error: 'No se pudo iniciar el cobro Bizum' }; }
 }
 
 export async function terminalEstadoCobro(params: { studioId: string; paymentIntentId: string }): Promise<{ ok?: boolean; status?: string; error?: string }> {

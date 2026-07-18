@@ -1,20 +1,41 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { CheckCircle2, Clock, XCircle, CreditCard, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, CreditCard, AlertCircle, Landmark } from 'lucide-react';
 import { formatFechaLarga as formatDate } from '@/lib/utils';
+import { iniciarDomiciliacionSepa } from '@/lib/api-client';
 
 type Filtro = 'TODOS' | 'COBRADO' | 'PENDIENTE';
 
 export default function MiPlanPage() {
   const { session } = usePortalAuth();
-  const { suscripciones, planesTarifa, recibos, facturas } = useStudio();
+  const { studio, socios, suscripciones, planesTarifa, recibos, facturas } = useStudio();
   const { t } = useModo();
+  const { slug } = useParams<{ slug: string }>();
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
+  const [sepaLoading, setSepaLoading] = useState(false);
+  const [sepaError, setSepaError] = useState<string | null>(null);
   const socioId = session?.socioId;
+
+  const socia = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
+  const sepaActiva = socia?.metodoPagoPreferido === 'SEPA' && !!socia?.sepaMandateId;
+
+  async function handleDomiciliar() {
+    if (!studio?.id || !socioId || sepaLoading) return;
+    setSepaLoading(true);
+    setSepaError(null);
+    const r = await iniciarDomiciliacionSepa({ studioId: studio.id, socioId, slug });
+    if ('url' in r && r.url) {
+      window.location.href = r.url;
+    } else {
+      setSepaError(('error' in r && r.error) || 'No se pudo iniciar la domiciliación.');
+      setSepaLoading(false);
+    }
+  }
 
   const suscripcion = useMemo(() =>
     suscripciones.find(s => s.socioId === socioId && s.estado === 'ACTIVA') ??
@@ -133,6 +154,40 @@ export default function MiPlanPage() {
             <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>Habla con tu instructor para contratar un plan</p>
           </div>
         )}
+
+        {/* Método de pago — domiciliación SEPA */}
+        <div style={{ ...card, padding: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: sepaActiva ? 'rgba(62,155,108,0.12)' : t.surface2,
+          }}>
+            <Landmark size={19} style={{ color: sepaActiva ? '#3E9B6C' : t.heroAccent }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>
+              {sepaActiva ? 'Domiciliación SEPA activa' : 'Domiciliar la mensualidad'}
+            </p>
+            <p style={{ fontSize: 12, color: t.muted, marginTop: 2, lineHeight: 1.3 }}>
+              {sepaActiva
+                ? 'Tus recibos se cobran automáticamente de tu cuenta bancaria.'
+                : 'Autoriza el adeudo SEPA y olvídate de pagar cada mes.'}
+              {sepaError && <span style={{ color: '#DC2626', display: 'block', marginTop: 4 }}>{sepaError}</span>}
+            </p>
+          </div>
+          <button
+            onClick={handleDomiciliar}
+            disabled={sepaLoading}
+            style={{
+              flexShrink: 0, padding: '9px 16px', borderRadius: 14, fontSize: 12, fontWeight: 800,
+              border: `1px solid ${sepaActiva ? t.line : 'var(--portal-brand)'}`,
+              background: sepaActiva ? t.surface2 : 'var(--portal-brand)',
+              color: sepaActiva ? t.muted : t.accentInk,
+              opacity: sepaLoading ? 0.6 : 1, cursor: sepaLoading ? 'default' : 'pointer',
+            }}
+          >
+            {sepaLoading ? 'Abriendo…' : sepaActiva ? 'Cambiar' : 'Domiciliar'}
+          </button>
+        </div>
 
         {/* Historial */}
         <div>
