@@ -134,6 +134,27 @@ export function leerSociaLocal(): { socioId: string; email: string } | null {
   return null;
 }
 
+// ── Sustituciones: enlace de disponibilidad de una instructora ──────────────
+// Pide al servidor un deep link firmado (sin login) para que la instructora
+// rellene su disponibilidad. El servidor lo firma con su secreto y exige rol
+// PROPIETARIO; el studio_id sale del JWT. Devuelve la URL lista para compartir.
+export async function generarEnlaceDisponibilidad(
+  instructorId: string,
+): Promise<{ url: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones/disponibilidad-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ instructorId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+    if (!res.ok || !data.url) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return { url: data.url };
+  } catch {
+    return { error: 'No se pudo generar el enlace' };
+  }
+}
+
 // ── Stripe ────────────────────────────────────────────────────────────────────
 
 export async function crearCheckoutStripe(params: {

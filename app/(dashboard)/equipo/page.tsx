@@ -4,9 +4,10 @@ import { useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, Copy } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora } from '@/lib/utils';
+import { generarEnlaceDisponibilidad } from '@/lib/api-client';
 
 const COLORES = ['#F7A6C4', '#14B8A6', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
 
@@ -35,6 +36,21 @@ export default function EquipoPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
   const [confirmDel, setConfirmDel] = useState<Instructor | null>(null);
+  const [enlace, setEnlace] = useState<
+    { instructor: Instructor; url: string | null; loading: boolean; error: string | null; copiado: boolean } | null
+  >(null);
+
+  async function abrirEnlace(i: Instructor) {
+    setEnlace({ instructor: i, url: null, loading: true, error: null, copiado: false });
+    const r = await generarEnlaceDisponibilidad(i.id);
+    setEnlace(prev => (prev && prev.instructor.id === i.id
+      ? { ...prev, loading: false, url: 'url' in r ? r.url : null, error: 'error' in r ? r.error : null }
+      : prev));
+  }
+  async function copiarEnlace(url: string) {
+    try { await navigator.clipboard.writeText(url); } catch { /* el input readonly permite copiar a mano */ }
+    setEnlace(prev => (prev ? { ...prev, copiado: true } : prev));
+  }
 
   // Carga semanal: sesiones futuras de los próximos 7 días por instructor
   const ahora = new Date();
@@ -194,6 +210,9 @@ export default function EquipoPage() {
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
+                    <button onClick={() => abrirEnlace(i)} title="Enlace de disponibilidad" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+                      <CalendarClock size={14} />
+                    </button>
                     <button onClick={() => openEditar(i)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
                       <Pencil size={14} />
                     </button>
@@ -313,6 +332,44 @@ export default function EquipoPage() {
               </button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enlace de disponibilidad (deep link sin login para la instructora) */}
+      <Dialog open={enlace !== null} onOpenChange={open => !open && setEnlace(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enlace de disponibilidad</DialogTitle>
+          </DialogHeader>
+          {enlace && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Envíaselo a <strong className="text-foreground">{enlace.instructor.nombre}</strong>. Lo abre en el móvil y marca cuándo puede cubrir clases en unos segundos — sin descargar nada ni crear cuenta.
+              </p>
+              {enlace.loading ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">Generando enlace…</p>
+              ) : enlace.error ? (
+                <p className="text-sm text-red-600">{enlace.error}</p>
+              ) : enlace.url ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <input readOnly value={enlace.url} onFocus={e => e.currentTarget.select()} className={inputCls + ' font-mono text-[11px]'} />
+                    <button onClick={() => copiarEnlace(enlace.url!)} className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:brightness-95 transition">
+                      {enlace.copiado ? <><Check size={14} /> Copiado</> : <><Copy size={14} /> Copiar</>}
+                    </button>
+                  </div>
+                  <a
+                    href={`https://wa.me/${(enlace.instructor.telefono ?? '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hola ${enlace.instructor.nombre}, marca aquí tu disponibilidad para cubrir clases (30 seg, sin instalar nada): ${enlace.url}`)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition"
+                  >
+                    Enviar por WhatsApp
+                  </a>
+                  <p className="text-[11px] text-muted-foreground">El enlace caduca en 30 días. Puedes generar uno nuevo cuando quieras.</p>
+                </>
+              ) : null}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
