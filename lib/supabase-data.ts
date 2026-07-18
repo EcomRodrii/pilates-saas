@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
+import { enviarWhatsAppTexto, isWhatsAppConfigurado } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
@@ -1579,9 +1580,14 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
 
   // 3) Socias implicadas (1 query) y mapas de lookup.
   const socioIds = uniq(reservas.map(r => r.socio_id as string));
-  const { data: sociosR } = socioIds.length
-    ? await admin.from('socios').select('id, nombre, email').in('id', socioIds)
-    : { data: [] as { id: string; nombre: string | null; email: string | null }[] };
+  const [{ data: sociosR }, { data: prefsR }] = socioIds.length
+    ? await Promise.all([
+        admin.from('socios').select('id, nombre, email, telefono').in('id', socioIds),
+        admin.from('preferencias_socio').select('socio_id, notif_email, notif_whatsapp').in('socio_id', socioIds),
+      ])
+    : [{ data: [] as { id: string; nombre: string | null; email: string | null; telefono: string | null }[] }, { data: [] as { socio_id: string; notif_email: boolean | null; notif_whatsapp: boolean | null }[] }];
+  // Sin fila de preferencias = valores por defecto (true), igual que mapPreferenciasSocio.
+  const prefsPorSocio = new Map((prefsR ?? []).map(p => [p.socio_id, p]));
 
   const nombrePorId = (rows: { id: string; nombre: string | null }[] | null) =>
     new Map((rows ?? []).map(x => [x.id, x.nombre]));
@@ -1600,6 +1606,9 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
   let enviados = 0;
   let fallidos = 0;
   let sinEmail = 0;
+  let enviadosWhatsapp = 0;
+  let fallidosWhatsapp = 0;
+  const whatsappDisponible = isWhatsAppConfigurado();
 
   for (const ses of sesiones) {
     const rs = reservasPorSesion.get(ses.id as string) ?? [];
@@ -1616,16 +1625,35 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
     };
     for (const r of rs) {
       const socia = sociaPorId.get(r.socio_id);
-      if (!socia?.email) { sinEmail++; continue; }
-      const res = await enviarEmailTransaccional({
-        tipo: 'recordatorio', to: socia.email, toName: socia.nombre ?? 'Socia', data: datos,
-      });
-      if (res.ok) enviados++;
-      else if ('error' in res) fallidos++;
+      if (!socia) continue;
+      // Preferencias del portal (app/portal/[slug]/perfil): sin fila = valores
+      // por defecto (true), igual que mapPreferenciasSocio en el resto de la app.
+      const prefs = prefsPorSocio.get(r.socio_id);
+      const quiereEmail = prefs?.notif_email ?? true;
+      const quiereWhatsapp = prefs?.notif_whatsapp ?? true;
+
+      if (quiereEmail) {
+        if (!socia.email) {
+          sinEmail++;
+        } else {
+          const res = await enviarEmailTransaccional({
+            tipo: 'recordatorio', to: socia.email, toName: socia.nombre ?? 'Socia', data: datos,
+          });
+          if (res.ok) enviados++;
+          else if ('error' in res) fallidos++;
+        }
+      }
+
+      if (quiereWhatsapp && whatsappDisponible && socia.telefono) {
+        const texto = `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`;
+        const res = await enviarWhatsAppTexto(socia.telefono, texto);
+        if (res.ok) enviadosWhatsapp++;
+        else fallidosWhatsapp++;
+      }
     }
   }
 
-  return { sesiones: sesiones.length, enviados, fallidos, sinEmail };
+  return { sesiones: sesiones.length, enviados, fallidos, sinEmail, enviadosWhatsapp, fallidosWhatsapp };
 }
 
 // Lee la política de reservas/cancelaciones del estudio (con defaults sensatos
