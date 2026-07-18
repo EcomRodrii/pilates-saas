@@ -33,13 +33,20 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const themeStyle = portalThemeStyle(studio?.temaPortal);
   const { t } = useModo();
 
-  const isLoginPage = pathname === `/portal/${slug}` || pathname === `/portal/${slug}/login`;
+  const isLoginPage = pathname === `/portal/${slug}` || pathname === `/portal/${slug}/login` || pathname === `/portal/${slug}/acceso`;
+  // /clave-nueva llega recién autenticada por magic link (o sin sesión válida
+  // si el enlace caducó / el email no es de este centro): gestiona sus propios
+  // estados (verificando / error / formulario) — el shell no debe redirigirla
+  // ni bloquearla con el spinner genérico.
+  const isClaveNueva = pathname === `/portal/${slug}/clave-nueva`;
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || isClaveNueva) return;
     if (!session && !isLoginPage) router.replace(`/portal/${slug}/login`);
     if (session && isLoginPage) router.replace(`/portal/${slug}/clases`);
-  }, [session, isLoading, isLoginPage, router, slug]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session, isLoading, isLoginPage, isClaveNueva, router, slug]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (isClaveNueva) return <div style={themeStyle}>{children}</div>;
 
   if (isLoading) {
     return (

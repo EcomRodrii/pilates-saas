@@ -15,7 +15,15 @@ interface PortalAuthContextValue {
   isLoading: boolean;
   // Envía el magic link / OTP al email. La sesión NO se establece aquí, sino
   // cuando la socia abre el enlace y vuelve al portal (onAuthStateChange).
+  // Se usa SOLO para verificar la propiedad del email (primer acceso o
+  // recuperación de contraseña) — el día a día se hace con loginConPassword.
   enviarEnlace: (email: string) => Promise<{ ok: true } | { error: string }>;
+  // Login del día a día. Requiere que la socia ya haya creado su contraseña
+  // (vía el flujo de enviarEnlace → establecerPassword).
+  loginConPassword: (email: string, password: string) => Promise<{ ok: true } | { error: string }>;
+  // Establece/cambia la contraseña de la sesión YA autenticada (por magic
+  // link). Solo tiene efecto si hay una sesión de Supabase activa.
+  establecerPassword: (password: string) => Promise<{ ok: true } | { error: string }>;
   logout: () => Promise<void>;
 }
 
@@ -82,10 +90,29 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   const enviarEnlace = useCallback(async (email: string): Promise<{ ok: true } | { error: string }> => {
     const { error } = await supabasePortal.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/portal/${slug}` },
+      // Vuelve a la pantalla de crear/restablecer contraseña, NUNCA directo al
+      // home: el magic link solo prueba que la socia controla el email.
+      options: { emailRedirectTo: `${window.location.origin}/portal/${slug}/clave-nueva` },
     });
     return error ? { error: error.message } : { ok: true };
   }, [slug]);
+
+  const loginConPassword = useCallback(async (email: string, password: string): Promise<{ ok: true } | { error: string }> => {
+    const { error } = await supabasePortal.auth.signInWithPassword({ email: email.trim(), password });
+    if (!error) return { ok: true };
+    const msg = error.message.toLowerCase();
+    if (msg.includes('invalid login credentials')) return { error: 'Email o contraseña incorrectos.' };
+    if (msg.includes('rate limit') || msg.includes('too many')) return { error: 'Demasiados intentos. Espera un minuto y vuelve a intentarlo.' };
+    return { error: error.message };
+  }, []);
+
+  // Requiere una sesión de Supabase ya autenticada (por magic link). No sirve
+  // para "cambiar" la contraseña sin más: la prueba de identidad ya ocurrió
+  // al verificar el enlace, esto solo fija el nuevo valor sobre esa sesión.
+  const establecerPassword = useCallback(async (password: string): Promise<{ ok: true } | { error: string }> => {
+    const { error } = await supabasePortal.auth.updateUser({ password });
+    return error ? { error: error.message } : { ok: true };
+  }, []);
 
   const logout = useCallback(async () => {
     await supabasePortal.auth.signOut();
@@ -94,7 +121,7 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   }, []);
 
   return (
-    <PortalAuthContext.Provider value={{ session, isLoading, enviarEnlace, logout }}>
+    <PortalAuthContext.Provider value={{ session, isLoading, enviarEnlace, loginConPassword, establecerPassword, logout }}>
       {children}
     </PortalAuthContext.Provider>
   );
