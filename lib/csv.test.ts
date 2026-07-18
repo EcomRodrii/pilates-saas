@@ -7,6 +7,7 @@ import {
   autoMapear,
   validarFilas,
   parsearTags,
+  parsearFecha,
   emailValido,
   type CampoSocia,
 } from './csv.ts';
@@ -95,7 +96,7 @@ test('parsearTags separa por ; | y coma', () => {
 });
 
 test('validarFilas marca falta de nombre y email inválido', () => {
-  const mapeo: Record<CampoSocia, number> = { nombre: 0, apellidos: 1, email: 2, telefono: -1, nif: -1, tags: -1 };
+  const mapeo: Record<CampoSocia, number> = { nombre: 0, apellidos: 1, email: 2, telefono: -1, nif: -1, tags: -1, fecha_alta: -1, direccion: -1, fecha_nacimiento: -1 };
   const filas = validarFilas(
     [
       ['Ana', 'García', 'ana@b.com'],
@@ -112,7 +113,7 @@ test('validarFilas marca falta de nombre y email inválido', () => {
 });
 
 test('validarFilas detecta duplicados de email dentro del archivo (case-insensitive)', () => {
-  const mapeo: Record<CampoSocia, number> = { nombre: 0, apellidos: -1, email: 1, telefono: -1, nif: -1, tags: -1 };
+  const mapeo: Record<CampoSocia, number> = { nombre: 0, apellidos: -1, email: 1, telefono: -1, nif: -1, tags: -1, fecha_alta: -1, direccion: -1, fecha_nacimiento: -1 };
   const filas = validarFilas(
     [
       ['Ana', 'ana@b.com'],
@@ -125,7 +126,42 @@ test('validarFilas detecta duplicados de email dentro del archivo (case-insensit
 });
 
 test('validarFilas normaliza el email a minúsculas en los datos', () => {
-  const mapeo: Record<CampoSocia, number> = { nombre: 0, apellidos: -1, email: 1, telefono: -1, nif: -1, tags: -1 };
+  const mapeo: Record<CampoSocia, number> = { nombre: 0, apellidos: -1, email: 1, telefono: -1, nif: -1, tags: -1, fecha_alta: -1, direccion: -1, fecha_nacimiento: -1 };
   const filas = validarFilas([['Ana', 'Ana@B.com']], mapeo);
   assert.equal(filas[0].datos.email, 'ana@b.com');
+});
+
+test('parsearFecha acepta europeo DD/MM/YYYY e ISO, y rechaza lo inválido', () => {
+  assert.equal(parsearFecha('15/03/2022'), '2022-03-15'); // europeo
+  assert.equal(parsearFecha('2022-03-15'), '2022-03-15'); // ISO
+  assert.equal(parsearFecha('2/6/1990'), '1990-06-02');   // sin ceros
+  assert.equal(parsearFecha('01.12.2020'), '2020-12-01'); // puntos
+  assert.equal(parsearFecha(''), null);
+  assert.equal(parsearFecha('   '), null);
+  assert.equal(parsearFecha('no es fecha'), null);
+  assert.equal(parsearFecha('31/02/2022'), null); // 31 de febrero no existe
+  assert.equal(parsearFecha('15/13/2022'), null); // mes 13
+});
+
+test('auto-mapea y valida los campos de migración (fecha alta, dirección, nacimiento)', () => {
+  const m = autoMapear(['Nombre', 'Email', 'Miembro desde', 'Domicilio', 'Fecha de nacimiento']);
+  assert.equal(m.fecha_alta, 2);
+  assert.equal(m.direccion, 3);
+  assert.equal(m.fecha_nacimiento, 4);
+
+  const filas = validarFilas([['Ana', 'ana@b.com', '15/03/2022', 'C/ Mayor 3', '02/06/1990']], m);
+  assert.equal(filas[0].estado, 'ok');
+  assert.equal(filas[0].datos.fechaAlta, '2022-03-15');
+  assert.equal(filas[0].datos.direccion, 'C/ Mayor 3');
+  assert.equal(filas[0].datos.fechaNacimiento, '1990-06-02');
+});
+
+test('validarFilas deja fechaAlta null si la columna no se mapea o es ilegible (lenient)', () => {
+  const sinFecha: Record<CampoSocia, number> = { nombre: 0, apellidos: -1, email: 1, telefono: -1, nif: -1, tags: -1, fecha_alta: -1, direccion: -1, fecha_nacimiento: -1 };
+  assert.equal(validarFilas([['Ana', 'ana@b.com']], sinFecha)[0].datos.fechaAlta, null);
+
+  const conFechaMala: Record<CampoSocia, number> = { nombre: 0, apellidos: -1, email: 1, telefono: -1, nif: -1, tags: -1, fecha_alta: 2, direccion: -1, fecha_nacimiento: -1 };
+  const f = validarFilas([['Ana', 'ana@b.com', 'ayer']], conFechaMala);
+  assert.equal(f[0].estado, 'ok'); // una fecha ilegible NO invalida la fila
+  assert.equal(f[0].datos.fechaAlta, null);
 });

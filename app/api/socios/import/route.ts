@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing/billing-guard';
-import { emailValido } from '@/lib/csv';
+import { emailValido, parsearFecha } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 
 // Importación masiva de socias desde CSV. Autenticada (JWT de staff), scopeada al
@@ -19,6 +19,10 @@ interface FilaEntrada {
   telefono?: string | null;
   nif?: string | null;
   tags?: string[];
+  // Migración: 'YYYY-MM-DD' o null (el cliente ya parsea; el servidor revalida).
+  fechaAlta?: string | null;
+  direccion?: string | null;
+  fechaNacimiento?: string | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -81,6 +85,11 @@ export async function POST(req: NextRequest) {
     vistosEnLote.add(email);
 
     const tags = Array.isArray(f.tags) ? f.tags.map((t) => String(t).trim()).filter(Boolean) : [];
+    // Migración: preserva la fecha de alta original (antigüedad) si viene y es
+    // válida; si no, "ahora". El servidor revalida el formato (no se fía del cliente).
+    const fechaAlta = parsearFecha(f.fechaAlta) ?? ahora;
+    const direccion = (f.direccion ?? '').trim() || null;
+    const fechaNacimiento = parsearFecha(f.fechaNacimiento);
     paraInsertar.push({
       id: `soc-${uid()}`,
       studio_id: sesion.studioId, // autoridad: el estudio del JWT, no el del body
@@ -89,7 +98,9 @@ export async function POST(req: NextRequest) {
       email,
       telefono: (f.telefono ?? '') === '' ? null : String(f.telefono).trim(),
       nif: (f.nif ?? '') === '' ? null : String(f.nif).trim(),
-      fecha_alta: ahora,
+      fecha_alta: fechaAlta,
+      fecha_nacimiento: fechaNacimiento,
+      direccion,
       activo: true,
       tags,
     });

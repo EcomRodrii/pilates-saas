@@ -99,7 +99,10 @@ export function serializeCsv(headers: string[], rows: string[][]): string {
 
 // ─── Auto-mapeo de columnas ──────────────────────────────────────────────────
 
-export type CampoSocia = 'nombre' | 'apellidos' | 'email' | 'telefono' | 'nif' | 'tags';
+export type CampoSocia =
+  | 'nombre' | 'apellidos' | 'email' | 'telefono' | 'nif' | 'tags'
+  // Migración real: preservar la antigüedad y datos de la socia del software anterior.
+  | 'fecha_alta' | 'direccion' | 'fecha_nacimiento';
 
 export interface CampoMeta {
   campo: CampoSocia;
@@ -114,6 +117,9 @@ export const CAMPOS_SOCIA: CampoMeta[] = [
   { campo: 'telefono', etiqueta: 'Teléfono', obligatorio: false },
   { campo: 'nif', etiqueta: 'NIF / DNI', obligatorio: false },
   { campo: 'tags', etiqueta: 'Etiquetas', obligatorio: false },
+  { campo: 'fecha_alta', etiqueta: 'Fecha de alta', obligatorio: false },
+  { campo: 'direccion', etiqueta: 'Dirección', obligatorio: false },
+  { campo: 'fecha_nacimiento', etiqueta: 'Fecha de nacimiento', obligatorio: false },
 ];
 
 const SINONIMOS: Record<CampoSocia, string[]> = {
@@ -123,6 +129,9 @@ const SINONIMOS: Record<CampoSocia, string[]> = {
   telefono: ['telefono', 'phone', 'movil', 'tel', 'celular', 'whatsapp', 'mobile', 'numero'],
   nif: ['nif', 'dni', 'documento', 'nie', 'cif', 'id'],
   tags: ['tags', 'etiquetas', 'etiqueta', 'grupo', 'categoria'],
+  fecha_alta: ['fecha alta', 'fecha de alta', 'alta', 'fecha registro', 'fecha de registro', 'registro', 'miembro desde', 'socia desde', 'join date', 'created', 'created at', 'signup'],
+  direccion: ['direccion', 'address', 'domicilio', 'calle', 'street'],
+  fecha_nacimiento: ['fecha nacimiento', 'fecha de nacimiento', 'nacimiento', 'cumpleanos', 'cumpleaños', 'birthdate', 'birth date', 'dob', 'birthday'],
 };
 
 const RE_DIACRITICOS = /[̀-ͯ]/g;
@@ -160,6 +169,29 @@ export function emailValido(email: string): boolean {
   return RE_EMAIL.test(email.trim());
 }
 
+function fechaValidaISO(y: number, mo: number, d: number): string | null {
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+/**
+ * Parsea una fecha de una celda a 'YYYY-MM-DD'. Acepta ISO (YYYY-MM-DD) y el
+ * formato europeo DD/MM/YYYY (con separadores / - o .). Devuelve null si está
+ * vacía o no es una fecha válida — para migración es lenient: una fecha ilegible
+ * no invalida la fila, solo se ignora ese campo.
+ */
+export function parsearFecha(celda: string | null | undefined): string | null {
+  const s = (celda ?? '').trim();
+  if (!s) return null;
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/); // ISO: YYYY-MM-DD
+  if (m) return fechaValidaISO(+m[1], +m[2], +m[3]);
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/); // europeo: DD/MM/YYYY
+  if (m) return fechaValidaISO(+m[3], +m[2], +m[1]);
+  return null;
+}
+
 /** Separa una celda de etiquetas en un array (soporta ; | y coma). */
 export function parsearTags(celda: string): string[] {
   return celda
@@ -175,6 +207,11 @@ export interface FilaSocia {
   telefono: string | null;
   nif: string | null;
   tags: string[];
+  // Migración: 'YYYY-MM-DD' o null. fechaAlta preserva la antigüedad original;
+  // el servidor cae a "ahora" si viene vacía o ilegible.
+  fechaAlta: string | null;
+  direccion: string | null;
+  fechaNacimiento: string | null;
 }
 
 export interface FilaValidada {
@@ -203,8 +240,11 @@ export function validarFilas(
     const telefono = val(fila, mapeo.telefono) || null;
     const nif = val(fila, mapeo.nif) || null;
     const tags = mapeo.tags >= 0 ? parsearTags(val(fila, mapeo.tags)) : [];
+    const fechaAlta = mapeo.fecha_alta >= 0 ? parsearFecha(val(fila, mapeo.fecha_alta)) : null;
+    const direccion = mapeo.direccion >= 0 ? (val(fila, mapeo.direccion) || null) : null;
+    const fechaNacimiento = mapeo.fecha_nacimiento >= 0 ? parsearFecha(val(fila, mapeo.fecha_nacimiento)) : null;
 
-    const datos: FilaSocia = { nombre, apellidos, email, telefono, nif, tags };
+    const datos: FilaSocia = { nombre, apellidos, email, telefono, nif, tags, fechaAlta, direccion, fechaNacimiento };
     const base = { fila: i + 1, datos };
 
     if (!nombre) return { ...base, estado: 'error' as const, motivo: 'Falta el nombre' };

@@ -15,10 +15,10 @@ import { importarSocias, type ResultadoImport } from '@/lib/api-client';
 
 type Paso = 1 | 2 | 3;
 
-const PLANTILLA_HEADERS = ['Nombre', 'Apellidos', 'Email', 'Teléfono', 'NIF', 'Etiquetas'];
+const PLANTILLA_HEADERS = ['Nombre', 'Apellidos', 'Email', 'Teléfono', 'NIF', 'Etiquetas', 'Fecha de alta', 'Dirección', 'Fecha de nacimiento'];
 const PLANTILLA_EJEMPLO = [
-  ['Ana', 'García López', 'ana@ejemplo.com', '600123456', '12345678Z', 'reformer;mañana'],
-  ['Lucía', 'Martín', 'lucia@ejemplo.com', '611654321', '', 'vip'],
+  ['Ana', 'García López', 'ana@ejemplo.com', '600123456', '12345678Z', 'reformer;mañana', '15/03/2022', 'C/ Mayor 3, Madrid', '02/06/1990'],
+  ['Lucía', 'Martín', 'lucia@ejemplo.com', '611654321', '', 'vip', '', '', ''],
 ];
 
 function descargar(nombre: string, contenido: string) {
@@ -38,6 +38,7 @@ export default function ImportarSociasPage() {
   const [nombreArchivo, setNombreArchivo] = useState('');
   const [mapeo, setMapeo] = useState<Record<CampoSocia, number>>({
     nombre: -1, apellidos: -1, email: -1, telefono: -1, nif: -1, tags: -1,
+    fecha_alta: -1, direccion: -1, fecha_nacimiento: -1,
   });
   const [dragActivo, setDragActivo] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -106,7 +107,10 @@ export default function ImportarSociasPage() {
     setNombreArchivo('');
     setResultado(null);
     setErrorCarga(null);
-    setMapeo({ nombre: -1, apellidos: -1, email: -1, telefono: -1, nif: -1, tags: -1 });
+    setMapeo({
+      nombre: -1, apellidos: -1, email: -1, telefono: -1, nif: -1, tags: -1,
+      fecha_alta: -1, direccion: -1, fecha_nacimiento: -1,
+    });
   }
 
   return (
