@@ -5,8 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { ChevronLeft, CheckCircle2, CreditCard } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, CreditCard, Bell } from 'lucide-react';
 import { buildPortalNotifications, markPortalNotifsRead } from '@/lib/portal-notifications';
+import { Card, EmptyState } from '@/components/portal/ui';
 
 export default function NotificacionesPage() {
   const router = useRouter();
@@ -56,17 +57,14 @@ export default function NotificacionesPage() {
 
       <div style={{ padding: '16px 16px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {grouped.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', textAlign: 'center' }}>
-            <p style={{ fontWeight: 800, color: t.ink, fontSize: 16 }}>Sin novedades por ahora</p>
-            <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>Aquí verás tus reservas y pagos.</p>
-          </div>
+          <EmptyState icon={<Bell size={18} />} title="Sin novedades por ahora" body="Aquí verás tus reservas y pagos." />
         ) : (
           grouped.map(group => (
             <div key={group.label}>
               <p style={{ ...microLabel, marginBottom: 8, paddingLeft: 4 }}>{group.label}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {group.items.map(it => (
-                  <div key={it.id} style={{ background: t.surface, border: `1px solid ${t.line}`, borderRadius: 18, padding: 16, display: 'flex', gap: 12 }}>
+                  <Card key={it.id} style={{ padding: 16, display: 'flex', gap: 12 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: it.tipo === 'RESERVA' ? 'rgba(62,155,108,0.14)' : t.surface2 }}>
                       {it.tipo === 'RESERVA'
                         ? <CheckCircle2 size={18} style={{ color: '#3E9B6C' }} />
@@ -77,7 +75,7 @@ export default function NotificacionesPage() {
                       <p style={{ fontSize: 13, color: t.muted2, marginTop: 2, lineHeight: 1.4 }}>{it.texto}</p>
                       <p style={{ fontSize: 11, color: t.muted, marginTop: 6 }}>{formatRelative(it.fecha)}</p>
                     </div>
-                  </div>
+                  </Card>
                 ))}
               </div>
             </div>
