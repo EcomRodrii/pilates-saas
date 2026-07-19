@@ -8,6 +8,7 @@ import { useStudio } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { useModo } from '@/lib/portal-modo';
 import { Clock, MapPin, BarChart2, CheckCircle, AlertCircle, Users } from 'lucide-react';
+import { Card, Tabs, EmptyState, Button, type TabItem } from '@/components/portal/ui';
 
 type Tab = 'proximas' | 'mis-reservas';
 
@@ -79,7 +80,6 @@ export default function ClasesPage() {
 
   const totalReservas = misReservas.filter(r => r.estado === 'CONFIRMADA').length;
 
-  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 22 };
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
 
   return (
@@ -91,39 +91,24 @@ export default function ClasesPage() {
         <p style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>{totalReservas} reservas activas</p>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-          {([['proximas', 'Todas las clases'], ['mis-reservas', 'Mis reservas']] as [Tab, string][]).map(([key, label]) => {
-            const active = tab === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                style={{
-                  minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 16px', borderRadius: 16, fontSize: 13, fontWeight: 800, textTransform: 'uppercase', border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
-                  background: active ? 'var(--portal-brand)' : t.surface, color: active ? 'var(--portal-brand-foreground)' : t.muted,
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
+        <div style={{ marginTop: 20 }}>
+          <Tabs<Tab>
+            items={[{ id: 'proximas', label: 'Todas las clases' }, { id: 'mis-reservas', label: 'Mis reservas' }] as TabItem<Tab>[]}
+            active={tab}
+            onChange={setTab}
+            scroll
+          />
         </div>
       </div>
 
       {/* Content */}
       <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {groupedByDay.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 0', textAlign: 'center' }}>
-            <div style={{ width: 64, height: 64, borderRadius: 24, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-              <Clock size={28} style={{ color: t.heroAccent }} />
-            </div>
-            <p style={{ fontWeight: 800, color: t.ink, fontSize: 16 }}>
-              {tab === 'mis-reservas' ? 'Sin reservas activas' : 'Sin clases disponibles'}
-            </p>
-            <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>
-              {tab === 'mis-reservas' ? 'Reserva una clase en la pestaña anterior' : 'Próximamente habrá nuevas clases'}
-            </p>
-          </div>
+          <EmptyState
+            icon={<Clock size={18} />}
+            title={tab === 'mis-reservas' ? 'Sin reservas activas' : 'Sin clases disponibles'}
+            body={tab === 'mis-reservas' ? 'Reserva una clase en la pestaña anterior' : 'Próximamente habrá nuevas clases'}
+          />
         ) : (
           groupedByDay.map(group => (
             <div key={group.dayKey}>
@@ -138,7 +123,7 @@ export default function ClasesPage() {
                   const color = tipo?.color ?? 'var(--portal-brand)';
 
                   return (
-                    <div key={ses.id} style={{ ...card, overflow: 'hidden' }}>
+                    <Card key={ses.id} style={{ overflow: 'hidden' }}>
                       <Link href={`/portal/${slug}/clases/${ses.id}`} style={{ display: 'block' }}>
                         {/* Foto (o bloque de color de respaldo) */}
                         <div style={{ position: 'relative', height: 144 }}>
@@ -217,28 +202,22 @@ export default function ClasesPage() {
 
                       <div style={{ padding: '12px 16px 16px' }}>
                         {miReserva?.estado === 'CONFIRMADA' ? (
-                          <button
-                            onClick={() => cancelarReserva(miReserva.id)}
-                            style={{ width: '100%', minHeight: 44, fontSize: 13, fontWeight: 800, color: '#EF4444', padding: '0', borderRadius: 16, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent' }}
-                          >
+                          <Button variant="danger" onClick={() => cancelarReserva(miReserva.id)} style={{ width: '100%' }}>
                             Cancelar reserva
-                          </button>
+                          </Button>
                         ) : !miReserva && (
-                          <button
+                          <Button
                             onClick={() => session?.socioId && addReserva(ses.id, session.socioId)}
                             disabled={libres <= 0}
-                            style={{
-                              width: '100%', minHeight: 44, fontSize: 14, fontWeight: 800, textTransform: 'uppercase', padding: '0', borderRadius: 16, border: 'none',
-                              color: libres > 0 ? 'var(--portal-brand-foreground)' : t.muted, backgroundColor: libres > 0 ? 'var(--portal-brand)' : t.surface2, opacity: libres <= 0 ? 0.6 : 1,
-                            }}
+                            style={{ width: '100%' }}
                           >
                             {libres > 0
                               ? (cubierta || precioClaseSuelta == null ? 'Reservar' : `Reservar · ${precioClaseSuelta} €`)
                               : 'Lista de espera'}
-                          </button>
+                          </Button>
                         )}
                       </div>
-                    </div>
+                    </Card>
                   );
                 })}
               </div>
