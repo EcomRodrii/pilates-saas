@@ -11,10 +11,11 @@ import type { NivelInfo } from '@/lib/engines/level-engine';
 import type { EstadoReto, RewardCatalogItem } from '@/lib/types';
 import { useModo, type ModoTokens } from '@/lib/portal-modo';
 import { Coins, Lock, Check, Trophy, Target, Gift } from 'lucide-react';
+import { Tabs, EmptyState, BottomSheet, Button, type TabItem } from '@/components/portal/ui';
 
 type Tab = 'resumen' | 'logros' | 'retos' | 'recompensas';
 
-const TABS: { id: Tab; label: string }[] = [
+const TABS: TabItem<Tab>[] = [
   { id: 'resumen', label: 'Resumen' },
   { id: 'logros', label: 'Logros' },
   { id: 'retos', label: 'Retos' },
@@ -125,23 +126,7 @@ export default function ProgresoPage() {
 
       {/* Tabs */}
       <div style={{ padding: '0 16px' }}>
-        <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 18, background: t.surface2 }}>
-          {TABS.map(tb => {
-            const active = tab === tb.id;
-            return (
-              <button
-                key={tb.id}
-                onClick={() => setTab(tb.id)}
-                style={{
-                  flex: 1, minHeight: 44, padding: '0', borderRadius: 14, fontSize: 12.5, fontWeight: 800, border: 'none',
-                  background: active ? t.surface : 'transparent', color: active ? t.ink : t.muted,
-                }}
-              >
-                {tb.label}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs items={TABS} active={tab} onChange={setTab} />
       </div>
 
       <div style={{ padding: '20px 16px 24px' }}>
@@ -289,10 +274,7 @@ function LogrosTab({ t, socioId, achievementDefinitions, achievementProgress, ac
       <p style={{ fontSize: 12, fontWeight: 800, color: t.heroAccent }}>{desbloqueados} de {misLogros.length} desbloqueados</p>
 
       {misLogros.length === 0 ? (
-        <div style={{ borderRadius: 20, background: t.surface2, padding: 32, textAlign: 'center' }}>
-          <Trophy size={28} style={{ color: t.muted, margin: '0 auto 8px' }} />
-          <p style={{ fontSize: 14, color: t.muted }}>Tu estudio todavía no ha configurado logros.</p>
-        </div>
+        <EmptyState icon={<Trophy size={18} />} title="Sin logros todavía" body="Tu estudio todavía no ha configurado logros." />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {misLogros.map(({ def, progreso }) => {
@@ -386,12 +368,7 @@ function RetosTab({ t, socioId, socio, socios, sesiones, misReservas, challengeD
   const metricLabel = (m: string) => ACHIEVEMENT_METRICS.find(x => x.metric === m)?.nombre ?? m;
 
   if (retos.length === 0) {
-    return (
-      <div style={{ borderRadius: 20, background: t.surface2, padding: 32, textAlign: 'center' }}>
-        <Target size={28} style={{ color: t.muted, margin: '0 auto 8px' }} />
-        <p style={{ fontSize: 14, color: t.muted }}>Todavía no hay retos activos. Vuelve pronto.</p>
-      </div>
-    );
+    return <EmptyState icon={<Target size={18} />} title="Sin retos activos" body="Todavía no hay retos activos. Vuelve pronto." />;
   }
 
   return (
@@ -508,10 +485,7 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
       <div>
         <p style={{ ...microLabel, marginBottom: 12 }}>Catálogo</p>
         {activos.length === 0 ? (
-          <div style={{ borderRadius: 20, background: t.surface2, padding: 32, textAlign: 'center' }}>
-            <Gift size={28} style={{ color: t.muted, margin: '0 auto 8px' }} />
-            <p style={{ fontSize: 14, color: t.muted }}>Todavía no hay recompensas disponibles.</p>
-          </div>
+          <EmptyState icon={<Gift size={18} />} title="Sin recompensas todavía" body="Todavía no hay recompensas disponibles." />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {activos.map(item => {
@@ -565,29 +539,24 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
       )}
 
       {/* Confirmar canje */}
-      {canjeando && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setCanjeando(null)} />
-          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px max(32px, calc(env(safe-area-inset-bottom) + 20px))' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 16 }}>
+      <BottomSheet open={!!canjeando} onClose={() => setCanjeando(null)}>
+        {canjeando && (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
               <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, marginBottom: 12 }}>
                 {canjeando.icono}
               </div>
               <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Canjear {canjeando.nombre}?</h2>
               <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>Se descontarán {canjeando.costeCreditos} créditos de tu saldo.</p>
             </div>
-            {error && <p style={{ fontSize: 13, color: '#EF4444', background: 'rgba(239,68,68,0.1)', borderRadius: 14, padding: '8px 12px', marginBottom: 12 }}>{error}</p>}
+            {error && <p style={{ fontSize: 13, color: '#EF4444', background: 'rgba(239,68,68,0.1)', borderRadius: 14, padding: '8px 12px' }}>{error}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setCanjeando(null)} style={{ flex: 1, padding: '12px 0', borderRadius: 16, border: `1px solid ${t.line}`, color: t.muted2, fontSize: 14, fontWeight: 700, background: 'transparent' }}>
-                Cancelar
-              </button>
-              <button onClick={confirmarCanje} style={{ flex: 1, padding: '12px 0', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontSize: 14, fontWeight: 800, border: 'none' }}>
-                Confirmar
-              </button>
+              <Button variant="secondary" onClick={() => setCanjeando(null)} style={{ flex: 1 }}>Cancelar</Button>
+              <Button onClick={confirmarCanje} style={{ flex: 1 }}>Confirmar</Button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </BottomSheet>
     </div>
   );
 }
