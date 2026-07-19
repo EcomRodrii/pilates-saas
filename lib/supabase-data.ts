@@ -1269,6 +1269,7 @@ export async function fetchPublicStudioData(
   const [
     sesionesRes, tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
     rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
+    citasServiciosRes, citasDisponibilidadRes,
   ] = await Promise.all([
     admin.from('sesiones').select('*').eq('studio_id', studioId),
     admin.from('tipos_clase').select('*').eq('studio_id', studioId),
@@ -1282,6 +1283,10 @@ export async function fetchPublicStudioData(
     admin.from('level_definitions').select('*').eq('studio_id', studioId),
     admin.from('achievement_definitions').select('*').eq('studio_id', studioId),
     admin.from('challenge_definitions').select('*').eq('studio_id', studioId),
+    // Catálogo de citas 1:1 (0046): solo servicios auto-reservables y activos +
+    // el horario fino. Nada de PII (los huecos se calculan aparte en servidor).
+    admin.from('citas_servicios').select('*').eq('studio_id', studioId).eq('activo', true).eq('auto_reservable', true),
+    admin.from('citas_disponibilidad').select('*').eq('studio_id', studioId),
   ]);
 
   // Aforo: para pintar plazas libres se necesita el conteo de reservas por
@@ -1305,6 +1310,8 @@ export async function fetchPublicStudioData(
     achievementDefinitions: (achDefsRes.data ?? []).map(mapAchievementDefinition),
     challengeDefinitions: (chalDefsRes.data ?? []).map(mapChallengeDefinition),
     aforoReservas: (reservasAforo ?? []) as { id: string; sesion_id: string; estado: string; spot_id: string | null }[],
+    citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
+    citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
   };
 
   if (!member) return { ...base, socia: null };
@@ -1320,7 +1327,7 @@ export async function fetchPublicStudioData(
   if (!socioRow || !emailOk) return { ...base, socia: null };
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, facRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes] =
+  const [susRes, resRes, recRes, facRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes] =
     await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
@@ -1333,6 +1340,7 @@ export async function fetchPublicStudioData(
       admin.from('achievement_progress').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('challenge_progress').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('credit_transactions').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('citas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
     ]);
 
   // Facturas de recibos de la socia (facturas no tiene socio_id directo).
@@ -1354,6 +1362,7 @@ export async function fetchPublicStudioData(
       achievementProgress: (achProgRes.data ?? []).map(mapAchievementProgress),
       challengeProgress: (chalProgRes.data ?? []).map(mapChallengeProgress),
       creditTransactions: (txRes.data ?? []).map(mapCreditTransaction),
+      citas: (citasRes.data ?? []).map(mapCita),
     },
   };
 }
