@@ -17,4 +17,8 @@ export const EVENTS = {
   DECISION_ANALYZE: 'decision/studio.analyze',
   DECISION_APPROVED: 'decision/recommendation.approved',
   DECISION_MEASURE: 'decision/outcome.measure',
+  // Sustituciones — motor de escalado. Se emite cada vez que se contacta a una
+  // candidata; la función de escalado espera, recuerda, sube de canal y (en modo
+  // autónomo) avanza al siguiente del ranking o alerta a la propietaria.
+  SUSTITUCION_CONTACTADA: 'sustitucion/contactada',
 } as const;
