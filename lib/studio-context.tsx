@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
@@ -2501,7 +2501,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Notas de progreso: extraídas a useProgressNotesStore (Fase B).
 
-  const value: StudioContextValue = {
+  const value: StudioContextValue = useMemo(() => ({
     planesTarifa,
     salas,
     tiposClase,
@@ -2671,7 +2671,34 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     studio,
     updateAvatarAdmin,
     updateStudio,
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps deliberately cover only state read by
+  // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
+  // functions themselves are intentionally excluded since they're recreated every render anyway.
+  }), [
+    planesTarifa, salas, tiposClase, instructores, spots,
+    camposPersonalizados, plantillasEmail, dependencySnapshots,
+    socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
+    condicionesSalud, respuestasSesion,
+    citas, productosPOS, ventasPOS, campanas, automatizaciones,
+    discountCodes.codigosDescuento,
+    actividadReciente, notificaciones,
+    content.videosOnDemand, content.postsComunidad, content.likedPostIds,
+    integrationsStore.integraciones,
+    memberPrefsStore.preferenciasSocio,
+    rewardRules, rewardActions, rewardHistory, creditTransactions, memberCredits,
+    rewardCatalog, rewardRedemptions,
+    achievementDefinitions, achievementProgress, achievementHistory,
+    levelDefinitions,
+    challengeDefinitions, challengeProgress, challengeHistory,
+    dashboardChartsStore.dashboardCharts,
+    backups,
+    studioConfig,
+    automationRules, automationLogs, progressNotesStore.notasProgreso,
+    dataLoaded,
+    studio,
+    authUserId, publicSlug, studioIdOverride,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ]);
 
   function resetDatosPilates() {
     fetchAllStudioData().then(data => {
