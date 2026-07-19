@@ -6,15 +6,16 @@
 // navegación con iconos) para poder testearse en node y usarse en cliente.
 
 import { z } from 'zod';
+import {
+  MENU_POSICIONES, type MenuPosicion, type OrdenVisibilidad,
+  DEFAULT_LAYOUT, resolveLayout, aplicarLayout,
+} from './layout-runtime.ts';
 
-export const MENU_POSICIONES = ['lateral', 'superior'] as const;
-export type MenuPosicion = (typeof MENU_POSICIONES)[number];
-
-// Orden/visibilidad de un conjunto de elementos (menú o secciones de la home).
-export interface OrdenVisibilidad {
-  orden: string[];
-  ocultos: string[];
-}
+// Piezas puras (sin zod) reexportadas desde layout-runtime.ts por
+// compatibilidad — los módulos de CLIENTE (dashboard/page.tsx) importan de ahí
+// directamente para no arrastrar zod a su bundle.
+export { MENU_POSICIONES, DEFAULT_LAYOUT, resolveLayout, aplicarLayout };
+export type { MenuPosicion, OrdenVisibilidad };
 
 export const layoutConfigSchema = z
   .object({
@@ -33,44 +34,3 @@ export type LayoutConfig = z.infer<typeof layoutConfigSchema>;
 
 export const layoutDraftSchema = layoutConfigSchema.partial();
 export type LayoutDraft = z.infer<typeof layoutDraftSchema>;
-
-export const DEFAULT_LAYOUT: LayoutConfig = {
-  orden: [],
-  ocultos: [],
-  menuPosition: 'lateral',
-  home: { orden: [], ocultos: [] },
-};
-
-function resolveOrdenVis(raw: unknown): OrdenVisibilidad {
-  const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-  return {
-    orden: Array.isArray(obj.orden) ? obj.orden.filter((x): x is string => typeof x === 'string') : [],
-    ocultos: Array.isArray(obj.ocultos) ? obj.ocultos.filter((x): x is string => typeof x === 'string') : [],
-  };
-}
-
-/** Fallback robusto: cualquier valor crudo → LayoutConfig válido completo. */
-export function resolveLayout(raw: unknown): LayoutConfig {
-  const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-  const { orden, ocultos } = resolveOrdenVis(obj);
-  const menuPosition = (MENU_POSICIONES as readonly string[]).includes(obj.menuPosition as string)
-    ? (obj.menuPosition as MenuPosicion)
-    : 'lateral';
-  return { orden, ocultos, menuPosition, home: resolveOrdenVis(obj.home) };
-}
-
-/**
- * Aplica una config de orden/visibilidad a la lista canónica de ids: devuelve
- * los visibles en el orden final (orden elegido primero, luego el resto en su
- * orden original; los ocultos fuera). `todos` es la lista por defecto.
- */
-export function aplicarLayout(todos: string[], cfg: OrdenVisibilidad): string[] {
-  const ocultos = new Set(cfg.ocultos);
-  const existentes = new Set(todos);
-  // Orden elegido, filtrando hrefs que ya no existen.
-  const ordenados = cfg.orden.filter((h) => existentes.has(h));
-  const enOrden = new Set(ordenados);
-  // Módulos no mencionados en `orden`, en su orden natural.
-  const resto = todos.filter((h) => !enOrden.has(h));
-  return [...ordenados, ...resto].filter((h) => !ocultos.has(h));
-}

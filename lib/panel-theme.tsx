@@ -2,7 +2,10 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { authHeader } from '@/lib/api-client';
-import { foregroundParaFondo } from '@/lib/theme-runtime';
+// Directo de wcag-contrast.ts (cero dependencias), NO de theme-runtime.ts: ese
+// módulo importa theme-schema.ts (zod) y PanelThemeProvider está montado en
+// TODAS las rutas del panel — importar desde ahí bundlaría zod en las 22.
+import { foregroundParaFondo } from '@/lib/wcag-contrast';
 import type { ThemeConfig } from '@/lib/theme-schema';
 
 const DARK_KEY = 'panel-dark-mode';
