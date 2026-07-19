@@ -16,7 +16,13 @@
 import type { CSSProperties } from 'react';
 import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig } from './theme-schema.ts';
 import { getPreset } from './theme-presets.ts';
-import { ratioContraste, cumpleContraste } from './wcag-contrast.ts';
+import { cumpleContraste, foregroundParaFondo } from './wcag-contrast.ts';
+
+// foregroundParaFondo vive en wcag-contrast.ts (cero dependencias) y se
+// reexporta aquí por compatibilidad — así PanelThemeProvider (montado en TODO
+// el panel) puede importarla directamente de ahí sin arrastrar theme-schema.ts
+// (y con él, zod) a un chunk que se descarga en las 22 rutas del dashboard.
+export { foregroundParaFondo };
 
 /**
  * Puente de retrocompatibilidad: convierte el preset con nombre que un estudio
@@ -31,13 +37,6 @@ export function presetAThemeConfig(temaPortal: string | null | undefined): Theme
     primary: p.primary,
     secondary: p.secondary,
   };
-}
-
-/** Negro o blanco: el que más contraste haga sobre el fondo dado. */
-export function foregroundParaFondo(fondo: string): string {
-  const conNegro = ratioContraste('#131313', fondo) ?? 0;
-  const conBlanco = ratioContraste('#FFFFFF', fondo) ?? 0;
-  return conBlanco >= conNegro ? '#FFFFFF' : '#131313';
 }
 
 /** Mapa var→valor a partir de un tema (crudo o resuelto). Interno. */

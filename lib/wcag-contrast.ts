@@ -87,3 +87,10 @@ export function cumpleContraste(
   const umbral = UMBRAL_CONTRASTE[nivel][grande ? 'grande' : 'normal'];
   return ratio >= umbral;
 }
+
+/** Negro o blanco: el que más contraste haga sobre el fondo dado. */
+export function foregroundParaFondo(fondo: string): string {
+  const conNegro = ratioContraste('#131313', fondo) ?? 0;
+  const conBlanco = ratioContraste('#FFFFFF', fondo) ?? 0;
+  return conBlanco >= conNegro ? '#FFFFFF' : '#131313';
+}

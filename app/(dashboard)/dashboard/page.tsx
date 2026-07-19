@@ -19,7 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 import { fetchLayout } from '@/lib/api-client';
-import { aplicarLayout, DEFAULT_LAYOUT, type LayoutConfig } from '@/lib/layout-schema';
+import { aplicarLayout, DEFAULT_LAYOUT } from '@/lib/layout-runtime';
+import type { LayoutConfig } from '@/lib/layout-schema';
 import { HOME_SECCIONES } from '@/lib/home-sections';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
