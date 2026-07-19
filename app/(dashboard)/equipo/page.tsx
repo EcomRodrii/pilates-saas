@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, Copy, Star, Search, LayoutGrid, List, MoreVertical } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora } from '@/lib/utils';
-import { generarEnlaceDisponibilidad, equipoStats, type EquipoStats } from '@/lib/api-client';
+import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, type EquipoStats, type ValoracionDetalle } from '@/lib/api-client';
 
 type FiltroEstado = 'activas' | 'inactivas' | 'todas';
 type FiltroRol = 'todos' | Rol;
@@ -33,7 +33,7 @@ type Form = { nombre: string; email: string; telefono: string; color: string; av
 const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, activo: true, rol: 'INSTRUCTOR' });
 
 export default function EquipoPage() {
-  const { instructores, sesiones, addInstructor, updateInstructor, deleteInstructor, actividadReciente } = useStudio();
+  const { instructores, sesiones, tiposClase, addInstructor, updateInstructor, deleteInstructor, actividadReciente } = useStudio();
 
   const [tab, setTab] = useState<'equipo' | 'actividad'>('equipo');
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
@@ -50,6 +50,7 @@ export default function EquipoPage() {
   const [orden, setOrden] = useState<Orden>('nombre-az');
   const [vista, setVista] = useState<'grid' | 'lista'>('grid');
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [verValor, setVerValor] = useState<Instructor | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -248,6 +249,7 @@ export default function EquipoPage() {
               prox={proximaClase.get(i.id) ?? null} val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
               menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
               onEnlace={() => { setMenuId(null); abrirEnlace(i); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
+              onValoraciones={() => { setMenuId(null); setVerValor(i); }}
             />
           ))}
         </div>
@@ -259,6 +261,7 @@ export default function EquipoPage() {
               val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
               menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
               onEnlace={() => { setMenuId(null); abrirEnlace(i); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
+              onValoraciones={() => { setMenuId(null); setVerValor(i); }}
             />
           ))}
         </div>
@@ -383,6 +386,9 @@ export default function EquipoPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Valoraciones de una instructora (leer cada ⭐ + comentario) */}
+      <ValoracionesDialog instructor={verValor} tiposClase={tiposClase} onClose={() => setVerValor(null)} />
+
       {/* Delete confirm */}
       <Dialog open={confirmDel !== null} onOpenChange={open => !open && setConfirmDel(null)}>
         <DialogContent>
@@ -408,7 +414,7 @@ export default function EquipoPage() {
 
 type Val = { media: number; total: number } | undefined;
 type Asis = { pct: number; base: number } | undefined;
-type AccProps = { menuAbierto: boolean; onMenu: () => void; onEnlace: () => void; onEdit: () => void; onDelete: () => void };
+type AccProps = { menuAbierto: boolean; onMenu: () => void; onEnlace: () => void; onEdit: () => void; onDelete: () => void; onValoraciones: () => void };
 
 function PillSelect({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options: [string, string][];
@@ -447,18 +453,27 @@ function Badges({ i }: { i: Instructor }) {
   );
 }
 
-function StatCol({ valor, sub, star, borde }: { valor: ReactNode; sub: string; star?: boolean; borde?: boolean }) {
-  return (
-    <div className={borde ? 'pl-3 border-l border-[#F1F1F4]' : ''}>
-      <p className="text-[16px] font-extrabold text-foreground leading-none tabular-nums flex items-center gap-1">
+function StatCol({ valor, sub, star, borde, onClick }: { valor: ReactNode; sub: string; star?: boolean; borde?: boolean; onClick?: () => void }) {
+  const inner = (
+    <>
+      <p className={`text-[16px] font-extrabold text-foreground leading-none tabular-nums flex items-center gap-1 ${onClick ? 'group-hover:text-brand-secondary transition-colors' : ''}`}>
         {valor}{star && <Star size={13} fill="#F5B301" stroke="#F5B301" />}
       </p>
       <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>
-    </div>
+    </>
   );
+  const cls = borde ? 'pl-3 border-l border-[#F1F1F4]' : '';
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} title="Ver valoraciones" className={`${cls} text-left group cursor-pointer`}>
+        {inner}
+      </button>
+    );
+  }
+  return <div className={cls}>{inner}</div>;
 }
 
-function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete }: AccProps) {
+function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoraciones, tieneValoraciones }: AccProps & { tieneValoraciones: boolean }) {
   return (
     <div className="flex items-center gap-1 shrink-0 relative">
       <button onClick={onEdit} title="Editar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
@@ -471,6 +486,11 @@ function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete }: AccProps)
         <>
           <button className="fixed inset-0 z-20 cursor-default" onClick={onMenu} aria-hidden tabIndex={-1} />
           <div className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-border bg-card shadow-lg py-1">
+            {tieneValoraciones && (
+              <button onClick={onValoraciones} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+                <Star size={14} className="text-[#F5B301]" fill="#F5B301" /> Ver valoraciones
+              </button>
+            )}
             <button onClick={onEnlace} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
               <CalendarClock size={14} className="text-muted-foreground" /> Enlace de disponibilidad
             </button>
@@ -497,7 +517,7 @@ function InstructorCard({ i, carga, prox, val, asis, ...acc }: {
             <Badges i={i} />
           </div>
         </div>
-        <Acciones {...acc} />
+        <Acciones {...acc} tieneValoraciones={!!(val && val.total > 0)} />
       </div>
 
       <div className="space-y-1.5">
@@ -510,7 +530,7 @@ function InstructorCard({ i, carga, prox, val, asis, ...acc }: {
         <div className="grid grid-cols-3 pt-3 border-t border-[#F1F1F4]">
           <StatCol valor={<>{carga}<span className="text-[11px] font-medium text-muted-foreground"> clase{carga === 1 ? '' : 's'}</span></>} sub="próx. 7 días" />
           <StatCol valor={asis && asis.base > 0 ? `${asis.pct}%` : '—'} sub="asistencia" borde />
-          <StatCol valor={val && val.total > 0 ? val.media.toFixed(1) : '—'} star={!!(val && val.total > 0)} sub="valoración" borde />
+          <StatCol valor={val && val.total > 0 ? val.media.toFixed(1) : '—'} star={!!(val && val.total > 0)} sub="valoración" borde onClick={val && val.total > 0 ? acc.onValoraciones : undefined} />
         </div>
         <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#F1F1F4]">
           <span className="text-[12px] text-muted-foreground">Próxima clase</span>
@@ -534,11 +554,107 @@ function InstructorRow({ i, carga, prox, val, asis, ...acc }: {
       <div className="hidden md:flex items-center gap-6 text-right">
         <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{carga}</p><p className="text-[10px] text-muted-foreground mt-0.5">7 días</p></div>
         <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{asis && asis.base > 0 ? `${asis.pct}%` : '—'}</p><p className="text-[10px] text-muted-foreground mt-0.5">asistencia</p></div>
-        <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums flex items-center gap-1 justify-end">{val && val.total > 0 ? val.media.toFixed(1) : '—'}{val && val.total > 0 && <Star size={12} fill="#F5B301" stroke="#F5B301" />}</p><p className="text-[10px] text-muted-foreground mt-0.5">valoración</p></div>
+        {val && val.total > 0 ? (
+          <button type="button" onClick={acc.onValoraciones} title="Ver valoraciones" className="text-right group cursor-pointer">
+            <p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums flex items-center gap-1 justify-end group-hover:text-brand-secondary transition-colors">{val.media.toFixed(1)}<Star size={12} fill="#F5B301" stroke="#F5B301" /></p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">valoración</p>
+          </button>
+        ) : (
+          <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">—</p><p className="text-[10px] text-muted-foreground mt-0.5">valoración</p></div>
+        )}
         <div className="w-20"><p className="text-[10px] text-muted-foreground">Próxima</p><p className="text-[12px] font-semibold text-foreground capitalize">{fmtProx(prox)}</p></div>
       </div>
-      <Acciones {...acc} />
+      <Acciones {...acc} tieneValoraciones={!!(val && val.total > 0)} />
     </div>
+  );
+}
+
+// ─── Valoraciones de una instructora (leer cada ⭐ + comentario) ───────────────
+
+function Estrellas({ n, size = 14 }: { n: number; size?: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(s => (
+        <Star key={s} size={size} fill={s <= n ? '#F5B301' : 'none'} stroke={s <= n ? '#F5B301' : '#CBD5E1'} strokeWidth={1.6} />
+      ))}
+    </span>
+  );
+}
+
+function ValoracionesDialog({ instructor, tiposClase, onClose }: {
+  instructor: Instructor | null;
+  tiposClase: import('@/lib/types').TipoClase[];
+  onClose: () => void;
+}) {
+  const [items, setItems] = useState<ValoracionDetalle[]>([]);
+  const [cargando, setCargando] = useState(false);
+
+  useEffect(() => {
+    if (!instructor) return;
+    let vivo = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCargando(true); setItems([]);
+    listarValoraciones(instructor.id).then(r => { if (vivo) { setItems(r); setCargando(false); } });
+    return () => { vivo = false; };
+  }, [instructor]);
+
+  const total = items.length;
+  const media = total ? items.reduce((a, v) => a + v.puntuacion, 0) / total : 0;
+  const dist = [5, 4, 3, 2, 1].map(n => ({ n, c: items.filter(v => v.puntuacion === n).length }));
+  const tipoNombre = (id: string | null) => tiposClase.find(t => t.id === id)?.nombre ?? 'Clase';
+  const fechaCorta = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '');
+
+  return (
+    <Dialog open={!!instructor} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Valoraciones de {instructor?.nombre}</DialogTitle>
+        </DialogHeader>
+        {cargando ? (
+          <p className="text-sm text-muted-foreground py-10 text-center">Cargando…</p>
+        ) : total === 0 ? (
+          <div className="py-10 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-[#FEF9C3] flex items-center justify-center mx-auto mb-3"><Star size={22} className="text-[#F5B301]" fill="#F5B301" /></div>
+            <p className="text-[15px] font-bold text-foreground">Aún sin valoraciones</p>
+            <p className="text-[13px] text-muted-foreground mt-1">Cuando las alumnas valoren sus clases, aparecerán aquí.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-5 rounded-2xl border border-border bg-muted/30 p-4">
+              <div className="text-center shrink-0">
+                <p className="text-[34px] font-extrabold text-foreground leading-none tabular-nums">{media.toFixed(1)}</p>
+                <div className="mt-1.5 flex justify-center"><Estrellas n={Math.round(media)} size={13} /></div>
+                <p className="text-[11px] text-muted-foreground mt-1">{total} valoración{total === 1 ? '' : 'es'}</p>
+              </div>
+              <div className="flex-1 space-y-1">
+                {dist.map(({ n, c }) => (
+                  <div key={n} className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground w-2 tabular-nums">{n}</span>
+                    <Star size={10} fill="#F5B301" stroke="#F5B301" className="shrink-0" />
+                    <div className="flex-1 h-1.5 rounded-full bg-black/[0.06] overflow-hidden"><div className="h-full rounded-full bg-[#F5B301]" style={{ width: `${total ? Math.round(100 * c / total) : 0}%` }} /></div>
+                    <span className="text-[11px] text-muted-foreground w-4 text-right tabular-nums">{c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2.5 max-h-[46vh] overflow-y-auto pr-1">
+              {items.map(v => (
+                <div key={v.id} className="rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <Estrellas n={v.puntuacion} size={14} />
+                    <span className="text-[11px] text-muted-foreground shrink-0">{fechaCorta(v.creado_en)}</span>
+                  </div>
+                  {v.comentario && <p className="text-[13px] text-foreground mt-2 leading-relaxed">“{v.comentario}”</p>}
+                  <p className="text-[11px] text-muted-foreground mt-2">
+                    {tipoNombre(v.tipo_clase_id)}{v.inicio ? ` · ${fechaCorta(v.inicio)}` : ''}{v.alumna ? ` · ${v.alumna}` : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
