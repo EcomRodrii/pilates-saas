@@ -14,6 +14,7 @@ import {
   Users2,
   KeyRound,
   BellRing,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -89,6 +90,18 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     campos: [],
     plataforma: true,
     envVars: ['WHATSAPP_TOKEN', 'WHATSAPP_PHONE_ID'],
+  },
+  {
+    tipo: 'TWILIO',
+    nombre: 'Twilio (WhatsApp / SMS)',
+    descripcion: 'Los recordatorios y avisos de Sustituciones también por WhatsApp y SMS. Sin esto, el escalado avisa solo por email.',
+    Icon: MessageCircle,
+    color: '#F22F46',
+    bg: '#FEECEC',
+    categoria: 'Mensajería',
+    campos: [],
+    envVars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_WHATSAPP_FROM', 'TWILIO_SMS_FROM'],
+    docsUrl: 'https://console.twilio.com',
   },
   {
     tipo: 'EXCEL',
@@ -450,7 +463,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CATALOGO_INTEGRACIONES.map(cat => {
           const intg = getIntegracion(cat.tipo);
-          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : !!intg?.activo;
+          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'TWILIO' ? !!estadoPlataforma?.TWILIO : !!intg?.activo;
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
               <div className="flex items-start gap-3">
@@ -522,6 +535,23 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   ) : (
                     <p className="text-[11px] text-muted-foreground">
                       Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
+                    </p>
+                  )
+                ) : cat.tipo === 'TWILIO' ? (
+                  // El escalado usa Twilio globalmente (por ENV), no con un toggle
+                  // por estudio → solo estado + prueba, sin activar/desactivar.
+                  !estadoPlataforma ? (
+                    <span className="text-[11px] text-muted-foreground">Comprobando…</span>
+                  ) : estadoPlataforma.TWILIO ? (
+                    <button onClick={() => probarPlataforma(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
+                      {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
+                    </button>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      Falta configurar en el servidor:{' '}
+                      {cat.envVars?.map((v, i) => (
+                        <span key={v}>{i > 0 ? ', ' : ''}<code className="font-mono bg-muted px-1 rounded">{v}</code></span>
+                      ))}
                     </p>
                   )
                 ) : cat.plataforma ? (
