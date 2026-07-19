@@ -11,6 +11,7 @@ import { useModo } from '@/lib/portal-modo';
 import {
   Camera, Trash2, LogOut, ChevronRight, Bell, SlidersHorizontal, Loader2, Check, Trophy,
 } from 'lucide-react';
+import { Card, Input, Button, BottomSheet } from '@/components/portal/ui';
 
 export default function PerfilPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -113,10 +114,7 @@ export default function PerfilPage() {
     router.replace(`/portal/${slug}/login`);
   }
 
-  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 26 };
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
-  // fontSize 16 (no 14): por debajo de 16px iOS hace zoom automático al enfocar el campo.
-  const inputStyle: React.CSSProperties = { width: '100%', borderRadius: 16, border: `1px solid ${t.line}`, background: t.bg, padding: '12px 16px', fontSize: 16, color: t.ink, outline: 'none' };
   const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: t.muted2, display: 'block', marginBottom: 6 };
 
   return (
@@ -171,10 +169,10 @@ export default function PerfilPage() {
             { v: racha?.semanas ?? 0, l: 'Racha 🔥' },
             { v: asistidas.length, l: 'Total clases' },
           ].map(({ v, l }) => (
-            <div key={l} style={{ ...card, borderRadius: 18, padding: '12px 8px', textAlign: 'center' }}>
+            <Card key={l} style={{ padding: '12px 8px', textAlign: 'center' }}>
               <p style={{ fontSize: 20, fontWeight: 800, color: t.ink, lineHeight: 1 }}>{v}</p>
               <p style={{ fontSize: 9, fontWeight: 800, color: t.muted, marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</p>
-            </div>
+            </Card>
           ))}
         </div>
       </div>
@@ -207,46 +205,45 @@ export default function PerfilPage() {
         )}
 
         {/* Datos personales */}
-        <form onSubmit={handleGuardar} style={{ ...card, padding: 20 }}>
-          <p style={{ ...microLabel, marginBottom: 16 }}>Datos personales</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={labelStyle}>Nombre</label>
-                <input style={inputStyle} autoComplete="given-name" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+        <Card style={{ padding: 20 }}>
+          <form onSubmit={handleGuardar}>
+            <p style={{ ...microLabel, marginBottom: 16 }}>Datos personales</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>Nombre</label>
+                  <Input autoComplete="given-name" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Apellidos</label>
+                  <Input autoComplete="family-name" value={form.apellidos} onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
+                </div>
               </div>
               <div>
-                <label style={labelStyle}>Apellidos</label>
-                <input style={inputStyle} autoComplete="family-name" value={form.apellidos} onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
+                <label style={labelStyle}>Email</label>
+                <Input type="email" autoComplete="email" inputMode="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              </div>
+              <div>
+                <label style={labelStyle}>Teléfono</label>
+                <Input type="tel" autoComplete="tel" inputMode="tel" placeholder="+34 600 000 000" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+              </div>
+              <div>
+                <label style={labelStyle}>Fecha de nacimiento</label>
+                <Input type="date" value={form.fechaNacimiento} onChange={e => setForm(f => ({ ...f, fechaNacimiento: e.target.value }))} />
+              </div>
+              <div>
+                <label style={labelStyle}>Dirección</label>
+                <Input autoComplete="street-address" placeholder="Calle, número, ciudad" value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
               </div>
             </div>
-            <div>
-              <label style={labelStyle}>Email</label>
-              <input type="email" style={inputStyle} autoComplete="email" inputMode="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div>
-              <label style={labelStyle}>Teléfono</label>
-              <input type="tel" style={inputStyle} autoComplete="tel" inputMode="tel" placeholder="+34 600 000 000" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
-            </div>
-            <div>
-              <label style={labelStyle}>Fecha de nacimiento</label>
-              <input type="date" style={inputStyle} value={form.fechaNacimiento} onChange={e => setForm(f => ({ ...f, fechaNacimiento: e.target.value }))} />
-            </div>
-            <div>
-              <label style={labelStyle}>Dirección</label>
-              <input style={inputStyle} autoComplete="street-address" placeholder="Calle, número, ciudad" value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
-            </div>
-          </div>
-          <button
-            type="submit"
-            style={{ width: '100%', marginTop: 20, padding: '13px 0', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 'none', textTransform: 'uppercase' }}
-          >
-            {guardado ? <><Check size={15} />Guardado</> : 'Guardar cambios'}
-          </button>
-        </form>
+            <Button type="submit" style={{ width: '100%', marginTop: 20 }}>
+              {guardado ? <><Check size={15} />Guardado</> : 'Guardar cambios'}
+            </Button>
+          </form>
+        </Card>
 
         {/* Notificaciones */}
-        <div style={{ ...card, padding: 20 }}>
+        <Card style={{ padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <Bell size={15} style={{ color: t.muted }} />
             <p style={microLabel}>Notificaciones</p>
@@ -280,46 +277,40 @@ export default function PerfilPage() {
               );
             })}
           </div>
-        </div>
+        </Card>
 
         {/* Link a preferencias / disponibilidad */}
-        <Link
-          href={`/portal/${slug}/preferencias`}
-          style={{ ...card, padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 14, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <SlidersHorizontal size={17} style={{ color: t.heroAccent }} />
+        <Card style={{ padding: 0 }}>
+          <Link
+            href={`/portal/${slug}/preferencias`}
+            style={{ padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 14, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <SlidersHorizontal size={17} style={{ color: t.heroAccent }} />
+              </div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>Disponibilidad y preferencias</p>
+                <p style={{ fontSize: 12, color: t.muted }}>Instructor favorito, tipo de clase, horarios…</p>
+              </div>
             </div>
-            <div>
-              <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>Disponibilidad y preferencias</p>
-              <p style={{ fontSize: 12, color: t.muted }}>Instructor favorito, tipo de clase, horarios…</p>
-            </div>
-          </div>
-          <ChevronRight size={16} style={{ color: t.muted, flexShrink: 0 }} />
-        </Link>
+            <ChevronRight size={16} style={{ color: t.muted, flexShrink: 0 }} />
+          </Link>
+        </Card>
 
         {/* Logout */}
-        <button
-          onClick={handleLogout}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 0', borderRadius: 16, border: `1px solid ${t.line}`, color: '#EF4444', fontSize: 14, fontWeight: 700, background: 'transparent' }}
-        >
+        <Button variant="secondary" onClick={handleLogout} style={{ width: '100%', color: '#EF4444' }}>
           <LogOut size={15} />Cerrar sesión
-        </button>
+        </Button>
       </div>
 
-      {showAvatarPicker && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowAvatarPicker(false)} />
-          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px max(32px, calc(env(safe-area-inset-bottom) + 20px))', maxHeight: '85vh', overflowY: 'auto' }}>
-            <p style={{ fontSize: 15, fontWeight: 800, color: t.ink, marginBottom: 12 }}>Elige tu avatar</p>
-            <AvatarPicker
-              value={socio.avatar ?? null}
-              onChange={id => { updateSocio(socio.id, { avatar: id }); setShowAvatarPicker(false); }}
-            />
-          </div>
-        </div>
-      )}
+      <BottomSheet open={showAvatarPicker} onClose={() => setShowAvatarPicker(false)}>
+        <p style={{ fontSize: 15, fontWeight: 800, color: t.ink }}>Elige tu avatar</p>
+        <AvatarPicker
+          value={socio.avatar ?? null}
+          onChange={id => { updateSocio(socio.id, { avatar: id }); setShowAvatarPicker(false); }}
+        />
+      </BottomSheet>
     </div>
   );
 }
