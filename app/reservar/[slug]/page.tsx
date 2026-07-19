@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useSociaSession } from '@/lib/use-socia-session';
-import { PlanTarifa } from '@/lib/types';
+import { PlanTarifa, type EstadoReserva, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
-import { colorOcupacion, ratioOcupacion } from '@/lib/ocupacion';
+import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
+import { MODO_TOKENS } from '@/lib/portal-modo';
 import {
-  ChevronLeft, ChevronRight, Clock, Users, MapPin,
-  CheckCircle2, X, Calendar, Search, Zap, Award, Heart, Star,
+  Users, CheckCircle2, X, Calendar,
   CreditCard, FileText, Download, ExternalLink, Mail,
 } from 'lucide-react';
 
@@ -25,21 +25,11 @@ function pad2(n: number) { return String(n).padStart(2, '0'); }
 function localDate(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
-function monday(d: Date): Date {
-  const r = new Date(d); const day = r.getDay();
-  r.setDate(r.getDate() - (day === 0 ? 6 : day - 1)); r.setHours(0, 0, 0, 0); return r;
-}
-function addDays(d: Date, n: number): Date {
-  const r = new Date(d); r.setDate(r.getDate() + n); return r;
-}
 function fmtTime(iso: string) {
   const d = new Date(iso); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 function fmtLong(d: Date) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-}
-function fmtShort(d: Date) {
-  return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
 }
 
 const NIVEL_LABEL: Record<string, string> = {
@@ -125,24 +115,6 @@ function LevelBadge({ nivel }: { nivel?: string }) {
   );
 }
 
-function PlazasDots({ taken, total }: { taken: number; total: number }) {
-  const left = Math.max(0, total - taken);
-  // Semántica única de ocupación (I-13): mismo criterio que el calendario.
-  const color = colorOcupacion(ratioOcupacion(taken, total));
-  const label = left === 0 ? 'Clase llena' : left === 1 ? '1 plaza libre' : `${left} plazas libres`;
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex gap-0.5">
-        {Array.from({ length: Math.min(total, 8) }).map((_, i) => (
-          <div key={i} className="w-2 h-2 rounded-full" style={{ backgroundColor: i < taken ? 'rgba(255,255,255,0.15)' : color }} />
-        ))}
-        {total > 8 && <span className="text-[10px] text-white/30 ml-1">+{total - 8}</span>}
-      </div>
-      <span className="text-xs font-semibold" style={{ color }}>{label}</span>
-    </div>
-  );
-}
-
 // Mapa de sitios (reformers) para que la socia elija el suyo al reservar (I-12).
 // Anónimo: los ocupados se muestran deshabilitados, sin revelar quién los tiene.
 function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
@@ -189,6 +161,17 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
 type Tab = 'clases' | 'misreservas' | 'estudio';
 type Step = 'login' | 'registro' | 'contrato' | 'confirm' | 'done' | 'espera';
 
+// Criterios de estado (mismos que el portal): qué reservas ocupan plaza y cuáles
+// cuentan como reserva activa de la propia socia.
+const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
+const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
+
+// Tema del calendario compartido para el widget PÚBLICO: reutiliza el tema claro
+// del portal (MODO_TOKENS.dia), que ya casa con el lenguaje visual de /reservar
+// (fondo hueso, tarjetas blancas, marca --portal-brand). Fuera del componente
+// para no recrearlo en cada render.
+const RESERVAR_TOKENS = MODO_TOKENS.dia;
+
 export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
@@ -209,10 +192,7 @@ export default function ReservarPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [filtroTipo, setFiltroTipo] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [tab, setTab] = useState<Tab>('clases');
 
   // Booking flow
@@ -247,12 +227,9 @@ export default function ReservarPage() {
   // Antes de montar se renderiza el esqueleto, así que este valor no llega a
   // pintarse: solo evita usar new Date() en SSR (divergencia de hidratación).
   const now = mounted ? new Date() : FECHA_PLACEHOLDER_SSR;
-  const weekStart = useMemo(() => addDays(monday(now), weekOffset * 7), [weekOffset, mounted]);
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
-
-  useEffect(() => {
-    if (mounted && !selectedDay) setSelectedDay(localDate(now));
-  }, [mounted]);
+  // Marca temporal estable durante la vida del componente: new Date() daría una
+  // identidad nueva en cada render y recalcularía `slots` sin necesidad.
+  const nowMs = useMemo(() => now.getTime(), [mounted]);
 
   // Deep-link del enlace mágico: si volvemos con ?sesion=<id> y ya estamos
   // autenticadas, abrimos la reserva de ESA clase (una sola vez) en cuanto sus
@@ -290,18 +267,78 @@ export default function ReservarPage() {
     }));
   }, [sesiones, tiposClase, salas, instructores, reservas]);
 
-  const sesionesDelDia = useMemo(() => {
-    if (!selectedDay) return [];
+  // ── Vista-modelo para el calendario compartido ──────────────────────────────
+  // Se proyectan los datos crudos a ReservaSlot[] EXACTAMENTE como en el portal
+  // (app/portal/[slug]/clases): índices en una pasada, respetando aforo/plazas,
+  // sitios por sala, la reserva propia de la socia autenticada y el precio cuando
+  // no hay cobertura de plan. La lógica de reserva sigue viviendo en useStudio().
+  const { ocupadasPorSesion, spotsOcupadosPorSesion, miReservaPorSesion } = useMemo(() => {
+    const ocupadas = new Map<string, number>();
+    const spotsOcup = new Map<string, string[]>();
+    const mia = new Map<string, Reserva>();
+    const socioId = socia?.socioId ?? null;
+    for (const r of reservas) {
+      if (OCUPA_PLAZA.includes(r.estado)) {
+        ocupadas.set(r.sesionId, (ocupadas.get(r.sesionId) ?? 0) + 1);
+        if (r.spotId) {
+          const arr = spotsOcup.get(r.sesionId) ?? [];
+          arr.push(r.spotId);
+          spotsOcup.set(r.sesionId, arr);
+        }
+      }
+      if (socioId && r.socioId === socioId && RESERVA_ACTIVA.includes(r.estado)) {
+        mia.set(r.sesionId, r);
+      }
+    }
+    return { ocupadasPorSesion: ocupadas, spotsOcupadosPorSesion: spotsOcup, miReservaPorSesion: mia };
+  }, [reservas, socia]);
+
+  const spotsActivosPorSala = useMemo(() => {
+    const m = new Map<string, typeof spots>();
+    for (const sp of spots) {
+      if (!sp.activo) continue;
+      const arr = m.get(sp.salaId) ?? [];
+      arr.push(sp);
+      m.set(sp.salaId, arr);
+    }
+    return m;
+  }, [spots]);
+
+  // Cobertura de plan/bono de la socia autenticada → precio a mostrar en el CTA
+  // (informativo; el gate real se aplica en handleConfirm y en el servidor).
+  const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
+  const cubierta = socia?.socioId
+    ? tieneEntitlementActivo(socia.socioId, suscripciones, planesTarifa, localDate(now))
+    : false;
+
+  const slots = useMemo<ReservaSlot[]>(() => {
     return sesionesRich
-      .filter(s => s.inicio.startsWith(selectedDay) && !s.cancelada)
+      .filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
       .filter(s => !filtroTipo || s.tipoClaseId === filtroTipo)
-      .filter(s => {
-        if (!searchQuery) return true;
-        const q = searchQuery.toLowerCase();
-        return (s.tipo?.nombre ?? '').toLowerCase().includes(q) || (s.instructor?.nombre ?? '').toLowerCase().includes(q);
-      })
-      .sort((a, b) => a.inicio.localeCompare(b.inicio));
-  }, [sesionesRich, selectedDay, filtroTipo, searchQuery]);
+      .map(s => {
+        const mia = miReservaPorSesion.get(s.id) ?? null;
+        return {
+          id: s.id,
+          inicio: s.inicio,
+          fin: s.fin,
+          claseNombre: s.tipo?.nombre ?? 'Clase',
+          claseColor: s.tipo?.color ?? 'var(--portal-brand)',
+          nivel: s.tipo?.nivel ?? 'TODOS',
+          descripcion: s.tipo?.descripcion ?? null,
+          instructorNombre: s.instructor?.nombre ?? null,
+          instructorColor: s.instructor?.color ?? null,
+          instructorRol: s.instructor?.rol ?? null,
+          salaNombre: s.sala?.nombre ?? null,
+          aforoMaximo: s.aforoMaximo,
+          ocupadas: ocupadasPorSesion.get(s.id) ?? 0,
+          spots: s.salaId ? (spotsActivosPorSala.get(s.salaId) ?? []) : [],
+          spotsOcupados: spotsOcupadosPorSesion.get(s.id) ?? [],
+          miReservaId: mia?.id ?? null,
+          miEstado: mia ? (mia.estado as 'CONFIRMADA' | 'LISTA_ESPERA') : null,
+          precio: cubierta ? null : precioClaseSuelta,
+        } satisfies ReservaSlot;
+      });
+  }, [sesionesRich, nowMs, filtroTipo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
 
   const misReservas = useMemo(() => {
     if (!socia?.socioId) return [];
@@ -311,11 +348,6 @@ export default function ReservarPage() {
       .filter(r => r.sesion)
       .sort((a, b) => (a.sesion!.inicio ?? '').localeCompare(b.sesion!.inicio ?? ''));
   }, [reservas, socia, sesionesRich]);
-
-  const yaReservado = useCallback((sesionId: string) => {
-    if (!socia?.socioId) return false;
-    return reservas.some(r => r.sesionId === sesionId && r.socioId === socia.socioId && r.estado !== 'CANCELADA');
-  }, [reservas, socia]);
 
   // Gate de derechos (C-4): mismo criterio que el servidor, para avisar antes de
   // intentar la reserva. El servidor es la autoridad; esto es solo UX.
@@ -429,6 +461,32 @@ export default function ReservarPage() {
       setEsperaPos(enEspera + 1);
     }
     setLoginStep(estado === 'LISTA_ESPERA' ? 'espera' : 'done');
+  }
+
+  // ── Reserva desde el calendario compartido ─────────────────────────────────
+  // Requisito CLAVE del widget PÚBLICO: no romper el step-machine de acceso.
+  //  · Socia lista (autenticada, con ficha, contrato firmado y gate OK) → reserva
+  //    DIRECTA vía addReserva y devuelve el estado, para que la hoja del propio
+  //    calendario muestre confirmación / lista de espera in situ.
+  //  · Cualquier otro caso (sin login, walk-in sin ficha, contrato pendiente o
+  //    gate no cumplido) → abre el modal de pasos EXISTENTE con openBooking()
+  //    (login / registro / contrato / confirm), sin tocar su lógica. El sitio
+  //    elegido en la hoja se propaga a ese flujo (openBooking lo resetea primero,
+  //    por eso se fija después).
+  function handleReservarCalendario(slot: ReservaSlot, spotId: string | null): EstadoReserva | void {
+    if (!autenticado || !socia) {
+      openBooking(slot.id);
+      if (spotId) setSelectedSpot(spotId);
+      return;
+    }
+    const found = socios.find(s => s.id === socia.socioId);
+    const needsContract = !found?.aceptacionContrato;
+    if (needsContract || evaluarGate(socia.socioId)) {
+      openBooking(slot.id);
+      if (spotId) setSelectedSpot(spotId);
+      return;
+    }
+    return addReserva(slot.id, socia.socioId, spotId);
   }
 
   async function handleContratarPlan(plan: PlanTarifa) {
@@ -560,40 +618,7 @@ export default function ReservarPage() {
         {tab === 'clases' && (
           <div className="space-y-4">
 
-            {/* Date selector */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <button onClick={() => setWeekOffset(o => o - 1)} aria-label="Semana anterior"
-                  className="p-1.5 rounded-lg text-[#767670] hover:text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
-                  <ChevronLeft size={18} />
-                </button>
-                <div className="flex-1 flex gap-1 overflow-x-auto">
-                  {weekDays.map(d => {
-                    const key = localDate(d);
-                    const isToday = key === localDate(now);
-                    const isSel = key === selectedDay;
-                    const hasSess = sesionesRich.some(s => s.inicio.startsWith(key) && !s.cancelada);
-                    return (
-                      <button key={key} onClick={() => setSelectedDay(key)}
-                        className="flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl transition-all shrink-0 min-w-[42px]"
-                        style={isSel
-                          ? { backgroundColor: PRIMARY, color: PRIMARY_FG }
-                          : { color: isToday ? '#171717' : '#767670' }}>
-                        <span className="text-[9px] font-semibold uppercase">{fmtShort(d).split(' ')[0]}</span>
-                        <span className={`text-base font-bold leading-none ${isToday && !isSel ? 'underline decoration-dotted' : ''}`}>{d.getDate()}</span>
-                        {hasSess && <div className="w-1 h-1 rounded-full mt-0.5" style={{ backgroundColor: isSel ? 'rgba(255,255,255,0.7)' : PRIMARY }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-                <button onClick={() => setWeekOffset(o => o + 1)} aria-label="Semana siguiente"
-                  className="p-1.5 rounded-lg text-[#767670] hover:text-[#3A3A34] hover:bg-[#F5F5F1] transition-colors">
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            </div>
-
-            {/* Class type filters */}
+            {/* Filtros por tipo de clase (se aplican a los slots del calendario) */}
             <div className="flex gap-2 overflow-x-auto pb-1">
               {['', ...tiposClase.map(t => t.id)].map(id => {
                 const tipo = tiposClase.find(t => t.id === id);
@@ -611,89 +636,20 @@ export default function ReservarPage() {
               })}
             </div>
 
-            {/* Day heading */}
-            {selectedDay && (
-              <p className="text-[#1A1A1A] font-bold text-base capitalize px-1">
-                {fmtLong(new Date(selectedDay + 'T12:00:00'))}
-              </p>
-            )}
-
-            {sesionesDelDia.length === 0 ? (
-              <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-3 text-center shadow-sm">
-                <Calendar size={28} className="text-[#C6C6BE]" />
-                <p className="text-[#8E8E86] font-medium">No hay clases este día</p>
-                <button onClick={() => setWeekOffset(o => o + 1)}
-                  className="text-sm font-semibold" style={{ color: PRIMARY }}>
-                  Ver semana siguiente →
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {sesionesDelDia.map(s => {
-                  const reservado = yaReservado(s.id);
-                  const lleno = s.ocupadas >= s.aforoMaximo;
-                  const isPast = new Date(s.fin) < now;
-                  return (
-                    <div key={s.id} className="bg-white rounded-2xl shadow-sm overflow-hidden"
-                      style={{ opacity: isPast ? 0.6 : 1, border: reservado ? '1.5px solid #D1FAE5' : '1px solid #F1F3F5' }}>
-
-                      <div className="h-1.5" style={{ backgroundColor: s.tipo?.color ?? PRIMARY }} />
-                      <div className="p-4">
-                        <div className="flex items-baseline justify-between mb-2">
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-[#1A1A1A] font-extrabold text-2xl leading-none">{fmtTime(s.inicio)}</span>
-                            <span className="text-[#767670] text-sm">→ {fmtTime(s.fin)}</span>
-                            <span className="text-[#C6C6BE] text-xs">{s.tipo?.duracionMinutos} min</span>
-                          </div>
-                          <LevelBadge nivel={s.tipo?.nivel} />
-                        </div>
-                        <h3 className="text-[#1A1A1A] font-bold text-lg leading-tight mb-1">{s.tipo?.nombre ?? 'Clase'}</h3>
-                        {s.tipo?.descripcion && (
-                          <p className="text-[#8E8E86] text-sm mb-3 leading-relaxed">{s.tipo.descripcion}</p>
-                        )}
-                        <div className="flex flex-wrap items-center gap-3 mb-4 mt-2">
-                          {s.instructor && (
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                                style={{ backgroundColor: s.tipo?.color ?? PRIMARY }}>
-                                {s.instructor.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
-                              </div>
-                              <span className="text-[#3A3A34] text-sm">{s.instructor.nombre}</span>
-                            </div>
-                          )}
-                          {s.sala && (
-                            <div className="flex items-center gap-1 text-[#767670] text-sm">
-                              <MapPin size={12} />{s.sala.nombre}
-                            </div>
-                          )}
-                          <div className="ml-auto">
-                            <PlazasDots taken={s.ocupadas} total={s.aforoMaximo} />
-                          </div>
-                        </div>
-                        {isPast ? (
-                          <div className="py-2.5 text-center text-sm text-[#767670] bg-[#F5F5F1] rounded-xl">Clase finalizada</div>
-                        ) : reservado ? (
-                          <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-100">
-                            <CheckCircle2 size={15} />¡Ya estás apuntada!
-                          </div>
-                        ) : lleno ? (
-                          <button onClick={() => openBooking(s.id)}
-                            className="w-full py-2.5 rounded-xl text-sm font-semibold text-[#8E8E86] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-colors">
-                            Clase completa · Lista de espera →
-                          </button>
-                        ) : (
-                          <button onClick={() => openBooking(s.id)}
-                            className="w-full py-3 rounded-xl text-sm font-bold text-white hover:opacity-90 active:scale-[0.98] transition-all"
-                            style={{ backgroundColor: s.tipo?.color ?? PRIMARY }}>
-                            Reservar plaza →
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Calendario de reservas — componente compartido (estilo Acuity), el
+                mismo que usa el portal de socias. Se renderiza sobre el fondo de
+                la página (no en una tarjeta blanca) para que sus tarjetas de
+                horario (surface blanco) contrasten. La reserva se enruta por
+                handleReservarCalendario, que respeta el step-machine de acceso. */}
+            <ReservaCalendario
+              t={RESERVAR_TOKENS}
+              slots={slots}
+              variant="calendario"
+              onReservar={handleReservarCalendario}
+              onCancelar={cancelarReserva}
+              cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
+              vacio={{ titulo: 'Sin clases disponibles', cuerpo: 'Prueba con otra semana o cambia el filtro' }}
+            />
           </div>
         )}
 
