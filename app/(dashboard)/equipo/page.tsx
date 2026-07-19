@@ -1,13 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, Copy, Star } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, Copy, Star, Search, LayoutGrid, List, MoreVertical } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora } from '@/lib/utils';
-import { generarEnlaceDisponibilidad, resumenValoraciones, type ResumenValoraciones } from '@/lib/api-client';
+import { generarEnlaceDisponibilidad, equipoStats, type EquipoStats } from '@/lib/api-client';
+
+type FiltroEstado = 'activas' | 'inactivas' | 'todas';
+type FiltroRol = 'todos' | Rol;
+type Orden = 'nombre-az' | 'nombre-za' | 'clases' | 'valoracion';
 
 const COLORES = ['#F7A6C4', '#14B8A6', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
 
@@ -29,7 +33,7 @@ type Form = { nombre: string; email: string; telefono: string; color: string; av
 const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, activo: true, rol: 'INSTRUCTOR' });
 
 export default function EquipoPage() {
-  const { instructores, sesiones, citas, addInstructor, updateInstructor, deleteInstructor, actividadReciente } = useStudio();
+  const { instructores, sesiones, addInstructor, updateInstructor, deleteInstructor, actividadReciente } = useStudio();
 
   const [tab, setTab] = useState<'equipo' | 'actividad'>('equipo');
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
@@ -39,11 +43,17 @@ export default function EquipoPage() {
   const [enlace, setEnlace] = useState<
     { instructor: Instructor; url: string | null; loading: boolean; error: string | null; copiado: boolean } | null
   >(null);
-  const [valoraciones, setValoraciones] = useState<ResumenValoraciones>({});
+  const [stats, setStats] = useState<EquipoStats>({ valoracion: {}, asistencia: {} });
+  const [q, setQ] = useState('');
+  const [fEstado, setFEstado] = useState<FiltroEstado>('activas');
+  const [fRol, setFRol] = useState<FiltroRol>('todos');
+  const [orden, setOrden] = useState<Orden>('nombre-az');
+  const [vista, setVista] = useState<'grid' | 'lista'>('grid');
+  const [menuId, setMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
-    resumenValoraciones().then(r => { if (vivo) setValoraciones(r); });
+    equipoStats().then(r => { if (vivo) setStats(r); });
     return () => { vivo = false; };
   }, []);
 
@@ -84,18 +94,28 @@ export default function EquipoPage() {
     return map;
   }, [sesiones]);
 
-  const citasPorInstructor = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const c of citas) {
-      if (c.estado === 'CANCELADA') continue;
-      const d = new Date(c.inicio);
-      if (d >= ahora && d <= en7dias) map.set(c.instructorId, (map.get(c.instructorId) ?? 0) + 1);
-    }
-    return map;
-  }, [citas]);
-
   const activos = instructores.filter(i => i.activo).length;
   const totalClasesSemana = [...cargaPorInstructor.values()].reduce((a, b) => a + b, 0);
+
+  // Buscador + filtros + orden (todo en cliente; el equipo cabe de sobra en memoria).
+  const listaVisible = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    let out = instructores.filter(i => {
+      if (fEstado === 'activas' && !i.activo) return false;
+      if (fEstado === 'inactivas' && i.activo) return false;
+      if (fRol !== 'todos' && i.rol !== fRol) return false;
+      if (term && !(`${i.nombre} ${i.email ?? ''}`.toLowerCase().includes(term))) return false;
+      return true;
+    });
+    const val = (id: string) => stats.valoracion[id]?.media ?? -1;
+    out = [...out].sort((a, b) => {
+      if (orden === 'nombre-az') return a.nombre.localeCompare(b.nombre, 'es');
+      if (orden === 'nombre-za') return b.nombre.localeCompare(a.nombre, 'es');
+      if (orden === 'clases') return (cargaPorInstructor.get(b.id) ?? 0) - (cargaPorInstructor.get(a.id) ?? 0);
+      return val(b.id) - val(a.id); // valoración desc
+    });
+    return out;
+  }, [instructores, q, fEstado, fRol, orden, stats, cargaPorInstructor]);
 
   function openNuevo() { setForm(emptyForm()); setEditId(null); setModal('nuevo'); }
   function openEditar(i: Instructor) {
@@ -175,7 +195,38 @@ export default function EquipoPage() {
         ))}
       </div>
 
-      {/* Grid */}
+      {/* Barra: buscador + filtros + orden + vista (como el mockup) */}
+      {instructores.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar instructora…"
+              className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition"
+            />
+          </div>
+          <PillSelect label="Estado" value={fEstado} onChange={v => setFEstado(v as FiltroEstado)}
+            options={[['activas', 'Activas'], ['inactivas', 'Inactivas'], ['todas', 'Todas']]} />
+          <PillSelect label="Rol" value={fRol} onChange={v => setFRol(v as FiltroRol)}
+            options={[['todos', 'Todos'], ['PROPIETARIO', 'Propietaria'], ['RECEPCION', 'Recepción'], ['INSTRUCTOR', 'Instructora']]} />
+          <div className="ml-auto flex items-center gap-2">
+            <PillSelect label="Ordenar" value={orden} onChange={v => setOrden(v as Orden)}
+              options={[['nombre-az', 'Nombre A-Z'], ['nombre-za', 'Nombre Z-A'], ['clases', 'Más clases'], ['valoracion', 'Mejor valoración']]} />
+            <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card p-0.5">
+              <button onClick={() => setVista('grid')} title="Cuadrícula"
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${vista === 'grid' ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
+                <LayoutGrid size={16} />
+              </button>
+              <button onClick={() => setVista('lista')} title="Lista"
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${vista === 'lista' ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
+                <List size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contenido */}
       {instructores.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[#E2E4EB] bg-card">
           <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
@@ -187,85 +238,29 @@ export default function EquipoPage() {
             <Plus size={15} /> Nuevo miembro
           </button>
         </div>
-      ) : (
+      ) : listaVisible.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-16 text-center">Nadie coincide con la búsqueda o los filtros.</p>
+      ) : vista === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {instructores.map(i => {
-            const carga = cargaPorInstructor.get(i.id) ?? 0;
-            const nCitas = citasPorInstructor.get(i.id) ?? 0;
-            const prox = proximaClase.get(i.id) ?? null;
-            const val = valoraciones[i.id];
-            return (
-              <div key={i.id} className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <ProfileAvatar avatarId={i.avatar} nombre={i.nombre} color={i.color} size="md" />
-                    <div className="min-w-0">
-                      <p className="font-bold text-foreground text-[15px] leading-tight truncate">{i.nombre}</p>
-                      <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${i.activo ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-muted text-muted-foreground'}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-[#059669]' : 'bg-muted-foreground'}`} />
-                          {i.activo ? 'Activa' : 'Inactiva'}
-                        </span>
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ROL_LABEL[i.rol]}</span>
-                        {val && val.total > 0 && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FEF9C3] text-[#A16207]" title={`${val.total} valoración${val.total === 1 ? '' : 'es'} de alumnas`}>
-                            <Star size={10} fill="#F5B301" stroke="#F5B301" />
-                            {val.media.toFixed(1)}
-                            <span className="font-medium text-[#CA8A04]">({val.total})</span>
-                          </span>
-                        )}
-                        {i.authUserId ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand/10 text-brand-secondary">
-                            <ShieldCheck size={10} />Con acceso
-                          </span>
-                        ) : i.email ? (
-                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">Sin cuenta aún</span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button onClick={() => abrirEnlace(i)} title="Enlace de disponibilidad" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-                      <CalendarClock size={14} />
-                    </button>
-                    <button onClick={() => openEditar(i)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-                      <Pencil size={14} />
-                    </button>
-                    <button onClick={() => setConfirmDel(i)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  {i.email && (
-                    <p className="flex items-center gap-2 text-[13px] text-muted-foreground truncate"><Mail size={13} className="text-muted-foreground shrink-0" />{i.email}</p>
-                  )}
-                  {i.telefono && (
-                    <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Phone size={13} className="text-muted-foreground shrink-0" />{i.telefono}</p>
-                  )}
-                  {!i.email && !i.telefono && (
-                    <p className="text-[12px] text-muted-foreground italic">Sin datos de contacto</p>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between pt-3 border-t border-[#F1F1F4]">
-                  <div>
-                    <p className="text-[18px] font-extrabold text-foreground leading-none tabular-nums">{carga}<span className="text-[12px] font-medium text-muted-foreground"> clases</span></p>
-                    <p className="text-[11px] text-muted-foreground mt-1">próximos 7 días{nCitas > 0 ? ` · ${nCitas} citas` : ''}</p>
-                  </div>
-                  {prox && (
-                    <div className="text-right">
-                      <p className="text-[11px] text-muted-foreground">Próxima</p>
-                      <p className="text-[12px] font-semibold text-foreground capitalize">
-                        {prox.toLocaleDateString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {listaVisible.map(i => (
+            <InstructorCard
+              key={i.id} i={i} carga={cargaPorInstructor.get(i.id) ?? 0}
+              prox={proximaClase.get(i.id) ?? null} val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
+              menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
+              onEnlace={() => { setMenuId(null); abrirEnlace(i); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-2xl divide-y divide-[#F1F1F4] overflow-visible">
+          {listaVisible.map(i => (
+            <InstructorRow
+              key={i.id} i={i} carga={cargaPorInstructor.get(i.id) ?? 0} prox={proximaClase.get(i.id) ?? null}
+              val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
+              menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
+              onEnlace={() => { setMenuId(null); abrirEnlace(i); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
+            />
+          ))}
         </div>
       )}
       </>
@@ -405,6 +400,144 @@ export default function EquipoPage() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─── Piezas del rediseño de Equipo ────────────────────────────────────────────
+
+type Val = { media: number; total: number } | undefined;
+type Asis = { pct: number; base: number } | undefined;
+type AccProps = { menuAbierto: boolean; onMenu: () => void; onEnlace: () => void; onEdit: () => void; onDelete: () => void };
+
+function PillSelect({ label, value, onChange, options }: {
+  label: string; value: string; onChange: (v: string) => void; options: [string, string][];
+}) {
+  return (
+    <label className="flex items-center gap-1.5 rounded-xl border border-border bg-card pl-3 pr-2 py-2 text-[13px] cursor-pointer hover:bg-muted/40 transition-colors">
+      <span className="text-muted-foreground font-medium whitespace-nowrap">{label}:</span>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        className="bg-transparent font-semibold text-foreground focus:outline-none cursor-pointer">
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function fmtProx(prox: Date | null): string {
+  return prox ? prox.toLocaleDateString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+}
+
+function Badges({ i }: { i: Instructor }) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${i.activo ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-muted text-muted-foreground'}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-[#059669]' : 'bg-muted-foreground'}`} />
+        {i.activo ? 'Activa' : 'Inactiva'}
+      </span>
+      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ROL_LABEL[i.rol]}</span>
+      {i.authUserId ? (
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand/10 text-brand-secondary">
+          <ShieldCheck size={10} />Con acceso
+        </span>
+      ) : i.email ? (
+        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">Sin cuenta aún</span>
+      ) : null}
+    </div>
+  );
+}
+
+function StatCol({ valor, sub, star, borde }: { valor: ReactNode; sub: string; star?: boolean; borde?: boolean }) {
+  return (
+    <div className={borde ? 'pl-3 border-l border-[#F1F1F4]' : ''}>
+      <p className="text-[16px] font-extrabold text-foreground leading-none tabular-nums flex items-center gap-1">
+        {valor}{star && <Star size={13} fill="#F5B301" stroke="#F5B301" />}
+      </p>
+      <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>
+    </div>
+  );
+}
+
+function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete }: AccProps) {
+  return (
+    <div className="flex items-center gap-1 shrink-0 relative">
+      <button onClick={onEdit} title="Editar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+        <Pencil size={14} />
+      </button>
+      <button onClick={onMenu} title="Más acciones" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+        <MoreVertical size={15} />
+      </button>
+      {menuAbierto && (
+        <>
+          <button className="fixed inset-0 z-20 cursor-default" onClick={onMenu} aria-hidden tabIndex={-1} />
+          <div className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-border bg-card shadow-lg py-1">
+            <button onClick={onEnlace} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+              <CalendarClock size={14} className="text-muted-foreground" /> Enlace de disponibilidad
+            </button>
+            <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-red-600 hover:bg-red-50 text-left">
+              <Trash2 size={14} /> Eliminar
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function InstructorCard({ i, carga, prox, val, asis, ...acc }: {
+  i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis;
+} & AccProps) {
+  return (
+    <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <ProfileAvatar avatarId={i.avatar} nombre={i.nombre} color={i.color} size="md" />
+          <div className="min-w-0">
+            <p className="font-bold text-foreground text-[15px] leading-tight truncate">{i.nombre}</p>
+            <Badges i={i} />
+          </div>
+        </div>
+        <Acciones {...acc} />
+      </div>
+
+      <div className="space-y-1.5">
+        {i.email && <p className="flex items-center gap-2 text-[13px] text-muted-foreground truncate"><Mail size={13} className="shrink-0" />{i.email}</p>}
+        {i.telefono && <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Phone size={13} className="shrink-0" />{i.telefono}</p>}
+        {!i.email && !i.telefono && <p className="text-[12px] text-muted-foreground italic">Sin datos de contacto</p>}
+      </div>
+
+      <div className="mt-auto">
+        <div className="grid grid-cols-3 pt-3 border-t border-[#F1F1F4]">
+          <StatCol valor={<>{carga}<span className="text-[11px] font-medium text-muted-foreground"> clase{carga === 1 ? '' : 's'}</span></>} sub="próx. 7 días" />
+          <StatCol valor={asis && asis.base > 0 ? `${asis.pct}%` : '—'} sub="asistencia" borde />
+          <StatCol valor={val && val.total > 0 ? val.media.toFixed(1) : '—'} star={!!(val && val.total > 0)} sub="valoración" borde />
+        </div>
+        <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#F1F1F4]">
+          <span className="text-[12px] text-muted-foreground">Próxima clase</span>
+          <span className="text-[12px] font-semibold text-foreground capitalize">{fmtProx(prox)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InstructorRow({ i, carga, prox, val, asis, ...acc }: {
+  i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis;
+} & AccProps) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <ProfileAvatar avatarId={i.avatar} nombre={i.nombre} color={i.color} size="sm" />
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-foreground text-[14px] leading-tight truncate">{i.nombre}</p>
+        <Badges i={i} />
+      </div>
+      <div className="hidden md:flex items-center gap-6 text-right">
+        <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{carga}</p><p className="text-[10px] text-muted-foreground mt-0.5">7 días</p></div>
+        <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{asis && asis.base > 0 ? `${asis.pct}%` : '—'}</p><p className="text-[10px] text-muted-foreground mt-0.5">asistencia</p></div>
+        <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums flex items-center gap-1 justify-end">{val && val.total > 0 ? val.media.toFixed(1) : '—'}{val && val.total > 0 && <Star size={12} fill="#F5B301" stroke="#F5B301" />}</p><p className="text-[10px] text-muted-foreground mt-0.5">valoración</p></div>
+        <div className="w-20"><p className="text-[10px] text-muted-foreground">Próxima</p><p className="text-[12px] font-semibold text-foreground capitalize">{fmtProx(prox)}</p></div>
+      </div>
+      <Acciones {...acc} />
     </div>
   );
 }

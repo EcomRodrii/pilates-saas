@@ -806,3 +806,20 @@ export async function resumenValoraciones(): Promise<ResumenValoraciones> {
     return {};
   }
 }
+
+// ── Equipo: stats combinadas (valoración + asistencia) por instructora ──────
+export type EquipoStats = {
+  valoracion: Record<string, { media: number; total: number }>;
+  asistencia: Record<string, { pct: number; base: number }>;
+};
+
+export async function equipoStats(): Promise<EquipoStats> {
+  try {
+    const res = await fetch('/api/equipo/stats', { headers: await authHeader() });
+    if (!res.ok) return { valoracion: {}, asistencia: {} };
+    const data = (await res.json()) as Partial<EquipoStats>;
+    return { valoracion: data.valoracion ?? {}, asistencia: data.asistencia ?? {} };
+  } catch {
+    return { valoracion: {}, asistencia: {} };
+  }
+}
