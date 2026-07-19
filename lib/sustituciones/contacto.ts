@@ -111,12 +111,14 @@ export async function contactarCandidata(
   const url = `${appUrl()}/aceptar-sustitucion/${token}`;
 
   // Registra el intento con su token (para poder marcar aceptado/rechazado luego).
+  // canal siempre 'email' aquí (el CHECK de la tabla solo admite email/whatsapp/
+  // sms/llamada/push); el tono recordatorio lo lleva el propio email.
   await admin.from('sustitucion_contactos').insert({
     id: `cont-${uid()}`,
     studio_id: studioId,
     sustitucion_id: sustitucionId,
     instructor_id: instructorId,
-    canal: params.esRecordatorio ? 'email_recordatorio' : 'email',
+    canal: 'email',
     estado: 'enviado',
     token,
   });
