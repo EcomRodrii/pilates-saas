@@ -105,8 +105,20 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
-    const mensaje = err instanceof Stripe.errors.StripeError ? err.message : 'No se pudo iniciar la domiciliación SEPA';
-    // Causa típica: la cuenta conectada no tiene la capability `sepa_debit_payments` activa.
-    return NextResponse.json({ error: mensaje }, { status: 400 });
+    // Nunca mostramos el error técnico de Stripe (en inglés) a la SOCIA. El
+    // detalle va al log; a ella le devolvemos un mensaje claro en español.
+    const raw = err instanceof Stripe.errors.StripeError ? err.message : String(err ?? '');
+    console.error('[setup-sepa]', raw);
+    // Causa típica: la cuenta conectada del estudio no tiene ACTIVADO el método
+    // "Adeudo directo SEPA" (Stripe → Métodos de pago). No es un fallo de la
+    // socia: la domiciliación aún no está disponible en ese estudio.
+    const sepaNoDisponible = /sepa_debit/i.test(raw) && /(invalid|not activated|activ|no válido|inválid)/i.test(raw);
+    const mensaje = sepaNoDisponible
+      ? 'La domiciliación por SEPA todavía no está disponible en este estudio. Puedes pagar con tarjeta mientras tanto.'
+      : 'No se pudo iniciar la domiciliación SEPA. Inténtalo de nuevo más tarde.';
+    return NextResponse.json(
+      { error: mensaje, code: sepaNoDisponible ? 'SEPA_NO_DISPONIBLE' : 'ERROR_SEPA' },
+      { status: 400 },
+    );
   }
 }
