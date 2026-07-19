@@ -3,6 +3,7 @@ import { PortalAuthProvider } from '@/lib/portal-auth';
 import { PortalShell } from '@/components/portal/portal-shell';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { ThemeStyle } from '@/components/theme-style';
+import { getStudioSeo } from '@/lib/studio-seo';
 
 export const metadata = {
   title: 'Mi Estudio · Portal',
@@ -29,8 +30,13 @@ export const viewport: Viewport = {
 
 export default async function PortalLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  // Resolvemos el estudio en el SERVIDOR (misma consulta cacheada por request
+  // que usa ThemeStyle): el gate monta el StudioProvider al instante, sin el
+  // round-trip de cliente a resolveStudioIdBySlug que hacía antes (mismo
+  // patrón ya usado en app/reservar/[slug]/layout.tsx).
+  const studio = await getStudioSeo(slug);
   return (
-    <StudioSlugGate slug={slug}>
+    <StudioSlugGate slug={slug} initialStudioId={studio?.id ?? null} initialResuelto>
       <ThemeStyle slug={slug} />
       <PortalAuthProvider slug={slug}>
         <PortalShell>{children}</PortalShell>
