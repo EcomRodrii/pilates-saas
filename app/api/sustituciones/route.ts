@@ -2,21 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
-import { firmarTokenInstructora } from '@/lib/sustituciones/token';
-import { enviarEmailContactoSustituta } from '@/lib/sustituciones/email';
+import { inngest, EVENTS } from '@/lib/inngest/client';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
-
-// Fecha/hora de la clase en texto legible (España).
-function formatCuando(inicio: string): string {
-  const d = new Date(inicio);
-  const fecha = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
-  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-  return `${fecha} · ${hora}`;
-}
+import { contactarCandidata, contactarDesde, ESTADOS_EN_JUEGO, type RankingItem } from '@/lib/sustituciones/contacto';
 
 // Estados que se consideran "activos" (una baja en curso). Coincide con el índice
 // único parcial `uq_sustitucion_activa_por_sesion` de la migración 0037.
 const ESTADOS_INACTIVOS = '(sin_sustituta,resuelta_fuera,cancelada)';
+
+// Emite el evento de escalado. Best-effort: si el bus de Inngest falla, el contacto
+// ya se hizo (email enviado) — el escalado es una capa de resiliencia encima, no
+// debe tumbar la petición del usuario.
+async function emitirEscalado(data: { sustitucionId: string; studioId: string; instructorId: string; idx: number }) {
+  try {
+    await inngest.send({ name: EVENTS.SUSTITUCION_CONTACTADA, data });
+  } catch (e) {
+    console.error('[sustituciones] no se pudo emitir el evento de escalado', e);
+  }
+}
 
 // POST /api/sustituciones — marcar una baja: "no puedo dar esta clase".
 // Crea la sustitución (idempotente), calcula el ranking de candidatas con
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   // La clase debe existir y ser de este estudio.
   const { data: clase } = await admin
-    .from('sesiones').select('id, studio_id, instructor_id, cancelada')
+    .from('sesiones').select('id, studio_id, instructor_id, cancelada, inicio, tipo_clase_id')
     .eq('id', sesionId).eq('studio_id', sesion.studioId).maybeSingle();
   if (!clase) return NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 });
   if (clase.cancelada) return NextResponse.json({ error: 'La clase ya está cancelada' }, { status: 409 });
@@ -55,8 +58,8 @@ export async function POST(req: NextRequest) {
   const { data: ranking, error: errRank } = await admin.rpc('rankear_candidatas', { p_sesion_id: sesionId });
   if (errRank) return NextResponse.json({ error: errRank.message }, { status: 500 });
 
-  // manual/asistido → espera aprobación de la propietaria; autonomo/vacaciones →
-  // pasa a contactar (el cron de contacto es la fase siguiente).
+  // asistido → espera el visto bueno de la propietaria; autonomo/vacaciones →
+  // arranca en 'contactando' y más abajo se avisa sola a la 1ª candidata.
   const estado = modo === 'autonomo' || modo === 'vacaciones' ? 'contactando' : 'pendiente_aprobacion';
 
   const nueva = {
@@ -83,6 +86,22 @@ export async function POST(req: NextRequest) {
       if (activa) return NextResponse.json({ sustitucion: activa, yaExistia: true });
     }
     return NextResponse.json({ error: errIns.message }, { status: 500 });
+  }
+
+  // Modo autónomo/vacaciones: la dueña ha "desaparecido" → el motor contacta solo
+  // a la primera candidata contactable y arranca el escalado. En asistido no se
+  // contacta a nadie aquí (espera el visto bueno de la propietaria en el panel).
+  if (insertada.estado === 'contactando') {
+    const rank = (Array.isArray(ranking) ? ranking : []) as RankingItem[];
+    const sesionMin = { inicio: clase.inicio as string, tipo_clase_id: clase.tipo_clase_id as string | null };
+    const r = await contactarDesde(admin, {
+      sustitucionId: insertada.id, studioId: sesion.studioId, sesion: sesionMin, ranking: rank, desde: 0,
+    });
+    if (r.contactada) {
+      await emitirEscalado({ sustitucionId: insertada.id, studioId: sesion.studioId, instructorId: r.instructorId, idx: r.idx });
+    }
+    // Si nadie es contactable (ranking vacío o sin emails), la baja queda en
+    // 'contactando' con el ranking vacío → el panel muestra "cancelar clase".
   }
 
   return NextResponse.json({ sustitucion: insertada, yaExistia: false });
@@ -191,64 +210,33 @@ export async function PATCH(req: NextRequest) {
       .select('id, estado, ranking, sesion_id, sesiones(inicio, tipo_clase_id)')
       .eq('id', sustitucionId).eq('studio_id', sesion.studioId).maybeSingle();
     if (!sust) return NextResponse.json({ error: 'Sustitución no encontrada' }, { status: 404 });
-    if (!['buscando', 'pendiente_aprobacion', 'contactando'].includes(sust.estado as string)) {
+    if (!ESTADOS_EN_JUEGO.includes(sust.estado as string)) {
       return NextResponse.json({ error: 'Esta sustitución ya está resuelta' }, { status: 409 });
     }
 
-    // La candidata + su email.
-    const { data: cand } = await admin
-      .from('instructores').select('nombre, email')
-      .eq('id', instructorId).eq('studio_id', sesion.studioId).maybeSingle();
-    if (!cand) return NextResponse.json({ error: 'Candidata no encontrada' }, { status: 404 });
-    if (!cand.email) {
-      return NextResponse.json({ error: `${cand.nombre} no tiene email. Añádeselo en Equipo para poder avisarla.` }, { status: 422 });
-    }
-
+    // Índice de la candidata dentro del ranking (0 si no aparece, p.ej. elección manual).
+    const ranking = (Array.isArray(sust.ranking) ? sust.ranking : []) as RankingItem[];
+    const idx = Math.max(0, ranking.findIndex(c => c.instructor_id === instructorId));
     const ses = (Array.isArray(sust.sesiones) ? sust.sesiones[0] : sust.sesiones) as
       { inicio: string; tipo_clase_id: string | null } | null;
-    const [{ data: tipo }, { data: estudio }] = await Promise.all([
-      admin.from('tipos_clase').select('nombre').eq('id', ses?.tipo_clase_id ?? '').maybeSingle(),
-      admin.from('studios').select('nombre').eq('id', sesion.studioId).maybeSingle(),
-    ]);
 
-    // Token de aceptación (un solo uso, ventana corta, ligado a esta sustitución).
-    const token = firmarTokenInstructora(instructorId, sesion.studioId, 'aceptar_sustitucion', sustitucionId);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
-    const url = `${appUrl}/aceptar-sustitucion/${token}`;
-
-    // Marca contactando + índice de la candidata dentro del ranking.
-    const ranking = (Array.isArray(sust.ranking) ? sust.ranking : []) as { instructor_id: string }[];
-    const idx = Math.max(0, ranking.findIndex(c => c.instructor_id === instructorId));
-    await admin.from('sustituciones')
-      .update({ estado: 'contactando', candidata_actual: idx })
-      .eq('id', sustitucionId).eq('studio_id', sesion.studioId);
-
-    // Registra el intento de contacto (con el token del deep link).
-    await admin.from('sustitucion_contactos').insert({
-      id: `cont-${uid()}`,
-      studio_id: sesion.studioId,
-      sustitucion_id: sustitucionId,
-      instructor_id: instructorId,
-      canal: 'email',
-      estado: 'enviado',
-      token,
+    // Contacta (marca contactando + registra intento + email) vía helper compartido.
+    const r = await contactarCandidata(admin, {
+      sustitucionId, studioId: sesion.studioId, instructorId, idx, sesion: ses,
     });
+    if (!r.ok && r.motivo === 'sin_email') {
+      return NextResponse.json({ error: `${r.candidata ?? 'Esta candidata'} no tiene email. Añádeselo en Equipo para poder avisarla.` }, { status: 422 });
+    }
+    if (!r.ok) return NextResponse.json({ error: 'No se pudo avisar a la candidata' }, { status: 422 });
 
-    // Envía el email (degradación limpia si Resend no está configurado).
-    const envio = await enviarEmailContactoSustituta({
-      to: cand.email,
-      toName: cand.nombre,
-      estudioNombre: estudio?.nombre ?? 'Tu estudio',
-      claseNombre: tipo?.nombre ?? 'Clase',
-      cuando: ses?.inicio ? formatCuando(ses.inicio) : '',
-      url,
-    });
+    // Arranca el escalado (recordatorio → WhatsApp → alerta/avance).
+    await emitirEscalado({ sustitucionId, studioId: sesion.studioId, instructorId, idx });
 
     return NextResponse.json({
       ok: true,
-      candidata: cand.nombre,
-      emailEnviado: 'ok' in envio && envio.ok === true,
-      emailSkipped: 'skipped' in envio,
+      candidata: r.candidata,
+      emailEnviado: r.emailEnviado,
+      emailSkipped: r.emailSkipped,
     });
   }
 
@@ -257,7 +245,7 @@ export async function PATCH(req: NextRequest) {
       .from('sustituciones')
       .update({ estado: 'resuelta_fuera', resuelto_en: new Date().toISOString() })
       .eq('id', sustitucionId).eq('studio_id', sesion.studioId)
-      .in('estado', ['buscando', 'pendiente_aprobacion', 'contactando']);
+      .in('estado', ESTADOS_EN_JUEGO);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }

@@ -17,6 +17,7 @@ const ESTADO: Record<string, EstadoMeta> = {
   buscando: { label: 'Buscando', cls: 'bg-[#FEF3C7] text-[#92400E]', activa: true },
   pendiente_aprobacion: { label: 'Esperando tu visto bueno', cls: 'bg-brand/10 text-brand-secondary', activa: true },
   contactando: { label: 'Contactando', cls: 'bg-[#FEF3C7] text-[#92400E]', activa: true },
+  agotada: { label: 'Nadie ha respondido', cls: 'bg-red-100 text-red-700', activa: true },
   confirmada: { label: 'Cubierta', cls: 'bg-[#DCFCE7] text-[#059669]', activa: false },
   sin_sustituta: { label: 'Sin sustituta', cls: 'bg-red-100 text-red-700', activa: false },
   resuelta_fuera: { label: 'Resuelta fuera', cls: 'bg-muted text-muted-foreground', activa: false },
@@ -218,6 +219,16 @@ function SustitucionCard({
         Falta <strong className="text-foreground">{nombreInstructor(s.instructor_original_id)}</strong>
         {s.motivo ? <> — <span className="italic">{s.motivo}</span></> : null}
       </p>
+
+      {s.estado === 'agotada' && (
+        <div className="mt-3 flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-3">
+          <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+          <p className="text-[13px] text-red-700">
+            Avisamos a todas las candidatas disponibles y ninguna confirmó. Avisa a alguien por tu cuenta,
+            vuelve a intentarlo con una candidata de abajo, o cancela la clase (avisamos a las alumnas).
+          </p>
+        </div>
+      )}
 
       {!hero ? (
         // Sin candidatas disponibles
