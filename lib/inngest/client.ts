@@ -21,4 +21,7 @@ export const EVENTS = {
   // candidata; la función de escalado espera, recuerda, sube de canal y (en modo
   // autónomo) avanza al siguiente del ranking o alerta a la propietaria.
   SUSTITUCION_CONTACTADA: 'sustitucion/contactada',
+  // Valoraciones (0044) — barrido que, tras cada clase, pide valoración a las
+  // alumnas apuntadas. Un evento por estudio (fan-out del dispatcher cron).
+  VALORACIONES_ESTUDIO: 'valoraciones/studio.sweep',
 } as const;

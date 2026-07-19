@@ -17,6 +17,10 @@ import {
   procesarDunningEstudio,
 } from '@/lib/inngest/dunning';
 import { escalarSustitucion } from '@/lib/inngest/sustituciones';
+import {
+  valoracionesDispatcher,
+  procesarValoracionesEstudio,
+} from '@/lib/inngest/valoraciones';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -35,5 +39,7 @@ export const { GET, POST, PUT } = serve({
     dunningDispatcher,
     procesarDunningEstudio,
     escalarSustitucion,
+    valoracionesDispatcher,
+    procesarValoracionesEstudio,
   ],
 });
