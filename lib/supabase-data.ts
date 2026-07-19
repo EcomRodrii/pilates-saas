@@ -1063,6 +1063,8 @@ export async function fetchCriticalStudioData(studioId?: string) {
     challengeDefinitionsRes,
     challengeProgressRes,
     dashboardChartsRes,
+    citasServiciosRes,
+    citasDisponibilidadRes,
   ] = await Promise.all([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('usuarios').select('*').eq('studio_id', sid),
@@ -1118,6 +1120,8 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('challenge_definitions').select('*').eq('studio_id', sid),
     db.from('challenge_progress').select('*').eq('studio_id', sid),
     db.from('dashboard_charts').select('*').eq('studio_id', sid),
+    db.from('citas_servicios').select('*').eq('studio_id', sid),
+    db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -1163,6 +1167,8 @@ export async function fetchCriticalStudioData(studioId?: string) {
     challengeDefinitions: (challengeDefinitionsRes.data ?? []).map(mapChallengeDefinition),
     challengeProgress: (challengeProgressRes.data ?? []).map(mapChallengeProgress),
     dashboardCharts: (dashboardChartsRes.data ?? []).map(mapDashboardChart),
+    citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
+    citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
   };
 }
 
@@ -2903,6 +2909,72 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
 export async function dbDeletePlanTarifa(id: string) {
   const { error } = await supabase.from('planes_tarifa').delete().eq('id', id);
   if (error) reportDbError('[dbDeletePlanTarifa]', error);
+}
+
+// ─── Citas: catálogo de servicios (0046) — escritura del panel (anon + RLS) ───
+function servicioCitaToDb(s: ServicioCita) {
+  return {
+    id: s.id,
+    studio_id: s.studioId ?? STUDIO_ID,
+    nombre: s.nombre,
+    tipo: s.tipo,
+    duracion_min: s.duracionMin,
+    precio: s.precio ?? null,
+    auto_reservable: s.autoReservable ?? false,
+    color: s.color ?? null,
+    descripcion: s.descripcion ?? null,
+    activo: s.activo ?? true,
+    orden: s.orden ?? 0,
+    creado_en: s.creadoEn || new Date().toISOString(),
+  };
+}
+
+export async function dbInsertServicioCita(s: ServicioCita) {
+  const { error } = await supabase.from('citas_servicios').insert(servicioCitaToDb(s));
+  if (error) reportDbError('[dbInsertServicioCita]', error);
+}
+
+export async function dbUpdateServicioCita(id: string, changes: Partial<ServicioCita>) {
+  const db: Record<string, unknown> = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('tipo' in changes) db.tipo = changes.tipo;
+  if ('duracionMin' in changes) db.duracion_min = changes.duracionMin;
+  if ('precio' in changes) db.precio = changes.precio ?? null;
+  if ('autoReservable' in changes) db.auto_reservable = changes.autoReservable;
+  if ('color' in changes) db.color = changes.color ?? null;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion ?? null;
+  if ('activo' in changes) db.activo = changes.activo;
+  if ('orden' in changes) db.orden = changes.orden;
+  const { error } = await supabase.from('citas_servicios').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateServicioCita]', error);
+}
+
+export async function dbDeleteServicioCita(id: string) {
+  const { error } = await supabase.from('citas_servicios').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteServicioCita]', error);
+}
+
+// ─── Citas: horario fino por instructora (0046) — reemplazo atómico de franjas ─
+// El editor guarda TODAS las franjas de una instructora a la vez: borramos las
+// suyas y reinsertamos las nuevas. Scopeado por studio+instructor (RLS refuerza).
+export async function dbReplaceDisponibilidadCitas(
+  studioId: string, instructorId: string, franjas: DisponibilidadCita[],
+) {
+  const { error: delErr } = await supabase.from('citas_disponibilidad')
+    .delete().eq('studio_id', studioId).eq('instructor_id', instructorId);
+  if (delErr) { reportDbError('[dbReplaceDisponibilidadCitas:del]', delErr); return; }
+  if (franjas.length === 0) return;
+  const rows = franjas.map((f) => ({
+    id: f.id,
+    studio_id: f.studioId ?? studioId,
+    instructor_id: f.instructorId ?? instructorId,
+    dia_semana: f.diaSemana,
+    hora_inicio: f.horaInicio,
+    hora_fin: f.horaFin,
+    creado_en: f.creadoEn || new Date().toISOString(),
+  }));
+  const { error: insErr } = await supabase.from('citas_disponibilidad').insert(rows);
+  if (insErr) reportDbError('[dbReplaceDisponibilidadCitas:ins]', insErr);
 }
 
 // ── Productos POS ──────────────────────────────────────────────────────────────
