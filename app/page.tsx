@@ -744,6 +744,12 @@ export default function LandingPage() {
           .lp-bento-4, .lp-bento-2 { grid-column: span 2 !important; }
           .lp-pricing { grid-template-columns: 1fr !important; }
           .lp-compliance-grid { grid-template-columns: repeat(2,1fr) !important; }
+          /* Los 4 enlaces + "Entrar" + "Crear estudio" no caben en tablet
+             (768px): "Sistema autónomo" partía en dos líneas y "Preguntas"/
+             "Entrar" quedaban pegados. Mismo tratamiento que en mobile: se
+             ocultan los enlaces de texto y queda logo + CTA. */
+          .lp-nav-links { display: none !important; }
+          .lp-nav-enter { display: none !important; }
         }
         @media (max-width: 640px) {
           .lp-nav-links { display: none !important; }
