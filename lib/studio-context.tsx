@@ -264,6 +264,7 @@ interface StudioContextValue {
   deleteServicioCita: (id: string) => void;
   citasDisponibilidad: DisponibilidadCita[];
   setDisponibilidadCitas: (instructorId: string, franjas: Array<{ diaSemana: number; horaInicio: string; horaFin: string }>) => void;
+  reservarCitaPublica: (args: { servicioId: string; instructorId: string; inicioISO: string }) => Promise<{ ok: true; inicio: string; fin: string } | { error: string }>;
 
   // POS
   productosPOS: ProductoPOS[];
@@ -572,6 +573,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setLevelDefinitions(pub.levelDefinitions ?? []);
       setAchievementDefinitions(pub.achievementDefinitions ?? []);
       setChallengeDefinitions(pub.challengeDefinitions ?? []);
+      setCitasServicios(pub.citasServicios ?? []);
+      setCitasDisponibilidad(pub.citasDisponibilidad ?? []);
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -590,6 +593,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setAchievementProgress(socia?.achievementProgress ?? []);
       setChallengeProgress(socia?.challengeProgress ?? []);
       setCreditTransactions(socia?.creditTransactions ?? []);
+      setCitas(socia?.citas ?? []);
       setDataLoaded(true);
     }).catch(err => { console.error('Error cargando datos públicos:', err); setDataLoaded(true); });
   }
@@ -1882,10 +1886,44 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function cancelarCita(citaId: string) {
+    // Optimista en ambos modos.
     setCitas(prev => prev.map(c =>
       c.id === citaId ? { ...c, estado: 'CANCELADA' as const } : c
     ));
+    const cpub = ctxPublico();
+    if (cpub) {
+      postPublico('/api/public/citas', { accion: 'cancelar', studioId: cpub.studioId, citaId });
+      return;
+    }
     dbUpdateCita(citaId, { estado: 'CANCELADA' });
+  }
+
+  // Reserva pública de una cita 1:1 (widget /reservar). Devuelve el resultado del
+  // servidor para que la UI confirme o muestre el error (hueco ocupado, etc.).
+  // La identidad sale del JWT (Bearer) en el endpoint; nunca del body.
+  async function reservarCitaPublica(
+    args: { servicioId: string; instructorId: string; inicioISO: string },
+  ): Promise<{ ok: true; inicio: string; fin: string } | { error: string }> {
+    const cpub = ctxPublico();
+    if (!cpub) return { error: 'La reserva de citas solo está disponible desde el portal público' };
+    try {
+      const auth = await portalAuthHeader();
+      const res = await fetch('/api/public/citas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...auth },
+        body: JSON.stringify({
+          accion: 'crear', studioId: cpub.studioId,
+          servicioId: args.servicioId, instructorId: args.instructorId, inicioISO: args.inicioISO,
+        }),
+      });
+      const data = await res.json().catch(() => ({ error: 'Error al reservar la cita' }));
+      if (!res.ok) return { error: data.error ?? 'Error al reservar la cita' };
+      return data as { ok: true; inicio: string; fin: string };
+    } catch {
+      return { error: 'Error de conexión. Inténtalo de nuevo.' };
+    } finally {
+      cargarPublico(); // re-sincroniza (aparece en "mis citas")
+    }
   }
 
   function completarCita(citaId: string) {
@@ -2650,6 +2688,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     deleteServicioCita,
     citasDisponibilidad,
     setDisponibilidadCitas,
+    reservarCitaPublica,
     productosPOS,
     addProductoPOS,
     updateProductoPOS,

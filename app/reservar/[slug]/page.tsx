@@ -8,6 +8,7 @@ import { PlanTarifa, type EstadoReserva, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
+import { CitasPublica } from '@/components/reserva/citas-publica';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import {
   Users, CheckCircle2, X, Calendar,
@@ -158,7 +159,7 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'clases' | 'misreservas' | 'estudio';
+type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio';
 type Step = 'login' | 'registro' | 'contrato' | 'confirm' | 'done' | 'espera';
 
 // Criterios de estado (mismos que el portal): qué reservas ocupan plaza y cuáles
@@ -177,6 +178,7 @@ export default function ReservarPage() {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio,
     addReserva, updateSocio, cancelarReserva, addSocioFromPortal,
+    citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
   const estudioNombre = studio?.nombre ?? 'Tentare';
   const estudioLogo = studio?.logoUrl ?? null;
@@ -348,6 +350,21 @@ export default function ReservarPage() {
       .filter(r => r.sesion)
       .sort((a, b) => (a.sesion!.inicio ?? '').localeCompare(b.sesion!.inicio ?? ''));
   }, [reservas, socia, sesionesRich]);
+
+  // Citas 1:1 de la socia (para "mis próximas citas" en la pestaña Citas).
+  const misCitas = useMemo(() => {
+    if (!socia?.socioId) return [];
+    const servById = new Map(citasServicios.map(s => [s.id, s]));
+    const instrById = new Map(instructores.map(i => [i.id, i]));
+    return citas
+      .filter(c => c.socioId === socia.socioId)
+      .map(c => ({
+        id: c.id,
+        servicioNombre: (c.servicioId ? servById.get(c.servicioId)?.nombre : null) ?? 'Cita',
+        instructorNombre: (c.instructorId ? instrById.get(c.instructorId)?.nombre : null) ?? '',
+        inicio: c.inicio, fin: c.fin, estado: c.estado,
+      }));
+  }, [citas, citasServicios, instructores, socia]);
 
   // Gate de derechos (C-4): mismo criterio que el servidor, para avisar antes de
   // intentar la reserva. El servidor es la autoridad; esto es solo UX.
@@ -598,7 +615,7 @@ export default function ReservarPage() {
 
           {/* Tabs */}
           <div className="flex gap-0">
-            {([['clases', 'Clases'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const).map(([t, label]) => (
+            {([['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const).map(([t, label]) => (
               <button key={t} onClick={() => setTab(t)}
                 className="px-4 py-2.5 text-sm font-semibold border-b-2 transition-all"
                 style={tab === t
@@ -651,6 +668,23 @@ export default function ReservarPage() {
               vacio={{ titulo: 'Sin clases disponibles', cuerpo: 'Prueba con otra semana o cambia el filtro' }}
             />
           </div>
+        )}
+
+        {/* ── TAB: CITAS 1:1 ──────────────────────────────────────────────── */}
+        {tab === 'citas' && (
+          <CitasPublica
+            studioId={studio?.id ?? ''}
+            servicios={citasServicios}
+            instructores={instructores}
+            disponibilidad={citasDisponibilidad}
+            misCitas={misCitas}
+            autenticada={!!socia}
+            onNeedLogin={() => { setBookingSesionId(''); setLoginStep('login'); }}
+            onReservar={(servicioId, instructorId, inicioISO) => reservarCitaPublica({ servicioId, instructorId, inicioISO })}
+            onCancelar={cancelarCita}
+            primary={PRIMARY}
+            primaryFg={PRIMARY_FG}
+          />
         )}
 
         {/* ── TAB: MIS RESERVAS ───────────────────────────────────────────── */}
