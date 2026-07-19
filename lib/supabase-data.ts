@@ -24,6 +24,8 @@ import type {
   RowChallengeHistory,
   RowChallengeProgress,
   RowCitas,
+  RowCitasServicios,
+  RowCitasDisponibilidad,
   RowCodigosDescuento,
   RowCreditTransactions,
   RowDashboardCharts,
@@ -78,6 +80,9 @@ import type {
   ChallengeHistory,
   ChallengeProgress,
   Cita,
+  ServicioCita,
+  DisponibilidadCita,
+  TipoCita,
   CodigoDescuento,
   CreditTransaction,
   DashboardChart,
@@ -120,6 +125,10 @@ import type {
   VentaPOS,
   VideoOnDemand,
 } from '@/lib/types';
+import {
+  generarHuecosDia, dentroDeDisponibilidad, horaParedAInstante,
+  type IntervaloOcupado, type HuecoCita,
+} from '@/lib/citas/slots';
 
 
 // Multi-tenancy: STUDIO_ID is resolved per logged-in user (see
@@ -706,6 +715,7 @@ function mapCita(r: RowCitas): Cita {
     precio: r.precio ?? null,
     pagada: r.pagada ?? false,
     creadoEn: r.creado_en,
+    servicioId: r.servicio_id ?? null,
   } as Cita;
 }
 
@@ -1831,6 +1841,158 @@ export async function cancelarReservaPublica(params: {
   return { ok: true as const, tardia, bonoDevuelto };
 }
 
+// ─── Citas 1:1 auto-reservables (0046) — escrituras/lecturas públicas ─────────
+// Mismo patrón de seguridad que las reservas: service-role + validación de que la
+// socia (id+email) pertenece al estudio; la identidad sale del JWT, nunca del body.
+
+// Servicios auto-reservables + instructoras + su horario fino, para pintar el
+// selector de la reserva pública. No expone datos de otras socias.
+export async function fetchCatalogoCitasPublico(studioId: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const [{ data: servicios }, { data: disp }] = await Promise.all([
+    admin.from('citas_servicios').select('*')
+      .eq('studio_id', studioId).eq('activo', true).eq('auto_reservable', true)
+      .order('orden', { ascending: true }),
+    admin.from('citas_disponibilidad').select('*').eq('studio_id', studioId),
+  ]);
+  return {
+    servicios: (servicios ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
+    disponibilidad: (disp ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
+  };
+}
+
+// Intervalos que ya ocupan la agenda de una instructora (citas activas + sesiones
+// de grupo no canceladas) en un rango, para restarlos al calcular huecos.
+async function cargarOcupadosInstructora(
+  admin: SupabaseClient, studioId: string, instructorId: string, desdeISO: string, hastaISO: string,
+): Promise<IntervaloOcupado[]> {
+  const [{ data: citas }, { data: sesiones }] = await Promise.all([
+    admin.from('citas').select('inicio, fin, estado')
+      .eq('studio_id', studioId).eq('instructor_id', instructorId)
+      .in('estado', ['PENDIENTE', 'CONFIRMADA'])
+      .lt('inicio', hastaISO).gte('fin', desdeISO),
+    admin.from('sesiones').select('inicio, fin, cancelada')
+      .eq('studio_id', studioId).eq('instructor_id', instructorId)
+      .lt('inicio', hastaISO).gte('fin', desdeISO),
+  ]);
+  const out: IntervaloOcupado[] = [];
+  for (const c of citas ?? []) out.push({ inicio: c.inicio as string, fin: c.fin as string });
+  for (const s of sesiones ?? []) {
+    if (s.cancelada) continue;
+    out.push({ inicio: s.inicio as string, fin: s.fin as string });
+  }
+  return out;
+}
+
+// Huecos reservables de una instructora para un servicio y un día (Madrid).
+export async function fetchHuecosCitaPublico(params: {
+  studioId: string; servicioId: string; instructorId: string; fechaLocal: string; ahora?: Date;
+}): Promise<{ error: string } | { ok: true; huecos: HuecoCita[] }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const { data: srow } = await admin.from('citas_servicios').select('*')
+    .eq('id', params.servicioId).eq('studio_id', params.studioId).maybeSingle();
+  if (!srow || !srow.activo || !srow.auto_reservable) return { error: 'Servicio no disponible' };
+  const servicio = mapServicioCita(srow as RowCitasServicios);
+
+  const { data: disp } = await admin.from('citas_disponibilidad').select('*')
+    .eq('studio_id', params.studioId).eq('instructor_id', params.instructorId);
+  const franjas = (disp ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad))
+    .map((f) => ({ diaSemana: f.diaSemana, horaInicio: f.horaInicio, horaFin: f.horaFin }));
+
+  // Rango del día en Madrid para cargar los ocupados (con holgura de 1 día).
+  const desde = horaParedAInstante(params.fechaLocal, '00:00');
+  const hasta = new Date(desde.getTime() + 36 * 3600 * 1000);
+  const ocupados = await cargarOcupadosInstructora(
+    admin, params.studioId, params.instructorId, desde.toISOString(), hasta.toISOString(),
+  );
+
+  const huecos = generarHuecosDia({
+    fechaLocal: params.fechaLocal, franjas, duracionMin: servicio.duracionMin,
+    ocupados, ahora: params.ahora ?? new Date(),
+  });
+  return { ok: true, huecos };
+}
+
+// Reserva self-service de una cita 1:1. Valida socia + servicio auto-reservable +
+// que el hueco cae dentro del horario fino de la instructora, y crea la cita de
+// forma ATÓMICA (rpc reservar_cita serializa concurrencia y rechaza solapes).
+export async function crearCitaPublica(params: {
+  studioId: string; servicioId: string; instructorId: string; inicioISO: string;
+  socioId: string; email: string;
+}) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  const { data: srow } = await admin.from('citas_servicios').select('*')
+    .eq('id', params.servicioId).eq('studio_id', params.studioId).maybeSingle();
+  if (!srow || !srow.activo || !srow.auto_reservable) return { error: 'Servicio no disponible' as const };
+  const servicio = mapServicioCita(srow as RowCitasServicios);
+
+  const inicio = new Date(params.inicioISO);
+  if (Number.isNaN(inicio.getTime()) || inicio.getTime() <= Date.now()) {
+    return { error: 'Esa hora no es válida' as const };
+  }
+  const finISO = new Date(inicio.getTime() + servicio.duracionMin * 60000).toISOString();
+
+  // La instructora debe existir en el estudio y estar activa.
+  const { data: instr } = await admin.from('instructores').select('id, activo')
+    .eq('id', params.instructorId).eq('studio_id', params.studioId).maybeSingle();
+  if (!instr || !instr.activo) return { error: 'Instructora no disponible' as const };
+
+  // Guardia de disponibilidad: el hueco debe caer dentro del horario fino de la
+  // instructora (autoritativo en servidor; la UI solo ofrece huecos válidos).
+  const { data: disp } = await admin.from('citas_disponibilidad').select('*')
+    .eq('studio_id', params.studioId).eq('instructor_id', params.instructorId);
+  const franjas = (disp ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad))
+    .map((f) => ({ diaSemana: f.diaSemana, horaInicio: f.horaInicio, horaFin: f.horaFin }));
+  if (!dentroDeDisponibilidad({ inicioISO: inicio.toISOString(), finISO, franjas })) {
+    return { error: 'Ese hueco no está disponible' as const };
+  }
+
+  const citaId = `cita-${uid()}`;
+  const { data, error } = await admin.rpc('reservar_cita', {
+    p_id: citaId, p_studio_id: params.studioId, p_socio_id: params.socioId,
+    p_instructor_id: params.instructorId, p_servicio_id: params.servicioId,
+    p_tipo: servicio.tipo, p_inicio: inicio.toISOString(), p_fin: finISO,
+    p_precio: servicio.precio, p_notas: null,
+  });
+  if (error) return { error: error.message };
+  const estado = (Array.isArray(data) ? data[0] : data) as string;
+  if (estado === 'CONFLICTO') return { error: 'Ese hueco ya no está disponible' as const };
+
+  return {
+    ok: true as const, citaId, estado: 'CONFIRMADA' as const,
+    inicio: inicio.toISOString(), fin: finISO,
+  };
+}
+
+// Cancela una cita self-service: solo si es de la socia y aún no ha pasado.
+export async function cancelarCitaPublica(params: {
+  studioId: string; citaId: string; socioId: string; email: string;
+}) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  const { data: cita } = await admin.from('citas').select('id, socio_id, inicio, estado')
+    .eq('id', params.citaId).eq('studio_id', params.studioId).maybeSingle();
+  if (!cita || cita.socio_id !== params.socioId) return { error: 'Cita no encontrada' as const };
+  if (cita.estado === 'CANCELADA') return { ok: true as const };
+  if (new Date(cita.inicio as string).getTime() <= Date.now()) {
+    return { error: 'Esta cita ya ha pasado' as const };
+  }
+  const { error } = await admin.from('citas').update({ estado: 'CANCELADA' })
+    .eq('id', params.citaId).eq('studio_id', params.studioId);
+  if (error) return { error: error.message };
+  return { ok: true as const };
+}
+
 // Login del portal: resuelve email → socia dentro del estudio (service-role).
 // Sustituye la lectura anónima directa sobre socios en la página de login.
 // I13: `resolverLoginSocia(slug, email)` se ELIMINÓ (junto a POST /api/public/login).
@@ -2295,6 +2457,36 @@ function citaToDb(cita: Cita) {
     precio: cita.precio ?? null,
     pagada: cita.pagada ?? false,
     creado_en: cita.creadoEn,
+    servicio_id: cita.servicioId ?? null,
+  };
+}
+
+function mapServicioCita(r: RowCitasServicios): ServicioCita {
+  return {
+    id: r.id,
+    studioId: r.studio_id ?? STUDIO_ID,
+    nombre: r.nombre,
+    tipo: r.tipo as TipoCita,
+    duracionMin: r.duracion_min,
+    precio: r.precio ?? null,
+    autoReservable: r.auto_reservable ?? false,
+    color: r.color ?? null,
+    descripcion: r.descripcion ?? null,
+    activo: r.activo ?? true,
+    orden: r.orden ?? 0,
+    creadoEn: r.creado_en ?? '',
+  };
+}
+
+function mapDisponibilidadCita(r: RowCitasDisponibilidad): DisponibilidadCita {
+  return {
+    id: r.id,
+    studioId: r.studio_id ?? STUDIO_ID,
+    instructorId: r.instructor_id ?? '',
+    diaSemana: r.dia_semana,
+    horaInicio: (r.hora_inicio ?? '').slice(0, 5), // 'HH:MM:SS' → 'HH:MM'
+    horaFin: (r.hora_fin ?? '').slice(0, 5),
+    creadoEn: r.creado_en ?? '',
   };
 }
 

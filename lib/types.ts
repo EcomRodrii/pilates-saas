@@ -406,6 +406,36 @@ export interface Cita {
   precio: number | null;
   pagada: boolean;
   creadoEn: string;
+  servicioId?: string | null; // servicio de cita reservado (0046), si aplica
+}
+
+// Catálogo de servicios de cita 1:1 por estudio (0046). Define duración/precio y
+// si la socia puede reservarlo ella misma (auto-reservable) desde la reserva pública.
+export interface ServicioCita {
+  id: string;
+  studioId: string;
+  nombre: string;
+  tipo: TipoCita;
+  duracionMin: number;
+  precio: number | null;
+  autoReservable: boolean;
+  color: string | null;
+  descripcion: string | null;
+  activo: boolean;
+  orden: number;
+  creadoEn: string;
+}
+
+// Franja de horario fino por instructora (0046). Varias por día de la semana.
+// diaSemana usa la convención Postgres DOW: 0=domingo..6=sábado.
+export interface DisponibilidadCita {
+  id: string;
+  studioId: string;
+  instructorId: string;
+  diaSemana: number;
+  horaInicio: string; // 'HH:MM'
+  horaFin: string;    // 'HH:MM'
+  creadoEn: string;
 }
 
 export type CategoriaPOS = 'SESION' | 'PACK' | 'PRODUCTO' | 'OTRO';
