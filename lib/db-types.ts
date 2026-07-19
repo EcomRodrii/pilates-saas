@@ -252,6 +252,32 @@ export interface RowCitas {
   precio: number | null;
   pagada: boolean | null;
   creado_en: string | null;
+  servicio_id: string | null;
+}
+
+export interface RowCitasServicios {
+  id: string;
+  studio_id: string | null;
+  nombre: string;
+  tipo: string;
+  duracion_min: number;
+  precio: number | null;
+  auto_reservable: boolean | null;
+  color: string | null;
+  descripcion: string | null;
+  activo: boolean | null;
+  orden: number | null;
+  creado_en: string | null;
+}
+
+export interface RowCitasDisponibilidad {
+  id: string;
+  studio_id: string | null;
+  instructor_id: string | null;
+  dia_semana: number;
+  hora_inicio: string;
+  hora_fin: string;
+  creado_en: string | null;
 }
 
 export interface RowProductosPos {
