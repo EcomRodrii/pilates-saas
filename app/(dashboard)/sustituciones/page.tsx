@@ -9,7 +9,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
-  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X,
+  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw,
 } from 'lucide-react';
 
 type EstadoMeta = { label: string; cls: string; activa: boolean };
@@ -41,6 +41,8 @@ export default function SustitucionesPage() {
   const [aviso, setAviso] = useState<string | null>(null);   // toast breve
   const [avisar, setAvisar] = useState(false);               // toggle avisar_alumnas
   const [valoraciones, setValoraciones] = useState<ResumenValoraciones>({});
+  const [ahoraMs, setAhoraMs] = useState(0);          // se fija al montar (evita Date.now en render)
+  const [horarioCerrado, setHorarioCerrado] = useState<string | null>(null);
 
   const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'Instructora';
   const tipoDe = (id: string | null | undefined) => tiposClase.find(t => t.id === id);
@@ -55,6 +57,8 @@ export default function SustitucionesPage() {
     resumenValoraciones().then(r => { if (vivo) setValoraciones(r); });
     return () => { vivo = false; };
   }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setAhoraMs(Date.now()); }, []);
 
   async function toggleAvisar() {
     const nuevo = !avisar;
@@ -76,6 +80,18 @@ export default function SustitucionesPage() {
 
   const activas = items.filter(s => ESTADO[s.estado]?.activa);
   const resueltas = items.filter(s => !ESTADO[s.estado]?.activa);
+
+  // Última sustitución confirmada (reciente) → card "Horario actualizado".
+  const ultimaConfirmada = useMemo(() => {
+    if (!ahoraMs) return null;
+    const conf = items
+      .filter(s => s.estado === 'confirmada' && s.sesiones?.inicio && s.resuelto_en)
+      .sort((a, b) => (b.resuelto_en ?? '').localeCompare(a.resuelto_en ?? ''));
+    const top = conf[0];
+    if (!top || !top.resuelto_en) return null;
+    if (ahoraMs - new Date(top.resuelto_en).getTime() > 7 * 24 * 3600 * 1000) return null; // solo recientes
+    return top;
+  }, [items, ahoraMs]);
 
   async function confirmar(s: SustitucionPanel, instructorId: string) {
     setAccion(s.id);
@@ -129,6 +145,13 @@ export default function SustitucionesPage() {
         <div className="flex items-start gap-2 rounded-xl bg-[#DCFCE7] border border-[#86EFAC] px-4 py-3 text-[13px] text-[#166534]">
           <MailCheck size={16} className="shrink-0 mt-0.5" /> {aviso}
         </div>
+      )}
+
+      {ultimaConfirmada && horarioCerrado !== ultimaConfirmada.id && (
+        <HorarioActualizadoCard
+          sub={ultimaConfirmada} sesiones={sesiones} tiposClase={tiposClase} nombreInstructor={nombreInstructor}
+          onClose={() => setHorarioCerrado(ultimaConfirmada.id)}
+        />
       )}
 
       {cargando ? (
@@ -192,6 +215,109 @@ function Estrellas({ val }: { val?: { media: number; total: number } }) {
       {val.media.toFixed(1)}
       <span className="font-medium text-[#CA8A04]">({val.total})</span>
     </span>
+  );
+}
+
+// Nombre corto tipo "Laura M." para las celdas del mini-calendario.
+function nombreCorto(n: string): string {
+  const p = n.trim().split(/\s+/);
+  return p.length > 1 && p[1] ? `${p[0]} ${p[1][0]}.` : (p[0] ?? n);
+}
+
+// Card "Horario actualizado automáticamente": mini-calendario de la semana de la
+// clase recién cubierta, con la sustituta ya colocada (resaltada en verde).
+function HorarioActualizadoCard({ sub, sesiones, tiposClase, nombreInstructor, onClose }: {
+  sub: SustitucionPanel;
+  sesiones: import('@/lib/types').Sesion[];
+  tiposClase: import('@/lib/types').TipoClase[];
+  nombreInstructor: (id: string | null) => string;
+  onClose: () => void;
+}) {
+  const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const tipoDe = (id: string | null | undefined) => tiposClase.find(t => t.id === id);
+
+  const grid = useMemo(() => {
+    const inicio = sub.sesiones?.inicio;
+    if (!inicio) return null;
+    const base = new Date(inicio);
+    const dow = (base.getDay() + 6) % 7; // 0 = lunes
+    const monday = new Date(base); monday.setDate(base.getDate() - dow); monday.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(monday.getTime() + 7 * 24 * 3600 * 1000);
+    const dentro = sesiones.filter(s => {
+      if (s.cancelada) return false;
+      const d = new Date(s.inicio);
+      return d >= monday && d < weekEnd;
+    });
+    if (!dentro.length) return null;
+    const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const diaIdx = (d: Date) => (d.getDay() + 6) % 7;
+    const dias = [...new Set(dentro.map(s => diaIdx(new Date(s.inicio))))].sort((a, b) => a - b);
+    const slots = [...new Set(dentro.map(s => hhmm(new Date(s.inicio))))].sort().slice(0, 6);
+    const cell = new Map<string, typeof dentro>();
+    for (const s of dentro) {
+      const d = new Date(s.inicio);
+      const t = hhmm(d);
+      if (!slots.includes(t)) continue;
+      const key = `${diaIdx(d)}|${t}`;
+      const arr = cell.get(key) ?? []; arr.push(s); cell.set(key, arr);
+    }
+    return { dias, slots, cell };
+  }, [sub, sesiones]);
+
+  if (!grid) return null;
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-3.5">
+        <div className="flex items-center gap-1.5">
+          <RefreshCw size={14} className="text-[#16A34A]" />
+          <span className="text-[13px] font-bold text-foreground">Horario actualizado automáticamente</span>
+        </div>
+        <button onClick={onClose} title="Cerrar" className="text-muted-foreground hover:text-foreground transition-colors"><X size={15} /></button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="border-separate" style={{ borderSpacing: 4, minWidth: '100%' }}>
+          <thead>
+            <tr>
+              <th className="w-9" />
+              {grid.dias.map(d => <th key={d} className="text-[11px] font-bold text-muted-foreground pb-1 px-1">{DIAS[d]}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {grid.slots.map(slot => (
+              <tr key={slot}>
+                <td className="text-[11px] font-semibold text-muted-foreground pr-1 whitespace-nowrap align-top pt-1.5">{slot}</td>
+                {grid.dias.map(d => {
+                  const arr = grid.cell.get(`${d}|${slot}`) ?? [];
+                  return (
+                    <td key={d} className="align-top min-w-[76px]">
+                      <div className="flex flex-col gap-1">
+                        {arr.slice(0, 2).map(s => {
+                          const t = tipoDe(s.tipoClaseId);
+                          const esSust = s.id === sub.sesion_id;
+                          const color = t?.color ?? '#94A3B8';
+                          const instrId = esSust ? sub.sustituta_final_id : s.instructorId;
+                          return (
+                            <div key={s.id} className={`rounded-lg px-2 py-1.5 leading-tight ${esSust ? 'ring-2 ring-[#22C55E]' : ''}`} style={{ backgroundColor: `${color}1A` }}>
+                              <p className="text-[10px] font-bold truncate" style={{ color }}>{t?.nombre ?? 'Clase'}</p>
+                              <p className="text-[10px] text-foreground/70 truncate">{nombreCorto(nombreInstructor(instrId))}</p>
+                            </div>
+                          );
+                        })}
+                        {arr.length > 2 && <p className="text-[9px] text-muted-foreground pl-1">+{arr.length - 2}</p>}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-3">
+        <strong className="text-foreground">{nombreInstructor(sub.sustituta_final_id)}</strong> cubre {tipoDe(sub.sesiones?.tipo_clase_id)?.nombre ?? 'la clase'} · {fmtClase(sub.sesiones?.inicio)}. Ya está en el calendario, sin que muevas un dedo.
+      </p>
+    </div>
   );
 }
 
