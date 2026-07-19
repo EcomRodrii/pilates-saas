@@ -12,7 +12,7 @@ import {
   dbInsertSuscripcion, dbUpdateSuscripcion,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
-  dbInsertRecibo, dbUpdateRecibo, dbDeleteRecibo,
+  dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
   dbInsertVentaPOS,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
@@ -1777,10 +1777,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setRecibos(prev => prev.map(r =>
       idsPendientes.has(r.id) ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
     ));
-    // Persist each recibo update to Supabase
-    for (const recibo of pendientes) {
-      dbUpdateRecibo(recibo.id, { estado: 'COBRADO', fechaCobro });
-    }
+    // Un solo UPDATE en lote (antes: un dbUpdateRecibo por recibo — hasta ~120
+    // round-trips secuenciales para cobrar 40 recibos pendientes).
+    dbUpdateRecibosBatch(pendientes.map(r => r.id), { estado: 'COBRADO', fechaCobro });
     setFacturas(prev => {
       let current = [...prev];
       for (const recibo of pendientes) {

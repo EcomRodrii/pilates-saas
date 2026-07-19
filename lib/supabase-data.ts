@@ -2875,6 +2875,22 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>) {
   if (error) reportDbError('[dbUpdateRecibo]', error);
 }
 
+// Aplica los mismos cambios a varios recibos (cobro masivo desde Pagos/ficha de
+// socia) en una sola llamada, en vez de un UPDATE por recibo. Solo para campos
+// uniformes entre todos los recibos del lote (estado + fechaCobro, que es lo
+// que necesita cobrarTodosPendientes).
+export async function dbUpdateRecibosBatch(ids: string[], changes: Partial<Recibo>) {
+  if (ids.length === 0) return;
+  const db: Record<string, unknown> = {};
+  if ('estado' in changes) db.estado = changes.estado;
+  if ('fechaCobro' in changes) db.fecha_cobro = changes.fechaCobro;
+  if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
+  if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
+  if (Object.keys(db).length === 0) return;
+  const { error } = await supabase.from('recibos').update(db).in('id', ids);
+  if (error) reportDbError('[dbUpdateRecibosBatch]', error);
+}
+
 export async function dbDeleteRecibo(id: string) {
   const { error } = await supabase.from('recibos').delete().eq('id', id);
   if (error) reportDbError('[dbDeleteRecibo]', error);
