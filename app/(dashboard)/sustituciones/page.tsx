@@ -9,7 +9,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
-  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff, Star,
+  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X,
 } from 'lucide-react';
 
 type EstadoMeta = { label: string; cls: string; activa: boolean };
@@ -215,6 +215,7 @@ function SustitucionCard({
   const resto = ranking.slice(1);
   const esp = tipo?.nombre ?? 'Clase';
   const contactada = s.estado === 'contactando';
+  const esSolicitud = s.estado === 'pendiente_aprobacion'; // card "Nueva sustitución solicitada"
   const insDe = (id: string) => instructores.find(i => i.id === id);
 
   return (
@@ -261,11 +262,11 @@ function SustitucionCard({
         </div>
       ) : (
         <>
-          {/* HERO: la sustituta ideal */}
+          {/* HERO: la sustituta ideal (o solicitud pendiente de aprobación) */}
           <div className="mt-4 rounded-2xl border border-brand/20 bg-brand/[0.05] p-4 sm:p-5">
             <div className="flex items-center gap-1.5 mb-3.5">
-              <CheckCircle2 size={15} className="text-[#22C55E]" />
-              <span className="text-[12px] font-bold text-foreground">Sustituta ideal encontrada</span>
+              {esSolicitud ? <CalendarClock size={15} className="text-brand-secondary" /> : <CheckCircle2 size={15} className="text-[#22C55E]" />}
+              <span className="text-[12px] font-bold text-foreground">{esSolicitud ? 'Nueva sustitución solicitada' : 'Sustituta ideal encontrada'}</span>
             </div>
 
             <div className="flex items-center gap-3.5">
@@ -306,21 +307,44 @@ function SustitucionCard({
             <p className="mt-3 text-[12px] text-muted-foreground leading-relaxed">{(hero.motivos ?? []).join(' · ')}</p>
 
             {/* Acciones */}
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => onAvisar(s, hero.instructor_id)} disabled={enProceso}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-brand text-brand-foreground text-[14px] font-bold hover:brightness-95 disabled:opacity-50 transition active:scale-[0.99]"
-              >
-                <Mail size={15} /> {contactada ? 'Volver a avisar' : `Avisar a ${hero.nombre.split(' ')[0]}`}
-              </button>
-              <button
-                onClick={() => onConfirmar(s, hero.instructor_id)} disabled={enProceso}
-                title="Confirmar directamente (sin email)"
-                className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-border text-foreground text-[13px] font-semibold hover:bg-muted disabled:opacity-50 transition"
-              >
-                <Check size={14} /> Confirmar
-              </button>
-            </div>
+            {esSolicitud ? (
+              // Card "Nueva sustitución solicitada": decisión binaria de la propietaria.
+              // Aprobar = avisar a la candidata (dos lados: ella confirma desde el móvil);
+              // Rechazar = descartar la sustitución ("lo resuelvo por mi cuenta").
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => onDescartar(s)} disabled={enProceso}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl border border-border text-foreground text-[14px] font-semibold hover:bg-muted disabled:opacity-50 transition"
+                >
+                  <X size={15} /> Rechazar
+                </button>
+                <button
+                  onClick={() => onAvisar(s, hero.instructor_id)} disabled={enProceso}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#16A34A] text-white text-[14px] font-bold hover:brightness-95 disabled:opacity-50 transition active:scale-[0.99]"
+                >
+                  <Check size={16} /> Aprobar
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => onAvisar(s, hero.instructor_id)} disabled={enProceso}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-brand text-brand-foreground text-[14px] font-bold hover:brightness-95 disabled:opacity-50 transition active:scale-[0.99]"
+                >
+                  <Mail size={15} /> {contactada ? 'Volver a avisar' : `Avisar a ${hero.nombre.split(' ')[0]}`}
+                </button>
+                <button
+                  onClick={() => onConfirmar(s, hero.instructor_id)} disabled={enProceso}
+                  title="Confirmar directamente (sin email)"
+                  className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-border text-foreground text-[13px] font-semibold hover:bg-muted disabled:opacity-50 transition"
+                >
+                  <Check size={14} /> Confirmar
+                </button>
+              </div>
+            )}
+            {esSolicitud && (
+              <p className="mt-2.5 text-[11px] text-center text-muted-foreground">Al aprobar avisamos a {hero.nombre.split(' ')[0]}; cuando acepte, la clase se reasigna sola.</p>
+            )}
             {contactada && (
               <p className="mt-2.5 text-[11px] text-center text-muted-foreground">✉️ Avisada — esperando su respuesta</p>
             )}
