@@ -80,7 +80,7 @@ export default function MisReservasPage() {
                   key={tb.id}
                   onClick={() => setTab(tb.id)}
                   style={{
-                    flexShrink: 0, padding: '6px 14px', borderRadius: 16, fontSize: 12, fontWeight: 800, border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
+                    flexShrink: 0, minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 16, fontSize: 12, fontWeight: 800, border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
                     backgroundColor: active ? 'var(--portal-brand)' : t.surface2, color: active ? 'var(--portal-brand-foreground)' : t.muted,
                   }}
                 >
@@ -125,7 +125,7 @@ export default function MisReservasPage() {
                   {puedeCancel && (
                     <button
                       onClick={() => setCancelando(r)}
-                      style={{ marginTop: 12, width: '100%', padding: '8px 0', borderRadius: 14, border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 12, fontWeight: 800, background: 'transparent' }}
+                      style={{ marginTop: 12, width: '100%', minHeight: 44, padding: '0', borderRadius: 14, border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 12, fontWeight: 800, background: 'transparent' }}
                     >
                       Cancelar reserva
                     </button>
@@ -141,7 +141,7 @@ export default function MisReservasPage() {
       {cancelando && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setCancelando(null)} />
-          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px 32px' }}>
+          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px max(32px, calc(env(safe-area-inset-bottom) + 20px))' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Cancelar esta clase?</h2>
               <button onClick={() => setCancelando(null)} style={{ width: 32, height: 32, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.surface2, color: t.muted, border: 'none' }}>
