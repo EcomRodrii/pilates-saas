@@ -64,7 +64,8 @@ export default function PerfilPage() {
 
   if (!socio || !session) return null;
 
-  function handleGuardar() {
+  function handleGuardar(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!socio) return;
     updateSocio(socio.id, {
       nombre: form.nombre.trim(),
@@ -114,7 +115,8 @@ export default function PerfilPage() {
 
   const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 26 };
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
-  const inputStyle: React.CSSProperties = { width: '100%', borderRadius: 16, border: `1px solid ${t.line}`, background: t.bg, padding: '12px 16px', fontSize: 14, color: t.ink, outline: 'none' };
+  // fontSize 16 (no 14): por debajo de 16px iOS hace zoom automático al enfocar el campo.
+  const inputStyle: React.CSSProperties = { width: '100%', borderRadius: 16, border: `1px solid ${t.line}`, background: t.bg, padding: '12px 16px', fontSize: 16, color: t.ink, outline: 'none' };
   const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: t.muted2, display: 'block', marginBottom: 6 };
 
   return (
@@ -205,26 +207,26 @@ export default function PerfilPage() {
         )}
 
         {/* Datos personales */}
-        <div style={{ ...card, padding: 20 }}>
+        <form onSubmit={handleGuardar} style={{ ...card, padding: 20 }}>
           <p style={{ ...microLabel, marginBottom: 16 }}>Datos personales</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label style={labelStyle}>Nombre</label>
-                <input style={inputStyle} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+                <input style={inputStyle} autoComplete="given-name" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
               </div>
               <div>
                 <label style={labelStyle}>Apellidos</label>
-                <input style={inputStyle} value={form.apellidos} onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
+                <input style={inputStyle} autoComplete="family-name" value={form.apellidos} onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
               </div>
             </div>
             <div>
               <label style={labelStyle}>Email</label>
-              <input type="email" style={inputStyle} value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              <input type="email" style={inputStyle} autoComplete="email" inputMode="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
             </div>
             <div>
               <label style={labelStyle}>Teléfono</label>
-              <input type="tel" style={inputStyle} placeholder="+34 600 000 000" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+              <input type="tel" style={inputStyle} autoComplete="tel" inputMode="tel" placeholder="+34 600 000 000" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
             </div>
             <div>
               <label style={labelStyle}>Fecha de nacimiento</label>
@@ -232,16 +234,16 @@ export default function PerfilPage() {
             </div>
             <div>
               <label style={labelStyle}>Dirección</label>
-              <input style={inputStyle} placeholder="Calle, número, ciudad" value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
+              <input style={inputStyle} autoComplete="street-address" placeholder="Calle, número, ciudad" value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
             </div>
           </div>
           <button
-            onClick={handleGuardar}
+            type="submit"
             style={{ width: '100%', marginTop: 20, padding: '13px 0', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 'none', textTransform: 'uppercase' }}
           >
             {guardado ? <><Check size={15} />Guardado</> : 'Guardar cambios'}
           </button>
-        </div>
+        </form>
 
         {/* Notificaciones */}
         <div style={{ ...card, padding: 20 }}>
@@ -256,18 +258,25 @@ export default function PerfilPage() {
             ]).map(({ key, label }) => {
               const activo = prefs ? prefs[key] : true;
               return (
-                <label key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                // El área táctil es la fila entera (min 44px de alto), no solo el
+                // interruptor de 24px — antes solo el propio <button> respondía,
+                // aunque visualmente parecía que toda la fila era interactiva.
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => upsertPreferenciasSocio(socio.id, { [key]: !activo })}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 44, padding: '4px 0', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}
+                >
                   <span style={{ fontSize: 14, color: t.ink }}>{label}</span>
-                  <button
-                    type="button"
-                    onClick={() => upsertPreferenciasSocio(socio.id, { [key]: !activo })}
-                    style={{ width: 44, height: 24, borderRadius: 999, position: 'relative', flexShrink: 0, border: 'none', backgroundColor: activo ? 'var(--portal-brand)' : t.surface2 }}
+                  <span
+                    aria-hidden
+                    style={{ width: 44, height: 24, borderRadius: 999, position: 'relative', flexShrink: 0, backgroundColor: activo ? 'var(--portal-brand)' : t.surface2 }}
                   >
                     <span
                       style={{ position: 'absolute', top: 2, width: 20, height: 20, borderRadius: 999, background: t.surface, transition: 'transform 0.15s', transform: activo ? 'translateX(22px)' : 'translateX(2px)' }}
                     />
-                  </button>
-                </label>
+                  </span>
+                </button>
               );
             })}
           </div>
@@ -302,7 +311,7 @@ export default function PerfilPage() {
       {showAvatarPicker && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowAvatarPicker(false)} />
-          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px 32px', maxHeight: '85vh', overflowY: 'auto' }}>
+          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px max(32px, calc(env(safe-area-inset-bottom) + 20px))', maxHeight: '85vh', overflowY: 'auto' }}>
             <p style={{ fontSize: 15, fontWeight: 800, color: t.ink, marginBottom: 12 }}>Elige tu avatar</p>
             <AvatarPicker
               value={socio.avatar ?? null}

@@ -99,7 +99,7 @@ export default function ClasesPage() {
                 key={key}
                 onClick={() => setTab(key)}
                 style={{
-                  padding: '8px 16px', borderRadius: 16, fontSize: 13, fontWeight: 800, textTransform: 'uppercase', border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
+                  minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 16px', borderRadius: 16, fontSize: 13, fontWeight: 800, textTransform: 'uppercase', border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
                   background: active ? 'var(--portal-brand)' : t.surface, color: active ? 'var(--portal-brand-foreground)' : t.muted,
                 }}
               >
@@ -219,7 +219,7 @@ export default function ClasesPage() {
                         {miReserva?.estado === 'CONFIRMADA' ? (
                           <button
                             onClick={() => cancelarReserva(miReserva.id)}
-                            style={{ width: '100%', fontSize: 13, fontWeight: 800, color: '#EF4444', padding: '10px 0', borderRadius: 16, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent' }}
+                            style={{ width: '100%', minHeight: 44, fontSize: 13, fontWeight: 800, color: '#EF4444', padding: '0', borderRadius: 16, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent' }}
                           >
                             Cancelar reserva
                           </button>
@@ -228,7 +228,7 @@ export default function ClasesPage() {
                             onClick={() => session?.socioId && addReserva(ses.id, session.socioId)}
                             disabled={libres <= 0}
                             style={{
-                              width: '100%', fontSize: 14, fontWeight: 800, textTransform: 'uppercase', padding: '10px 0', borderRadius: 16, border: 'none',
+                              width: '100%', minHeight: 44, fontSize: 14, fontWeight: 800, textTransform: 'uppercase', padding: '0', borderRadius: 16, border: 'none',
                               color: libres > 0 ? 'var(--portal-brand-foreground)' : t.muted, backgroundColor: libres > 0 ? 'var(--portal-brand)' : t.surface2, opacity: libres <= 0 ? 0.6 : 1,
                             }}
                           >

@@ -233,7 +233,7 @@ export default function MiPlanPage() {
                   key={f}
                   onClick={() => setFiltro(f)}
                   style={{
-                    padding: '6px 14px', borderRadius: 16, fontSize: 12, fontWeight: 800, border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
+                    minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 16, fontSize: 12, fontWeight: 800, border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
                     backgroundColor: active ? 'var(--portal-brand)' : t.surface2, color: active ? 'var(--portal-brand-foreground)' : t.muted,
                   }}
                 >
@@ -298,7 +298,7 @@ export default function MiPlanPage() {
                         onClick={() => pagarRecibo(rec.id)}
                         disabled={pagoLoading === rec.id}
                         style={{
-                          alignSelf: 'flex-start', padding: '8px 16px', borderRadius: 12, fontSize: 12.5, fontWeight: 800,
+                          alignSelf: 'flex-start', minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 16px', borderRadius: 12, fontSize: 12.5, fontWeight: 800,
                           border: 'none', background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
                           opacity: pagoLoading === rec.id ? 0.6 : 1, cursor: pagoLoading === rec.id ? 'default' : 'pointer',
                         }}

@@ -86,7 +86,7 @@ export default function PortalLogin() {
                 required
                 autoFocus
                 autoComplete="email"
-                style={{ ...inputStyle, width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 14, paddingBottom: 14, fontSize: 14, outline: 'none' }}
+                style={{ ...inputStyle, width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 14, paddingBottom: 14, fontSize: 16, outline: 'none' }}
               />
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function PortalLogin() {
                 placeholder="••••••••"
                 required
                 autoComplete="current-password"
-                style={{ ...inputStyle, width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 14, paddingBottom: 14, fontSize: 14, outline: 'none' }}
+                style={{ ...inputStyle, width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 14, paddingBottom: 14, fontSize: 16, outline: 'none' }}
               />
             </div>
           </div>

@@ -133,7 +133,7 @@ export default function ProgresoPage() {
                 key={tb.id}
                 onClick={() => setTab(tb.id)}
                 style={{
-                  flex: 1, padding: '8px 0', borderRadius: 14, fontSize: 12.5, fontWeight: 800, border: 'none',
+                  flex: 1, minHeight: 44, padding: '0', borderRadius: 14, fontSize: 12.5, fontWeight: 800, border: 'none',
                   background: active ? t.surface : 'transparent', color: active ? t.ink : t.muted,
                 }}
               >
@@ -568,7 +568,7 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
       {canjeando && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setCanjeando(null)} />
-          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px 32px' }}>
+          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px max(32px, calc(env(safe-area-inset-bottom) + 20px))' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 16 }}>
               <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, marginBottom: 12 }}>
                 {canjeando.icono}

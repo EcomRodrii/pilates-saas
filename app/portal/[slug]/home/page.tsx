@@ -246,7 +246,7 @@ export default function PortalHome() {
                   {miReserva ? (
                     <span style={{ fontSize: 11, fontWeight: 800, color: '#3E9B6C', background: 'rgba(62,155,108,0.12)', padding: '8px 12px', borderRadius: 12, textTransform: 'uppercase' }}>Reservada</span>
                   ) : (
-                    <button onClick={() => session?.socioId && addReserva(ses.id, session.socioId)} disabled={libres <= 0} style={{ fontSize: 12, fontWeight: 800, color: accentInk, background: accentBg, padding: '9px 16px', borderRadius: 12, textTransform: 'uppercase', opacity: libres <= 0 ? 0.4 : 1 }}>Reservar</button>
+                    <button onClick={() => session?.socioId && addReserva(ses.id, session.socioId)} disabled={libres <= 0} style={{ fontSize: 12, fontWeight: 800, color: accentInk, background: accentBg, minHeight: 44, padding: '0 16px', borderRadius: 12, textTransform: 'uppercase', opacity: libres <= 0 ? 0.4 : 1 }}>Reservar</button>
                   )}
                 </div>
               );

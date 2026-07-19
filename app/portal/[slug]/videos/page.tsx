@@ -78,7 +78,7 @@ export default function VideosPage() {
                 key={c.value}
                 onClick={() => setCat(c.value)}
                 style={{
-                  flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 16, fontSize: 12, fontWeight: 800,
+                  flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, minHeight: 44, padding: '0 14px', borderRadius: 16, fontSize: 12, fontWeight: 800,
                   border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`, background: active ? 'var(--portal-brand)' : t.surface, color: active ? 'var(--portal-brand-foreground)' : t.muted,
                 }}
               >
@@ -184,7 +184,7 @@ export default function VideosPage() {
               </div>
             )}
 
-            <div style={{ padding: 20 }}>
+            <div style={{ padding: '20px 20px max(20px, env(safe-area-inset-bottom))' }}>
               <p style={{ fontSize: 20, fontWeight: 800, color: t.ink, lineHeight: 1.1, textTransform: 'uppercase' }}>{selected.titulo}</p>
               {instructores.find(i => i.id === selected.instructorId) && (
                 <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>
