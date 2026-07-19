@@ -1,16 +1,37 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { Calendar, Clock, MapPin, User as UserIcon, X } from 'lucide-react';
+import { Calendar, Clock, MapPin, User as UserIcon } from 'lucide-react';
 import type { Reserva, Sesion } from '@/lib/types';
 import { formatFechaCorta as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
+import { Card, Badge, Tabs, EmptyState, BottomSheet, Button, type BadgeVariant, type TabItem } from '@/components/portal/ui';
 
 type Tab = 'PROXIMAS' | 'PASADAS' | 'CANCELADAS' | 'ESPERA';
 
+const ESTADO_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
+  CONFIRMADA: { label: 'Confirmada', variant: 'success' },
+  LISTA_ESPERA: { label: 'Lista de espera', variant: 'warning' },
+  ASISTIDA: { label: 'Asistida', variant: 'neutral' },
+  CANCELADA: { label: 'Cancelada', variant: 'neutral' },
+  NO_ASISTIO: { label: 'No asistió', variant: 'danger' },
+};
+
+// Copy específico por pestaña — antes las 4 compartían el mismo "Nada por
+// aquí todavía" sin distinguir el motivo real de cada una.
+const EMPTY_COPY: Record<Tab, { title: string; body: string }> = {
+  PROXIMAS: { title: 'Sin clases reservadas', body: 'Mira los horarios de esta semana y reserva tu próxima sesión.' },
+  PASADAS: { title: 'Aún no has asistido a ninguna clase', body: 'Cuando asistas a una clase, aparecerá aquí tu historial.' },
+  CANCELADAS: { title: 'Sin reservas canceladas', body: 'Aquí verás las clases que hayas cancelado.' },
+  ESPERA: { title: 'Sin lista de espera', body: 'Si una clase está completa, podrás apuntarte para el siguiente hueco libre.' },
+};
+
 export default function MisReservasPage() {
+  const { slug } = useParams<{ slug: string }>();
+  const router = useRouter();
   const { session } = usePortalAuth();
   const { reservas, sesiones, tiposClase, salas, instructores, cancelarReserva } = useStudio();
   const { t } = useModo();
@@ -18,14 +39,6 @@ export default function MisReservasPage() {
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
   const socioId = session?.socioId;
   const now = new Date();
-
-  const ESTADO_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-    CONFIRMADA: { label: 'Confirmada', bg: 'rgba(62,155,108,0.14)', color: '#3E9B6C' },
-    LISTA_ESPERA: { label: 'Lista de espera', bg: 'rgba(217,119,6,0.14)', color: '#D97706' },
-    ASISTIDA: { label: 'Asistida', bg: 'rgba(3,105,161,0.14)', color: '#0369A1' },
-    CANCELADA: { label: 'Cancelada', bg: t.surface2, color: t.muted },
-    NO_ASISTIO: { label: 'No asistió', bg: 'rgba(220,38,38,0.14)', color: '#DC2626' },
-  };
 
   const misReservas = useMemo(() =>
     reservas
@@ -52,14 +65,12 @@ export default function MisReservasPage() {
 
   const lista = porTab[tab];
 
-  const TABS: { id: Tab; label: string }[] = [
-    { id: 'PROXIMAS', label: 'Próximas' },
-    { id: 'PASADAS', label: 'Pasadas' },
-    { id: 'CANCELADAS', label: 'Canceladas' },
-    { id: 'ESPERA', label: 'Lista de espera' },
+  const TABS: TabItem<Tab>[] = [
+    { id: 'PROXIMAS', label: 'Próximas', count: porTab.PROXIMAS.length },
+    { id: 'PASADAS', label: 'Pasadas', count: porTab.PASADAS.length },
+    { id: 'CANCELADAS', label: 'Canceladas', count: porTab.CANCELADAS.length },
+    { id: 'ESPERA', label: 'Lista de espera', count: porTab.ESPERA.length },
   ];
-
-  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 18 };
 
   return (
     <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
@@ -70,33 +81,17 @@ export default function MisReservasPage() {
       </div>
 
       <div style={{ padding: '0 16px 24px' }}>
-        {/* Tabs */}
-        <div style={{ position: 'relative', marginBottom: 16, marginLeft: -16, marginRight: -16, paddingLeft: 16, paddingRight: 16 }}>
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' } as React.CSSProperties}>
-            {TABS.map(tb => {
-              const active = tab === tb.id;
-              return (
-                <button
-                  key={tb.id}
-                  onClick={() => setTab(tb.id)}
-                  style={{
-                    flexShrink: 0, minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 16, fontSize: 12, fontWeight: 800, border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
-                    backgroundColor: active ? 'var(--portal-brand)' : t.surface2, color: active ? 'var(--portal-brand-foreground)' : t.muted,
-                  }}
-                >
-                  {tb.label}
-                  {porTab[tb.id].length > 0 && ` (${porTab[tb.id].length})`}
-                </button>
-              );
-            })}
-          </div>
+        <div style={{ marginBottom: 16, marginLeft: -16, marginRight: -16, paddingLeft: 16, paddingRight: 16 }}>
+          <Tabs items={TABS} active={tab} onChange={setTab} scroll />
         </div>
 
         {lista.length === 0 ? (
-          <div style={{ borderRadius: 20, background: t.surface2, padding: 32, textAlign: 'center' }}>
-            <Calendar size={28} style={{ color: t.muted, margin: '0 auto 8px' }} />
-            <p style={{ fontSize: 14, color: t.muted }}>Nada por aquí todavía</p>
-          </div>
+          <EmptyState
+            icon={<Calendar size={18} />}
+            title={EMPTY_COPY[tab].title}
+            body={EMPTY_COPY[tab].body}
+            action={tab === 'PROXIMAS' ? { label: 'Ver horarios', onClick: () => router.push(`/portal/${slug}/clases`) } : undefined}
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {lista.map(({ r, s }) => {
@@ -106,7 +101,7 @@ export default function MisReservasPage() {
               const badge = ESTADO_BADGE[r.estado] ?? ESTADO_BADGE.CANCELADA;
               const puedeCancel = r.estado === 'CONFIRMADA' && new Date(s.inicio) > now;
               return (
-                <div key={r.id} style={{ ...card, padding: '14px 16px' }}>
+                <Card key={r.id} style={{ padding: '14px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
                     <div style={{ minWidth: 0 }}>
                       <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>{tipo?.nombre ?? 'Clase'}</p>
@@ -114,55 +109,38 @@ export default function MisReservasPage() {
                         <Calendar size={11} /> {formatFecha(s.inicio)} <Clock size={11} style={{ marginLeft: 6 }} /> {formatHora(s.inicio)}
                       </p>
                     </div>
-                    <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '4px 8px', borderRadius: 999, backgroundColor: badge.bg, color: badge.color }}>
-                      {badge.label}
-                    </span>
+                    <Badge variant={badge.variant}>{badge.label}</Badge>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: t.muted }}>
                     {instr && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><UserIcon size={11} />{instr.nombre}</span>}
                     {sala && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={11} />{sala.nombre}</span>}
                   </div>
                   {puedeCancel && (
-                    <button
-                      onClick={() => setCancelando(r)}
-                      style={{ marginTop: 12, width: '100%', minHeight: 44, padding: '0', borderRadius: 14, border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 12, fontWeight: 800, background: 'transparent' }}
-                    >
+                    <Button variant="danger" size="small" onClick={() => setCancelando(r)} style={{ marginTop: 12, width: '100%' }}>
                       Cancelar reserva
-                    </button>
+                    </Button>
                   )}
-                </div>
+                </Card>
               );
             })}
           </div>
         )}
       </div>
 
-      {/* Confirm cancel */}
-      {cancelando && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setCancelando(null)} />
-          <div style={{ position: 'relative', width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '20px 20px max(32px, calc(env(safe-area-inset-bottom) + 20px))' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Cancelar esta clase?</h2>
-              <button onClick={() => setCancelando(null)} style={{ width: 32, height: 32, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.surface2, color: t.muted, border: 'none' }}>
-                <X size={16} />
-              </button>
-            </div>
-            <p style={{ fontSize: 13, color: t.muted, marginBottom: 20 }}>Perderás tu plaza y liberarás el hueco para otra socia.</p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setCancelando(null)} style={{ flex: 1, padding: '12px 0', borderRadius: 16, border: `1px solid ${t.line}`, color: t.muted2, fontSize: 14, fontWeight: 700, background: 'transparent' }}>
-                Volver
-              </button>
-              <button
-                onClick={() => { cancelarReserva(cancelando.id); setCancelando(null); }}
-                style={{ flex: 1, padding: '12px 0', borderRadius: 16, background: '#EF4444', color: '#fff', fontSize: 14, fontWeight: 800, border: 'none' }}
-              >
-                Sí, cancelar
-              </button>
-            </div>
-          </div>
+      <BottomSheet open={!!cancelando} onClose={() => setCancelando(null)}>
+        <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Cancelar esta clase?</h2>
+        <p style={{ fontSize: 13, color: t.muted }}>Perderás tu plaza y liberarás el hueco para otra socia.</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button variant="secondary" onClick={() => setCancelando(null)} style={{ flex: 1 }}>Volver</Button>
+          <Button
+            variant="danger"
+            onClick={() => { if (cancelando) { cancelarReserva(cancelando.id); setCancelando(null); } }}
+            style={{ flex: 1 }}
+          >
+            Sí, cancelar
+          </Button>
         </div>
-      )}
+      </BottomSheet>
     </div>
   );
 }
