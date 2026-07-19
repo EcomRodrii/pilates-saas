@@ -12,6 +12,7 @@ import type {
 } from './tipos.ts';
 import type { NuevoHechoMemoria } from './memoria.ts';
 import type { CandidataPriorizada } from './prioridad.ts';
+import { type AutonomiaConfig, AUTONOMIA_CONFIG_DEFAULT, sanitizarConfig } from './autonomia.ts';
 
 // Decision OS escribe con el cliente service-role (salta RLS). Con el cliente
 // anon, RLS bloqueaba silenciosamente todos los INSERT/UPSERT de estas tablas
@@ -408,4 +409,52 @@ export async function dbSetFeatureFlag(studioId: string, flag: DecisionFlag, act
     id: uid(), studio_id: studioId, flag, activo, activado_en: new Date().toISOString(), activado_por: activadoPor,
   }, { onConflict: 'studio_id,flag' });
   if (error) reportError('[dbSetFeatureFlag]', error);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// decision_autonomia_config (0047) — piloto automático
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface RowAutonomiaConfig {
+  studio_id: string; activa: boolean; tipos_permitidos: string[]; max_diario: number;
+  actualizado_en: string | null; actualizado_por: string | null;
+}
+
+// Config del piloto automático del estudio; saneada (nunca devuelve tipos fuera
+// de la allowlist). Si no hay fila → apagado por defecto.
+export async function dbGetAutonomiaConfig(studioId: string): Promise<AutonomiaConfig> {
+  const { data, error } = await db().from('decision_autonomia_config').select('*').eq('studio_id', studioId).maybeSingle();
+  if (error) { reportError('[dbGetAutonomiaConfig]', error); return AUTONOMIA_CONFIG_DEFAULT; }
+  if (!data) return AUTONOMIA_CONFIG_DEFAULT;
+  const row = data as RowAutonomiaConfig;
+  return sanitizarConfig({
+    activa: row.activa,
+    tiposPermitidos: row.tipos_permitidos as AutonomiaConfig['tiposPermitidos'],
+    maxDiario: row.max_diario,
+  });
+}
+
+export async function dbSetAutonomiaConfig(studioId: string, config: AutonomiaConfig, actualizadoPor: string): Promise<AutonomiaConfig> {
+  const c = sanitizarConfig(config);
+  const { error } = await db().from('decision_autonomia_config').upsert({
+    studio_id: studioId, activa: c.activa, tipos_permitidos: c.tiposPermitidos, max_diario: c.maxDiario,
+    actualizado_en: new Date().toISOString(), actualizado_por: actualizadoPor,
+  }, { onConflict: 'studio_id' });
+  if (error) reportError('[dbSetAutonomiaConfig]', error);
+  return c;
+}
+
+// Cuántas recomendaciones se han auto-ejecutado hoy (para respetar el tope diario).
+// Día en UTC — el cron corre a 06:30/14:30 UTC; el cupo es una salvaguarda de
+// volumen, no un límite fiscal, así que la frontera de día exacta no es crítica.
+export async function dbCountAutonomasHoy(studioId: string, now: Date): Promise<number> {
+  const inicioDia = new Date(now); inicioDia.setUTCHours(0, 0, 0, 0);
+  const { count, error } = await db()
+    .from('recomendaciones')
+    .select('id', { count: 'exact', head: true })
+    .eq('studio_id', studioId)
+    .eq('resuelto_por', 'AUTONOMIA')
+    .gte('resuelto_en', inicioDia.toISOString());
+  if (error) { reportError('[dbCountAutonomasHoy]', error); return 0; }
+  return count ?? 0;
 }
