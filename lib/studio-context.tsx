@@ -115,8 +115,8 @@ import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid } from '@/lib/utils';
 import {
   decidirReservaNueva,
-  siguienteEnEspera,
   decidirPremioReferido,
+  debeDevolverBono,
 } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
@@ -1465,40 +1465,47 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return;
     }
 
-    let promotedSocioId: string | null = null;
-    let promotedSesionId: string | null = null;
-
     const cancelada = reservas.find(r => r.id === reservaId);
-    // Solo se devuelve la sesión si la reserva ocupaba plaza (estaba confirmada).
-    // Una reserva en lista de espera nunca llegó a descontar bono.
-    if (cancelada?.estado === 'CONFIRMADA') devolverSesionBono(cancelada.socioId);
+    const sesionId = cancelada?.sesionId ?? null;
 
-    setReservas(prev => {
-      const updated = prev.map(r =>
-        r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r
-      );
-      // Promoción optimista de la primera de la LISTA_ESPERA (la BD la ejecuta
-      // atómica en dbCancelarReservaPlaza; esto solo adelanta la UI).
-      if (!cancelada) return updated;
-      const espera = siguienteEnEspera(cancelada.sesionId, updated);
-      if (!espera) return updated;
-      promotedSocioId = espera.socioId;
-      promotedSesionId = espera.sesionId;
-      return updated.map(r =>
-        r.id === espera.id ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r
-      );
-    });
+    // Optimista (UI inmediata): solo marca la reserva como cancelada. La
+    // devolución de bono y la promoción de lista de espera NO se estiman sobre
+    // el snapshot local: se aplican sobre el RESULTADO AUTORITATIVO de la BD
+    // (abajo) — misma política que la vía pública (cancelarReservaPublica en
+    // supabase-data.ts). Antes esto adivinaba la promovida con
+    // siguienteEnEspera() sobre el estado local (podía no coincidir si había una
+    // escritura concurrente) y devolvía el bono siempre, sin mirar la ventana de
+    // cancelación del estudio — dejando escapar ingresos que el portal ya
+    // protegía.
+    setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r));
+
     // Cancelación + promoción de espera ATÓMICAS en la BD (una transacción con
-    // bloqueo de fila) — sustituye a los dos updates sueltos no atómicos.
-    dbCancelarReservaPlaza(getCurrentStudioId(), reservaId);
+    // bloqueo de fila).
+    dbCancelarReservaPlaza(getCurrentStudioId(), reservaId).then(res => {
+      if (!res || 'error' in res) return;
+      const { eraConfirmada, promovidaSocioId } = res;
 
-    // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
-    if (promotedSocioId) consumirSesionBono(promotedSocioId);
+      // Devolver bono a quien canceló solo si su reserva ocupaba plaza (según la
+      // BD, no el snapshot) Y la política de cancelación del estudio lo permite.
+      if (eraConfirmada && cancelada) {
+        const inicio = sesionId ? sesiones.find(s => s.id === sesionId)?.inicio : undefined;
+        const devolver = !inicio || !studio
+          ? true
+          : debeDevolverBono(inicio, new Date(), studio.cancelacionVentanaHoras, studio.cancelacionDevolverBonoTardia);
+        if (devolver) devolverSesionBono(cancelada.socioId);
+      }
 
-    // Fire notification for promoted socia
-    if (promotedSocioId && promotedSesionId) {
-      const socio = socios.find(s => s.id === promotedSocioId);
-      const sesion = sesiones.find(s => s.id === promotedSesionId);
+      if (!promovidaSocioId || !sesionId) return;
+
+      // Refleja en el estado local la promoción REAL decidida por la BD.
+      setReservas(prev => prev.map(r =>
+        (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
+          ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
+      // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
+      consumirSesionBono(promovidaSocioId);
+
+      const socio = socios.find(s => s.id === promovidaSocioId);
+      const sesion = sesiones.find(s => s.id === sesionId);
       const tipo = sesion ? tiposClase.find(t => t.id === sesion.tipoClaseId) : null;
       const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
       const clase = tipo?.nombre ?? 'la clase';
@@ -1507,13 +1514,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (socio?.email && sesion) {
         const sala = salas.find(x => x.id === sesion.salaId);
         const instructor = instructores.find(i => i.id === sesion.instructorId);
-        const inicio = new Date(sesion.inicio);
+        const inicioSesion = new Date(sesion.inicio);
         enviarEmailPromocion({
           to: socio.email,
           toName: socio.nombre,
           claseNombre: clase,
-          fecha: inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }),
-          hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          fecha: inicioSesion.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }),
+          hora: inicioSesion.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
           sala: sala?.nombre ?? '',
           instructor: instructor?.nombre ?? '',
           bonoConsumido: true,
@@ -1527,10 +1534,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         texto: `${nombre} ha pasado de lista de espera a confirmada en ${clase}.`,
         leida: false,
         creadaEn: new Date().toISOString(),
-        enlace: promotedSocioId ? `/socios/${promotedSocioId}` : null,
+        enlace: `/socios/${promovidaSocioId}`,
       }, ...prev]);
-      addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, promotedSocioId, `/socios/${promotedSocioId}`);
-    }
+      addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, promovidaSocioId, `/socios/${promovidaSocioId}`);
+    });
   }
 
   // Premia a quien invitó SOLO cuando la referida asiste a su primera clase,
