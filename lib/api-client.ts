@@ -823,3 +823,25 @@ export async function equipoStats(): Promise<EquipoStats> {
     return { valoracion: {}, asistencia: {} };
   }
 }
+
+// ── Valoraciones: detalle (cada valoración individual de una instructora) ────
+export interface ValoracionDetalle {
+  id: string;
+  puntuacion: number;
+  comentario: string | null;
+  creado_en: string;
+  inicio: string | null;
+  tipo_clase_id: string | null;
+  alumna: string | null;
+}
+
+export async function listarValoraciones(instructorId: string): Promise<ValoracionDetalle[]> {
+  try {
+    const res = await fetch(`/api/valoraciones?instructorId=${encodeURIComponent(instructorId)}`, { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { items?: ValoracionDetalle[] };
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
+}
