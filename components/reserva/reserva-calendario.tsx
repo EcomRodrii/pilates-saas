@@ -68,6 +68,12 @@ export interface ReservaCalendarioProps {
   /** Tema del portal (día/noche). Se pasa por prop para desacoplar de useModo. */
   t: ModoTokens;
   slots: ReservaSlot[];
+  /**
+   * Reserva el slot. Si devuelve un EstadoReserva, la hoja lo muestra in situ
+   * (confirmada / lista de espera). Si devuelve void, la hoja entiende que el
+   * flujo se ha derivado a otra superficie (p. ej. el modal de acceso del
+   * widget público) y se cierra ella misma para no quedar apilada detrás.
+   */
   onReservar: (slot: ReservaSlot, spotId: string | null) => EstadoReserva | void;
   onCancelar: (reservaId: string) => void;
   /** 'calendario' (tira de semana) o 'lista' (agrupada por día, para Mis reservas). */
@@ -273,7 +279,11 @@ export function ReservaCalendario({
           onClose={cerrarHoja}
           onReservar={() => {
             const r = onReservar(openSlot, selectedSpot);
+            // Con estado → confirmación in situ; sin estado → el flujo se ha
+            // derivado a otra superficie (modal de acceso del widget público):
+            // cerramos la hoja para que no quede apilada detrás de ese modal.
             if (r) setResultado(r);
+            else cerrarHoja();
           }}
           onCancelar={() => {
             if (openSlot.miReservaId) {
