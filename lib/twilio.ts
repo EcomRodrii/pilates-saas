@@ -30,6 +30,40 @@ export function twilioConfigurado(canal: CanalMensaje): boolean {
   return canal === 'WHATSAPP' ? !ausente(WHATSAPP_FROM) : !ausente(SMS_FROM);
 }
 
+/** ¿Hay credenciales base (SID + token)? Para el estado en Integraciones. */
+export function isTwilioConfigurado(): boolean {
+  return !ausente(ACCOUNT_SID) && !ausente(AUTH_TOKEN);
+}
+
+/**
+ * Prueba de conexión real: pide la cuenta a la REST API de Twilio con las
+ * credenciales. No envía ningún mensaje. Confirma que SID + Auth Token son
+ * válidos (y avisa de qué remitentes faltan). Igual patrón que probarWhatsApp.
+ */
+export async function probarTwilio(): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (ausente(ACCOUNT_SID) || ausente(AUTH_TOKEN)) {
+    return { ok: false, error: 'Faltan TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN' };
+  }
+  try {
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${ACCOUNT_SID}.json`, {
+      headers: { Authorization: `Basic ${Buffer.from(`${ACCOUNT_SID}:${AUTH_TOKEN}`).toString('base64')}` },
+    });
+    if (res.status === 401) return { ok: false, error: 'Credenciales rechazadas por Twilio (SID o Auth Token incorrectos)' };
+    if (!res.ok) return { ok: false, error: `Twilio ${res.status}` };
+    const data = (await res.json().catch(() => ({}))) as { status?: string };
+    if (data.status && data.status !== 'active') {
+      return { ok: false, error: `La cuenta de Twilio está "${data.status}", no activa` };
+    }
+    // Aviso suave si faltan remitentes (no bloquea la prueba de credenciales).
+    if (ausente(WHATSAPP_FROM) && ausente(SMS_FROM)) {
+      return { ok: false, error: 'Credenciales OK, pero falta TWILIO_WHATSAPP_FROM y/o TWILIO_SMS_FROM' };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Error de red con Twilio' };
+  }
+}
+
 export interface ResultadoMensaje {
   ok: boolean;
   id?: string;        // Message SID de Twilio
