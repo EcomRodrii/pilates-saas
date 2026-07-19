@@ -8,6 +8,7 @@ import { urlIframeStream } from '@/lib/stream-playback';
 import { useModo } from '@/lib/portal-modo';
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 import { X, Play, Clock, Eye } from 'lucide-react';
+import { Pill, EmptyState } from '@/components/portal/ui';
 
 const CATEGORIAS: { value: CategoriaVideo | 'TODOS'; label: string; emoji: string }[] = [
   { value: 'TODOS', label: 'Todos', emoji: '✨' },
@@ -71,33 +72,19 @@ export default function VideosPage() {
 
         {/* Category pills */}
         <div style={{ display: 'flex', gap: 8, marginTop: 16, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' } as React.CSSProperties}>
-          {CATEGORIAS.map(c => {
-            const active = cat === c.value;
-            return (
-              <button
-                key={c.value}
-                onClick={() => setCat(c.value)}
-                style={{
-                  flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, minHeight: 44, padding: '0 14px', borderRadius: 16, fontSize: 12, fontWeight: 800,
-                  border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`, background: active ? 'var(--portal-brand)' : t.surface, color: active ? 'var(--portal-brand-foreground)' : t.muted,
-                }}
-              >
-                <span>{c.emoji}</span>
-                {c.label}
-              </button>
-            );
-          })}
+          {CATEGORIAS.map(c => (
+            <Pill key={c.value} active={cat === c.value} onClick={() => setCat(c.value)}>
+              <span style={{ marginRight: 6 }}>{c.emoji}</span>
+              {c.label}
+            </Pill>
+          ))}
         </div>
       </div>
 
       {/* Grid */}
       <div style={{ padding: '0 16px 24px' }}>
         {filtrados.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 0', textAlign: 'center' }}>
-            <span style={{ fontSize: 48, marginBottom: 16 }}>🎬</span>
-            <p style={{ fontWeight: 800, color: t.ink, fontSize: 16 }}>Sin videos en esta categoría</p>
-            <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>Prueba con otra</p>
-          </div>
+          <EmptyState icon={<span style={{ fontSize: 20 }}>🎬</span>} title="Sin videos en esta categoría" body="Prueba con otra categoría." />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {filtrados.map(v => {
@@ -140,7 +127,9 @@ export default function VideosPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal — no usa BottomSheet: el reproductor necesita ir a sangre
+          (sin el padding horizontal fijo del componente) antes del contenido
+          de texto, que sí lo tiene. */}
       {selected && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.6)' }} onClick={() => { setSelected(null); setReproduciendo(false); setAvisoPendiente(false); }}>
           <div
