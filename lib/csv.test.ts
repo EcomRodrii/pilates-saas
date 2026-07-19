@@ -9,7 +9,11 @@ import {
   parsearTags,
   parsearFecha,
   emailValido,
+  autoMapearMembresia,
+  validarFilasMembresia,
+  normalizarEstadoMembresia,
   type CampoSocia,
+  type CampoMembresia,
 } from './csv.ts';
 
 test('detecta coma como delimitador por defecto', () => {
@@ -164,4 +168,53 @@ test('validarFilas deja fechaAlta null si la columna no se mapea o es ilegible (
   const f = validarFilas([['Ana', 'ana@b.com', 'ayer']], conFechaMala);
   assert.equal(f[0].estado, 'ok'); // una fecha ilegible NO invalida la fila
   assert.equal(f[0].datos.fechaAlta, null);
+});
+
+// ── Importación de membresías ────────────────────────────────────────────────
+
+test('autoMapearMembresia reconoce email, plan, saldo y fechas (ES/EN)', () => {
+  const m = autoMapearMembresia(['Email', 'Tarifa', 'Sesiones restantes', 'Fecha de inicio', 'Vencimiento', 'Estado']);
+  assert.equal(m.email, 0);
+  assert.equal(m.plan, 1);
+  assert.equal(m.sesiones, 2);
+  assert.equal(m.fecha_inicio, 3);
+  assert.equal(m.fecha_fin, 4);
+  assert.equal(m.estado, 5);
+});
+
+test('normalizarEstadoMembresia mapea sinónimos al enum de suscripciones', () => {
+  assert.equal(normalizarEstadoMembresia('activa'), 'ACTIVA');
+  assert.equal(normalizarEstadoMembresia('active'), 'ACTIVA');
+  assert.equal(normalizarEstadoMembresia('BAJA'), 'CANCELADA');
+  assert.equal(normalizarEstadoMembresia('expired'), 'EXPIRADA');
+  assert.equal(normalizarEstadoMembresia(''), null);
+  assert.equal(normalizarEstadoMembresia('cualquier cosa'), null);
+});
+
+test('validarFilasMembresia exige email válido y plan; parsea saldo y fechas', () => {
+  const m: Record<CampoMembresia, number> = { email: 0, plan: 1, sesiones: 2, fecha_inicio: 3, fecha_fin: -1, estado: 4 };
+  const filas = validarFilasMembresia(
+    [
+      ['ana@b.com', 'Bono 10', '7', '01/02/2024', 'ACTIVA'],
+      ['sin-plan@b.com', '', '', '', ''],          // falta plan
+      ['no-email', 'Bono 10', '', '', ''],         // email inválido
+    ],
+    m,
+  );
+  assert.equal(filas[0].estado, 'ok');
+  assert.equal(filas[0].datos.sesiones, 7);
+  assert.equal(filas[0].datos.fechaInicio, '2024-02-01');
+  assert.equal(filas[0].datos.estado, 'ACTIVA');
+  assert.equal(filas[1].estado, 'error');
+  assert.match(filas[1].motivo!, /plan/i);
+  assert.equal(filas[2].estado, 'error');
+  assert.match(filas[2].motivo!, /email/i);
+});
+
+test('validarFilasMembresia deja saldo null si no es numérico o no se mapea', () => {
+  const m: Record<CampoMembresia, number> = { email: 0, plan: 1, sesiones: 2, fecha_inicio: -1, fecha_fin: -1, estado: -1 };
+  const filas = validarFilasMembresia([['ana@b.com', 'Mensual', 'ilimitado']], m);
+  assert.equal(filas[0].estado, 'ok');
+  assert.equal(filas[0].datos.sesiones, null);
+  assert.equal(filas[0].datos.estado, null);
 });

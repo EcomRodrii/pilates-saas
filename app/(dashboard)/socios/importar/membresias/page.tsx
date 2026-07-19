@@ -4,22 +4,26 @@ import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Upload, FileSpreadsheet, Download, Check, AlertTriangle, Copy,
-  ArrowLeft, ArrowRight, Users, PartyPopper,
+  Upload, FileSpreadsheet, Download, Check, AlertTriangle,
+  ArrowLeft, ArrowRight, Users, PartyPopper, Info,
 } from 'lucide-react';
 import {
-  parseCsv, autoMapear, validarFilas, serializeCsv, CAMPOS_SOCIA,
-  type CampoSocia, type ParsedCsv, type FilaSocia,
+  parseCsv, autoMapearMembresia, validarFilasMembresia, serializeCsv, CAMPOS_MEMBRESIA,
+  type CampoMembresia, type ParsedCsv, type FilaMembresia,
 } from '@/lib/csv';
-import { importarSocias, type ResultadoImport } from '@/lib/api-client';
+import { importarMembresias, type ResultadoImport } from '@/lib/api-client';
 
 type Paso = 1 | 2 | 3;
 
-const PLANTILLA_HEADERS = ['Nombre', 'Apellidos', 'Email', 'Teléfono', 'NIF', 'Etiquetas', 'Fecha de alta', 'Dirección', 'Fecha de nacimiento'];
+const PLANTILLA_HEADERS = ['Email', 'Plan', 'Sesiones restantes', 'Fecha de inicio', 'Fecha de fin', 'Estado'];
 const PLANTILLA_EJEMPLO = [
-  ['Ana', 'García López', 'ana@ejemplo.com', '600123456', '12345678Z', 'reformer;mañana', '15/03/2022', 'C/ Mayor 3, Madrid', '02/06/1990'],
-  ['Lucía', 'Martín', 'lucia@ejemplo.com', '611654321', '', 'vip', '', '', ''],
+  ['ana@ejemplo.com', 'Bono 10 sesiones', '7', '01/02/2024', '', 'ACTIVA'],
+  ['lucia@ejemplo.com', 'Mensual ilimitado', '', '15/01/2024', '', 'ACTIVA'],
 ];
+
+const MAPEO_VACIO: Record<CampoMembresia, number> = {
+  email: -1, plan: -1, sesiones: -1, fecha_inicio: -1, fecha_fin: -1, estado: -1,
+};
 
 function descargar(nombre: string, contenido: string) {
   const blob = new Blob(['﻿' + contenido], { type: 'text/csv;charset=utf-8;' });
@@ -31,15 +35,12 @@ function descargar(nombre: string, contenido: string) {
   URL.revokeObjectURL(url);
 }
 
-export default function ImportarSociasPage() {
+export default function ImportarMembresiasPage() {
   const router = useRouter();
   const [paso, setPaso] = useState<Paso>(1);
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
   const [nombreArchivo, setNombreArchivo] = useState('');
-  const [mapeo, setMapeo] = useState<Record<CampoSocia, number>>({
-    nombre: -1, apellidos: -1, email: -1, telefono: -1, nif: -1, tags: -1,
-    fecha_alta: -1, direccion: -1, fecha_nacimiento: -1,
-  });
+  const [mapeo, setMapeo] = useState<Record<CampoMembresia, number>>(MAPEO_VACIO);
   const [dragActivo, setDragActivo] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
@@ -47,20 +48,16 @@ export default function ImportarSociasPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const validadas = useMemo(
-    () => (parsed ? validarFilas(parsed.rows, mapeo) : []),
+    () => (parsed ? validarFilasMembresia(parsed.rows, mapeo) : []),
     [parsed, mapeo],
   );
   const conteo = useMemo(() => {
-    let ok = 0, dup = 0, err = 0;
-    for (const f of validadas) {
-      if (f.estado === 'ok') ok++;
-      else if (f.estado === 'duplicada') dup++;
-      else err++;
-    }
-    return { ok, dup, err };
+    let ok = 0, err = 0;
+    for (const f of validadas) (f.estado === 'ok' ? ok++ : err++);
+    return { ok, err };
   }, [validadas]);
 
-  const obligatoriosMapeados = mapeo.nombre >= 0 && mapeo.email >= 0;
+  const obligatoriosMapeados = mapeo.email >= 0 && mapeo.plan >= 0;
   const puedeImportar = obligatoriosMapeados && conteo.ok > 0 && !importando;
 
   async function cargarArchivo(file: File) {
@@ -73,11 +70,11 @@ export default function ImportarSociasPage() {
       const texto = await file.text();
       const p = parseCsv(texto);
       if (p.headers.length === 0 || p.rows.length === 0) {
-        setErrorCarga('El archivo no tiene filas de datos. Revisa que tenga una cabecera y al menos una fila.');
+        setErrorCarga('El archivo no tiene filas de datos.');
         return;
       }
       setParsed(p);
-      setMapeo(autoMapear(p.headers));
+      setMapeo(autoMapearMembresia(p.headers));
       setNombreArchivo(file.name);
       setPaso(2);
     } catch {
@@ -94,9 +91,8 @@ export default function ImportarSociasPage() {
 
   async function ejecutarImport() {
     setImportando(true);
-    const filas: FilaSocia[] = validadas.filter((f) => f.estado === 'ok').map((f) => f.datos);
-    const r = await importarSocias(filas);
-    setResultado(r);
+    const filas: FilaMembresia[] = validadas.filter((f) => f.estado === 'ok').map((f) => f.datos);
+    setResultado(await importarMembresias(filas));
     setImportando(false);
     setPaso(3);
   }
@@ -107,10 +103,7 @@ export default function ImportarSociasPage() {
     setNombreArchivo('');
     setResultado(null);
     setErrorCarga(null);
-    setMapeo({
-      nombre: -1, apellidos: -1, email: -1, telefono: -1, nif: -1, tags: -1,
-      fecha_alta: -1, direccion: -1, fecha_nacimiento: -1,
-    });
+    setMapeo(MAPEO_VACIO);
   }
 
   return (
@@ -118,18 +111,24 @@ export default function ImportarSociasPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link
-          href="/socios"
+          href="/socios/importar"
           className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          aria-label="Volver a Clientes"
+          aria-label="Volver a importar clientes"
         >
           <ArrowLeft size={16} />
         </Link>
         <div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight">Importar clientes</h1>
+          <h1 className="text-xl font-bold text-foreground tracking-tight">Importar membresías</h1>
           <p className="text-[12px] text-muted-foreground mt-0.5">
-            Migra tu lista de clientes desde un CSV (Excel, Bsport, Mindbody u otro).
+            Trae las membresías y bonos activos de tus socias desde un CSV.
           </p>
         </div>
+      </div>
+
+      {/* Aviso de requisitos */}
+      <div className="flex items-start gap-2 text-[12.5px] rounded-xl px-4 py-3 border max-w-2xl" style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 6%, transparent)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+        <Info size={15} className="shrink-0 mt-0.5 text-primary" />
+        <span>Antes de importar, las <strong className="text-foreground">socias</strong> (por email) y los <strong className="text-foreground">planes</strong> (por nombre) deben existir ya en tu cuenta. Se emparejan automáticamente.</span>
       </div>
 
       {/* Stepper */}
@@ -193,18 +192,12 @@ export default function ImportarSociasPage() {
 
           <div className="flex items-center gap-4 text-[13px]">
             <button
-              onClick={() => descargar('plantilla-miembros-tentare.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO))}
+              onClick={() => descargar('plantilla-membresias-tentare.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO))}
               className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline"
             >
               <Download size={14} /> Descargar plantilla de ejemplo
             </button>
-            <span className="text-muted-foreground">Columnas mínimas: <strong className="text-foreground">Nombre</strong> y <strong className="text-foreground">Email</strong>.</span>
-          </div>
-
-          <div className="text-[13px] pt-1">
-            <Link href="/socios/importar/membresias" className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline">
-              ¿Ya tienes tus socias? Importa sus membresías y bonos <ArrowRight size={13} />
-            </Link>
+            <span className="text-muted-foreground">Columnas mínimas: <strong className="text-foreground">Email</strong> y <strong className="text-foreground">Plan</strong>.</span>
           </div>
         </div>
       )}
@@ -218,12 +211,11 @@ export default function ImportarSociasPage() {
             · {parsed.rows.length} filas · delimitador «{parsed.delimiter === '\t' ? 'tab' : parsed.delimiter}»
           </div>
 
-          {/* Mapeo */}
           <div className="bg-card border border-border rounded-2xl p-5">
             <h2 className="text-[13px] font-semibold text-foreground mb-1">Relaciona tus columnas</h2>
             <p className="text-[12px] text-muted-foreground mb-4">Hemos intentado adivinarlas. Ajusta lo que haga falta.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {CAMPOS_SOCIA.map(({ campo, etiqueta, obligatorio }) => (
+              {CAMPOS_MEMBRESIA.map(({ campo, etiqueta, obligatorio }) => (
                 <div key={campo} className="space-y-1.5">
                   <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                     {etiqueta}
@@ -244,19 +236,16 @@ export default function ImportarSociasPage() {
             </div>
             {!obligatoriosMapeados && (
               <p className="text-[12px] mt-4 flex items-center gap-1.5" style={{ color: 'var(--destructive, #b3261e)' }}>
-                <AlertTriangle size={13} /> Asigna al menos <strong>Nombre</strong> y <strong>Email</strong> para continuar.
+                <AlertTriangle size={13} /> Asigna al menos <strong>Email</strong> y <strong>Plan</strong> para continuar.
               </p>
             )}
           </div>
 
-          {/* Resumen de validación */}
-          <div className="grid grid-cols-3 gap-3">
-            <Contador color="#16a34a" valor={conteo.ok} label="Listos para importar" Icon={Check} />
-            <Contador color="#d97706" valor={conteo.dup} label="Duplicados (se omiten)" Icon={Copy} />
+          <div className="grid grid-cols-2 gap-3 max-w-md">
+            <Contador color="#16a34a" valor={conteo.ok} label="Listas para importar" Icon={Check} />
             <Contador color="#dc2626" valor={conteo.err} label="Con errores (se omiten)" Icon={AlertTriangle} />
           </div>
 
-          {/* Previsualización */}
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="px-4 py-2.5 border-b border-border text-[12px] font-semibold text-muted-foreground">
               Vista previa (primeras {Math.min(8, validadas.length)} de {validadas.length})
@@ -266,20 +255,20 @@ export default function ImportarSociasPage() {
                 <thead>
                   <tr className="text-[11px] uppercase tracking-wide text-muted-foreground">
                     <th className="text-left font-semibold px-4 py-2">Estado</th>
-                    <th className="text-left font-semibold px-4 py-2">Nombre</th>
-                    <th className="text-left font-semibold px-4 py-2">Apellidos</th>
                     <th className="text-left font-semibold px-4 py-2">Email</th>
-                    <th className="text-left font-semibold px-4 py-2">Teléfono</th>
+                    <th className="text-left font-semibold px-4 py-2">Plan</th>
+                    <th className="text-left font-semibold px-4 py-2">Sesiones</th>
+                    <th className="text-left font-semibold px-4 py-2">Inicio</th>
                   </tr>
                 </thead>
                 <tbody>
                   {validadas.slice(0, 8).map((f) => (
                     <tr key={f.fila} className="border-t border-border">
                       <td className="px-4 py-2"><EstadoBadge estado={f.estado} motivo={f.motivo} /></td>
-                      <td className="px-4 py-2 text-foreground">{f.datos.nombre || <span className="text-muted-foreground">—</span>}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{f.datos.apellidos || '—'}</td>
                       <td className="px-4 py-2 text-muted-foreground">{f.datos.email || '—'}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{f.datos.telefono || '—'}</td>
+                      <td className="px-4 py-2 text-foreground">{f.datos.plan || <span className="text-muted-foreground">—</span>}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{f.datos.sesiones ?? '—'}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{f.datos.fechaInicio || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -287,7 +276,6 @@ export default function ImportarSociasPage() {
             </div>
           </div>
 
-          {/* Acciones */}
           <div className="flex items-center justify-between gap-3">
             <button onClick={reiniciar} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft size={14} /> Elegir otro archivo
@@ -297,7 +285,7 @@ export default function ImportarSociasPage() {
               disabled={!puedeImportar}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {importando ? 'Importando…' : <>Importar {conteo.ok} clientes <ArrowRight size={14} /></>}
+              {importando ? 'Importando…' : <>Importar {conteo.ok} membresías <ArrowRight size={14} /></>}
             </button>
           </div>
         </div>
@@ -323,10 +311,10 @@ export default function ImportarSociasPage() {
                 <PartyPopper size={22} className="text-primary" />
               </div>
               <p className="text-[17px] font-bold text-foreground">
-                {resultado.importadas} {resultado.importadas === 1 ? 'cliente importado' : 'clientes importados'}
+                {resultado.importadas} {resultado.importadas === 1 ? 'membresía importada' : 'membresías importadas'}
               </p>
               <p className="text-[13px] text-muted-foreground mt-1">
-                {resultado.duplicadas > 0 && `${resultado.duplicadas} omitidos por estar ya en tu lista. `}
+                {resultado.duplicadas > 0 && `${resultado.duplicadas} omitidas por existir ya (misma socia y plan). `}
                 {resultado.errores.length > 0 && `${resultado.errores.length} con errores.`}
                 {resultado.duplicadas === 0 && resultado.errores.length === 0 && 'Todo limpio.'}
               </p>
@@ -338,7 +326,7 @@ export default function ImportarSociasPage() {
               <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
                 <span className="text-[12px] font-semibold text-muted-foreground">Filas con problemas</span>
                 <button
-                  onClick={() => descargar('errores-import.csv', serializeCsv(['Fila', 'Email', 'Motivo'], resultado.errores.map((e) => [String(e.fila), e.email, e.motivo])))}
+                  onClick={() => descargar('errores-membresias.csv', serializeCsv(['Fila', 'Email', 'Motivo'], resultado.errores.map((e) => [String(e.fila), e.email, e.motivo])))}
                   className="inline-flex items-center gap-1.5 text-[12px] text-primary font-medium hover:underline"
                 >
                   <Download size={13} /> Descargar
@@ -387,12 +375,10 @@ function Contador({ color, valor, label, Icon }: { color: string; valor: number;
   );
 }
 
-function EstadoBadge({ estado, motivo }: { estado: 'ok' | 'error' | 'duplicada'; motivo?: string }) {
-  const cfg = {
-    ok: { color: '#16a34a', texto: 'Listo', Icon: Check },
-    duplicada: { color: '#d97706', texto: 'Duplicado', Icon: Copy },
-    error: { color: '#dc2626', texto: motivo ?? 'Error', Icon: AlertTriangle },
-  }[estado];
+function EstadoBadge({ estado, motivo }: { estado: 'ok' | 'error'; motivo?: string }) {
+  const cfg = estado === 'ok'
+    ? { color: '#16a34a', texto: 'Lista', Icon: Check }
+    : { color: '#dc2626', texto: motivo ?? 'Error', Icon: AlertTriangle };
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md whitespace-nowrap" style={{ backgroundColor: cfg.color + '1A', color: cfg.color }} title={motivo}>
       <cfg.Icon size={10} /> {cfg.texto}
