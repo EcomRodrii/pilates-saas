@@ -9,6 +9,8 @@ import { CheckCircle2, Clock, XCircle, CreditCard, AlertCircle, Landmark } from 
 import { formatFechaLarga as formatDate } from '@/lib/utils';
 import { iniciarDomiciliacionSepa, crearCheckoutStripe } from '@/lib/api-client';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
+import { Card, Pill, Button, EmptyState } from '@/components/portal/ui';
+import { semantic } from '@/lib/portal-tokens';
 
 type Filtro = 'TODOS' | 'COBRADO' | 'PENDIENTE';
 
@@ -101,7 +103,6 @@ export default function MiPlanPage() {
   const hoyStr = new Date().toISOString().slice(0, 10);
   const caducada = !!(suscripcion?.fechaFin && suscripcion.fechaFin < hoyStr);
 
-  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 22 };
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
 
   return (
@@ -177,17 +178,15 @@ export default function MiPlanPage() {
             </div>
           </div>
         ) : (
-          <div style={{ ...card, padding: 32, textAlign: 'center' }}>
-            <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-              <CreditCard size={24} style={{ color: t.heroAccent }} />
-            </div>
-            <p style={{ fontWeight: 800, color: t.ink, fontSize: 16 }}>Sin plan activo</p>
-            <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>Habla con tu instructor para contratar un plan</p>
-          </div>
+          <EmptyState
+            icon={<CreditCard size={18} />}
+            title="Sin plan activo"
+            body="Habla con tu instructor para contratar un plan"
+          />
         )}
 
         {/* Método de pago — domiciliación SEPA */}
-        <div style={{ ...card, padding: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
+        <Card style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{
             width: 42, height: 42, borderRadius: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: sepaActiva ? 'rgba(62,155,108,0.12)' : t.surface2,
@@ -205,20 +204,16 @@ export default function MiPlanPage() {
               {sepaError && <span style={{ color: '#DC2626', display: 'block', marginTop: 4 }}>{sepaError}</span>}
             </p>
           </div>
-          <button
+          <Button
+            variant={sepaActiva ? 'secondary' : 'primary'}
+            size="small"
             onClick={handleDomiciliar}
             disabled={sepaLoading}
-            style={{
-              flexShrink: 0, padding: '9px 16px', borderRadius: 14, fontSize: 12, fontWeight: 800,
-              border: `1px solid ${sepaActiva ? t.line : 'var(--portal-brand)'}`,
-              background: sepaActiva ? t.surface2 : 'var(--portal-brand)',
-              color: sepaActiva ? t.muted : t.accentInk,
-              opacity: sepaLoading ? 0.6 : 1, cursor: sepaLoading ? 'default' : 'pointer',
-            }}
+            style={{ flexShrink: 0 }}
           >
             {sepaLoading ? 'Abriendo…' : sepaActiva ? 'Cambiar' : 'Domiciliar'}
-          </button>
-        </div>
+          </Button>
+        </Card>
 
         {/* Historial */}
         <div>
@@ -226,33 +221,21 @@ export default function MiPlanPage() {
 
           {/* Filtros */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {(['TODOS', 'COBRADO', 'PENDIENTE'] as Filtro[]).map(f => {
-              const active = filtro === f;
-              return (
-                <button
-                  key={f}
-                  onClick={() => setFiltro(f)}
-                  style={{
-                    minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 16, fontSize: 12, fontWeight: 800, border: `1px solid ${active ? 'var(--portal-brand)' : t.line}`,
-                    backgroundColor: active ? 'var(--portal-brand)' : t.surface2, color: active ? 'var(--portal-brand-foreground)' : t.muted,
-                  }}
-                >
-                  {f === 'TODOS' ? 'Todos' : f === 'COBRADO' ? 'Pagados' : 'Pendientes'}
-                </button>
-              );
-            })}
+            {(['TODOS', 'COBRADO', 'PENDIENTE'] as Filtro[]).map(f => (
+              <Pill key={f} active={filtro === f} onClick={() => setFiltro(f)}>
+                {f === 'TODOS' ? 'Todos' : f === 'COBRADO' ? 'Pagados' : 'Pendientes'}
+              </Pill>
+            ))}
           </div>
 
           {pagoError && (
-            <div style={{ borderRadius: 14, background: 'rgba(239,68,68,0.1)', padding: '10px 14px', marginBottom: 12 }}>
-              <p style={{ fontSize: 12.5, color: '#EF4444', fontWeight: 600 }}>{pagoError}</p>
+            <div style={{ borderRadius: 14, background: semantic.danger.soft, padding: '10px 14px', marginBottom: 12 }}>
+              <p style={{ fontSize: 12.5, color: semantic.danger.text, fontWeight: 600 }}>{pagoError}</p>
             </div>
           )}
 
           {recibosFiltrados.length === 0 ? (
-            <div style={{ borderRadius: 18, background: t.surface2, padding: 32, textAlign: 'center' }}>
-              <p style={{ fontSize: 14, color: t.muted }}>Sin recibos en esta categoría</p>
-            </div>
+            <EmptyState icon={<Clock size={18} />} title="Sin recibos en esta categoría" body="Cuando haya movimientos, aparecerán aquí." />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {recibosFiltrados.map(rec => {
@@ -260,16 +243,17 @@ export default function MiPlanPage() {
                 const cobrado = rec.estado === 'COBRADO';
                 const devuelto = rec.estado === 'DEVUELTO';
                 const pendiente = rec.estado === 'PENDIENTE' || rec.estado === 'EN_CURSO';
+                const estadoColor = cobrado ? semantic.success : devuelto ? semantic.danger : semantic.warning;
                 return (
-                  <div key={rec.id} style={{ ...card, borderRadius: 18, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <Card key={rec.id} style={{ borderRadius: 18, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{
                         width: 36, height: 36, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                        background: cobrado ? 'rgba(62,155,108,0.12)' : devuelto ? 'rgba(239,68,68,0.12)' : 'rgba(217,119,6,0.12)',
+                        background: estadoColor.soft,
                       }}>
-                        {cobrado ? <CheckCircle2 size={18} style={{ color: '#3E9B6C' }} />
-                          : devuelto ? <XCircle size={18} style={{ color: '#EF4444' }} />
-                          : <Clock size={18} style={{ color: '#D97706' }} />}
+                        {cobrado ? <CheckCircle2 size={18} style={{ color: estadoColor.text }} />
+                          : devuelto ? <XCircle size={18} style={{ color: estadoColor.text }} />
+                          : <Clock size={18} style={{ color: estadoColor.text }} />}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 14, fontWeight: 700, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.concepto}</p>
@@ -289,24 +273,16 @@ export default function MiPlanPage() {
                           )}
                         </p>
                       </div>
-                      <p style={{ fontSize: 15, fontWeight: 800, flexShrink: 0, color: cobrado ? '#3E9B6C' : t.muted }}>
+                      <p style={{ fontSize: 15, fontWeight: 800, flexShrink: 0, color: cobrado ? semantic.success.text : t.muted }}>
                         {formatEur(rec.importe)}
                       </p>
                     </div>
                     {pendiente && (
-                      <button
-                        onClick={() => pagarRecibo(rec.id)}
-                        disabled={pagoLoading === rec.id}
-                        style={{
-                          alignSelf: 'flex-start', minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 16px', borderRadius: 12, fontSize: 12.5, fontWeight: 800,
-                          border: 'none', background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-                          opacity: pagoLoading === rec.id ? 0.6 : 1, cursor: pagoLoading === rec.id ? 'default' : 'pointer',
-                        }}
-                      >
+                      <Button size="small" onClick={() => pagarRecibo(rec.id)} disabled={pagoLoading === rec.id} style={{ alignSelf: 'flex-start' }}>
                         {pagoLoading === rec.id ? 'Abriendo…' : 'Pagar ahora'}
-                      </button>
+                      </Button>
                     )}
-                  </div>
+                  </Card>
                 );
               })}
             </div>
