@@ -1,13 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, Copy } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, Copy, Star } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora } from '@/lib/utils';
-import { generarEnlaceDisponibilidad } from '@/lib/api-client';
+import { generarEnlaceDisponibilidad, resumenValoraciones, type ResumenValoraciones } from '@/lib/api-client';
 
 const COLORES = ['#F7A6C4', '#14B8A6', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
 
@@ -39,6 +39,13 @@ export default function EquipoPage() {
   const [enlace, setEnlace] = useState<
     { instructor: Instructor; url: string | null; loading: boolean; error: string | null; copiado: boolean } | null
   >(null);
+  const [valoraciones, setValoraciones] = useState<ResumenValoraciones>({});
+
+  useEffect(() => {
+    let vivo = true;
+    resumenValoraciones().then(r => { if (vivo) setValoraciones(r); });
+    return () => { vivo = false; };
+  }, []);
 
   async function abrirEnlace(i: Instructor) {
     setEnlace({ instructor: i, url: null, loading: true, error: null, copiado: false });
@@ -186,6 +193,7 @@ export default function EquipoPage() {
             const carga = cargaPorInstructor.get(i.id) ?? 0;
             const nCitas = citasPorInstructor.get(i.id) ?? 0;
             const prox = proximaClase.get(i.id) ?? null;
+            const val = valoraciones[i.id];
             return (
               <div key={i.id} className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
                 <div className="flex items-start justify-between gap-2">
@@ -199,6 +207,13 @@ export default function EquipoPage() {
                           {i.activo ? 'Activa' : 'Inactiva'}
                         </span>
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ROL_LABEL[i.rol]}</span>
+                        {val && val.total > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FEF9C3] text-[#A16207]" title={`${val.total} valoración${val.total === 1 ? '' : 'es'} de alumnas`}>
+                            <Star size={10} fill="#F5B301" stroke="#F5B301" />
+                            {val.media.toFixed(1)}
+                            <span className="font-medium text-[#CA8A04]">({val.total})</span>
+                          </span>
+                        )}
                         {i.authUserId ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand/10 text-brand-secondary">
                             <ShieldCheck size={10} />Con acceso

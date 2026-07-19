@@ -792,3 +792,17 @@ export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente
     }),
   });
 }
+
+// ── Valoraciones: resumen (media + total) por instructora ───────────────────
+export type ResumenValoraciones = Record<string, { media: number; total: number }>;
+
+export async function resumenValoraciones(): Promise<ResumenValoraciones> {
+  try {
+    const res = await fetch('/api/valoraciones', { headers: await authHeader() });
+    if (!res.ok) return {};
+    const data = (await res.json()) as { resumen?: ResumenValoraciones };
+    return data.resumen ?? {};
+  } catch {
+    return {};
+  }
+}

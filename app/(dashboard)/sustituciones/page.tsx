@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
-  cancelarClase, setAvisarAlumnas, type SustitucionPanel,
+  cancelarClase, setAvisarAlumnas, resumenValoraciones, type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
-  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff,
+  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff, Star,
 } from 'lucide-react';
 
 type EstadoMeta = { label: string; cls: string; activa: boolean };
@@ -40,6 +40,7 @@ export default function SustitucionesPage() {
   const [accion, setAccion] = useState<string | null>(null); // id en proceso
   const [aviso, setAviso] = useState<string | null>(null);   // toast breve
   const [avisar, setAvisar] = useState(false);               // toggle avisar_alumnas
+  const [valoraciones, setValoraciones] = useState<ResumenValoraciones>({});
 
   const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'Instructora';
   const tipoDe = (id: string | null | undefined) => tiposClase.find(t => t.id === id);
@@ -51,6 +52,7 @@ export default function SustitucionesPage() {
   useEffect(() => {
     let vivo = true;
     listarSustituciones().then(r => { if (vivo) { setItems(r.items); setAvisar(r.avisarAlumnas); setCargando(false); } });
+    resumenValoraciones().then(r => { if (vivo) setValoraciones(r); });
     return () => { vivo = false; };
   }, []);
 
@@ -149,7 +151,7 @@ export default function SustitucionesPage() {
               {activas.map(s => (
                 <SustitucionCard
                   key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor}
-                  instructores={instructores} enProceso={accion === s.id}
+                  instructores={instructores} valoraciones={valoraciones} enProceso={accion === s.id}
                   onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={cancelar}
                 />
               ))}
@@ -181,13 +183,26 @@ function fmtHora(inicio?: string | null): string {
   return new Date(inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 }
 
+// Media de valoraciones de alumnas (si tiene alguna). Compacta, para las cards.
+function Estrellas({ val }: { val?: { media: number; total: number } }) {
+  if (!val || val.total <= 0) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FEF9C3] text-[#A16207] shrink-0" title={`${val.total} valoración${val.total === 1 ? '' : 'es'} de alumnas`}>
+      <Star size={10} fill="#F5B301" stroke="#F5B301" />
+      {val.media.toFixed(1)}
+      <span className="font-medium text-[#CA8A04]">({val.total})</span>
+    </span>
+  );
+}
+
 function SustitucionCard({
-  s, tipo, nombreInstructor, instructores, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar,
+  s, tipo, nombreInstructor, instructores, valoraciones, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
   nombreInstructor: (id: string | null) => string;
   instructores: import('@/lib/types').Instructor[];
+  valoraciones: ResumenValoraciones;
   enProceso: boolean;
   onConfirmar: (s: SustitucionPanel, instructorId: string) => void;
   onDescartar: (s: SustitucionPanel) => void;
@@ -256,7 +271,10 @@ function SustitucionCard({
             <div className="flex items-center gap-3.5">
               <ProfileAvatar avatarId={insDe(hero.instructor_id)?.avatar ?? null} nombre={hero.nombre} color={insDe(hero.instructor_id)?.color ?? '#6D28D9'} size="lg" />
               <div className="min-w-0 flex-1">
-                <p className="text-[18px] font-extrabold text-foreground leading-tight truncate">{hero.nombre}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-[18px] font-extrabold text-foreground leading-tight truncate">{hero.nombre}</p>
+                  <Estrellas val={valoraciones[hero.instructor_id]} />
+                </div>
                 <p className="text-[13px] font-semibold text-brand-secondary">Instructora de {esp}</p>
               </div>
             </div>
@@ -317,9 +335,10 @@ function SustitucionCard({
                   <div key={c.instructor_id} className="flex items-center gap-3 rounded-xl border border-border p-2.5">
                     <ProfileAvatar avatarId={insDe(c.instructor_id)?.avatar ?? null} nombre={c.nombre} color={insDe(c.instructor_id)?.color ?? '#7C3AED'} size="sm" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-bold text-foreground flex items-center gap-1.5">
+                      <p className="text-[13px] font-bold text-foreground flex items-center gap-1.5 flex-wrap">
                         {c.nombre}
                         <span className="text-[11px] font-bold text-[#16A34A] tabular-nums">{c.compatibilidad}%</span>
+                        <Estrellas val={valoraciones[c.instructor_id]} />
                       </p>
                       <p className="text-[11px] text-muted-foreground truncate">{(c.motivos ?? []).join(' · ')}</p>
                     </div>
