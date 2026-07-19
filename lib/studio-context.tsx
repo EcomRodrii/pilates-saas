@@ -593,6 +593,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // así que no hace falta tocar dataLoaded ni ningún otro estado.
     if (shadowedByPublicRoute) return;
 
+    // Nadie autenticado y no es una ruta pública scopeada (home de marketing,
+    // /login, /crear-estudio, /suscripción antes de iniciar sesión): no hay
+    // ningún estudio que cargar. Sin este guard se disparaban igualmente los
+    // fetches de solo-admin (campos personalizados, plantillas de email,
+    // dependencias), que RLS rechaza para anónimos — el fallo se mostraba
+    // como un toast de error real a cualquier visitante de la home pública.
+    if (!studioIdOverride && !authUserId) {
+      setCurrentStudioId('');
+      setDataLoaded(true);
+      return;
+    }
+
     (async () => {
       // Multi-tenancy: figure out which studio this session belongs to
       // *before* fetching, so every query below is scoped correctly both
