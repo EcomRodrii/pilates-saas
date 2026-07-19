@@ -7,6 +7,7 @@ import { DIAS_SEMANA, FRANJAS, NIVELES, DURACIONES, disponibilidadVacia } from '
 import type { Disponibilidad, NivelSocio } from '@/lib/types';
 import { useModo } from '@/lib/portal-modo';
 import { Check } from 'lucide-react';
+import { Card, Pill } from '@/components/portal/ui';
 
 export default function PreferenciasPage() {
   const { session } = usePortalAuth();
@@ -46,7 +47,6 @@ export default function PreferenciasPage() {
   }
 
   const instructoresActivos = instructores.filter(i => i.activo);
-  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 24, padding: 20 };
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
 
   return (
@@ -64,7 +64,7 @@ export default function PreferenciasPage() {
         )}
 
         {/* Disponibilidad */}
-        <div style={card}>
+        <Card style={{ padding: 20 }}>
           <p style={{ ...microLabel, marginBottom: 4 }}>Mi disponibilidad</p>
           <p style={{ fontSize: 12, color: t.muted, marginBottom: 16 }}>Marca cuándo puedes entrenar — nos ayuda a recomendarte mejores horarios.</p>
           <div>
@@ -93,89 +93,78 @@ export default function PreferenciasPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
         {/* Instructor favorito */}
-        <div style={card}>
+        <Card style={{ padding: 20 }}>
           <p style={{ ...microLabel, marginBottom: 12 }}>Instructor favorito</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {instructoresActivos.map(i => {
               const selected = prefs?.instructorFavoritoId === i.id;
               return (
-                <button
-                  key={i.id}
-                  onClick={() => setCampo('instructorFavoritoId', selected ? null : i.id)}
-                  style={{ padding: '8px 14px', borderRadius: 16, fontSize: 13, fontWeight: 700, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? 'var(--portal-brand-foreground)' : t.muted2 }}
-                >
+                <Pill key={i.id} active={selected} onClick={() => setCampo('instructorFavoritoId', selected ? null : i.id)}>
                   {i.nombre}
-                </button>
+                </Pill>
               );
             })}
             {instructoresActivos.length === 0 && (
               <p style={{ fontSize: 13, color: t.muted }}>Aún no hay instructoras dadas de alta.</p>
             )}
           </div>
-        </div>
+        </Card>
 
         {/* Tipo de clase favorita */}
-        <div style={card}>
+        <Card style={{ padding: 20 }}>
           <p style={{ ...microLabel, marginBottom: 12 }}>Tipo de clase favorita</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {tiposClase.map(tc => {
               const selected = prefs?.tipoClaseFavorita === tc.nombre;
               return (
-                <button
+                <Pill
                   key={tc.id}
+                  active={selected}
                   onClick={() => setCampo('tipoClaseFavorita', selected ? null : tc.nombre)}
-                  style={{ padding: '8px 14px', borderRadius: 16, fontSize: 13, fontWeight: 700, border: 'none', backgroundColor: selected ? tc.color : t.surface2, color: selected ? '#fff' : t.muted2 }}
+                  style={selected ? { background: tc.color, borderColor: tc.color, color: '#fff' } : undefined}
                 >
                   {tc.nombre}
-                </button>
+                </Pill>
               );
             })}
             {tiposClase.length === 0 && (
               <p style={{ fontSize: 13, color: t.muted }}>Aún no hay tipos de clase configurados.</p>
             )}
           </div>
-        </div>
+        </Card>
 
         {/* Duración preferida */}
-        <div style={card}>
+        <Card style={{ padding: 20 }}>
           <p style={{ ...microLabel, marginBottom: 12 }}>Duración preferida</p>
           <div style={{ display: 'flex', gap: 8 }}>
             {DURACIONES.map(min => {
               const selected = prefs?.duracionPreferida === min;
               return (
-                <button
-                  key={min}
-                  onClick={() => setCampo('duracionPreferida', selected ? null : min)}
-                  style={{ flex: 1, padding: '10px 0', borderRadius: 16, fontSize: 13, fontWeight: 800, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? 'var(--portal-brand-foreground)' : t.muted2 }}
-                >
+                <Pill key={min} active={selected} onClick={() => setCampo('duracionPreferida', selected ? null : min)} style={{ flex: 1, justifyContent: 'center' }}>
                   {min} min
-                </button>
+                </Pill>
               );
             })}
           </div>
-        </div>
+        </Card>
 
         {/* Nivel */}
-        <div style={card}>
+        <Card style={{ padding: 20 }}>
           <p style={{ ...microLabel, marginBottom: 12 }}>Nivel</p>
           <div style={{ display: 'flex', gap: 8 }}>
             {NIVELES.map(n => {
               const selected = prefs?.nivel === n.id;
               return (
-                <button
-                  key={n.id}
-                  onClick={() => setCampo('nivel', selected ? null : (n.id as NivelSocio))}
-                  style={{ flex: 1, padding: '10px 0', borderRadius: 16, fontSize: 13, fontWeight: 800, border: 'none', backgroundColor: selected ? 'var(--portal-brand)' : t.surface2, color: selected ? 'var(--portal-brand-foreground)' : t.muted2 }}
-                >
+                <Pill key={n.id} active={selected} onClick={() => setCampo('nivel', selected ? null : (n.id as NivelSocio))} style={{ flex: 1, justifyContent: 'center' }}>
                   {n.label}
-                </button>
+                </Pill>
               );
             })}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );
