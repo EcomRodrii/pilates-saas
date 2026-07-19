@@ -7,6 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { useModo } from '@/lib/portal-modo';
 import { ChevronLeft, Clock, Users, MapPin, BarChart2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/portal/ui';
 
 const NIVEL_LABEL: Record<string, string> = {
   TODOS: 'Todos los niveles', PRINCIPIANTE: 'Iniciación', MEDIO: 'Intermedio', AVANZADO: 'Avanzado',
@@ -149,21 +150,15 @@ export default function ClaseDetallePage() {
         {/* Acción */}
         <div style={{ marginTop: 20 }}>
           {miReserva ? (
-            <button
-              onClick={() => cancelarReserva(miReserva.id)}
-              style={{ width: '100%', fontSize: 14, fontWeight: 800, color: '#EF4444', padding: '14px 0', borderRadius: 18, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent' }}
-            >
+            <Button variant="danger" onClick={() => cancelarReserva(miReserva.id)} style={{ width: '100%' }}>
               Cancelar reserva
-            </button>
+            </Button>
           ) : (
-            <button
-              onClick={() => session?.socioId && addReserva(ses.id, session.socioId)}
-              style={{ width: '100%', fontSize: 15, fontWeight: 800, textTransform: 'uppercase', padding: '14px 0', borderRadius: 18, color: 'var(--portal-brand-foreground)', border: 'none', backgroundColor: 'var(--portal-brand)' }}
-            >
+            <Button onClick={() => session?.socioId && addReserva(ses.id, session.socioId)} style={{ width: '100%' }}>
               {libres > 0
                 ? (cubierta || precioClaseSuelta == null ? 'Reservar' : `Reservar · ${precioClaseSuelta} €`)
                 : 'Unirme a la lista de espera'}
-            </button>
+            </Button>
           )}
         </div>
       </div>
