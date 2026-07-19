@@ -20,6 +20,8 @@ import { TabLogros } from '@/components/configuracion/tab-logros';
 import { TabNiveles } from '@/components/configuracion/tab-niveles';
 import { TabRetos } from '@/components/configuracion/tab-retos';
 import { TabBackups } from '@/components/configuracion/tab-backups';
+import { TabServiciosCita } from '@/components/configuracion/tab-servicios-cita';
+import { TabHorarioCitas } from '@/components/configuracion/tab-horario-citas';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -180,12 +182,14 @@ export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'recompensas' | 'logros' | 'niveles' | 'retos' | 'integraciones' | 'estudio' | 'campos' | 'plantillas' | 'backups' | 'perfil';
+type TabId = 'planes' | 'clases' | 'salas' | 'servicios-cita' | 'horario-citas' | 'recompensas' | 'logros' | 'niveles' | 'retos' | 'integraciones' | 'estudio' | 'campos' | 'plantillas' | 'backups' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
   { id: 'clases',      label: 'Clases' },
   { id: 'salas',       label: 'Salas' },
+  { id: 'servicios-cita', label: 'Servicios de cita' },
+  { id: 'horario-citas',  label: 'Horario de citas' },
   { id: 'recompensas', label: 'Recompensas' },
   { id: 'logros',      label: 'Logros' },
   { id: 'niveles',     label: 'Niveles' },
@@ -247,6 +251,8 @@ export default function ConfiguracionPage() {
       {activeTab === 'planes'      && <TabPlanes      showToast={showToast} />}
       {activeTab === 'clases'      && <TabClases       showToast={showToast} />}
       {activeTab === 'salas'       && <TabSalas        showToast={showToast} />}
+      {activeTab === 'servicios-cita' && <TabServiciosCita showToast={showToast} />}
+      {activeTab === 'horario-citas'  && <TabHorarioCitas  showToast={showToast} />}
       {activeTab === 'recompensas' && <TabRecompensas  showToast={showToast} />}
       {activeTab === 'logros'      && <TabLogros       showToast={showToast} />}
       {activeTab === 'niveles'     && <TabNiveles      showToast={showToast} />}

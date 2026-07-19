@@ -14,6 +14,7 @@ import {
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
+  dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
   dbInsertVentaPOS,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
@@ -62,6 +63,8 @@ import type {
   RespuestaSesionRow,
   RespuestaSesion,
   Cita,
+  ServicioCita,
+  DisponibilidadCita,
   EstadoCita,
   ProductoPOS,
   VentaPOS,
@@ -253,6 +256,14 @@ interface StudioContextValue {
   updateCita: (id: string, changes: Partial<Cita>) => void;
   cancelarCita: (citaId: string) => void;
   completarCita: (citaId: string) => void;
+
+  // Citas — catálogo de servicios + horario fino por instructora (0046)
+  citasServicios: ServicioCita[];
+  addServicioCita: (fields: Omit<ServicioCita, 'id' | 'studioId' | 'creadoEn'>) => void;
+  updateServicioCita: (id: string, changes: Partial<Omit<ServicioCita, 'id' | 'studioId'>>) => void;
+  deleteServicioCita: (id: string) => void;
+  citasDisponibilidad: DisponibilidadCita[];
+  setDisponibilidadCitas: (instructorId: string, franjas: Array<{ diaSemana: number; horaInicio: string; horaFin: string }>) => void;
 
   // POS
   productosPOS: ProductoPOS[];
@@ -477,6 +488,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [respuestasSesion, setRespuestasSesion] = useState<RespuestaSesionRow[]>([]);
 
   const [citas, setCitas] = useState<Cita[]>([]);
+  const [citasServicios, setCitasServicios] = useState<ServicioCita[]>([]);
+  const [citasDisponibilidad, setCitasDisponibilidad] = useState<DisponibilidadCita[]>([]);
   const [productosPOS, setProductosPOS] = useState<ProductoPOS[]>([]);
   const [ventasPOS, setVentasPOS] = useState<VentaPOS[]>([]);
   const [campanas, setCampanas] = useState<Campana[]>([]);
@@ -639,6 +652,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setCondicionesSalud(data.condicionesSalud);
       setRespuestasSesion(data.respuestasSesion);
       setCitas(data.citas);
+      setCitasServicios(data.citasServicios ?? []);
+      setCitasDisponibilidad(data.citasDisponibilidad ?? []);
       setProductosPOS(data.productosPOS);
       setVentasPOS(data.ventasPOS);
       setCampanas(data.campanas);
@@ -795,6 +810,40 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
   function deleteSala(id: string) {
     setSalas(prev => prev.filter(s => s.id !== id));
+  }
+
+  // ── Citas: servicios y horario fino (0046) ─────────────────────────────────────
+
+  function addServicioCita(fields: Omit<ServicioCita, 'id' | 'studioId' | 'creadoEn'>) {
+    const nuevo: ServicioCita = {
+      ...fields, id: `csrv-${uid()}`, studioId: getCurrentStudioId(),
+      creadoEn: new Date().toISOString(),
+    };
+    setCitasServicios(prev => [...prev, nuevo]);
+    dbInsertServicioCita(nuevo);
+  }
+  function updateServicioCita(id: string, changes: Partial<Omit<ServicioCita, 'id' | 'studioId'>>) {
+    setCitasServicios(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
+    dbUpdateServicioCita(id, changes);
+  }
+  function deleteServicioCita(id: string) {
+    setCitasServicios(prev => prev.filter(s => s.id !== id));
+    dbDeleteServicioCita(id);
+  }
+
+  // Reemplaza TODAS las franjas de una instructora (el editor guarda de golpe).
+  function setDisponibilidadCitas(
+    instructorId: string,
+    franjas: Array<{ diaSemana: number; horaInicio: string; horaFin: string }>,
+  ) {
+    const studioId = getCurrentStudioId();
+    const nuevas: DisponibilidadCita[] = franjas.map(f => ({
+      id: `cdisp-${uid()}`, studioId, instructorId,
+      diaSemana: f.diaSemana, horaInicio: f.horaInicio, horaFin: f.horaFin,
+      creadoEn: new Date().toISOString(),
+    }));
+    setCitasDisponibilidad(prev => [...prev.filter(d => d.instructorId !== instructorId), ...nuevas]);
+    dbReplaceDisponibilidadCitas(studioId, instructorId, nuevas);
   }
 
   // ── Tipos de clase ────────────────────────────────────────────────────────────
@@ -2595,6 +2644,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     updateCita,
     cancelarCita,
     completarCita,
+    citasServicios,
+    addServicioCita,
+    updateServicioCita,
+    deleteServicioCita,
+    citasDisponibilidad,
+    setDisponibilidadCitas,
     productosPOS,
     addProductoPOS,
     updateProductoPOS,
@@ -2697,7 +2752,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,
-    citas, productosPOS, ventasPOS, campanas, automatizaciones,
+    citas, citasServicios, citasDisponibilidad, productosPOS, ventasPOS, campanas, automatizaciones,
     discountCodes.codigosDescuento,
     actividadReciente, notificaciones,
     content.videosOnDemand, content.postsComunidad, content.likedPostIds,
@@ -2735,6 +2790,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setCondicionesSalud(data.condicionesSalud);
       setRespuestasSesion(data.respuestasSesion);
       setCitas(data.citas);
+      setCitasServicios(data.citasServicios ?? []);
+      setCitasDisponibilidad(data.citasDisponibilidad ?? []);
       setProductosPOS(data.productosPOS);
       setVentasPOS(data.ventasPOS);
       setCampanas(data.campanas);
