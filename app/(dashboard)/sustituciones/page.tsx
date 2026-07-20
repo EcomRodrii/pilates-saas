@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
-  cancelarClase, setAvisarAlumnas, resumenValoraciones, generarEnlaceDisponibilidad,
+  cancelarClase, setAvisarAlumnas, resumenValoraciones, generarEnlaceDisponibilidad, recalcularCandidatas,
   type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
@@ -124,6 +124,18 @@ export default function SustitucionesPage() {
     setAccion(null);
     setTimeout(() => setAviso(null), 6000);
   }
+  async function volverABuscar(s: SustitucionPanel) {
+    setAccion(s.id);
+    const r = await recalcularCandidatas(s.id);
+    if ('error' in r) { alert(r.error); setAccion(null); return; }
+    setAviso(r.omitidasPorRechazo > 0
+      ? `${r.resumen} (no volvemos a escribir a quien ya dijo que no puede).`
+      : r.resumen);
+    await recargar();
+    setAccion(null);
+    setTimeout(() => setAviso(null), 6000);
+  }
+
   async function descartar(s: SustitucionPanel) {
     setAccion(s.id);
     // Antes se ignoraba el resultado: si fallaba, la tarjeta seguía ahí sin
@@ -213,6 +225,7 @@ export default function SustitucionesPage() {
                   key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor} equipo={equipo}
                   instructores={instructores} valoraciones={valoraciones} enProceso={accion === s.id}
                   onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={(s: SustitucionPanel) => setACancelar(s)}
+                  onVolverABuscar={volverABuscar}
                 />
               ))}
             </div>
@@ -371,7 +384,7 @@ function HorarioActualizadoCard({ sub, sesiones, tiposClase, nombreInstructor, o
 }
 
 function SustitucionCard({
-  s, tipo, nombreInstructor, instructores, valoraciones, equipo, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar,
+  s, tipo, nombreInstructor, instructores, valoraciones, equipo, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar, onVolverABuscar,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
@@ -384,6 +397,7 @@ function SustitucionCard({
   onDescartar: (s: SustitucionPanel) => void;
   onAvisar: (s: SustitucionPanel, instructorId: string) => void;
   onCancelar: (s: SustitucionPanel) => void;
+  onVolverABuscar: (s: SustitucionPanel) => void;
 }) {
   const meta = ESTADO[s.estado] ?? ESTADO.buscando;
   const ranking = Array.isArray(s.ranking) ? s.ranking : [];
@@ -426,10 +440,18 @@ function SustitucionCard({
       {s.estado === 'agotada' && (
         <div className="mt-3 flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-3">
           <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
-          <p className="text-[13px] text-red-700">
-            Avisamos a todas las candidatas disponibles y ninguna confirmó. Avisa a alguien por tu cuenta,
-            vuelve a intentarlo con una candidata de abajo, o cancela la clase (avisamos a las alumnas).
-          </p>
+          <div className="min-w-0">
+            <p className="text-[13px] text-red-700">
+              Avisamos a todas las candidatas disponibles y ninguna confirmó. Avisa a alguien por tu cuenta,
+              vuelve a intentarlo con una candidata de abajo, o cancela la clase (avisamos a las alumnas).
+            </p>
+            <button
+              onClick={() => onVolverABuscar(s)} disabled={enProceso}
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-700 text-[12px] font-bold hover:bg-red-100 disabled:opacity-50 transition"
+            >
+              <RefreshCw size={13} /> {enProceso ? 'Buscando…' : 'Volver a buscar'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -440,9 +462,17 @@ function SustitucionCard({
             <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
             <p className="text-[13px] text-red-700">{motivoSinCandidatas(sinDispRelevantes)}</p>
           </div>
+          {/* Buscar otra vez va PRIMERO: es gratis y reversible. Cancelar manda
+              un email a todas las alumnas y no hay vuelta atrás. */}
+          <button
+            onClick={() => onVolverABuscar(s)} disabled={enProceso}
+            className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
+          >
+            <RefreshCw size={13} /> {enProceso ? 'Buscando…' : 'Volver a buscar'}
+          </button>
           <button
             onClick={() => onCancelar(s)} disabled={enProceso}
-            className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-[12px] font-bold hover:bg-red-600 disabled:opacity-50 transition"
+            className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-[12px] font-bold hover:bg-red-600 disabled:opacity-50 transition"
           >
             <CalendarOff size={13} /> Cancelar clase y avisar a las alumnas
           </button>
@@ -579,6 +609,11 @@ function SustitucionCard({
         {hero && (
           <button onClick={() => onCancelar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-red-600 disabled:opacity-50 transition-colors">
             Cancelar clase
+          </button>
+        )}
+        {hero && s.estado !== 'contactando' && (
+          <button onClick={() => onVolverABuscar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors">
+            Volver a buscar
           </button>
         )}
         <button onClick={() => onDescartar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors">
