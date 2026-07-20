@@ -22,6 +22,7 @@ import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSe
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
+import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import type { Socio, Spot } from '@/lib/types';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -386,8 +387,14 @@ function SessionSidebar({
   const spotsActuales = spots.filter(sp => sp.salaId === sesion.salaId);
 
   return (
-    <div className="relative w-full lg:w-[400px] shrink-0 bg-card flex flex-col h-full overflow-hidden shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)]">
-      {/* Header with class color accent */}
+    <DashboardDrawer
+      open
+      onClose={onClose}
+      label={sesion.tipoClase.nombre}
+      sheetClassName="relative w-full lg:w-[400px] shrink-0 bg-card flex flex-col h-full overflow-hidden shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)]"
+    >
+      <>
+        {/* Header with class color accent */}
       <div className="h-2" style={{ backgroundColor: sesion.tipoClase.color }} />
       <div className="px-5 pt-4 pb-3 border-b border-border">
         <div className="flex items-start justify-between gap-2 mb-2">
@@ -817,7 +824,8 @@ function SessionSidebar({
           <ArrowUpRight size={13} />Ver en modo kiosk
         </a>
       </div>
-    </div>
+      </>
+    </DashboardDrawer>
   );
 }
 
@@ -1766,29 +1774,26 @@ export default function Calendario() {
 
         {/* Session detail — slide-over panel from the right */}
         {sesionId && sesionActual && !showForm && (
-          <div className="fixed inset-0 z-50 flex justify-end">
-            <div className="absolute inset-0 bg-foreground/20" onClick={() => setSesionId(null)} />
-            <SessionSidebar
-              sesion={sesionActual}
-              reservas={reservasActuales}
-              socios={socios}
-              spots={spots}
-              onClose={() => setSesionId(null)}
-              onCheckin={checkin}
-              onDeshacerCheckin={deshacerCheckin}
-              onMarcarNoShow={marcarNoShow}
-              onRevertirNoShow={revertirNoShow}
-              onCancelarReserva={cancelarReserva}
-              onAddReserva={handleAddReserva}
-              onOpenEdit={openEdit}
-              onOpenCobertura={() => setShowCobertura(true)}
-              onCancelarSesion={cancelarSesion}
-              onCancelarSerie={cancelarSerie}
-              onEliminarSesion={eliminarSesion}
-              onLiberarSpot={liberarSpot}
-              onAsignarSpot={asignarSpot}
-            />
-          </div>
+          <SessionSidebar
+            sesion={sesionActual}
+            reservas={reservasActuales}
+            socios={socios}
+            spots={spots}
+            onClose={() => setSesionId(null)}
+            onCheckin={checkin}
+            onDeshacerCheckin={deshacerCheckin}
+            onMarcarNoShow={marcarNoShow}
+            onRevertirNoShow={revertirNoShow}
+            onCancelarReserva={cancelarReserva}
+            onAddReserva={handleAddReserva}
+            onOpenEdit={openEdit}
+            onOpenCobertura={() => setShowCobertura(true)}
+            onCancelarSesion={cancelarSesion}
+            onCancelarSerie={cancelarSerie}
+            onEliminarSesion={eliminarSesion}
+            onLiberarSpot={liberarSpot}
+            onAsignarSpot={asignarSpot}
+          />
         )}
       </div>
     </div>
@@ -1803,10 +1808,8 @@ export default function Calendario() {
       />
 
       {/* ── Panel lateral crear / editar ────────────────────────────────────────── */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-foreground/20" onClick={() => setShowForm(null)} />
-          <div className="relative w-full lg:w-[420px] bg-card h-full flex flex-col shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)]">
+      <DashboardDrawer open={!!showForm} onClose={() => setShowForm(null)} label={showForm === 'nueva' ? 'Nueva clase' : 'Editar clase'}>
+        <>
             <div className="px-6 py-5 flex items-center justify-between border-b border-border shrink-0">
               <h2 className="text-lg font-extrabold text-foreground tracking-tight">
                 {showForm === 'nueva' ? 'Nueva clase' : 'Editar clase'}
@@ -1951,9 +1954,8 @@ export default function Calendario() {
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      )}
+        </>
+      </DashboardDrawer>
 
       {/* ── Modal clases recurrentes ────────────────────────────────────────────── */}
       <ModalClasesRecurrentes
