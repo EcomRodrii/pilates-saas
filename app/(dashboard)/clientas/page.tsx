@@ -641,7 +641,7 @@ export default function Socios() {
           <>
           <table className="w-full hidden sm:table">
             <thead>
-              <tr className="border-b border-muted bg-[#FAFAFA]">
+              <tr className="border-b border-muted bg-muted">
                 {/* Checkbox */}
                 <th className="pl-4 pr-2 py-3 w-9">
                   <input
@@ -879,7 +879,7 @@ export default function Socios() {
 
         {/* Table footer — paginación (P0-34) */}
         {lista.length > 0 && (
-          <div className="px-5 py-3 border-t border-muted bg-[#FAFAFA] flex items-center justify-between gap-3 flex-wrap">
+          <div className="px-5 py-3 border-t border-muted bg-muted flex items-center justify-between gap-3 flex-wrap">
             <p className="text-[11px] text-muted-foreground">
               Mostrando {listaVisible.length} de {lista.length}
               {lista.length !== socios.length ? ` (de ${socios.length})` : ''} clientas
