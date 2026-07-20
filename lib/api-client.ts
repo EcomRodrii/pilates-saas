@@ -398,7 +398,7 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
-import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva } from '@/lib/csv';
+import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita } from '@/lib/csv';
 
 export interface ResultadoImport {
   total: number;
@@ -902,6 +902,35 @@ export async function importarReservas(rows: FilaReserva[]): Promise<ResultadoIm
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
     return data as ResultadoImportReservas;
+  } catch {
+    return { ...vacio, error: 'No se pudo conectar con el servidor' };
+  }
+}
+
+// Resultado de importar citas 1:1.
+export interface ResultadoImportCitas {
+  importadas: number;
+  duplicadas: number;
+  sinSocia: number;
+  sinInstructor: number;
+  sinServicioCatalogo: number;  // el servicio no estaba en el catálogo: se dedujo el tipo
+  errores: { fila: number; motivo: string }[];
+  error?: string;
+}
+
+// Importa citas 1:1. Empareja socia por email y servicio por nombre; el
+// studio_id sale del JWT.
+export async function importarCitas(rows: FilaCita[]): Promise<ResultadoImportCitas> {
+  const vacio = { importadas: 0, duplicadas: 0, sinSocia: 0, sinInstructor: 0, sinServicioCatalogo: 0, errores: [] };
+  try {
+    const res = await fetch('/api/citas/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rows }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
+    return data as ResultadoImportCitas;
   } catch {
     return { ...vacio, error: 'No se pudo conectar con el servidor' };
   }
