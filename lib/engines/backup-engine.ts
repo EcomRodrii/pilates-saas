@@ -2,8 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { r2Configurado, subirSnapshot, descargarSnapshot, borrarSnapshots } from '@/lib/r2';
 import { uid } from '@/lib/utils';
 
-// Todas las tablas de datos de un negocio, en el mismo orden en que
-// schema.sql las crea (o sea, en orden de dependencias: una tabla nunca
+// Todas las tablas de datos de un negocio, en el mismo orden en que las crean
+// las migraciones (o sea, en orden de dependencias: una tabla nunca
 // aparece antes que aquellas a las que hace referencia por FK). Restaurar
 // inserta en este orden; borrar antes de restaurar lo hace en el orden
 // inverso, para no violar ninguna referencia.
