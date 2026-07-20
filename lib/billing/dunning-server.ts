@@ -95,7 +95,7 @@ async function notificarFalloCobro(params: {
           texto: `No se pudo cobrar «${rec.concepto}» de ${nombreSocia} (${rec.importe.toFixed(2)} €) tras 3 reintentos. Contáctala o gestiona el cobro a mano.`,
           leida: false,
           tipo: 'AVISO',
-          enlace: '/pagos',
+          enlace: '/cobros?tab=pendientes',
           creada_en: ahoraISO,
         },
         { onConflict: 'id', ignoreDuplicates: true },

@@ -17,6 +17,8 @@ import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos } from '@/lib/permisos';
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
+import { fetchLayout } from '@/lib/api-client';
+import { filtrarItemsMenu } from '@/lib/layout-runtime';
 
 // ─── Nav config ──────────────────────────────────────────────────────────────
 
@@ -38,7 +40,7 @@ const RAW_NAV_SECTIONS = [
   {
     label: 'Clientes',
     items: [
-      { href: '/socios', label: 'Clientes', icon: Users },
+      { href: '/clientas', label: 'Clientas', icon: Users },
       { href: '/mensajeria', label: 'Mensajería', icon: Inbox },
       { href: '/comunidad', label: 'Comunidad', icon: MessageCircle },
       { href: '/chat', label: 'Chat de equipo', icon: Users2 },
@@ -47,10 +49,13 @@ const RAW_NAV_SECTIONS = [
   {
     label: 'Ventas',
     items: [
-      { href: '/transacciones', label: 'Transacciones', icon: ArrowLeftRight },
-      { href: '/facturas', label: 'Facturas', icon: FileText },
+      // "Cobros" reúne pendientes, facturas y movimientos: antes eran tres
+      // entradas distintas para la misma pregunta ("¿quién me debe y cuánto ha
+      // entrado?"). La caja se llama Caja y no POS porque es la palabra que se
+      // usa en el mostrador.
+      { href: '/cobros', label: 'Cobros', icon: CreditCard },
+      { href: '/pos', label: 'Caja', icon: Store },
       { href: '/productos', label: 'Productos', icon: Package },
-      { href: '/pos', label: 'POS', icon: Store },
     ],
   },
   {
@@ -77,15 +82,18 @@ const navSections = MARKETING_MODULE_ENABLED
 const bottomNavItems = [
   { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
   { href: '/calendario', label: 'Clases', icon: Calendar },
-  { href: '/socios', label: 'Clientes', icon: Users },
-  { href: '/transacciones', label: 'Ventas', icon: ArrowLeftRight },
+  { href: '/clientas', label: 'Clientas', icon: Users },
+  { href: '/cobros', label: 'Cobros', icon: CreditCard },
 ];
 
 // Modo Esencial: lo que un estudio pequeño con una sola propietaria necesita
 // de verdad para el día a día — todo lo demás (IA, marketing, POS, oferta
 // digital, comunidad...) se desbloquea cambiando a Modo Avanzado. Preferencia
 // puramente de UI, guardada en este navegador (no en el negocio).
-const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/socios', '/transacciones', '/informes', '/configuracion'];
+// Las seis acciones del día a día + inicio y ajustes. Antes faltaban /citas y
+// /equipo, así que un estudio nuevo —que arranca en Esencial— no las veía en el
+// menú por defecto pese a ser parte del trabajo diario.
+const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/citas', '/clientas', '/equipo', '/cobros', '/informes', '/configuracion'];
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -167,12 +175,13 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
   const pathname = usePathname();
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: '#1A1A1A' }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--foreground)' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-12 pb-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <span className="text-white font-semibold text-[16px]">Menú</span>
         <button
           onClick={onClose}
+          aria-label="Cerrar el menú"
           className="w-9 h-9 rounded-full flex items-center justify-center"
           style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
         >
@@ -219,7 +228,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
           <div className="flex-1 min-w-0">
             <p className="text-[14px] font-semibold text-white leading-tight truncate">{userEmail}</p>
           </div>
-          <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-card/10 transition-colors">
+          <button onClick={handleSignOut} aria-label="Cerrar sesión" className="p-2 rounded-lg hover:bg-card/10 transition-colors">
             <LogOut size={16} className="text-white/40" />
           </button>
         </div>
@@ -251,10 +260,30 @@ export function Sidebar() {
 
   const collapsed = size === 'compacto';
 
+  // Módulos que este estudio ha decidido no usar. Se leen una vez al montar; si
+  // falla la carga, `ocultos` queda vacío y se ve todo (mejor de más que de
+  // menos: esconder por un error de red dejaría a alguien sin encontrar su
+  // trabajo). NO_OCULTABLES protege lo imprescindible en lib/nav-config.tsx.
+  const [ocultos, setOcultos] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let vivo = true;
+    fetchLayout()
+      .then(l => { if (vivo) setOcultos(new Set(l.ocultos)); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+
   const seccionesVisibles = navSections
-    .map(s => ({ ...s, items: s.items.filter(i => puedeVer(i.href) && (navMode === 'avanzado' || ESSENTIAL_HREFS.includes(i.href))) }))
+    .map(s => ({
+      ...s,
+      items: filtrarItemsMenu(s.items, { puedeVer, ocultos, modo: navMode, esenciales: ESSENTIAL_HREFS }),
+    }))
     .filter(s => s.items.length > 0);
-  const bottomNavVisibles = bottomNavItems.filter(i => puedeVer(i.href));
+  // La barra inferior de móvil no distingue esencial/avanzado: son las cuatro
+  // de siempre, así que se pasa 'avanzado' y manda solo permiso + ocultos.
+  const bottomNavVisibles = filtrarItemsMenu(bottomNavItems, {
+    puedeVer, ocultos, modo: 'avanzado', esenciales: ESSENTIAL_HREFS,
+  });
 
   function applySize(next: SidebarSize) {
     setSize(next);
@@ -345,7 +374,7 @@ export function Sidebar() {
                 <button
                   key={val}
                   onClick={() => setNavMode(val)}
-                  title={val === 'esencial' ? 'Solo lo esencial: Dashboard, Calendario, Clientes, Transacciones, Informes' : 'Todas las funciones'}
+                  title={val === 'esencial' ? 'Solo el día a día: agenda, clientes, cobros, equipo e informes' : 'Todas las funciones'}
                   className={cn(
                     'flex-1 py-1 rounded-full text-[10.5px] font-bold transition-all',
                     navMode === val ? 'bg-brand text-brand-foreground' : 'text-white/40',

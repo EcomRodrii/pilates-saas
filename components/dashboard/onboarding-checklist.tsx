@@ -26,7 +26,7 @@ export function OnboardingChecklist() {
     { label: 'Añade una sala', done: salas.length > 0, href: '/configuracion?tab=salas' },
     { label: 'Añade a tu equipo (instructoras)', done: instructores.length > 0, href: '/equipo' },
     { label: 'Crea un tipo de clase y programa un horario', done: tiposClase.length > 0 && sesiones.length > 0, href: '/calendario' },
-    { label: 'Da de alta tu primera socia', done: socios.length > 0, href: '/socios?nuevo=1' },
+    { label: 'Da de alta tu primera clienta', done: socios.length > 0, href: '/clientas?nuevo=1' },
   ];
 
   const pendientes = steps.filter(s => !s.done).length;

@@ -147,8 +147,8 @@ export async function POST(req: NextRequest) {
       ...(fee !== undefined ? { application_fee_amount: fee } : {}),
     },
     metadata,
-    success_url: `${appUrl}/pagos?stripe_success=1${body.reciboId ? `&recibo=${body.reciboId}` : ''}`,
-    cancel_url: `${appUrl}/pagos?stripe_cancel=1`,
+    success_url: `${appUrl}/cobros?tab=pendientes&stripe_success=1${body.reciboId ? `&recibo=${body.reciboId}` : ''}`,
+    cancel_url: `${appUrl}/cobros?tab=pendientes&stripe_cancel=1`,
     locale: 'es',
   }, { stripeAccount: studio.stripe_account_id });
 

@@ -62,3 +62,33 @@ export function aplicarLayout(todos: string[], cfg: OrdenVisibilidad): string[] 
   const resto = todos.filter((h) => !enOrden.has(h));
   return [...ordenados, ...resto].filter((h) => !ocultos.has(h));
 }
+
+/**
+ * Qué entradas del menú ve una persona concreta. Tres filtros encadenados, y
+ * el orden entre ellos no importa porque todos son restrictivos:
+ *
+ *   · permiso   — su rol; lo decide el servidor, aquí solo se refleja.
+ *   · ocultos   — módulos que el estudio ha decidido no usar.
+ *   · esencial  — modo por defecto: solo el día a día, para que un estudio
+ *                 nuevo no se ahogue. Se amplía con "Ver todo".
+ *
+ * Lo que NO hace: reordenar. El orden del menú es el mismo en todos los
+ * estudios a propósito (principio 6), así que aquí solo se filtra.
+ */
+export function filtrarItemsMenu<T extends { href: string }>(
+  items: T[],
+  opts: {
+    puedeVer: (href: string) => boolean;
+    ocultos: Set<string> | string[];
+    modo: 'esencial' | 'avanzado';
+    esenciales: readonly string[];
+  },
+): T[] {
+  const ocultos = opts.ocultos instanceof Set ? opts.ocultos : new Set(opts.ocultos);
+  return items.filter(
+    (i) =>
+      opts.puedeVer(i.href) &&
+      !ocultos.has(i.href) &&
+      (opts.modo === 'avanzado' || opts.esenciales.includes(i.href)),
+  );
+}
