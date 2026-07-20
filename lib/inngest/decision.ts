@@ -270,7 +270,14 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
     { idempotencyKey: r.id }
   );
   if (error) return { ok: false, detalle: error.message };
-  return { ok: true, detalle: `Email enviado a ${socio.email}` };
+  // El código va en el detalle para que quede visible en el feed "Actividad" del
+  // Centro de Control: el propietario tiene que poder ver qué se prometió.
+  return {
+    ok: true,
+    detalle: codigoDescuento
+      ? `Email enviado a ${socio.email} · código ${codigoDescuento}`
+      : `Email enviado a ${socio.email}`,
+  };
 }
 
 // Al aprobar una recomendación de CONTACTO_MANUAL: se envía a la socia el mensaje
