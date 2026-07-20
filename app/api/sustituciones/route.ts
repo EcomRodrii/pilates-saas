@@ -92,9 +92,17 @@ export async function GET(req: NextRequest) {
   const { data: estudio } = await admin
     .from('studios').select('avisar_alumnas').eq('id', sesion.studioId).maybeSingle();
 
+  // Diagnóstico del equipo: quién es INVISIBLE para el ranking por no tener
+  // ninguna franja en `instructora_disponibilidad`. `rankear_candidatas` (0038)
+  // las excluye, así que sin esto el panel enseña "ninguna candidata" sin decir
+  // que a media plantilla ni se la ha mirado. Dos consultas simples en vez de un
+  // join: el equipo de un estudio cabe de sobra en memoria.
+  const equipo = await diagnosticarEquipo(admin, sesion.studioId);
+
   return NextResponse.json({
     sustituciones: lista.map((s) => ({ ...s, sustitucion_contactos: contactosPorSust.get(s.id) ?? [] })),
     avisarAlumnas: !!estudio?.avisar_alumnas,
+    equipo,
   });
 }
 
@@ -162,10 +170,19 @@ export async function PATCH(req: NextRequest) {
       .eq('id', sustitucionId).eq('studio_id', sesion.studioId).maybeSingle();
     if (!sust) return NextResponse.json({ error: 'Sustitución no encontrada' }, { status: 404 });
 
-    await admin.from('sesiones').update({ cancelada: true }).eq('id', sust.sesion_id).eq('studio_id', sesion.studioId);
-    await admin.from('sustituciones')
+    // Cancelar manda un email a TODAS las alumnas: si la escritura falla, no se
+    // puede seguir como si nada y avisarlas de una cancelación que no ha pasado.
+    const canc = await admin.from('sesiones')
+      .update({ cancelada: true }).eq('id', sust.sesion_id).eq('studio_id', sesion.studioId).select('id');
+    if (canc.error) return NextResponse.json({ error: canc.error.message }, { status: 500 });
+    if (!canc.data || canc.data.length === 0) {
+      return NextResponse.json({ error: 'No se pudo cancelar la clase. Recarga la página.' }, { status: 409 });
+    }
+
+    const marc = await admin.from('sustituciones')
       .update({ estado: 'sin_sustituta', resuelto_en: new Date().toISOString() })
-      .eq('id', sustitucionId).eq('studio_id', sesion.studioId);
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId).select('id');
+    if (marc.error) return NextResponse.json({ error: marc.error.message }, { status: 500 });
 
     const alumnas = await avisarAlumnas(admin, {
       sesionId: sust.sesion_id as string, studioId: sesion.studioId, tipo: 'cancelada',
@@ -214,14 +231,54 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (body?.action === 'descartar') {
-    const { error } = await admin
+    // `.select()` para saber CUÁNTAS filas ha tocado el compare-and-set. Sin él,
+    // un update que no encaja con ninguna fila (sustitución ya resuelta, o de
+    // otro estudio) devolvía `ok:true` y el panel daba por hecho que funcionó:
+    // la tarjeta seguía ahí y no había forma de saber por qué.
+    const { data, error } = await admin
       .from('sustituciones')
       .update({ estado: 'resuelta_fuera', resuelto_en: new Date().toISOString() })
       .eq('id', sustitucionId).eq('studio_id', sesion.studioId)
-      .in('estado', ESTADOS_EN_JUEGO);
+      .in('estado', ESTADOS_EN_JUEGO)
+      .select('id');
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: 'Esta sustitución ya está resuelta. Recarga la página.' }, { status: 409 });
+    }
     return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
+}
+
+/**
+ * Instructoras activas del estudio que NO tienen ninguna franja de disponibilidad
+ * cargada. Son las que `rankear_candidatas` descarta de entrada, así que nunca
+ * aparecerán como candidatas y la propietaria no tendría forma de saber por qué.
+ *
+ * Best-effort: si esto falla, el panel se queda sin el aviso pero sigue
+ * funcionando — es información de apoyo, no la herramienta.
+ */
+async function diagnosticarEquipo(
+  admin: ReturnType<typeof getSupabaseAdmin> & {},
+  studioId: string,
+): Promise<{ total: number; sinDisponibilidad: { id: string; nombre: string }[] }> {
+  try {
+    const [{ data: activas }, { data: franjas }] = await Promise.all([
+      admin.from('instructores').select('id, nombre').eq('studio_id', studioId).eq('activo', true),
+      admin.from('instructora_disponibilidad').select('instructor_id').eq('studio_id', studioId),
+    ]);
+
+    const conDisponibilidad = new Set((franjas ?? []).map((f) => f.instructor_id as string));
+    const lista = activas ?? [];
+    return {
+      total: lista.length,
+      sinDisponibilidad: lista
+        .filter((i) => !conDisponibilidad.has(i.id as string))
+        .map((i) => ({ id: i.id as string, nombre: (i.nombre as string) ?? '' })),
+    };
+  } catch (e) {
+    console.error('[sustituciones] no se pudo diagnosticar el equipo', e);
+    return { total: 0, sinDisponibilidad: [] };
+  }
 }

@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
-  cancelarClase, setAvisarAlumnas, resumenValoraciones, type SustitucionPanel, type ResumenValoraciones,
+  cancelarClase, setAvisarAlumnas, resumenValoraciones, generarEnlaceDisponibilidad,
+  type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
+import { avisoEquipoIncompleto, motivoSinCandidatas, type DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -48,17 +50,20 @@ export default function SustitucionesPage() {
   // Cancelar una clase puede disparar un email a todas las alumnas: se
   // confirma en un diálogo accesible, no con el confirm() nativo.
   const [aCancelar, setACancelar] = useState<SustitucionPanel | null>(null);
+  // Quién es invisible para el ranking por no tener disponibilidad cargada.
+  const [equipo, setEquipo] = useState<DiagnosticoEquipo>({ total: 0, sinDisponibilidad: [] });
+  const [pidiendo, setPidiendo] = useState(false); // diálogo "pedir disponibilidad"
 
   const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'Instructora';
   const tipoDe = (id: string | null | undefined) => tiposClase.find(t => t.id === id);
 
   async function recargar() {
     const r = await listarSustituciones();
-    setItems(r.items); setAvisar(r.avisarAlumnas); setCargando(false);
+    setItems(r.items); setAvisar(r.avisarAlumnas); setEquipo(r.equipo); setCargando(false);
   }
   useEffect(() => {
     let vivo = true;
-    listarSustituciones().then(r => { if (vivo) { setItems(r.items); setAvisar(r.avisarAlumnas); setCargando(false); } });
+    listarSustituciones().then(r => { if (vivo) { setItems(r.items); setAvisar(r.avisarAlumnas); setEquipo(r.equipo); setCargando(false); } });
     resumenValoraciones().then(r => { if (vivo) setValoraciones(r); });
     return () => { vivo = false; };
   }, []);
@@ -81,6 +86,10 @@ export default function SustitucionesPage() {
     setAccion(null);
     setTimeout(() => setAviso(null), 6000);
   }
+
+  // Aviso de "tu equipo está a medio configurar". Null → no se pinta nada: una
+  // franja de alerta permanente se aprende a ignorar en dos días.
+  const avisoEquipo = avisoEquipoIncompleto(equipo);
 
   const activas = items.filter(s => ESTADO[s.estado]?.activa);
   const resueltas = items.filter(s => !ESTADO[s.estado]?.activa);
@@ -117,7 +126,10 @@ export default function SustitucionesPage() {
   }
   async function descartar(s: SustitucionPanel) {
     setAccion(s.id);
-    await descartarSustitucion(s.id);
+    // Antes se ignoraba el resultado: si fallaba, la tarjeta seguía ahí sin
+    // explicación y no había forma de saber si se había guardado o no.
+    const r = await descartarSustitucion(s.id);
+    if ('error' in r) { alert(r.error); setAccion(null); return; }
     await recargar();
     setAccion(null);
   }
@@ -144,6 +156,27 @@ export default function SustitucionesPage() {
         <Users size={14} className="shrink-0" />
         Avisar a las alumnas por email cuando se confirma sustituta o se cancela una clase
       </label>
+
+      {avisoEquipo && (
+        <div className="flex items-start gap-2.5 rounded-xl bg-[#FEF3C7] border border-[#FDE68A] px-4 py-3">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5 text-[#92400E]" />
+          <div className="min-w-0">
+            <p className="text-[13px] text-[#92400E] leading-relaxed">{avisoEquipo}</p>
+            <button
+              onClick={() => setPidiendo(true)}
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#92400E] text-white text-[12px] font-bold hover:brightness-110 transition"
+            >
+              <CalendarClock size={13} /> Pedirles su disponibilidad
+            </button>
+          </div>
+        </div>
+      )}
+
+      <PedirDisponibilidadDialog
+        abierto={pidiendo}
+        instructores={equipo.sinDisponibilidad}
+        onClose={() => setPidiendo(false)}
+      />
 
       {aviso && (
         <div className="flex items-start gap-2 rounded-xl bg-[#DCFCE7] border border-[#86EFAC] px-4 py-3 text-[13px] text-[#166534]">
@@ -177,7 +210,7 @@ export default function SustitucionesPage() {
             <div className="space-y-3">
               {activas.map(s => (
                 <SustitucionCard
-                  key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor}
+                  key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor} equipo={equipo}
                   instructores={instructores} valoraciones={valoraciones} enProceso={accion === s.id}
                   onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={(s: SustitucionPanel) => setACancelar(s)}
                 />
@@ -338,13 +371,14 @@ function HorarioActualizadoCard({ sub, sesiones, tiposClase, nombreInstructor, o
 }
 
 function SustitucionCard({
-  s, tipo, nombreInstructor, instructores, valoraciones, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar,
+  s, tipo, nombreInstructor, instructores, valoraciones, equipo, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
   nombreInstructor: (id: string | null) => string;
   instructores: import('@/lib/types').Instructor[];
   valoraciones: ResumenValoraciones;
+  equipo: DiagnosticoEquipo;
   enProceso: boolean;
   onConfirmar: (s: SustitucionPanel, instructorId: string) => void;
   onDescartar: (s: SustitucionPanel) => void;
@@ -359,6 +393,10 @@ function SustitucionCard({
   const contactada = s.estado === 'contactando';
   const esSolicitud = s.estado === 'pendiente_aprobacion'; // card "Nueva sustitución solicitada"
   const insDe = (id: string) => instructores.find(i => i.id === id);
+  // Sin disponibilidad cargada, SIN contar a quien causa la baja: no puede
+  // cubrirse a sí misma, así que sumarla al recuento despistaría.
+  const sinDispRelevantes = equipo.sinDisponibilidad
+    .filter(i => i.id !== s.instructor_original_id).length;
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 shadow-sm">
@@ -400,7 +438,7 @@ function SustitucionCard({
         <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3">
           <div className="flex items-start gap-2">
             <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
-            <p className="text-[13px] text-red-700">Ninguna candidata disponible para esta franja. Cancela la clase (avisamos a las alumnas) o resuélvelo por tu cuenta.</p>
+            <p className="text-[13px] text-red-700">{motivoSinCandidatas(sinDispRelevantes)}</p>
           </div>
           <button
             onClick={() => onCancelar(s)} disabled={enProceso}
@@ -614,6 +652,76 @@ function fmtMomento(iso: string): string {
   const dia = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', timeZone: 'Europe/Madrid' });
   const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
   return `${dia}, ${hora}`;
+}
+
+// Pedir la disponibilidad a quienes no la tienen, SIN salir de Sustituciones.
+// El problema se detecta aquí, así que aquí se arregla: mandar a la propietaria
+// a otra pantalla a buscar un menú ⋮ es la forma más fácil de que no lo haga.
+function PedirDisponibilidadDialog({
+  abierto, instructores, onClose,
+}: {
+  abierto: boolean;
+  instructores: { id: string; nombre: string }[];
+  onClose: () => void;
+}) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [copiado, setCopiado] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [generando, setGenerando] = useState<string | null>(null);
+
+  async function enlaceDe(id: string): Promise<string | null> {
+    if (urls[id]) return urls[id];
+    setGenerando(id); setError(null);
+    const r = await generarEnlaceDisponibilidad(id, 'disponibilidad');
+    setGenerando(null);
+    if ('error' in r) { setError(r.error); return null; }
+    setUrls(prev => ({ ...prev, [id]: r.url }));
+    return r.url;
+  }
+
+  async function copiar(id: string) {
+    const url = await enlaceDe(id);
+    if (!url) return;
+    try { await navigator.clipboard.writeText(url); } catch { /* queda visible para copiar a mano */ }
+    setCopiado(id);
+    setTimeout(() => setCopiado(c => (c === id ? null : c)), 2500);
+  }
+
+  return (
+    <Dialog open={abierto} onOpenChange={open => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Pedir disponibilidad</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Cada una abre su enlace en el móvil y marca sus franjas en unos segundos — sin instalar nada
+          ni crear cuenta. En cuanto lo hagan, podré proponerlas como sustitutas.
+        </p>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <ul className="space-y-2 mt-1">
+          {instructores.map(i => (
+            <li key={i.id} className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2.5">
+              <span className="text-[13px] font-medium text-foreground truncate">{i.nombre}</span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => copiar(i.id)}
+                  disabled={generando === i.id}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
+                >
+                  {copiado === i.id ? <><Check size={12} /> Copiado</> : generando === i.id ? 'Generando…' : 'Copiar enlace'}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {urls[instructores[0]?.id ?? ''] && (
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Los enlaces caducan en 30 días. Puedes generar otros cuando quieras.
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function ResueltaRow({
