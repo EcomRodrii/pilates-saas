@@ -31,6 +31,24 @@
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
+  /* Faltaba: --destructive estaba definido en :root pero nunca se registraba
+     aquí, así que Tailwind v4 no generaba NINGUNA utilidad destructive y todo
+     lo peligroso (el botón Eliminar del confirm-dialog, la variante
+     destructive de Button, los errores de validación) se pintaba en negro. */
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  /* success/warning/info no existían: cada pantalla se inventaba su propio
+     verde/ámbar/azul en hex ("#059669" repetido 121 veces, "#D97706" 57 veces,
+     "#1D4ED8" 20 veces...). Al no ser tokens, ninguno respetaba el modo oscuro
+     del panel — el mismo verde de "cobrado" quedaba igual de oscuro sobre un
+     fondo oscuro, perdiendo contraste. Mismo patrón que --destructive: el color
+     sólido para texto/icono, /10 (mezcla con el fondo) para el tinte de badge. */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --color-brand: var(--brand);
@@ -69,6 +87,15 @@
   --accent: #F5F3FF;
   --accent-foreground: #6D28D9;
   --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: #ffffff;
+  /* Valores iguales a los hex más repetidos del panel (#059669, #D97706,
+     #1D4ED8), para que registrar el token no cambie ni un píxel en modo claro. */
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --warning: #D97706;
+  --warning-foreground: #ffffff;
+  --info: #1D4ED8;
+  --info-foreground: #ffffff;
   --border: #E7E7E0;
   --input: #E7E7E0;
   --ring: #6D28D9;
@@ -117,6 +144,18 @@
   --muted-foreground: #9A9A98;
   --accent: #2A2226;
   --accent-foreground: var(--brand-secondary);
+  /* Rojo más claro sobre fondo oscuro: el de :root no llega al contraste AA.
+     Mismo motivo para success/warning/info: la versión de :root, tal cual,
+     pierde contraste sobre #16161A — se aclaran igual que ya se hacía con
+     destructive, y el foreground pasa a ser el fondo oscuro del panel, no blanco. */
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: #16161A;
+  --success: #34D399;
+  --success-foreground: #16161A;
+  --warning: #FBBF24;
+  --warning-foreground: #16161A;
+  --info: #60A5FA;
+  --info-foreground: #16161A;
   --border: #303035;
   --input: #303035;
 }
