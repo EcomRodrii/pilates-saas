@@ -372,8 +372,8 @@ export default function Informes() {
     if (i === 0 || prev === 0) return 'var(--success)';
     const delta = value - prev;
     if (delta > 0) return 'var(--success)';
-    if (Math.abs(delta) / prev < 0.05) return '#F59E0B';
-    return '#EF4444';
+    if (Math.abs(delta) / prev < 0.05) return 'var(--warning)';
+    return 'var(--destructive)';
   }
 
   if (!mounted) {
@@ -514,11 +514,11 @@ export default function Informes() {
             <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>Creciendo</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#F59E0B' }} />
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--warning)' }} />
             <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>Estable</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#EF4444' }} />
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--destructive)' }} />
             <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>Decreciendo</span>
           </div>
         </div>
@@ -636,7 +636,7 @@ export default function Informes() {
                         y={y - 28}
                         textAnchor="middle"
                         fontSize="10"
-                        fill="#fff"
+                        fill="var(--background)"
                         fontWeight="600"
                       >
                         {d.label}
@@ -794,8 +794,7 @@ export default function Informes() {
 
                     {/* Avatar */}
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: '#EDE9FE', color: '#7C3AED' }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 bg-accent text-accent-foreground"
                     >
                       {s.nombre[0]}{s.apellidos?.[0] ?? ''}
                     </div>
