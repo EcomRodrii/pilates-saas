@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import {
   Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, Activity, CalendarClock,
@@ -249,6 +250,9 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
   const { condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion } = useStudio();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<CondicionSalud | null>(null);
+  // Borrar una condición de la ficha clínica es destructivo y sobre dato de
+  // salud: se confirma en un diálogo accesible, no con el confirm() nativo.
+  const [aBorrar, setABorrar] = useState<CondicionSalud | null>(null);
 
   const condiciones = useMemo(
     () => condicionesSalud.filter(c => c.socioId === socioId).sort((a, b) => b.inicio.localeCompare(a.inicio)),
@@ -367,13 +371,23 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
             <CondicionCard key={c.id} c={c} now={now}
               onEdit={() => abrirEditar(c)}
               onAlta={() => updateCondicion(c.id, { estado: 'RESUELTA', fin: isoHoy(now) })}
-              onDelete={() => { if (confirm(`¿Eliminar "${c.etiqueta}" de la ficha?`)) deleteCondicion(c.id); }}
+              onDelete={() => setABorrar(c)}
             />
           ))}
         </div>
       )}
 
       <CondicionDialog open={dialogOpen} onClose={() => { setDialogOpen(false); setEditando(null); }} onSave={guardar} inicial={inicial} />
+
+      <ConfirmDialog
+        open={aBorrar !== null}
+        onOpenChange={abierto => { if (!abierto) setABorrar(null); }}
+        titulo={aBorrar ? `¿Eliminar "${aBorrar.etiqueta}" de la ficha?` : ''}
+        descripcion="Se borra de la línea de tiempo clínica de la socia. No se puede deshacer."
+        textoConfirmar="Eliminar"
+        destructivo
+        onConfirm={() => { if (aBorrar) deleteCondicion(aBorrar.id); setABorrar(null); }}
+      />
     </div>
   );
 }
