@@ -4,7 +4,7 @@
 // de acciones (email, tarea, publicar en otra red, notificar al equipo).
 // Persiste los pasos en automatizaciones.pasos (jsonb).
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { cn } from '@/lib/utils'
 import { useStudio } from '@/lib/studio-context'
 import type { Automatizacion, PasoFlujo, AccionFlujo, TriggerAutomatizacion } from '@/lib/types'
@@ -77,6 +77,7 @@ export function FlowBuilder({
   onClose: () => void
   automatizacion?: Automatizacion | null
 }) {
+  const uid = useId();
   const { addAutomatizacion, updateAutomatizacion } = useStudio()
   const editando = !!automatizacion
 
@@ -149,14 +150,14 @@ export function FlowBuilder({
           {/* Configuración */}
           <div className="p-5 space-y-4 lg:border-r border-border">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Nombre del flujo</label>
-              <input className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Bienvenida a nuevas socias" autoFocus />
+              <label htmlFor={`${uid}-1`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Nombre del flujo</label>
+              <input id={`${uid}-1`} className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Bienvenida a nuevas socias" autoFocus />
             </div>
 
             {/* Desencadenante */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" /> Cuando…</label>
-              <select className={inputCls} value={trigger} onChange={e => setTrigger(e.target.value as TriggerAutomatizacion)}>
+              <label htmlFor={`${uid}-2`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" /> Cuando…</label>
+              <select id={`${uid}-2`} className={inputCls} value={trigger} onChange={e => setTrigger(e.target.value as TriggerAutomatizacion)}>
                 {TRIGGERS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
               {triggerMeta && <p className="text-[11px] text-muted-foreground">{triggerMeta.desc}</p>}

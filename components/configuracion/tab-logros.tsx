@@ -31,6 +31,7 @@ const emptyForm = (): Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'
 });
 
 export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
+  const uid = useId();
   const { achievementDefinitions, addAchievementDefinition, updateAchievementDefinition } = useStudio();
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -110,21 +111,21 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
           <div className="space-y-4">
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
-                <label className={labelCls}>Icono</label>
-                <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                <label htmlFor={`${uid}-1`} className={labelCls}>Icono</label>
+                <input id={`${uid}-1`} className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
               </div>
               <div>
-                <label className={labelCls}>Nombre</label>
-                <input className={inputCls} value={form.nombre} placeholder="Ej. 10 clases" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                <label htmlFor={`${uid}-2`} className={labelCls}>Nombre</label>
+                <input id={`${uid}-2`} className={inputCls} value={form.nombre} placeholder="Ej. 10 clases" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
               </div>
             </div>
             <div>
-              <label className={labelCls}>Descripción</label>
-              <input className={inputCls} value={form.descripcion ?? ''} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              <label htmlFor={`${uid}-3`} className={labelCls}>Descripción</label>
+              <input id={`${uid}-3`} className={inputCls} value={form.descripcion ?? ''} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
             </div>
             <div>
-              <label className={labelCls}>Métrica</label>
-              <select className={inputCls} value={form.metric} onChange={e => setForm(f => ({ ...f, metric: e.target.value as AchievementMetric }))}>
+              <label htmlFor={`${uid}-4`} className={labelCls}>Métrica</label>
+              <select id={`${uid}-4`} className={inputCls} value={form.metric} onChange={e => setForm(f => ({ ...f, metric: e.target.value as AchievementMetric }))}>
                 {ACHIEVEMENT_METRICS.map(m => (
                   <option key={m.metric} value={m.metric}>{m.nombre}</option>
                 ))}
@@ -132,12 +133,12 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Umbral</label>
-                <input type="number" min={1} className={inputCls} value={form.umbral} onChange={e => setForm(f => ({ ...f, umbral: Math.max(1, parseInt(e.target.value, 10) || 1) }))} />
+                <label htmlFor={`${uid}-5`} className={labelCls}>Umbral</label>
+                <input id={`${uid}-5`} type="number" min={1} className={inputCls} value={form.umbral} onChange={e => setForm(f => ({ ...f, umbral: Math.max(1, parseInt(e.target.value, 10) || 1) }))} />
               </div>
               <div>
-                <label className={labelCls}>Créditos de regalo</label>
-                <input type="number" min={0} className={inputCls} value={form.creditosRecompensa} onChange={e => setForm(f => ({ ...f, creditosRecompensa: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                <label htmlFor={`${uid}-6`} className={labelCls}>Créditos de regalo</label>
+                <input id={`${uid}-6`} type="number" min={0} className={inputCls} value={form.creditosRecompensa} onChange={e => setForm(f => ({ ...f, creditosRecompensa: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
               </div>
             </div>
             <div className="flex items-center justify-between pt-1">
