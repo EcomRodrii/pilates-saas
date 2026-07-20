@@ -1166,13 +1166,15 @@ export default function ReservarPage() {
       </PublicSheet>
 
       {/* ── MODAL DOCUMENTO LEGAL ────────────────────────────────────────────── */}
-      {legalDoc && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
-          style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-          onClick={() => setLegalDoc(null)}>
-          <div className="bg-white w-full max-w-lg rounded-3xl relative shadow-2xl flex flex-col"
-            style={{ maxHeight: '85vh' }}
-            onClick={e => e.stopPropagation()}>
+      <PublicSheet
+        open={legalDoc !== null}
+        onClose={() => setLegalDoc(null)}
+        label={legalDoc?.label ?? 'Documento legal'}
+        sheetClassName="bg-white w-full max-w-lg rounded-3xl relative shadow-2xl flex flex-col"
+        sheetStyle={{ maxHeight: '85vh' }}
+      >
+        {legalDoc && (
+          <>
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#F1F1EC]">
               <h2 className="text-[#1A1A1A] font-bold text-base">{legalDoc.label}</h2>
               <button onClick={() => setLegalDoc(null)} aria-label="Cerrar" className="text-[#767670] hover:text-[#3A3A34] transition-colors">
@@ -1184,9 +1186,9 @@ export default function ReservarPage() {
             <div className="px-6 py-5 overflow-y-auto text-[13px] text-[#3A3A34] leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>
               {legalDoc.text}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </PublicSheet>
     </div>
   );
 }
