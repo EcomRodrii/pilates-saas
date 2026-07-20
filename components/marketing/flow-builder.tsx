@@ -7,6 +7,7 @@
 import { useState, useId } from 'react'
 import { cn } from '@/lib/utils'
 import { useStudio } from '@/lib/studio-context'
+import { DashboardSheet } from '@/components/ui/dashboard-sheet'
 import type { Automatizacion, PasoFlujo, AccionFlujo, TriggerAutomatizacion } from '@/lib/types'
 import {
   Mail, CheckSquare, Share2, Bell, Plus, Trash2, ChevronUp, ChevronDown,
@@ -134,12 +135,17 @@ export function FlowBuilder({
     onClose()
   }
 
-  if (!open) return null
   const triggerMeta = TRIGGERS.find(t => t.value === trigger)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-6" onClick={onClose}>
-      <div className="w-full max-w-4xl my-4 bg-card border border-border rounded-2xl shadow-xl" onClick={e => e.stopPropagation()}>
+    <DashboardSheet
+      open={open}
+      onClose={onClose}
+      label={editando ? 'Editar flujo' : 'Nuevo flujo de automatización'}
+      backdropClassName="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-6"
+      sheetClassName="w-full max-w-4xl my-4 bg-card border border-border rounded-2xl shadow-xl"
+    >
+      <>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-lg font-bold text-foreground">{editando ? 'Editar flujo' : 'Nuevo flujo de automatización'}</h2>
@@ -251,7 +257,7 @@ export function FlowBuilder({
             {editando ? 'Guardar flujo' : 'Crear flujo'}
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </DashboardSheet>
   )
 }
