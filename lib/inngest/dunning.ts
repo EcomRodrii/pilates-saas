@@ -86,7 +86,7 @@ export const procesarDunningEstudio = inngest.createFunction(
         if (cobro.errorCode === 'FALLO_COBRO') {
           const admin = getSupabaseAdmin();
           if (!admin) throw new Error('Service role no configurada');
-          const out = await registrarFalloCobro({ admin, reciboId: r.id, esSepa: false, ahoraISO: nowISO });
+          const out = await registrarFalloCobro({ admin, reciboId: r.id, studioId, esSepa: false, ahoraISO: nowISO });
           return { tipo: 'fallo' as const, estado: out?.estado };
         }
         // Sin método guardado, cuenta no lista, no configurado o ya no pendiente →

@@ -7,6 +7,25 @@ import { webhookYaProcesado, marcarWebhookProcesado } from '@/lib/webhook-idempo
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 import { registrarFalloCobro } from '@/lib/billing/dunning-server';
 
+type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
+
+/**
+ * Estudio dueño de la cuenta Connect que firma el evento.
+ *
+ * Es la ÚNICA fuente fiable del tenant en los eventos de recibo: la metadata del
+ * PaymentIntent la controla quien lo crea, así que un estudio con acceso a su
+ * propia cuenta Stripe podría poner ahí el reciboId de OTRO estudio y confirmar
+ * (o devolver) un cobro ajeno. `event.account` lo pone Stripe, no el emisor.
+ *
+ * Todos los cargos de recibo se crean con `{ stripeAccount }` sobre la cuenta
+ * conectada del estudio, así que en estos manejadores siempre viene informado.
+ */
+async function studioDeCuentaConnect(admin: AdminClient, accountId: string | undefined): Promise<string | null> {
+  if (!accountId) return null;
+  const { data } = await admin.from('studios').select('id').eq('stripe_account_id', accountId).maybeSingle();
+  return (data as { id: string } | null)?.id ?? null;
+}
+
 export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -271,24 +290,37 @@ export async function POST(req: NextRequest) {
         console.error('[stripe webhook] service role no configurada (SEPA succeeded)');
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
+      const studioId = await studioDeCuentaConnect(admin, event.account);
+      if (!studioId) {
+        Sentry.captureMessage('[stripe webhook] cobro SEPA de una cuenta Connect no reconocida', {
+          level: 'error', extra: { reciboId, eventAccount: event.account },
+        });
+        return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+      }
       const { data: rec, error: updErr } = await admin.from('recibos')
         .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: 'SEPA', sepa_estado: 'succeeded' })
-        .eq('id', reciboId).select('studio_id').maybeSingle();
+        .eq('id', reciboId).eq('studio_id', studioId).select('id').maybeSingle();
       if (updErr) {
         console.error('[stripe webhook] no se pudo marcar el recibo SEPA COBRADO', reciboId, updErr);
         return NextResponse.json({ error: 'Fallo al confirmar el cobro SEPA' }, { status: 500 });
       }
-      if (rec?.studio_id) {
-        try {
-          const sell = await sellarFacturaDeRecibo(admin, { studioId: rec.studio_id, reciboId, facturaId: `fac-sepa-${reciboId}` });
-          if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
-        } catch (e) {
-          Sentry.captureException(e instanceof Error ? e : new Error('Fallo al sellar la factura del cobro SEPA'), {
-            level: 'warning', tags: { area: 'facturacion', tipo: 'sepa_ciclo' }, extra: { reciboId },
-          });
-        }
+      // Ninguna fila casó: el recibo no existe o es de otro estudio. Lo segundo es
+      // un intento de confirmar un cobro ajeno — se registra y se rechaza.
+      if (!rec) {
+        Sentry.captureMessage('[stripe webhook] cobro SEPA apunta a recibo inexistente o de otro estudio', {
+          level: 'error', extra: { reciboId, studioId, eventAccount: event.account },
+        });
+        return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
       }
-      capturar(pi.metadata.studioId ?? rec?.studio_id ?? '', { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'sepa' } });
+      try {
+        const sell = await sellarFacturaDeRecibo(admin, { studioId, reciboId, facturaId: `fac-sepa-${reciboId}` });
+        if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
+      } catch (e) {
+        Sentry.captureException(e instanceof Error ? e : new Error('Fallo al sellar la factura del cobro SEPA'), {
+          level: 'warning', tags: { area: 'facturacion', tipo: 'sepa_ciclo' }, extra: { reciboId },
+        });
+      }
+      capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'sepa' } });
     }
   }
 
@@ -304,11 +336,18 @@ export async function POST(req: NextRequest) {
         console.error('[stripe webhook] service role no configurada (SEPA failed)');
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
+      const studioId = await studioDeCuentaConnect(admin, event.account);
+      if (!studioId) {
+        Sentry.captureMessage('[stripe webhook] adeudo SEPA fallido de una cuenta Connect no reconocida', {
+          level: 'error', extra: { reciboId, eventAccount: event.account },
+        });
+        return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+      }
       // Dunning (0041): cuenta el intento, reprograma el siguiente reintento
       // (+3/+7 días) o marca el recibo FALLIDO tras el tercero, y notifica a la
       // socia (1.er fallo / fallo definitivo) y al estudio (fallo definitivo).
       try {
-        await registrarFalloCobro({ admin, reciboId, esSepa: true, ahoraISO: new Date().toISOString() });
+        await registrarFalloCobro({ admin, reciboId, studioId, esSepa: true, ahoraISO: new Date().toISOString() });
       } catch (e) {
         console.error('[stripe webhook] no se pudo registrar el adeudo SEPA fallido (dunning)', reciboId, e);
         return NextResponse.json({ error: 'Fallo al registrar el adeudo SEPA fallido' }, { status: 500 });
@@ -333,12 +372,25 @@ export async function POST(req: NextRequest) {
           console.error('[stripe webhook] service role no configurada (refund)');
           return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
-        const { error } = await admin.from('recibos')
+        const studioId = await studioDeCuentaConnect(admin, event.account);
+        if (!studioId) {
+          Sentry.captureMessage('[stripe webhook] devolución de una cuenta Connect no reconocida', {
+            level: 'error', extra: { reciboId, eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        }
+        const { data: rec, error } = await admin.from('recibos')
           .update({ estado: 'DEVUELTO', fecha_devolucion: new Date().toISOString(), sepa_estado: pi.metadata?.origen === 'sepa_recibo' ? 'returned' : null })
-          .eq('id', reciboId);
+          .eq('id', reciboId).eq('studio_id', studioId).select('id').maybeSingle();
         if (error) {
           console.error('[stripe webhook] no se pudo marcar el recibo DEVUELTO', reciboId, error);
           return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
+        }
+        if (!rec) {
+          Sentry.captureMessage('[stripe webhook] devolución apunta a recibo inexistente o de otro estudio', {
+            level: 'error', extra: { reciboId, studioId, eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
         }
       }
     }
