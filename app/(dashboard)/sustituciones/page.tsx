@@ -6,6 +6,7 @@ import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
   cancelarClase, setAvisarAlumnas, resumenValoraciones, type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
+import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -532,6 +533,9 @@ function SustitucionCard({
         </>
       )}
 
+      {/* Traza: qué ha hecho el motor por su cuenta */}
+      <TrazaContactos contactos={s.sustitucion_contactos ?? []} instructores={instructores} activa={contactada || s.estado === 'agotada'} />
+
       {/* Pie */}
       <div className="mt-4 flex justify-end gap-4">
         {hero && (
@@ -545,6 +549,71 @@ function SustitucionCard({
       </div>
     </div>
   );
+}
+
+// Lo que el motor ha hecho por su cuenta: a quién avisó, por qué canal, cuándo y
+// qué contestó. Abierta por defecto mientras la sustitución está en marcha (es
+// cuando la propietaria necesita ver que algo se está moviendo) y plegada cuando
+// ya está resuelta (entonces solo estorba).
+function TrazaContactos({
+  contactos, instructores, activa,
+}: {
+  contactos: ContactoFila[];
+  instructores: import('@/lib/types').Instructor[];
+  activa: boolean;
+}) {
+  const [abierta, setAbierta] = useState(activa);
+
+  const nombres = useMemo(
+    () => Object.fromEntries(instructores.map(i => [i.id, i.nombre])),
+    [instructores],
+  );
+  const eventos = useMemo(() => construirTraza(contactos, nombres), [contactos, nombres]);
+  const resumen = resumenTraza(eventos);
+
+  if (eventos.length === 0) return null;
+
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-muted/30 overflow-hidden">
+      <button
+        onClick={() => setAbierta(v => !v)}
+        aria-expanded={abierta}
+        className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left hover:bg-muted/50 transition"
+      >
+        <MailCheck size={14} className="text-muted-foreground shrink-0" />
+        <span className="text-[12px] font-bold text-foreground">Lo que hemos hecho por ti</span>
+        {resumen && <span className="text-[11px] text-muted-foreground truncate">· {resumen}</span>}
+        <span className="ml-auto text-[11px] text-muted-foreground shrink-0">{abierta ? 'Ocultar' : 'Ver'}</span>
+      </button>
+
+      {abierta && (
+        <ol className="px-3.5 pb-3 space-y-1.5">
+          {eventos.map((e, i) => (
+            <li key={`${e.en}-${i}`} className="flex items-baseline gap-2.5 text-[12px]">
+              <span className="tabular-nums text-muted-foreground shrink-0">{fmtMomento(e.en)}</span>
+              <span className={
+                e.tipo === 'aceptado' ? 'text-[#16A34A] font-semibold'
+                : e.tipo === 'rechazado' ? 'text-muted-foreground'
+                : e.tipo === 'fallo' ? 'text-red-600'
+                : 'text-foreground'
+              }>
+                {e.texto}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+// Día + hora en corto ("mar 21, 18:04"). Distinto de fmtHora (solo hora): un
+// escalado puede cruzar la medianoche y "18:04 → 09:12" sin día se lee al revés.
+function fmtMomento(iso: string): string {
+  const d = new Date(iso);
+  const dia = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', timeZone: 'Europe/Madrid' });
+  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  return `${dia}, ${hora}`;
 }
 
 function ResueltaRow({

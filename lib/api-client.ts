@@ -5,6 +5,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
+import type { ContactoFila } from '@/lib/sustituciones/traza';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -178,6 +179,8 @@ export interface SustitucionPanel {
   ranking: SustitucionCandidata[];
   sesion_id: string;
   sesiones: { inicio: string; fin: string; tipo_clase_id: string | null; cancelada: boolean } | null;
+  // Traza de contactos (embed). Ausente en respuestas antiguas → tratar como [].
+  sustitucion_contactos?: ContactoFila[];
 }
 
 // Marca una baja: "no puedo dar esta clase" → crea la sustitución + ranking.
