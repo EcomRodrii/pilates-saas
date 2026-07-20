@@ -13,6 +13,7 @@ import {
   dbSaveGoogleCalendarCredenciales,
   type GoogleCalendarCredenciales,
 } from '@/lib/supabase-data';
+import { fetchExterno } from '@/lib/fetch-externo';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
@@ -62,7 +63,7 @@ export async function exchangeCodeForTokens(code: string): Promise<{ accessToken
   const { clientId, clientSecret, redirectUri } = env();
   if (!clientId || !clientSecret) throw new Error('Google Calendar no configurado');
 
-  const res = await fetch(TOKEN_URL, {
+  const res = await fetchExterno(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -93,7 +94,7 @@ async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: 
   const { clientId, clientSecret } = env();
   if (!clientId || !clientSecret) throw new Error('Google Calendar no configurado');
 
-  const res = await fetch(TOKEN_URL, {
+  const res = await fetchExterno(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -126,7 +127,7 @@ export async function getValidAccessToken(studioId: string): Promise<string | nu
 }
 
 export async function getGoogleAccountEmail(accessToken: string): Promise<string | null> {
-  const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+  const res = await fetchExterno('https://www.googleapis.com/oauth2/v2/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) return null;
@@ -156,7 +157,7 @@ export async function upsertEventoClase(accessToken: string, ev: EventoClase): P
   const url = ev.googleEventId
     ? `${CALENDAR_API}/calendars/primary/events/${ev.googleEventId}`
     : `${CALENDAR_API}/calendars/primary/events`;
-  const res = await fetch(url, {
+  const res = await fetchExterno(url, {
     method: ev.googleEventId ? 'PATCH' : 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -167,7 +168,7 @@ export async function upsertEventoClase(accessToken: string, ev: EventoClase): P
 }
 
 export async function eliminarEventoClase(accessToken: string, googleEventId: string): Promise<void> {
-  const res = await fetch(`${CALENDAR_API}/calendars/primary/events/${googleEventId}`, {
+  const res = await fetchExterno(`${CALENDAR_API}/calendars/primary/events/${googleEventId}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${accessToken}` },
   });
