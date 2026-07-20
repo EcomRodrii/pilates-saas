@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { uid } from '@/lib/utils';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
@@ -95,11 +96,13 @@ export async function POST(req: NextRequest) {
   // Reemplazo completo: borra lo anterior de ESTA instructora e inserta lo nuevo.
   const del = await admin
     .from('instructora_disponibilidad').delete().eq('instructor_id', claim.instructorId);
-  if (del.error) return NextResponse.json({ error: del.error.message }, { status: 500 });
+  if (del.error) return errorInterno('public:disponibilidad:borrar', del.error,
+    'No se ha podido guardar tu disponibilidad. Vuelve a intentarlo en unos segundos.');
 
   if (filas.length > 0) {
     const ins = await admin.from('instructora_disponibilidad').insert(filas);
-    if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
+    if (ins.error) return errorInterno('public:disponibilidad:guardar', ins.error,
+      'No se ha podido guardar tu disponibilidad. Vuelve a intentarlo en unos segundos.');
   }
 
   return NextResponse.json({ ok: true, guardadas: filas.length });

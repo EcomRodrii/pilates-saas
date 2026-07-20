@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getLayout, guardarLayout } from '@/lib/layout-data';
 import { layoutDraftSchema } from '@/lib/layout-schema';
 
@@ -25,6 +26,7 @@ export async function PUT(req: NextRequest) {
   try {
     return NextResponse.json(await guardarLayout(sesion.studioId, parsed.data));
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorInterno('layout:guardar', e,
+      'No se ha podido guardar el menú. Vuelve a intentarlo.');
   }
 }

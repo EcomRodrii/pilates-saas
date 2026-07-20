@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid } from '@/lib/utils';
@@ -151,7 +152,10 @@ export async function POST(req: NextRequest) {
     }));
     const { error } = await admin.from('reservas').insert(lote);
     if (error) {
-      return NextResponse.json({ error: `Error al insertar reservas: ${error.message}`, importadas }, { status: 500 });
+      return errorInterno('reservas:import', error,
+        `Se han importado ${importadas} reservas y el proceso se ha detenido ahí. `
+        + 'Comprueba que las socias y las clases del archivo existan ya en tu cuenta, y vuelve a subirlo.',
+        500, { importadas });
     }
     importadas += lote.length;
   }

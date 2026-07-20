@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { getValidAccessToken, upsertEventoClase, eliminarEventoClase } from '@/lib/google-calendar';
 import { dbUpdateSesion } from '@/lib/supabase-data';
@@ -41,7 +42,8 @@ export async function POST(req: NextRequest) {
     .gte('inicio', desde)
     .lte('inicio', hasta);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorInterno('google-calendar:sync', error,
+    'No se ha podido sincronizar con Google Calendar. Vuelve a conectar la cuenta desde Configuración → Integraciones.');
 
   const filas = (sesiones ?? []) as unknown as SesionConRelaciones[];
   let creadas = 0, actualizadas = 0, borradas = 0, fallidas = 0;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid } from '@/lib/utils';
@@ -119,7 +120,8 @@ export async function POST(req: NextRequest) {
   }
   if (nuevosTipos.length > 0) {
     const { error } = await admin.from('tipos_clase').insert(nuevosTipos);
-    if (error) return NextResponse.json({ error: `No se pudieron crear los tipos de clase: ${error.message}` }, { status: 500 });
+    if (error) return errorInterno('clases:import:tipos', error,
+      'No se han podido crear los tipos de clase del archivo. Revisa que la columna de clase no tenga celdas vacías y vuelve a subirlo.');
   }
 
   // ── Expansión de filas → sesiones concretas ────────────────────────────────
@@ -191,7 +193,10 @@ export async function POST(req: NextRequest) {
       cancelada: false, notas: null, precio_puntual: null, serie_id: p.serieId,
     }));
     const { error } = await admin.from('sesiones').insert(lote);
-    if (error) return NextResponse.json({ error: `Error al insertar sesiones: ${error.message}`, creadas }, { status: 500 });
+    if (error) return errorInterno('clases:import:sesiones', error,
+      `Se han creado ${creadas} clases y el proceso se ha detenido ahí. `
+      + 'Revisa que todas las filas tengan sala y hora, y vuelve a subir el archivo.',
+      500, { creadas });
     creadas += lote.length;
   }
 

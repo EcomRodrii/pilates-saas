@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
 import { inngest, EVENTS } from '@/lib/inngest/client';
@@ -56,7 +57,8 @@ export async function POST(req: NextRequest) {
 
   // Scoring: top-3 de candidatas con motivos en lenguaje humano (función 0038).
   const { data: ranking, error: errRank } = await admin.rpc('rankear_candidatas', { p_sesion_id: sesionId });
-  if (errRank) return NextResponse.json({ error: errRank.message }, { status: 500 });
+  if (errRank) return errorInterno('sustituciones:rankear', errRank,
+    'No se han podido calcular las candidatas para cubrir esta clase. Inténtalo de nuevo en unos segundos.');
 
   // asistido → espera el visto bueno de la propietaria; autonomo/vacaciones →
   // arranca en 'contactando' y más abajo se avisa sola a la 1ª candidata.
@@ -85,7 +87,8 @@ export async function POST(req: NextRequest) {
         .eq('sesion_id', sesionId).not('estado', 'in', ESTADOS_INACTIVOS).maybeSingle();
       if (activa) return NextResponse.json({ sustitucion: activa, yaExistia: true });
     }
-    return NextResponse.json({ error: errIns.message }, { status: 500 });
+    return errorInterno('sustituciones:crear', errIns,
+      'No se ha podido registrar la baja. Inténtalo de nuevo en unos segundos.');
   }
 
   // Modo autónomo/vacaciones: la dueña ha "desaparecido" → el motor contacta solo
@@ -123,7 +126,8 @@ export async function GET(req: NextRequest) {
     .order('creado_en', { ascending: false })
     .limit(50);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorInterno('sustituciones:listar', error,
+    'No se ha podido cargar el listado de sustituciones. Recarga la página.');
 
   const { data: estudio } = await admin
     .from('studios').select('avisar_alumnas').eq('id', sesion.studioId).maybeSingle();
@@ -148,7 +152,8 @@ export async function PATCH(req: NextRequest) {
     if (typeof body?.avisar !== 'boolean') return NextResponse.json({ error: 'Falta el valor' }, { status: 400 });
     if (sesion.rol !== 'PROPIETARIO') return NextResponse.json({ error: 'Solo la propietaria' }, { status: 403 });
     const { error } = await admin.from('studios').update({ avisar_alumnas: body.avisar }).eq('id', sesion.studioId);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return errorInterno('sustituciones:config_avisar', error,
+      'No se ha podido guardar el ajuste de avisos. Vuelve a intentarlo.');
     return NextResponse.json({ ok: true, avisarAlumnas: body.avisar });
   }
 
@@ -167,7 +172,8 @@ export async function PATCH(req: NextRequest) {
       p_studio_id: sesion.studioId,
       p_aprobada_por: sesion.userId,
     });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return errorInterno('sustituciones:confirmar', error,
+      'No se ha podido confirmar la sustituta. La clase sigue sin cubrir; inténtalo de nuevo.');
     const r = (data ?? {}) as { ok?: boolean; motivo?: string; sesion_id?: string };
     if (!r.ok) {
       const mensaje = r.motivo === 'conflicto_horario'
@@ -252,7 +258,8 @@ export async function PATCH(req: NextRequest) {
       .update({ estado: 'resuelta_fuera', resuelto_en: new Date().toISOString() })
       .eq('id', sustitucionId).eq('studio_id', sesion.studioId)
       .in('estado', ESTADOS_EN_JUEGO);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return errorInterno('sustituciones:descartar', error,
+      'No se ha podido descartar la sustitución. Vuelve a intentarlo.');
     return NextResponse.json({ ok: true });
   }
 

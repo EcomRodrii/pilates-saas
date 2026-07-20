@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 import { calcularDependenciaTodosLosEstudios } from '@/lib/instructor-dependency';
 
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     Sentry.captureException(e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
+    return errorInterno('cron:dependency-risk', e,
+      'No se ha podido ejecutar el cálculo de riesgo por instructora.');
   }
 }

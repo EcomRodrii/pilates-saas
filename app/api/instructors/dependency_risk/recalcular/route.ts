@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 import { calcularDependenciaEstudio } from '@/lib/instructor-dependency';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
       .eq('studio_id', sesion.studioId);
     return NextResponse.json({ ok: true, snapshots: data ?? [] });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
+    return errorInterno('dependency_risk:recalcular', e,
+      'No se ha podido recalcular el riesgo por instructora. Inténtalo de nuevo en unos minutos.');
   }
 }

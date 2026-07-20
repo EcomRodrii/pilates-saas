@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getThemeBorrador, publicarTheme } from '@/lib/theme-data';
 import { validarContrasteTheme } from '@/lib/theme-runtime';
 
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     const publicado = await publicarTheme(sesion.studioId);
     return NextResponse.json(publicado);
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorInterno('theme:publicar', e,
+      'No se han podido publicar los cambios de marca. Vuelve a intentarlo.');
   }
 }

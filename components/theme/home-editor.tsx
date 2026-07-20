@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { usePermisos } from '@/lib/permisos';
 import { fetchLayout, guardarLayoutApi } from '@/lib/api-client';
 import { HOME_SECCIONES, type HomeSeccion } from '@/lib/home-sections';
+import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 
 function Fila({ seccion, oculto, onToggle }: { seccion: HomeSeccion; oculto: boolean; onToggle: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: seccion.id });
@@ -109,7 +110,7 @@ export function HomeEditor() {
       window.dispatchEvent(new CustomEvent('tentare-layout-changed'));
       setAviso({ tipo: 'ok', texto: 'Inicio guardado y aplicado.' });
     } catch (e) {
-      setAviso({ tipo: 'error', texto: (e as Error).message });
+      setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
     } finally {
       setGuardando(false);
     }
