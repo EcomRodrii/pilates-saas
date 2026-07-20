@@ -43,6 +43,18 @@ export function mensajeParaSocia(tipo: string, datos: Datos, estudioNombre: stri
         asunto: `¿Renovamos tu bono, ${nombre}?`,
         cuerpo: `¡Hola ${nombre}! Se te está acabando el bono en ${estudio}. ¿Te preparo uno nuevo para que no pierdas el ritmo? Dime y lo dejamos listo.`,
       };
+    // ENVIAR_REACTIVACION es el tipo con MÁS autonomía declarada (2) y acción
+    // ENVIAR_EMAIL: es el primero que el piloto automático manda solo. Sin este
+    // caso, mensajeParaSocia devolvía null y el ejecutor acababa enviándole a la
+    // socia el texto del propietario ("¿Le ofrecemos una vuelta con descuento a
+    // Marta?"). El descuento sale de datosUsados — nunca se inventa aquí.
+    case 'ENVIAR_REACTIVACION': {
+      const pct = typeof datos.descuentoPct === 'number' && datos.descuentoPct > 0 ? datos.descuentoPct : null;
+      return {
+        asunto: `Te echamos de menos, ${nombre}`,
+        cuerpo: `¡Hola ${nombre}! Hace unas semanas que no te vemos por ${estudio} y nos encantaría que volvieras.${pct ? ` Te guardamos un ${pct}% de descuento en tu próxima renovación para ponértelo fácil.` : ''} ¿Te reservo sitio esta semana?`,
+      };
+    }
     case 'CONGELAR_MEMBRESIA':
       return {
         asunto: `¿Te viene bien una pausa, ${nombre}?`,
