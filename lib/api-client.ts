@@ -79,7 +79,7 @@ export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfi
 // ── Integraciones de plataforma (WhatsApp/PayPal/Zoom/Kisi) ──────────────────
 // El secreto vive en ENV del servidor; el cliente consulta aquí qué está
 // configurado y puede lanzar una prueba de conexión real.
-export type IntegracionesEstado = Record<'WHATSAPP' | 'PAYPAL' | 'ZOOM' | 'KISI' | 'TWILIO', boolean>;
+export type IntegracionesEstado = Record<'WHATSAPP' | 'PAYPAL' | 'ZOOM' | 'KISI', boolean>;
 
 export async function fetchIntegracionesEstado(): Promise<IntegracionesEstado | null> {
   try {
