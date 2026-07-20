@@ -30,8 +30,10 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     const r = (data ?? {}) as { ok?: boolean; motivo?: string; sesion_id?: string };
     if (!r.ok) {
-      // Otra persona la cubrió antes (o se canceló): el token llega tarde.
-      return NextResponse.json({ ok: false, motivo: 'ya_resuelta' }, { status: 409 });
+      // Otra persona la cubrió antes (o se canceló) → 'ya_resuelta'. Si en el
+      // hueco entre el email y este tap le surgió otra clase → 'conflicto_horario'
+      // (0048): el token llega tarde igual, pero por un motivo distinto.
+      return NextResponse.json({ ok: false, motivo: r.motivo ?? 'ya_resuelta' }, { status: 409 });
     }
     // Marca este contacto como aceptado.
     await admin.from('sustitucion_contactos')
