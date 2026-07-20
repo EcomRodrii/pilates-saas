@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
@@ -832,6 +832,7 @@ function ModalClasesRecurrentes({
   onCrear: (sesiones: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]) => void;
   sesionesExistentes: SlotSesion[];
 }) {
+  const uid = useId();
   const today = new Date().toISOString().slice(0, 10);
   const inOneMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -923,31 +924,31 @@ function ModalClasesRecurrentes({
         </DialogHeader>
         <div className="space-y-4 mt-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">Tipo de clase</label>
-            <select className={s2} value={form.tipoClaseId} onChange={e => setForm(f => ({ ...f, tipoClaseId: e.target.value }))}>
+            <label htmlFor={`${uid}-1`} className="text-xs font-bold text-foreground uppercase tracking-wider">Tipo de clase</label>
+            <select id={`${uid}-1`} className={s2} value={form.tipoClaseId} onChange={e => setForm(f => ({ ...f, tipoClaseId: e.target.value }))}>
               {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">Instructora</label>
-            <select className={s2} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
+            <label htmlFor={`${uid}-2`} className="text-xs font-bold text-foreground uppercase tracking-wider">Instructora</label>
+            <select id={`${uid}-2`} className={s2} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
               {instructores.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">Sala</label>
-            <select className={s2} value={form.salaId} onChange={e => setForm(f => ({ ...f, salaId: e.target.value }))}>
+            <label htmlFor={`${uid}-3`} className="text-xs font-bold text-foreground uppercase tracking-wider">Sala</label>
+            <select id={`${uid}-3`} className={s2} value={form.salaId} onChange={e => setForm(f => ({ ...f, salaId: e.target.value }))}>
               {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Hora inicio</label>
-              <input type="time" className={f2} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
+              <label htmlFor={`${uid}-4`} className="text-xs font-bold text-foreground uppercase tracking-wider">Hora inicio</label>
+              <input id={`${uid}-4`} type="time" className={f2} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Duración (min)</label>
-              <input type="number" min={15} max={300} step={5} className={f2}
+              <label htmlFor={`${uid}-5`} className="text-xs font-bold text-foreground uppercase tracking-wider">Duración (min)</label>
+              <input id={`${uid}-5`} type="number" min={15} max={300} step={5} className={f2}
                 value={form.duracion}
                 onChange={e => setForm(f => ({ ...f, duracion: Math.max(15, Number(e.target.value)) }))} />
             </div>
@@ -963,17 +964,17 @@ function ModalClasesRecurrentes({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Fecha inicio</label>
-              <input type="date" className={f2} value={form.fechaInicio} onChange={e => setForm(f => ({ ...f, fechaInicio: e.target.value }))} />
+              <label htmlFor={`${uid}-6`} className="text-xs font-bold text-foreground uppercase tracking-wider">Fecha inicio</label>
+              <input id={`${uid}-6`} type="date" className={f2} value={form.fechaInicio} onChange={e => setForm(f => ({ ...f, fechaInicio: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Fecha fin</label>
-              <input type="date" className={f2} value={form.fechaFin} onChange={e => setForm(f => ({ ...f, fechaFin: e.target.value }))} />
+              <label htmlFor={`${uid}-7`} className="text-xs font-bold text-foreground uppercase tracking-wider">Fecha fin</label>
+              <input id={`${uid}-7`} type="date" className={f2} value={form.fechaFin} onChange={e => setForm(f => ({ ...f, fechaFin: e.target.value }))} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">Aforo máximo</label>
-            <input type="number" min={1} max={300} className={f2} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
+            <label htmlFor={`${uid}-8`} className="text-xs font-bold text-foreground uppercase tracking-wider">Aforo máximo</label>
+            <input id={`${uid}-8`} type="number" min={1} max={300} className={f2} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
           </div>
           {estimatedCount > 0 && (
             <div className="rounded-xl bg-muted px-4 py-3 flex items-center gap-2">

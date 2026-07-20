@@ -23,6 +23,7 @@ const emptyForm = (siguienteOrden: number): Omit<LevelDefinition, 'id' | 'studio
 });
 
 export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
+  const uid = useId();
   const { levelDefinitions, addLevelDefinition, updateLevelDefinition, deleteLevelDefinition } = useStudio();
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -115,31 +116,31 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
           <div className="space-y-4">
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
-                <label className={labelCls}>Icono</label>
-                <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                <label htmlFor={`${uid}-1`} className={labelCls}>Icono</label>
+                <input id={`${uid}-1`} className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
               </div>
               <div>
-                <label className={labelCls}>Nombre</label>
-                <input className={inputCls} value={form.nombre} placeholder="Ej. Plata" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                <label htmlFor={`${uid}-2`} className={labelCls}>Nombre</label>
+                <input id={`${uid}-2`} className={inputCls} value={form.nombre} placeholder="Ej. Plata" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Orden</label>
-                <input type="number" min={0} className={inputCls} value={form.orden} onChange={e => setForm(f => ({ ...f, orden: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                <label htmlFor={`${uid}-3`} className={labelCls}>Orden</label>
+                <input id={`${uid}-3`} type="number" min={0} className={inputCls} value={form.orden} onChange={e => setForm(f => ({ ...f, orden: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
               </div>
               <div>
-                <label className={labelCls}>Créditos necesarios</label>
-                <input type="number" min={0} className={inputCls} value={form.umbralCreditos} onChange={e => setForm(f => ({ ...f, umbralCreditos: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                <label htmlFor={`${uid}-4`} className={labelCls}>Créditos necesarios</label>
+                <input id={`${uid}-4`} type="number" min={0} className={inputCls} value={form.umbralCreditos} onChange={e => setForm(f => ({ ...f, umbralCreditos: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
               </div>
             </div>
             <div>
-              <label className={labelCls}>Color</label>
-              <input type="color" className="h-9 w-16 rounded-lg border border-border cursor-pointer" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} />
+              <label htmlFor={`${uid}-5`} className={labelCls}>Color</label>
+              <input id={`${uid}-5`} type="color" className="h-9 w-16 rounded-lg border border-border cursor-pointer" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} />
             </div>
             <div>
-              <label className={labelCls}>Beneficios (opcional)</label>
-              <input className={inputCls} value={form.beneficios ?? ''} placeholder="Ej. 10% dto. en recompensas" onChange={e => setForm(f => ({ ...f, beneficios: e.target.value }))} />
+              <label htmlFor={`${uid}-6`} className={labelCls}>Beneficios (opcional)</label>
+              <input id={`${uid}-6`} className={inputCls} value={form.beneficios ?? ''} placeholder="Ej. 10% dto. en recompensas" onChange={e => setForm(f => ({ ...f, beneficios: e.target.value }))} />
             </div>
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2 text-[13px] text-foreground">
