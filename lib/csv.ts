@@ -494,3 +494,90 @@ export function validarFilasClase(
     return { fila: i + 1, datos, estado: 'ok' };
   });
 }
+
+// ─── Importación de RESERVAS ─────────────────────────────────────────────────
+// Cuarta pieza de la migración asistida. Sin ella, el día del cambio las clases
+// aparecen vacías y las alumnas llegan sin su sitio.
+//
+// Cada fila se empareja con una SOCIA (por email, ya importada) y con una SESIÓN
+// (por nombre de clase + fecha + hora, ya importada con el horario). Admite
+// también el histórico de asistencia (ASISTIDA / NO_ASISTIO), que alimenta el
+// riesgo de plantón y las señales de retención.
+
+export type CampoReserva = 'email' | 'clase' | 'fecha' | 'hora_inicio' | 'estado';
+
+interface CampoMetaReserva { campo: CampoReserva; etiqueta: string; obligatorio: boolean }
+
+export const CAMPOS_RESERVA: CampoMetaReserva[] = [
+  { campo: 'email', etiqueta: 'Email de la socia', obligatorio: true },
+  { campo: 'clase', etiqueta: 'Clase', obligatorio: true },
+  { campo: 'fecha', etiqueta: 'Fecha de la clase', obligatorio: true },
+  { campo: 'hora_inicio', etiqueta: 'Hora de inicio', obligatorio: true },
+  { campo: 'estado', etiqueta: 'Estado (asistió, cancelada…)', obligatorio: false },
+];
+
+const SINONIMOS_RESERVA: Record<CampoReserva, string[]> = {
+  email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'socia', 'socio', 'cliente', 'alumna'],
+  clase: ['clase', 'class', 'actividad', 'tipo de clase', 'servicio', 'sesion', 'session', 'nombre clase'],
+  fecha: ['fecha', 'date', 'fecha clase', 'fecha de la clase', 'dia de la clase', 'class date'],
+  hora_inicio: ['hora inicio', 'hora de inicio', 'inicio', 'hora', 'start', 'start time', 'time'],
+  estado: ['estado', 'status', 'asistencia', 'attendance', 'reserva', 'booking status'],
+};
+
+export function autoMapearReserva(headers: string[]): Record<CampoReserva, number> {
+  return mapearColumnas(headers, CAMPOS_RESERVA.map((c) => c.campo), SINONIMOS_RESERVA);
+}
+
+export interface FilaReserva {
+  email: string;
+  clase: string;
+  fecha: string;        // 'YYYY-MM-DD'
+  horaInicio: string;   // 'HH:MM'
+  estado: string;       // enum de reservas ya normalizado
+}
+
+export interface FilaReservaValidada {
+  fila: number;
+  datos: FilaReserva;
+  estado: 'ok' | 'error';
+  motivo?: string;
+}
+
+/**
+ * Normaliza el estado del CSV al enum de `reservas`. Por defecto CONFIRMADA:
+ * si el software anterior no dice nada, la reserva existía y contaba.
+ */
+export function normalizarEstadoReserva(celda: string | null | undefined): string {
+  const s = (celda ?? '').trim().toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '');
+  if (!s) return 'CONFIRMADA';
+  if (/(no.?show|no.?asisti|falto|falta|ausente|missed)/.test(s)) return 'NO_ASISTIO';
+  if (/(cancel|anulad|baja)/.test(s)) return 'CANCELADA';
+  if (/(espera|waitlist|wait.?list|lista)/.test(s)) return 'LISTA_ESPERA';
+  if (/(asisti|attend|check|present|vino|complet)/.test(s)) return 'ASISTIDA';
+  return 'CONFIRMADA';
+}
+
+/** Aplica el mapeo y valida las filas de reservas. */
+export function validarFilasReserva(
+  rows: string[][],
+  mapeo: Record<CampoReserva, number>,
+): FilaReservaValidada[] {
+  const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+  return rows.map((fila, i) => {
+    const email = val(fila, mapeo.email).toLowerCase();
+    const clase = val(fila, mapeo.clase);
+    const fecha = parsearFecha(val(fila, mapeo.fecha));
+    const horaInicio = parsearHora(val(fila, mapeo.hora_inicio));
+    const estado = normalizarEstadoReserva(val(fila, mapeo.estado));
+
+    const datos: FilaReserva = { email, clase, fecha: fecha ?? '', horaInicio: horaInicio ?? '', estado };
+    const err = (motivo: string): FilaReservaValidada => ({ fila: i + 1, datos, estado: 'error', motivo });
+
+    if (!email) return err('Falta el email de la socia');
+    if (!emailValido(email)) return err('El email no es válido');
+    if (!clase) return err('Falta el nombre de la clase');
+    if (!fecha) return err('Falta la fecha o no se entiende');
+    if (!horaInicio) return err('Falta la hora de inicio o no se entiende');
+    return { fila: i + 1, datos, estado: 'ok' };
+  });
+}
