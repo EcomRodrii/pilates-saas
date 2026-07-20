@@ -31,13 +31,27 @@ export async function sellarFacturaDeRecibo(
 ): Promise<ResultadoSellado> {
   const { studioId, reciboId, facturaId } = params;
 
+  // Los identificadores se interpolaban en un filtro PostgREST (.or): una coma o
+  // un paréntesis en el id permitía inyectar condiciones arbitrarias en la
+  // consulta. Se validan antes de tocar la base de datos y se consultan con
+  // .eq() separados, además acotados al estudio (la búsqueda por .or tampoco
+  // filtraba por studio_id: podía encontrar la factura de otro tenant y darla
+  // por ya sellada).
+  const ID_VALIDO = /^[A-Za-z0-9_-]{1,64}$/;
+  if (!ID_VALIDO.test(facturaId) || !ID_VALIDO.test(reciboId)) {
+    return { ok: false, error: 'Identificadores inválidos' };
+  }
+
   // Idempotencia: si ya existe (mismo id o mismo recibo) no re-sellar ni duplicar.
-  const { data: existente } = await admin
-    .from('facturas')
-    .select('id, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq')
-    .or(`id.eq.${facturaId},recibo_id.eq.${reciboId}`)
-    .limit(1)
-    .maybeSingle();
+  const COLS_SELLO = 'id, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq';
+  const { data: porId } = await admin
+    .from('facturas').select(COLS_SELLO)
+    .eq('id', facturaId).eq('studio_id', studioId)
+    .limit(1).maybeSingle();
+  const existente = porId ?? (await admin
+    .from('facturas').select(COLS_SELLO)
+    .eq('recibo_id', reciboId).eq('studio_id', studioId)
+    .limit(1).maybeSingle()).data;
   if (existente) {
     return { ok: true, yaExistia: true, factura: mapSalida(existente) };
   }
