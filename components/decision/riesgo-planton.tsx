@@ -40,16 +40,34 @@ export function RiesgoPlanton() {
     const now = new Date();
     const hasta = now.getTime() + DIAS_VISTA * 86400000;
 
-    // Historial por socia: cada reserva resuelta con la fecha de SU CLASE.
+    // Índices en UNA pasada sobre reservas (P0-30: recorrer `reservas` por cada
+    // sesión era O(sesiones × reservas) y el repo ya lo había corregido en
+    // /reservar; aquí se repetía el mismo error).
     const sesionPorId = new Map(sesiones.map(s => [s.id, s]));
     const historialPorSocio = new Map<string, ReservaHistorica[]>();
+    const apuntadasPorSesion = new Map<string, string[]>(); // sesionId → socioIds
     for (const r of reservas) {
+      if (!r.socioId) continue;
       const ses = sesionPorId.get(r.sesionId);
-      if (!ses || !r.socioId) continue;
+      if (!ses) continue;
       const arr = historialPorSocio.get(r.socioId) ?? [];
       arr.push({ estado: r.estado, fecha: ses.inicio });
       historialPorSocio.set(r.socioId, arr);
+      if (OCUPA_PLAZA.includes(r.estado)) {
+        const ap = apuntadasPorSesion.get(r.sesionId) ?? [];
+        ap.push(r.socioId);
+        apuntadasPorSesion.set(r.sesionId, ap);
+      }
     }
+
+    // El riesgo se calcula UNA vez por socia, no una vez por plaza: una misma
+    // socia apuntada a varias clases de la semana se recalculaba en cada una.
+    const riesgoPorSocio = new Map<string, ReturnType<typeof riesgoNoShow>>();
+    const riesgoDe = (socioId: string) => {
+      let r = riesgoPorSocio.get(socioId);
+      if (!r) { r = riesgoNoShow(historialPorSocio.get(socioId) ?? [], now); riesgoPorSocio.set(socioId, r); }
+      return r;
+    };
 
     const socioPorId = new Map(socios.map(s => [s.id, s]));
     const tipoPorId = new Map(tiposClase.map(t => [t.id, t]));
@@ -59,14 +77,11 @@ export function RiesgoPlanton() {
       const t = new Date(s.inicio).getTime();
       if (s.cancelada || t < now.getTime() || t > hasta) continue;
 
-      const apuntadas = reservas.filter(r => r.sesionId === s.id && OCUPA_PLAZA.includes(r.estado));
+      const apuntadas = apuntadasPorSesion.get(s.id) ?? [];
       if (apuntadas.length === 0) continue;
 
       const enRiesgo = apuntadas
-        .map(r => {
-          const riesgo = riesgoNoShow(historialPorSocio.get(r.socioId) ?? [], now);
-          return { nombre: socioPorId.get(r.socioId)?.nombre ?? 'Socia', riesgo };
-        })
+        .map(socioId => ({ nombre: socioPorId.get(socioId)?.nombre ?? 'Socia', riesgo: riesgoDe(socioId) }))
         .filter(x => x.riesgo.nivel === 'ALTO')
         .sort((a, b) => b.riesgo.score - a.riesgo.score);
 
