@@ -294,6 +294,7 @@ interface StudioContextValue {
   addCodigoDescuento: (fields: Omit<CodigoDescuento, 'id' | 'studioId' | 'usos' | 'creadoEn'>) => void;
   toggleCodigoDescuento: (codigoId: string) => void;
   deleteCodigoDescuento: (id: string) => void;
+  registrarUsoCodigo: (codigoId: string) => void;
 
   // Actividad reciente
   actividadReciente: ActividadReciente[];
@@ -2710,6 +2711,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addCodigoDescuento: discountCodes.addCodigoDescuento,
     toggleCodigoDescuento: discountCodes.toggleCodigoDescuento,
     deleteCodigoDescuento: discountCodes.deleteCodigoDescuento,
+    registrarUsoCodigo: discountCodes.registrarUsoCodigo,
     actividadReciente,
     addActividadReciente,
     notificaciones,

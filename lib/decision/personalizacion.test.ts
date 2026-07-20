@@ -65,3 +65,36 @@ test('sin datos, solo valen las cifras del mensaje base', () => {
   const r = validarMensajePersonalizado(json('Hola', 'Quedan 9 sesiones.'), soloBase, p);
   assert.deepEqual(r, soloBase);
 });
+
+// El código de descuento debe sobrevivir intacto: si la IA lo altera o lo pierde,
+// la socia recibiría una oferta incanjeable.
+const conCodigo: MensajeSocia = {
+  asunto: 'Te echamos de menos, Marta',
+  cuerpo: '¡Hola Marta! Te guardamos un 15% de descuento: usa el código VUELVE-A3F2 cuando vengas.',
+};
+const permitidosCodigo = numerosPermitidosMensaje(conCodigo, { nombre: 'Marta', descuentoPct: 15 });
+
+test('conserva el mensaje reescrito si el código aparece intacto', () => {
+  const r = validarMensajePersonalizado(
+    json('¿Volvemos, Marta?', 'Hola Marta, te guardo un 15% con el código VUELVE-A3F2. ¿Te reservo sitio?'),
+    conCodigo, permitidosCodigo, ['VUELVE-A3F2'],
+  );
+  assert.match(r.cuerpo, /VUELVE-A3F2/);
+  assert.equal(r.asunto, '¿Volvemos, Marta?');
+});
+
+test('RECHAZA la reescritura si la IA pierde el código', () => {
+  const r = validarMensajePersonalizado(
+    json('¿Volvemos, Marta?', 'Hola Marta, te guardo un 15% de descuento. ¿Te reservo sitio?'),
+    conCodigo, permitidosCodigo, ['VUELVE-A3F2'],
+  );
+  assert.deepEqual(r, conCodigo);
+});
+
+test('RECHAZA la reescritura si la IA altera el código', () => {
+  const r = validarMensajePersonalizado(
+    json('¿Volvemos?', 'Hola Marta, usa el código VUELVE A3F2 (15%).'),
+    conCodigo, permitidosCodigo, ['VUELVE-A3F2'],
+  );
+  assert.deepEqual(r, conCodigo);
+});

@@ -16,6 +16,7 @@ import { ventanaDiasDe, medirOutcome, type SenalMedicion } from '@/lib/decision/
 import { resolverNivelAutonomiaPorTipo } from '@/lib/decision/confianza';
 import { mensajeParaSocia } from '@/lib/decision/mensajes-socia';
 import { personalizarMensajeSocia } from '@/lib/decision/personalizacion';
+import { generarCodigoReactivacion } from '@/lib/codigos-descuento';
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import { ALGORITHM_VERSION } from '@/lib/decision/version';
 import {
@@ -198,6 +199,36 @@ export const analizarEstudio = inngest.createFunction(
 // F3 · EJECUTAR RECOMENDACIÓN — al aprobar, un step por recibo cuando el lote
 // tiene varios (Arquitectura §6 F3).
 // ═══════════════════════════════════════════════════════════════════════════
+// Next-best-offer: crea un código de descuento REAL y canjeable para la socia
+// (antes el `descuentoPct` era solo texto en el email: prometíamos algo que el
+// sistema no sabía canjear). Determinista por recomendación → reintentar el envío
+// no crea códigos nuevos. Un solo uso y caduca en 30 días.
+const DIAS_VIGENCIA_CODIGO = 30;
+
+async function crearCodigoReactivacion(r: Recomendacion): Promise<string | null> {
+  const pct = typeof r.datosUsados.descuentoPct === 'number' ? r.datosUsados.descuentoPct : 0;
+  if (pct <= 0) return null;
+
+  const codigo = generarCodigoReactivacion(r.id);
+  const admin = requireSupabaseAdmin();
+
+  // Idempotencia: si ya existe ese código en el estudio, se reutiliza.
+  const { data: existente } = await admin
+    .from('codigos_descuento').select('id').eq('studio_id', r.studioId).eq('codigo', codigo).maybeSingle();
+  if (existente) return codigo;
+
+  const nombre = typeof r.datosUsados.nombre === 'string' ? r.datosUsados.nombre : 'socia';
+  const expira = new Date(Date.now() + DIAS_VIGENCIA_CODIGO * MS_DIA).toISOString().slice(0, 10);
+  const { error } = await admin.from('codigos_descuento').insert({
+    id: uid(), studio_id: r.studioId, codigo,
+    descripcion: `Reactivación de ${nombre} (Centro de Control)`,
+    tipo: 'PORCENTAJE', valor: pct, usos: 0, usos_max: 1,
+    expira, activo: true, creado_en: new Date().toISOString(),
+  });
+  if (error) return null; // sin código el mensaje sigue siendo correcto (sin prometerlo)
+  return codigo;
+}
+
 // El `titulo`/`motivo` de una recomendación está redactado para el PROPIETARIO
 // ("¿Le ofrecemos una vuelta con descuento a Marta?"). Enviárselo tal cual a la
 // socia era un fallo real —y el piloto automático lo mandaría solo—, así que aquí
@@ -212,7 +243,13 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   if (!socio?.email) return { ok: false, detalle: 'La socia no tiene email registrado' };
 
   const estudioNombre = studio?.nombre ?? '';
-  const base = mensajeParaSocia(r.tipo, r.datosUsados, estudioNombre);
+
+  // Next-best-offer: si la recomendación lleva descuento, se crea el código real
+  // ANTES de redactar, para que el mensaje lo incluya y sea canjeable en el POS.
+  const codigoDescuento = r.tipo === 'ENVIAR_REACTIVACION' ? await crearCodigoReactivacion(r) : null;
+  const datos = codigoDescuento ? { ...r.datosUsados, codigoDescuento } : r.datosUsados;
+
+  const base = mensajeParaSocia(r.tipo, datos, estudioNombre);
   // Sin mensaje para la socia NO se envía nada: antes caía al texto del
   // propietario, que es justo lo que no debe recibir.
   if (!base) return { ok: false, detalle: 'Sin mensaje para la socia para este tipo de recomendación' };
@@ -221,7 +258,11 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
   if (!resend) return { ok: false, detalle: 'Resend no configurado (RESEND_API_KEY)' };
 
-  const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: estudioNombre, tipo: r.tipo, datosUsados: r.datosUsados });
+  const mensaje = await personalizarMensajeSocia(base, {
+    nombreEstudio: estudioNombre, tipo: r.tipo, datosUsados: datos,
+    // El código debe sobrevivir intacto a la reescritura de la IA.
+    literalesObligatorios: codigoDescuento ? [codigoDescuento] : [],
+  });
 
   const html = await render(AutomatizacionEmail({ socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo, estudioNombre }));
   const { error } = await resend.emails.send(

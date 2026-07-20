@@ -7,7 +7,8 @@ import { cn, formatEuro } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { terminalCobrar, terminalEstadoCobro, terminalRegistrarLector, terminalEstadoLector, terminalReconciliacionesPendientes, terminalMarcarReconciliado, posBizumCheckout, type ReconciliacionPendiente } from '@/lib/api-client';
 import { qrSvgMarkup } from '@/lib/qr-svg';
-import type { ProductoPOS, VentaPOS, MetodoPago } from '@/lib/types';
+import type { ProductoPOS, VentaPOS, MetodoPago, CodigoDescuento } from '@/lib/types';
+import { buscarCodigo, validarCodigoCanjeable, calcularDescuento } from '@/lib/codigos-descuento';
 
 type CartItem = {
   producto: ProductoPOS;
@@ -227,7 +228,7 @@ function SuccessOverlay({ total, metodoPago }: SuccessOverlayProps) {
 // ─── Main page ─────────────────────────────────────────────────────────────
 
 export default function POSPage() {
-  const { socios, productosPOS, ventasPOS, addVentaPOS, studio } = useStudio();
+  const { socios, productosPOS, ventasPOS, addVentaPOS, studio, codigosDescuento, registrarUsoCodigo } = useStudio();
 
   // Estado del cobro con datáfono (Stripe Terminal) y del emparejamiento.
   const [terminal, setTerminal] = useState<{ fase: 'idle' | 'esperando' | 'error'; mensaje?: string }>({ fase: 'idle' });
@@ -240,6 +241,11 @@ export default function POSPage() {
   const [clienteId, setClienteId] = useState<string>('');
   const [descuento, setDescuento] = useState('');
   const [descuentoTipo, setDescuentoTipo] = useState<'€' | '%'>('€');
+  // Canje de código de descuento (p.ej. el de reactivación que envía el Centro
+  // de Control). Se guarda el código entero para recalcular el importe en vivo.
+  const [codigoTexto, setCodigoTexto] = useState('');
+  const [codigoAplicado, setCodigoAplicado] = useState<CodigoDescuento | null>(null);
+  const [codigoError, setCodigoError] = useState<string | null>(null);
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('EFECTIVO');
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastSale, setLastSale] = useState<{ total: number; metodoPago: MetodoPago } | null>(null);
@@ -308,6 +314,9 @@ export default function POSPage() {
     setClienteId('');
     setBusquedaCliente('');
     setMetodoPago('EFECTIVO');
+    setCodigoTexto('');
+    setCodigoAplicado(null);
+    setCodigoError(null);
   }
 
   // ─── Totales ──────────────────────────────────────────────────────────────
@@ -316,10 +325,30 @@ export default function POSPage() {
   // Clamp a ≥0: `min=0` del input no impide teclear/pegar un negativo, que
   // convertiría el "descuento" en un recargo (cobrar de más).
   const descuentoNum = Math.max(0, parseFloat(descuento) || 0);
-  const descuentoAmt = descuentoTipo === '%'
+  const descuentoManual = descuentoTipo === '%'
     ? (subtotal * descuentoNum) / 100
     : descuentoNum;
+  // El descuento del código se recalcula sobre el subtotal ACTUAL: si el carrito
+  // cambia tras aplicarlo, el importe se ajusta solo (nunca queda obsoleto).
+  const descuentoCodigo = codigoAplicado ? calcularDescuento(codigoAplicado, subtotal) : 0;
+  const descuentoAmt = Math.min(subtotal, descuentoManual + descuentoCodigo);
   const total = Math.max(0, subtotal - descuentoAmt);
+
+  // Aplica un código escrito en el mostrador: lo busca en el catálogo del estudio
+  // y valida vigencia/usos/mínimo contra el subtotal actual (lógica pura testeada).
+  function aplicarCodigo() {
+    const encontrado = buscarCodigo(codigosDescuento, codigoTexto);
+    const r = validarCodigoCanjeable(encontrado, { hoyISO: new Date().toISOString(), subtotal });
+    if (!r.ok) { setCodigoAplicado(null); setCodigoError(r.motivo); return; }
+    setCodigoAplicado(encontrado);
+    setCodigoError(null);
+  }
+
+  function quitarCodigo() {
+    setCodigoAplicado(null);
+    setCodigoTexto('');
+    setCodigoError(null);
+  }
 
   // ─── Cobrar ───────────────────────────────────────────────────────────────
 
@@ -338,8 +367,10 @@ export default function POSPage() {
       descuento: descuentoAmt,
       total,
       metodoPago,
-      notas: null,
+      notas: codigoAplicado ? `Código aplicado: ${codigoAplicado.codigo}` : null,
     });
+    // Canje efectivo: suma el uso para que los de un solo uso dejen de valer.
+    if (codigoAplicado) registrarUsoCodigo(codigoAplicado.id);
     setLastSale({ total, metodoPago });
     setShowSuccess(true);
     setTimeout(() => {
@@ -893,6 +924,40 @@ export default function POSPage() {
                   {descuentoTipo}
                 </button>
               </div>
+
+              {/* Código de descuento (p.ej. el de reactivación del Centro de Control) */}
+              {codigoAplicado ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-[#D97706]/30 bg-[#FEF3C7] px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-bold text-[#92400E] truncate">{codigoAplicado.codigo}</p>
+                    <p className="text-[11px] text-[#92400E]/80 truncate">{codigoAplicado.descripcion}</p>
+                  </div>
+                  <button onClick={quitarCodigo} className="text-[12px] font-semibold text-[#92400E] hover:underline shrink-0">
+                    Quitar
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Código de descuento"
+                      value={codigoTexto}
+                      onChange={e => { setCodigoTexto(e.target.value); setCodigoError(null); }}
+                      onKeyDown={e => e.key === 'Enter' && aplicarCodigo()}
+                      className="flex-1 px-3 py-2 rounded-lg border border-border text-[13px] uppercase placeholder:normal-case placeholder:text-muted-foreground text-foreground outline-none focus:border-foreground transition-colors"
+                    />
+                    <button
+                      onClick={aplicarCodigo}
+                      disabled={!codigoTexto.trim()}
+                      className="px-3 py-2 rounded-lg border border-border text-[13px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                  {codigoError && <p className="mt-1 text-[11px] text-rose-600">{codigoError}</p>}
+                </div>
+              )}
 
               {/* Totals */}
               <div className="space-y-1 text-[13px]">
