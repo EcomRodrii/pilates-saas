@@ -4,6 +4,18 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, isWhatsAppConfigurado } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
+import {
+  mapStudio, mapUsuario, mapSocio, mapCampoPersonalizado, mapPreferenciasSocio,
+  mapRewardRule, mapRewardAction, mapRewardHistory, mapCreditTransaction, mapMemberCredits,
+  mapRewardCatalogItem, mapRewardRedemption, mapAchievementDefinition, mapAchievementProgress,
+  mapAchievementHistory, mapLevelDefinition, mapChallengeDefinition, mapChallengeProgress,
+  mapChallengeHistory, mapDashboardChart, mapBackupMeta, mapPlanTarifa, mapSuscripcion,
+  mapSala, mapSpot, mapTipoClase, mapInstructor, mapSesion, mapReserva, mapRecibo,
+  mapFactura, mapCita, mapProductoPOS, mapVentaPOS, mapIntegracion, mapCampana,
+  mapAutomatizacion, mapAutomationRule, mapAutomationLog, mapNotaProgreso, mapCodigoDescuento,
+  mapActividadReciente, mapMensajeEquipo, mapCanalEquipo, mapNotificacion, mapVideoOnDemand,
+  mapPostComunidad, mapNotaInterna, mapCondicionSalud, mapRespuestaSesion,
+} from '@/lib/supabase/mappers';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
