@@ -1,4 +1,5 @@
 import { telefonoE164 } from '@/lib/decision/mensajes-socia';
+import { fetchExterno } from '@/lib/fetch-externo';
 
 // Canal WhatsApp/SMS vía Twilio. Igual que R2 (aws4fetch) evitamos meter el SDK
 // pesado: la REST API de Twilio es un POST form con Basic auth. Todo gated por
@@ -54,7 +55,7 @@ export async function enviarMensajeTwilio(params: { canal: CanalMensaje; to: str
 
   const body = new URLSearchParams({ From: from, To: toField, Body: cuerpo });
   try {
-    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${ACCOUNT_SID}/Messages.json`, {
+    const res = await fetchExterno(`https://api.twilio.com/2010-04-01/Accounts/${ACCOUNT_SID}/Messages.json`, {
       method: 'POST',
       headers: {
         Authorization: `Basic ${Buffer.from(`${ACCOUNT_SID}:${AUTH_TOKEN}`).toString('base64')}`,
