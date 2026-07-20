@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Clock, ChevronLeft, ChevronRight, X, CheckCircle2, Calendar, User } from 'lucide-react';
 import type { ServicioCita, DisponibilidadCita, Instructor } from '@/lib/types';
+import { PublicSheet } from '@/components/ui/public-sheet';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reserva pública de citas 1:1 (widget /reservar). Flujo: servicio → instructora
@@ -253,10 +254,14 @@ export function CitasPublica({
       )}
 
       {/* Hoja de confirmación */}
-      {booking && servicio && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
-          style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }} onClick={cerrarSheet}>
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl" onClick={e => e.stopPropagation()}>
+      <PublicSheet
+        open={!!(booking && servicio)}
+        onClose={cerrarSheet}
+        label={resultado && 'ok' in resultado ? 'Cita reservada' : 'Confirmar cita'}
+        sheetClassName="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
+      >
+        {booking && servicio && (
+          <>
             <button onClick={cerrarSheet} aria-label="Cerrar" className="absolute top-4 right-4 text-[#767670] hover:text-[#3A3A34]">
               <X size={18} />
             </button>
@@ -299,9 +304,9 @@ export function CitasPublica({
                 </button>
               </>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </PublicSheet>
     </div>
   );
 }
