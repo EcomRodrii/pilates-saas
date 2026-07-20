@@ -5,30 +5,29 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Upload, FileSpreadsheet, Download, Check, AlertTriangle,
-  ArrowLeft, ArrowRight, CalendarDays, PartyPopper, Info, Repeat, Users,
+  ArrowLeft, ArrowRight, CalendarDays, PartyPopper, Info,
 } from 'lucide-react';
 import {
-  parseCsv, autoMapearClase, validarFilasClase, serializeCsv, CAMPOS_CLASE,
-  type CampoClase, type ParsedCsv,
+  parseCsv, autoMapearReserva, validarFilasReserva, serializeCsv, CAMPOS_RESERVA,
+  type CampoReserva, type ParsedCsv,
 } from '@/lib/csv';
-import { importarClases, type ResultadoImportClases } from '@/lib/api-client';
+import { importarReservas, type ResultadoImportReservas } from '@/lib/api-client';
 
-// Asistente de importación del HORARIO — tercera pieza de la migración asistida
-// (tras socias y membresías). Acepta las dos formas en que las plataformas
-// exportan un horario: con fecha concreta, o recurrente por día de la semana.
+// Asistente de importación de RESERVAS — cuarta pieza de la migración asistida.
+// Requiere haber importado antes las socias y el horario: cada fila se empareja
+// con una socia (email) y con una sesión (clase + fecha + hora) que ya existan.
 
 type Paso = 1 | 2 | 3;
 
-const PLANTILLA_HEADERS = ['Clase', 'Día de la semana', 'Hora inicio', 'Hora fin', 'Instructora', 'Sala', 'Aforo'];
+const PLANTILLA_HEADERS = ['Email', 'Clase', 'Fecha', 'Hora inicio', 'Estado'];
 const PLANTILLA_EJEMPLO = [
-  ['Pilates Mat', 'Lunes', '09:00', '10:00', 'María Soler', 'Sala 1', '12'],
-  ['Reformer Fundamental', 'Lunes', '19:00', '19:50', 'Julia Ramos', 'Sala 2', '8'],
-  ['Pilates Mat', 'Miércoles', '09:00', '10:00', 'María Soler', 'Sala 1', '12'],
+  ['ana@ejemplo.com', 'Pilates Mat', '22/07/2026', '09:00', 'Confirmada'],
+  ['lucia@ejemplo.com', 'Pilates Mat', '22/07/2026', '09:00', 'Asistió'],
+  ['marta@ejemplo.com', 'Reformer Fundamental', '20/07/2026', '19:00', 'No asistió'],
 ];
 
-const MAPEO_VACIO: Record<CampoClase, number> = {
-  clase: -1, fecha: -1, dia_semana: -1, hora_inicio: -1, hora_fin: -1,
-  duracion: -1, instructor: -1, sala: -1, aforo: -1,
+const MAPEO_VACIO: Record<CampoReserva, number> = {
+  email: -1, clase: -1, fecha: -1, hora_inicio: -1, estado: -1,
 };
 
 function descargar(nombre: string, contenido: string) {
@@ -43,37 +42,33 @@ function descargar(nombre: string, contenido: string) {
 
 const inputCls = 'rounded-lg border border-border px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-black/10';
 
-export default function ImportarHorarioPage() {
+export default function ImportarReservasPage() {
   const router = useRouter();
   const [paso, setPaso] = useState<Paso>(1);
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
   const [nombreArchivo, setNombreArchivo] = useState('');
-  const [mapeo, setMapeo] = useState<Record<CampoClase, number>>(MAPEO_VACIO);
+  const [mapeo, setMapeo] = useState<Record<CampoReserva, number>>(MAPEO_VACIO);
   const [dragActivo, setDragActivo] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
-  const [resultado, setResultado] = useState<ResultadoImportClases | null>(null);
-  const [semanas, setSemanas] = useState(4);
-  const [desde, setDesde] = useState(() => new Date().toISOString().slice(0, 10));
+  const [resultado, setResultado] = useState<ResultadoImportReservas | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const validadas = useMemo(
-    () => (parsed ? validarFilasClase(parsed.rows, mapeo) : []),
+    () => (parsed ? validarFilasReserva(parsed.rows, mapeo) : []),
     [parsed, mapeo],
   );
   const conteo = useMemo(() => {
-    let ok = 0, err = 0, recurrentes = 0;
+    let ok = 0, err = 0;
+    const porEstado: Record<string, number> = {};
     for (const f of validadas) {
-      if (f.estado === 'ok') { ok++; if (f.datos.fecha === null) recurrentes++; } else err++;
+      if (f.estado === 'ok') { ok++; porEstado[f.datos.estado] = (porEstado[f.datos.estado] ?? 0) + 1; }
+      else err++;
     }
-    return { ok, err, recurrentes };
+    return { ok, err, porEstado };
   }, [validadas]);
 
-  // Cuántas sesiones va a crear de verdad: las de fecha concreta van una a una,
-  // las recurrentes se multiplican por el número de semanas.
-  const sesionesEstimadas = (conteo.ok - conteo.recurrentes) + conteo.recurrentes * semanas;
-
-  const obligatoriosMapeados = mapeo.clase >= 0 && mapeo.hora_inicio >= 0;
+  const obligatoriosMapeados = mapeo.email >= 0 && mapeo.clase >= 0 && mapeo.fecha >= 0 && mapeo.hora_inicio >= 0;
   const puedeImportar = obligatoriosMapeados && conteo.ok > 0 && !importando;
 
   async function cargarArchivo(file: File) {
@@ -90,7 +85,7 @@ export default function ImportarHorarioPage() {
         return;
       }
       setParsed(p);
-      setMapeo(autoMapearClase(p.headers));
+      setMapeo(autoMapearReserva(p.headers));
       setNombreArchivo(file.name);
       setPaso(2);
     } catch {
@@ -101,28 +96,25 @@ export default function ImportarHorarioPage() {
   async function importar() {
     setImportando(true);
     const filas = validadas.filter(f => f.estado === 'ok').map(f => f.datos);
-    const r = await importarClases(filas, { semanas, desde });
-    setResultado(r);
+    setResultado(await importarReservas(filas));
     setImportando(false);
     setPaso(3);
   }
 
   return (
     <div className="flex flex-col gap-6 pb-10 max-w-4xl">
-      {/* Cabecera */}
       <div className="flex items-center gap-3">
         <Link href="/calendario" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="text-[22px] font-bold text-foreground">Importar horario</h1>
+          <h1 className="text-[22px] font-bold text-foreground">Importar reservas</h1>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            Trae tus clases y tu horario desde tu programa anterior.
+            Trae quién está apuntada a cada clase, para que nadie pierda su sitio.
           </p>
         </div>
       </div>
 
-      {/* Pasos */}
       <div className="flex items-center gap-2">
         {([1, 2, 3] as Paso[]).map(n => (
           <div key={n} className="flex flex-1 items-center gap-2">
@@ -138,9 +130,17 @@ export default function ImportarHorarioPage() {
         ))}
       </div>
 
-      {/* ── Paso 1: archivo ─────────────────────────────────────────────── */}
+      {/* ── Paso 1 ──────────────────────────────────────────────────────── */}
       {paso === 1 && (
         <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-2.5 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-4">
+            <Info size={15} className="mt-0.5 shrink-0 text-[#92400E]" />
+            <p className="text-[12.5px] text-[#92400E]">
+              <span className="font-semibold">Importa antes las socias y el horario.</span> Cada reserva se empareja con
+              una socia por su email y con una clase por su fecha y hora: si no existen todavía, esas filas se omiten.
+            </p>
+          </div>
+
           <div
             onDragOver={e => { e.preventDefault(); setDragActivo(true); }}
             onDragLeave={() => setDragActivo(false)}
@@ -168,14 +168,13 @@ export default function ImportarHorarioPage() {
             <div className="flex items-start gap-2.5">
               <Info size={15} className="mt-0.5 shrink-0 text-muted-foreground" />
               <div className="text-[12.5px] text-muted-foreground">
-                <p className="font-medium text-foreground">Sirve tal cual te lo dé tu programa</p>
+                <p className="font-medium text-foreground">También vale el histórico</p>
                 <p className="mt-1">
-                  Da igual cómo se llamen las columnas: intentamos reconocerlas solas y tú lo corriges en el paso siguiente.
-                  Vale tanto un horario <span className="font-medium text-foreground">por día de la semana</span> (se repite cada semana)
-                  como uno <span className="font-medium text-foreground">con fechas concretas</span>.
+                  Si tu export trae quién asistió y quién no, se importa igual: eso alimenta el riesgo de plantón
+                  y las señales de retención desde el primer día.
                 </p>
                 <button
-                  onClick={e => { e.stopPropagation(); descargar('plantilla-horario.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO)); }}
+                  onClick={e => { e.stopPropagation(); descargar('plantilla-reservas.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO)); }}
                   className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand hover:underline"
                 >
                   <Download size={13} />Descargar plantilla de ejemplo
@@ -186,7 +185,7 @@ export default function ImportarHorarioPage() {
         </div>
       )}
 
-      {/* ── Paso 2: columnas ────────────────────────────────────────────── */}
+      {/* ── Paso 2 ──────────────────────────────────────────────────────── */}
       {paso === 2 && parsed && (
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
@@ -200,16 +199,13 @@ export default function ImportarHorarioPage() {
               Empareja las columnas
             </p>
             <div className="grid gap-2.5 sm:grid-cols-2">
-              {CAMPOS_CLASE.map(c => (
+              {CAMPOS_RESERVA.map(c => (
                 <label key={c.campo} className="flex items-center justify-between gap-3">
                   <span className="text-[13px] text-foreground">
                     {c.etiqueta}{c.obligatorio && <span className="text-rose-500"> *</span>}
                   </span>
-                  <select
-                    className={`${inputCls} w-44`}
-                    value={mapeo[c.campo]}
-                    onChange={e => setMapeo(m => ({ ...m, [c.campo]: Number(e.target.value) }))}
-                  >
+                  <select className={`${inputCls} w-44`} value={mapeo[c.campo]}
+                    onChange={e => setMapeo(m => ({ ...m, [c.campo]: Number(e.target.value) }))}>
                     <option value={-1}>— sin usar —</option>
                     {parsed.headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
                   </select>
@@ -218,40 +214,11 @@ export default function ImportarHorarioPage() {
             </div>
             {!obligatoriosMapeados && (
               <p className="mt-3 text-[12px] text-rose-600">
-                Empareja al menos <strong>Clase</strong> y <strong>Hora de inicio</strong>.
+                Empareja <strong>email</strong>, <strong>clase</strong>, <strong>fecha</strong> y <strong>hora</strong>.
               </p>
             )}
           </div>
 
-          {/* Expansión de recurrentes */}
-          {conteo.recurrentes > 0 && (
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <div className="flex items-start gap-2.5">
-                <Repeat size={15} className="mt-0.5 shrink-0 text-brand" />
-                <div className="flex-1">
-                  <p className="text-[13px] font-semibold text-foreground">Horario que se repite</p>
-                  <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-                    {conteo.recurrentes} {conteo.recurrentes === 1 ? 'clase se repite' : 'clases se repiten'} cada semana.
-                    Elige desde cuándo y cuántas semanas quieres crear.
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-[13px] text-foreground">
-                      Desde
-                      <input type="date" className={inputCls} value={desde} onChange={e => setDesde(e.target.value)} />
-                    </label>
-                    <label className="flex items-center gap-2 text-[13px] text-foreground">
-                      Semanas
-                      <input type="number" min={1} max={12} className={`${inputCls} w-20`}
-                        value={semanas}
-                        onChange={e => setSemanas(Math.max(1, Math.min(12, Number(e.target.value) || 1)))} />
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Resumen */}
           <div className="flex flex-wrap gap-3">
             <span className="rounded-xl bg-[#D1FAE5] px-3 py-1.5 text-[12.5px] font-semibold text-[#065F46]">
               {conteo.ok} filas correctas
@@ -261,12 +228,13 @@ export default function ImportarHorarioPage() {
                 {conteo.err} con problemas (se omiten)
               </span>
             )}
-            <span className="rounded-xl bg-muted px-3 py-1.5 text-[12.5px] font-semibold text-foreground">
-              ≈ {sesionesEstimadas} clases en el calendario
-            </span>
+            {Object.entries(conteo.porEstado).map(([est, n]) => (
+              <span key={est} className="rounded-xl bg-muted px-3 py-1.5 text-[12.5px] font-medium text-foreground">
+                {n} {est.toLowerCase().replace('_', ' ')}
+              </span>
+            ))}
           </div>
 
-          {/* Errores concretos */}
           {conteo.err > 0 && (
             <div className="rounded-2xl border border-border bg-card p-4">
               <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -290,13 +258,13 @@ export default function ImportarHorarioPage() {
             </button>
             <button onClick={importar} disabled={!puedeImportar}
               className="flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-[13px] font-medium text-brand-foreground hover:brightness-95 disabled:opacity-40">
-              {importando ? 'Importando…' : 'Importar horario'}<ArrowRight size={14} />
+              {importando ? 'Importando…' : 'Importar reservas'}<ArrowRight size={14} />
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Paso 3: resultado ───────────────────────────────────────────── */}
+      {/* ── Paso 3 ──────────────────────────────────────────────────────── */}
       {paso === 3 && resultado && (
         <div className="flex flex-col gap-4">
           {resultado.error ? (
@@ -308,35 +276,23 @@ export default function ImportarHorarioPage() {
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#D1FAE5]">
                 <PartyPopper size={26} className="text-[#059669]" />
               </div>
-              <p className="text-[18px] font-bold text-foreground">Horario importado</p>
-              <p className="text-[13px] text-muted-foreground">
-                {resultado.creadas} clases creadas en el calendario
-                {resultado.tiposCreados > 0 && ` · ${resultado.tiposCreados} tipos de clase nuevos`}
-              </p>
-              {(resultado.omitidas > 0 || resultado.sinInstructor > 0 || resultado.sinSala > 0) && (
-                <div className="mt-1 flex flex-col gap-0.5 text-[12.5px] text-muted-foreground">
-                  {resultado.omitidas > 0 && <p>{resultado.omitidas} ya existían y no se han duplicado</p>}
-                  {resultado.sinInstructor > 0 && <p>{resultado.sinInstructor} sin instructora: no se encontró ese nombre en tu equipo</p>}
-                  {resultado.sinSala > 0 && <p>{resultado.sinSala} sin sala: no se encontró ese nombre</p>}
-                </div>
-              )}
+              <p className="text-[18px] font-bold text-foreground">Reservas importadas</p>
+              <p className="text-[13px] text-muted-foreground">{resultado.importadas} reservas creadas</p>
             </div>
           )}
 
-          {/* Continuación natural de la migración: con el horario dentro, lo
-              siguiente es traer quién está apuntada a cada clase. */}
-          {!resultado.error && (
-            <div className="flex items-start gap-2.5 rounded-2xl border border-border bg-card p-4">
-              <Users size={15} className="mt-0.5 shrink-0 text-brand" />
-              <div>
-                <p className="text-[13px] font-semibold text-foreground">Ahora trae las reservas</p>
-                <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-                  Con el horario ya dentro, importa quién está apuntada a cada clase para que nadie pierda su sitio.
-                </p>
-                <Link href="/calendario/importar/reservas"
-                  className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand hover:underline">
-                  Importar reservas<ArrowRight size={13} />
-                </Link>
+          {resultado && (resultado.duplicadas > 0 || resultado.sinSocia > 0 || resultado.sinSesion > 0 || resultado.sobreAforo > 0) && (
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <div className="flex flex-col gap-1 text-[12.5px] text-muted-foreground">
+                {resultado.duplicadas > 0 && <p>{resultado.duplicadas} ya estaban y no se han duplicado</p>}
+                {resultado.sinSocia > 0 && <p>{resultado.sinSocia} sin socia: ese email no está en tus clientas</p>}
+                {resultado.sinSesion > 0 && <p>{resultado.sinSesion} sin clase: no hay ninguna a esa fecha y hora</p>}
+                {resultado.sobreAforo > 0 && (
+                  <p className="text-[#92400E]">
+                    {resultado.sobreAforo} {resultado.sobreAforo === 1 ? 'clase queda' : 'clases quedan'} por encima de su aforo —
+                    se han importado igual para no quitarle el sitio a nadie, pero revísalas.
+                  </p>
+                )}
               </div>
             </div>
           )}

@@ -398,7 +398,7 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
-import type { FilaSocia, FilaMembresia, FilaClase } from '@/lib/csv';
+import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva } from '@/lib/csv';
 
 export interface ResultadoImport {
   total: number;
@@ -872,6 +872,36 @@ export async function importarClases(
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
     return data as ResultadoImportClases;
+  } catch {
+    return { ...vacio, error: 'No se pudo conectar con el servidor' };
+  }
+}
+
+// Resultado de importar reservas.
+export interface ResultadoImportReservas {
+  importadas: number;
+  duplicadas: number;   // ya estaban: reimportar no duplica
+  sinSocia: number;     // email que no existe en el estudio
+  sinSesion: number;    // no se encontró la clase a esa fecha/hora
+  sobreAforo: number;   // clases que quedan por encima de su aforo
+  errores: { fila: number; motivo: string }[];
+  error?: string;
+}
+
+// Importa reservas. Empareja socia por email y sesión por clase+fecha+hora en el
+// servidor; el studio_id sale del JWT. No consume bonos (los saldos ya vienen
+// importados del programa anterior).
+export async function importarReservas(rows: FilaReserva[]): Promise<ResultadoImportReservas> {
+  const vacio = { importadas: 0, duplicadas: 0, sinSocia: 0, sinSesion: 0, sobreAforo: 0, errores: [] };
+  try {
+    const res = await fetch('/api/reservas/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rows }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
+    return data as ResultadoImportReservas;
   } catch {
     return { ...vacio, error: 'No se pudo conectar con el servidor' };
   }
