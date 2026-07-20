@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState, useId } from 'react';
-import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed, Upload } from 'lucide-react';
+import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
@@ -373,13 +374,23 @@ export default function CitasPage() {
             {upcoming.length} próximas · {thisMonth.length} este mes
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2.5 text-sm font-medium hover:brightness-95 transition-colors shrink-0"
-        >
-          <Plus size={16} />
-          Nueva cita
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Migración asistida: traer las citas del programa anterior. */}
+          <Link
+            href="/citas/importar"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Upload size={15} />
+            Importar
+          </Link>
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2.5 text-sm font-medium hover:brightness-95 transition-colors"
+          >
+            <Plus size={16} />
+            Nueva cita
+          </button>
+        </div>
       </div>
 
       {/* Métricas del mes */}

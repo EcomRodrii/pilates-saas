@@ -581,3 +581,123 @@ export function validarFilasReserva(
     return { fila: i + 1, datos, estado: 'ok' };
   });
 }
+
+// ─── Importación de CITAS 1:1 ────────────────────────────────────────────────
+// Última pieza de la migración asistida. Trae las sesiones individuales
+// (privadas, evaluaciones, fisioterapia, online) del programa anterior.
+//
+// A diferencia de las reservas, una cita NO necesita que exista una sesión: se
+// crea entera con su hora y su duración. Solo hace falta la socia (por email).
+
+export type CampoCita = 'email' | 'servicio' | 'fecha' | 'hora_inicio' | 'duracion' | 'instructor' | 'estado' | 'precio';
+
+interface CampoMetaCita { campo: CampoCita; etiqueta: string; obligatorio: boolean }
+
+export const CAMPOS_CITA: CampoMetaCita[] = [
+  { campo: 'email', etiqueta: 'Email de la socia', obligatorio: true },
+  { campo: 'fecha', etiqueta: 'Fecha', obligatorio: true },
+  { campo: 'hora_inicio', etiqueta: 'Hora de inicio', obligatorio: true },
+  { campo: 'servicio', etiqueta: 'Servicio / tipo de cita', obligatorio: false },
+  { campo: 'duracion', etiqueta: 'Duración (min)', obligatorio: false },
+  { campo: 'instructor', etiqueta: 'Instructora', obligatorio: false },
+  { campo: 'estado', etiqueta: 'Estado', obligatorio: false },
+  { campo: 'precio', etiqueta: 'Precio', obligatorio: false },
+];
+
+const SINONIMOS_CITA: Record<CampoCita, string[]> = {
+  email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'socia', 'socio', 'cliente', 'alumna'],
+  servicio: ['servicio', 'tipo', 'tipo de cita', 'cita', 'appointment', 'service', 'clase', 'concepto'],
+  fecha: ['fecha', 'date', 'dia', 'fecha cita', 'appointment date'],
+  hora_inicio: ['hora inicio', 'hora de inicio', 'inicio', 'hora', 'start', 'start time', 'time'],
+  duracion: ['duracion', 'duration', 'minutos', 'mins', 'min', 'length'],
+  instructor: ['instructor', 'instructora', 'profesor', 'profesora', 'terapeuta', 'fisio', 'staff', 'teacher', 'con'],
+  estado: ['estado', 'status', 'asistencia', 'attendance'],
+  precio: ['precio', 'price', 'importe', 'coste', 'cost', 'amount', 'tarifa'],
+};
+
+export function autoMapearCita(headers: string[]): Record<CampoCita, number> {
+  return mapearColumnas(headers, CAMPOS_CITA.map((c) => c.campo), SINONIMOS_CITA);
+}
+
+export interface FilaCita {
+  email: string;
+  servicio: string | null;   // texto libre: se empareja con el catálogo o se usa para deducir el tipo
+  tipo: string;              // PRIVADA | EVALUACION | FISIOTERAPIA | ONLINE (ya normalizado)
+  fecha: string;             // 'YYYY-MM-DD'
+  horaInicio: string;        // 'HH:MM'
+  duracion: number | null;
+  instructor: string | null;
+  estado: string;            // enum de citas, ya normalizado
+  precio: number | null;
+}
+
+export interface FilaCitaValidada {
+  fila: number;
+  datos: FilaCita;
+  estado: 'ok' | 'error';
+  motivo?: string;
+}
+
+/**
+ * Texto libre → el enum `citas.tipo`, que solo admite cuatro valores. Por
+ * defecto PRIVADA: es con diferencia la cita más común en un estudio.
+ */
+export function normalizarTipoCita(celda: string | null | undefined): string {
+  const s = (celda ?? '').trim().toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '');
+  if (!s) return 'PRIVADA';
+  if (/(fisio|physio|rehab|osteo)/.test(s)) return 'FISIOTERAPIA';
+  if (/(online|zoom|virtual|videollamada|remoto)/.test(s)) return 'ONLINE';
+  if (/(evaluacion|valoracion|assessment|primera|inicial|diagnost)/.test(s)) return 'EVALUACION';
+  return 'PRIVADA';
+}
+
+/** Texto libre → el enum `citas.estado`. Por defecto CONFIRMADA (la cita existía). */
+export function normalizarEstadoCita(celda: string | null | undefined): string {
+  const s = (celda ?? '').trim().toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '');
+  if (!s) return 'CONFIRMADA';
+  if (/(no.?show|no.?asisti|falto|ausente|missed)/.test(s)) return 'NO_ASISTIO';
+  if (/(cancel|anulad|baja)/.test(s)) return 'CANCELADA';
+  if (/(complet|realizad|hecha|finalizad|done|asisti|attend)/.test(s)) return 'COMPLETADA';
+  if (/(pendiente|pending|solicitad|por confirmar)/.test(s)) return 'PENDIENTE';
+  return 'CONFIRMADA';
+}
+
+/** Aplica el mapeo y valida las filas de citas. */
+export function validarFilasCita(
+  rows: string[][],
+  mapeo: Record<CampoCita, number>,
+): FilaCitaValidada[] {
+  const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+  return rows.map((fila, i) => {
+    const email = val(fila, mapeo.email).toLowerCase();
+    const servicio = val(fila, mapeo.servicio) || null;
+    const fecha = parsearFecha(val(fila, mapeo.fecha));
+    const horaInicio = parsearHora(val(fila, mapeo.hora_inicio));
+    const durRaw = val(fila, mapeo.duracion);
+    const dur = durRaw !== '' && Number.isFinite(Number(durRaw)) ? Math.trunc(Number(durRaw)) : null;
+    // Se conserva el signo al limpiar: quitarlo convertía un "-10" (una
+    // devolución en el export) en un cargo de 10 €. Con el signo, el filtro
+    // `precio >= 0` de abajo lo descarta, que es lo correcto — y además un
+    // negativo violaría el CHECK citas_precio_no_negativo de la BD.
+    const precioRaw = val(fila, mapeo.precio).replace(',', '.').replace(/[^\d.-]/g, '');
+    const precio = precioRaw !== '' && Number.isFinite(Number(precioRaw)) ? Number(precioRaw) : null;
+
+    const datos: FilaCita = {
+      email, servicio,
+      tipo: normalizarTipoCita(servicio),
+      fecha: fecha ?? '',
+      horaInicio: horaInicio ?? '',
+      duracion: dur && dur > 0 ? dur : null,
+      instructor: val(fila, mapeo.instructor) || null,
+      estado: normalizarEstadoCita(val(fila, mapeo.estado)),
+      precio: precio != null && precio >= 0 ? precio : null,
+    };
+
+    const err = (motivo: string): FilaCitaValidada => ({ fila: i + 1, datos, estado: 'error', motivo });
+    if (!email) return err('Falta el email de la socia');
+    if (!emailValido(email)) return err('El email no es válido');
+    if (!fecha) return err('Falta la fecha o no se entiende');
+    if (!horaInicio) return err('Falta la hora de inicio o no se entiende');
+    return { fila: i + 1, datos, estado: 'ok' };
+  });
+}
