@@ -569,6 +569,7 @@ export interface RowStudios {
   modo_autonomia: string | null;
   umbral_score_autonomo: number | null;
   avisar_alumnas: boolean | null;
+  onboarding_descartado_en: string | null;
 }
 
 export interface RowSuscripciones {

@@ -53,6 +53,10 @@ export interface Studio {
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
   stripeTerminalLocationId: string | null;
+  // Checklist de "Primeros pasos": cuándo se descartó (null = sigue siendo
+  // relevante). Vive en el estudio, no en localStorage, para que lo vea igual
+  // toda persona que trabaje ahí, en cualquier dispositivo.
+  onboardingDescartadoEn: string | null;
 }
 
 // ─── Integraciones por negocio ───────────────────────────────────────────────

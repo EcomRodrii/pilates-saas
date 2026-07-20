@@ -271,6 +271,7 @@ function mapStudio(r: RowStudios): Studio {
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
+    onboardingDescartadoEn: r.onboarding_descartado_en ?? null,
   } as Studio;
 }
 
@@ -4265,6 +4266,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
   // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
   if ('stripeAccountId' in changes) db.stripe_account_id = changes.stripeAccountId;
+  if ('onboardingDescartadoEn' in changes) db.onboarding_descartado_en = changes.onboardingDescartadoEn;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);
 }

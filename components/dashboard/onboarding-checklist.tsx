@@ -1,40 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Circle, X, Rocket } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { calcularPasosOnboarding } from '@/lib/onboarding';
 
-function dismissKey(studioId: string) {
-  return `ps_onboarding_dismissed_${studioId}`;
-}
-
+// Checklist de primeros pasos. Los siete pasos son los del documento de
+// filosofía de producto, tal cual (lib/onboarding.ts tiene la lista y el
+// porqué de cada "done"). Aquí solo queda el render y el descarte.
+//
+// Lo único persistido es si se ha descartado: vive en el estudio
+// (studio.onboardingDescartadoEn), no en localStorage. Antes se perdía al
+// cambiar de navegador y cada persona del equipo lo veía de forma distinta.
 export function OnboardingChecklist() {
-  const { studio, planesTarifa, salas, instructores, tiposClase, sesiones, socios } = useStudio();
-  const [dismissed, setDismissed] = useState(true); // arranca oculto hasta leer localStorage (evita parpadeo)
-  const [mounted, setMounted] = useState(false);
+  const { studio, updateStudio, instructores, tiposClase, sesiones, socios } = useStudio();
 
-  useEffect(() => {
-    setMounted(true);
-    if (studio?.id) setDismissed(localStorage.getItem(dismissKey(studio.id)) === '1');
-  }, [studio?.id]);
+  if (!studio || studio.onboardingDescartadoEn) return null;
 
-  if (!mounted || !studio) return null;
+  const pasos = calcularPasosOnboarding({
+    nif: studio.nif,
+    stripeAccountId: studio.stripeAccountId,
+    slug: studio.slug,
+    numInstructores: instructores.length,
+    numTiposClase: tiposClase.length,
+    numSesiones: sesiones.length,
+    numSocios: socios.length,
+  });
 
-  const steps = [
-    { label: 'Crea tu primer plan o tarifa', done: planesTarifa.length > 0, href: '/configuracion?tab=planes' },
-    { label: 'Añade una sala', done: salas.length > 0, href: '/configuracion?tab=salas' },
-    { label: 'Añade a tu equipo (instructoras)', done: instructores.length > 0, href: '/equipo' },
-    { label: 'Crea un tipo de clase y programa un horario', done: tiposClase.length > 0 && sesiones.length > 0, href: '/calendario' },
-    { label: 'Da de alta tu primera clienta', done: socios.length > 0, href: '/clientas?nuevo=1' },
-  ];
-
-  const pendientes = steps.filter(s => !s.done).length;
-  if (pendientes === 0 || dismissed) return null;
+  const pendientes = pasos.filter(p => !p.done).length;
+  if (pendientes === 0) return null;
 
   function handleDismiss() {
-    if (studio) localStorage.setItem(dismissKey(studio.id), '1');
-    setDismissed(true);
+    updateStudio({ onboardingDescartadoEn: new Date().toISOString() });
   }
 
   return (
@@ -46,25 +43,27 @@ export function OnboardingChecklist() {
           </div>
           <div>
             <p className="text-[13px] font-semibold text-foreground">Primeros pasos con tu estudio</p>
-            <p className="text-[11px] text-muted-foreground">{steps.length - pendientes} de {steps.length} completados</p>
+            <p className="text-[11px] text-muted-foreground">{pasos.length - pendientes} de {pasos.length} completados</p>
           </div>
         </div>
-        <button onClick={handleDismiss} className="shrink-0 p-1 rounded-lg hover:bg-muted transition-colors" title="Ocultar">
+        <button onClick={handleDismiss} aria-label="Ocultar primeros pasos" className="shrink-0 p-1 rounded-lg hover:bg-muted transition-colors" title="Ocultar">
           <X size={14} className="text-muted-foreground" />
         </button>
       </div>
       <div className="divide-y divide-muted">
-        {steps.map(step => (
+        {pasos.map(paso => (
           <Link
-            key={step.label}
-            href={step.href}
+            key={paso.id}
+            href={paso.href}
+            target={paso.externo ? '_blank' : undefined}
+            rel={paso.externo ? 'noreferrer' : undefined}
             className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#FAFAF7] transition-colors"
           >
-            {step.done
+            {paso.done
               ? <CheckCircle2 size={16} className="text-brand-secondary shrink-0" />
               : <Circle size={16} className="text-[#D4D4CC] shrink-0" />}
-            <span className={`text-[13px] ${step.done ? 'text-muted-foreground line-through' : 'text-foreground font-medium'}`}>
-              {step.label}
+            <span className={`text-[13px] ${paso.done ? 'text-muted-foreground line-through' : 'text-foreground font-medium'}`}>
+              {paso.label}
             </span>
           </Link>
         ))}
