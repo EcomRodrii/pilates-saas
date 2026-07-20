@@ -98,7 +98,7 @@ function socio(p: Partial<Socio> & Pick<Socio, 'id'>): Socio {
   return { studioId: 'e1', nombre: 'A', apellidos: 'B', email: 'a@b.c', telefono: null, nif: null, fechaAlta: '2025-01-01', activo: true, ...p };
 }
 function log(p: Partial<AutomationLog> & Pick<AutomationLog, 'socioId'>): AutomationLog {
-  return { id: `l-${Math.random()}`, studioId: 'e1', ruleId: 'r', ruleName: 'R', resultado: 'EJECUTADO', accion: 'ENVIAR_EMAIL', socioNombre: null, pasoIndex: 0, detalle: '', ejecutadoEn: diasAntes(10), proximaAccionEn: null, ...p };
+  return { id: `l-${Math.random()}`, studioId: 'e1', ruleId: 'r', automatizacionId: null, ruleName: 'R', resultado: 'EJECUTADO', accion: 'ENVIAR_EMAIL', socioNombre: null, pasoIndex: 0, detalle: '', ejecutadoEn: diasAntes(10), proximaAccionEn: null, ...p };
 }
 function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], ...over };

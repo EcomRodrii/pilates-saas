@@ -16,8 +16,10 @@ const sus = (socioId: string, p: Partial<Suscripcion> = {}): Suscripcion =>
   ({ id: `sus-${++n}`, studioId: 'e1', socioId, planId: 'p', estado: 'ACTIVA', fechaInicio: diasAntes(30), fechaFin: null, sesionesRestantes: null, stripeSubscriptionId: null, ...p });
 const reserva = (socioId: string, estado: Reserva['estado'], creadoEn: string): Reserva =>
   ({ id: `r-${++n}`, studioId: 'e1', socioId, sesionId: 's', estado, spotId: null, posicionEspera: null, checkInEn: null, creadoEn });
-const log = (ruleId: string, socioId: string, ejecutadoEn: string): AutomationLog =>
-  ({ id: `l-${++n}`, studioId: 'e1', ruleId, ruleName: '', socioId, socioNombre: '', pasoIndex: 0, accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO', detalle: '', ejecutadoEn, proximaAccionEn: null, reciboId: null });
+// S-2: el log de marketing lleva el id en `automatizacionId`, su columna propia.
+// Antes iba en `ruleId`, que tenía FK a automation_rules y rechazaba el insert.
+const log = (automatizacionId: string, socioId: string, ejecutadoEn: string): AutomationLog =>
+  ({ id: `l-${++n}`, studioId: 'e1', ruleId: null, automatizacionId, ruleName: '', socioId, socioNombre: '', pasoIndex: 0, accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO', detalle: '', ejecutadoEn, proximaAccionEn: null, reciboId: null });
 
 function run(input: Partial<Parameters<typeof computeAutomatizacionMktCandidatos>[0]>) {
   return computeAutomatizacionMktCandidatos({

@@ -831,7 +831,8 @@ function mapAutomationLog(r: RowAutomationLogs): AutomationLog {
   return {
     id: r.id,
     studioId: r.studio_id,
-    ruleId: r.rule_id,
+    ruleId: r.rule_id ?? null,
+    automatizacionId: r.automatizacion_id ?? null,
     ruleName: r.rule_name,
     socioId: r.socio_id ?? null,
     socioNombre: r.socio_nombre ?? null,
@@ -3856,7 +3857,9 @@ export async function dbInsertAutomationLog(log: AutomationLog) {
   const row = {
     id: log.id,
     studio_id: log.studioId ?? STUDIO_ID,
-    rule_id: log.ruleId,
+    // S-2: exactamente uno de los dos va informado (CHECK en BD, migr. 0053).
+    rule_id: log.ruleId ?? null,
+    automatizacion_id: log.automatizacionId ?? null,
     rule_name: log.ruleName,
     socio_id: log.socioId,
     socio_nombre: log.socioNombre,
@@ -3880,7 +3883,9 @@ export async function dbUpsertAutomationLog(log: AutomationLog) {
   const row = {
     id: log.id,
     studio_id: log.studioId ?? STUDIO_ID,
-    rule_id: log.ruleId,
+    // S-2: exactamente uno de los dos va informado (CHECK en BD, migr. 0053).
+    rule_id: log.ruleId ?? null,
+    automatizacion_id: log.automatizacionId ?? null,
     rule_name: log.ruleName,
     socio_id: log.socioId,
     socio_nombre: log.socioNombre,

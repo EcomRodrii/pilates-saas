@@ -24,7 +24,7 @@ function rule(p: Partial<AutomationRule> & Pick<AutomationRule, 'trigger'>): Aut
   return { id: `rule-${p.trigger}`, studioId: 'e1', nombre: 'R', descripcion: '', icono: '', condicion: {}, pasos: [], activa: true, ejecutadaVeces: 0, ultimaEjecucion: null, creadaEn: '2026-01-01', ...p };
 }
 function log(p: Partial<AutomationLog> & Pick<AutomationLog, 'ruleId' | 'resultado'>): AutomationLog {
-  return { id: `log-${++n}`, studioId: 'e1', ruleName: 'R', socioId: null, socioNombre: null, pasoIndex: 0, accion: 'ENVIAR_EMAIL', detalle: '', ejecutadoEn: diasAntes(1), proximaAccionEn: null, ...p };
+  return { id: `log-${++n}`, studioId: 'e1', automatizacionId: null, ruleName: 'R', socioId: null, socioNombre: null, pasoIndex: 0, accion: 'ENVIAR_EMAIL', detalle: '', ejecutadoEn: diasAntes(1), proximaAccionEn: null, ...p };
 }
 function input(over: Partial<AutomationEngineInput>): AutomationEngineInput {
   return { automationRules: [], automationLogs: [], socios: [], reservas: [], recibos: [] as Recibo[], sesiones: [], tiposClase: [tipo], ...over };
