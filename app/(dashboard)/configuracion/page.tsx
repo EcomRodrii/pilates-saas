@@ -83,9 +83,6 @@ export function Field({
       {controlDescrito}
     </div>
   );
-      {control}
-    </div>
-  );
 }
 
 export function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
