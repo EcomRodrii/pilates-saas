@@ -336,7 +336,7 @@ export default function Productos() {
                 )}
 
                 <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: plan.activo ? '#22C55E' : 'var(--muted-foreground)' }} />
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: plan.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
                   <span className="text-xs font-medium" style={{ color: plan.activo ? 'var(--success)' : 'var(--muted-foreground)' }}>
                     {plan.activo ? 'Activo' : 'Inactivo'}
                   </span>
@@ -394,7 +394,7 @@ export default function Productos() {
                         <td className="px-5 py-3.5 font-bold text-foreground">{fmt(p.precio)} €</td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : 'var(--muted-foreground)' }} />
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
                             <span className="text-xs font-medium" style={{ color: p.activo ? 'var(--success)' : 'var(--muted-foreground)' }}>
                               {p.activo ? 'Activo' : 'Inactivo'}
                             </span>
@@ -428,7 +428,7 @@ export default function Productos() {
                             {CAT_LABEL[p.categoria]}
                           </span>
                           <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: p.activo ? 'var(--success)' : 'var(--muted-foreground)' }}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : 'var(--muted-foreground)' }} />
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
                             {p.activo ? 'Activo' : 'Inactivo'}
                           </span>
                         </div>

@@ -379,7 +379,7 @@ function HorarioActualizadoCard({ sub, sesiones, tiposClase, nombreInstructor, o
                           const color = t?.color ?? '#94A3B8';
                           const instrId = esSust ? sub.sustituta_final_id : s.instructorId;
                           return (
-                            <div key={s.id} className={`rounded-lg px-2 py-1.5 leading-tight ${esSust ? 'ring-2 ring-[#22C55E]' : ''}`} style={{ backgroundColor: `${color}1A` }}>
+                            <div key={s.id} className={`rounded-lg px-2 py-1.5 leading-tight ${esSust ? 'ring-2 ring-success' : ''}`} style={{ backgroundColor: `${color}1A` }}>
                               <p className="text-[10px] font-bold truncate" style={{ color }}>{t?.nombre ?? 'Clase'}</p>
                               <p className="text-[10px] text-foreground/70 truncate">{nombreCorto(nombreInstructor(instrId))}</p>
                             </div>
@@ -501,7 +501,7 @@ function SustitucionCard({
           {/* HERO: la sustituta ideal (o solicitud pendiente de aprobación) */}
           <div className="mt-4 rounded-2xl border border-brand/20 bg-brand/[0.05] p-4 sm:p-5">
             <div className="flex items-center gap-1.5 mb-3.5">
-              {esSolicitud ? <CalendarClock size={15} className="text-brand-secondary" /> : <CheckCircle2 size={15} className="text-[#22C55E]" />}
+              {esSolicitud ? <CalendarClock size={15} className="text-brand-secondary" /> : <CheckCircle2 size={15} className="text-success" />}
               <span className="text-[12px] font-bold text-foreground">{esSolicitud ? 'Nueva sustitución solicitada' : 'Sustituta ideal encontrada'}</span>
             </div>
 
@@ -523,7 +523,7 @@ function SustitucionCard({
                 <span className="text-[14px] font-extrabold text-[#16A34A] tabular-nums">{hero.compatibilidad}%</span>
               </div>
               <div className="h-2 rounded-full bg-black/[0.06] overflow-hidden">
-                <div className="h-full rounded-full bg-[#22C55E] transition-all duration-500" style={{ width: `${hero.compatibilidad}%` }} />
+                <div className="h-full rounded-full bg-success transition-all duration-500" style={{ width: `${hero.compatibilidad}%` }} />
               </div>
             </div>
 

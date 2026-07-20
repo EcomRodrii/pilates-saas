@@ -662,7 +662,7 @@ export default function POSPage() {
         >
           Carrito
           {carrito.length > 0 && (
-            <span className="ml-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-[#EF4444] text-white">
+            <span className="ml-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground">
               {carrito.reduce((s, i) => s + i.cantidad, 0)}
             </span>
           )}
