@@ -12,8 +12,9 @@ import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   Search, CalendarDays, CheckCircle2, TrendingUp, ChevronDown,
   Clock, MapPin, Users, UserPlus, UserCheck, Pencil, Trash2, ArrowUpRight,
-  Bot, Loader2,
+  Bot, Loader2, Upload,
 } from 'lucide-react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { enviarEmailCancelacionClase } from '@/lib/api-client';
 import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
@@ -1607,6 +1608,15 @@ export default function Calendario() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Migración asistida: traer el horario del programa anterior. Va aquí
+              (y no escondido en Configuración) porque es lo primero que necesita
+              un estudio que se acaba de cambiar: sin horario, la agenda va vacía. */}
+          <Link
+            href="/calendario/importar"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Upload size={14} />Importar horario
+          </Link>
           {/* Type legend (con indicador +N si hay más tipos que los mostrados) */}
           {tiposClase.length > 0 && (
             <div className="hidden lg:flex items-center gap-3 mr-1">

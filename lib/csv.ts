@@ -351,3 +351,146 @@ export function validarFilasMembresia(
     return { ...base, estado: 'ok' as const };
   });
 }
+
+// ─── Importación de CLASES y HORARIOS ────────────────────────────────────────
+// Tercera pieza de la migración asistida (tras socias y membresías). Trae el
+// horario del software anterior — sin esto el calendario llega vacío y no puede
+// colgar nada de él (reservas, citas, sustituciones).
+//
+// Acepta las DOS formas en que las plataformas exportan un horario:
+//   · con FECHA concreta  → una sesión por fila,
+//   · con DÍA DE LA SEMANA → horario recurrente, que se expande a N semanas.
+// El mapeo de columnas decide cuál es: no hay que elegir modo a mano.
+
+export type CampoClase =
+  | 'clase' | 'fecha' | 'dia_semana' | 'hora_inicio' | 'hora_fin'
+  | 'duracion' | 'instructor' | 'sala' | 'aforo';
+
+interface CampoMetaClase { campo: CampoClase; etiqueta: string; obligatorio: boolean }
+
+export const CAMPOS_CLASE: CampoMetaClase[] = [
+  { campo: 'clase', etiqueta: 'Clase', obligatorio: true },
+  { campo: 'hora_inicio', etiqueta: 'Hora de inicio', obligatorio: true },
+  { campo: 'fecha', etiqueta: 'Fecha (si el horario es por fechas)', obligatorio: false },
+  { campo: 'dia_semana', etiqueta: 'Día de la semana (si es recurrente)', obligatorio: false },
+  { campo: 'hora_fin', etiqueta: 'Hora de fin', obligatorio: false },
+  { campo: 'duracion', etiqueta: 'Duración (min)', obligatorio: false },
+  { campo: 'instructor', etiqueta: 'Instructora', obligatorio: false },
+  { campo: 'sala', etiqueta: 'Sala', obligatorio: false },
+  { campo: 'aforo', etiqueta: 'Aforo / plazas', obligatorio: false },
+];
+
+const SINONIMOS_CLASE: Record<CampoClase, string[]> = {
+  clase: ['clase', 'class', 'nombre', 'actividad', 'tipo de clase', 'tipo', 'servicio', 'curso', 'sesion', 'session', 'name'],
+  // Ojo: 'dia'/'day' a secas NO van aquí. En un horario, una columna "Día" es casi
+  // siempre el día de la semana, y como `fecha` se mapea antes le robaba la
+  // columna a `dia_semana` (lo cazó csv-clases.test.ts). Si algún export usa
+  // "Día" como fecha, el usuario lo corrige en el paso de mapeo del asistente.
+  fecha: ['fecha', 'date', 'fecha clase', 'fecha de la clase', 'start date'],
+  dia_semana: ['dia semana', 'dia de la semana', 'weekday', 'day of week', 'dow', 'dia'],
+  hora_inicio: ['hora inicio', 'hora de inicio', 'inicio', 'hora', 'start', 'start time', 'comienzo', 'time', 'desde'],
+  hora_fin: ['hora fin', 'hora de fin', 'fin', 'end', 'end time', 'final', 'hasta', 'termina'],
+  duracion: ['duracion', 'duration', 'minutos', 'mins', 'min', 'length'],
+  instructor: ['instructor', 'instructora', 'profesor', 'profesora', 'monitor', 'monitora', 'teacher', 'coach', 'staff', 'entrenador'],
+  sala: ['sala', 'room', 'espacio', 'ubicacion', 'location', 'studio', 'estudio'],
+  aforo: ['aforo', 'plazas', 'capacidad', 'capacity', 'max', 'maximo', 'spots', 'cupo', 'limite'],
+};
+
+export function autoMapearClase(headers: string[]): Record<CampoClase, number> {
+  return mapearColumnas(headers, CAMPOS_CLASE.map((c) => c.campo), SINONIMOS_CLASE);
+}
+
+export interface FilaClase {
+  clase: string;
+  fecha: string | null;        // 'YYYY-MM-DD'
+  diaSemana: number | null;    // 0=domingo..6=sábado (DOW de Postgres)
+  horaInicio: string;          // 'HH:MM'
+  horaFin: string | null;      // 'HH:MM'
+  duracion: number | null;     // minutos
+  instructor: string | null;
+  sala: string | null;
+  aforo: number | null;
+}
+
+export interface FilaClaseValidada {
+  fila: number;
+  datos: FilaClase;
+  estado: 'ok' | 'error';
+  motivo?: string;
+}
+
+/** 'HH:MM' a partir de "9:00", "09.00", "9h", "9:00 AM"… o null si no se entiende. */
+export function parsearHora(celda: string | null | undefined): string | null {
+  if (!celda) return null;
+  const s = celda.trim().toLowerCase();
+  if (!s) return null;
+  const pm = /\bp\.?m\.?\b/.test(s);
+  const am = /\ba\.?m\.?\b/.test(s);
+  const m = s.match(/(\d{1,2})\s*[:.h]\s*(\d{2})?/);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = m[2] ? Number(m[2]) : 0;
+  if (!Number.isFinite(h) || !Number.isFinite(min) || min > 59) return null;
+  if (pm && h < 12) h += 12;
+  if (am && h === 12) h = 0;
+  if (h > 23) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+const DIAS_SEMANA: Record<string, number> = {
+  domingo: 0, dom: 0, sunday: 0, sun: 0, d: 0,
+  lunes: 1, lun: 1, monday: 1, mon: 1, l: 1,
+  martes: 2, mar: 2, tuesday: 2, tue: 2, tues: 2,
+  miercoles: 3, mie: 3, mierc: 3, wednesday: 3, wed: 3, x: 3,
+  jueves: 4, jue: 4, thursday: 4, thu: 4, thur: 4, j: 4,
+  viernes: 5, vie: 5, friday: 5, fri: 5, v: 5,
+  sabado: 6, sab: 6, saturday: 6, sat: 6, s: 6,
+};
+
+/** Día de la semana → DOW de Postgres (0=domingo). Acepta español, inglés e iniciales. */
+export function parsearDiaSemana(celda: string | null | undefined): number | null {
+  if (!celda) return null;
+  const s = normaliza(celda).replace(/\.$/, '');
+  if (!s) return null;
+  if (s in DIAS_SEMANA) return DIAS_SEMANA[s];
+  // "lunes 09:00" o "every monday" → busca el día dentro del texto.
+  for (const [clave, dow] of Object.entries(DIAS_SEMANA)) {
+    if (clave.length >= 3 && s.includes(clave)) return dow;
+  }
+  return null;
+}
+
+/** Aplica el mapeo y valida las filas del horario. */
+export function validarFilasClase(
+  rows: string[][],
+  mapeo: Record<CampoClase, number>,
+): FilaClaseValidada[] {
+  const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+  return rows.map((fila, i) => {
+    const clase = val(fila, mapeo.clase);
+    const horaInicio = parsearHora(val(fila, mapeo.hora_inicio));
+    const horaFin = parsearHora(val(fila, mapeo.hora_fin));
+    const fecha = parsearFecha(val(fila, mapeo.fecha));
+    const diaSemana = parsearDiaSemana(val(fila, mapeo.dia_semana));
+    const durRaw = val(fila, mapeo.duracion);
+    const duracion = durRaw !== '' && Number.isFinite(Number(durRaw)) ? Math.trunc(Number(durRaw)) : null;
+    const aforoRaw = val(fila, mapeo.aforo);
+    const aforo = aforoRaw !== '' && Number.isFinite(Number(aforoRaw)) ? Math.trunc(Number(aforoRaw)) : null;
+
+    const datos: FilaClase = {
+      clase, fecha, diaSemana, horaInicio: horaInicio ?? '', horaFin,
+      duracion: duracion && duracion > 0 ? duracion : null,
+      instructor: val(fila, mapeo.instructor) || null,
+      sala: val(fila, mapeo.sala) || null,
+      aforo: aforo && aforo > 0 ? aforo : null,
+    };
+
+    const err = (motivo: string): FilaClaseValidada => ({ fila: i + 1, datos, estado: 'error', motivo });
+    if (!clase) return err('Falta el nombre de la clase');
+    if (!horaInicio) return err('Falta la hora de inicio o no se entiende');
+    if (fecha === null && diaSemana === null) return err('Falta la fecha o el día de la semana');
+    if (!horaFin && !datos.duracion) return err('Falta la hora de fin o la duración');
+    if (horaFin && horaFin <= horaInicio) return err('La hora de fin es anterior o igual a la de inicio');
+    return { fila: i + 1, datos, estado: 'ok' };
+  });
+}
