@@ -1,4 +1,6 @@
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
+import { enlaceRevocado } from '@/lib/sustituciones/enlaces';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { BajaForm } from './baja-form';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +18,14 @@ export default async function NoPuedoPage({
   const claim = verificarTokenInstructora(token, 'reportar_baja');
 
   if (!claim) {
+    return <Aviso titulo="Enlace no válido o caducado" texto="Pide a tu estudio que te envíe un enlace nuevo." />;
+  }
+
+  // Se generó un enlace nuevo para esta instructora → este ha quedado revocado
+  // (migración 0057). Se comprueba aquí (y no solo en /api/public/baja) para
+  // que el rechazo se vea al instante, no tras un fetch fallido en el móvil.
+  const admin = getSupabaseAdmin();
+  if (admin && (await enlaceRevocado(admin, claim.instructorId, 'reportar_baja', token))) {
     return <Aviso titulo="Enlace no válido o caducado" texto="Pide a tu estudio que te envíe un enlace nuevo." />;
   }
 

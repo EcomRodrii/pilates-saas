@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
+import { enlaceRevocado } from '@/lib/sustituciones/enlaces';
 import { celdaKey, franjaPorHoraInicio } from '@/lib/sustituciones/franjas';
 import { DisponibilidadForm } from './disponibilidad-form';
 
@@ -23,6 +24,12 @@ export default async function DisponibilidadPage({
   const admin = getSupabaseAdmin();
   if (!admin) {
     return <Aviso titulo="No disponible ahora mismo" texto="Inténtalo de nuevo en unos minutos." />;
+  }
+
+  // Se generó un enlace nuevo para esta instructora → este ha quedado revocado
+  // (migración 0057). Mismo mensaje que caducado: no hace falta distinguirlos.
+  if (await enlaceRevocado(admin, claim.instructorId, 'disponibilidad', token)) {
+    return <Aviso titulo="Enlace no válido o caducado" texto="Pide a tu estudio que te envíe un enlace nuevo." />;
   }
 
   const { data: instructora } = await admin
