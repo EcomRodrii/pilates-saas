@@ -373,7 +373,14 @@ function SustitucionCard({
         <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${meta.cls}`}>{meta.label}</span>
       </div>
       <p className="text-[13px] text-muted-foreground mt-2.5">
-        Falta <strong className="text-foreground">{nombreInstructor(s.instructor_original_id)}</strong>
+        {/* Si lo avisó ella misma desde el móvil, decirlo: es la diferencia entre
+            "alguien ha marcado esto" y "Meri te ha avisado" — y evita que la
+            propietaria coja el teléfono para confirmar algo que ya está confirmado. */}
+        {s.origen === 'instructora' ? (
+          <><strong className="text-foreground">{nombreInstructor(s.instructor_original_id)}</strong> ha avisado de que no puede</>
+        ) : (
+          <>Falta <strong className="text-foreground">{nombreInstructor(s.instructor_original_id)}</strong></>
+        )}
         {s.motivo ? <> — <span className="italic">{s.motivo}</span></> : null}
       </p>
 
