@@ -159,7 +159,8 @@ export async function PATCH(req: NextRequest) {
     const instructorId = typeof body?.instructorId === 'string' ? body.instructorId : null;
     if (!instructorId) return NextResponse.json({ error: 'Falta la candidata (instructorId)' }, { status: 400 });
 
-    // Aceptación atómica + reasignación de la clase, en una transacción (función 0040).
+    // Aceptación atómica + reasignación de la clase, en una transacción (función
+    // 0040, con re-check de solape por exclusion constraint desde 0048).
     const { data, error } = await admin.rpc('confirmar_sustitucion', {
       p_sustitucion_id: sustitucionId,
       p_instructor_id: instructorId,
@@ -168,7 +169,12 @@ export async function PATCH(req: NextRequest) {
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     const r = (data ?? {}) as { ok?: boolean; motivo?: string; sesion_id?: string };
-    if (!r.ok) return NextResponse.json({ error: 'Esta sustitución ya está resuelta', ...r }, { status: 409 });
+    if (!r.ok) {
+      const mensaje = r.motivo === 'conflicto_horario'
+        ? 'No se puede: esta instructora ya tiene otra clase en ese horario. Elige otra candidata.'
+        : 'Esta sustitución ya está resuelta';
+      return NextResponse.json({ error: mensaje, ...r }, { status: 409 });
+    }
 
     // Aviso a las alumnas (si el estudio lo tiene activado): "tu clase sigue en pie".
     let alumnas = { avisadas: 0, total: 0, skipped: false, desactivado: true };

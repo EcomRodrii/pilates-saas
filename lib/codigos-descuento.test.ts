@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   generarCodigoReactivacion, sufijoCodigo, calcularDescuento,
-  validarCodigoCanjeable, buscarCodigo,
+  validarCodigoCanjeable, buscarCodigo, esCodigoReactivacion, PREFIJO_CODIGO_REACTIVACION,
 } from './codigos-descuento.ts';
 import type { CodigoDescuento } from './types.ts';
 
@@ -75,4 +75,17 @@ test('buscarCodigo ignora mayúsculas y espacios', () => {
   assert.ok(buscarCodigo(lista, '  vuelve-a3f2 '));
   assert.equal(buscarCodigo(lista, 'OTRO'), null);
   assert.equal(buscarCodigo(lista, '   '), null);
+});
+
+test('esCodigoReactivacion distingue los del Decision OS de los creados a mano', () => {
+  assert.equal(esCodigoReactivacion(cod({ codigo: 'VUELVE-A3F2' })), true);
+  assert.equal(esCodigoReactivacion(cod({ codigo: '  vuelve-a3f2 ' })), true); // tolera caja y espacios
+  assert.equal(esCodigoReactivacion(cod({ codigo: 'VERANO25' })), false);
+  assert.equal(esCodigoReactivacion(cod({ codigo: 'BIENVENIDA' })), false);
+});
+
+test('generarCodigoReactivacion siempre lleva el prefijo reconocible', () => {
+  const c = generarCodigoReactivacion('rec-abc');
+  assert.ok(c.startsWith(PREFIJO_CODIGO_REACTIVACION));
+  assert.equal(esCodigoReactivacion({ codigo: c }), true);
 });

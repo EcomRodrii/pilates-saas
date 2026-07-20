@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 
-// Un tap: ACEPTO / No puedo. La confirmación de verdad (compare-and-set) ocurre
-// en el servidor; aquí solo se dispara con el token del deep link.
-type Resultado = 'idle' | 'enviando' | 'aceptada' | 'rechazada' | 'ya_cubierta' | 'error';
+// Un tap: ACEPTO / No puedo. La confirmación de verdad (compare-and-set +
+// re-check de solape de horario, 0048) ocurre en el servidor; aquí solo se
+// dispara con el token del deep link.
+type Resultado = 'idle' | 'enviando' | 'aceptada' | 'rechazada' | 'ya_cubierta' | 'conflicto_horario' | 'error';
 
 export function AceptarForm({
   token, instructorNombre, estudioNombre, claseNombre, cuando,
@@ -25,7 +26,11 @@ export function AceptarForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, accion }),
       });
-      if (res.status === 409) { setEstado('ya_cubierta'); return; }
+      if (res.status === 409) {
+        const data = (await res.json().catch(() => ({}))) as { motivo?: string };
+        setEstado(data.motivo === 'conflicto_horario' ? 'conflicto_horario' : 'ya_cubierta');
+        return;
+      }
       if (!res.ok) { setEstado('error'); return; }
       setEstado(accion === 'aceptar' ? 'aceptada' : 'rechazada');
     } catch {
@@ -33,11 +38,12 @@ export function AceptarForm({
     }
   }
 
-  if (estado === 'aceptada' || estado === 'rechazada' || estado === 'ya_cubierta') {
+  if (estado === 'aceptada' || estado === 'rechazada' || estado === 'ya_cubierta' || estado === 'conflicto_horario') {
     const conf = {
       aceptada: { icono: '🎉', titulo: '¡Confirmado!', texto: `Gracias, ${instructorNombre}. Ya estás asignada a ${claseNombre}. ${estudioNombre} lo sabe.` },
       rechazada: { icono: '👍', titulo: 'Entendido', texto: 'Buscaremos a otra persona. ¡Gracias por responder tan rápido!' },
       ya_cubierta: { icono: '✅', titulo: 'Ya está cubierta', texto: 'Otra persona la cogió antes. ¡Gracias igualmente!' },
+      conflicto_horario: { icono: '🗓️', titulo: 'No puede ser', texto: 'Parece que ya tienes otra clase asignada justo en ese horario, así que no podemos confirmarte esta. Avisamos al estudio para que lo resuelva.' },
     }[estado];
     return (
       <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">

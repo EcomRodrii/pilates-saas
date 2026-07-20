@@ -36,9 +36,19 @@ export function sufijoCodigo(semilla: string, longitud = 4): string {
   return out;
 }
 
+// Prefijo de los códigos que crea el Decision OS al enviar una reactivación. Es
+// el identificador con el que el Centro de Control los distingue del resto del
+// catálogo (más robusto que filtrar por el texto de la descripción).
+export const PREFIJO_CODIGO_REACTIVACION = 'VUELVE-';
+
 /** Código de reactivación (win-back). Determinista por `semilla` → idempotente. */
 export function generarCodigoReactivacion(semilla: string): string {
-  return `VUELVE-${sufijoCodigo(semilla)}`;
+  return `${PREFIJO_CODIGO_REACTIVACION}${sufijoCodigo(semilla)}`;
+}
+
+/** ¿Lo generó el Decision OS (win-back) o lo creó una persona a mano? */
+export function esCodigoReactivacion(codigo: { codigo: string }): boolean {
+  return codigo.codigo.trim().toUpperCase().startsWith(PREFIJO_CODIGO_REACTIVACION);
 }
 
 export type ResultadoCanje =
