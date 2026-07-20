@@ -94,7 +94,7 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
                 <p className="text-[12px] text-muted-foreground">{metricLabel(a.metric)} · umbral {a.umbral}{a.creditosRecompensa > 0 ? ` · +${a.creditosRecompensa} créditos` : ''}</p>
                 {!a.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactivo</span>}
               </div>
-              <button onClick={() => openEditar(a)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
+              <button onClick={() => openEditar(a)} aria-label="Editar logro" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
                 <Pencil size={13} />
               </button>
             </div>

@@ -518,6 +518,7 @@ export default function Socios() {
           {busqueda && (
             <button
               onClick={() => setBusqueda('')}
+              aria-label="Borrar búsqueda"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
             >
               <X size={13} />
@@ -592,6 +593,7 @@ export default function Socios() {
           </button>
           <button
             onClick={() => setSelected(new Set())}
+            aria-label="Quitar selección"
             className="ml-1 text-muted-foreground hover:text-white transition-colors p-1"
           >
             <X size={14} />
@@ -903,7 +905,7 @@ export default function Socios() {
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-foreground flex items-center gap-2">
               {showForm === 'nueva' && formStep === 2 && (
-                <button onClick={() => setFormStep(1)} className="p-0.5 rounded hover:bg-muted">
+                <button onClick={() => setFormStep(1)} aria-label="Paso anterior" className="p-0.5 rounded hover:bg-muted">
                   <ArrowLeft size={15} className="text-muted-foreground" />
                 </button>
               )}

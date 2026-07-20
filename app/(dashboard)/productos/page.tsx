@@ -304,11 +304,11 @@ export default function Productos() {
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => setPlanModal(plan)}
+                    <button onClick={() => setPlanModal(plan)} aria-label="Editar plan"
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => deletePlan(plan.id)}
+                    <button onClick={() => deletePlan(plan.id)} aria-label="Eliminar plan"
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors">
                       <Trash2 size={13} />
                     </button>
@@ -401,7 +401,7 @@ export default function Productos() {
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
-                          <button onClick={() => setPosModal(p)}
+                          <button onClick={() => setPosModal(p)} aria-label="Editar producto"
                             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
                             <Pencil size={13} />
                           </button>

@@ -727,7 +727,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               <p className="text-sm mt-0.5" style={{ color: nota.tipo === 'SISTEMA' ? 'var(--muted-foreground)' : 'var(--foreground)' }}>{nota.texto}</p>
                             </div>
                             {nota.tipo === 'NOTA' && (
-                              <button onClick={() => deleteNota(nota.id)} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors mt-0.5">
+                              <button onClick={() => deleteNota(nota.id)} aria-label="Eliminar nota" className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors mt-0.5">
                                 <X size={11} className="text-red-400" />
                               </button>
                             )}
@@ -1149,7 +1149,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   return (
                     <span key={tag} className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: style.bg, color: style.text }}>
                       {tag}
-                      <button onClick={() => removeTagSocio(id, tag)} className="hover:opacity-60 transition-opacity">
+                      <button onClick={() => removeTagSocio(id, tag)} aria-label={`Quitar etiqueta ${tag}`} className="hover:opacity-60 transition-opacity">
                         <X size={9} />
                       </button>
                     </span>

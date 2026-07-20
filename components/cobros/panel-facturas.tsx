@@ -409,6 +409,7 @@ export function PanelFacturas() {
                 </div>
                 <button
                   onClick={() => setPreview(null)}
+                  aria-label="Cerrar vista previa"
                   className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
                 >
                   <X size={16} />

@@ -123,9 +123,9 @@ export default function CarruselesPage() {
                 <SlidePreview slide={slide} estilo={b.estilo} index={idx + 1} total={b.slides.length} />
               </div>
               <div className="flex items-center justify-center gap-3 mt-3">
-                <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0} className="w-9 h-9 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+                <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0} aria-label="Diapositiva anterior" className="w-9 h-9 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"><ChevronLeft className="w-4 h-4" /></button>
                 <span className="text-sm font-semibold text-muted-foreground tabular-nums">{idx + 1} / {b.slides.length}</span>
-                <button onClick={() => setIdx((i) => Math.min(b.slides.length - 1, i + 1))} disabled={idx === b.slides.length - 1} className="w-9 h-9 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"><ChevronRight className="w-4 h-4" /></button>
+                <button onClick={() => setIdx((i) => Math.min(b.slides.length - 1, i + 1))} disabled={idx === b.slides.length - 1} aria-label="Diapositiva siguiente" className="w-9 h-9 rounded-full border border-border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"><ChevronRight className="w-4 h-4" /></button>
               </div>
             </div>
 

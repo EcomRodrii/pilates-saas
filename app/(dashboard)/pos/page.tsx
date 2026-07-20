@@ -842,6 +842,7 @@ export default function POSPage() {
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => changeQty(item.producto.id, -1)}
+                      aria-label="Restar unidad"
                       className="w-6 h-6 rounded-md border border-border flex items-center justify-center hover:bg-background transition-colors"
                     >
                       <Minus size={10} />
@@ -849,6 +850,7 @@ export default function POSPage() {
                     <span className="w-6 text-center text-[13px] font-medium text-foreground">{item.cantidad}</span>
                     <button
                       onClick={() => changeQty(item.producto.id, 1)}
+                      aria-label="Añadir unidad"
                       className="w-6 h-6 rounded-md border border-border flex items-center justify-center hover:bg-background transition-colors"
                     >
                       <Plus size={10} />
@@ -859,6 +861,7 @@ export default function POSPage() {
                   </span>
                   <button
                     onClick={() => removeFromCart(item.producto.id)}
+                    aria-label="Quitar del carrito"
                     className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-red-50 transition-colors shrink-0"
                   >
                     <X size={12} />
@@ -881,6 +884,7 @@ export default function POSPage() {
                     </span>
                     <button
                       onClick={() => { setClienteId(''); setBusquedaCliente(''); }}
+                      aria-label="Quitar cliente"
                       className="text-muted-foreground hover:text-destructive transition-colors"
                     >
                       <X size={12} />

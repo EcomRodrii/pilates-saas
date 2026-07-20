@@ -174,10 +174,10 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                   {!item.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactiva</span>}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button onClick={() => openEditar(item)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
+                  <button onClick={() => openEditar(item)} aria-label="Editar recompensa" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
                     <Pencil size={13} />
                   </button>
-                  <button onClick={() => setConfirmDel(item)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500">
+                  <button onClick={() => setConfirmDel(item)} aria-label="Eliminar recompensa" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500">
                     <Trash2 size={13} />
                   </button>
                 </div>

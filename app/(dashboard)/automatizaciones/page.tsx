@@ -176,6 +176,8 @@ function RuleCard({
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setExpanded(p => !p)}
+            aria-label="Expandir detalles"
+            aria-expanded={expanded}
             className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors"
           >
             <ChevronRight size={14} className={cn('transition-transform', expanded && 'rotate-90')} />

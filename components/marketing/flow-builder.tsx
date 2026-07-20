@@ -176,9 +176,9 @@ export function FlowBuilder({
                         {ORDEN_ACCIONES.map(a => <option key={a} value={a}>{ACCIONES[a].label}</option>)}
                       </select>
                       <div className="flex items-center gap-0.5 shrink-0">
-                        <button onClick={() => movePaso(p.id, -1)} disabled={i === 0} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronUp className="w-4 h-4" /></button>
-                        <button onClick={() => movePaso(p.id, 1)} disabled={i === pasos.length - 1} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronDown className="w-4 h-4" /></button>
-                        <button onClick={() => removePaso(p.id)} disabled={pasos.length <= 1} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 disabled:opacity-30 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => movePaso(p.id, -1)} disabled={i === 0} aria-label="Mover paso arriba" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronUp className="w-4 h-4" /></button>
+                        <button onClick={() => movePaso(p.id, 1)} disabled={i === pasos.length - 1} aria-label="Mover paso abajo" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronDown className="w-4 h-4" /></button>
+                        <button onClick={() => removePaso(p.id)} disabled={pasos.length <= 1} aria-label="Eliminar paso" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 disabled:opacity-30 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                     <div className="pl-9 space-y-2">

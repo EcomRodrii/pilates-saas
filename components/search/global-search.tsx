@@ -130,7 +130,7 @@ export function GlobalSearch({
                 className="flex-1 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none bg-transparent"
               />
               {query ? (
-                <button onClick={() => setQuery('')} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
+                <button onClick={() => setQuery('')} aria-label="Borrar búsqueda" className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
                   <X size={13} style={{ color: 'var(--muted-foreground)' }} />
                 </button>
               ) : (

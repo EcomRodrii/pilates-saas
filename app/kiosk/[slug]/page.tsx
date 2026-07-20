@@ -313,7 +313,7 @@ export default function KioskPage() {
                   className="flex-1 bg-transparent text-sm font-medium text-white placeholder:text-white/30 outline-none"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="text-white/30 hover:text-white/60"><X size={14} /></button>
+                  <button onClick={() => setSearchQuery('')} aria-label="Borrar búsqueda" className="text-white/30 hover:text-white/60"><X size={14} /></button>
                 )}
               </div>
               {allSocias.length > 0 && (
