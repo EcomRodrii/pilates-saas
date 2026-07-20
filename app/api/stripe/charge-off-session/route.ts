@@ -54,11 +54,11 @@ export async function POST(req: NextRequest) {
     // lo dé por cerrado. El cobro en sí no se reintenta: ya está hecho.
     if (resultado.aviso === 'COBRADO_SIN_PERSISTIR') {
       const detalle = resultado.error ?? 'Cobro completado en Stripe, pero pendiente de reconciliación manual.';
-      await dbUpdateAutomationLog(body.logId, { resultado: 'FALLIDO', detalle });
+      await dbUpdateAutomationLog(body.logId, sesion.studioId, { resultado: 'FALLIDO', detalle });
       capturar(body.studioId, { nombre: 'pago_completado', props: { importe_centimos: Math.round((resultado.importe ?? 0) * 100), via: 'off_session' } });
       return NextResponse.json({ ok: true, status: resultado.status, aviso: resultado.aviso, error: detalle }, { status: 202 });
     }
-    await dbUpdateAutomationLog(body.logId, {
+    await dbUpdateAutomationLog(body.logId, sesion.studioId, {
       resultado: 'EJECUTADO',
       detalle: `Cobro de ${resultado.importe}€ aprobado y cobrado con la tarjeta guardada.`,
     });
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, status: resultado.status });
   }
 
-  await dbUpdateAutomationLog(body.logId, { resultado: 'FALLIDO', detalle: resultado.error ?? 'Error desconocido al cobrar' });
+  await dbUpdateAutomationLog(body.logId, sesion.studioId, { resultado: 'FALLIDO', detalle: resultado.error ?? 'Error desconocido al cobrar' });
   const status = resultado.errorCode ? STATUS_POR_ERROR[resultado.errorCode] : 402;
   return NextResponse.json({ error: resultado.error }, { status });
 }

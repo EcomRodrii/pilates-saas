@@ -145,7 +145,7 @@ export const analizarEstudio = inngest.createFunction(
     }
 
     for (const exp of resultado.expiraciones) {
-      await step.run(`expirar-${exp.id}`, () => dbTransicionarRecomendacion(exp.id, 'PENDIENTE', 'EXPIRADA'));
+      await step.run(`expirar-${exp.id}`, () => dbTransicionarRecomendacion(exp.id, studioId, 'PENDIENTE', 'EXPIRADA'));
     }
 
     // ── Piloto automático (0047) ──────────────────────────────────────────────
@@ -164,7 +164,7 @@ export const analizarEstudio = inngest.createFunction(
 
     for (const a of autonomas) {
       const aprobada = await step.run(`autonomia-aprobar-${a.id}`, () =>
-        dbTransicionarRecomendacion(a.id, 'PENDIENTE', 'APROBADA', { resueltoPor: 'AUTONOMIA', resueltoEn: new Date().toISOString() })
+        dbTransicionarRecomendacion(a.id, studioId, 'PENDIENTE', 'APROBADA', { resueltoPor: 'AUTONOMIA', resueltoEn: new Date().toISOString() })
       );
       // Solo se emite el evento de ejecución si la transición realmente ocurrió
       // (evita ejecutar dos veces ante un replay del handler).
@@ -374,7 +374,7 @@ export const ejecutarRecomendacion = inngest.createFunction(
       // tabla—, y luego dbGetOutcomePorRecomendacion (maybeSingle) fallaba con >1
       // fila: la medición no actualizaba nada y el outcome quedaba PENDIENTE para
       // siempre. Con el guard, solo el run que efectivamente transiciona escribe.
-      const trans = await step.run('marcar-ejecutada', () => dbTransicionarRecomendacion(recomendacionId, 'APROBADA', 'EJECUTADA', { resueltoEn }));
+      const trans = await step.run('marcar-ejecutada', () => dbTransicionarRecomendacion(recomendacionId, recomendacion.studioId, 'APROBADA', 'EJECUTADA', { resueltoEn }));
       if (trans.ok) {
         await step.run('outcome-ejecutada', () => dbInsertOutcome({
           studioId: recomendacion.studioId, recomendacionId, evento: 'EJECUTADA', outcome: 'PENDIENTE',
@@ -388,7 +388,7 @@ export const ejecutarRecomendacion = inngest.createFunction(
         await step.run('log-actividad', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: textoAct, socioId: recomendacion.socioId }));
       }
     } else {
-      await step.run('marcar-fallida', () => dbTransicionarRecomendacion(recomendacionId, 'APROBADA', 'FALLIDA', { resueltoEn }));
+      await step.run('marcar-fallida', () => dbTransicionarRecomendacion(recomendacionId, recomendacion.studioId, 'APROBADA', 'FALLIDA', { resueltoEn }));
       await step.run('log-actividad-fallo', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: `No se pudo completar: ${recomendacion.titulo} — ${resultado.detalle}`, socioId: recomendacion.socioId }));
     }
 

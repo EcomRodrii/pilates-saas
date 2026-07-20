@@ -285,7 +285,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       await step.run('actualizar-reglas', async () => {
         for (const [ruleId, count] of firedPorRegla) {
           const base = data.automationRules.find(r => r.id === ruleId)?.ejecutadaVeces ?? 0;
-          await dbUpdateAutomationRule(ruleId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
+          await dbUpdateAutomationRule(ruleId, studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
         }
       });
     }
@@ -312,7 +312,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       await step.run('actualizar-automatizaciones', async () => {
         for (const [autoId, count] of firedPorAuto) {
           const base = data.automatizaciones.find(a => a.id === autoId)?.ejecutadas ?? 0;
-          await dbUpdateAutomatizacion(autoId, { ejecutadas: base + count });
+          await dbUpdateAutomatizacion(autoId, studioId, { ejecutadas: base + count });
         }
       });
     }

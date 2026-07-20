@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
   for (const c of candidatos) firedPorRegla.set(c.rule.id, (firedPorRegla.get(c.rule.id) ?? 0) + 1);
   for (const [ruleId, count] of firedPorRegla) {
     const base = data.automationRules.find((r) => r.id === ruleId)?.ejecutadaVeces ?? 0;
-    await dbUpdateAutomationRule(ruleId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
+    await dbUpdateAutomationRule(ruleId, sesion.studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
   }
 
   return NextResponse.json({ logs });
