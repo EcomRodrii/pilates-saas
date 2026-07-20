@@ -9,6 +9,7 @@ import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { CitasPublica } from '@/components/reserva/citas-publica';
+import { PublicSheet } from '@/components/ui/public-sheet';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import {
   Users, CheckCircle2, X, Calendar,
@@ -1141,11 +1142,9 @@ export default function ReservarPage() {
       )}
 
       {/* ── MODAL CANCELAR PLAZA (sustituye al confirm() nativo) ─────────────── */}
-      {cancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
-          style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-          onClick={() => setCancelConfirm(null)}>
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <PublicSheet open={cancelConfirm !== null} onClose={() => setCancelConfirm(null)} label="Cancelar tu plaza">
+        {cancelConfirm && (
+          <>
             <h2 className="text-[#1A1A1A] font-bold text-lg mb-1">¿Cancelar tu plaza?</h2>
             <p className="text-[#6E6E66] text-sm mb-5">
               {cancelConfirm.pierdeBono
@@ -1162,9 +1161,9 @@ export default function ReservarPage() {
                 Cancelar plaza
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </PublicSheet>
 
       {/* ── MODAL DOCUMENTO LEGAL ────────────────────────────────────────────── */}
       {legalDoc && (
