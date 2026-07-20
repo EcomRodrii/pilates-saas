@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback, useId } from 'react';
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
@@ -129,10 +130,11 @@ type RecurringFormData = {
 // ─── FormField wrapper ────────────────────────────────────────────────────────
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  const { htmlFor, control } = useCampoAsociado(children);
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
-      {children}
+      <label htmlFor={htmlFor} className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
+      {control}
     </div>
   );
 }

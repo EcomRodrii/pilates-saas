@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation'
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags'
 import { cn } from '@/lib/utils'
@@ -15,10 +16,11 @@ import type { PublicacionAsociada } from '@/lib/types'
 
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
+  const { htmlFor, control } = useCampoAsociado(children);
   return (
     <div className="space-y-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
-      {children}
+      <label htmlFor={htmlFor} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
+      {control}
     </div>
   )
 }

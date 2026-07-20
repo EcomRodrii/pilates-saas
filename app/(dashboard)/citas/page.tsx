@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useId } from 'react';
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
@@ -55,10 +56,11 @@ function isSameMonth(iso: string, ref: Date): boolean {
 // ─── Form field wrapper ───────────────────────────────────────────────────────
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
+  const { htmlFor, control } = useCampoAsociado(children);
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-foreground">{label}</label>
-      {children}
+      <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">{label}</label>
+      {control}
     </div>
   );
 }
