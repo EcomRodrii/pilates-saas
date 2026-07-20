@@ -10,6 +10,8 @@
 // El navegador NO ve el token: pide una "direct upload URL" de un solo uso a
 // /api/ondemand/upload-url (servidor) y sube el fichero directo a Cloudflare.
 
+import { fetchExterno } from '@/lib/fetch-externo';
+
 const ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const STREAM_TOKEN = process.env.CLOUDFLARE_STREAM_TOKEN;
 
@@ -30,7 +32,7 @@ export interface SubidaDirecta {
 export async function crearSubidaDirecta(opts: { nombre: string; maxDurationSeconds?: number }): Promise<{ ok: true; data: SubidaDirecta } | { ok: false; error: string }> {
   if (!streamConfigurado()) return { ok: false, error: 'Cloudflare Stream no configurado' };
   try {
-    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/stream/direct_upload`, {
+    const res = await fetchExterno(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/stream/direct_upload`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${STREAM_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ maxDurationSeconds: opts.maxDurationSeconds ?? 3600, meta: { name: opts.nombre.slice(0, 120) } }),

@@ -62,6 +62,11 @@ export async function enviarEmailTransaccional(params: {
   // Opcional: si se pasa, aplica el override de plantilla del estudio (asunto +
   // intro). Los crons/proxy que tienen el studioId a mano lo envían.
   studioId?: string;
+  // Opcional pero MUY recomendable en crons y jobs: Resend deduplica los envíos
+  // con la misma clave durante 24 h. Sin ella, un cron que expira a medio camino
+  // reenvía a todas las socias ya avisadas en cada reintento. Debe ser
+  // determinista a partir del hecho que se notifica (no un uid()).
+  idempotencyKey?: string;
 }): Promise<Resultado> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
@@ -71,14 +76,17 @@ export async function enviarEmailTransaccional(params: {
     const plantilla = await resolverPlantilla(params.studioId, params.tipo);
     const { html, subject } = await renderPorTipo(params.tipo, params.toName, params.data, plantilla);
     const resend = new Resend(apiKey);
-    const { data, error } = await resend.emails.send({
-      // Remitente configurable por env (RESEND_FROM). Sin dominio verificado, el
-      // sandbox de Resend solo entrega al email de la cuenta.
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
-      to: [params.to],
-      subject,
-      html,
-    });
+    const { data, error } = await resend.emails.send(
+      {
+        // Remitente configurable por env (RESEND_FROM). Sin dominio verificado, el
+        // sandbox de Resend solo entrega al email de la cuenta.
+        from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+        to: [params.to],
+        subject,
+        html,
+      },
+      params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined,
+    );
     if (error) {
       console.error('[send-server]', error);
       return { ok: false, error: error.message };

@@ -1,5 +1,6 @@
 import { AwsClient } from 'aws4fetch';
 import type { BackupSnapshot } from '@/lib/engines/backup-engine';
+import { fetchExterno, TIMEOUT_EXTERNO_MS, TIMEOUT_TRANSFERENCIA_MS } from '@/lib/fetch-externo';
 
 // Cloudflare R2 (S3-compatible) para guardar los snapshots de backup FUERA de
 // Postgres (P0-13/14). Guardar el backup dentro de la misma BD que respalda es
@@ -59,7 +60,12 @@ export async function subirSnapshot(studioId: string, backupId: string, snapshot
     body,
     headers: { 'Content-Type': 'application/json' },
   });
-  const res = await fetch(url, { method: 'PUT', body, headers: signed.headers });
+  // Timeout de transferencia (no el de API): aquí manda el tamaño del snapshot,
+  // no la latencia de R2. Sin él, un R2 degradado cuelga el cron de backup
+  // hasta maxDuration y ningún estudio llega a respaldarse.
+  const res = await fetchExterno(
+    url, { method: 'PUT', body, headers: signed.headers }, TIMEOUT_TRANSFERENCIA_MS,
+  );
   if (!res.ok) {
     throw new Error(`R2 PUT falló (${res.status}): ${await res.text().catch(() => '')}`);
   }
@@ -68,7 +74,9 @@ export async function subirSnapshot(studioId: string, backupId: string, snapshot
 
 // Descarga y parsea el snapshot de R2 por su clave.
 export async function descargarSnapshot(key: string): Promise<BackupSnapshot> {
-  const res = await client().fetch(`${endpointBase()}/${key}`, { method: 'GET' });
+  const res = await client().fetch(`${endpointBase()}/${key}`, {
+    method: 'GET', signal: AbortSignal.timeout(TIMEOUT_TRANSFERENCIA_MS),
+  });
   if (!res.ok) {
     throw new Error(`R2 GET falló (${res.status}): ${await res.text().catch(() => '')}`);
   }
@@ -82,7 +90,9 @@ export async function borrarSnapshots(keys: string[]): Promise<void> {
   await Promise.all(
     keys.map(async key => {
       try {
-        await c.fetch(`${endpointBase()}/${key}`, { method: 'DELETE' });
+        await c.fetch(`${endpointBase()}/${key}`, {
+          method: 'DELETE', signal: AbortSignal.timeout(TIMEOUT_EXTERNO_MS),
+        });
       } catch {
         // best-effort
       }
