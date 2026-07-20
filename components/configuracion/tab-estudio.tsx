@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { RotateCcw, AlertTriangle, Monitor, ExternalLink, Calendar as CalendarLinkIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Package, Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Check } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS } from '@/lib/types';
@@ -31,6 +31,7 @@ function PlanModal({ initial, onSave, onClose }: {
   onSave: (d: PlanFormData) => void;
   onClose: () => void;
 }) {
+  const uid = useId();
   const [form, setForm] = useState<PlanFormData>({
     nombre: initial?.nombre ?? '',
     precio: initial?.precio?.toString() ?? '',
@@ -51,21 +52,21 @@ function PlanModal({ initial, onSave, onClose }: {
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Nombre *</label>
-            <input value={form.nombre} onChange={e => set('nombre', e.target.value)}
+            <label htmlFor={`${uid}-1`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Nombre *</label>
+            <input id={`${uid}-1`} value={form.nombre} onChange={e => set('nombre', e.target.value)}
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
               placeholder="Ej. Mensual ilimitado" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Precio (€) *</label>
-              <input value={form.precio} onChange={e => set('precio', e.target.value)} type="number" min="0" step="0.01"
+              <label htmlFor={`${uid}-2`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Precio (€) *</label>
+              <input id={`${uid}-2`} value={form.precio} onChange={e => set('precio', e.target.value)} type="number" min="0" step="0.01"
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
                 placeholder="0.00" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Tipo</label>
-              <select value={form.tipo} onChange={e => set('tipo', e.target.value)}
+              <label htmlFor={`${uid}-3`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Tipo</label>
+              <select id={`${uid}-3`} value={form.tipo} onChange={e => set('tipo', e.target.value)}
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand bg-card">
                 <option value="MENSUAL">Mensual</option>
                 <option value="BONO">Bono sesiones</option>
@@ -75,15 +76,15 @@ function PlanModal({ initial, onSave, onClose }: {
           </div>
           {(form.tipo === 'BONO' || form.tipo === 'PUNTUAL') && (
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Número de sesiones</label>
-              <input value={form.sesiones} onChange={e => set('sesiones', e.target.value)} type="number" min="1"
+              <label htmlFor={`${uid}-4`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Número de sesiones</label>
+              <input id={`${uid}-4`} value={form.sesiones} onChange={e => set('sesiones', e.target.value)} type="number" min="1"
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
                 placeholder="8" />
             </div>
           )}
           <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Descripción</label>
-            <input value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
+            <label htmlFor={`${uid}-5`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Descripción</label>
+            <input id={`${uid}-5`} value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
               placeholder="Acceso ilimitado a clases grupales" />
           </div>
@@ -120,6 +121,7 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
   onClose: () => void;
   onDelete?: () => void;
 }) {
+  const uid = useId();
   const [form, setForm] = useState<PosFormData>({
     nombre: initial?.nombre ?? '',
     precio: initial?.precio?.toString() ?? '',
@@ -138,21 +140,21 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Nombre *</label>
-            <input value={form.nombre} onChange={e => set('nombre', e.target.value)}
+            <label htmlFor={`${uid}-1`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Nombre *</label>
+            <input id={`${uid}-1`} value={form.nombre} onChange={e => set('nombre', e.target.value)}
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
               placeholder="Ej. Calcetines antideslizantes" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Precio (€) *</label>
-              <input value={form.precio} onChange={e => set('precio', e.target.value)} type="number" min="0" step="0.01"
+              <label htmlFor={`${uid}-2`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Precio (€) *</label>
+              <input id={`${uid}-2`} value={form.precio} onChange={e => set('precio', e.target.value)} type="number" min="0" step="0.01"
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
                 placeholder="0.00" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Categoría</label>
-              <select value={form.categoria} onChange={e => set('categoria', e.target.value)}
+              <label htmlFor={`${uid}-3`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Categoría</label>
+              <select id={`${uid}-3`} value={form.categoria} onChange={e => set('categoria', e.target.value)}
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand bg-card">
                 <option value="SESION">Sesión</option>
                 <option value="PACK">Pack</option>

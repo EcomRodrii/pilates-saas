@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useId } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import type { EstadoRecibo, Socio } from '@/lib/types';
@@ -134,6 +134,7 @@ type MainTab = 'cobros' | 'suscripciones' | 'historial';
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Pagos() {
+  const uid = useId();
   // ── Context ─────────────────────────────────────────────────────────────────
   const {
     studio,
@@ -709,14 +710,14 @@ export default function Pagos() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Desde</label>
-                <input type="month" value={desde} onChange={e => setDesde(e.target.value)}
+                <label htmlFor={`${uid}-1`} className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Desde</label>
+                <input id={`${uid}-1`} type="month" value={desde} onChange={e => setDesde(e.target.value)}
                   className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:border-[#7AA80E] transition-colors"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Hasta</label>
-                <input type="month" value={hasta} onChange={e => setHasta(e.target.value)}
+                <label htmlFor={`${uid}-2`} className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Hasta</label>
+                <input id={`${uid}-2`} type="month" value={hasta} onChange={e => setHasta(e.target.value)}
                   className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:border-[#7AA80E] transition-colors"
                 />
               </div>
@@ -1062,8 +1063,8 @@ export default function Pagos() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Mes</label>
-                <input type="month" value={histMes} onChange={e => setHistMes(e.target.value)}
+                <label htmlFor={`${uid}-3`} className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Mes</label>
+                <input id={`${uid}-3`} type="month" value={histMes} onChange={e => setHistMes(e.target.value)}
                   className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:border-[#7AA80E] transition-colors"
                 />
               </div>

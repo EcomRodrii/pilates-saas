@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import Link from 'next/link';
 import { Building2, User, CheckCircle2, Mail } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
@@ -25,6 +25,7 @@ interface OwnerForm {
 const TIPOS: StudioTipo[] = ['Pilates', 'Yoga', 'Fitness', 'CrossFit', 'Danza', 'Otro'];
 
 export default function CrearEstudioPage() {
+  const uid = useId();
   const { signUp } = useAuth();
   const [step, setStep] = useState(1);
   const [studio, setStudio] = useState<StudioForm>({ nombre: '', tipo: 'Pilates', ciudad: '', telefono: '' });
@@ -121,8 +122,8 @@ export default function CrearEstudioPage() {
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Nombre del estudio</label>
-                  <input
+                  <label htmlFor={`${uid}-1`} className="block text-[13px] font-medium text-[#374151] mb-1">Nombre del estudio</label>
+                  <input id={`${uid}-1`}
                     required
                     type="text"
                     placeholder="Ej. Tentare"
@@ -133,8 +134,8 @@ export default function CrearEstudioPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Tipo de estudio</label>
-                  <select
+                  <label htmlFor={`${uid}-2`} className="block text-[13px] font-medium text-[#374151] mb-1">Tipo de estudio</label>
+                  <select id={`${uid}-2`}
                     value={studio.tipo}
                     onChange={e => setStudio(s => ({ ...s, tipo: e.target.value as StudioTipo }))}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition bg-white"
@@ -144,8 +145,8 @@ export default function CrearEstudioPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Ciudad <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
-                  <input
+                  <label htmlFor={`${uid}-3`} className="block text-[13px] font-medium text-[#374151] mb-1">Ciudad <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
+                  <input id={`${uid}-3`}
                     type="text"
                     placeholder="Ej. Madrid"
                     value={studio.ciudad}
@@ -155,8 +156,8 @@ export default function CrearEstudioPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Teléfono <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
-                  <input
+                  <label htmlFor={`${uid}-4`} className="block text-[13px] font-medium text-[#374151] mb-1">Teléfono <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
+                  <input id={`${uid}-4`}
                     type="tel"
                     placeholder="+34 600 000 000"
                     value={studio.telefono}
@@ -189,8 +190,8 @@ export default function CrearEstudioPage() {
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Nombre completo</label>
-                  <input
+                  <label htmlFor={`${uid}-5`} className="block text-[13px] font-medium text-[#374151] mb-1">Nombre completo</label>
+                  <input id={`${uid}-5`}
                     required
                     type="text"
                     placeholder="Ej. María García"
@@ -201,8 +202,8 @@ export default function CrearEstudioPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Email</label>
-                  <input
+                  <label htmlFor={`${uid}-6`} className="block text-[13px] font-medium text-[#374151] mb-1">Email</label>
+                  <input id={`${uid}-6`}
                     required
                     type="email"
                     placeholder="maria@miestudio.com"
@@ -213,8 +214,8 @@ export default function CrearEstudioPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-medium text-[#374151] mb-1">Contraseña</label>
-                  <input
+                  <label htmlFor={`${uid}-7`} className="block text-[13px] font-medium text-[#374151] mb-1">Contraseña</label>
+                  <input id={`${uid}-7`}
                     required
                     type="password"
                     placeholder="Mínimo 8 caracteres"

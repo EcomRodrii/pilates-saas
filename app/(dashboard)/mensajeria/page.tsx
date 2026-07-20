@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
@@ -33,6 +33,7 @@ const TIPO_ICON = {
 // ── Message composer ──────────────────────────────────────────────────────────
 
 function Compositor({ socios }: { socios: { id: string; nombre: string; apellidos: string; email: string }[] }) {
+  const uid = useId();
   const [destinatario, setDestinatario] = useState<'todos' | string>('todos');
   const [asunto, setAsunto] = useState('');
   const [mensaje, setMensaje] = useState('');
@@ -93,8 +94,8 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
   return (
     <div className="space-y-5 max-w-2xl">
       <div>
-        <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Destinatario</label>
-        <select
+        <label htmlFor={`${uid}-1`} className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Destinatario</label>
+        <select id={`${uid}-1`}
           value={destinatario}
           onChange={e => setDestinatario(e.target.value)}
           className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
@@ -106,8 +107,8 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
         </select>
       </div>
       <div>
-        <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Asunto</label>
-        <input
+        <label htmlFor={`${uid}-2`} className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Asunto</label>
+        <input id={`${uid}-2`}
           value={asunto}
           onChange={e => setAsunto(e.target.value)}
           placeholder="Ej. Nuevo horario de verano"
@@ -115,8 +116,8 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
         />
       </div>
       <div>
-        <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Mensaje</label>
-        <textarea
+        <label htmlFor={`${uid}-3`} className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Mensaje</label>
+        <textarea id={`${uid}-3`}
           value={mensaje}
           onChange={e => setMensaje(e.target.value)}
           rows={6}

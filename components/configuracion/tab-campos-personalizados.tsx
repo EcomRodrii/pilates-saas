@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { Check, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { cn } from '@/lib/utils';

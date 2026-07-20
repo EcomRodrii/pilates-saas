@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { cn } from '@/lib/utils';

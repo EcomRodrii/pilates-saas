@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -33,6 +33,7 @@ type Form = { nombre: string; email: string; telefono: string; color: string; av
 const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, activo: true, rol: 'INSTRUCTOR' });
 
 export default function EquipoPage() {
+  const uid = useId();
   const { instructores, sesiones, tiposClase, addInstructor, updateInstructor, deleteInstructor, actividadReciente } = useStudio();
 
   const [tab, setTab] = useState<'equipo' | 'actividad'>('equipo');
@@ -279,8 +280,8 @@ export default function EquipoPage() {
             <div className="flex items-center gap-3">
               <ProfileAvatar avatarId={form.avatar} nombre={form.nombre || '?'} color={form.color} size="lg" />
               <div className="min-w-0">
-                <label className={labelCls + ' mb-1'}>Nombre</label>
-                <input className={inputCls} value={form.nombre} placeholder="Ej. María Soler" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                <label htmlFor={`${uid}-1`} className={labelCls + ' mb-1'}>Nombre</label>
+                <input id={`${uid}-1`} className={inputCls} value={form.nombre} placeholder="Ej. María Soler" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
               </div>
             </div>
             <div>
@@ -289,12 +290,12 @@ export default function EquipoPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Email</label>
-                <input className={inputCls} value={form.email} placeholder="maria@tentare.es" onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                <label htmlFor={`${uid}-2`} className={labelCls}>Email</label>
+                <input id={`${uid}-2`} className={inputCls} value={form.email} placeholder="maria@tentare.es" onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               </div>
               <div>
-                <label className={labelCls}>Teléfono</label>
-                <input className={inputCls} value={form.telefono} placeholder="+34 600 000 000" onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+                <label htmlFor={`${uid}-3`} className={labelCls}>Teléfono</label>
+                <input id={`${uid}-3`} className={inputCls} value={form.telefono} placeholder="+34 600 000 000" onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
               </div>
             </div>
             <div>

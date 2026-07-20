@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
@@ -8,6 +8,7 @@ import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
 
 export default function LoginPage() {
+  const uid = useId();
   const { signIn, signUp, session, user, loading } = useAuth();
   const { claimInstructorAccount } = useStudio();
   const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
@@ -98,10 +99,10 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[13px] font-medium text-[#3A3A34] mb-1.5">
+              <label htmlFor={`${uid}-1`} className="block text-[13px] font-medium text-[#3A3A34] mb-1.5">
                 Email
               </label>
-              <input
+              <input id={`${uid}-1`}
                 type="email"
                 required
                 value={email}
@@ -112,10 +113,10 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-[13px] font-medium text-[#3A3A34] mb-1.5">
+              <label htmlFor={`${uid}-2`} className="block text-[13px] font-medium text-[#3A3A34] mb-1.5">
                 Contraseña
               </label>
-              <input
+              <input id={`${uid}-2`}
                 type="password"
                 required
                 minLength={6}

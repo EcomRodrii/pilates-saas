@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { cn } from '@/lib/utils';
 import { useContenido } from '@/lib/contenido/store';
 import { PageHeader, PlataformaAvatar, fmtFecha } from '@/components/contenido/ui';
@@ -17,6 +17,7 @@ const inputCls = 'w-full rounded-lg border border-border bg-card px-3 py-2 text-
 type Borrador = Omit<Guion, 'id' | 'createdAt' | 'updatedAt'> & { id?: string };
 
 export default function GuionesPage() {
+  const uid = useId();
   const { guiones, guardarGuion, eliminarGuion, duplicarGuion } = useContenido();
   const [tema, setTema] = useState('');
   const [plataforma, setPlataforma] = useState<Plataforma>('instagram');
@@ -62,12 +63,12 @@ export default function GuionesPage() {
       <section className="bg-card border border-border rounded-3xl p-5">
         <div className="flex flex-col lg:flex-row gap-3 lg:items-end">
           <div className="flex-1 space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tema del contenido</label>
-            <input className={inputCls} value={tema} onChange={(e) => setTema(e.target.value)} placeholder="Ej. Cómo mantener la constancia en el gym" onKeyDown={(e) => e.key === 'Enter' && generar()} />
+            <label htmlFor={`${uid}-1`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tema del contenido</label>
+            <input id={`${uid}-1`} className={inputCls} value={tema} onChange={(e) => setTema(e.target.value)} placeholder="Ej. Cómo mantener la constancia en el gym" onKeyDown={(e) => e.key === 'Enter' && generar()} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Plataforma</label>
-            <select className={cn(inputCls, 'lg:w-44')} value={plataforma} onChange={(e) => setPlataforma(e.target.value as Plataforma)}>
+            <label htmlFor={`${uid}-2`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Plataforma</label>
+            <select id={`${uid}-2`} className={cn(inputCls, 'lg:w-44')} value={plataforma} onChange={(e) => setPlataforma(e.target.value as Plataforma)}>
               {PLATAFORMAS.map((p) => <option key={p} value={p}>{PLATAFORMA_META[p].label}</option>)}
             </select>
           </div>
@@ -106,8 +107,8 @@ export default function GuionesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <CampoEdit label="Hashtags" value={borrador.hashtags.join(' ')} onChange={(v) => set('hashtags', v.split(/\s+/).filter(Boolean))} className="sm:col-span-2" />
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Duración (s)</label>
-              <input type="number" min={5} max={180} className={inputCls} value={borrador.duracionSegundos} onChange={(e) => set('duracionSegundos', Number(e.target.value))} />
+              <label htmlFor={`${uid}-3`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Duración (s)</label>
+              <input id={`${uid}-3`} type="number" min={5} max={180} className={inputCls} value={borrador.duracionSegundos} onChange={(e) => set('duracionSegundos', Number(e.target.value))} />
             </div>
           </div>
         </section>
@@ -154,11 +155,12 @@ export default function GuionesPage() {
 function CampoEdit({ label, value, onChange, textarea, rows = 2, className }: {
   label: string; value: string; onChange: (v: string) => void; textarea?: boolean; rows?: number; className?: string;
 }) {
+  const uid = useId();
   return (
     <div className={cn('space-y-1.5', className)}>
-      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
+      <label htmlFor={`${uid}-1`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
       {textarea
-        ? <textarea rows={rows} className={cn(inputCls, 'resize-y')} value={value} onChange={(e) => onChange(e.target.value)} />
+        ? <textarea id={`${uid}-1`} rows={rows} className={cn(inputCls, 'resize-y')} value={value} onChange={(e) => onChange(e.target.value)} />
         : <input className={inputCls} value={value} onChange={(e) => onChange(e.target.value)} />}
     </div>
   );
