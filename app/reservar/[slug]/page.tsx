@@ -906,11 +906,23 @@ export default function ReservarPage() {
       </div>
 
       {/* ── MODAL ───────────────────────────────────────────────────────────── */}
-      {(bookingSesionId !== null) && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
-          style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
-            style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+      <PublicSheet
+        open={bookingSesionId !== null}
+        onClose={closeBooking}
+        closeOnBackdropClick={false}
+        label={
+          loginStep === 'done' ? '¡Reserva confirmada!'
+          : loginStep === 'espera' ? '¡En lista de espera!'
+          : loginStep === 'login' ? (enlaceEnviado ? 'Revisa tu email' : 'Entra para reservar')
+          : loginStep === 'registro' ? '¿Cómo te llamas?'
+          : loginStep === 'contrato' ? 'Acepta los términos'
+          : 'Confirmar reserva'
+        }
+        sheetClassName="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
+        sheetStyle={{ maxHeight: '90vh', overflowY: 'auto' }}
+      >
+        {bookingSesionId !== null && (
+          <>
             <button onClick={closeBooking} aria-label="Cerrar"
               className="absolute top-4 right-4 text-[#767670] hover:text-[#3A3A34] transition-colors">
               <X size={18} />
@@ -1137,9 +1149,9 @@ export default function ReservarPage() {
                 </button>
               </>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </PublicSheet>
 
       {/* ── MODAL CANCELAR PLAZA (sustituye al confirm() nativo) ─────────────── */}
       <PublicSheet open={cancelConfirm !== null} onClose={() => setCancelConfirm(null)} label="Cancelar tu plaza">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -32,14 +32,31 @@ export function PublicSheet({
   closeOnBackdropClick?: boolean;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
-  const disparadorRef = useRef<HTMLElement | null>(null);
+  const [disparador, setDisparador] = useState<HTMLElement | null>(null);
+  const [openAnterior, setOpenAnterior] = useState(open);
+
+  // Ajuste de estado durante el render (patrón oficial de React para
+  // "capturar algo antes de que cambie", sin refs — el lint de este proyecto
+  // exige React Compiler-safe, y leer/escribir refs en render no lo es).
+  // Importa que se capture AQUÍ y no en un efecto: si el contenido trae su
+  // propio `autoFocus` (p.ej. un <input> de login), React lo aplica en el
+  // commit, antes de que corra cualquier useEffect — para cuando el efecto
+  // de abajo se ejecutase, document.activeElement ya sería ese input y no lo
+  // de fuera que abrió la hoja.
+  if (open !== openAnterior) {
+    setOpenAnterior(open);
+    if (open) setDisparador(document.activeElement as HTMLElement | null);
+  }
 
   useEffect(() => {
     if (!open) return;
-    disparadorRef.current = document.activeElement as HTMLElement | null;
     const sheet = sheetRef.current;
-    const primero = sheet?.querySelector<HTMLElement>(FOCUSABLE);
-    (primero ?? sheet)?.focus();
+    // Si el contenido ya se autoenfocó a sí mismo (autoFocus), se respeta —
+    // solo se mueve el foco cuando nada dentro de la hoja lo tiene todavía.
+    if (!sheet?.contains(document.activeElement)) {
+      const primero = sheet?.querySelector<HTMLElement>(FOCUSABLE);
+      (primero ?? sheet)?.focus();
+    }
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
@@ -65,9 +82,9 @@ export function PublicSheet({
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      disparadorRef.current?.focus();
+      disparador?.focus();
     };
-  }, [open, onClose]);
+  }, [open, onClose, disparador]);
 
   if (!open) return null;
 
