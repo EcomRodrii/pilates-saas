@@ -21,8 +21,9 @@ import {
   dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
   dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
-  dbLogActividadReciente,
+  dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy,
 } from '@/lib/decision/db';
+import { seleccionarAutonomas } from '@/lib/decision/autonomia';
 import type { Recomendacion } from '@/lib/decision/tipos';
 import type { CandidataPriorizada } from '@/lib/decision/prioridad';
 
@@ -143,6 +144,31 @@ export const analizarEstudio = inngest.createFunction(
 
     for (const exp of resultado.expiraciones) {
       await step.run(`expirar-${exp.id}`, () => dbTransicionarRecomendacion(exp.id, 'PENDIENTE', 'EXPIRADA'));
+    }
+
+    // ── Piloto automático (0047) ──────────────────────────────────────────────
+    // Si el estudio lo activó, las recomendaciones PENDIENTE de ALTA confianza +
+    // autonomía ≥2 cuyo tipo esté en su allowlist se APRUEBAN y ejecutan solas,
+    // hasta el tope diario. La ejecución reutiliza F3 (DECISION_APPROVED); quedan
+    // marcadas con resuelto_por='AUTONOMIA' y con traza en el feed de actividad.
+    const autonomas = await step.run('seleccionar-autonomas', async () => {
+      const config = await dbGetAutonomiaConfig(studioId);
+      if (!config.activa) return [] as { id: string }[];
+      const yaHoy = await dbCountAutonomasHoy(studioId, now);
+      // Se releen las PENDIENTE reales (estado + id ya persistidos), no el objeto en memoria.
+      const pendientes = await dbListPendientes(studioId);
+      return seleccionarAutonomas(pendientes, config, yaHoy).map(r => ({ id: r.id }));
+    });
+
+    for (const a of autonomas) {
+      const aprobada = await step.run(`autonomia-aprobar-${a.id}`, () =>
+        dbTransicionarRecomendacion(a.id, 'PENDIENTE', 'APROBADA', { resueltoPor: 'AUTONOMIA', resueltoEn: new Date().toISOString() })
+      );
+      // Solo se emite el evento de ejecución si la transición realmente ocurrió
+      // (evita ejecutar dos veces ante un replay del handler).
+      if (aprobada.ok) {
+        await step.sendEvent(`autonomia-ejecutar-${a.id}`, { name: EVENTS.DECISION_APPROVED, data: { recomendacionId: a.id } });
+      }
     }
 
     if (resultado.nuevosHechosMemoria.length > 0) {
