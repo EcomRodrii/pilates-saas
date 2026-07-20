@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { Trophy, Plus, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';

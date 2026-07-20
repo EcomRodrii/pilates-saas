@@ -4,7 +4,7 @@
 // FICHA-CLINICA.md §3 (timeline), §2 (restricciones), §4 (semáforo), §5 (riesgo).
 // Solo se monta para PROPIETARIO/INSTRUCTOR (el gating vive en la página).
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -74,6 +74,7 @@ function CondicionDialog({
   onSave: (f: FormState) => void;
   inicial: FormState;
 }) {
+  const uid = useId();
   const [f, setF] = useState<FormState>(inicial);
   // Reinicia el estado cada vez que cambia la condición editada.
   const [key, setKey] = useState('');
@@ -113,16 +114,16 @@ function CondicionDialog({
           </div>
           {/* Etiqueta */}
           <div>
-            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Descripción</label>
-            <input value={f.etiqueta} onChange={e => setF(p => ({ ...p, etiqueta: e.target.value }))}
+            <label htmlFor={`${uid}-1`} className="text-xs font-semibold text-muted-foreground mb-1.5 block">Descripción</label>
+            <input id={`${uid}-1`} value={f.etiqueta} onChange={e => setF(p => ({ ...p, etiqueta: e.target.value }))}
               placeholder="Tendinitis hombro derecho, embarazo 22 sem…"
               className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           {/* Zona + severidad */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Zona corporal</label>
-              <select value={f.zona ?? ''} onChange={e => setF(p => ({ ...p, zona: (e.target.value || null) as ZonaCorporal | null, restricciones: [] }))}
+              <label htmlFor={`${uid}-2`} className="text-xs font-semibold text-muted-foreground mb-1.5 block">Zona corporal</label>
+              <select id={`${uid}-2`} value={f.zona ?? ''} onChange={e => setF(p => ({ ...p, zona: (e.target.value || null) as ZonaCorporal | null, restricciones: [] }))}
                 className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
                 <option value="">Sin zona (general/sistémica)</option>
                 {ZONAS.map(z => <option key={z} value={z}>{ZONA_LABEL[z]}</option>)}
@@ -165,20 +166,20 @@ function CondicionDialog({
           {/* Fechas */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Inicio</label>
-              <input type="date" value={f.inicio} onChange={e => setF(p => ({ ...p, inicio: e.target.value }))}
+              <label htmlFor={`${uid}-3`} className="text-xs font-semibold text-muted-foreground mb-1.5 block">Inicio</label>
+              <input id={`${uid}-3`} type="date" value={f.inicio} onChange={e => setF(p => ({ ...p, inicio: e.target.value }))}
                 className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Revisar el (opcional)</label>
-              <input type="date" value={f.revisarEn} onChange={e => setF(p => ({ ...p, revisarEn: e.target.value }))}
+              <label htmlFor={`${uid}-4`} className="text-xs font-semibold text-muted-foreground mb-1.5 block">Revisar el (opcional)</label>
+              <input id={`${uid}-4`} type="date" value={f.revisarEn} onChange={e => setF(p => ({ ...p, revisarEn: e.target.value }))}
                 className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
           {/* Notas */}
           <div>
-            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Notas (opcional)</label>
-            <textarea value={f.notas} onChange={e => setF(p => ({ ...p, notas: e.target.value }))} rows={2}
+            <label htmlFor={`${uid}-5`} className="text-xs font-semibold text-muted-foreground mb-1.5 block">Notas (opcional)</label>
+            <textarea id={`${uid}-5`} value={f.notas} onChange={e => setF(p => ({ ...p, notas: e.target.value }))} rows={2}
               placeholder="Contexto que no cabe en una restricción…"
               className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
           </div>

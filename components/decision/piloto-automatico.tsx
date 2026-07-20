@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useId } from 'react';
 import { Sparkles, ShieldCheck } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 

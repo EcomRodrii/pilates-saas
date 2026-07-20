@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useRef, useMemo } from 'react';
+import { use, useState, useEffect, useRef, useMemo, useId } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { resumenSocio } from '@/lib/socio-resumen';

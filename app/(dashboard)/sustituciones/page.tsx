@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
@@ -558,6 +558,7 @@ function NuevaBajaDialog({
   yaConBaja: Set<string>;
   onCreada: () => Promise<void>;
 }) {
+  const uid = useId();
   const [sesionId, setSesionId] = useState<string | null>(null);
   const [motivo, setMotivo] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -616,8 +617,8 @@ function NuevaBajaDialog({
             })}
           </div>
           <div>
-            <label className="text-[12px] font-semibold text-foreground block mb-1.5">Motivo (opcional)</label>
-            <input
+            <label htmlFor={`${uid}-1`} className="text-[12px] font-semibold text-foreground block mb-1.5">Motivo (opcional)</label>
+            <input id={`${uid}-1`}
               value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ej. enferma, imprevisto…"
               className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all"
             />

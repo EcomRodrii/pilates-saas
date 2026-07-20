@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useId } from 'react';
 import { Upload, Trash2, RotateCcw, Check, AlertTriangle, Sparkles, ChevronDown } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { usePermisos } from '@/lib/permisos';

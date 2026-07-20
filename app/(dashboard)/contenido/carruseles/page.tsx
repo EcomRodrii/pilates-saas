@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { cn } from '@/lib/utils';
 import { useContenido } from '@/lib/contenido/store';
 import { PageHeader, PlataformaAvatar, fmtFecha } from '@/components/contenido/ui';
@@ -24,6 +24,7 @@ interface Borrador { id?: string; tema: string; estilo: EstiloCarrusel; platafor
 function slugify(s: string) { return s.trim().toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 24) || 'carrusel'; }
 
 export default function CarruselesPage() {
+  const uid = useId();
   const { carruseles, guardarCarrusel, eliminarCarrusel, duplicarCarrusel } = useContenido();
   const [tema, setTema] = useState('');
   const [nSlides, setNSlides] = useState(4);
@@ -94,12 +95,12 @@ export default function CarruselesPage() {
       <section className="bg-card border border-border rounded-3xl p-5">
         <div className="flex flex-col lg:flex-row gap-3 lg:items-end">
           <div className="flex-1 space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tema del carrusel</label>
-            <input className={inputCls} value={tema} onChange={(e) => setTema(e.target.value)} placeholder="Ej. Guía de respiración para principiantes" onKeyDown={(e) => e.key === 'Enter' && generar()} />
+            <label htmlFor={`${uid}-1`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tema del carrusel</label>
+            <input id={`${uid}-1`} className={inputCls} value={tema} onChange={(e) => setTema(e.target.value)} placeholder="Ej. Guía de respiración para principiantes" onKeyDown={(e) => e.key === 'Enter' && generar()} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Diapositivas</label>
-            <input type="number" min={2} max={8} className={cn(inputCls, 'lg:w-28')} value={nSlides} onChange={(e) => setNSlides(Math.min(8, Math.max(2, Number(e.target.value))))} />
+            <label htmlFor={`${uid}-2`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Diapositivas</label>
+            <input id={`${uid}-2`} type="number" min={2} max={8} className={cn(inputCls, 'lg:w-28')} value={nSlides} onChange={(e) => setNSlides(Math.min(8, Math.max(2, Number(e.target.value))))} />
           </div>
           <button onClick={generar} disabled={!tema.trim() || cargando} className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground text-background px-5 py-2.5 text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity">
             {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
@@ -153,8 +154,8 @@ export default function CarruselesPage() {
                 ))}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Plataforma</label>
-                <select className={inputCls} value={b.plataforma} onChange={(e) => setB((p) => p ? { ...p, plataforma: e.target.value as Plataforma } : p)}>
+                <label htmlFor={`${uid}-3`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Plataforma</label>
+                <select id={`${uid}-3`} className={inputCls} value={b.plataforma} onChange={(e) => setB((p) => p ? { ...p, plataforma: e.target.value as Plataforma } : p)}>
                   {PLATAFORMAS.map((p) => <option key={p} value={p}>{PLATAFORMA_META[p].label}</option>)}
                 </select>
               </div>
@@ -166,12 +167,12 @@ export default function CarruselesPage() {
                 <button onClick={() => removeSlide(idx)} disabled={b.slides.length <= 1} className="inline-flex items-center gap-1 text-[12px] font-semibold text-muted-foreground hover:text-rose-600 disabled:opacity-30 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Quitar</button>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Título</label>
-                <textarea rows={2} className={cn(inputCls, 'resize-y')} value={slide.titulo} onChange={(e) => editSlide(idx, { titulo: e.target.value })} />
+                <label htmlFor={`${uid}-4`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Título</label>
+                <textarea id={`${uid}-4`} rows={2} className={cn(inputCls, 'resize-y')} value={slide.titulo} onChange={(e) => editSlide(idx, { titulo: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cuerpo</label>
-                <textarea rows={4} className={cn(inputCls, 'resize-y')} value={slide.cuerpo} onChange={(e) => editSlide(idx, { cuerpo: e.target.value })} />
+                <label htmlFor={`${uid}-5`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cuerpo</label>
+                <textarea id={`${uid}-5`} rows={4} className={cn(inputCls, 'resize-y')} value={slide.cuerpo} onChange={(e) => editSlide(idx, { cuerpo: e.target.value })} />
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useId } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useSociaSession } from '@/lib/use-socia-session';

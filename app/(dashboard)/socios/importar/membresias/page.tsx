@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useId } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -36,6 +36,7 @@ function descargar(nombre: string, contenido: string) {
 }
 
 export default function ImportarMembresiasPage() {
+  const uid = useId();
   const router = useRouter();
   const [paso, setPaso] = useState<Paso>(1);
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
@@ -217,11 +218,11 @@ export default function ImportarMembresiasPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {CAMPOS_MEMBRESIA.map(({ campo, etiqueta, obligatorio }) => (
                 <div key={campo} className="space-y-1.5">
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                  <label htmlFor={`${uid}-1`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                     {etiqueta}
                     {obligatorio && <span className="text-primary">*</span>}
                   </label>
-                  <select
+                  <select id={`${uid}-1`}
                     value={mapeo[campo]}
                     onChange={(e) => setMapeo((m) => ({ ...m, [campo]: Number(e.target.value) }))}
                     className="w-full text-[13px] bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:border-muted-foreground transition-colors"
