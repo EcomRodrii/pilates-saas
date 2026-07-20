@@ -4,7 +4,6 @@ import { isWhatsAppConfigurado, probarWhatsApp } from '@/lib/whatsapp';
 import { isPayPalConfigurado, probarPayPal } from '@/lib/paypal';
 import { isZoomConfigurado, probarZoom } from '@/lib/zoom';
 import { isKisiConfigurado, probarKisi } from '@/lib/kisi';
-import { isTwilioConfigurado, probarTwilio } from '@/lib/twilio';
 
 // Estado de las integraciones de plataforma (secretos por ENV del operador). El
 // cliente no puede leer envs de servidor, así que las consulta aquí.
@@ -19,7 +18,6 @@ export async function GET(req: NextRequest) {
     PAYPAL: isPayPalConfigurado(),
     ZOOM: isZoomConfigurado(),
     KISI: isKisiConfigurado(),
-    TWILIO: isTwilioConfigurado(),
   });
 }
 
@@ -36,7 +34,6 @@ export async function POST(req: NextRequest) {
     : provider === 'PAYPAL' ? await probarPayPal()
     : provider === 'ZOOM' ? await probarZoom()
     : provider === 'KISI' ? await probarKisi()
-    : provider === 'TWILIO' ? await probarTwilio()
     : { ok: false as const, error: 'Proveedor desconocido' };
 
   return NextResponse.json(r, { status: r.ok ? 200 : 400 });
