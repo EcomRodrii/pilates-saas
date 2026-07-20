@@ -154,12 +154,15 @@ export async function POST(req: NextRequest) {
         }
         const { error } = await admin.from('recibos')
           .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro })
-          // Acotado al tenant y a los estados realmente cobrables. PENDIENTE y
-          // FALLIDO (recuperación tras dunning) sí; así un evento tardío o
-          // duplicado no reescribe la fecha_cobro de un recibo ya COBRADO ni
-          // resucita uno ANULADO/DEVUELTO. 0 filas afectadas no es un error.
+          // Acotado al tenant y a los estados realmente cobrables, que según el
+          // CHECK de `recibos` son PENDIENTE, FALLIDO (recuperación tras dunning)
+          // y EN_CURSO (adeudo SEPA en vuelo: el portal se lo muestra a la socia
+          // como pendiente, así que un pago con tarjeta sobre él es legítimo y
+          // debe marcarlo cobrado). Quedan fuera COBRADO —para no reescribir la
+          // fecha_cobro con un evento tardío o duplicado— y DEVUELTO, para no
+          // resucitar un recibo ya devuelto. 0 filas afectadas no es un error.
           .eq('id', reciboId).eq('studio_id', studioId)
-          .in('estado', ['PENDIENTE', 'FALLIDO']);
+          .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO']);
         if (error) {
           console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
           return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
