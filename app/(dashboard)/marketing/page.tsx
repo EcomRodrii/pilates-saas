@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation'
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags'
@@ -452,6 +452,7 @@ function UsageBar({ usos, usosMax }: { usos: number; usosMax: number | null }) {
 }
 
 export default function MarketingPage() {
+  const uid = useId();
   const {
     campanas, addCampana, deleteCampana, duplicateCampana, updateCampana, enviarCampana,
     automatizaciones, toggleAutomatizacion, deleteAutomatizacion,
@@ -1434,10 +1435,10 @@ export default function MarketingPage() {
 
             {/* Content section */}
             <div className="space-y-3 pt-1">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Contenido</label>
+              <span id={`${uid}-contenido`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Contenido</span>
 
               {/* Template picker */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div role="group" aria-labelledby={`${uid}-contenido`} className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {(Object.entries(TEMPLATES) as [TemplateKey, typeof TEMPLATES[TemplateKey]][]).map(([key, tpl]) => (
                   <button
                     key={key}

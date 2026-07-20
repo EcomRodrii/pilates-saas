@@ -956,8 +956,8 @@ function ModalClasesRecurrentes({
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">Días de la semana</label>
-            <div className="flex items-center gap-2 flex-wrap">
+            <span id={`${uid}-dias`} className="text-xs font-bold text-foreground uppercase tracking-wider">Días de la semana</span>
+            <div role="group" aria-labelledby={`${uid}-dias`} className="flex items-center gap-2 flex-wrap">
               {DIA_PILLS.map(({ label, day }) => (
                 <DiaPill key={day} label={label} active={form.diasSemana.includes(day)} onClick={() => toggleDia(day)} />
               ))}

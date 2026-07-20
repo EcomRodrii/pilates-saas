@@ -285,8 +285,8 @@ export default function EquipoPage() {
               </div>
             </div>
             <div>
-              <label className={labelCls}>Avatar</label>
-              <AvatarPicker value={form.avatar} onChange={id => setForm(f => ({ ...f, avatar: id }))} />
+              <span id={`${uid}-avatar`} className={labelCls}>Avatar</span>
+              <div role="group" aria-labelledby={`${uid}-avatar`}><AvatarPicker value={form.avatar} onChange={id => setForm(f => ({ ...f, avatar: id }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -299,8 +299,8 @@ export default function EquipoPage() {
               </div>
             </div>
             <div>
-              <label className={labelCls}>Rol y acceso al panel</label>
-              <div className="space-y-1.5">
+              <span id={`${uid}-rol`} className={labelCls}>Rol y acceso al panel</span>
+              <div role="group" aria-labelledby={`${uid}-rol`} className="space-y-1.5">
                 {(['PROPIETARIO', 'RECEPCION', 'INSTRUCTOR'] as Rol[]).map(r => (
                   <button
                     key={r}
@@ -324,8 +324,8 @@ export default function EquipoPage() {
               )}
             </div>
             <div>
-              <label className={labelCls}>Color</label>
-              <div className="flex gap-2 flex-wrap">
+              <span id={`${uid}-color`} className={labelCls}>Color</span>
+              <div role="group" aria-labelledby={`${uid}-color`} className="flex gap-2 flex-wrap">
                 {COLORES.map(c => (
                   <button key={c} onClick={() => setForm(f => ({ ...f, color: c }))}
                     className="w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-110"
