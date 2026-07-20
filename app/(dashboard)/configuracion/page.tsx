@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useId } from 'react';
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertTriangle } from 'lucide-react';
@@ -36,10 +37,11 @@ export const cardCls = 'bg-card border border-border rounded-xl';
 // ─── Shared micro-components ──────────────────────────────────────────────────
 
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const { htmlFor, control } = useCampoAsociado(children);
   return (
     <div>
-      <label className={labelCls}>{label}</label>
-      {children}
+      <label htmlFor={htmlFor} className={labelCls}>{label}</label>
+      {control}
     </div>
   );
 }
