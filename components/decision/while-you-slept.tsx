@@ -17,7 +17,7 @@ export function WhileYouSlept({ items }: { items: { icono: string; texto: string
         <ul className="flex flex-col gap-2.5">
           {items.map((item, i) => (
             <li key={i} className="flex items-start gap-2.5 text-[14px] leading-snug text-foreground">
-              <span className="mt-0.5 shrink-0" style={{ color: '#059669' }} aria-hidden>{item.icono}</span>
+              <span className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} aria-hidden>{item.icono}</span>
               <span title={item.verificadoPor}>{item.texto}</span>
             </li>
           ))}

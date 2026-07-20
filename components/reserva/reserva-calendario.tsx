@@ -36,7 +36,7 @@ const NIVEL_LABEL: Record<NivelClase, string> = {
   TODOS: 'Todos los niveles', PRINCIPIANTE: 'Iniciación', MEDIO: 'Intermedio', AVANZADO: 'Avanzado',
 };
 const NIVEL_COLOR: Record<NivelClase, string> = {
-  TODOS: '#8E8E93', PRINCIPIANTE: '#059669', MEDIO: '#D97706', AVANZADO: '#DC2626',
+  TODOS: '#8E8E93', PRINCIPIANTE: 'var(--success)', MEDIO: 'var(--warning)', AVANZADO: 'var(--destructive)',
 };
 const DOW_CORTO = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 

@@ -136,7 +136,7 @@ export default function CarruselesPage() {
                   <SlidePreview slide={s} estilo={b.estilo} index={i + 1} total={b.slides.length} compact />
                 </button>
               ))}
-              <button onClick={addSlide} className="w-16 shrink-0 aspect-square rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors"><Plus className="w-5 h-5" /></button>
+              <button onClick={addSlide} aria-label="Añadir diapositiva" className="w-16 shrink-0 aspect-square rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors"><Plus className="w-5 h-5" /></button>
             </div>
           </div>
 

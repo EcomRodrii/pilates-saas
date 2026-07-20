@@ -11,9 +11,9 @@ import type { InstructorDependencySnapshot, NivelRiesgoDependencia } from '@/lib
 
 // Estados alineados con SpecialistCard (Mi Equipo).
 const ESTADO = {
-  CRITICO: { label: 'Crítico', color: '#DC2626', bg: '#FEF2F2' },
-  ATENCION: { label: 'Atención', color: '#D97706', bg: '#FFFBEB' },
-  BUENO: { label: 'Bueno', color: '#059669', bg: '#ECFDF5' },
+  CRITICO: { label: 'Crítico', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
+  ATENCION: { label: 'Atención', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))' },
+  BUENO: { label: 'Bueno', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
 } as const;
 
 const eur = (n: number) => `${Math.round(n).toLocaleString('es-ES')} €`;
@@ -162,7 +162,7 @@ export function EspecialistaCartera() {
             </div>
           ) : (
             <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
-              <ShieldCheck size={18} className="text-[#059669] shrink-0" />
+              <ShieldCheck size={18} className="text-success shrink-0" />
               <p className="text-[13px] text-muted-foreground">
                 Ningún instructor concentra más del {studio?.depUmbralMedio ?? 15}% de la facturación en alumnas cautivas. Sin riesgo de fuga por dependencia.
               </p>

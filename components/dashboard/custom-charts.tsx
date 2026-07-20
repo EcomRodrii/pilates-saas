@@ -68,7 +68,7 @@ function ChartCard({ chart, onDelete }: { chart: DashboardChart; onDelete: () =>
     <div className="bg-card rounded-xl border border-border p-4 group relative">
       <button
         onClick={onDelete}
-        className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[#FEE2E2] text-muted-foreground hover:text-[#DC2626] transition-all"
+        className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
         title="Eliminar gráfico"
       >
         <Trash2 size={13} />

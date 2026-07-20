@@ -7,7 +7,7 @@ import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
 import type { AchievementDefinition, AchievementMetric } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 // Punto de partida opcional (botón "Cargar logros sugeridos") — no se
 // insertan solos, el estudio decide si los quiere y puede editarlos después.
@@ -110,34 +110,52 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
           <div className="space-y-4">
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
-                <label className={labelCls}>Icono</label>
-                <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                <Field label="Icono"
+                  description="Un emoji. Es lo que verá la clienta en su perfil al conseguirlo."
+                >
+                  <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                </Field>
               </div>
               <div>
-                <label className={labelCls}>Nombre</label>
-                <input className={inputCls} value={form.nombre} placeholder="Ej. 10 clases" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                <Field label="Nombre"
+                  description="Corto y celebratorio: es lo que aparece en la notificación de logro."
+                >
+                  <input className={inputCls} value={form.nombre} placeholder="Ej. 10 clases" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                </Field>
               </div>
             </div>
             <div>
-              <label className={labelCls}>Descripción</label>
-              <input className={inputCls} value={form.descripcion ?? ''} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              <Field label="Descripción"
+                description="Qué ha hecho para ganarlo. Aparece bajo el nombre en su perfil."
+              >
+                <input className={inputCls} value={form.descripcion ?? ''} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              </Field>
             </div>
             <div>
-              <label className={labelCls}>Métrica</label>
-              <select className={inputCls} value={form.metric} onChange={e => setForm(f => ({ ...f, metric: e.target.value as AchievementMetric }))}>
-                {ACHIEVEMENT_METRICS.map(m => (
-                  <option key={m.metric} value={m.metric}>{m.nombre}</option>
-                ))}
-              </select>
+              <Field label="Métrica"
+                description="Qué se cuenta para dar el logro. Se calcula solo con la actividad que ya registra la app."
+              >
+                <select className={inputCls} value={form.metric} onChange={e => setForm(f => ({ ...f, metric: e.target.value as AchievementMetric }))}>
+                  {ACHIEVEMENT_METRICS.map(m => (
+                    <option key={m.metric} value={m.metric}>{m.nombre}</option>
+                  ))}
+                </select>
+              </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Umbral</label>
-                <input type="number" min={1} className={inputCls} value={form.umbral} onChange={e => setForm(f => ({ ...f, umbral: Math.max(1, parseInt(e.target.value, 10) || 1) }))} />
+                <Field label="Umbral"
+                  description="A partir de qué cifra se concede. Con métrica «clases asistidas» y umbral 10, se otorga en la décima clase."
+                >
+                  <input type="number" min={1} className={inputCls} value={form.umbral} onChange={e => setForm(f => ({ ...f, umbral: Math.max(1, parseInt(e.target.value, 10) || 1) }))} />
+                </Field>
               </div>
               <div>
-                <label className={labelCls}>Créditos de regalo</label>
-                <input type="number" min={0} className={inputCls} value={form.creditosRecompensa} onChange={e => setForm(f => ({ ...f, creditosRecompensa: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                <Field label="Créditos de regalo"
+                  description="Créditos que se le suman al conseguirlo, para canjear por recompensas. 0 = solo la insignia."
+                >
+                  <input type="number" min={0} className={inputCls} value={form.creditosRecompensa} onChange={e => setForm(f => ({ ...f, creditosRecompensa: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                </Field>
               </div>
             </div>
             <div className="flex items-center justify-between pt-1">

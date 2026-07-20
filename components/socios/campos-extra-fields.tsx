@@ -29,7 +29,7 @@ export function CamposExtraFields({
           <div key={c.id} className="space-y-1.5">
             <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {c.etiqueta}
-              {c.requerido && <span className="text-[#DC2626]"> *</span>}
+              {c.requerido && <span className="text-destructive"> *</span>}
             </label>
 
             {c.tipo === 'booleano' ? (

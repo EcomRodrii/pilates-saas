@@ -43,11 +43,11 @@ interface AvatarDef {
 export const PREDEFINED_AVATARS: AvatarDef[] = [
   { id: 'mujer-1', genero: 'mujer', bg: '#FFF2F7', skin: '#F0B892', hair: '#3B2A20' },
   { id: 'mujer-2', genero: 'mujer', bg: '#FCE7F3', skin: '#F6D2B0', hair: '#7A4A2B' },
-  { id: 'mujer-3', genero: 'mujer', bg: '#DBEAFE', skin: '#8D5A3C', hair: '#1A1A1A' },
-  { id: 'mujer-4', genero: 'mujer', bg: '#FEF3C7', skin: '#F0B892', hair: '#C97A2B' },
-  { id: 'hombre-1', genero: 'hombre', bg: '#D1FAE5', skin: '#F0B892', hair: '#2B2118' },
+  { id: 'mujer-3', genero: 'mujer', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', skin: '#8D5A3C', hair: '#1A1A1A' },
+  { id: 'mujer-4', genero: 'mujer', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', skin: '#F0B892', hair: '#C97A2B' },
+  { id: 'hombre-1', genero: 'hombre', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', skin: '#F0B892', hair: '#2B2118' },
   { id: 'hombre-2', genero: 'hombre', bg: '#E0F2FE', skin: '#8D5A3C', hair: '#141414' },
-  { id: 'hombre-3', genero: 'hombre', bg: '#FEE2E2', skin: '#F6D2B0', hair: '#5C3A20' },
+  { id: 'hombre-3', genero: 'hombre', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', skin: '#F6D2B0', hair: '#5C3A20' },
   { id: 'hombre-4', genero: 'hombre', bg: '#FFF2F7', skin: '#F0B892', hair: '#8A8A82' },
 ];
 

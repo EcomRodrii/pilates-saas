@@ -12,6 +12,7 @@ import {
 import { cn, formatFechaHora as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
 import { aprobarCobroAutonomo } from '@/lib/api-client';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
+import { mensajeSeguro } from '@/lib/errores';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,30 +25,30 @@ function horasRestantes(iso: string) {
 }
 
 const accionConfig: Record<AccionAutomatica, { label: string; icon: React.ElementType; color: string }> = {
-  ENVIAR_EMAIL:      { label: 'Email', icon: Mail, color: '#7AA80E' },
+  ENVIAR_EMAIL:      { label: 'Email', icon: Mail, color: 'var(--brand)' },
   ENVIAR_WHATSAPP:   { label: 'WhatsApp', icon: MessageSquare, color: '#16A34A' },
   COBRAR_RECIBO:     { label: 'Cobro automático', icon: CreditCard, color: '#7C3AED' },
   CREAR_NOTA:        { label: 'Nota de progreso', icon: Eye, color: '#0891B2' },
-  NOTIFICAR_ADMIN:   { label: 'Notificación admin', icon: Bell, color: '#D97706' },
+  NOTIFICAR_ADMIN:   { label: 'Notificación admin', icon: Bell, color: 'var(--warning)' },
   OFRECER_CLASE_GRATIS: { label: 'Clase gratis', icon: Gift, color: '#DB2777' },
-  PROPONER_PLAN:     { label: 'Proponer plan', icon: TrendingUp, color: '#059669' },
+  PROPONER_PLAN:     { label: 'Proponer plan', icon: TrendingUp, color: 'var(--success)' },
   ENVIAR_EJERCICIOS: { label: 'Ejercicios casa', icon: Send, color: '#F7A6C4' },
-  OFRECER_DESCUENTO: { label: 'Oferta de reactivación', icon: Gift, color: '#B45309' },
+  OFRECER_DESCUENTO: { label: 'Oferta de reactivación', icon: Gift, color: 'var(--warning)' },
 };
 
 const resultadoConfig: Record<ResultadoLog, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  EJECUTADO:       { label: 'Ejecutado', color: '#16A34A', bg: '#DCFCE7', icon: CheckCircle2 },
-  ESPERANDO:       { label: 'Esperando', color: '#D97706', bg: '#FEF3C7', icon: Clock },
-  FALLIDO:         { label: 'Fallido', color: '#DC2626', bg: '#FEE2E2', icon: XCircle },
+  EJECUTADO:       { label: 'Ejecutado', color: '#16A34A', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', icon: CheckCircle2 },
+  ESPERANDO:       { label: 'Esperando', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', icon: Clock },
+  FALLIDO:         { label: 'Fallido', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', icon: XCircle },
   PENDIENTE_ADMIN: { label: 'Acción humana', color: 'var(--brand-secondary)', bg: 'color-mix(in srgb, var(--brand) 12%, var(--card))', icon: AlertTriangle },
 };
 
 const triggerLabels: Record<string, string> = {
-  AUSENCIA_DIAS:       'Ausencia de socia',
+  AUSENCIA_DIAS:       'Ausencia de clienta',
   PAGO_PENDIENTE_DIAS: 'Pago pendiente',
   BONO_SESIONES_BAJAS: 'Bono casi agotado',
   SUSCRIPCION_EXPIRA_DIAS: 'Suscripción próxima a expirar',
-  NUEVA_SOCIA:         'Nueva socia',
+  NUEVA_SOCIA:         'Nueva clienta',
   CLASE_MANANA:        'Clase mañana',
   RENOVACION_COBRADA:  'Renovación cobrada',
   CLASE_LLENA_RECURRENTE: 'Clase con demanda sostenida',
@@ -59,7 +60,7 @@ const triggerLabels: Record<string, string> = {
 // punto de partida razonable, no están grabados a fuego en ningún sitio.
 const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>[] = [
   {
-    nombre: 'Socia ausente', descripcion: 'Recuerda a las socias que llevan días sin venir, y ofrece una vuelta con descuento si la ausencia se alarga',
+    nombre: 'Clienta ausente', descripcion: 'Recuerda a las clientas que llevan días sin venir, y ofrece una vuelta con descuento si la ausencia se alarga',
     icono: '👤', trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCritico: 21, descuentoPct: 15 }, pasos: [], activa: true,
   },
   {
@@ -67,7 +68,7 @@ const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces
     icono: '💳', trigger: 'PAGO_PENDIENTE_DIAS', condicion: { dias: 3 }, pasos: [], activa: true,
   },
   {
-    nombre: 'Recordatorio de clase', descripcion: 'Avisa a las socias con reserva confirmada el día antes de su clase',
+    nombre: 'Recordatorio de clase', descripcion: 'Avisa a las clientas con reserva confirmada el día antes de su clase',
     icono: '📅', trigger: 'CLASE_MANANA', condicion: {}, pasos: [], activa: true,
   },
   {
@@ -363,7 +364,7 @@ export default function AutomatizacionesPage() {
     if (!log.socioId) return;
     const socio = socios.find(s => s.id === log.socioId);
     if (!socio?.email) {
-      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'La socia no tiene email registrado' });
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'La clienta no tiene email registrado' });
       return;
     }
     setApprovingId(log.id);
@@ -385,7 +386,7 @@ export default function AutomatizacionesPage() {
         actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: `Oferta enviada a ${socio.email}: "${log.detalle}"` });
       }
     } catch (err) {
-      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: err instanceof Error ? err.message : 'Error de red al enviar el email' });
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: mensajeSeguro(err instanceof Error ? err.message : null, 'Error de red al enviar el email') });
     }
     setApprovingId(null);
   }

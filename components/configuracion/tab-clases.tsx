@@ -162,7 +162,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
               </button>
               <button
                 onClick={() => setConfirmDel(tc.id)}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-muted-foreground hover:bg-[#FEE2E2] hover:text-[#DC2626] transition-colors ml-auto"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors ml-auto"
               >
                 <Trash2 size={11} />
                 Eliminar
@@ -181,7 +181,10 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
-            <Field label="Nombre">
+            <Field
+              label="Nombre"
+              description="Como se llama la clase en tu horario. La verá la clienta al reservar."
+            >
               <input
                 className={inputCls}
                 value={form.nombre}
@@ -189,7 +192,10 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 placeholder="Ej: Reformer Avanzado"
               />
             </Field>
-            <Field label="Foto de la clase">
+            <Field
+              label="Foto de la clase"
+              description="Aparece en la página pública de reservas. Si no pones ninguna, se usa el color de abajo."
+            >
               {editId ? (
                 <div className="flex items-center gap-3">
                   <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted flex items-center justify-center shrink-0">
@@ -222,7 +228,10 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
               )}
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Duración (min)">
+              <Field
+              label="Duración (min)"
+              description="Cuánto dura por defecto. Al crear una clase en la agenda se puede ajustar."
+            >
                 <input
                   className={inputCls}
                   type="number"
@@ -232,7 +241,10 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                   onChange={e => setForm(f => ({ ...f, duracionMinutos: e.target.value }))}
                 />
               </Field>
-              <Field label="Nivel">
+              <Field
+              label="Nivel"
+              description="Orienta a la clienta sobre si le encaja. No impide reservar."
+            >
                 <select
                   className={inputCls}
                   value={form.nivel}
@@ -244,13 +256,19 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 </select>
               </Field>
             </div>
-            <Field label="Color">
+            <Field
+              label="Color"
+              description="Sirve para distinguir este tipo de clase de un vistazo en la agenda."
+            >
               <ColorInput
                 value={form.color}
                 onChange={v => setForm(f => ({ ...f, color: v }))}
               />
             </Field>
-            <Field label="Descripción (opcional)">
+            <Field
+              label="Descripción (opcional)"
+              description="Qué se trabaja y para quién es. Aparece en la página de reservas."
+            >
               <textarea
                 className={cn(inputCls, 'resize-none h-16')}
                 value={form.descripcion}
