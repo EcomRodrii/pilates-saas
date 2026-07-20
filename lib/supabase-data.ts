@@ -3945,6 +3945,16 @@ export async function dbUpdateCodigoDescuento(id: string, changes: Partial<Codig
   if (error) reportDbError('[dbUpdateCodigoDescuento]', error);
 }
 
+// Consume un uso del código de forma ATÓMICA (0050). Devuelve los usos ya
+// actualizados, o null si no se pudo consumir (inactivo o agotado) — el WHERE de
+// la función hace cumplir usos_max en la BD, así que dos terminales del POS no
+// pueden canjear a la vez el último uso.
+export async function dbConsumirCodigoDescuento(id: string): Promise<number | null> {
+  const { data, error } = await supabase.rpc('consumir_codigo_descuento', { p_codigo_id: id });
+  if (error) { reportDbError('[dbConsumirCodigoDescuento]', error); return null; }
+  return typeof data === 'number' ? data : null;
+}
+
 export async function dbDeleteCodigoDescuento(id: string) {
   const { error } = await supabase.from('codigos_descuento').delete().eq('id', id);
   if (error) reportDbError('[dbDeleteCodigoDescuento]', error);
