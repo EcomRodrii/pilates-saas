@@ -2471,7 +2471,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         setChallengeProgress(prev => progresoExistente
           ? prev.map(p => p.id === progresoExistente.id ? progresoActualizado : p)
           : [...prev, progresoActualizado]);
-        dbUpsertChallengeProgress(progresoActualizado);
+        // Mismo caso que los logros: en portal RLS rechazaba esta escritura sin
+        // remedio. La persistencia la hace evaluarRetosServidor; aquí se sigue
+        // calculando para que la pantalla muestre el progreso al día.
+        if (!publicSlug) dbUpsertChallengeProgress(progresoActualizado);
 
         if (!completadoAhora) return;
 
@@ -2479,7 +2482,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           id: `chah-${uid()}`, studioId, socioId, challengeId: reto.id, nombre: reto.nombre, icono: reto.icono, creadoEn: now.toISOString(),
         };
         setChallengeHistory(prev => [entry, ...prev]);
-        dbInsertChallengeHistory(entry);
+        if (!publicSlug) dbInsertChallengeHistory(entry);
 
         if (reto.creditosRecompensa > 0) {
           const transaccion: CreditTransaction = {
@@ -2497,7 +2500,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           // C-11: idempotencia REAL en BD vía el UNIQUE de reward_actions (ver
           // el bloque de logros). Evita doblar el saldo persistido ante doble
           // evaluación del reto.
-          void (async () => {
+          // En portal la concede el servidor, con el mismo UNIQUE de
+          // reward_actions como garantía de no doblar el saldo.
+          if (!publicSlug) void (async () => {
             const primeraVez = await dbClaimRecompensaUnica(studioId, socioId, 'RETO', `${socioId}:${reto.id}`);
             if (!primeraVez) return; // otra evaluación ya otorgó este reto
             dbInsertCreditTransaction(transaccion);
