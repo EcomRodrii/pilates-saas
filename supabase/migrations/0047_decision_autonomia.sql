@@ -29,12 +29,14 @@ CREATE TABLE IF NOT EXISTS public.decision_autonomia_config (
   CONSTRAINT decision_autonomia_max_diario_check CHECK (max_diario BETWEEN 0 AND 50)
 );
 
+ALTER TABLE public.decision_autonomia_config DROP CONSTRAINT IF EXISTS decision_autonomia_config_studio_id_fkey;
 ALTER TABLE ONLY public.decision_autonomia_config
   ADD CONSTRAINT decision_autonomia_config_studio_id_fkey
   FOREIGN KEY (studio_id) REFERENCES public.studios(id) ON DELETE CASCADE;
 
 ALTER TABLE public.decision_autonomia_config ENABLE ROW LEVEL SECURITY;
 -- Solo el propietario del estudio (mismo patrón que las tablas del Decision OS).
+DROP POLICY IF EXISTS admin_decision_autonomia_config ON public.decision_autonomia_config;
 CREATE POLICY admin_decision_autonomia_config ON public.decision_autonomia_config
   TO authenticated
   USING ((public.current_rol() = 'PROPIETARIO') AND (studio_id = public.current_studio_id()))
