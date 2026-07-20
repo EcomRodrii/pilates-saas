@@ -2357,7 +2357,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setAchievementProgress(prev => progresoExistente
         ? prev.map(p => p.id === progresoExistente.id ? progresoActualizado : p)
         : [...prev, progresoActualizado]);
-      dbUpsertAchievementProgress(progresoActualizado);
+      // S-1: en rutas públicas (portal) la socia se autentica por OTP y su JWT no
+      // lleva claim de studio_id, así que la policy `studio_id = current_studio_id()`
+      // rechazaba SIEMPRE estas escrituras — no había dato que las hiciera pasar.
+      // La persistencia la hace ahora el servidor (evaluarLogrosServidor, en
+      // checkinPublico/crearReservaPublica/cancelarReservaPublica). Aquí se sigue
+      // calculando para que la pantalla del portal muestre el progreso al día.
+      if (!publicSlug) dbUpsertAchievementProgress(progresoActualizado);
 
       if (!completadoAhora) return;
 
@@ -2365,7 +2371,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         id: `achh-${uid()}`, studioId, socioId, achievementId: def.id, nombre: def.nombre, icono: def.icono, creadoEn: now.toISOString(),
       };
       setAchievementHistory(prev => [entry, ...prev]);
-      dbInsertAchievementHistory(entry);
+      if (!publicSlug) dbInsertAchievementHistory(entry);
 
       if (def.creditosRecompensa > 0) {
         const transaccion: CreditTransaction = {
@@ -2384,12 +2390,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // esto, dos evaluaciones (doble check-in, o eval antes de sincronizar el
         // progreso) doblaban el saldo PERSISTIDO — la fila de progreso se
         // deduplicaba, pero la concesión de crédito no.
-        void (async () => {
-          const primeraVez = await dbClaimRecompensaUnica(studioId, socioId, 'LOGRO', `${socioId}:${def.id}`);
-          if (!primeraVez) return; // otra evaluación ya otorgó este logro
-          dbInsertCreditTransaction(transaccion);
-          dbAjustarCreditos(socioId, studioId, def.creditosRecompensa, def.creditosRecompensa, 0); // P0-20 atómico
-        })();
+        // En portal esta cadena también la rechazaba RLS (claim, transacción y
+        // ajuste de saldo): la concede el servidor, con el mismo UNIQUE de
+        // reward_actions como garantía de no doblar el saldo.
+        if (!publicSlug) {
+          void (async () => {
+            const primeraVez = await dbClaimRecompensaUnica(studioId, socioId, 'LOGRO', `${socioId}:${def.id}`);
+            if (!primeraVez) return; // otra evaluación ya otorgó este logro
+            dbInsertCreditTransaction(transaccion);
+            dbAjustarCreditos(socioId, studioId, def.creditosRecompensa, def.creditosRecompensa, 0); // P0-20 atómico
+          })();
+        }
       }
     });
   }
