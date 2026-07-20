@@ -8,7 +8,9 @@
 const ts = require('typescript');
 const fs = require('fs');
 
-const CONTROLES = new Set(['input', 'select', 'textarea']);
+// <Input> reenvía props a un <input> nativo (React.ComponentProps<"input">),
+// así que acepta id igual que el nativo.
+const CONTROLES = new Set(['input', 'select', 'textarea', 'Input']);
 const nombreTag = n => (n.tagName && n.tagName.getText ? n.tagName.getText() : '');
 const esLabel = n => (ts.isJsxElement(n) && nombreTag(n.openingElement) === 'label');
 const tieneHtmlFor = oe => oe.attributes.properties.some(p => p.name && p.name.getText() === 'htmlFor');
@@ -23,10 +25,24 @@ function envuelveControl(node) {
   node.children.forEach(walk);
   return found;
 }
+// Devuelve la función SOLO si parece un componente React. Una versión previa
+// devolvía la función contenedora más cercana con cuerpo de bloque, y en
+// tab-integraciones eso era una IIFE dentro del JSX ({cond && (() => {...})()}):
+// meter useId() ahí viola rules-of-hooks. Ahora se exige nombre en PascalCase
+// (declaración, const o export default).
+function esComponente(fn) {
+  if (ts.isFunctionDeclaration(fn)) return !!fn.name && /^[A-Z]/.test(fn.name.getText());
+  const p = fn.parent;
+  if (p && ts.isVariableDeclaration(p) && p.name) return /^[A-Z]/.test(p.name.getText());
+  if (p && ts.isExportAssignment(p)) return true;
+  return false;
+}
 function funcionContenedora(n) {
   for (let p = n.parent; p; p = p.parent) {
     if ((ts.isFunctionDeclaration(p) || ts.isArrowFunction(p) || ts.isFunctionExpression(p))
-        && p.body && ts.isBlock(p.body)) return p;
+        && p.body && ts.isBlock(p.body)) {
+      return esComponente(p) ? p : null;   // si no es componente, no tocamos
+    }
   }
   return null;
 }
@@ -44,8 +60,24 @@ function procesar(ruta) {
       const hermanos = padre && padre.children ? padre.children : null;
       if (hermanos) {
         const i = hermanos.indexOf(nodo);
-        const sig = hermanos.slice(i + 1).find(c => ts.isJsxElement(c) || ts.isJsxSelfClosingElement(c));
-        if (sig && esControl(sig)) {
+        // Busca el primer control entre los hermanos siguientes, descendiendo
+        // dentro de ellos: muchos campos envuelven el input en un <div> con
+        // clases, así que no siempre es hermano inmediato.
+        let ctrl = null;
+        for (const h of hermanos.slice(i + 1)) {
+          if (!ts.isJsxElement(h) && !ts.isJsxSelfClosingElement(h)) continue;
+          if (esControl(h)) { ctrl = h; break; }
+          const pila = [h];
+          while (pila.length && !ctrl) {
+            const x = pila.shift();
+            if (x !== h && esControl(x)) { ctrl = x; break; }
+            x.forEachChild(c => pila.push(c));
+          }
+          if (ctrl) break;
+          if (esLabel(h)) break;   // otro label => este campo no tiene control
+        }
+        const sig = ctrl;
+        if (sig) {
           const fn = funcionContenedora(nodo);
           if (fn) {
             const k = (bloques.get(fn) || 0) + 1;
