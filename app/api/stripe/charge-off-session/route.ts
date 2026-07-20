@@ -49,6 +49,15 @@ export async function POST(req: NextRequest) {
   });
 
   if (resultado.ok) {
+    // El dinero entró pero el recibo NO quedó marcado: se registra como FALLIDO
+    // (necesita intervención) y se responde 202, no 200, para que el llamante no
+    // lo dé por cerrado. El cobro en sí no se reintenta: ya está hecho.
+    if (resultado.aviso === 'COBRADO_SIN_PERSISTIR') {
+      const detalle = resultado.error ?? 'Cobro completado en Stripe, pero pendiente de reconciliación manual.';
+      await dbUpdateAutomationLog(body.logId, { resultado: 'FALLIDO', detalle });
+      capturar(body.studioId, { nombre: 'pago_completado', props: { importe_centimos: Math.round((resultado.importe ?? 0) * 100), via: 'off_session' } });
+      return NextResponse.json({ ok: true, status: resultado.status, aviso: resultado.aviso, error: detalle }, { status: 202 });
+    }
     await dbUpdateAutomationLog(body.logId, {
       resultado: 'EJECUTADO',
       detalle: `Cobro de ${resultado.importe}€ aprobado y cobrado con la tarjeta guardada.`,

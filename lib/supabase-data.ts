@@ -188,6 +188,20 @@ export async function resolveStudioId(userId: string): Promise<string | null> {
   return null;
 }
 
+// ─── Cliente de escritura sensible al entorno ────────────────────────────────
+// Varias funciones de este módulo se invocan desde DOS entornos:
+//   · el navegador (staff o socia con sesión) → cliente anónimo; RLS es la
+//     garantía de aislamiento entre tenants y debe seguir aplicándose.
+//   · jobs de servidor sin sesión (Inngest, crons) → con el cliente anónimo
+//     `current_studio_id()` es NULL, RLS rechaza la escritura y `reportDbError`
+//     se traga el error: el job "completa" sin haber escrito nada.
+// En servidor usamos el service-role; el `studio_id` explícito de cada fila
+// mantiene el aislamiento. El patrón ya estaba aplicado en línea en varias
+// escrituras de automatizaciones: aquí se le pone nombre para no repetirlo.
+function dbEscritura(): SupabaseClient {
+  return getSupabaseAdmin() ?? supabase;
+}
+
 // ─── Global DB error reporting ───────────────────────────────────────────────
 // Write helpers are fire-and-forget; when a write fails we log to console AND
 // notify any registered listener (the UI) so the failure is visible to the user
@@ -1406,7 +1420,20 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
     p_suscripcion_id: sus.id,
     p_studio_id: studioId,
   });
-  if (error || nuevoSaldo == null) return false;
+  if (error) { reportDbError('[consumirBonoServidor]', error); return false; }
+  if (nuevoSaldo == null) {
+    // La socia SÍ tenía un bono consumible (`bonoConsumible` lo confirmó arriba)
+    // pero el RPC no descontó: bono agotado en una carrera con otra reserva. La
+    // reserva ya está CONFIRMADA, así que esto es una clase servida sin cobrar.
+    // No se revierte aquí —cancelar una plaza ya confirmada es peor experiencia
+    // y es decisión de producto— pero deja de ser invisible: sin esto no había
+    // ni rastro.
+    reportDbError(
+      '[consumirBonoServidor] bono consumible sin descontar (posible clase no cobrada)',
+      { studioId, socioId, suscripcionId: sus.id },
+    );
+    return false;
+  }
   if (nuevoSaldo === 0) {
     const hoy = new Date().toISOString().slice(0, 10);
     // Dunning (0041): el recibo entra al ciclo con su primer reintento programado
@@ -1477,6 +1504,9 @@ async function notificarPromocionEspera(
   await enviarEmailTransaccional({
     tipo: 'promocion', to: socia.email, toName: socia.nombre ?? 'Socia',
     data: { ...datos, bonoConsumido },
+    studioId,
+    // Una socia solo se promociona una vez por sesión: la clave la identifica.
+    idempotencyKey: `promocion-${sesionId}-${socioId}`,
   });
 }
 
@@ -1668,6 +1698,12 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
         } else {
           const res = await enviarEmailTransaccional({
             tipo: 'recordatorio', to: socia.email, toName: socia.nombre ?? 'Socia', data: datos,
+            // studioId: sin él se ignoraba el override de plantilla del estudio; la
+            // funcionalidad existía pero no llegaba a los recordatorios.
+            studioId: ses.studio_id as string,
+            // Clave determinista por (sesión, socia): si el cron expira a medio
+            // barrido, el reintento NO reenvía el recordatorio a quien ya lo recibió.
+            idempotencyKey: `recordatorio-${ses.id}-${r.socio_id}`,
           });
           if (res.ok) enviados++;
           else if ('error' in res) fallidos++;
@@ -3753,10 +3789,7 @@ export async function dbUpsertAutomationLog(log: AutomationLog) {
     proxima_accion_en: log.proximaAccionEn,
     recibo_id: log.reciboId ?? null,
   };
-  // El cron de Inngest corre en servidor sin sesión → sin auth.uid() la RLS
-  // rechaza el insert (42501). Se escribe con service-role (getSupabaseAdmin);
-  // en navegador cae al cliente anónimo + RLS (misma sesión de la usuaria).
-  const { error } = await (getSupabaseAdmin() ?? supabase).from('automation_logs').upsert(row, { onConflict: 'id' });
+  const { error } = await dbEscritura().from('automation_logs').upsert(row, { onConflict: 'id' });
   if (error) reportDbError('[dbUpsertAutomationLog]', error);
 }
 
@@ -3765,7 +3798,7 @@ export async function dbUpdateAutomationLog(id: string, changes: Partial<Automat
   if ('resultado' in changes) db.resultado = changes.resultado;
   if ('detalle' in changes) db.detalle = changes.detalle;
   if ('proximaAccionEn' in changes) db.proxima_accion_en = changes.proximaAccionEn;
-  const { error } = await supabase.from('automation_logs').update(db).eq('id', id);
+  const { error } = await dbEscritura().from('automation_logs').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateAutomationLog]', error);
 }
 
@@ -3785,7 +3818,7 @@ export async function dbUpdateAutomationRule(id: string, changes: Partial<Automa
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadaVeces' in changes) db.ejecutada_veces = changes.ejecutadaVeces;
   if ('ultimaEjecucion' in changes) db.ultima_ejecucion = changes.ultimaEjecucion;
-  const { error } = await (getSupabaseAdmin() ?? supabase).from('automation_rules').update(db).eq('id', id);
+  const { error } = await dbEscritura().from('automation_rules').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateAutomationRule]', error);
 }
 
@@ -3906,7 +3939,7 @@ export async function dbUpdateAutomatizacion(id: string, changes: Partial<Automa
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadas' in changes) db.ejecutadas = changes.ejecutadas;
   if ('pasos' in changes) db.pasos = changes.pasos;
-  const { error } = await (getSupabaseAdmin() ?? supabase).from('automatizaciones').update(db).eq('id', id);
+  const { error } = await dbEscritura().from('automatizaciones').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateAutomatizacion]', error);
 }
 

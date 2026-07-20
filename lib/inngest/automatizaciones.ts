@@ -1,7 +1,7 @@
 import { inngest, EVENTS } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
-import { supabase } from '@/lib/db/supabase';
+import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllStudioData, dbUpsertAutomationLog, dbUpdateAutomationRule, dbUpdateAutomatizacion } from '@/lib/supabase-data';
 import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/engines/automation-engine';
 import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/engines/marketing-automation-engine';
@@ -186,8 +186,11 @@ export const automatizacionesDispatcher = inngest.createFunction(
   async ({ step }) => {
     const nowISO = await step.run('now', async () => new Date().toISOString());
 
+    // Service-role, igual que decisionDispatcher: este código corre sin sesión,
+    // así que con el cliente anónimo RLS devolvería CERO estudios y el cron
+    // "completaría" sin procesar a nadie — en silencio y para todos los tenants.
     const studios = await step.run('list-studios', async () => {
-      const { data, error } = await supabase.from('studios').select('id, nombre');
+      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre');
       if (error) throw new Error(error.message);
       return data ?? [];
     });

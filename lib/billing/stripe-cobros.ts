@@ -25,6 +25,9 @@ export interface ResultadoCobro {
   error?: string;
   errorCode?: CobroErrorCode;
   importe?: number;
+  // Cobro correcto en Stripe cuya persistencia falló: ok=true, pero el llamante
+  // NO debe darlo por cerrado — el recibo requiere reconciliación manual.
+  aviso?: 'COBRADO_SIN_PERSISTIR';
 }
 
 export async function cobrarReciboOffSession(params: {
@@ -51,8 +54,11 @@ export async function cobrarReciboOffSession(params: {
   }
 
   const [{ data: recibo, error: reciboError }, { data: socio, error: socioError }, { data: studio, error: studioError }] = await Promise.all([
-    admin.from('recibos').select('*').eq('id', params.reciboId).single(),
-    admin.from('socios').select('*').eq('id', params.socioId).single(),
+    // Multi-tenancy: recibo y socia se filtran TAMBIÉN por studio_id. Con
+    // service-role no hay RLS que lo haga, así que sin este filtro un reciboId de
+    // otro estudio se cobraba contra la cuenta de Stripe del estudio llamante.
+    admin.from('recibos').select('*').eq('id', params.reciboId).eq('studio_id', params.studioId).single(),
+    admin.from('socios').select('*').eq('id', params.socioId).eq('studio_id', params.studioId).single(),
     admin.from('studios').select('stripe_account_id').eq('id', params.studioId).single(),
   ]);
 
@@ -67,7 +73,13 @@ export async function cobrarReciboOffSession(params: {
   }
   // Idempotency-Key anclada al recibo + nº de intento (ver nota al inicio).
   const idempotencyKey = `offsession-cobro-${params.reciboId}-i${recibo.intentos_reintento ?? 0}`;
-  if (socioError || !socio?.stripe_customer_id) {
+  // Se distingue "no existe / no es de este estudio" de "existe pero sin método":
+  // con el filtro por studio_id, una socia de otro tenant llega aquí como null y
+  // decir "no tiene método de pago" sería engañoso.
+  if (socioError || !socio) {
+    return { ok: false, error: 'Socia no encontrada', errorCode: 'NO_ENCONTRADO' };
+  }
+  if (!socio.stripe_customer_id) {
     return { ok: false, error: 'La socia no tiene método de pago guardado', errorCode: 'SIN_TARJETA' };
   }
   // Elige método: SEPA domiciliado (si la socia lo tiene listo y preferido) o
@@ -140,13 +152,21 @@ export async function cobrarReciboOffSession(params: {
         .from('recibos').update({
           estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodo.metodo,
           ...(esSepa ? { sepa_estado: 'succeeded' } : {}),
-        }).eq('id', params.reciboId);
+        }).eq('id', params.reciboId).eq('studio_id', params.studioId);
       if (updErr) {
         Sentry.captureException(new Error(`Cobro OK en Stripe pero no se pudo marcar el recibo COBRADO: ${updErr.message}`), {
           level: 'error',
           tags: { area: 'cobros', tipo: 'reconciliacion' },
           extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
         });
+        // Además del aviso a Sentry, se devuelve un resultado DISTINGUIBLE: el
+        // llamante marcaba el cobro como EJECUTADO y respondía 200, así que el
+        // fallo de persistencia quedaba invisible para quien operaba.
+        return {
+          ok: true, status: paymentIntent.status, importe: recibo.importe,
+          aviso: 'COBRADO_SIN_PERSISTIR',
+          error: 'El cobro se completó en Stripe pero no se pudo marcar el recibo como COBRADO. Revísalo manualmente.',
+        };
       }
       return { ok: true, status: paymentIntent.status, importe: recibo.importe };
     }
