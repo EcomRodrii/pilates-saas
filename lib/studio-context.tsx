@@ -2118,7 +2118,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   function updateAutomatizacion(id: string, patch: Partial<Automatizacion>) {
     setAutomatizaciones(prev => prev.map(a => (a.id === id ? { ...a, ...patch } : a)));
-    dbUpdateAutomatizacion(id, patch);
+    dbUpdateAutomatizacion(id, getCurrentStudioId(), patch);
   }
 
   function deleteAutomatizacion(id: string) {
@@ -2131,7 +2131,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setAutomatizaciones(prev => prev.map(a =>
       a.id === autoId ? { ...a, activa: !a.activa } : a
     ));
-    if (actual) dbUpdateAutomatizacion(autoId, { activa: !actual.activa });
+    if (actual) dbUpdateAutomatizacion(autoId, getCurrentStudioId(), { activa: !actual.activa });
   }
 
   // ── Códigos de descuento ──────────────────────────────────────────────────────
@@ -2547,7 +2547,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setAutomationRules(prev => prev.map(r =>
       r.id === id ? { ...r, activa: !r.activa } : r
     ));
-    dbUpdateAutomationRule(id, { activa: !rule.activa });
+    dbUpdateAutomationRule(id, getCurrentStudioId(), { activa: !rule.activa });
     addActividadReciente('AUTOMATIZACION_CAMBIO', `${actorNombre ?? 'Alguien'} ${rule.activa ? 'desactivó' : 'activó'} la automatización "${rule.nombre}"`);
   }
 
@@ -2583,7 +2583,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           ? { ...r, ejecutadaVeces: r.ejecutadaVeces + 1, ultimaEjecucion: log.ejecutadoEn }
           : r
       ));
-      dbUpdateAutomationRule(ruleId, { ejecutadaVeces: (automationRules.find(r => r.id === ruleId)?.ejecutadaVeces ?? 0) + 1, ultimaEjecucion: log.ejecutadoEn });
+      dbUpdateAutomationRule(ruleId, getCurrentStudioId(), { ejecutadaVeces: (automationRules.find(r => r.id === ruleId)?.ejecutadaVeces ?? 0) + 1, ultimaEjecucion: log.ejecutadoEn });
     }
   }
 
