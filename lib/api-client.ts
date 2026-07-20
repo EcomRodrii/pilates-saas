@@ -398,7 +398,7 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
-import type { FilaSocia, FilaMembresia } from '@/lib/csv';
+import type { FilaSocia, FilaMembresia, FilaClase } from '@/lib/csv';
 
 export interface ResultadoImport {
   total: number;
@@ -843,5 +843,36 @@ export async function listarValoraciones(instructorId: string): Promise<Valoraci
     return data.items ?? [];
   } catch {
     return [];
+  }
+}
+
+// Resultado de importar el horario (clases y sesiones).
+export interface ResultadoImportClases {
+  creadas: number;
+  omitidas: number;       // ya existían: reimportar no duplica
+  tiposCreados: number;
+  sinInstructor: number;  // filas cuya instructora no se encontró por nombre
+  sinSala: number;
+  errores: { fila: number; motivo: string }[];
+  error?: string;
+}
+
+// Importa el horario. Las filas recurrentes (por día de la semana) se expanden a
+// `semanas` semanas desde `desde`; el studio_id sale del JWT, nunca del body.
+export async function importarClases(
+  rows: FilaClase[], opciones: { semanas: number; desde: string },
+): Promise<ResultadoImportClases> {
+  const vacio = { creadas: 0, omitidas: 0, tiposCreados: 0, sinInstructor: 0, sinSala: 0, errores: [] };
+  try {
+    const res = await fetch('/api/clases/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rows, semanas: opciones.semanas, desde: opciones.desde }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
+    return data as ResultadoImportClases;
+  } catch {
+    return { ...vacio, error: 'No se pudo conectar con el servidor' };
   }
 }
