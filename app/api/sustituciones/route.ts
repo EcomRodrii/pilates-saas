@@ -5,6 +5,9 @@ import { inngest, EVENTS } from '@/lib/inngest/client';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
 import { contactarCandidata, ESTADOS_EN_JUEGO, type RankingItem } from '@/lib/sustituciones/contacto';
 import { crearBaja } from '@/lib/sustituciones/baja';
+import {
+  puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
+} from '@/lib/sustituciones/recalculo';
 
 // Emite el evento de escalado. Best-effort: si el bus de Inngest falla, el contacto
 // ya se hizo (email enviado) — el escalado es una capa de resiliencia encima, no
@@ -227,6 +230,62 @@ export async function PATCH(req: NextRequest) {
       candidata: r.candidata,
       emailEnviado: r.emailEnviado,
       emailSkipped: r.emailSkipped,
+    });
+  }
+
+  // "Volver a buscar": recalcula el ranking de una baja que ya existe. Hace
+  // falta porque el ranking se congela al crearla: si el equipo no tenía la
+  // disponibilidad cargada, la baja se quedaba en "ninguna candidata" para
+  // siempre aunque después se arreglara.
+  if (body?.action === 'recalcular') {
+    const { data: sust } = await admin
+      .from('sustituciones').select('id, estado, ranking, sesion_id')
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId).maybeSingle();
+    if (!sust) return NextResponse.json({ error: 'Sustitución no encontrada' }, { status: 404 });
+
+    const rankingActual = (Array.isArray(sust.ranking) ? sust.ranking : []) as RankingItem[];
+    const permiso = puedeRecalcular(sust.estado as string, rankingActual.length > 0);
+    if (!permiso.ok) {
+      return NextResponse.json({
+        error: permiso.motivo === 'contactando'
+          ? 'Ya estamos avisando a una candidata. Espera su respuesta antes de volver a buscar.'
+          : 'Esta sustitución ya está resuelta.',
+      }, { status: 409 });
+    }
+
+    const { data: nuevo, error: errRank } = await admin.rpc('rankear_candidatas', { p_sesion_id: sust.sesion_id });
+    if (errRank) return NextResponse.json({ error: errRank.message }, { status: 500 });
+
+    // Quien ya dijo que no puede para ESTA clase no vuelve a la lista: volver a
+    // escribirle es la vía rápida a que ignore los avisos del sistema.
+    const { data: rechazos } = await admin
+      .from('sustitucion_contactos').select('instructor_id')
+      .eq('sustitucion_id', sustitucionId).eq('estado', 'rechazado');
+    const rechazadas = Array.from(new Set((rechazos ?? []).map(r => r.instructor_id as string)));
+
+    const antes = rankingActual;
+    const ranking = filtrarYaRechazadas(
+      (Array.isArray(nuevo) ? nuevo : []) as RankingItem[],
+      rechazadas,
+    );
+    const estado = estadoTrasRecalcular(sust.estado as string, ranking.length);
+
+    const { data: act, error: errUpd } = await admin
+      .from('sustituciones')
+      .update({ ranking, estado, candidata_actual: 0 })
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId)
+      .eq('estado', sust.estado)   // compare-and-set: nadie ha tocado nada entretanto
+      .select('id');
+    if (errUpd) return NextResponse.json({ error: errUpd.message }, { status: 500 });
+    if (!act || act.length === 0) {
+      return NextResponse.json({ error: 'La sustitución ha cambiado mientras buscábamos. Recarga la página.' }, { status: 409 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      candidatas: ranking.length,
+      resumen: resumenRecalculo(antes.length, ranking.length),
+      omitidasPorRechazo: rechazadas.length,
     });
   }
 

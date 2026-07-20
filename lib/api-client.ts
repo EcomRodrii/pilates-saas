@@ -290,6 +290,31 @@ export async function avisarSustituta(
 }
 
 // Descarta la sustitución (resuelto fuera del sistema).
+// Vuelve a calcular el ranking de una baja ya creada (p. ej. después de que el
+// equipo haya rellenado su disponibilidad). El ranking se congela al crearla.
+export async function recalcularCandidatas(
+  sustitucionId: string,
+): Promise<{ ok: true; candidatas: number; resumen: string; omitidasPorRechazo: number } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sustitucionId, action: 'recalcular' }),
+    });
+    const data = (await res.json().catch(() => ({}))) as
+      { error?: string; candidatas?: number; resumen?: string; omitidasPorRechazo?: number };
+    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return {
+      ok: true,
+      candidatas: data.candidatas ?? 0,
+      resumen: data.resumen ?? '',
+      omitidasPorRechazo: data.omitidasPorRechazo ?? 0,
+    };
+  } catch {
+    return { error: 'No se pudo volver a buscar' };
+  }
+}
+
 export async function descartarSustitucion(sustitucionId: string): Promise<{ ok: true } | { error: string }> {
   try {
     const res = await fetch('/api/sustituciones', {
