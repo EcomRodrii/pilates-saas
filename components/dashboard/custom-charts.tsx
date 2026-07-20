@@ -172,8 +172,8 @@ export function CustomChartsSection() {
               <input id={`${uid}-5`} type="number" min={2} max={24} className={inputCls} value={form.rango} onChange={e => setForm(f => ({ ...f, rango: Math.min(24, Math.max(2, parseInt(e.target.value, 10) || 6)) }))} />
             </div>
             <div>
-              <label className={labelCls}>Color</label>
-              <div className="flex gap-2">
+              <span id={`${uid}-color`} className={labelCls}>Color</span>
+              <div role="group" aria-labelledby={`${uid}-color`} className="flex gap-2">
                 {COLORES.map(c => (
                   <button
                     key={c}
