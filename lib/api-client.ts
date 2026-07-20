@@ -6,6 +6,7 @@ import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
+import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -199,14 +200,25 @@ export async function crearBaja(sesionId: string, motivo?: string): Promise<{ ok
   }
 }
 
-export async function listarSustituciones(): Promise<{ items: SustitucionPanel[]; avisarAlumnas: boolean }> {
+export async function listarSustituciones(): Promise<{
+  items: SustitucionPanel[]; avisarAlumnas: boolean; equipo: DiagnosticoEquipo;
+}> {
+  // Equipo vacío como valor por defecto: ante un fallo NO inventamos un aviso de
+  // "te falta configurar el equipo" que podría ser mentira.
+  const vacio: DiagnosticoEquipo = { total: 0, sinDisponibilidad: [] };
   try {
     const res = await fetch('/api/sustituciones', { headers: await authHeader() });
-    if (!res.ok) return { items: [], avisarAlumnas: false };
-    const data = (await res.json()) as { sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean };
-    return { items: data.sustituciones ?? [], avisarAlumnas: !!data.avisarAlumnas };
+    if (!res.ok) return { items: [], avisarAlumnas: false, equipo: vacio };
+    const data = (await res.json()) as {
+      sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean; equipo?: DiagnosticoEquipo;
+    };
+    return {
+      items: data.sustituciones ?? [],
+      avisarAlumnas: !!data.avisarAlumnas,
+      equipo: data.equipo ?? vacio,
+    };
   } catch {
-    return { items: [], avisarAlumnas: false };
+    return { items: [], avisarAlumnas: false, equipo: vacio };
   }
 }
 
