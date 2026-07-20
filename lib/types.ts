@@ -594,7 +594,12 @@ export type ResultadoLog = 'EJECUTADO' | 'ESPERANDO' | 'FALLIDO' | 'PENDIENTE_AD
 export interface AutomationLog {
   id: string;
   studioId: string;
-  ruleId: string;
+  // S-2: el log tiene DOS orígenes posibles y va exactamente uno informado
+  // (lo garantiza el CHECK de la BD, migración 0053). Antes ambos se metían en
+  // `ruleId`, que además tenía FK a automation_rules: los de marketing violaban
+  // esa FK y no se persistían nunca, dejando el dedup sin datos.
+  ruleId: string | null;          // origen: automation_rules
+  automatizacionId: string | null; // origen: automatizaciones (marketing)
   ruleName: string;
   socioId: string | null;
   socioNombre: string | null;

@@ -59,7 +59,12 @@ export function computeAutomatizacionMktCandidatos(
   const logsPorKey = new Map<string, AutomationLog[]>();
   for (const l of automationLogs) {
     if (l.resultado === 'FALLIDO') continue;
-    const k = `${l.ruleId}|${l.socioId ?? ''}`;
+    // S-2: la clave es automatizacionId, su columna propia. Antes se leía de
+    // `ruleId` —donde nunca llegaba nada, porque la FK a automation_rules
+    // rechazaba el insert—, así que este mapa quedaba siempre vacío y
+    // `yaEnviado` devolvía false en cada ejecución del cron diario.
+    if (!l.automatizacionId) continue;
+    const k = `${l.automatizacionId}|${l.socioId ?? ''}`;
     const arr = logsPorKey.get(k); if (arr) arr.push(l); else logsPorKey.set(k, [l]);
   }
   const yaEnviado = (autoId: string, socioId: string, ventanaDias: number): boolean =>

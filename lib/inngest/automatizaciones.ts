@@ -57,6 +57,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     id: logIdCandidato(studioId, c, index, nowISO),
     studioId,
     ruleId: c.rule.id,
+    automatizacionId: null,
     ruleName: c.rule.nombre,
     socioId: c.socio?.id ?? null,
     socioNombre: c.socio ? `${c.socio.nombre} ${c.socio.apellidos}` : null,
@@ -128,7 +129,12 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
   const base = {
     id: `mkt-${studioId}-${c.automatizacion.id}-${c.socio.id}-${index}-${nowISO.slice(0, 10)}`,
     studioId,
-    ruleId: c.automatizacion.id,
+    // S-2: va en su propia columna, no en ruleId. Antes se metía aquí el id de
+    // la automatización (`auto-*`), que violaba la FK a automation_rules: el log
+    // NO se persistía y el dedup de marketing se quedaba sin datos, reenviando
+    // el mismo mensaje a la misma socia en cada ejecución del cron.
+    ruleId: null,
+    automatizacionId: c.automatizacion.id,
     ruleName: c.automatizacion.nombre,
     socioId: c.socio.id,
     socioNombre: `${c.socio.nombre} ${c.socio.apellidos}`,

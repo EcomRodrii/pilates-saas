@@ -102,7 +102,7 @@ function recomendacion(p: Partial<Recomendacion> = {}): Recomendacion {
   };
 }
 function log(p: Partial<AutomationLog> & Pick<AutomationLog, 'socioId'>): AutomationLog {
-  return { id: 'l', studioId: 'e1', ruleId: 'r', ruleName: 'R', resultado: 'EJECUTADO', accion: 'ENVIAR_EMAIL', socioNombre: null, pasoIndex: 0, detalle: '', ejecutadoEn: diasAntes(1), proximaAccionEn: null, ...p };
+  return { id: 'l', studioId: 'e1', ruleId: 'r', automatizacionId: null, ruleName: 'R', resultado: 'EJECUTADO', accion: 'ENVIAR_EMAIL', socioNombre: null, pasoIndex: 0, detalle: '', ejecutadoEn: diasAntes(1), proximaAccionEn: null, ...p };
 }
 function reserva(p: Partial<Reserva> & Pick<Reserva, 'socioId'>): Reserva {
   return { id: 'res', studioId: 'e1', sesionId: 'ses1', estado: 'CONFIRMADA', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: diasAntes(0.5), ...p };

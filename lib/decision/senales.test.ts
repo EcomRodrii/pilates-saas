@@ -31,7 +31,7 @@ function sesion(p: Partial<Sesion> & Pick<Sesion, 'id' | 'inicio'>): Sesion {
   return { studioId: 'e1', tipoClaseId: 'tc1', salaId: 's1', instructorId: 'i1', fin: p.inicio, aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null, ...p };
 }
 function log(p: Partial<AutomationLog> & Pick<AutomationLog, 'socioId' | 'resultado' | 'accion'>): AutomationLog {
-  return { id: `log-${++n}`, studioId: 'e1', ruleId: 'r1', ruleName: 'R', socioNombre: null, pasoIndex: 0, detalle: '', ejecutadoEn: diasAntes(1), proximaAccionEn: null, ...p };
+  return { id: `log-${++n}`, studioId: 'e1', ruleId: 'r1', automatizacionId: null, ruleName: 'R', socioNombre: null, pasoIndex: 0, detalle: '', ejecutadoEn: diasAntes(1), proximaAccionEn: null, ...p };
 }
 function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return {

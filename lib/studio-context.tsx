@@ -2572,12 +2572,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     };
     setAutomationLogs(prev => [nuevo, ...prev]);
     dbInsertAutomationLog(nuevo);
-    setAutomationRules(prev => prev.map(r =>
-      r.id === log.ruleId
-        ? { ...r, ejecutadaVeces: r.ejecutadaVeces + 1, ultimaEjecucion: log.ejecutadoEn }
-        : r
-    ));
-    dbUpdateAutomationRule(log.ruleId, { ejecutadaVeces: (automationRules.find(r => r.id === log.ruleId)?.ejecutadaVeces ?? 0) + 1, ultimaEjecucion: log.ejecutadoEn });
+    // S-2: el contador de ejecuciones solo aplica a los logs que vienen de una
+    // automation_rule. Un log de marketing lleva `ruleId` nulo (su id va en
+    // `automatizacionId`); antes ese id se colaba aquí y se intentaba actualizar
+    // una regla inexistente.
+    const ruleId = log.ruleId;
+    if (ruleId) {
+      setAutomationRules(prev => prev.map(r =>
+        r.id === ruleId
+          ? { ...r, ejecutadaVeces: r.ejecutadaVeces + 1, ultimaEjecucion: log.ejecutadoEn }
+          : r
+      ));
+      dbUpdateAutomationRule(ruleId, { ejecutadaVeces: (automationRules.find(r => r.id === ruleId)?.ejecutadaVeces ?? 0) + 1, ultimaEjecucion: log.ejecutadoEn });
+    }
   }
 
   function dismissLog(id: string) {

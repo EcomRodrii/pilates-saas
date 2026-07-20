@@ -72,6 +72,7 @@ export interface RowAutomationLogs {
   ejecutado_en: string | null;
   proxima_accion_en: string | null;
   recibo_id: string | null;
+  automatizacion_id: string | null;
 }
 
 export interface RowAutomationRules {
