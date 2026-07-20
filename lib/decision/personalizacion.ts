@@ -25,6 +25,8 @@ REGLAS ABSOLUTAS:
 4. Asunto ≤ 90 caracteres. Cuerpo ≤ 500 caracteres, 2–4 frases.
 5. Sin emojis, sin mayúsculas de énfasis, sin anglicismos.
 6. Llama a la socia por su nombre de pila. Termina con una pregunta abierta y fácil.
+7. Si el mensaje original incluye un CÓDIGO de descuento, cópialo EXACTAMENTE igual
+   (mismas letras, números y guiones). No lo reformatees ni lo inventes.
 
 Responde SOLO con JSON válido:
 {"asunto": "string", "cuerpo": "string"}`;
@@ -33,6 +35,8 @@ export interface ContextoPersonalizacion {
   nombreEstudio: string;
   tipo: string;
   datosUsados: Record<string, string | number | boolean>;
+  /** Cadenas que deben aparecer intactas en el mensaje reescrito (p.ej. un código de descuento). */
+  literalesObligatorios?: string[];
 }
 
 const RE_DIGITOS = /\d+/g;
@@ -61,6 +65,7 @@ export function numerosPermitidosMensaje(
  */
 export function validarMensajePersonalizado(
   raw: string, base: MensajeSocia, permitidos: Set<string>,
+  literalesObligatorios: string[] = [],
 ): MensajeSocia {
   let parsed: { asunto?: unknown; cuerpo?: unknown };
   try {
@@ -74,6 +79,9 @@ export function validarMensajePersonalizado(
   if (cuerpo.length === 0 || cuerpo.length > 500) return base;
   if (!tokensNumericos(asunto).every(t => permitidos.has(t))) return base;
   if (!tokensNumericos(cuerpo).every(t => permitidos.has(t))) return base;
+  // Literales que deben sobrevivir intactos (p.ej. el código de descuento): si la
+  // IA lo altera o lo pierde, el mensaje sería incanjeable → cae al determinista.
+  if (!literalesObligatorios.every(l => cuerpo.includes(l))) return base;
   return { asunto, cuerpo };
 }
 
@@ -101,7 +109,9 @@ export async function personalizarMensajeSocia(
       messages: [{ role: 'user', content: construirUserPrompt(base, ctx) }],
     });
     const raw = message.content[0].type === 'text' ? message.content[0].text : '';
-    return validarMensajePersonalizado(raw, base, numerosPermitidosMensaje(base, ctx.datosUsados));
+    return validarMensajePersonalizado(
+      raw, base, numerosPermitidosMensaje(base, ctx.datosUsados), ctx.literalesObligatorios ?? [],
+    );
   } catch {
     return base;
   }

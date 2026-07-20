@@ -41,11 +41,24 @@ export function useDiscountCodesStore() {
     dbDeleteCodigoDescuento(id);
   }
 
+  // Canje: suma un uso al código. Lo llama el POS al cerrar una venta con código
+  // aplicado, para que los de un solo uso dejen de valer.
+  function registrarUsoCodigo(codigoId: string) {
+    let usos = 0;
+    setCodigosDescuento(prev => prev.map(c => {
+      if (c.id !== codigoId) return c;
+      usos = (c.usos ?? 0) + 1;
+      return { ...c, usos };
+    }));
+    dbUpdateCodigoDescuento(codigoId, { usos });
+  }
+
   return {
     codigosDescuento,
     setCodigosDescuento,
     addCodigoDescuento,
     toggleCodigoDescuento,
     deleteCodigoDescuento,
+    registrarUsoCodigo,
   };
 }

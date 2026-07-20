@@ -50,9 +50,18 @@ export function mensajeParaSocia(tipo: string, datos: Datos, estudioNombre: stri
     // Marta?"). El descuento sale de datosUsados — nunca se inventa aquí.
     case 'ENVIAR_REACTIVACION': {
       const pct = typeof datos.descuentoPct === 'number' && datos.descuentoPct > 0 ? datos.descuentoPct : null;
+      // El código lo crea el ejecutor (codigos_descuento real y canjeable) y lo
+      // inyecta aquí. Sin código se ofrece el descuento igual, pero sin prometer
+      // algo que no se pueda canjear en el mostrador.
+      const codigo = typeof datos.codigoDescuento === 'string' && datos.codigoDescuento ? datos.codigoDescuento : null;
+      const oferta = pct
+        ? codigo
+          ? ` Te guardamos un ${pct}% de descuento: usa el código ${codigo} cuando vengas.`
+          : ` Te guardamos un ${pct}% de descuento para ponértelo fácil.`
+        : '';
       return {
         asunto: `Te echamos de menos, ${nombre}`,
-        cuerpo: `¡Hola ${nombre}! Hace unas semanas que no te vemos por ${estudio} y nos encantaría que volvieras.${pct ? ` Te guardamos un ${pct}% de descuento en tu próxima renovación para ponértelo fácil.` : ''} ¿Te reservo sitio esta semana?`,
+        cuerpo: `¡Hola ${nombre}! Hace unas semanas que no te vemos por ${estudio} y nos encantaría que volvieras.${oferta} ¿Te reservo sitio esta semana?`,
       };
     }
     case 'CONGELAR_MEMBRESIA':
