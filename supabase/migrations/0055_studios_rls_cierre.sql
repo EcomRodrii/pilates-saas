@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- P-2 (1/2) · Funciones de acceso acotado — PASO ADITIVO
+-- P-2 (2/2) · Cierre de la fuga cross-tenant
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- PROBLEMA
@@ -33,45 +33,24 @@
 -- Reversible: recrear `public_read_studios USING (true)` y borrar las dos
 -- funciones. Reejecutable: todo con IF EXISTS / OR REPLACE.
 
--- ESTE PASO NO CAMBIA NINGUNA POLÍTICA. Solo crea las dos funciones que el
--- código nuevo necesita. Se aplica ANTES de desplegar el código: así el
--- código viejo sigue funcionando igual y el nuevo ya encuentra las RPC.
--- El cierre de la fuga va en 0055, DESPUÉS del despliegue.
+-- Se aplica DESPUÉS de desplegar el código que usa las funciones de 0054.
+-- Aplicarlo antes dejaría al código viejo sin poder resolver el slug.
 
 BEGIN;
 
--- ── 2) Slug: unicidad en el alta, sin exponer filas ──────────────────────────
--- Durante el alta el usuario todavía no tiene estudio, así que
--- current_studio_id() es NULL y no podría comprobar la unicidad. Devuelve solo
--- un booleano: no filtra ni ids ni nombres de otros estudios.
-CREATE OR REPLACE FUNCTION public.slug_estudio_disponible(p_slug text)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT NOT EXISTS (SELECT 1 FROM public.studios WHERE slug = p_slug);
-$$;
-REVOKE ALL ON FUNCTION public.slug_estudio_disponible(text) FROM public;
-GRANT EXECUTE ON FUNCTION public.slug_estudio_disponible(text) TO authenticated;
+-- ── 1) Lectura acotada al propio estudio ─────────────────────────────────────
+DROP POLICY IF EXISTS public_read_studios ON public.studios;
 
--- ── 3) Slug -> id para las rutas públicas ────────────────────────────────────
--- /portal/[slug] y /reservar/[slug] necesitan resolver el estudio antes de
--- tener sesión de staff (visitante anónimo o socia por OTP, que no es ni
--- instructora ni propietaria). Devuelve solo el id; el resto de datos públicos
--- ya se sirven por /api/public/studio-data con service-role.
-CREATE OR REPLACE FUNCTION public.studio_id_por_slug(p_slug text)
-RETURNS text
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT id FROM public.studios WHERE slug = p_slug LIMIT 1;
-$$;
-REVOKE ALL ON FUNCTION public.studio_id_por_slug(text) FROM public;
-GRANT EXECUTE ON FUNCTION public.studio_id_por_slug(text) TO anon, authenticated;
+DROP POLICY IF EXISTS own_studio_read ON public.studios;
+CREATE POLICY own_studio_read ON public.studios
+  FOR SELECT TO authenticated
+  USING (id = public.current_studio_id());
 
+-- ── 4) Endurecer los GRANT de anon ───────────────────────────────────────────
+-- anon tenía INSERT/UPDATE/DELETE/TRUNCATE sobre studios. Los tres primeros los
+-- frena RLS (no hay política que los permita para anon), pero TRUNCATE NO pasa
+-- por RLS: es un privilegio de tabla. Ninguna ruta de la app escribe en studios
+-- como anon, así que se retiran los cuatro.
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.studios FROM anon;
 
 COMMIT;
