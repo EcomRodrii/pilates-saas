@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS public.citas_servicios (
   CONSTRAINT citas_servicios_precio_check CHECK (precio IS NULL OR precio >= 0)
 );
 
+ALTER TABLE public.citas_servicios DROP CONSTRAINT IF EXISTS citas_servicios_studio_id_fkey;
 ALTER TABLE ONLY public.citas_servicios
   ADD CONSTRAINT citas_servicios_studio_id_fkey
   FOREIGN KEY (studio_id) REFERENCES public.studios(id) ON DELETE CASCADE;
@@ -52,6 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_citas_servicios_studio
   ON public.citas_servicios USING btree (studio_id, activo);
 
 ALTER TABLE public.citas_servicios ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS admin_citas_servicios ON public.citas_servicios;
 CREATE POLICY admin_citas_servicios ON public.citas_servicios
   TO authenticated
   USING ((studio_id = public.current_studio_id()))
@@ -72,9 +74,11 @@ CREATE TABLE IF NOT EXISTS public.citas_disponibilidad (
   CONSTRAINT citas_disponibilidad_horas_check CHECK (hora_fin > hora_inicio)
 );
 
+ALTER TABLE public.citas_disponibilidad DROP CONSTRAINT IF EXISTS citas_disponibilidad_studio_id_fkey;
 ALTER TABLE ONLY public.citas_disponibilidad
   ADD CONSTRAINT citas_disponibilidad_studio_id_fkey
   FOREIGN KEY (studio_id) REFERENCES public.studios(id) ON DELETE CASCADE;
+ALTER TABLE public.citas_disponibilidad DROP CONSTRAINT IF EXISTS citas_disponibilidad_instructor_id_fkey;
 ALTER TABLE ONLY public.citas_disponibilidad
   ADD CONSTRAINT citas_disponibilidad_instructor_id_fkey
   FOREIGN KEY (instructor_id) REFERENCES public.instructores(id) ON DELETE CASCADE;
@@ -83,6 +87,7 @@ CREATE INDEX IF NOT EXISTS idx_citas_disp_instructor
   ON public.citas_disponibilidad USING btree (instructor_id, dia_semana);
 
 ALTER TABLE public.citas_disponibilidad ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS admin_citas_disponibilidad ON public.citas_disponibilidad;
 CREATE POLICY admin_citas_disponibilidad ON public.citas_disponibilidad
   TO authenticated
   USING ((studio_id = public.current_studio_id()))
@@ -91,6 +96,7 @@ GRANT ALL ON TABLE public.citas_disponibilidad TO anon, authenticated, service_r
 
 -- ── 3) Enlace cita → servicio + índice de colisiones ─────────────────────────
 ALTER TABLE public.citas ADD COLUMN IF NOT EXISTS servicio_id text;
+ALTER TABLE public.citas DROP CONSTRAINT IF EXISTS citas_servicio_id_fkey;
 ALTER TABLE ONLY public.citas
   ADD CONSTRAINT citas_servicio_id_fkey
   FOREIGN KEY (servicio_id) REFERENCES public.citas_servicios(id) ON DELETE SET NULL;

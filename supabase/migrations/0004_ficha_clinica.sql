@@ -7,7 +7,7 @@
 -- Episodios del perfil de salud: lesiones, embarazo, condiciones crónicas...
 -- Cada fila es un hito de la línea de tiempo (§6). Las restricciones se guardan
 -- como códigos validados en lib/ficha-clinica.ts (§2), no como texto libre.
-CREATE TABLE public.condiciones_salud (
+CREATE TABLE IF NOT EXISTS public.condiciones_salud (
     id             text PRIMARY KEY,
     studio_id      text NOT NULL REFERENCES public.studios(id) ON DELETE CASCADE,
     socio_id       text NOT NULL REFERENCES public.socios(id)  ON DELETE CASCADE,
@@ -27,15 +27,15 @@ CREATE TABLE public.condiciones_salud (
     creado_en      timestamptz DEFAULT now(),
     actualizado_en timestamptz DEFAULT now()
 );
-CREATE INDEX condiciones_socio    ON public.condiciones_salud (socio_id, inicio DESC);
-CREATE INDEX condiciones_activas  ON public.condiciones_salud (studio_id, estado) WHERE estado = 'ACTIVA';
-CREATE INDEX condiciones_revision ON public.condiciones_salud (studio_id, revisar_en)
+CREATE INDEX IF NOT EXISTS condiciones_socio    ON public.condiciones_salud (socio_id, inicio DESC);
+CREATE INDEX IF NOT EXISTS condiciones_activas  ON public.condiciones_salud (studio_id, estado) WHERE estado = 'ACTIVA';
+CREATE INDEX IF NOT EXISTS condiciones_revision ON public.condiciones_salud (studio_id, revisar_en)
   WHERE revisar_en IS NOT NULL AND estado = 'ACTIVA';
 
 -- Evolución post-clase (§8): dato categórico de 1 clic cuyo valor está en la
 -- serie temporal. Fase 2 escribe aquí; la tabla se crea ya para no fragmentar
 -- la migración de la ficha.
-CREATE TABLE public.respuestas_sesion (
+CREATE TABLE IF NOT EXISTS public.respuestas_sesion (
     id          text PRIMARY KEY,
     studio_id   text NOT NULL REFERENCES public.studios(id) ON DELETE CASCADE,
     socio_id    text NOT NULL REFERENCES public.socios(id)  ON DELETE CASCADE,
@@ -45,4 +45,4 @@ CREATE TABLE public.respuestas_sesion (
     creado_por  text,
     creado_en   timestamptz DEFAULT now()
 );
-CREATE INDEX respuestas_socio ON public.respuestas_sesion (socio_id, creado_en DESC);
+CREATE INDEX IF NOT EXISTS respuestas_socio ON public.respuestas_sesion (socio_id, creado_en DESC);
