@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Ticket, Plus, Sparkles, X } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { esCodigoReactivacion } from '@/lib/codigos-descuento';
+import { esCodigoReactivacion, buscarCodigo } from '@/lib/codigos-descuento';
 import type { CodigoDescuento } from '@/lib/types';
 
 // Gestor mínimo de códigos de descuento dentro del Centro de Control.
@@ -34,6 +34,7 @@ export function CodigosDescuento() {
   const hoy = new Date().toISOString().slice(0, 10);
 
   const [abierto, setAbierto] = useState(false);
+  const [errorAlta, setErrorAlta] = useState<string | null>(null);
   const [form, setForm] = useState({ codigo: '', tipo: 'PORCENTAJE' as CodigoDescuento['tipo'], valor: '', usosMax: '', expira: '', descripcion: '' });
 
   const codigos = useMemo(
@@ -45,6 +46,15 @@ export function CodigosDescuento() {
 
   function crear() {
     if (!puedeCrear) return;
+    // El código es único por estudio (índice uq_codigo_descuento_estudio, 0049).
+    // Se comprueba aquí porque addCodigoDescuento es optimista + escritura
+    // fire-and-forget: sin esto, un duplicado fallaría en silencio en la BD y el
+    // código aparecería en pantalla sin existir de verdad.
+    if (buscarCodigo(codigosDescuento, form.codigo)) {
+      setErrorAlta('Ya existe un código con ese nombre');
+      return;
+    }
+    setErrorAlta(null);
     addCodigoDescuento({
       codigo: form.codigo.trim().toUpperCase(),
       descripcion: form.descripcion.trim() || 'Creado desde el Centro de Control',
@@ -83,7 +93,7 @@ export function CodigosDescuento() {
                 className={`${inputCls} flex-1 min-w-[140px] uppercase`}
                 placeholder="CÓDIGO"
                 value={form.codigo}
-                onChange={e => setForm(f => ({ ...f, codigo: e.target.value }))}
+                onChange={e => { setForm(f => ({ ...f, codigo: e.target.value })); setErrorAlta(null); }}
               />
               <select
                 className={`${inputCls} w-24`}
@@ -116,6 +126,7 @@ export function CodigosDescuento() {
                 onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
               />
             </div>
+            {errorAlta && <p className="text-[12px] text-rose-600">{errorAlta}</p>}
             <div className="flex justify-end">
               <button
                 onClick={crear}
