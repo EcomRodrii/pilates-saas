@@ -8,6 +8,7 @@ import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCa
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
+import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -1778,8 +1779,9 @@ export async function crearReservaPublica(params: {
       spotAsignado = await asignarSpotReserva(admin, params.studioId, params.sesionId, reservaId, params.spotId);
     }
   }
-  // S-1: la reserva mueve RESERVAS_TOTALES (y la racha, si la sesión ya pasó).
-  await evaluarLogrosServidor(admin, params.studioId, params.socioId);
+  // S-1: la reserva mueve RESERVAS_TOTALES (y la racha, si la sesión ya pasó),
+  // tanto para logros como para retos vigentes.
+  await evaluarGamificacionServidor(admin, params.studioId, params.socioId);
   return { ok: true as const, estado, reservaId, spotAsignado };
 }
 
@@ -1857,9 +1859,9 @@ export async function cancelarReservaPublica(params: {
   }
   // tardia/bonoDevuelto → la UI puede confirmar a la socia si recuperó la sesión.
   // S-1: cancelar baja RESERVAS_TOTALES, así que se re-evalúa para que el
-  // progreso mostrado siga siendo cierto. Un logro YA conseguido no se revoca
+  // progreso mostrado (logros y retos) siga siendo cierto. Un logro YA conseguido no se revoca
   // (el bucle salta los completados), igual que hacía la evaluación en cliente.
-  await evaluarLogrosServidor(admin, params.studioId, params.socioId);
+  await evaluarGamificacionServidor(admin, params.studioId, params.socioId);
   return { ok: true as const, tardia, bonoDevuelto };
 }
 
@@ -2299,38 +2301,59 @@ async function otorgarCreditosServidor(
 // Es best-effort: si algo falla se reporta pero NO se tumba la operación que la
 // disparó — perder un logro es peor que perder la reserva, pero mucho menos malo
 // que perder la reserva por culpa del logro.
-async function evaluarLogrosServidor(
+// Datos que comparten logros y retos. Se cargan UNA vez por acción: ambos
+// sistemas evalúan sobre las mismas reservas/sesiones/socia y corren seguidos,
+// así que separarlos duplicaría las consultas en cada reserva y check-in.
+interface ContextoGamificacion {
+  socio: Socio;
+  reservas: Reserva[];
+  sesiones: Sesion[];
+  referidas: Socio[];
+}
+
+async function cargarContextoGamificacion(
   admin: SupabaseClient, studioId: string, socioId: string,
-): Promise<void> {
-  const [{ data: defRows }, { data: progRows }, { data: socioRow }, { data: resRows }] = await Promise.all([
-    admin.from('achievement_definitions').select('*').eq('studio_id', studioId).eq('activo', true),
-    admin.from('achievement_progress').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
+): Promise<ContextoGamificacion | null> {
+  const [{ data: socioRow }, { data: resRows }] = await Promise.all([
     admin.from('socios').select('*').eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
     admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
   ]);
-  const definiciones = (defRows ?? []).map(mapAchievementDefinition);
-  if (definiciones.length === 0 || !socioRow) return;
-
-  const progresos = (progRows ?? []).map(mapAchievementProgress);
-  const socio = mapSocio(socioRow as RowSocios);
+  if (!socioRow) return null;
   const reservas = (resRows ?? []).map(mapReserva);
 
   // Solo las sesiones que sus reservas referencian: las métricas las usan para
   // fechar la asistencia, no hace falta traerse la agenda entera del estudio.
   const sesionIds = [...new Set(reservas.map(r => r.sesionId))];
-  const sesRows = sesionIds.length
-    ? (await admin.from('sesiones').select('*').eq('studio_id', studioId).in('id', sesionIds)).data
-    : [];
-  const sesiones = (sesRows ?? []).map(mapSesion);
+  const [sesRows, refRows] = await Promise.all([
+    sesionIds.length
+      ? admin.from('sesiones').select('*').eq('studio_id', studioId).in('id', sesionIds).then(r => r.data)
+      : Promise.resolve([]),
+    // AMIGOS_INVITADOS solo cuenta socias referidas por ella: basta con las
+    // suyas, no el censo del estudio. calcularMetrica filtra por referidoPor,
+    // así que pasarle únicamente las referidas da el mismo número.
+    admin.from('socios').select('*').eq('studio_id', studioId).eq('referido_por', socioId).then(r => r.data),
+  ]);
 
-  // AMIGOS_INVITADOS solo cuenta socias referidas por ella: basta con las suyas,
-  // no el censo del estudio. calcularMetrica filtra por referidoPor, así que
-  // pasarle únicamente las referidas da el mismo número.
-  const necesitaReferidas = definiciones.some(d => d.metric === 'AMIGOS_INVITADOS');
-  const refRows = necesitaReferidas
-    ? (await admin.from('socios').select('*').eq('studio_id', studioId).eq('referido_por', socioId)).data
-    : [];
-  const referidas = (refRows ?? []).map(mapSocio);
+  return {
+    socio: mapSocio(socioRow as RowSocios),
+    reservas,
+    sesiones: (sesRows ?? []).map(mapSesion),
+    referidas: (refRows ?? []).map(mapSocio),
+  };
+}
+
+async function evaluarLogrosServidor(
+  admin: SupabaseClient, studioId: string, socioId: string, ctx: ContextoGamificacion,
+): Promise<void> {
+  const [{ data: defRows }, { data: progRows }] = await Promise.all([
+    admin.from('achievement_definitions').select('*').eq('studio_id', studioId).eq('activo', true),
+    admin.from('achievement_progress').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
+  ]);
+  const definiciones = (defRows ?? []).map(mapAchievementDefinition);
+  if (definiciones.length === 0) return;
+
+  const progresos = (progRows ?? []).map(mapAchievementProgress);
+  const { socio, reservas, sesiones, referidas } = ctx;
 
   const now = new Date();
   for (const def of definiciones) {
@@ -2376,6 +2399,85 @@ async function evaluarLogrosServidor(
       creditos: def.creditosRecompensa, descripcion: `Logro desbloqueado: ${def.nombre}`,
       ref_id: def.id, creado_en: now.toISOString(),
     });
+  }
+}
+
+// Retos: mismo fallo y mismo arreglo que los logros. La diferencia es que un
+// reto solo cuenta lo que pasa DENTRO de su ventana de fechas, así que se filtra
+// a los activos y vigentes y el progreso lo calcula calcularProgresoReto (que
+// recorta las reservas al periodo antes de aplicar la misma métrica).
+async function evaluarRetosServidor(
+  admin: SupabaseClient, studioId: string, socioId: string, ctx: ContextoGamificacion,
+): Promise<void> {
+  const now = new Date();
+  const [{ data: defRows }, { data: progRows }] = await Promise.all([
+    admin.from('challenge_definitions').select('*').eq('studio_id', studioId).eq('activo', true),
+    admin.from('challenge_progress').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
+  ]);
+  const retos = (defRows ?? []).map(mapChallengeDefinition)
+    .filter(r => new Date(r.fechaInicio) <= now && now <= new Date(r.fechaFin));
+  if (retos.length === 0) return;
+
+  const progresos = (progRows ?? []).map(mapChallengeProgress);
+  const { socio, reservas, sesiones, referidas } = ctx;
+
+  for (const reto of retos) {
+    const existente = progresos.find(p => p.challengeId === reto.id);
+    if (existente?.completado) continue; // ya conseguido, no se re-evalúa
+
+    const valor = calcularProgresoReto(reto, reservas, sesiones, socio, referidas, now);
+    const completadoAhora = valor >= reto.objetivo;
+
+    const { error: progError } = await admin.from('challenge_progress').upsert({
+      id: existente?.id ?? `chap-${uid()}`,
+      studio_id: studioId, socio_id: socioId, challenge_id: reto.id,
+      progreso_actual: valor, completado: completadoAhora,
+      completado_en: completadoAhora ? now.toISOString() : null,
+    }, { onConflict: 'socio_id,challenge_id' });
+    if (progError) { reportDbError('[evaluarRetosServidor] progreso', progError); continue; }
+
+    if (!completadoAhora) continue;
+
+    const { error: histError } = await admin.from('challenge_history').insert({
+      id: `chah-${uid()}`, studio_id: studioId, socio_id: socioId, challenge_id: reto.id,
+      nombre: reto.nombre, icono: reto.icono, creado_en: now.toISOString(),
+    });
+    if (histError) reportDbError('[evaluarRetosServidor] historial', histError);
+
+    if (reto.creditosRecompensa <= 0) continue;
+    // Mismo UNIQUE de reward_actions que los logros, con trigger 'RETO'.
+    const { error: claimError } = await admin.from('reward_actions').insert({
+      id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId,
+      trigger: 'RETO', ref_id: `${socioId}:${reto.id}`, creado_en: now.toISOString(),
+    });
+    if (claimError) continue; // ya otorgado por otra evaluación
+
+    await admin.rpc('ajustar_creditos', {
+      p_socio_id: socioId, p_studio_id: studioId,
+      p_delta_saldo: reto.creditosRecompensa, p_delta_ganado: reto.creditosRecompensa, p_delta_canjeado: 0,
+    });
+    await admin.from('credit_transactions').insert({
+      id: `ctx-${uid()}`, studio_id: studioId, socio_id: socioId, tipo: 'GANANCIA',
+      creditos: reto.creditosRecompensa, descripcion: `Reto completado: ${reto.nombre}`,
+      ref_id: reto.id, creado_en: now.toISOString(),
+    });
+  }
+}
+
+// Punto de entrada único: carga el contexto UNA vez y evalúa ambos sistemas.
+// Best-effort de verdad: si la gamificación falla, la reserva o el check-in que
+// la disparó siguen adelante — perder un logro es mucho menos malo que perder
+// la plaza por culpa del logro.
+async function evaluarGamificacionServidor(
+  admin: SupabaseClient, studioId: string, socioId: string,
+): Promise<void> {
+  try {
+    const ctx = await cargarContextoGamificacion(admin, studioId, socioId);
+    if (!ctx) return;
+    await evaluarLogrosServidor(admin, studioId, socioId, ctx);
+    await evaluarRetosServidor(admin, studioId, socioId, ctx);
+  } catch (err) {
+    reportDbError('[evaluarGamificacionServidor]', err);
   }
 }
 
@@ -2433,11 +2535,12 @@ export async function checkinPublico(params: { studioId: string; reservaId: stri
   if (premiar && referidorId) {
     await otorgarCreditosServidor(admin, params.studioId, referidorId, 'REFERIDO_AMIGO', reserva.socioId);
     // La referidora acaba de sumar en AMIGOS_INVITADOS.
-    await evaluarLogrosServidor(admin, params.studioId, referidorId);
+    await evaluarGamificacionServidor(admin, params.studioId, referidorId);
   }
-  // S-1: el check-in mueve CLASES_ASISTIDAS, la racha y la asistencia mensual.
+  // S-1: el check-in mueve CLASES_ASISTIDAS, la racha y la asistencia mensual
+  // — en logros y en los retos cuya ventana incluya esta sesión.
   // Antes esto solo se evaluaba en el cliente y desde el portal RLS lo rechazaba.
-  await evaluarLogrosServidor(admin, params.studioId, reserva.socioId);
+  await evaluarGamificacionServidor(admin, params.studioId, reserva.socioId);
   return { ok: true as const };
 }
 
