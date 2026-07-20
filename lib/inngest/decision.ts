@@ -15,6 +15,7 @@ import { redactar, type ItemARedactar, type ItemRedactado } from '@/lib/decision
 import { ventanaDiasDe, medirOutcome, type SenalMedicion } from '@/lib/decision/outcomes';
 import { resolverNivelAutonomiaPorTipo } from '@/lib/decision/confianza';
 import { mensajeParaSocia } from '@/lib/decision/mensajes-socia';
+import { personalizarMensajeSocia } from '@/lib/decision/personalizacion';
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import { ALGORITHM_VERSION } from '@/lib/decision/version';
 import {
@@ -197,6 +198,11 @@ export const analizarEstudio = inngest.createFunction(
 // F3 · EJECUTAR RECOMENDACIÓN — al aprobar, un step por recibo cuando el lote
 // tiene varios (Arquitectura §6 F3).
 // ═══════════════════════════════════════════════════════════════════════════
+// El `titulo`/`motivo` de una recomendación está redactado para el PROPIETARIO
+// ("¿Le ofrecemos una vuelta con descuento a Marta?"). Enviárselo tal cual a la
+// socia era un fallo real —y el piloto automático lo mandaría solo—, así que aquí
+// SIEMPRE se manda el mensaje orientado a ella (mensajeParaSocia), reescrito con
+// IA para que suene personal (falla-suave al determinista).
 async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; detalle: string }> {
   if (!r.socioId) return { ok: false, detalle: 'Sin socia asociada' };
   const [{ data: socio }, { data: studio }] = await Promise.all([
@@ -205,13 +211,21 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   ]);
   if (!socio?.email) return { ok: false, detalle: 'La socia no tiene email registrado' };
 
+  const estudioNombre = studio?.nombre ?? '';
+  const base = mensajeParaSocia(r.tipo, r.datosUsados, estudioNombre);
+  // Sin mensaje para la socia NO se envía nada: antes caía al texto del
+  // propietario, que es justo lo que no debe recibir.
+  if (!base) return { ok: false, detalle: 'Sin mensaje para la socia para este tipo de recomendación' };
+
   const apiKey = process.env.RESEND_API_KEY;
   const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
   if (!resend) return { ok: false, detalle: 'Resend no configurado (RESEND_API_KEY)' };
 
-  const html = await render(AutomatizacionEmail({ socioNombre: socio.nombre, titulo: r.titulo, mensaje: r.motivo, estudioNombre: studio?.nombre ?? '' }));
+  const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: estudioNombre, tipo: r.tipo, datosUsados: r.datosUsados });
+
+  const html = await render(AutomatizacionEmail({ socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo, estudioNombre }));
   const { error } = await resend.emails.send(
-    { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: r.titulo, html },
+    { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: mensaje.asunto, html },
     { idempotencyKey: r.id }
   );
   if (error) return { ok: false, detalle: error.message };
@@ -228,8 +242,10 @@ async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; d
     requireSupabaseAdmin().from('socios').select('nombre, email, telefono').eq('id', r.socioId).single(),
     requireSupabaseAdmin().from('studios').select('nombre').eq('id', r.studioId).single(),
   ]);
-  const mensaje = mensajeParaSocia(r.tipo, r.datosUsados, studio?.nombre ?? '');
-  if (!mensaje) return { ok: true, detalle: 'Sin mensaje automático para este tipo — marcada como gestionada.' };
+  const base = mensajeParaSocia(r.tipo, r.datosUsados, studio?.nombre ?? '');
+  if (!base) return { ok: true, detalle: 'Sin mensaje automático para este tipo — marcada como gestionada.' };
+  // Mismo mensaje, reescrito con IA para que suene personal (falla-suave).
+  const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: studio?.nombre ?? '', tipo: r.tipo, datosUsados: r.datosUsados });
 
   // Si la recomendación es de canal WhatsApp y hay Twilio + teléfono, se envía el
   // WhatsApp de VERDAD al aprobar (antes era siempre un clic manual del propietario).

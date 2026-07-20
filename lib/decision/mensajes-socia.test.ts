@@ -49,3 +49,23 @@ test('mensajeParaSocia: CONGELAR_MEMBRESIA propone la pausa a la socia', () => {
   assert.match(m!.cuerpo, /Lucía/);
   assert.match(m!.cuerpo, /congel|pausa/i);
 });
+
+// ENVIAR_REACTIVACION es el tipo con más autonomía (2) + acción ENVIAR_EMAIL:
+// el primero que el piloto automático manda solo. Sin este caso devolvía null y
+// el ejecutor acababa mandando a la socia el texto del PROPIETARIO.
+test('mensajeParaSocia: ENVIAR_REACTIVACION habla a la socia, no del propietario', () => {
+  const m = mensajeParaSocia('ENVIAR_REACTIVACION', { nombre: 'Marta', descuentoPct: 15 }, 'Pilates Boutique');
+  assert.ok(m, 'debe existir mensaje para ENVIAR_REACTIVACION');
+  assert.match(m!.asunto, /Marta/);
+  // Se dirige a ELLA (tuteo), nunca en tercera persona sobre ella.
+  assert.match(m!.cuerpo, /¡Hola Marta!/);
+  assert.doesNotMatch(m!.cuerpo, /le ofrecemos|a Marta\?/i);
+  // El descuento sale de datosUsados.
+  assert.match(m!.cuerpo, /15%/);
+});
+
+test('mensajeParaSocia: ENVIAR_REACTIVACION sin descuento no lo menciona', () => {
+  const m = mensajeParaSocia('ENVIAR_REACTIVACION', { nombre: 'Marta' }, 'Pilates Boutique');
+  assert.ok(m);
+  assert.doesNotMatch(m!.cuerpo, /descuento|%/);
+});
