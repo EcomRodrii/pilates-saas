@@ -14,7 +14,8 @@ import { ActivityList } from '@/components/decision/activity-list';
 import { QuickActions } from '@/components/decision/quick-actions';
 import { EmptyState } from '@/components/decision/empty-state';
 import { PilotoAutomatico } from '@/components/decision/piloto-automatico';
-import { CodigosReactivacion } from '@/components/decision/codigos-reactivacion';
+import { CodigosDescuento } from '@/components/decision/codigos-descuento';
+import { RiesgoPlanton } from '@/components/decision/riesgo-planton';
 import { EspecialistaCartera } from '@/components/centro-de-control/especialista-cartera';
 
 // Centro de Control — el Home basado en decisiones (Bible doc 4). Orden fijo,
@@ -164,7 +165,9 @@ export default function CentroDeControlPage() {
         </div>
       )}
 
-      <CodigosReactivacion />
+      <RiesgoPlanton />
+
+      <CodigosDescuento />
 
       <ActivityList items={data.actividad} />
 
