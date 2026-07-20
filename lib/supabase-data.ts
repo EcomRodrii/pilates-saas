@@ -4348,8 +4348,11 @@ async function generateUniqueSlug(nombre: string): Promise<string> {
   let candidate = base;
   let n = 2;
   while (true) {
-    const { data } = await supabase.from('studios').select('id').eq('slug', candidate).maybeSingle();
-    if (!data) return candidate;
+    // P-2: vía RPC SECURITY DEFINER. Leer `studios` directamente exigía una
+    // política que dejaba ver TODAS las filas (y con ellas nif, stripe_account_id
+    // y kiosk_token de cualquier estudio). Esto devuelve solo un booleano.
+    const { data } = await supabase.rpc('slug_estudio_disponible', { p_slug: candidate });
+    if (data === true) return candidate;
     candidate = `${base}-${n}`;
     n++;
   }
@@ -4376,8 +4379,10 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
 
 // Resuelve el studio_id a partir del slug público de la URL (/reservar/[slug]...).
 export async function resolveStudioIdBySlug(slug: string): Promise<string | null> {
-  const { data } = await supabase.from('studios').select('id').eq('slug', slug).maybeSingle();
-  return data?.id ?? null;
+  // P-2: RPC SECURITY DEFINER que devuelve solo el id. La lectura directa
+  // requería que cualquier autenticado pudiera leer la tabla entera.
+  const { data } = await supabase.rpc('studio_id_por_slug', { p_slug: slug });
+  return (data as string | null) ?? null;
 }
 
 export async function dbUpdateStudioAvatar(avatarId: string | null) {
