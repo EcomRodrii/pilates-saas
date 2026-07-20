@@ -1174,6 +1174,12 @@ function WeekGrid({
         </div>
         <p className="text-[16px] font-bold text-foreground">No hay clases esta semana</p>
         <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Crea la primera clase para empezar a llenar el calendario</p>
+        <button
+          onClick={() => onSlotClick(todayStr, '09:00')}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:brightness-95 transition-colors"
+        >
+          <Plus size={15} /> Crear primera clase
+        </button>
       </div>
     );
   }

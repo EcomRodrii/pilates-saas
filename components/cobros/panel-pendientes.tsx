@@ -950,7 +950,13 @@ export function PanelPendientes() {
           {suscripciones.filter(s => s.estado === 'ACTIVA').length === 0 ? (
             <div className="py-16 text-center">
               <Users size={32} className="text-border mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">No hay suscripciones activas</p>
+              <p className="text-sm text-muted-foreground mb-4">No hay suscripciones activas</p>
+              <Link
+                href="/clientas?nuevo=1"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:brightness-95 transition-colors"
+              >
+                Añadir clienta con plan
+              </Link>
             </div>
           ) : (
             <div className="overflow-x-auto">
