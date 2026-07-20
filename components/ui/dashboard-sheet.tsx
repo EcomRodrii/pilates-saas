@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { useDialogA11y } from './use-dialog-a11y';
 
 // Equivalente a PublicSheet (components/ui/public-sheet.tsx) para los
@@ -21,6 +22,7 @@ export function DashboardSheet({
   sheetClassName = 'bg-card rounded-2xl w-full max-w-md shadow-2xl',
   sheetStyle,
   closeOnBackdropClick = true,
+  portal = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -31,12 +33,17 @@ export function DashboardSheet({
   sheetClassName?: string;
   sheetStyle?: React.CSSProperties;
   closeOnBackdropClick?: boolean;
+  // `fixed` deja de posicionarse contra el viewport si algún ancestro tiene
+  // transform/filter/backdrop-filter (crea un "containing block" nuevo —
+  // p.ej. topbar.tsx usa backdrop-blur-sm). Cuando el caller vive dentro de
+  // un árbol así, `portal` renderiza directo en document.body para escapar.
+  portal?: boolean;
 }) {
   const { sheetRef } = useDialogA11y({ open, onClose });
 
   if (!open) return null;
 
-  return (
+  const contenido = (
     <div
       className={backdropClassName}
       style={backdropStyle}
@@ -56,4 +63,6 @@ export function DashboardSheet({
       </div>
     </div>
   );
+
+  return portal ? createPortal(contenido, document.body) : contenido;
 }
