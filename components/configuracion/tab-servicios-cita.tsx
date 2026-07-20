@@ -124,7 +124,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         {servicios.length === 0 ? (
           <div className="px-5 py-10 text-center text-[13px] text-muted-foreground">
-            No hay servicios de cita. Crea uno (p. ej. &quot;Clase privada&quot;, &quot;Evaluación inicial&quot;) para que las socias puedan reservarlo.
+            No hay servicios de cita. Crea uno (p. ej. &quot;Clase privada&quot;, &quot;Evaluación inicial&quot;) para que las clientas puedan reservarlo.
           </div>
         ) : (
           <>
@@ -154,7 +154,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
                     <td className="px-5 py-3 text-muted-foreground">{s.precio != null ? `${s.precio} €` : '—'}</td>
                     <td className="px-5 py-3">
                       {s.autoReservable
-                        ? <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[#059669]"><Check size={13} />Sí</span>
+                        ? <span className="inline-flex items-center gap-1 text-[12px] font-medium text-success"><Check size={13} />Sí</span>
                         : <span className="text-[12px] text-muted-foreground">No</span>}
                     </td>
                     <td className="px-5 py-3">
@@ -162,7 +162,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
                         <button onClick={() => openEditar(s)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-colors" aria-label="Editar servicio">
                           <Pencil size={13} />
                         </button>
-                        <button onClick={() => setConfirmDel(s.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground hover:text-[#DC2626] transition-colors" aria-label="Eliminar servicio">
+                        <button onClick={() => setConfirmDel(s.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" aria-label="Eliminar servicio">
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -189,7 +189,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
                     <button onClick={() => openEditar(s)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground" aria-label="Editar servicio">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => setConfirmDel(s.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground" aria-label="Eliminar servicio">
+                    <button onClick={() => setConfirmDel(s.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" aria-label="Eliminar servicio">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -209,41 +209,59 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
-            <Field label="Nombre del servicio">
+            <Field
+              label="Nombre del servicio"
+              description="Como lo verá la clienta al pedir cita. Ej: «Valoración postural»."
+            >
               <input className={inputCls} value={form.nombre}
                 onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
                 placeholder="Ej: Clase privada" />
             </Field>
-            <Field label="Tipo">
+            <Field
+              label="Tipo"
+              description="Agrupa el servicio para los informes y para filtrar en la agenda de citas."
+            >
               <select className={inputCls} value={form.tipo}
                 onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoCita }))}>
                 {TIPOS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Duración (min)">
+              <Field
+              label="Duración (min)"
+              description="Cuánto se bloquea en la agenda de la profesional al reservarse."
+            >
                 <input className={inputCls} type="number" min={5} max={480} step={5}
                   value={form.duracionMin}
                   onChange={e => setForm(f => ({ ...f, duracionMin: e.target.value }))} />
               </Field>
-              <Field label="Precio (€, opcional)">
+              <Field
+              label="Precio (€, opcional)"
+              description="IVA incluido. Déjalo vacío si el precio se acuerda en cada caso."
+            >
                 <input className={inputCls} type="number" min={0} step="0.01"
                   value={form.precio} placeholder="—"
                   onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} />
               </Field>
             </div>
-            <Field label="Color identificador">
+            <Field
+              label="Color identificador"
+              description="Sirve para distinguirlo de un vistazo en la agenda de citas."
+            >
               <ColorInput value={form.color} onChange={v => setForm(f => ({ ...f, color: v }))} />
             </Field>
-            <Field label="Descripción (opcional)">
+            <Field
+              label="Descripción (opcional)"
+              description="Qué incluye la sesión. Aparece al pedir la cita."
+            >
               <input className={inputCls} value={form.descripcion}
                 onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
-                placeholder="Breve descripción para la socia" />
+                placeholder="Breve descripción para la clienta" />
             </Field>
             <div className="flex items-center justify-between pt-1">
               <div>
                 <span className={labelCls}>Auto-reservable</span>
-                <p className="text-[11px] text-muted-foreground -mt-0.5">La socia puede reservarlo sola en el portal.</p>
+                <p className="text-[11px] text-muted-foreground -mt-0.5">La clienta puede reservarlo sola en el portal.</p>
               </div>
               <Toggle on={form.autoReservable} onChange={v => setForm(f => ({ ...f, autoReservable: v }))} />
             </div>

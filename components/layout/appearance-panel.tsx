@@ -22,7 +22,7 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <p className="text-[15px] font-extrabold text-foreground">Apariencia</p>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted">
+          <button onClick={onClose} aria-label="Cerrar apariencia" className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted">
             <X size={16} className="text-muted-foreground" />
           </button>
         </div>
@@ -69,7 +69,7 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
                 <ChevronRight size={16} className="text-muted-foreground" />
               </Link>
               <p className="text-[11.5px] text-muted-foreground mt-3">
-                Colores, tipografía, logo y favicon de la app de socias y la página de reservas.
+                Colores, tipografía, logo y favicon de la app de clientas y la página de reservas.
               </p>
             </div>
           )}

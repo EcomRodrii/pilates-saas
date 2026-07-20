@@ -17,12 +17,12 @@ const inputCls = 'w-full rounded-lg border border-border bg-card px-3 py-2 text-
 
 const TRIGGERS: { value: TriggerAutomatizacion; label: string; desc: string }[] = [
   { value: 'CONTENIDO_PUBLICADO', label: 'Se publica un contenido', desc: 'Al publicar una publicación del módulo de Contenido' },
-  { value: 'NUEVA_ALTA', label: 'Nueva socia registrada', desc: 'Cuando se registra una nueva socia' },
-  { value: 'CUMPLEANOS', label: 'Cumpleaños de socia', desc: 'El día del cumpleaños' },
+  { value: 'NUEVA_ALTA', label: 'Nueva clienta registrada', desc: 'Cuando se registra una nueva clienta' },
+  { value: 'CUMPLEANOS', label: 'Cumpleaños de clienta', desc: 'El día del cumpleaños' },
   { value: 'PRIMERA_CLASE', label: 'Primera clase', desc: 'Tras completar la primera clase' },
   { value: 'SUSCRIPCION_EXPIRA_7D', label: 'Suscripción expira en 7 días', desc: 'Aviso de renovación' },
   { value: 'SUSCRIPCION_CANCELADA', label: 'Suscripción cancelada', desc: 'Cuando se cancela una suscripción' },
-  { value: 'INACTIVIDAD_30D', label: 'Sin actividad 30 días', desc: 'Reactivación de socias inactivas' },
+  { value: 'INACTIVIDAD_30D', label: 'Sin actividad 30 días', desc: 'Reactivación de clientas inactivas' },
   { value: 'BONO_AGOTADO', label: 'Bono agotado', desc: 'Cuando se agota el bono' },
 ]
 
@@ -39,7 +39,7 @@ export const ACCIONES: Record<AccionFlujo, { label: string; icon: React.ElementT
   TAREA: {
     label: 'Crear tarea', icon: CheckSquare, color: '#8b5cf6',
     campos: [
-      { key: 'titulo', label: 'Título de la tarea', placeholder: 'Llamar a la socia' },
+      { key: 'titulo', label: 'Título de la tarea', placeholder: 'Llamar a la clienta' },
       { key: 'asignadoA', label: 'Asignar a', placeholder: 'Recepción' },
     ],
   },
@@ -142,7 +142,7 @@ export function FlowBuilder({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-lg font-bold text-foreground">{editando ? 'Editar flujo' : 'Nuevo flujo de automatización'}</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-0">
@@ -150,7 +150,7 @@ export function FlowBuilder({
           <div className="p-5 space-y-4 lg:border-r border-border">
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Nombre del flujo</label>
-              <input className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Bienvenida a nuevas socias" autoFocus />
+              <input className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Bienvenida a nuevas clientas" autoFocus />
             </div>
 
             {/* Desencadenante */}

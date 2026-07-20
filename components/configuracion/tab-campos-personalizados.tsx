@@ -68,15 +68,21 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-1">{editId ? 'Editar campo' : 'Nuevo campo'}</h3>
         <p className="text-[12px] text-muted-foreground mb-4">
-          Datos propios que quieras recoger de cada socia (lesiones, objetivos, cómo nos conoció…).
-          Aparecen al dar de alta una socia y en su ficha.
+          Datos propios que quieras recoger de cada clienta (lesiones, objetivos, cómo nos conoció…).
+          Aparecen al dar de alta una clienta y en su ficha.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Nombre del campo">
+          <Field
+            label="Nombre del campo"
+            description="Lo que se preguntará en la ficha de cada clienta. Ej: «Lesiones previas»."
+          >
             <input className={inputCls} placeholder="Ej. Lesiones o limitaciones"
               value={form.etiqueta} onChange={e => setForm(f => ({ ...f, etiqueta: e.target.value }))} />
           </Field>
-          <Field label="Tipo">
+          <Field
+            label="Tipo"
+            description="Determina cómo se rellena: texto libre, número, fecha o una lista de opciones."
+          >
             <select className={cn(inputCls, 'cursor-pointer')} value={form.tipo}
               onChange={e => setForm(f => ({ ...f, tipo: e.target.value as CampoPersonalizado['tipo'] }))}>
               {TIPOS_CAMPO.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
@@ -84,7 +90,10 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
           </Field>
           {form.tipo === 'seleccion' && (
             <div className="sm:col-span-2">
-              <Field label="Opciones (separadas por comas)">
+              <Field
+            label="Opciones (separadas por comas)"
+            description="Las opciones entre las que elegir. Ej: Mañana, Tarde, Indiferente."
+          >
                 <input className={inputCls} placeholder="Instagram, Google, Recomendación, Otro"
                   value={form.opciones} onChange={e => setForm(f => ({ ...f, opciones: e.target.value }))} />
               </Field>
@@ -122,7 +131,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-foreground truncate">
                     {c.etiqueta}
-                    {c.requerido && <span className="ml-1.5 text-[#DC2626]">*</span>}
+                    {c.requerido && <span className="ml-1.5 text-destructive">*</span>}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {TIPOS_CAMPO.find(t => t.id === c.tipo)?.label}
@@ -135,7 +144,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
                 <button onClick={() => editar(c)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground shrink-0" title="Editar">
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => setConfirmDel(c.id)} className="p-1.5 rounded-lg hover:bg-muted text-[#DC2626] shrink-0" title="Eliminar">
+                <button onClick={() => setConfirmDel(c.id)} className="p-1.5 rounded-lg hover:bg-muted text-destructive shrink-0" title="Eliminar">
                   <Trash2 size={14} />
                 </button>
               </li>
@@ -148,7 +157,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
         open={confirmDel !== null}
         onOpenChange={o => { if (!o) setConfirmDel(null); }}
         title="Eliminar campo"
-        description="Se quitará de las altas y fichas. Los valores ya guardados en las socias no se muestran, pero no se borran."
+        description="Se quitará de las altas y fichas. Los valores ya guardados en las clientas no se muestran, pero no se borran."
         onConfirm={() => {
           if (confirmDel) { deleteCampoPersonalizado(confirmDel); showToast('Campo eliminado'); }
           setConfirmDel(null);

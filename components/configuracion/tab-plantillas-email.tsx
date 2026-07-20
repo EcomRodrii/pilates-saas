@@ -14,13 +14,13 @@ const PLANTILLAS_META: {
   asuntoDefault: string; introDefault: string; variables: string[];
 }[] = [
   {
-    tipo: 'bienvenida', label: 'Bienvenida', descripcion: 'Al dar de alta a una socia.',
+    tipo: 'bienvenida', label: 'Bienvenida', descripcion: 'Al dar de alta a una clienta.',
     asuntoDefault: '¡Bienvenida a {estudio}!',
     introDefault: 'Hola {nombre}, estamos encantadas de tenerte en {estudio}.',
     variables: ['{nombre}', '{estudio}'],
   },
   {
-    tipo: 'reserva', label: 'Reserva confirmada', descripcion: 'Cuando una socia reserva una clase.',
+    tipo: 'reserva', label: 'Reserva confirmada', descripcion: 'Cuando una clienta reserva una clase.',
     asuntoDefault: 'Reserva confirmada — {clase}',
     introDefault: 'Hola {nombre}, tu plaza está reservada.',
     variables: ['{nombre}', '{clase}'],
@@ -38,7 +38,7 @@ const PLANTILLAS_META: {
     variables: ['{nombre}', '{clase}'],
   },
   {
-    tipo: 'promocion', label: 'Plaza liberada (lista de espera)', descripcion: 'Al ascender a una socia de la lista de espera.',
+    tipo: 'promocion', label: 'Plaza liberada (lista de espera)', descripcion: 'Al ascender a una clienta de la lista de espera.',
     asuntoDefault: 'Se ha liberado tu plaza — {clase}',
     introDefault: 'Hola {nombre}, estabas en lista de espera y ha quedado una plaza libre.',
     variables: ['{nombre}', '{clase}'],
@@ -72,11 +72,17 @@ function PlantillaCard({
         </label>
       </div>
       <div className="space-y-4">
-        <Field label="Asunto">
+        <Field
+          label="Asunto"
+          description="Lo primero que ve la clienta en su bandeja. Directo y sin mayúsculas sostenidas."
+        >
           <input className={inputCls} placeholder={meta.asuntoDefault}
             value={asunto} onChange={e => setAsunto(e.target.value)} />
         </Field>
-        <Field label="Texto de introducción">
+        <Field
+          label="Texto de introducción"
+          description="Abre el email, antes de los datos concretos. Los detalles se añaden solos debajo."
+        >
           <textarea className={cn(inputCls, 'resize-none')} rows={3} placeholder={meta.introDefault}
             value={intro} onChange={e => setIntro(e.target.value)} />
         </Field>
@@ -99,7 +105,7 @@ export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => vo
   return (
     <div className="space-y-5 max-w-2xl">
       <p className="text-[12px] text-muted-foreground">
-        Personaliza el asunto y el texto de introducción de los emails automáticos a tus socias.
+        Personaliza el asunto y el texto de introducción de los emails automáticos a tus clientas.
         El diseño (logo, cabecera y datos) se mantiene. Los emails de recibo/factura no se editan por su contenido fiscal.
       </p>
       {PLANTILLAS_META.map(meta => (

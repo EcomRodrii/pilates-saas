@@ -8,6 +8,7 @@ import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldChe
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora } from '@/lib/utils';
 import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, type EquipoStats, type ValoracionDetalle } from '@/lib/api-client';
+import { PageHeader } from '@/components/ui/page-header';
 
 type FiltroEstado = 'activas' | 'inactivas' | 'todas';
 type FiltroRol = 'todos' | Rol;
@@ -25,7 +26,7 @@ const ROL_LABEL: Record<Rol, string> = {
 };
 const ROL_DESC: Record<Rol, string> = {
   PROPIETARIO: 'Acceso total: negocio, marketing, automatizaciones y equipo.',
-  RECEPCION: 'Reservas, socias, cobros y POS — sin acceso a marketing, informes ni ajustes del negocio.',
+  RECEPCION: 'Reservas, clientas, cobros y caja — sin acceso a marketing, informes ni ajustes del negocio.',
   INSTRUCTOR: 'Calendario, citas (sin precios), miembros, oferta digital, comunidad y mensajería — sin datos de facturación.',
 };
 
@@ -143,18 +144,15 @@ export default function EquipoPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Equipo</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Instructoras y personal del estudio</p>
-        </div>
-        {tab === 'equipo' && (
+      <PageHeader
+        title="Equipo"
+        description="Instructoras y personal del estudio"
+        actions={tab === 'equipo' && (
           <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
             <Plus size={16} /> Nuevo miembro
           </button>
         )}
-      </div>
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit">
@@ -179,8 +177,8 @@ export default function EquipoPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
           { label: 'Miembros', value: instructores.length, sub: `${activos} activos`, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', Icon: Users },
-          { label: 'Clases 7 días', value: totalClasesSemana, sub: 'programadas', color: '#059669', bg: '#DCFCE7', Icon: Calendar },
-          { label: 'Media / persona', value: activos ? Math.round(totalClasesSemana / activos) : 0, sub: 'clases por activo', color: '#D97706', bg: '#FEF3C7', Icon: Calendar },
+          { label: 'Clases 7 días', value: totalClasesSemana, sub: 'programadas', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', Icon: Calendar },
+          { label: 'Media / persona', value: activos ? Math.round(totalClasesSemana / activos) : 0, sub: 'clases por activo', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', Icon: Calendar },
         ].map(({ label, value, sub, color, bg, Icon }) => (
           <div key={label} className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
@@ -438,8 +436,8 @@ function fmtProx(prox: Date | null): string {
 function Badges({ i }: { i: Instructor }) {
   return (
     <div className="flex items-center gap-1.5 flex-wrap mt-1">
-      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${i.activo ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-muted text-muted-foreground'}`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-[#059669]' : 'bg-muted-foreground'}`} />
+      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${i.activo ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-success' : 'bg-muted-foreground'}`} />
         {i.activo ? 'Activa' : 'Inactiva'}
       </span>
       <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ROL_LABEL[i.rol]}</span>
@@ -448,7 +446,7 @@ function Badges({ i }: { i: Instructor }) {
           <ShieldCheck size={10} />Con acceso
         </span>
       ) : i.email ? (
-        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">Sin cuenta aún</span>
+        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-warning/10 text-warning">Sin cuenta aún</span>
       ) : null}
     </div>
   );

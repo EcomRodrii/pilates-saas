@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbListComentariosComunidad, dbAddComentarioComunidad } from '@/lib/supabase-data';
 import type { PostComunidad } from '@/lib/types';
+import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -183,11 +184,11 @@ function PostCard({
   return (
     <div className={cn(
       'bg-card border border-border rounded-xl p-4',
-      post.fijado && 'border-[#D97706]/40 bg-amber-50/30'
+      post.fijado && 'border-warning/40 bg-amber-50/30'
     )}>
       {/* Pinned badge */}
       {post.fijado && (
-        <div className="flex items-center gap-1 text-[11px] text-[#D97706] font-medium mb-2">
+        <div className="flex items-center gap-1 text-[11px] text-warning font-medium mb-2">
           <Pin size={11} />
           Fijado
         </div>
@@ -217,14 +218,14 @@ function PostCard({
           onClick={() => onLike(post.id)}
           className={cn(
             'flex items-center gap-1.5 text-[12px] transition-colors group',
-            liked ? 'text-[#DC2626]' : 'text-muted-foreground hover:text-[#DC2626]'
+            liked ? 'text-destructive' : 'text-muted-foreground hover:text-destructive'
           )}
         >
           <Heart
             size={14}
             className={cn(
               'transition-colors',
-              liked ? 'fill-[#DC2626] text-[#DC2626]' : 'group-hover:fill-[#DC2626] group-hover:text-[#DC2626]'
+              liked ? 'fill-destructive text-destructive' : 'group-hover:fill-destructive group-hover:text-destructive'
             )}
           />
           <span>{post.likes}</span>
@@ -269,7 +270,7 @@ function NewPostModal({ onClose, onPost }: { onClose: () => void; onPost: (texto
       <div className="bg-card rounded-xl border border-border shadow-xl w-full max-w-lg">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-[16px] font-semibold text-foreground">Nueva publicación</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={onClose} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -473,21 +474,22 @@ export default function ComunidadPage() {
   return (
     <div className="space-y-6">
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-[20px] font-semibold text-foreground">Comunidad</h1>
+      <PageHeader
+        title="Comunidad"
+        badge={
           <span className="px-2 py-0.5 rounded-full bg-card border border-border text-[12px] text-muted-foreground">
             {memberCount} clientes
           </span>
-        </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[13px] font-medium hover:brightness-95 transition-colors"
-        >
-          Nueva publicación
-        </button>
-      </div>
+        }
+        actions={
+          <button
+            onClick={() => setModalOpen(true)}
+            className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[13px] font-medium hover:brightness-95 transition-colors"
+          >
+            Nueva publicación
+          </button>
+        }
+      />
 
       {/* Two-column layout */}
       <div className="flex flex-col lg:flex-row gap-5">
@@ -570,7 +572,7 @@ export default function ComunidadPage() {
                 <p className="text-[13px] text-muted-foreground">No hay clases programadas próximamente</p>
               ) : proximosEventos.map((ev, i) => (
                 <div key={i} className="flex items-center gap-3 py-1.5 border-b border-border last:border-0">
-                  <div className="w-2 h-2 rounded-full bg-[#7AA80E] shrink-0" />
+                  <div className="w-2 h-2 rounded-full bg-brand shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-foreground truncate">{ev.titulo}</p>
                     <p className="text-[12px] text-muted-foreground capitalize">{ev.cuando}</p>

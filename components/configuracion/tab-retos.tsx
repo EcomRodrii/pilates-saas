@@ -8,7 +8,7 @@ import { estadoReto } from '@/lib/engines/challenge-engine';
 import type { ChallengeDefinition, AchievementMetric } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 function isoToDateInput(iso: string): string {
   return iso ? iso.slice(0, 10) : '';
@@ -25,8 +25,8 @@ const emptyForm = (): Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'> 
 };
 
 const ESTADO_LABEL: Record<string, { label: string; bg: string; text: string }> = {
-  ACTIVO: { label: 'Activo', bg: '#DBEAFE', text: '#1D4ED8' },
-  COMPLETADO: { label: 'Completado', bg: '#DCFCE7', text: '#059669' },
+  ACTIVO: { label: 'Activo', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', text: 'var(--info)' },
+  COMPLETADO: { label: 'Completado', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
   CADUCADO: { label: 'Caducado', bg: 'var(--muted)', text: 'var(--muted-foreground)' },
 };
 
@@ -129,50 +129,74 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
           <div className="space-y-4">
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
-                <label className={labelCls}>Icono</label>
-                <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                <Field label="Icono"
+                  description="Un emoji. Es la cara del reto en la app de la clienta."
+                >
+                  <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                </Field>
               </div>
               <div>
-                <label className={labelCls}>Nombre</label>
-                <input className={inputCls} value={form.nombre} placeholder="Ej. Reto de verano" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                <Field label="Nombre"
+                  description="Corto y motivador. Ej: «Enero a tope» o «5 clases en 15 días»."
+                >
+                  <input className={inputCls} value={form.nombre} placeholder="Ej. Reto de verano" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                </Field>
               </div>
             </div>
             <div>
-              <label className={labelCls}>Descripción</label>
-              <input className={inputCls} value={form.descripcion ?? ''} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              <Field label="Descripción"
+                description="En qué consiste. Aparece bajo el nombre cuando se apunta."
+              >
+                <input className={inputCls} value={form.descripcion ?? ''} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              </Field>
             </div>
             <div>
-              <label className={labelCls}>Métrica</label>
-              <select className={inputCls} value={form.metric} onChange={e => setForm(f => ({ ...f, metric: e.target.value as AchievementMetric }))}>
-                {ACHIEVEMENT_METRICS.map(m => (
-                  <option key={m.metric} value={m.metric}>{m.nombre}</option>
-                ))}
-              </select>
+              <Field label="Métrica"
+                description="Qué se cuenta para avanzar en el reto. Se calcula solo con la actividad que ya registra la app."
+              >
+                <select className={inputCls} value={form.metric} onChange={e => setForm(f => ({ ...f, metric: e.target.value as AchievementMetric }))}>
+                  {ACHIEVEMENT_METRICS.map(m => (
+                    <option key={m.metric} value={m.metric}>{m.nombre}</option>
+                  ))}
+                </select>
+              </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Objetivo</label>
-                <input type="number" min={1} className={inputCls} value={form.objetivo} onChange={e => setForm(f => ({ ...f, objetivo: Math.max(1, parseInt(e.target.value, 10) || 1) }))} />
+                <Field label="Objetivo"
+                  description="Cifra que hay que alcanzar antes de que termine el reto para completarlo."
+                >
+                  <input type="number" min={1} className={inputCls} value={form.objetivo} onChange={e => setForm(f => ({ ...f, objetivo: Math.max(1, parseInt(e.target.value, 10) || 1) }))} />
+                </Field>
               </div>
               <div>
-                <label className={labelCls}>Créditos de regalo</label>
-                <input type="number" min={0} className={inputCls} value={form.creditosRecompensa} onChange={e => setForm(f => ({ ...f, creditosRecompensa: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                <Field label="Créditos de regalo"
+                  description="Créditos que gana quien lo complete. 0 = solo el reconocimiento."
+                >
+                  <input type="number" min={0} className={inputCls} value={form.creditosRecompensa} onChange={e => setForm(f => ({ ...f, creditosRecompensa: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                </Field>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Empieza</label>
-                <input
-                  type="date" className={inputCls} value={isoToDateInput(form.fechaInicio)}
-                  onChange={e => setForm(f => ({ ...f, fechaInicio: new Date(e.target.value).toISOString() }))}
-                />
+                <Field label="Empieza"
+                  description="Desde esta fecha empieza a contar el progreso. Lo anterior no cuenta."
+                >
+                  <input
+                    type="date" className={inputCls} value={isoToDateInput(form.fechaInicio)}
+                    onChange={e => setForm(f => ({ ...f, fechaInicio: new Date(e.target.value).toISOString() }))}
+                  />
+                </Field>
               </div>
               <div>
-                <label className={labelCls}>Termina</label>
-                <input
-                  type="date" className={inputCls} value={isoToDateInput(form.fechaFin)}
-                  onChange={e => setForm(f => ({ ...f, fechaFin: new Date(e.target.value + 'T23:59:59').toISOString() }))}
-                />
+                <Field label="Termina"
+                  description="Último día para llegar al objetivo. Después, el reto se cierra."
+                >
+                  <input
+                    type="date" className={inputCls} value={isoToDateInput(form.fechaFin)}
+                    onChange={e => setForm(f => ({ ...f, fechaFin: new Date(e.target.value + 'T23:59:59').toISOString() }))}
+                  />
+                </Field>
               </div>
             </div>
             <div className="flex items-center justify-between pt-1">
@@ -194,7 +218,7 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
           <DialogHeader>
             <DialogTitle>Eliminar reto</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este reto? El progreso de las socias en él se perderá.</p>
+          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este reto? El progreso de las clientas en él se perderá.</p>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setBorrarId(null)} className={btnSecondary}>Cancelar</button>
             <button onClick={confirmarBorrar} className="px-4 py-2 rounded-xl bg-[#C4695A] text-white text-[13px] font-semibold hover:bg-[#B25B4D]">Eliminar</button>
