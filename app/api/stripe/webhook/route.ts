@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
     const session = event.data.object as Stripe.Checkout.Session;
     const reciboId = session.metadata?.reciboId;
     const socioId = session.metadata?.socioId;
+    const studioId = session.metadata?.studioId;
 
     // P0-18: la persistencia se hace con service-role (bypassa RLS; el webhook
     // no tiene sesión de usuario) y cualquier fallo de escritura devuelve un
@@ -89,10 +90,53 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      // El recibo es lo crítico (confirma el cobro). Idempotente: reintentar sobre
-      // un recibo ya COBRADO no cambia nada relevante. Registramos el método real
+      // La sesión puede completarse SIN pago (importe diferido, método pendiente
+      // de confirmación). Marcar COBRADO en ese caso da por cobrado dinero que no
+      // ha entrado. Se responde 200 para que Stripe no reintente: el evento es
+      // válido, simplemente no confirma ningún cobro.
+      // Va DENTRO de esta rama a propósito: el alta de mandato SEPA (arriba) es
+      // mode='setup' y nunca tiene payment_status 'paid'.
+      if (session.payment_status !== 'paid') {
+        return NextResponse.json({ received: true, ignorado: 'pago_no_completado' });
+      }
+
+      // El recibo es lo crítico (confirma el cobro). Registramos el método real
       // del cobro (tarjeta/bizum) para la conciliación con el gestor.
       if (reciboId) {
+        // Sin studioId no se puede comprobar que el recibo pertenezca a este
+        // estudio, y el UPDATE iría sin acotar por tenant.
+        if (!studioId) {
+          Sentry.captureMessage('[stripe webhook] checkout.session con reciboId sin studioId', {
+            level: 'error', extra: { reciboId, sessionId: session.id },
+          });
+          return NextResponse.json({ error: 'Metadata incompleta' }, { status: 400 });
+        }
+        const [{ data: reciboRow }, { data: studioRow }] = await Promise.all([
+          admin.from('recibos').select('id, importe, estado').eq('id', reciboId).eq('studio_id', studioId).maybeSingle(),
+          admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle(),
+        ]);
+        if (!reciboRow) {
+          Sentry.captureMessage('[stripe webhook] checkout.session apunta a recibo inexistente o de otro estudio', {
+            level: 'warning', extra: { reciboId, studioId, sessionId: session.id },
+          });
+          return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
+        }
+        // La cuenta Connect que emite el evento debe ser la del estudio dueño del
+        // recibo: si no, un estudio podría confirmar el recibo de otro.
+        if (event.account && studioRow?.stripe_account_id && event.account !== studioRow.stripe_account_id) {
+          Sentry.captureMessage('[stripe webhook] cuenta Connect no coincide con el estudio del recibo', {
+            level: 'error',
+            extra: { reciboId, studioId, eventAccount: event.account, expectedAccount: studioRow.stripe_account_id },
+          });
+          return NextResponse.json({ error: 'Cuenta Connect no autorizada para este recibo' }, { status: 403 });
+        }
+        const esperadoCentimos = Math.round(Number(reciboRow.importe) * 100);
+        if (typeof session.amount_total !== 'number' || session.amount_total < esperadoCentimos) {
+          Sentry.captureMessage('[stripe webhook] importe de checkout inferior al recibo', {
+            level: 'error', extra: { reciboId, studioId, amountTotal: session.amount_total, esperadoCentimos },
+          });
+          return NextResponse.json({ error: 'Importe insuficiente' }, { status: 409 });
+        }
         // Si se ofreció Bizum, el método real puede ser bizum O tarjeta → lo
         // leemos del cargo para registrar metodo_cobro con exactitud. Si no se
         // ofreció Bizum, es tarjeta y evitamos la llamada extra.
@@ -110,7 +154,12 @@ export async function POST(req: NextRequest) {
         }
         const { error } = await admin.from('recibos')
           .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro })
-          .eq('id', reciboId);
+          // Acotado al tenant y a los estados realmente cobrables. PENDIENTE y
+          // FALLIDO (recuperación tras dunning) sí; así un evento tardío o
+          // duplicado no reescribe la fecha_cobro de un recibo ya COBRADO ni
+          // resucita uno ANULADO/DEVUELTO. 0 filas afectadas no es un error.
+          .eq('id', reciboId).eq('studio_id', studioId)
+          .in('estado', ['PENDIENTE', 'FALLIDO']);
         if (error) {
           console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
           return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
@@ -138,19 +187,27 @@ export async function POST(req: NextRequest) {
         const esTarjetaReutilizable = piPmTypes.includes('card')
           && paymentIntent.setup_future_usage === 'off_session';
         if (paymentMethodId && esTarjetaReutilizable) {
-          const { error } = await admin.from('socios')
-            .update({ stripe_customer_id: session.customer, stripe_payment_method_id: paymentMethodId })
-            .eq('id', socioId);
-          if (error) {
-            console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
-            return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
+          if (!studioId) {
+            // Sin studioId no se puede acotar el UPDATE al estudio dueño de la
+            // socia: preferimos no escribir a escribir cross-tenant sobre un id
+            // que viene de metadata.
+            Sentry.captureMessage('[stripe webhook] checkout.session sin studioId: no se guarda la tarjeta', {
+              level: 'warning', extra: { socioId, sessionId: session.id },
+            });
+          } else {
+            const { error } = await admin.from('socios')
+              .update({ stripe_customer_id: session.customer, stripe_payment_method_id: paymentMethodId })
+              .eq('id', socioId).eq('studio_id', studioId);
+            if (error) {
+              console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
+              return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
+            }
           }
         }
       }
     }
 
     // R4: señal de GMV (analítica de producto, no-op si POSTHOG_KEY no está).
-    const studioId = session.metadata?.studioId;
     if (studioId && typeof session.amount_total === 'number') {
       capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: session.amount_total, via: 'checkout' } });
     }
