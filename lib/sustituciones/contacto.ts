@@ -54,6 +54,38 @@ function unaSesion(v: unknown): SesionMin {
   return (s ?? null) as SesionMin;
 }
 
+/**
+ * Anota un intento de contacto. Único sitio que escribe en `sustitucion_contactos`
+ * para que la traza que ve la propietaria no mienta por omisión: durante un tiempo
+ * solo se registraba el email y el nudge de WhatsApp/SMS era invisible, así que el
+ * historial daba a entender que no se había hecho nada más.
+ *
+ * Best-effort a propósito: un fallo al ESCRIBIR EL LOG no puede tumbar un contacto
+ * que ya se ha hecho. Perder una línea de traza es malo; no avisar a la sustituta
+ * porque el log falló es mucho peor.
+ */
+async function registrarContacto(
+  admin: SupabaseClient,
+  p: {
+    studioId: string; sustitucionId: string; instructorId: string;
+    canal: 'email' | 'whatsapp' | 'sms'; estado: 'enviado' | 'fallido'; token?: string;
+  },
+): Promise<void> {
+  try {
+    await admin.from('sustitucion_contactos').insert({
+      id: `cont-${uid()}`,
+      studio_id: p.studioId,
+      sustitucion_id: p.sustitucionId,
+      instructor_id: p.instructorId,
+      canal: p.canal,
+      estado: p.estado,
+      token: p.token ?? null,
+    });
+  } catch (e) {
+    console.error('[sustituciones] no se pudo registrar el contacto', e);
+  }
+}
+
 export interface ResultadoContacto {
   ok: boolean;
   motivo?: 'sin_email' | 'no_contactable' | 'candidata_no_encontrada';
@@ -112,16 +144,9 @@ export async function contactarCandidata(
   const url = `${appUrl()}/aceptar-sustitucion/${token}`;
 
   // Registra el intento con su token (para poder marcar aceptado/rechazado luego).
-  // canal siempre 'email' aquí (el CHECK de la tabla solo admite email/whatsapp/
-  // sms/llamada/push); el tono recordatorio lo lleva el propio email.
-  await admin.from('sustitucion_contactos').insert({
-    id: `cont-${uid()}`,
-    studio_id: studioId,
-    sustitucion_id: sustitucionId,
-    instructor_id: instructorId,
-    canal: 'email',
-    estado: 'enviado',
-    token,
+  // canal siempre 'email' aquí; el tono recordatorio lo lleva el propio email.
+  await registrarContacto(admin, {
+    studioId, sustitucionId, instructorId, canal: 'email', estado: 'enviado', token,
   });
 
   const envio = await enviarEmailContactoSustituta({
@@ -192,12 +217,28 @@ export async function recordatorioPorMensaje(
     url,
   });
 
+  const comun = { studioId, sustitucionId, instructorId } as const;
+
   const wa = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: cand.telefono, cuerpo });
-  if (wa.ok) return { enviado: true, skipped: false };
+  if (wa.ok) {
+    await registrarContacto(admin, { ...comun, canal: 'whatsapp', estado: 'enviado' });
+    return { enviado: true, skipped: false };
+  }
   // Si WhatsApp no está configurado, intenta SMS antes de rendirse.
   const sms = await enviarMensajeTwilio({ canal: 'SMS', to: cand.telefono, cuerpo });
-  if (sms.ok) return { enviado: true, skipped: false };
-  return { enviado: false, skipped: !!(wa.skipped && sms.skipped) };
+  if (sms.ok) {
+    await registrarContacto(admin, { ...comun, canal: 'sms', estado: 'enviado' });
+    return { enviado: true, skipped: false };
+  }
+
+  // Distinguir "no configurado" de "falló": si Twilio no está puesto, el canal
+  // sencillamente no existe para este estudio y anotarlo como fallo llenaría la
+  // traza de ruido rojo. Si estaba puesto y el envío petó, eso SÍ hay que verlo.
+  const noConfigurado = !!(wa.skipped && sms.skipped);
+  if (!noConfigurado) {
+    await registrarContacto(admin, { ...comun, canal: 'whatsapp', estado: 'fallido' });
+  }
+  return { enviado: false, skipped: noConfigurado };
 }
 
 /**

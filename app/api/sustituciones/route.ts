@@ -62,10 +62,40 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const lista = data ?? [];
+
+  // Traza de contactos: a quién se avisó, por qué canal y qué contestó. En una
+  // consulta aparte (no embebida) a propósito: si esta falla, el panel se queda
+  // sin traza pero SIGUE funcionando. Embebida, un fallo tumbaría toda la página
+  // de Sustituciones — un extra informativo no puede llevarse por delante la
+  // herramienta con la que se resuelve una baja.
+  const ids = lista.map((s) => s.id);
+  const contactosPorSust = new Map<string, unknown[]>();
+  if (ids.length > 0) {
+    const { data: contactos, error: errCont } = await admin
+      .from('sustitucion_contactos')
+      .select('sustitucion_id, instructor_id, canal, estado, enviado_en, respondido_en')
+      .eq('studio_id', sesion.studioId)
+      .in('sustitucion_id', ids)
+      .order('enviado_en', { ascending: true });
+    if (errCont) {
+      console.error('[sustituciones] no se pudo cargar la traza de contactos', errCont);
+    } else {
+      for (const c of contactos ?? []) {
+        const arr = contactosPorSust.get(c.sustitucion_id) ?? [];
+        arr.push(c);
+        contactosPorSust.set(c.sustitucion_id, arr);
+      }
+    }
+  }
+
   const { data: estudio } = await admin
     .from('studios').select('avisar_alumnas').eq('id', sesion.studioId).maybeSingle();
 
-  return NextResponse.json({ sustituciones: data ?? [], avisarAlumnas: !!estudio?.avisar_alumnas });
+  return NextResponse.json({
+    sustituciones: lista.map((s) => ({ ...s, sustitucion_contactos: contactosPorSust.get(s.id) ?? [] })),
+    avisarAlumnas: !!estudio?.avisar_alumnas,
+  });
 }
 
 // PATCH /api/sustituciones — confirmar una candidata (aceptación atómica) o
