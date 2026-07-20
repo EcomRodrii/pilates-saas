@@ -9,6 +9,7 @@ import { enviarMensajeTwilio } from '@/lib/twilio';
 import {
   cuerpoNudgeCandidata,
   cuerpoAlertaPropietaria,
+  type TipoAlertaPropietaria,
 } from '@/lib/sustituciones/mensajes';
 
 // ── Núcleo del contacto a una candidata ─────────────────────────────────────
@@ -200,17 +201,19 @@ export async function recordatorioPorMensaje(
 }
 
 /**
- * Alerta a la propietaria: nadie responde / se agotó el ranking. Email al estudio
- * + WhatsApp/SMS si hay teléfono. Idempotencia la garantiza el llamador (un solo
- * disparo por candidata/agotamiento vía step.run de Inngest).
+ * Alerta a la propietaria: se ha dado una baja fuera del panel, nadie responde,
+ * o se agotó el ranking. Email al estudio + WhatsApp/SMS si hay teléfono.
+ * Idempotencia la garantiza el llamador (un solo disparo por candidata/
+ * agotamiento vía step.run de Inngest; una sola vez al crear la baja).
  */
 export async function alertarPropietaria(
   admin: SupabaseClient,
   params: {
     studioId: string;
     sesion: SesionMin;
-    tipo: 'agotada' | 'sin_respuesta';
-    candidataNombre?: string; // para 'sin_respuesta'
+    tipo: TipoAlertaPropietaria;
+    candidataNombre?: string;  // 'sin_respuesta': la candidata; 'baja': quien no puede venir
+    yaContactando?: boolean;   // 'baja': el motor ya está avisando (modo autónomo)
   },
 ): Promise<{ email: boolean; mensaje: boolean }> {
   const { studioId, sesion, tipo } = params;
@@ -230,13 +233,17 @@ export async function alertarPropietaria(
     const r = await enviarEmailAlertaPropietaria({
       to: estudio.email, estudioNombre, claseNombre, cuando, tipo,
       candidataNombre: params.candidataNombre, urlPanel,
+      yaContactando: params.yaContactando,
     });
     email = 'ok' in r && r.ok === true;
   }
 
   let mensaje = false;
   if (estudio?.telefono) {
-    const cuerpo = cuerpoAlertaPropietaria({ claseNombre, cuando, tipo, candidataNombre: params.candidataNombre, urlPanel });
+    const cuerpo = cuerpoAlertaPropietaria({
+      claseNombre, cuando, tipo, candidataNombre: params.candidataNombre, urlPanel,
+      yaContactando: params.yaContactando,
+    });
     const wa = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: estudio.telefono, cuerpo });
     if (wa.ok) mensaje = true;
     else {

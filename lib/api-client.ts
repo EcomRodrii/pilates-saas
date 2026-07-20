@@ -140,12 +140,13 @@ export function leerSociaLocal(): { socioId: string; email: string } | null {
 // PROPIETARIO; el studio_id sale del JWT. Devuelve la URL lista para compartir.
 export async function generarEnlaceDisponibilidad(
   instructorId: string,
+  scope: 'disponibilidad' | 'reportar_baja' = 'disponibilidad',
 ): Promise<{ url: string } | { error: string }> {
   try {
-    const res = await fetch('/api/sustituciones/disponibilidad-link', {
+    const res = await fetch('/api/sustituciones/enlace-instructora', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ instructorId }),
+      body: JSON.stringify({ instructorId, scope }),
     });
     const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
     if (!res.ok || !data.url) return { error: data.error ?? `Error HTTP ${res.status}` };
@@ -167,6 +168,9 @@ export interface SustitucionPanel {
   id: string;
   estado: string;
   motivo: string | null;
+  // 'instructora' = la avisó ella desde su móvil (0056). Las filas anteriores a
+  // esa migración no lo traen → tratar la ausencia como 'panel'.
+  origen?: 'panel' | 'instructora';
   creado_en: string;
   resuelto_en: string | null;
   instructor_original_id: string | null;

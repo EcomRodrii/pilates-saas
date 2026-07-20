@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import type { TipoAlertaPropietaria } from '@/lib/sustituciones/mensajes';
 
 // Email de contacto a una candidata para cubrir una clase. Dos botones grandes:
 // ACEPTO / No puedo — que llevan al deep link de aceptación (un tap, sin login).
@@ -58,19 +59,34 @@ export async function enviarEmailAlertaPropietaria(params: {
   estudioNombre: string;
   claseNombre: string;
   cuando: string;
-  tipo: 'agotada' | 'sin_respuesta';
+  tipo: TipoAlertaPropietaria;
   candidataNombre?: string;
   urlPanel: string;
+  yaContactando?: boolean; // 'baja': el motor ya está avisando a candidatas
 }): Promise<EnvioResultado> {
-  const { estudioNombre, claseNombre, cuando, tipo, candidataNombre, urlPanel } = params;
+  const { estudioNombre, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando } = params;
   const agotada = tipo === 'agotada';
-  const titulo = agotada ? 'Nadie ha podido cubrir esta clase' : `${candidataNombre ?? 'La candidata'} aún no responde`;
-  const cuerpo = agotada
-    ? `Hemos avisado a todas las candidatas disponibles y ninguna ha confirmado. La clase sigue sin sustituta y necesita tu decisión: avisar a alguien por tu cuenta o cancelarla (avisamos a las alumnas por ti).`
-    : `Avisamos a ${esc(candidataNombre ?? 'la candidata')} y aún no ha respondido. Puedes esperar, avisar a otra candidata o cancelar la clase desde el panel.`;
+  const baja = tipo === 'baja';
+
+  // Una baja recién avisada NO es una alarma: es "nos hemos enterado y ya
+  // estamos en ello". Rojo/ámbar se reservan para cuando algo requiere que la
+  // propietaria actúe ya — si todo pinta urgente, nada lo parece.
+  const titulo = baja
+    ? `${candidataNombre ?? 'Una instructora'} no puede dar esta clase`
+    : agotada
+      ? 'Nadie ha podido cubrir esta clase'
+      : `${candidataNombre ?? 'La candidata'} aún no responde`;
+  const color = baja ? '#6D28D9' : agotada ? '#B91C1C' : '#92400E';
+  const cuerpo = baja
+    ? (yaContactando
+        ? `Nos lo ha dicho desde su móvil y ya estamos avisando a las candidatas por ti. Te escribimos en cuanto alguna confirme — no tienes que hacer nada ahora mismo.`
+        : `Nos lo ha dicho desde su móvil. Ya tenemos las candidatas ordenadas y listas: solo falta tu visto bueno en el panel para que empecemos a avisarlas.`)
+    : agotada
+      ? `Hemos avisado a todas las candidatas disponibles y ninguna ha confirmado. La clase sigue sin sustituta y necesita tu decisión: avisar a alguien por tu cuenta o cancelarla (avisamos a las alumnas por ti).`
+      : `Avisamos a ${esc(candidataNombre ?? 'la candidata')} y aún no ha respondido. Puedes esperar, avisar a otra candidata o cancelar la clase desde el panel.`;
   const html = `
   <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0f172a">
-    <p style="font-size:18px;font-weight:800;margin:0 0 14px;color:${agotada ? '#B91C1C' : '#92400E'}">${esc(titulo)}</p>
+    <p style="font-size:18px;font-weight:800;margin:0 0 14px;color:${color}">${esc(titulo)}</p>
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin:0 0 18px">
       <p style="font-size:17px;font-weight:700;margin:0 0 4px">${esc(claseNombre)}</p>
       <p style="font-size:15px;color:#64748b;margin:0">${esc(cuando)}</p>
@@ -81,9 +97,11 @@ export async function enviarEmailAlertaPropietaria(params: {
     </a>
     <p style="font-size:13px;color:#94a3b8;margin:22px 0 0">${esc(estudioNombre)}</p>
   </div>`;
-  const asunto = agotada
-    ? `⚠️ Sin sustituta para ${claseNombre} — necesita tu decisión`
-    : `${candidataNombre ?? 'La candidata'} no responde — ${claseNombre}`;
+  const asunto = baja
+    ? `${candidataNombre ?? 'Una instructora'} no puede dar ${claseNombre} — ya estamos en ello`
+    : agotada
+      ? `⚠️ Sin sustituta para ${claseNombre} — necesita tu decisión`
+      : `${candidataNombre ?? 'La candidata'} no responde — ${claseNombre}`;
   return enviar(params.to, asunto, html);
 }
 

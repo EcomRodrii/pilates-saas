@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { uid } from '@/lib/utils';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
-import { contactarCandidata, contactarDesde, ESTADOS_EN_JUEGO, type RankingItem } from '@/lib/sustituciones/contacto';
-
-// Estados que se consideran "activos" (una baja en curso). Coincide con el índice
-// único parcial `uq_sustitucion_activa_por_sesion` de la migración 0037.
-const ESTADOS_INACTIVOS = '(sin_sustituta,resuelta_fuera,cancelada)';
+import { contactarCandidata, ESTADOS_EN_JUEGO, type RankingItem } from '@/lib/sustituciones/contacto';
+import { crearBaja } from '@/lib/sustituciones/baja';
 
 // Emite el evento de escalado. Best-effort: si el bus de Inngest falla, el contacto
 // ya se hizo (email enviado) — el escalado es una capa de resiliencia encima, no
@@ -22,8 +18,10 @@ async function emitirEscalado(data: { sustitucionId: string; studioId: string; i
 }
 
 // POST /api/sustituciones — marcar una baja: "no puedo dar esta clase".
-// Crea la sustitución (idempotente), calcula el ranking de candidatas con
-// motivos humanos y la deja lista según el modo de autonomía del estudio.
+// El motor (idempotencia, scoring, modo de autonomía, arranque del escalado)
+// vive en lib/sustituciones/baja.ts, compartido con la vía pública por la que
+// la propia instructora se da de baja desde el móvil. Aquí solo queda el
+// control de acceso: quién puede pedirlo.
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
@@ -34,77 +32,16 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as { sesionId?: string; motivo?: string } | null;
   const sesionId = typeof body?.sesionId === 'string' ? body.sesionId : null;
   if (!sesionId) return NextResponse.json({ error: 'Falta la clase (sesionId)' }, { status: 400 });
-  const motivo = typeof body?.motivo === 'string' ? body.motivo.trim().slice(0, 500) || null : null;
 
-  // La clase debe existir y ser de este estudio.
-  const { data: clase } = await admin
-    .from('sesiones').select('id, studio_id, instructor_id, cancelada, inicio, tipo_clase_id')
-    .eq('id', sesionId).eq('studio_id', sesion.studioId).maybeSingle();
-  if (!clase) return NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 });
-  if (clase.cancelada) return NextResponse.json({ error: 'La clase ya está cancelada' }, { status: 409 });
+  const r = await crearBaja(admin, {
+    studioId: sesion.studioId,
+    sesionId,
+    motivo: body?.motivo ?? null,
+    origen: 'panel',
+  });
 
-  // Idempotencia (rápida): si ya hay una sustitución activa para esta clase, la devuelve.
-  const { data: existente } = await admin
-    .from('sustituciones').select('*')
-    .eq('sesion_id', sesionId).not('estado', 'in', ESTADOS_INACTIVOS).maybeSingle();
-  if (existente) return NextResponse.json({ sustitucion: existente, yaExistia: true });
-
-  // Modo de autonomía del estudio (0039).
-  const { data: estudio } = await admin
-    .from('studios').select('modo_autonomia').eq('id', sesion.studioId).maybeSingle();
-  const modo = (estudio?.modo_autonomia as string) ?? 'asistido';
-
-  // Scoring: top-3 de candidatas con motivos en lenguaje humano (función 0038).
-  const { data: ranking, error: errRank } = await admin.rpc('rankear_candidatas', { p_sesion_id: sesionId });
-  if (errRank) return NextResponse.json({ error: errRank.message }, { status: 500 });
-
-  // asistido → espera el visto bueno de la propietaria; autonomo/vacaciones →
-  // arranca en 'contactando' y más abajo se avisa sola a la 1ª candidata.
-  const estado = modo === 'autonomo' || modo === 'vacaciones' ? 'contactando' : 'pendiente_aprobacion';
-
-  const nueva = {
-    id: `sust-${uid()}`,
-    studio_id: sesion.studioId,
-    sesion_id: sesionId,
-    instructor_original_id: clase.instructor_id,
-    motivo,
-    estado,
-    ranking: ranking ?? [],
-    candidata_actual: 0,
-  };
-
-  const { data: insertada, error: errIns } = await admin
-    .from('sustituciones').insert(nueva).select('*').single();
-
-  if (errIns) {
-    // Choque con el índice único parcial (dos bajas simultáneas de la misma
-    // clase) → gana la primera; devolvemos la activa en vez de crear otra.
-    if (errIns.code === '23505') {
-      const { data: activa } = await admin
-        .from('sustituciones').select('*')
-        .eq('sesion_id', sesionId).not('estado', 'in', ESTADOS_INACTIVOS).maybeSingle();
-      if (activa) return NextResponse.json({ sustitucion: activa, yaExistia: true });
-    }
-    return NextResponse.json({ error: errIns.message }, { status: 500 });
-  }
-
-  // Modo autónomo/vacaciones: la dueña ha "desaparecido" → el motor contacta solo
-  // a la primera candidata contactable y arranca el escalado. En asistido no se
-  // contacta a nadie aquí (espera el visto bueno de la propietaria en el panel).
-  if (insertada.estado === 'contactando') {
-    const rank = (Array.isArray(ranking) ? ranking : []) as RankingItem[];
-    const sesionMin = { inicio: clase.inicio as string, tipo_clase_id: clase.tipo_clase_id as string | null };
-    const r = await contactarDesde(admin, {
-      sustitucionId: insertada.id, studioId: sesion.studioId, sesion: sesionMin, ranking: rank, desde: 0,
-    });
-    if (r.contactada) {
-      await emitirEscalado({ sustitucionId: insertada.id, studioId: sesion.studioId, instructorId: r.instructorId, idx: r.idx });
-    }
-    // Si nadie es contactable (ranking vacío o sin emails), la baja queda en
-    // 'contactando' con el ranking vacío → el panel muestra "cancelar clase".
-  }
-
-  return NextResponse.json({ sustitucion: insertada, yaExistia: false });
+  if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+  return NextResponse.json({ sustitucion: r.sustitucion, yaExistia: r.yaExistia });
 }
 
 // GET /api/sustituciones — lista las sustituciones del estudio (activas +
@@ -118,7 +55,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from('sustituciones')
-    .select('id, estado, motivo, creado_en, resuelto_en, instructor_original_id, sustituta_final_id, ranking, sesion_id, sesiones(inicio, fin, tipo_clase_id, cancelada)')
+    .select('id, estado, motivo, origen, creado_en, resuelto_en, instructor_original_id, sustituta_final_id, ranking, sesion_id, sesiones(inicio, fin, tipo_clase_id, cancelada)')
     .eq('studio_id', sesion.studioId)
     .order('creado_en', { ascending: false })
     .limit(50);
