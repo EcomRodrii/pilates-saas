@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useState, useEffect, useId } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -22,6 +23,7 @@ import { TabRetos } from '@/components/configuracion/tab-retos';
 import { TabBackups } from '@/components/configuracion/tab-backups';
 import { TabServiciosCita } from '@/components/configuracion/tab-servicios-cita';
 import { TabHorarioCitas } from '@/components/configuracion/tab-horario-citas';
+import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -35,11 +37,61 @@ export const cardCls = 'bg-card border border-border rounded-xl';
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
 
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  description,
+  hint,
+  children,
+}: {
+  label: string;
+  /**
+   * Qué es esto y cómo decidir. Va debajo de la etiqueta y encima del control:
+   * se lee ANTES de elegir, no después de haberse equivocado.
+   *
+   * Existe porque antes este helper solo aceptaba { label, children }, así que
+   * no había ni dónde escribir la explicación — y por eso las pestañas de
+   * conceptos propios del producto (planes, logros, niveles, retos) acababan
+   * pidiendo decisiones sin contar en ningún sitio qué significaban.
+   */
+  description?: React.ReactNode;
+  /** <InfoTip> junto a la etiqueta, para el detalle largo que no cabe aquí. */
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const autoId = React.useId();
+  // El control llega como children opaco, así que aquí se le inyectan las dos
+  // cosas que lo hacen accesible:
+  //   · un id, para que la etiqueta lo señale con htmlFor (antes el <label> y
+  //     el campo eran hermanos sueltos: visualmente parecían ir juntos, pero un
+  //     lector de pantalla leía el campo sin nombre);
+  //   · aria-describedby, para que la explicación se lea además del nombre.
+  // Si quien llama ya puso un id propio, se respeta.
+  type PropsControl = { id?: string; 'aria-describedby'?: string };
+  const hijo = React.isValidElement(children)
+    ? (children as React.ReactElement<PropsControl>)
+    : null;
+  const idControl = hijo ? (hijo.props.id ?? autoId) : undefined;
+  const idDesc = description ? `${autoId}-desc` : undefined;
+
+  const control = hijo
+    ? React.cloneElement(hijo, {
+        id: idControl,
+        'aria-describedby': idDesc ?? hijo.props['aria-describedby'],
+      })
+    : children;
+
   return (
     <div>
-      <label className={labelCls}>{label}</label>
-      {children}
+      <label htmlFor={idControl} className={cn(labelCls, 'flex items-center gap-1.5')}>
+        {label}
+        {hint}
+      </label>
+      {description && (
+        <p id={idDesc} className="text-xs leading-relaxed text-muted-foreground mb-1.5 text-balance">
+          {description}
+        </p>
+      )}
+      {control}
     </div>
   );
 }
@@ -118,8 +170,8 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <div className="flex flex-col items-center text-center gap-4 py-2">
-          <div className="w-12 h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center">
-            <AlertTriangle size={20} className="text-[#DC2626]" />
+          <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
+            <AlertTriangle size={20} className="text-destructive" />
           </div>
           <div>
             <h3 className="text-[14px] font-semibold text-foreground mb-1">{title}</h3>
@@ -133,7 +185,7 @@ export function ConfirmDialog({
               Cancelar
             </button>
             <button
-              className="flex-1 bg-[#DC2626] text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-red-700 transition-colors"
+              className="flex-1 bg-destructive text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-red-700 transition-colors"
               onClick={() => { onConfirm(); onOpenChange(false); }}
             >
               Eliminar
@@ -196,7 +248,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'retos',       label: 'Retos' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
-  { id: 'campos',      label: 'Campos de socia' },
+  { id: 'campos',      label: 'Campos de clienta' },
   { id: 'plantillas',  label: 'Emails' },
   { id: 'backups',     label: 'Copias de seguridad' },
   { id: 'perfil',      label: 'Mi perfil' },
@@ -221,13 +273,10 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-[22px] font-bold text-foreground">Configuración</h1>
-        <p className="text-[13px] text-muted-foreground mt-0.5">
-          Gestiona los planes, clases, salas, instructores e integraciones de tu estudio
-        </p>
-      </div>
+      <PageHeader
+        title="Configuración"
+        description="Gestiona los planes, clases, salas, instructores e integraciones de tu estudio"
+      />
 
       {/* Tab nav */}
       <div className="flex gap-1 p-1 bg-card border border-border rounded-xl overflow-x-auto">

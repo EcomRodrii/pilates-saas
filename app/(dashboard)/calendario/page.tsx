@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
@@ -22,6 +22,7 @@ import { decidirReservaNueva } from '@/lib/booking-logic';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import type { Socio, Spot } from '@/lib/types';
+import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -128,11 +129,35 @@ type RecurringFormData = {
 
 // ─── FormField wrapper ────────────────────────────────────────────────────────
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+// `description` es lo que faltaba: sin él no había dónde explicar, p.ej., qué
+// pasa al superar el aforo o hasta cuándo se repite una clase recurrente.
+function FormField({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description?: ReactNode;
+  children: ReactNode;
+}) {
+  const autoId = useId();
+  type PropsControl = { id?: string; 'aria-describedby'?: string };
+  const hijo = isValidElement(children) ? (children as ReactElement<PropsControl>) : null;
+  const idControl = hijo ? (hijo.props.id ?? autoId) : undefined;
+  const idDesc = description ? `${autoId}-desc` : undefined;
+  const control = hijo
+    ? cloneElement(hijo, { id: idControl, 'aria-describedby': idDesc ?? hijo.props['aria-describedby'] })
+    : children;
+
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
-      {children}
+      <label htmlFor={idControl} className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
+      {description && (
+        <p id={idDesc} className="text-xs leading-relaxed text-muted-foreground text-balance">
+          {description}
+        </p>
+      )}
+      {control}
     </div>
   );
 }
@@ -477,9 +502,9 @@ function SessionSidebar({
         <div className="absolute inset-0 bg-card z-30 flex flex-col items-center justify-center gap-5 p-8 text-center">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center"
-            style={{ backgroundColor: showConfirm === 'eliminar' ? '#FEE2E2' : '#FEF3C7' }}
+            style={{ backgroundColor: showConfirm === 'eliminar' ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : 'color-mix(in srgb, var(--warning) 12%, var(--card))' }}
           >
-            <AlertTriangle size={24} color={showConfirm === 'eliminar' ? '#EF4444' : '#D97706'} />
+            <AlertTriangle size={24} color={showConfirm === 'eliminar' ? '#EF4444' : 'var(--warning)'} />
           </div>
           <div>
             <h3 className="text-base font-bold text-foreground mb-1">
@@ -488,7 +513,7 @@ function SessionSidebar({
             <p className="text-sm text-muted-foreground">
               {showConfirm === 'eliminar'
                 ? 'Se eliminará la clase y todas las reservas. Esta acción no se puede deshacer.'
-                : 'La clase quedará marcada como cancelada. Las socias con plaza recibirán un email de aviso.'}
+                : 'La clase quedará marcada como cancelada. Las clientas con plaza recibirán un email de aviso.'}
             </p>
           </div>
           {/* Serie (I-3): si la clase pertenece a una serie, se puede cancelar
@@ -498,14 +523,14 @@ function SessionSidebar({
               <button
                 onClick={() => { onCancelarSesion(); setShowConfirm(null); }}
                 className="w-full py-2.5 rounded-xl text-sm font-bold text-white"
-                style={{ backgroundColor: '#D97706' }}
+                style={{ backgroundColor: 'var(--warning)' }}
               >
                 Cancelar solo esta clase
               </button>
               <button
                 onClick={() => { onCancelarSerie(); setShowConfirm(null); }}
                 className="w-full py-2.5 rounded-xl text-sm font-bold text-white"
-                style={{ backgroundColor: '#B45309' }}
+                style={{ backgroundColor: 'var(--warning)' }}
               >
                 Cancelar esta y las siguientes
               </button>
@@ -527,7 +552,7 @@ function SessionSidebar({
               <button
                 onClick={() => { showConfirm === 'eliminar' ? onEliminarSesion() : onCancelarSesion(); setShowConfirm(null); }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-                style={{ backgroundColor: showConfirm === 'eliminar' ? '#EF4444' : '#D97706' }}
+                style={{ backgroundColor: showConfirm === 'eliminar' ? '#EF4444' : 'var(--warning)' }}
               >
                 {showConfirm === 'eliminar' ? 'Eliminar' : 'Cancelar clase'}
               </button>
@@ -560,8 +585,8 @@ function SessionSidebar({
           <div className="p-4 space-y-1">
             {/* Alertas de salud antes de la clase (§4, §7) */}
             {alertasClase.length > 0 && (
-              <div className="mb-3 rounded-xl border p-3" style={{ backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}>
-                <p className="text-[11px] font-bold mb-1.5 flex items-center gap-1.5" style={{ color: '#92400E' }}>
+              <div className="mb-3 rounded-xl border p-3" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', borderColor: '#FDE68A' }}>
+                <p className="text-[11px] font-bold mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--warning)' }}>
                   <AlertTriangle size={13} /> Adaptaciones para esta clase
                 </p>
                 <ul className="space-y-1">
@@ -619,13 +644,13 @@ function SessionSidebar({
                 onClick={() => setShowAnadir(true)}
                 className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-border text-xs font-bold text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors mb-3"
               >
-                <UserPlus size={13} />Añadir socia a la clase
+                <UserPlus size={13} />Añadir clienta a la clase
               </button>
             ) : (
               <div className="mb-3 space-y-2">
                 <input
                   className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground"
-                  placeholder="Buscar socia..."
+                  placeholder="Buscar clienta..."
                   value={buscarSocia}
                   onChange={e => setBuscarSocia(e.target.value)}
                   autoFocus
@@ -647,7 +672,7 @@ function SessionSidebar({
                     </button>
                   ))}
                   {sociosDisponibles.length === 0 && (
-                    <p className="text-xs text-center py-3 text-muted-foreground">No hay socias disponibles</p>
+                    <p className="text-xs text-center py-3 text-muted-foreground">No hay clientas disponibles</p>
                   )}
                 </div>
                 <button
@@ -676,11 +701,11 @@ function SessionSidebar({
                       className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                       style={
                         r.estado === 'ASISTIDA'
-                          ? { backgroundColor: '#D1FAE5', color: '#065F46' }
+                          ? { backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }
                           : r.estado === 'LISTA_ESPERA'
-                          ? { backgroundColor: '#FEF3C7', color: '#92400E' }
+                          ? { backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)' }
                           : r.estado === 'NO_ASISTIO'
-                          ? { backgroundColor: '#FEE2E2', color: '#B91C1C' }
+                          ? { backgroundColor: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }
                           : { backgroundColor: 'color-mix(in srgb, var(--brand) 10%, var(--card))', color: 'var(--brand)' }
                       }
                     >
@@ -735,7 +760,7 @@ function SessionSidebar({
                           <button
                             onClick={() => onCheckin(r.id)}
                             className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
-                            style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
+                            style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
                           >
                             <CheckCircle2 size={11} />Check-in
                           </button>
@@ -743,7 +768,7 @@ function SessionSidebar({
                             onClick={() => onMarcarNoShow(r.id)}
                             title="Marcar que no se presentó"
                             className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
-                            style={{ backgroundColor: '#FEE2E2', color: '#B91C1C' }}
+                            style={{ backgroundColor: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}
                           >
                             No vino
                           </button>
@@ -751,7 +776,7 @@ function SessionSidebar({
                       )}
                       {r.estado === 'ASISTIDA' && (
                         <>
-                          <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
+                          <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}>
                             <CheckCircle2 size={11} />OK
                           </span>
                           <button
@@ -768,7 +793,7 @@ function SessionSidebar({
                           onClick={() => onRevertirNoShow(r.id)}
                           title="Deshacer: volver a confirmada"
                           className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
-                          style={{ backgroundColor: '#FEE2E2', color: '#B91C1C' }}
+                          style={{ backgroundColor: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}
                         >
                           <RefreshCw size={11} />Deshacer
                         </button>
@@ -922,59 +947,54 @@ function ModalClasesRecurrentes({
           <p className="text-sm text-muted-foreground mt-0.5">Genera múltiples sesiones de una vez</p>
         </DialogHeader>
         <div className="space-y-4 mt-3">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">Tipo de clase</label>
+          <FormField label="Tipo de clase">
             <select className={s2} value={form.tipoClaseId} onChange={e => setForm(f => ({ ...f, tipoClaseId: e.target.value }))}>
               {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
             </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">Instructora</label>
+          </FormField>
+          <FormField label="Instructora">
             <select className={s2} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
               {instructores.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
             </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">Sala</label>
+          </FormField>
+          <FormField label="Sala">
             <select className={s2} value={form.salaId} onChange={e => setForm(f => ({ ...f, salaId: e.target.value }))}>
               {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
-          </div>
+          </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Hora inicio</label>
+            <FormField label="Hora inicio">
               <input type="time" className={f2} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Duración (min)</label>
+            </FormField>
+            <FormField label="Duración (min)">
               <input type="number" min={15} max={300} step={5} className={f2}
                 value={form.duracion}
                 onChange={e => setForm(f => ({ ...f, duracion: Math.max(15, Number(e.target.value)) }))} />
-            </div>
+            </FormField>
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground uppercase tracking-wider">Días de la semana</label>
+            <p className="text-xs leading-relaxed text-muted-foreground text-balance">
+              Se creará una clase cada semana en estos días, desde la fecha de inicio hasta la de fin.
+            </p>
             <div className="flex items-center gap-2 flex-wrap">
               {DIA_PILLS.map(({ label, day }) => (
                 <DiaPill key={day} label={label} active={form.diasSemana.includes(day)} onClick={() => toggleDia(day)} />
               ))}
             </div>
-            {form.diasSemana.length === 0 && <p className="text-xs text-red-500">Selecciona al menos un día</p>}
+            {form.diasSemana.length === 0 && <p className="text-xs text-destructive">Selecciona al menos un día</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Fecha inicio</label>
+            <FormField label="Fecha inicio">
               <input type="date" className={f2} value={form.fechaInicio} onChange={e => setForm(f => ({ ...f, fechaInicio: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground uppercase tracking-wider">Fecha fin</label>
+            </FormField>
+            <FormField label="Fecha fin">
               <input type="date" className={f2} value={form.fechaFin} onChange={e => setForm(f => ({ ...f, fechaFin: e.target.value }))} />
-            </div>
+            </FormField>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">Aforo máximo</label>
+          <FormField label="Aforo máximo" description="Al llenarse, las siguientes reservas entran en lista de espera; no se bloquean.">
             <input type="number" min={1} max={300} className={f2} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
-          </div>
+          </FormField>
           {estimatedCount > 0 && (
             <div className="rounded-xl bg-muted px-4 py-3 flex items-center gap-2">
               <CalendarDays size={15} className="text-muted-foreground shrink-0" />
@@ -1101,8 +1121,8 @@ function CurrentTimeLine({ startHour, endHour }: { startHour: number; endHour: n
   return (
     <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: `${top}px` }}>
       <div className="flex items-center">
-        <span className="w-2 h-2 rounded-full bg-[#DC2626] -ml-1 shrink-0" />
-        <div className="flex-1 h-px bg-[#DC2626]" />
+        <span className="w-2 h-2 rounded-full bg-destructive -ml-1 shrink-0" />
+        <div className="flex-1 h-px bg-destructive" />
       </div>
     </div>
   );
@@ -1415,6 +1435,21 @@ export default function Calendario() {
   }
 
   // ── Session actions ──────────────────────────────────────────────────────────
+  // Llegada desde el lanzador de tareas (⌘K → "Crear una clase"): deja el
+  // formulario abierto, no en la puerta. Mismo patrón que /clientas?nuevo=1.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('nueva') === '1') {
+      openNueva();
+      window.history.replaceState({}, '', '/calendario');
+    } else if (params.get('recurrentes') === '1') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowRecurrentes(true);
+      window.history.replaceState({}, '', '/calendario');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function openNueva(prefillFecha?: string) {
     setForm({ ...emptyForm(), fecha: prefillFecha ?? localDate(now) });
     setShowForm('nueva');
@@ -1540,7 +1575,7 @@ export default function Calendario() {
     }
     updateSesion(sesionId, { cancelada: true });
     setSesionId(null);
-    setToast('Clase cancelada · socias avisadas');
+    setToast('Clase cancelada · clientas avisadas');
   }
 
   // Cancela "esta y las siguientes" de la serie (I-3). El contexto avisa por
@@ -1553,7 +1588,7 @@ export default function Calendario() {
     }).length;
     cancelarSerieDesde(sesionId);
     setSesionId(null);
-    setToast(`Serie cancelada · ${n} clases · socias avisadas`);
+    setToast(`Serie cancelada · ${n} clases · clientas avisadas`);
   }
 
   function eliminarSesion() {
@@ -1577,7 +1612,7 @@ export default function Calendario() {
   function handleAddReserva(sesionId: string, socioId: string) {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     const socio = socios.find(s => s.id === socioId);
-    const nombre = socio ? socio.nombre : 'La socia';
+    const nombre = socio ? socio.nombre : 'La clienta';
     const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
     addReserva(sesionId, socioId);
     setToast(estado === 'LISTA_ESPERA'
@@ -1597,16 +1632,13 @@ export default function Calendario() {
     <div className="flex flex-col h-full">
     <div className="flex flex-col flex-1 min-h-0 rounded-3xl bg-card border border-border shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)] overflow-hidden">
       {/* ── Top header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap shrink-0 px-6 pt-5 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-brand flex items-center justify-center shrink-0">
-            <CalendarDays size={18} className="text-brand-foreground" />
-          </div>
-          <div>
-            <h1 className="text-xl font-extrabold text-foreground tracking-tight leading-tight">Agenda</h1>
-            <p className="text-xs font-semibold mt-0.5 capitalize text-muted-foreground">{mesLabel}</p>
-          </div>
-        </div>
+      {/* Se retira el icono en cuadro de color: era la única pantalla que lo
+          llevaba, y esa excepción es justo lo que rompe el patrón aprendido. */}
+      <PageHeader
+        className="shrink-0 px-6 pt-5 pb-4 sm:items-center"
+        title="Agenda"
+        description={<span className="capitalize">{mesLabel}</span>}
+        actions={
         <div className="flex items-center gap-2 flex-wrap">
           {/* Migración asistida: traer el horario del programa anterior. Va aquí
               (y no escondido en Configuración) porque es lo primero que necesita
@@ -1696,7 +1728,8 @@ export default function Calendario() {
             )}
           </div>
         </div>
-      </div>
+        }
+      />
 
       {/* ── Stats bar ──────────────────────────────────────────────────────────── */}
       <div className="px-6 pb-4 shrink-0">
@@ -1841,7 +1874,7 @@ export default function Calendario() {
                   <input type="time" className={inputCls} value={form.horaFin} onChange={e => setForm(f => ({ ...f, horaFin: e.target.value }))} />
                 </FormField>
               </div>
-              <FormField label="Aforo máximo">
+              <FormField label="Aforo máximo" description="Al llenarse, las siguientes reservas entran en lista de espera; no se bloquean.">
                 <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
               </FormField>
               {showForm === 'nueva' && (

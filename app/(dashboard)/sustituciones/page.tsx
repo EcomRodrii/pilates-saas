@@ -12,14 +12,15 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
   Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw,
 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 type EstadoMeta = { label: string; cls: string; activa: boolean };
 const ESTADO: Record<string, EstadoMeta> = {
-  buscando: { label: 'Buscando', cls: 'bg-[#FEF3C7] text-[#92400E]', activa: true },
+  buscando: { label: 'Buscando', cls: 'bg-warning/10 text-warning', activa: true },
   pendiente_aprobacion: { label: 'Esperando tu visto bueno', cls: 'bg-brand/10 text-brand-secondary', activa: true },
-  contactando: { label: 'Contactando', cls: 'bg-[#FEF3C7] text-[#92400E]', activa: true },
+  contactando: { label: 'Contactando', cls: 'bg-warning/10 text-warning', activa: true },
   agotada: { label: 'Nadie ha respondido', cls: 'bg-red-100 text-red-700', activa: true },
-  confirmada: { label: 'Cubierta', cls: 'bg-[#DCFCE7] text-[#059669]', activa: false },
+  confirmada: { label: 'Cubierta', cls: 'bg-success/10 text-success', activa: false },
   sin_sustituta: { label: 'Sin sustituta', cls: 'bg-red-100 text-red-700', activa: false },
   resuelta_fuera: { label: 'Resuelta fuera', cls: 'bg-muted text-muted-foreground', activa: false },
   cancelada: { label: 'Cancelada', cls: 'bg-muted text-muted-foreground', activa: false },
@@ -40,6 +41,10 @@ export default function SustitucionesPage() {
   const [nuevaBaja, setNuevaBaja] = useState(false);
   const [accion, setAccion] = useState<string | null>(null); // id en proceso
   const [aviso, setAviso] = useState<string | null>(null);   // toast breve
+  // Antes esto era un alert() del navegador con el error crudo de Postgres
+  // dentro. Ahora es un banner en la propia página: no bloquea, se puede
+  // cerrar, y el texto viene ya en español desde el servidor.
+  const [errorAccion, setErrorAccion] = useState<string | null>(null);
   const [avisar, setAvisar] = useState(false);               // toggle avisar_alumnas
   const [valoraciones, setValoraciones] = useState<ResumenValoraciones>({});
   const [ahoraMs, setAhoraMs] = useState(0);          // se fija al montar (evita Date.now en render)
@@ -68,12 +73,13 @@ export default function SustitucionesPage() {
     const nuevo = !avisar;
     setAvisar(nuevo); // optimista
     const r = await setAvisarAlumnas(nuevo);
-    if ('error' in r) { setAvisar(!nuevo); alert(r.error); }
+    if ('error' in r) { setAvisar(!nuevo); setErrorAccion(r.error); }
   }
   async function cancelar(s: SustitucionPanel) {
+    setErrorAccion(null);
     setAccion(s.id);
     const r = await cancelarClase(s.id);
-    if ('error' in r) { alert(r.error); setAccion(null); return; }
+    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     const a = r.alumnas;
     setAviso(a && !a.desactivado ? `Clase cancelada. ${a.avisadas} de ${a.total} alumnas avisadas por email.` : 'Clase cancelada.');
     await recargar();
@@ -97,16 +103,18 @@ export default function SustitucionesPage() {
   }, [items, ahoraMs]);
 
   async function confirmar(s: SustitucionPanel, instructorId: string) {
+    setErrorAccion(null);
     setAccion(s.id);
     const r = await confirmarSustituta(s.id, instructorId);
-    if ('error' in r) { alert(r.error); setAccion(null); return; }
+    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     await recargar();
     setAccion(null);
   }
   async function avisarCandidata(s: SustitucionPanel, instructorId: string) {
+    setErrorAccion(null);
     setAccion(s.id);
     const r = await avisarSustituta(s.id, instructorId);
-    if ('error' in r) { alert(r.error); setAccion(null); return; }
+    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     setAviso(r.emailSkipped
       ? `Marcada como avisada a ${r.candidata} (el email no está configurado — envíaselo tú).`
       : `Email enviado a ${r.candidata}. Cuando acepte, la clase se reasigna sola.`);
@@ -123,19 +131,20 @@ export default function SustitucionesPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Sustituciones</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Cuando alguien falla, aquí tienes la sustituta antes de coger el teléfono</p>
-        </div>
-        <button onClick={() => setNuevaBaja(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
-          <Plus size={16} /> Marcar una baja
-        </button>
-      </div>
+      <PageHeader
+        title="Sustituciones"
+        description="Cuando alguien falla, aquí tienes la sustituta antes de coger el teléfono"
+        actions={
+          <button onClick={() => setNuevaBaja(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
+            <Plus size={16} /> Marcar una baja
+          </button>
+        }
+      />
 
       <label className="flex items-center gap-2.5 cursor-pointer text-[13px] text-muted-foreground select-none">
         <button
           type="button" role="switch" aria-checked={avisar} onClick={toggleAvisar}
+          aria-label="Avisar a las alumnas por email cuando se confirma sustituta o se cancela una clase"
           className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${avisar ? 'bg-brand' : 'bg-muted'}`}
         >
           <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${avisar ? 'translate-x-4' : ''}`} />
@@ -144,8 +153,18 @@ export default function SustitucionesPage() {
         Avisar a las alumnas por email cuando se confirma sustituta o se cancela una clase
       </label>
 
+      {errorAccion && (
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <span className="flex-1">{errorAccion}</span>
+          <button onClick={() => setErrorAccion(null)} aria-label="Cerrar aviso" className="shrink-0 opacity-70 hover:opacity-100">
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
       {aviso && (
-        <div className="flex items-start gap-2 rounded-xl bg-[#DCFCE7] border border-[#86EFAC] px-4 py-3 text-[13px] text-[#166534]">
+        <div className="flex items-start gap-2 rounded-xl bg-success/10 border border-[#86EFAC] px-4 py-3 text-[13px] text-[#166534]">
           <MailCheck size={16} className="shrink-0 mt-0.5" /> {aviso}
         </div>
       )}
@@ -550,7 +569,7 @@ function ResueltaRow({
   const meta = ESTADO[s.estado] ?? ESTADO.resuelta_fuera;
   return (
     <div className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3">
-      {s.estado === 'confirmada' ? <CheckCircle2 size={16} className="text-[#059669] shrink-0" /> : <CalendarX2 size={16} className="text-muted-foreground shrink-0" />}
+      {s.estado === 'confirmada' ? <CheckCircle2 size={16} className="text-success shrink-0" /> : <CalendarX2 size={16} className="text-muted-foreground shrink-0" />}
       <div className="min-w-0 flex-1">
         <p className="text-[13px] text-foreground truncate">
           <strong>{tipo?.nombre ?? 'Clase'}</strong> · {fmtClase(s.sesiones?.inicio)}

@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState, useId } from 'react';
+import { useEffect, useMemo, useState, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
 import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
 import { cn, formatEuro, formatFechaCorta, formatHoraCorta } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/page-header';
 import {
   Dialog,
   DialogContent,
@@ -18,17 +19,17 @@ import {
 
 const TIPO_BADGE: Record<TipoCita, { label: string; cls: string }> = {
   PRIVADA:     { label: 'Privada',      cls: 'bg-[#EDE9FE] text-[#6D28D9]' },
-  EVALUACION:  { label: 'Evaluación',   cls: 'bg-[#DBEAFE] text-[#1D4ED8]' },
-  FISIOTERAPIA:{ label: 'Fisioterapia', cls: 'bg-[#D1FAE5] text-[#065F46]' },
-  ONLINE:      { label: 'Online',       cls: 'bg-[#FEF3C7] text-[#92400E]' },
+  EVALUACION:  { label: 'Evaluación',   cls: 'bg-info/10 text-info' },
+  FISIOTERAPIA:{ label: 'Fisioterapia', cls: 'bg-success/10 text-success' },
+  ONLINE:      { label: 'Online',       cls: 'bg-warning/10 text-warning' },
 };
 
 const ESTADO_BADGE: Record<EstadoCita, { label: string; cls: string }> = {
-  PENDIENTE:   { label: 'Pendiente',    cls: 'bg-[#FEF3C7] text-[#92400E]' },
-  CONFIRMADA:  { label: 'Confirmada',   cls: 'bg-[#DBEAFE] text-[#1D4ED8]' },
-  COMPLETADA:  { label: 'Completada',   cls: 'bg-[#D1FAE5] text-[#065F46]' },
+  PENDIENTE:   { label: 'Pendiente',    cls: 'bg-warning/10 text-warning' },
+  CONFIRMADA:  { label: 'Confirmada',   cls: 'bg-info/10 text-info' },
+  COMPLETADA:  { label: 'Completada',   cls: 'bg-success/10 text-success' },
   CANCELADA:   { label: 'Cancelada',    cls: 'bg-muted text-muted-foreground' },
-  NO_ASISTIO:  { label: 'No asistió',   cls: 'bg-[#FEE2E2] text-[#B91C1C]' },
+  NO_ASISTIO:  { label: 'No asistió',   cls: 'bg-destructive/10 text-destructive' },
 };
 
 const TIPOS_CITA: TipoCita[] = ['PRIVADA', 'EVALUACION', 'FISIOTERAPIA', 'ONLINE'];
@@ -53,11 +54,35 @@ function isSameMonth(iso: string, ref: Date): boolean {
 
 // ─── Form field wrapper ───────────────────────────────────────────────────────
 
-function FF({ label, children }: { label: string; children: React.ReactNode }) {
+// `description` es lo que faltaba: sin él no había dónde explicar, p.ej., para
+// qué sirve el campo Precio o si el Tipo afecta a algo más que a la agenda.
+function FF({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description?: ReactNode;
+  children: ReactNode;
+}) {
+  const autoId = useId();
+  type PropsControl = { id?: string; 'aria-describedby'?: string };
+  const hijo = isValidElement(children) ? (children as ReactElement<PropsControl>) : null;
+  const idControl = hijo ? (hijo.props.id ?? autoId) : undefined;
+  const idDesc = description ? `${autoId}-desc` : undefined;
+  const control = hijo
+    ? cloneElement(hijo, { id: idControl, 'aria-describedby': idDesc ?? hijo.props['aria-describedby'] })
+    : children;
+
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-foreground">{label}</label>
-      {children}
+      <label htmlFor={idControl} className="text-sm font-medium text-foreground">{label}</label>
+      {description && (
+        <p id={idDesc} className="text-xs leading-relaxed text-muted-foreground text-balance">
+          {description}
+        </p>
+      )}
+      {control}
     </div>
   );
 }
@@ -163,8 +188,8 @@ function CitaCard({
               className="shrink-0 rounded-full hover:opacity-80 transition-opacity"
             >
               {cita.pagada
-                ? <CheckCircle2 size={16} className="text-[#059669]" />
-                : <CircleDashed size={16} className="text-[#B45309]" />}
+                ? <CheckCircle2 size={16} className="text-success" />
+                : <CircleDashed size={16} className="text-warning" />}
             </button>
           )}
         </div>
@@ -176,14 +201,14 @@ function CitaCard({
           <>
             <button
               onClick={() => onCompletar(cita.id)}
-              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium bg-[#D1FAE5] text-[#065F46] hover:bg-[#A7F3D0] transition-colors"
+              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium bg-success/10 text-success hover:bg-[#A7F3D0] transition-colors"
             >
               <CheckCircle2 size={12} />
               Completar
             </button>
             <button
               onClick={() => onCancelar(cita.id)}
-              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium bg-[#FEE2E2] text-[#B91C1C] hover:bg-[#FECACA] transition-colors"
+              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium bg-destructive/10 text-destructive hover:bg-[#FECACA] transition-colors"
             >
               <XCircle size={12} />
               Cancelar
@@ -288,11 +313,11 @@ export default function CitasPage() {
 
   const metricas = [
     ...(verPrecio
-      ? [{ label: 'Ingresos este mes', value: formatEuro(ingresosMes), accent: 'text-[#059669]' }]
+      ? [{ label: 'Ingresos este mes', value: formatEuro(ingresosMes), accent: 'text-success' }]
       : []),
     { label: 'Citas este mes', value: String(thisMonth.length), accent: 'text-foreground' },
-    { label: 'Asistencia', value: tasaAsistencia != null ? `${tasaAsistencia}%` : '—', accent: 'text-[#059669]' },
-    { label: 'No-shows', value: String(noShowsMes), accent: noShowsMes > 0 ? 'text-[#B91C1C]' : 'text-foreground' },
+    { label: 'Asistencia', value: tasaAsistencia != null ? `${tasaAsistencia}%` : '—', accent: 'text-success' },
+    { label: 'No-shows', value: String(noShowsMes), accent: noShowsMes > 0 ? 'text-destructive' : 'text-foreground' },
   ];
 
   // Tab filter
@@ -363,24 +388,31 @@ export default function CitasPage() {
     setTab('proximas');
   }
 
+  // Llegada desde el lanzador de tareas (⌘K → "Reservar una cita").
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('nueva') === '1') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowModal(true);
+      window.history.replaceState({}, '', '/citas');
+    }
+  }, []);
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Citas</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {upcoming.length} próximas · {thisMonth.length} este mes
-          </p>
-        </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2.5 text-sm font-medium hover:brightness-95 transition-colors shrink-0"
-        >
-          <Plus size={16} />
-          Nueva cita
-        </button>
-      </div>
+      <PageHeader
+        title="Citas"
+        description={`${upcoming.length} próximas · ${thisMonth.length} este mes`}
+        actions={
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2.5 text-sm font-medium hover:brightness-95 transition-colors shrink-0"
+          >
+            <Plus size={16} />
+            Nueva cita
+          </button>
+        }
+      />
 
       {/* Métricas del mes */}
       <div className={cn('grid grid-cols-2 gap-3', metricas.length === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3')}>
@@ -493,14 +525,14 @@ export default function CitasPage() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-            <FF label="Socia">
+            <FF label="Clienta">
               <select
                 required
                 value={form.socioId}
                 onChange={(e) => setForm((f) => ({ ...f, socioId: e.target.value }))}
                 className={inputCls}
               >
-                <option value="">Seleccionar socia...</option>
+                <option value="">Seleccionar clienta...</option>
                 {socios.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nombre} {s.apellidos}
@@ -525,7 +557,7 @@ export default function CitasPage() {
               </select>
             </FF>
 
-            <FF label="Tipo">
+            <FF label="Tipo" description="Solo organiza la agenda con un color; no cambia el precio ni la duración.">
               <select
                 value={form.tipo}
                 onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value as TipoCita }))}
@@ -575,7 +607,7 @@ export default function CitasPage() {
                 </select>
               </FF>
               {verPrecio && (
-                <FF label="Precio (€)">
+                <FF label="Precio (€)" description="Cuenta para tus ingresos del mes. El cobro se marca a mano después, desde la lista de citas.">
                   <input
                     type="number"
                     min="0"
