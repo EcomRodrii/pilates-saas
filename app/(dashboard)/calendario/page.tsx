@@ -1847,8 +1847,17 @@ export default function Calendario() {
               <FormField label="Aforo máximo">
                 <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
               </FormField>
+              {/* Era un <span onClick> dentro de un <label>: no lo alcanzaba el
+                  tabulador ni lo anunciaba ningún lector. Ahora todo el bloque
+                  es el botón, así que sigue siendo pulsable entero. */}
               {showForm === 'nueva' && (
-                <label className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-muted/60 border border-border cursor-pointer">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={form.repetir}
+                  onClick={() => setForm(f => ({ ...f, repetir: !f.repetir }))}
+                  className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-muted/60 border border-border cursor-pointer text-left"
+                >
                   <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <RefreshCw size={14} className="text-brand" />
                     Repetir semanalmente
@@ -1856,14 +1865,13 @@ export default function Calendario() {
                   <span
                     className="w-11 h-6 rounded-full flex items-center px-0.5 transition-colors shrink-0"
                     style={{ backgroundColor: form.repetir ? 'var(--primary)' : 'var(--muted-foreground)' }}
-                    onClick={e => { e.preventDefault(); setForm(f => ({ ...f, repetir: !f.repetir })); }}
                   >
                     <span
                       className="w-5 h-5 bg-card rounded-full shadow transition-transform"
                       style={{ transform: form.repetir ? 'translateX(20px)' : 'translateX(0)' }}
                     />
                   </span>
-                </label>
+                </button>
               )}
               {showForm === 'nueva' && form.repetir && (
                 <div className="flex items-center gap-3 pl-1">
