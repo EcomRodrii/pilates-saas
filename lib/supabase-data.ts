@@ -7,6 +7,7 @@ import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
+import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -1777,6 +1778,8 @@ export async function crearReservaPublica(params: {
       spotAsignado = await asignarSpotReserva(admin, params.studioId, params.sesionId, reservaId, params.spotId);
     }
   }
+  // S-1: la reserva mueve RESERVAS_TOTALES (y la racha, si la sesión ya pasó).
+  await evaluarLogrosServidor(admin, params.studioId, params.socioId);
   return { ok: true as const, estado, reservaId, spotAsignado };
 }
 
@@ -1853,6 +1856,10 @@ export async function cancelarReservaPublica(params: {
     }
   }
   // tardia/bonoDevuelto → la UI puede confirmar a la socia si recuperó la sesión.
+  // S-1: cancelar baja RESERVAS_TOTALES, así que se re-evalúa para que el
+  // progreso mostrado siga siendo cierto. Un logro YA conseguido no se revoca
+  // (el bucle salta los completados), igual que hacía la evaluación en cliente.
+  await evaluarLogrosServidor(admin, params.studioId, params.socioId);
   return { ok: true as const, tardia, bonoDevuelto };
 }
 
@@ -2274,6 +2281,104 @@ async function otorgarCreditosServidor(
   ]);
 }
 
+// ─── Gamificación en servidor (S-1) ──────────────────────────────────────────
+// Las escrituras de logros vivían SOLO en el cliente (studio-context) con el
+// cliente anónimo. Desde el portal la socia se autentica por OTP y su JWT no
+// lleva claim de studio_id, así que la policy `studio_id = current_studio_id()`
+// rechazaba la cadena ENTERA —progreso, historial, claim de recompensa,
+// transacción de crédito y ajuste de saldo—: la gamificación de socias no se
+// persistía nunca. No era un fallo de permisos puntual, era una escritura hecha
+// desde el sitio equivocado.
+//
+// Se evalúa aquí, con service-role y todo acotado por studio_id, en los mismos
+// puntos donde la métrica cambia de verdad. Ninguna métrica sube hasta el umbral
+// por el mero paso del tiempo (el tiempo solo puede ROMPER una racha), así que
+// evaluar en la acción cubre todos los desbloqueos sin exponer un endpoint
+// público nuevo que conceda créditos canjeables.
+//
+// Es best-effort: si algo falla se reporta pero NO se tumba la operación que la
+// disparó — perder un logro es peor que perder la reserva, pero mucho menos malo
+// que perder la reserva por culpa del logro.
+async function evaluarLogrosServidor(
+  admin: SupabaseClient, studioId: string, socioId: string,
+): Promise<void> {
+  const [{ data: defRows }, { data: progRows }, { data: socioRow }, { data: resRows }] = await Promise.all([
+    admin.from('achievement_definitions').select('*').eq('studio_id', studioId).eq('activo', true),
+    admin.from('achievement_progress').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
+    admin.from('socios').select('*').eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
+    admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
+  ]);
+  const definiciones = (defRows ?? []).map(mapAchievementDefinition);
+  if (definiciones.length === 0 || !socioRow) return;
+
+  const progresos = (progRows ?? []).map(mapAchievementProgress);
+  const socio = mapSocio(socioRow as RowSocios);
+  const reservas = (resRows ?? []).map(mapReserva);
+
+  // Solo las sesiones que sus reservas referencian: las métricas las usan para
+  // fechar la asistencia, no hace falta traerse la agenda entera del estudio.
+  const sesionIds = [...new Set(reservas.map(r => r.sesionId))];
+  const sesRows = sesionIds.length
+    ? (await admin.from('sesiones').select('*').eq('studio_id', studioId).in('id', sesionIds)).data
+    : [];
+  const sesiones = (sesRows ?? []).map(mapSesion);
+
+  // AMIGOS_INVITADOS solo cuenta socias referidas por ella: basta con las suyas,
+  // no el censo del estudio. calcularMetrica filtra por referidoPor, así que
+  // pasarle únicamente las referidas da el mismo número.
+  const necesitaReferidas = definiciones.some(d => d.metric === 'AMIGOS_INVITADOS');
+  const refRows = necesitaReferidas
+    ? (await admin.from('socios').select('*').eq('studio_id', studioId).eq('referido_por', socioId)).data
+    : [];
+  const referidas = (refRows ?? []).map(mapSocio);
+
+  const now = new Date();
+  for (const def of definiciones) {
+    const existente = progresos.find(p => p.achievementId === def.id);
+    if (existente?.completado) continue; // ya conseguido, no se re-evalúa
+
+    const valor = calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas });
+    const completadoAhora = valor >= def.umbral;
+
+    const { error: progError } = await admin.from('achievement_progress').upsert({
+      id: existente?.id ?? `achp-${uid()}`,
+      studio_id: studioId, socio_id: socioId, achievement_id: def.id,
+      progreso_actual: valor, completado: completadoAhora,
+      completado_en: completadoAhora ? now.toISOString() : null,
+    }, { onConflict: 'socio_id,achievement_id' });
+    if (progError) { reportDbError('[evaluarLogrosServidor] progreso', progError); continue; }
+
+    if (!completadoAhora) continue;
+
+    const { error: histError } = await admin.from('achievement_history').insert({
+      id: `achh-${uid()}`, studio_id: studioId, socio_id: socioId, achievement_id: def.id,
+      nombre: def.nombre, icono: def.icono, creado_en: now.toISOString(),
+    });
+    if (histError) reportDbError('[evaluarLogrosServidor] historial', histError);
+
+    if (def.creditosRecompensa <= 0) continue;
+    // C-11: la idempotencia real la da el UNIQUE de reward_actions. Dos
+    // evaluaciones concurrentes (dos reservas a la vez) no pueden doblar el
+    // saldo: la segunda choca con el UNIQUE y sale.
+    const { error: claimError } = await admin.from('reward_actions').insert({
+      id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId,
+      trigger: 'LOGRO', ref_id: `${socioId}:${def.id}`, creado_en: now.toISOString(),
+    });
+    if (claimError) continue; // ya otorgado por otra evaluación
+
+    // P0-20: incremento ATÓMICO del saldo.
+    await admin.rpc('ajustar_creditos', {
+      p_socio_id: socioId, p_studio_id: studioId,
+      p_delta_saldo: def.creditosRecompensa, p_delta_ganado: def.creditosRecompensa, p_delta_canjeado: 0,
+    });
+    await admin.from('credit_transactions').insert({
+      id: `ctx-${uid()}`, studio_id: studioId, socio_id: socioId, tipo: 'GANANCIA',
+      creditos: def.creditosRecompensa, descripcion: `Logro desbloqueado: ${def.nombre}`,
+      ref_id: def.id, creado_en: now.toISOString(),
+    });
+  }
+}
+
 // C-2: valida el token de dispositivo de kiosko de un estudio. Sin token
 // configurado (NULL) el check-in público queda cerrado (devuelve false), que es
 // el lado seguro. Solo tiene sentido en servidor (usa service-role); en cliente
@@ -2327,7 +2432,12 @@ export async function checkinPublico(params: { studioId: string; reservaId: stri
   });
   if (premiar && referidorId) {
     await otorgarCreditosServidor(admin, params.studioId, referidorId, 'REFERIDO_AMIGO', reserva.socioId);
+    // La referidora acaba de sumar en AMIGOS_INVITADOS.
+    await evaluarLogrosServidor(admin, params.studioId, referidorId);
   }
+  // S-1: el check-in mueve CLASES_ASISTIDAS, la racha y la asistencia mensual.
+  // Antes esto solo se evaluaba en el cliente y desde el portal RLS lo rechazaba.
+  await evaluarLogrosServidor(admin, params.studioId, reserva.socioId);
   return { ok: true as const };
 }
 
