@@ -4,6 +4,7 @@ import { useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Package, Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Check } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS } from '@/lib/types';
+import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 
 type Tab = 'planes' | 'pos';
 
@@ -44,8 +45,8 @@ function PlanModal({ initial, onSave, onClose }: {
   const valid = form.nombre.trim() && form.precio && Number(form.precio) >= 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
-      <div className="bg-card rounded-2xl w-full max-w-md shadow-2xl">
+    <DashboardSheet open onClose={onClose} label={initial ? 'Editar plan' : 'Nuevo plan'} closeOnBackdropClick={false}>
+      <>
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-foreground">{initial ? 'Editar plan' : 'Nuevo plan'}</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
@@ -115,8 +116,8 @@ function PlanModal({ initial, onSave, onClose }: {
             {initial ? 'Guardar cambios' : 'Crear plan'}
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </DashboardSheet>
   );
 }
 
@@ -141,8 +142,8 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
   const valid = form.nombre.trim() && form.precio && Number(form.precio) >= 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
-      <div className="bg-card rounded-2xl w-full max-w-md shadow-2xl">
+    <DashboardSheet open onClose={onClose} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}>
+      <>
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-foreground">{initial ? 'Editar producto' : 'Nuevo producto'}</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
@@ -202,8 +203,8 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
             {initial ? 'Guardar cambios' : 'Crear producto'}
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </DashboardSheet>
   );
 }
 

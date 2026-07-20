@@ -18,17 +18,27 @@ export function useDialogA11y({
   onClose: () => void;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
-  const [disparador, setDisparador] = useState<HTMLElement | null>(null);
+  // Inicializador perezoso: cubre el caso — el más común en este código base —
+  // en que el propio padre MONTA el diálogo condicionalmente
+  // (`{cond && <Modal open .../>}`) en vez de mantenerlo montado y alternar
+  // `open`. Ahí `open` nace ya en `true`, así que un ajuste basado en
+  // "¿cambió respecto al render anterior?" nunca se dispara — se perdía la
+  // devolución de foco al cerrar (caía a <body>, verificado en un caso real).
+  const [disparador, setDisparador] = useState<HTMLElement | null>(() =>
+    open ? (document.activeElement as HTMLElement | null) : null
+  );
   const [openAnterior, setOpenAnterior] = useState(open);
 
   // Ajuste de estado durante el render (patrón oficial de React para
   // "capturar algo antes de que cambie", sin refs — este proyecto exige
   // reglas React Compiler-safe que prohíben leer/escribir refs durante el
-  // render). Importa que se capture AQUÍ y no en un efecto: si el contenido
-  // trae su propio `autoFocus` (p.ej. un <input> de login), React lo aplica
-  // en el commit, antes de que corra cualquier useEffect — para cuando el
-  // efecto de abajo se ejecutase, document.activeElement ya sería ese input
-  // y no lo de fuera que abrió el diálogo.
+  // render). Cubre el otro caso: el diálogo permanece montado y `open`
+  // alterna internamente (p.ej. `open={cancelConfirm !== null}`). Importa
+  // que se capture AQUÍ y no en un efecto: si el contenido trae su propio
+  // `autoFocus` (p.ej. un <input> de login), React lo aplica en el commit,
+  // antes de que corra cualquier useEffect — para cuando el efecto de abajo
+  // se ejecutase, document.activeElement ya sería ese input y no lo de fuera
+  // que abrió el diálogo.
   if (open !== openAnterior) {
     setOpenAnterior(open);
     if (open) setDisparador(document.activeElement as HTMLElement | null);
