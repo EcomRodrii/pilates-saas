@@ -9,6 +9,7 @@ import { terminalCobrar, terminalEstadoCobro, terminalRegistrarLector, terminalE
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import type { ProductoPOS, VentaPOS, MetodoPago, CodigoDescuento } from '@/lib/types';
 import { buscarCodigo, validarCodigoCanjeable, calcularDescuento } from '@/lib/codigos-descuento';
+import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 
 type CartItem = {
   producto: ProductoPOS;
@@ -107,11 +108,14 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
   const grandTotal = ventasHoy.reduce((sum, v) => sum + v.total, 0);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    <DashboardSheet
+      open
+      onClose={onClose}
+      label="Resumen de caja"
+      backdropClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      sheetClassName="bg-card rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
     >
-      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <>
         {/* Modal header */}
         <div className="px-6 py-5 border-b border-border">
           <div className="flex items-start justify-between">
@@ -199,8 +203,8 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
             Cerrar
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </DashboardSheet>
   );
 }
 
