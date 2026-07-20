@@ -7,6 +7,7 @@ import {
   cancelarClase, setAvisarAlumnas, resumenValoraciones, type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
   Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw,
@@ -43,6 +44,9 @@ export default function SustitucionesPage() {
   const [valoraciones, setValoraciones] = useState<ResumenValoraciones>({});
   const [ahoraMs, setAhoraMs] = useState(0);          // se fija al montar (evita Date.now en render)
   const [horarioCerrado, setHorarioCerrado] = useState<string | null>(null);
+  // Cancelar una clase puede disparar un email a todas las alumnas: se
+  // confirma en un diálogo accesible, no con el confirm() nativo.
+  const [aCancelar, setACancelar] = useState<SustitucionPanel | null>(null);
 
   const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'Instructora';
   const tipoDe = (id: string | null | undefined) => tiposClase.find(t => t.id === id);
@@ -67,7 +71,6 @@ export default function SustitucionesPage() {
     if ('error' in r) { setAvisar(!nuevo); alert(r.error); }
   }
   async function cancelar(s: SustitucionPanel) {
-    if (!confirm('¿Cancelar esta clase? Si el aviso a alumnas está activado, se les enviará un email.')) return;
     setAccion(s.id);
     const r = await cancelarClase(s.id);
     if ('error' in r) { alert(r.error); setAccion(null); return; }
@@ -175,7 +178,7 @@ export default function SustitucionesPage() {
                 <SustitucionCard
                   key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor}
                   instructores={instructores} valoraciones={valoraciones} enProceso={accion === s.id}
-                  onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={cancelar}
+                  onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={(s: SustitucionPanel) => setACancelar(s)}
                 />
               ))}
             </div>
@@ -196,6 +199,18 @@ export default function SustitucionesPage() {
         sesiones={sesiones} instructores={instructores} tiposClase={tiposClase}
         yaConBaja={new Set(activas.map(s => s.sesion_id))}
         onCreada={recargar}
+      />
+
+      <ConfirmDialog
+        open={aCancelar !== null}
+        onOpenChange={abierto => { if (!abierto) setACancelar(null); }}
+        titulo="¿Cancelar esta clase?"
+        descripcion={avisar
+          ? 'Se avisará por email a las alumnas apuntadas.'
+          : 'El aviso a alumnas está desactivado: no se les enviará ningún email.'}
+        textoConfirmar="Cancelar clase"
+        destructivo
+        onConfirm={() => { const s = aCancelar; setACancelar(null); if (s) void cancelar(s); }}
       />
     </div>
   );
