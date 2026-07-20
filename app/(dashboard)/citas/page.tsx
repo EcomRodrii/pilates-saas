@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
-import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed } from 'lucide-react';
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
+import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed, Upload } from 'lucide-react';
+import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
@@ -55,7 +57,8 @@ function isSameMonth(iso: string, ref: Date): boolean {
 // ─── Form field wrapper ───────────────────────────────────────────────────────
 
 // `description` es lo que faltaba: sin él no había dónde explicar, p.ej., para
-// qué sirve el campo Precio o si el Tipo afecta a algo más que a la agenda.
+// qué sirve el campo Precio o si el Tipo afecta a algo más que a la agenda. La
+// asociación label↔control la resuelve useCampoAsociado (WCAG 1.3.1/4.1.2).
 function FF({
   label,
   description,
@@ -65,24 +68,22 @@ function FF({
   description?: ReactNode;
   children: ReactNode;
 }) {
-  const autoId = useId();
-  type PropsControl = { id?: string; 'aria-describedby'?: string };
-  const hijo = isValidElement(children) ? (children as ReactElement<PropsControl>) : null;
-  const idControl = hijo ? (hijo.props.id ?? autoId) : undefined;
-  const idDesc = description ? `${autoId}-desc` : undefined;
-  const control = hijo
-    ? cloneElement(hijo, { id: idControl, 'aria-describedby': idDesc ?? hijo.props['aria-describedby'] })
-    : children;
+  const { htmlFor, control } = useCampoAsociado(children);
+  const descAutoId = useId();
+  const idDesc = description ? `${descAutoId}-desc` : undefined;
+  const controlDescrito = idDesc && isValidElement(control)
+    ? cloneElement(control as ReactElement<{ 'aria-describedby'?: string }>, { 'aria-describedby': idDesc })
+    : control;
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={idControl} className="text-sm font-medium text-foreground">{label}</label>
+      <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">{label}</label>
       {description && (
         <p id={idDesc} className="text-xs leading-relaxed text-muted-foreground text-balance">
           {description}
         </p>
       )}
-      {control}
+      {controlDescrito}
     </div>
   );
 }
@@ -404,13 +405,23 @@ export default function CitasPage() {
         title="Citas"
         description={`${upcoming.length} próximas · ${thisMonth.length} este mes`}
         actions={
-          <button
-            onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2.5 text-sm font-medium hover:brightness-95 transition-colors shrink-0"
-          >
-            <Plus size={16} />
-            Nueva cita
-          </button>
+          <>
+            {/* Migración asistida: traer las citas del programa anterior. */}
+            <Link
+              href="/citas/importar"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Upload size={15} />
+              Importar
+            </Link>
+            <button
+              onClick={() => setShowModal(true)}
+              className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2.5 text-sm font-medium hover:brightness-95 transition-colors shrink-0"
+            >
+              <Plus size={16} />
+              Nueva cita
+            </button>
+          </>
         }
       />
 

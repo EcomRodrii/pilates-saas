@@ -9,6 +9,7 @@ import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { CitasPublica } from '@/components/reserva/citas-publica';
+import { PublicSheet } from '@/components/ui/public-sheet';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import {
   Users, CheckCircle2, X, Calendar,
@@ -905,11 +906,23 @@ export default function ReservarPage() {
       </div>
 
       {/* ── MODAL ───────────────────────────────────────────────────────────── */}
-      {(bookingSesionId !== null) && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
-          style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
-            style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+      <PublicSheet
+        open={bookingSesionId !== null}
+        onClose={closeBooking}
+        closeOnBackdropClick={false}
+        label={
+          loginStep === 'done' ? '¡Reserva confirmada!'
+          : loginStep === 'espera' ? '¡En lista de espera!'
+          : loginStep === 'login' ? (enlaceEnviado ? 'Revisa tu email' : 'Entra para reservar')
+          : loginStep === 'registro' ? '¿Cómo te llamas?'
+          : loginStep === 'contrato' ? 'Acepta los términos'
+          : 'Confirmar reserva'
+        }
+        sheetClassName="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
+        sheetStyle={{ maxHeight: '90vh', overflowY: 'auto' }}
+      >
+        {bookingSesionId !== null && (
+          <>
             <button onClick={closeBooking} aria-label="Cerrar"
               className="absolute top-4 right-4 text-[#767670] hover:text-[#3A3A34] transition-colors">
               <X size={18} />
@@ -1136,16 +1149,14 @@ export default function ReservarPage() {
                 </button>
               </>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </PublicSheet>
 
       {/* ── MODAL CANCELAR PLAZA (sustituye al confirm() nativo) ─────────────── */}
-      {cancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
-          style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-          onClick={() => setCancelConfirm(null)}>
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <PublicSheet open={cancelConfirm !== null} onClose={() => setCancelConfirm(null)} label="Cancelar tu plaza">
+        {cancelConfirm && (
+          <>
             <h2 className="text-[#1A1A1A] font-bold text-lg mb-1">¿Cancelar tu plaza?</h2>
             <p className="text-[#6E6E66] text-sm mb-5">
               {cancelConfirm.pierdeBono
@@ -1162,18 +1173,20 @@ export default function ReservarPage() {
                 Cancelar plaza
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </PublicSheet>
 
       {/* ── MODAL DOCUMENTO LEGAL ────────────────────────────────────────────── */}
-      {legalDoc && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
-          style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-          onClick={() => setLegalDoc(null)}>
-          <div className="bg-white w-full max-w-lg rounded-3xl relative shadow-2xl flex flex-col"
-            style={{ maxHeight: '85vh' }}
-            onClick={e => e.stopPropagation()}>
+      <PublicSheet
+        open={legalDoc !== null}
+        onClose={() => setLegalDoc(null)}
+        label={legalDoc?.label ?? 'Documento legal'}
+        sheetClassName="bg-white w-full max-w-lg rounded-3xl relative shadow-2xl flex flex-col"
+        sheetStyle={{ maxHeight: '85vh' }}
+      >
+        {legalDoc && (
+          <>
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#F1F1EC]">
               <h2 className="text-[#1A1A1A] font-bold text-base">{legalDoc.label}</h2>
               <button onClick={() => setLegalDoc(null)} aria-label="Cerrar" className="text-[#767670] hover:text-[#3A3A34] transition-colors">
@@ -1185,9 +1198,9 @@ export default function ReservarPage() {
             <div className="px-6 py-5 overflow-y-auto text-[13px] text-[#3A3A34] leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>
               {legalDoc.text}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </PublicSheet>
     </div>
   );
 }

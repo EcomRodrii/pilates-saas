@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useId } from 'react';
+import { useState } from 'react';
 import { Medal, Plus, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import type { LevelDefinition } from '@/lib/types';

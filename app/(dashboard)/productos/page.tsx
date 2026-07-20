@@ -89,15 +89,24 @@ function PlanModal({ initial, onSave, onClose }: {
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
               placeholder="Acceso ilimitado a clases grupales" />
           </div>
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <div onClick={() => set('activo', !form.activo)}
-              className="w-9 h-5 rounded-full transition-colors flex items-center px-0.5"
+          {/* Era un <div onClick> dentro de un <label>: el tabulador no lo
+              alcanzaba, no respondía a Espacio/Enter y ningún lector de
+              pantalla lo anunciaba como control. Ahora es un botón real con
+              estado, y el <label> sobra porque no puede etiquetar un <button>. */}
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.activo}
+              aria-label="Plan activo"
+              onClick={() => set('activo', !form.activo)}
+              className="w-9 h-5 rounded-full transition-colors flex items-center px-0.5 cursor-pointer"
               style={{ backgroundColor: form.activo ? 'var(--brand)' : 'var(--muted-foreground)' }}>
-              <div className="w-4 h-4 bg-card rounded-full shadow transition-transform"
+              <span className="w-4 h-4 bg-card rounded-full shadow transition-transform"
                 style={{ transform: form.activo ? 'translateX(16px)' : 'translateX(0)' }} />
-            </div>
+            </button>
             <span className="text-sm font-medium text-foreground">Plan activo</span>
-          </label>
+          </div>
         </div>
         <div className="flex gap-3 px-6 pb-6">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">Cancelar</button>
@@ -164,15 +173,20 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
               </select>
             </div>
           </div>
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <div onClick={() => set('activo', !form.activo)}
-              className="w-9 h-5 rounded-full transition-colors flex items-center px-0.5"
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.activo}
+              aria-label="Producto activo"
+              onClick={() => set('activo', !form.activo)}
+              className="w-9 h-5 rounded-full transition-colors flex items-center px-0.5 cursor-pointer"
               style={{ backgroundColor: form.activo ? 'var(--brand)' : 'var(--muted-foreground)' }}>
-              <div className="w-4 h-4 bg-card rounded-full shadow transition-transform"
+              <span className="w-4 h-4 bg-card rounded-full shadow transition-transform"
                 style={{ transform: form.activo ? 'translateX(16px)' : 'translateX(0)' }} />
-            </div>
+            </button>
             <span className="text-sm font-medium text-foreground">Producto activo</span>
-          </label>
+          </div>
         </div>
         <div className="flex gap-3 px-6 pb-6">
           {initial && onDelete && (

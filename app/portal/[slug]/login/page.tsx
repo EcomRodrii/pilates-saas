@@ -9,6 +9,7 @@ import { useModo } from '@/lib/portal-modo';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
 
 export default function PortalLogin() {
+  const uid = useId();
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const { loginConPassword } = usePortalAuth();
@@ -75,10 +76,10 @@ export default function PortalLogin() {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Email</label>
+            <label htmlFor={`${uid}-email`} style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Email</label>
             <div style={{ position: 'relative' }}>
               <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.muted }} />
-              <input
+              <input id={`${uid}-email`}
                 type="email"
                 value={email}
                 onChange={e => { setEmail(e.target.value); setError(''); }}
@@ -92,10 +93,10 @@ export default function PortalLogin() {
           </div>
 
           <div>
-            <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Contraseña</label>
+            <label htmlFor={`${uid}-clave`} style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Contraseña</label>
             <div style={{ position: 'relative' }}>
               <Lock size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.muted }} />
-              <input
+              <input id={`${uid}-clave`}
                 type="password"
                 value={password}
                 onChange={e => { setPassword(e.target.value); setError(''); }}

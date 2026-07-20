@@ -22,3 +22,31 @@ test('alerta sin_respuesta: nombra a la candidata', () => {
   assert.match(s, /Berta/);
   assert.match(s, /Yoga/);
 });
+
+test('alerta de baja (asistido): dice quién y pide el visto bueno', () => {
+  const s = cuerpoAlertaPropietaria({
+    claseNombre: 'Reformer', cuando: 'jue 23 · 18:00', tipo: 'baja',
+    candidataNombre: 'Meri', urlPanel: 'https://x.app/sustituciones',
+  });
+  assert.match(s, /Meri/);
+  assert.match(s, /Reformer/);
+  assert.match(s, /visto bueno/);
+  assert.match(s, /https:\/\/x\.app\/sustituciones/);
+});
+
+test('alerta de baja (autónomo): tranquiliza, no pide acción', () => {
+  const s = cuerpoAlertaPropietaria({
+    claseNombre: 'Reformer', cuando: 'jue 23 · 18:00', tipo: 'baja',
+    candidataNombre: 'Meri', urlPanel: 'https://x.app/sustituciones', yaContactando: true,
+  });
+  assert.match(s, /buscando sustituta/);
+  assert.doesNotMatch(s, /visto bueno/);
+});
+
+test('alerta de baja sin nombre: no imprime "undefined"', () => {
+  const s = cuerpoAlertaPropietaria({
+    claseNombre: 'Mat', cuando: 'vie · 09:00', tipo: 'baja', urlPanel: 'https://x.app/s',
+  });
+  assert.doesNotMatch(s, /undefined/);
+  assert.match(s, /instructora/i);
+});

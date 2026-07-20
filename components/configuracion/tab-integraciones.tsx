@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Check,
@@ -215,6 +215,10 @@ function descargarCsv(nombre: string, contenido: string) {
 }
 
 export function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
+  // Declarado en el componente, NO dentro del modal: ese modal es una IIFE
+  // dentro del JSX y un hook no puede llamarse ahí. El sufijo por campo.key
+  // hace único cada id.
+  const uid = useId();
   const { studio, updateStudio, integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos } = useStudio();
   const [editando, setEditando] = useState<TipoIntegracion | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -596,8 +600,9 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
               <div className="space-y-4">
                 {cat.campos.map(campo => (
                   <div key={campo.key}>
-                    <label className={labelCls}>{campo.label}</label>
+                    <label htmlFor={`${uid}-${campo.key}`} className={labelCls}>{campo.label}</label>
                     <input
+                      id={`${uid}-${campo.key}`}
                       className={inputCls}
                       type={campo.tipo ?? 'text'}
                       value={form[campo.key] ?? ''}

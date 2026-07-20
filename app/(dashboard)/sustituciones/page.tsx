@@ -4,8 +4,11 @@ import { useEffect, useMemo, useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
-  cancelarClase, setAvisarAlumnas, resumenValoraciones, type SustitucionPanel, type ResumenValoraciones,
+  cancelarClase, setAvisarAlumnas, resumenValoraciones, generarEnlaceDisponibilidad, recalcularCandidatas,
+  type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
+import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
+import { avisoEquipoIncompleto, motivoSinCandidatas, type DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -52,17 +55,20 @@ export default function SustitucionesPage() {
   // Cancelar una clase puede disparar un email a todas las alumnas: se
   // confirma en un diálogo accesible, no con el confirm() nativo.
   const [aCancelar, setACancelar] = useState<SustitucionPanel | null>(null);
+  // Quién es invisible para el ranking por no tener disponibilidad cargada.
+  const [equipo, setEquipo] = useState<DiagnosticoEquipo>({ total: 0, sinDisponibilidad: [] });
+  const [pidiendo, setPidiendo] = useState(false); // diálogo "pedir disponibilidad"
 
   const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'Instructora';
   const tipoDe = (id: string | null | undefined) => tiposClase.find(t => t.id === id);
 
   async function recargar() {
     const r = await listarSustituciones();
-    setItems(r.items); setAvisar(r.avisarAlumnas); setCargando(false);
+    setItems(r.items); setAvisar(r.avisarAlumnas); setEquipo(r.equipo); setCargando(false);
   }
   useEffect(() => {
     let vivo = true;
-    listarSustituciones().then(r => { if (vivo) { setItems(r.items); setAvisar(r.avisarAlumnas); setCargando(false); } });
+    listarSustituciones().then(r => { if (vivo) { setItems(r.items); setAvisar(r.avisarAlumnas); setEquipo(r.equipo); setCargando(false); } });
     resumenValoraciones().then(r => { if (vivo) setValoraciones(r); });
     return () => { vivo = false; };
   }, []);
@@ -86,6 +92,10 @@ export default function SustitucionesPage() {
     setAccion(null);
     setTimeout(() => setAviso(null), 6000);
   }
+
+  // Aviso de "tu equipo está a medio configurar". Null → no se pinta nada: una
+  // franja de alerta permanente se aprende a ignorar en dos días.
+  const avisoEquipo = avisoEquipoIncompleto(equipo);
 
   const activas = items.filter(s => ESTADO[s.estado]?.activa);
   const resueltas = items.filter(s => !ESTADO[s.estado]?.activa);
@@ -122,9 +132,24 @@ export default function SustitucionesPage() {
     setAccion(null);
     setTimeout(() => setAviso(null), 6000);
   }
+  async function volverABuscar(s: SustitucionPanel) {
+    setAccion(s.id);
+    const r = await recalcularCandidatas(s.id);
+    if ('error' in r) { alert(r.error); setAccion(null); return; }
+    setAviso(r.omitidasPorRechazo > 0
+      ? `${r.resumen} (no volvemos a escribir a quien ya dijo que no puede).`
+      : r.resumen);
+    await recargar();
+    setAccion(null);
+    setTimeout(() => setAviso(null), 6000);
+  }
+
   async function descartar(s: SustitucionPanel) {
     setAccion(s.id);
-    await descartarSustitucion(s.id);
+    // Antes se ignoraba el resultado: si fallaba, la tarjeta seguía ahí sin
+    // explicación y no había forma de saber si se había guardado o no.
+    const r = await descartarSustitucion(s.id);
+    if ('error' in r) { alert(r.error); setAccion(null); return; }
     await recargar();
     setAccion(null);
   }
@@ -163,8 +188,29 @@ export default function SustitucionesPage() {
         </div>
       )}
 
+      {avisoEquipo && (
+        <div className="flex items-start gap-2.5 rounded-xl bg-warning/10 border border-warning/30 px-4 py-3">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5 text-warning" />
+          <div className="min-w-0">
+            <p className="text-[13px] text-warning leading-relaxed">{avisoEquipo}</p>
+            <button
+              onClick={() => setPidiendo(true)}
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning text-warning-foreground text-[12px] font-bold hover:brightness-110 transition"
+            >
+              <CalendarClock size={13} /> Pedirles su disponibilidad
+            </button>
+          </div>
+        </div>
+      )}
+
+      <PedirDisponibilidadDialog
+        abierto={pidiendo}
+        instructores={equipo.sinDisponibilidad}
+        onClose={() => setPidiendo(false)}
+      />
+
       {aviso && (
-        <div className="flex items-start gap-2 rounded-xl bg-success/10 border border-[#86EFAC] px-4 py-3 text-[13px] text-[#166534]">
+        <div className="flex items-start gap-2 rounded-xl bg-success/10 border border-success/30 px-4 py-3 text-[13px] text-success">
           <MailCheck size={16} className="shrink-0 mt-0.5" /> {aviso}
         </div>
       )}
@@ -195,9 +241,10 @@ export default function SustitucionesPage() {
             <div className="space-y-3">
               {activas.map(s => (
                 <SustitucionCard
-                  key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor}
+                  key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor} equipo={equipo}
                   instructores={instructores} valoraciones={valoraciones} enProceso={accion === s.id}
                   onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={(s: SustitucionPanel) => setACancelar(s)}
+                  onVolverABuscar={volverABuscar}
                 />
               ))}
             </div>
@@ -356,18 +403,20 @@ function HorarioActualizadoCard({ sub, sesiones, tiposClase, nombreInstructor, o
 }
 
 function SustitucionCard({
-  s, tipo, nombreInstructor, instructores, valoraciones, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar,
+  s, tipo, nombreInstructor, instructores, valoraciones, equipo, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar, onVolverABuscar,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
   nombreInstructor: (id: string | null) => string;
   instructores: import('@/lib/types').Instructor[];
   valoraciones: ResumenValoraciones;
+  equipo: DiagnosticoEquipo;
   enProceso: boolean;
   onConfirmar: (s: SustitucionPanel, instructorId: string) => void;
   onDescartar: (s: SustitucionPanel) => void;
   onAvisar: (s: SustitucionPanel, instructorId: string) => void;
   onCancelar: (s: SustitucionPanel) => void;
+  onVolverABuscar: (s: SustitucionPanel) => void;
 }) {
   const meta = ESTADO[s.estado] ?? ESTADO.buscando;
   const ranking = Array.isArray(s.ranking) ? s.ranking : [];
@@ -377,6 +426,10 @@ function SustitucionCard({
   const contactada = s.estado === 'contactando';
   const esSolicitud = s.estado === 'pendiente_aprobacion'; // card "Nueva sustitución solicitada"
   const insDe = (id: string) => instructores.find(i => i.id === id);
+  // Sin disponibilidad cargada, SIN contar a quien causa la baja: no puede
+  // cubrirse a sí misma, así que sumarla al recuento despistaría.
+  const sinDispRelevantes = equipo.sinDisponibilidad
+    .filter(i => i.id !== s.instructor_original_id).length;
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 shadow-sm">
@@ -392,17 +445,32 @@ function SustitucionCard({
         <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${meta.cls}`}>{meta.label}</span>
       </div>
       <p className="text-[13px] text-muted-foreground mt-2.5">
-        Falta <strong className="text-foreground">{nombreInstructor(s.instructor_original_id)}</strong>
+        {/* Si lo avisó ella misma desde el móvil, decirlo: es la diferencia entre
+            "alguien ha marcado esto" y "Meri te ha avisado" — y evita que la
+            propietaria coja el teléfono para confirmar algo que ya está confirmado. */}
+        {s.origen === 'instructora' ? (
+          <><strong className="text-foreground">{nombreInstructor(s.instructor_original_id)}</strong> ha avisado de que no puede</>
+        ) : (
+          <>Falta <strong className="text-foreground">{nombreInstructor(s.instructor_original_id)}</strong></>
+        )}
         {s.motivo ? <> — <span className="italic">{s.motivo}</span></> : null}
       </p>
 
       {s.estado === 'agotada' && (
         <div className="mt-3 flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-3">
           <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
-          <p className="text-[13px] text-red-700">
-            Avisamos a todas las candidatas disponibles y ninguna confirmó. Avisa a alguien por tu cuenta,
-            vuelve a intentarlo con una candidata de abajo, o cancela la clase (avisamos a las alumnas).
-          </p>
+          <div className="min-w-0">
+            <p className="text-[13px] text-red-700">
+              Avisamos a todas las candidatas disponibles y ninguna confirmó. Avisa a alguien por tu cuenta,
+              vuelve a intentarlo con una candidata de abajo, o cancela la clase (avisamos a las alumnas).
+            </p>
+            <button
+              onClick={() => onVolverABuscar(s)} disabled={enProceso}
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-700 text-[12px] font-bold hover:bg-red-100 disabled:opacity-50 transition"
+            >
+              <RefreshCw size={13} /> {enProceso ? 'Buscando…' : 'Volver a buscar'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -411,11 +479,19 @@ function SustitucionCard({
         <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3">
           <div className="flex items-start gap-2">
             <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
-            <p className="text-[13px] text-red-700">Ninguna candidata disponible para esta franja. Cancela la clase (avisamos a las alumnas) o resuélvelo por tu cuenta.</p>
+            <p className="text-[13px] text-red-700">{motivoSinCandidatas(sinDispRelevantes)}</p>
           </div>
+          {/* Buscar otra vez va PRIMERO: es gratis y reversible. Cancelar manda
+              un email a todas las alumnas y no hay vuelta atrás. */}
+          <button
+            onClick={() => onVolverABuscar(s)} disabled={enProceso}
+            className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
+          >
+            <RefreshCw size={13} /> {enProceso ? 'Buscando…' : 'Volver a buscar'}
+          </button>
           <button
             onClick={() => onCancelar(s)} disabled={enProceso}
-            className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-[12px] font-bold hover:bg-red-600 disabled:opacity-50 transition"
+            className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-[12px] font-bold hover:bg-red-600 disabled:opacity-50 transition"
           >
             <CalendarOff size={13} /> Cancelar clase y avisar a las alumnas
           </button>
@@ -544,6 +620,9 @@ function SustitucionCard({
         </>
       )}
 
+      {/* Traza: qué ha hecho el motor por su cuenta */}
+      <TrazaContactos contactos={s.sustitucion_contactos ?? []} instructores={instructores} activa={contactada || s.estado === 'agotada'} />
+
       {/* Pie */}
       <div className="mt-4 flex justify-end gap-4">
         {hero && (
@@ -551,11 +630,151 @@ function SustitucionCard({
             Cancelar clase
           </button>
         )}
+        {hero && s.estado !== 'contactando' && (
+          <button onClick={() => onVolverABuscar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors">
+            Volver a buscar
+          </button>
+        )}
         <button onClick={() => onDescartar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors">
           Lo resuelvo por mi cuenta
         </button>
       </div>
     </div>
+  );
+}
+
+// Lo que el motor ha hecho por su cuenta: a quién avisó, por qué canal, cuándo y
+// qué contestó. Abierta por defecto mientras la sustitución está en marcha (es
+// cuando la propietaria necesita ver que algo se está moviendo) y plegada cuando
+// ya está resuelta (entonces solo estorba).
+function TrazaContactos({
+  contactos, instructores, activa,
+}: {
+  contactos: ContactoFila[];
+  instructores: import('@/lib/types').Instructor[];
+  activa: boolean;
+}) {
+  const [abierta, setAbierta] = useState(activa);
+
+  const nombres = useMemo(
+    () => Object.fromEntries(instructores.map(i => [i.id, i.nombre])),
+    [instructores],
+  );
+  const eventos = useMemo(() => construirTraza(contactos, nombres), [contactos, nombres]);
+  const resumen = resumenTraza(eventos);
+
+  if (eventos.length === 0) return null;
+
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-muted/30 overflow-hidden">
+      <button
+        onClick={() => setAbierta(v => !v)}
+        aria-expanded={abierta}
+        className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left hover:bg-muted/50 transition"
+      >
+        <MailCheck size={14} className="text-muted-foreground shrink-0" />
+        <span className="text-[12px] font-bold text-foreground">Lo que hemos hecho por ti</span>
+        {resumen && <span className="text-[11px] text-muted-foreground truncate">· {resumen}</span>}
+        <span className="ml-auto text-[11px] text-muted-foreground shrink-0">{abierta ? 'Ocultar' : 'Ver'}</span>
+      </button>
+
+      {abierta && (
+        <ol className="px-3.5 pb-3 space-y-1.5">
+          {eventos.map((e, i) => (
+            <li key={`${e.en}-${i}`} className="flex items-baseline gap-2.5 text-[12px]">
+              <span className="tabular-nums text-muted-foreground shrink-0">{fmtMomento(e.en)}</span>
+              <span className={
+                e.tipo === 'aceptado' ? 'text-[#16A34A] font-semibold'
+                : e.tipo === 'rechazado' ? 'text-muted-foreground'
+                : e.tipo === 'fallo' ? 'text-red-600'
+                : 'text-foreground'
+              }>
+                {e.texto}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+// Día + hora en corto ("mar 21, 18:04"). Distinto de fmtHora (solo hora): un
+// escalado puede cruzar la medianoche y "18:04 → 09:12" sin día se lee al revés.
+function fmtMomento(iso: string): string {
+  const d = new Date(iso);
+  const dia = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', timeZone: 'Europe/Madrid' });
+  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  return `${dia}, ${hora}`;
+}
+
+// Pedir la disponibilidad a quienes no la tienen, SIN salir de Sustituciones.
+// El problema se detecta aquí, así que aquí se arregla: mandar a la propietaria
+// a otra pantalla a buscar un menú ⋮ es la forma más fácil de que no lo haga.
+function PedirDisponibilidadDialog({
+  abierto, instructores, onClose,
+}: {
+  abierto: boolean;
+  instructores: { id: string; nombre: string }[];
+  onClose: () => void;
+}) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [copiado, setCopiado] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [generando, setGenerando] = useState<string | null>(null);
+
+  async function enlaceDe(id: string): Promise<string | null> {
+    if (urls[id]) return urls[id];
+    setGenerando(id); setError(null);
+    const r = await generarEnlaceDisponibilidad(id, 'disponibilidad');
+    setGenerando(null);
+    if ('error' in r) { setError(r.error); return null; }
+    setUrls(prev => ({ ...prev, [id]: r.url }));
+    return r.url;
+  }
+
+  async function copiar(id: string) {
+    const url = await enlaceDe(id);
+    if (!url) return;
+    try { await navigator.clipboard.writeText(url); } catch { /* queda visible para copiar a mano */ }
+    setCopiado(id);
+    setTimeout(() => setCopiado(c => (c === id ? null : c)), 2500);
+  }
+
+  return (
+    <Dialog open={abierto} onOpenChange={open => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Pedir disponibilidad</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Cada una abre su enlace en el móvil y marca sus franjas en unos segundos — sin instalar nada
+          ni crear cuenta. En cuanto lo hagan, podré proponerlas como sustitutas.
+        </p>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <ul className="space-y-2 mt-1">
+          {instructores.map(i => (
+            <li key={i.id} className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2.5">
+              <span className="text-[13px] font-medium text-foreground truncate">{i.nombre}</span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => copiar(i.id)}
+                  disabled={generando === i.id}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
+                >
+                  {copiado === i.id ? <><Check size={12} /> Copiado</> : generando === i.id ? 'Generando…' : 'Copiar enlace'}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {urls[instructores[0]?.id ?? ''] && (
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Los enlaces caducan en 30 días. Puedes generar otros cuando quieras.
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

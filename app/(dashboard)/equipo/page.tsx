@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, Copy, Star, Search, LayoutGrid, List, MoreVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, CalendarOff, Copy, Star, Search, LayoutGrid, List, MoreVertical } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora } from '@/lib/utils';
 import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, type EquipoStats, type ValoracionDetalle } from '@/lib/api-client';
@@ -13,6 +13,26 @@ import { PageHeader } from '@/components/ui/page-header';
 type FiltroEstado = 'activas' | 'inactivas' | 'todas';
 type FiltroRol = 'todos' | Rol;
 type Orden = 'nombre-az' | 'nombre-za' | 'clases' | 'valoracion';
+
+// Enlaces sin login que la propietaria puede mandar a una instructora. Scopes
+// separados a propósito (mínimo privilegio): el de disponibilidad no permite
+// desconvocar clases. Ver lib/sustituciones/token.ts.
+type EnlaceScope = 'disponibilidad' | 'reportar_baja';
+
+const TEXTOS_ENLACE: Record<EnlaceScope, { titulo: string; explicacion: string; whatsapp: string; menu: string }> = {
+  disponibilidad: {
+    titulo: 'Enlace de disponibilidad',
+    explicacion: 'Lo abre en el móvil y marca cuándo puede cubrir clases en unos segundos — sin descargar nada ni crear cuenta.',
+    whatsapp: 'marca aquí tu disponibilidad para cubrir clases (30 seg, sin instalar nada):',
+    menu: 'Enlace de disponibilidad',
+  },
+  reportar_baja: {
+    titulo: 'Enlace para avisar de una baja',
+    explicacion: 'Lo abre en el móvil el día que no pueda dar una clase y avisa ella misma: nosotros buscamos sustituta y te avisamos. Sin que tenga que llamarte.',
+    whatsapp: 'guárdate este enlace: si algún día no puedes dar una clase, avisas desde aquí y buscamos sustituta (sin instalar nada):',
+    menu: 'Enlace para avisar de una baja',
+  },
+};
 
 const COLORES = ['#F7A6C4', '#14B8A6', '#7C3AED', '#EC4899', '#059669', '#0EA5E9', '#D97706', '#DC2626'];
 
@@ -43,7 +63,7 @@ export default function EquipoPage() {
   const [form, setForm] = useState<Form>(emptyForm());
   const [confirmDel, setConfirmDel] = useState<Instructor | null>(null);
   const [enlace, setEnlace] = useState<
-    { instructor: Instructor; url: string | null; loading: boolean; error: string | null; copiado: boolean } | null
+    { instructor: Instructor; scope: EnlaceScope; url: string | null; loading: boolean; error: string | null; copiado: boolean } | null
   >(null);
   const [stats, setStats] = useState<EquipoStats>({ valoracion: {}, asistencia: {} });
   const [q, setQ] = useState('');
@@ -60,10 +80,10 @@ export default function EquipoPage() {
     return () => { vivo = false; };
   }, []);
 
-  async function abrirEnlace(i: Instructor) {
-    setEnlace({ instructor: i, url: null, loading: true, error: null, copiado: false });
-    const r = await generarEnlaceDisponibilidad(i.id);
-    setEnlace(prev => (prev && prev.instructor.id === i.id
+  async function abrirEnlace(i: Instructor, scope: EnlaceScope = 'disponibilidad') {
+    setEnlace({ instructor: i, scope, url: null, loading: true, error: null, copiado: false });
+    const r = await generarEnlaceDisponibilidad(i.id, scope);
+    setEnlace(prev => (prev && prev.instructor.id === i.id && prev.scope === scope
       ? { ...prev, loading: false, url: 'url' in r ? r.url : null, error: 'error' in r ? r.error : null }
       : prev));
   }
@@ -247,7 +267,7 @@ export default function EquipoPage() {
               key={i.id} i={i} carga={cargaPorInstructor.get(i.id) ?? 0}
               prox={proximaClase.get(i.id) ?? null} val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
               menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
-              onEnlace={() => { setMenuId(null); abrirEnlace(i); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
+              onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
               onValoraciones={() => { setMenuId(null); setVerValor(i); }}
             />
           ))}
@@ -259,7 +279,7 @@ export default function EquipoPage() {
               key={i.id} i={i} carga={cargaPorInstructor.get(i.id) ?? 0} prox={proximaClase.get(i.id) ?? null}
               val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
               menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
-              onEnlace={() => { setMenuId(null); abrirEnlace(i); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
+              onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
               onValoraciones={() => { setMenuId(null); setVerValor(i); }}
             />
           ))}
@@ -283,8 +303,8 @@ export default function EquipoPage() {
               </div>
             </div>
             <div>
-              <label className={labelCls}>Avatar</label>
-              <AvatarPicker value={form.avatar} onChange={id => setForm(f => ({ ...f, avatar: id }))} />
+              <span id={`${uid}-avatar`} className={labelCls}>Avatar</span>
+              <div role="group" aria-labelledby={`${uid}-avatar`}><AvatarPicker value={form.avatar} onChange={id => setForm(f => ({ ...f, avatar: id }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -297,8 +317,8 @@ export default function EquipoPage() {
               </div>
             </div>
             <div>
-              <label className={labelCls}>Rol y acceso al panel</label>
-              <div className="space-y-1.5">
+              <span id={`${uid}-rol`} className={labelCls}>Rol y acceso al panel</span>
+              <div role="group" aria-labelledby={`${uid}-rol`} className="space-y-1.5">
                 {(['PROPIETARIO', 'RECEPCION', 'INSTRUCTOR'] as Rol[]).map(r => (
                   <button
                     key={r}
@@ -322,8 +342,8 @@ export default function EquipoPage() {
               )}
             </div>
             <div>
-              <label className={labelCls}>Color</label>
-              <div className="flex gap-2 flex-wrap">
+              <span id={`${uid}-color`} className={labelCls}>Color</span>
+              <div role="group" aria-labelledby={`${uid}-color`} className="flex gap-2 flex-wrap">
                 {COLORES.map(c => (
                   <button key={c} onClick={() => setForm(f => ({ ...f, color: c }))}
                     className="w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-110"
@@ -347,16 +367,16 @@ export default function EquipoPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Enlace de disponibilidad (deep link sin login para la instructora) */}
+      {/* Enlaces sin login para la instructora (disponibilidad / avisar de baja) */}
       <Dialog open={enlace !== null} onOpenChange={open => !open && setEnlace(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enlace de disponibilidad</DialogTitle>
+            <DialogTitle>{enlace ? TEXTOS_ENLACE[enlace.scope].titulo : ''}</DialogTitle>
           </DialogHeader>
           {enlace && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Envíaselo a <strong className="text-foreground">{enlace.instructor.nombre}</strong>. Lo abre en el móvil y marca cuándo puede cubrir clases en unos segundos — sin descargar nada ni crear cuenta.
+                Envíaselo a <strong className="text-foreground">{enlace.instructor.nombre}</strong>. {TEXTOS_ENLACE[enlace.scope].explicacion}
               </p>
               {enlace.loading ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">Generando enlace…</p>
@@ -371,13 +391,17 @@ export default function EquipoPage() {
                     </button>
                   </div>
                   <a
-                    href={`https://wa.me/${(enlace.instructor.telefono ?? '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hola ${enlace.instructor.nombre}, marca aquí tu disponibilidad para cubrir clases (30 seg, sin instalar nada): ${enlace.url}`)}`}
+                    href={`https://wa.me/${(enlace.instructor.telefono ?? '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hola ${enlace.instructor.nombre}, ${TEXTOS_ENLACE[enlace.scope].whatsapp} ${enlace.url}`)}`}
                     target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition"
                   >
                     Enviar por WhatsApp
                   </a>
-                  <p className="text-[11px] text-muted-foreground">El enlace caduca en 30 días. Puedes generar uno nuevo cuando quieras.</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {enlace.scope === 'reportar_baja'
+                      ? 'Que lo guarde en el móvil: le sirve para cualquier clase suya. Caduca en 30 días.'
+                      : 'El enlace caduca en 30 días. Puedes generar uno nuevo cuando quieras.'}
+                  </p>
                 </>
               ) : null}
             </div>
@@ -413,7 +437,7 @@ export default function EquipoPage() {
 
 type Val = { media: number; total: number } | undefined;
 type Asis = { pct: number; base: number } | undefined;
-type AccProps = { menuAbierto: boolean; onMenu: () => void; onEnlace: () => void; onEdit: () => void; onDelete: () => void; onValoraciones: () => void };
+type AccProps = { menuAbierto: boolean; onMenu: () => void; onEnlace: (scope: EnlaceScope) => void; onEdit: () => void; onDelete: () => void; onValoraciones: () => void };
 
 function PillSelect({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options: [string, string][];
@@ -490,8 +514,11 @@ function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoracio
                 <Star size={14} className="text-[#F5B301]" fill="#F5B301" /> Ver valoraciones
               </button>
             )}
-            <button onClick={onEnlace} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
-              <CalendarClock size={14} className="text-muted-foreground" /> Enlace de disponibilidad
+            <button onClick={() => onEnlace('disponibilidad')} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+              <CalendarClock size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.disponibilidad.menu}
+            </button>
+            <button onClick={() => onEnlace('reportar_baja')} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+              <CalendarOff size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.reportar_baja.menu}
             </button>
             <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-red-600 hover:bg-red-50 text-left">
               <Trash2 size={14} /> Eliminar

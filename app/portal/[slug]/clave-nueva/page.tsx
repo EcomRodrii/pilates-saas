@@ -14,6 +14,7 @@ const MIN_LEN = 8;
 // confirmó que pertenece a una socia de este estudio (resolverSociaAutenticada).
 // Solo entonces dejamos fijar la contraseña.
 export default function PortalClaveNueva() {
+  const uid = useId();
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const { session, isLoading, establecerPassword } = usePortalAuth();
@@ -91,10 +92,10 @@ export default function PortalClaveNueva() {
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Nueva contraseña</label>
+                <label htmlFor={`${uid}-clave`} style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Nueva contraseña</label>
                 <div style={{ position: 'relative' }}>
                   <Lock size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.muted }} />
-                  <input
+                  <input id={`${uid}-clave`}
                     type="password"
                     value={password}
                     onChange={e => { setPassword(e.target.value); setError(''); }}
@@ -108,10 +109,10 @@ export default function PortalClaveNueva() {
               </div>
 
               <div>
-                <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Confirmar contraseña</label>
+                <label htmlFor={`${uid}-clave2`} style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Confirmar contraseña</label>
                 <div style={{ position: 'relative' }}>
                   <Lock size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.muted }} />
-                  <input
+                  <input id={`${uid}-clave2`}
                     type="password"
                     value={confirmar}
                     onChange={e => { setConfirmar(e.target.value); setError(''); }}

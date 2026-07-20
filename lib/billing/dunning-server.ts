@@ -12,18 +12,24 @@ import { enviarEmailImpago } from '@/lib/emails/impago-server';
 // de dunning (rechazo síncrono de tarjeta), para que ambos métodos sigan el mismo
 // flujo. La actualización del recibo es la parte crítica (lanza si falla); los
 // avisos son best-effort (no rompen el flujo de cobro).
+// `studioId` es obligatorio a propósito: `admin` es service-role y bypassa RLS,
+// así que sin acotar por tenant un reciboId de otro estudio avanzaría su ciclo de
+// dunning (y le mandaría avisos a sus socias). Debe venir de una fuente fiable —
+// en el webhook, de la cuenta Connect que firma el evento, no de la metadata.
 export async function registrarFalloCobro(params: {
   admin: SupabaseClient;
   reciboId: string;
+  studioId: string;
   esSepa: boolean;
   ahoraISO: string;
 }): Promise<{ estado: 'PENDIENTE' | 'FALLIDO'; intentos: number } | null> {
-  const { admin, reciboId, esSepa, ahoraISO } = params;
+  const { admin, reciboId, studioId, esSepa, ahoraISO } = params;
 
   const { data: rec } = await admin
     .from('recibos')
     .select('id, studio_id, socio_id, concepto, importe, fecha_vencimiento, intentos_reintento')
     .eq('id', reciboId)
+    .eq('studio_id', studioId)
     .maybeSingle();
   if (!rec) return null;
 
@@ -37,7 +43,8 @@ export async function registrarFalloCobro(params: {
       proximo_reintento: plan.proximoReintento,
       ...(esSepa ? { sepa_estado: 'failed' } : {}),
     })
-    .eq('id', reciboId);
+    .eq('id', reciboId)
+    .eq('studio_id', studioId);
   if (error) throw new Error(error.message);
 
   if (plan.esPrimerFallo || plan.esDefinitivo) {

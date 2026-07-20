@@ -2,14 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { uid } from '@/lib/utils';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
-import { contactarCandidata, contactarDesde, ESTADOS_EN_JUEGO, type RankingItem } from '@/lib/sustituciones/contacto';
-
-// Estados que se consideran "activos" (una baja en curso). Coincide con el índice
-// único parcial `uq_sustitucion_activa_por_sesion` de la migración 0037.
-const ESTADOS_INACTIVOS = '(sin_sustituta,resuelta_fuera,cancelada)';
+import { contactarCandidata, ESTADOS_EN_JUEGO, type RankingItem } from '@/lib/sustituciones/contacto';
+import { crearBaja } from '@/lib/sustituciones/baja';
+import {
+  puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
+} from '@/lib/sustituciones/recalculo';
 
 // Emite el evento de escalado. Best-effort: si el bus de Inngest falla, el contacto
 // ya se hizo (email enviado) — el escalado es una capa de resiliencia encima, no
@@ -23,8 +22,10 @@ async function emitirEscalado(data: { sustitucionId: string; studioId: string; i
 }
 
 // POST /api/sustituciones — marcar una baja: "no puedo dar esta clase".
-// Crea la sustitución (idempotente), calcula el ranking de candidatas con
-// motivos humanos y la deja lista según el modo de autonomía del estudio.
+// El motor (idempotencia, scoring, modo de autonomía, arranque del escalado)
+// vive en lib/sustituciones/baja.ts, compartido con la vía pública por la que
+// la propia instructora se da de baja desde el móvil. Aquí solo queda el
+// control de acceso: quién puede pedirlo.
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
@@ -35,79 +36,16 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as { sesionId?: string; motivo?: string } | null;
   const sesionId = typeof body?.sesionId === 'string' ? body.sesionId : null;
   if (!sesionId) return NextResponse.json({ error: 'Falta la clase (sesionId)' }, { status: 400 });
-  const motivo = typeof body?.motivo === 'string' ? body.motivo.trim().slice(0, 500) || null : null;
 
-  // La clase debe existir y ser de este estudio.
-  const { data: clase } = await admin
-    .from('sesiones').select('id, studio_id, instructor_id, cancelada, inicio, tipo_clase_id')
-    .eq('id', sesionId).eq('studio_id', sesion.studioId).maybeSingle();
-  if (!clase) return NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 });
-  if (clase.cancelada) return NextResponse.json({ error: 'La clase ya está cancelada' }, { status: 409 });
+  const r = await crearBaja(admin, {
+    studioId: sesion.studioId,
+    sesionId,
+    motivo: body?.motivo ?? null,
+    origen: 'panel',
+  });
 
-  // Idempotencia (rápida): si ya hay una sustitución activa para esta clase, la devuelve.
-  const { data: existente } = await admin
-    .from('sustituciones').select('*')
-    .eq('sesion_id', sesionId).not('estado', 'in', ESTADOS_INACTIVOS).maybeSingle();
-  if (existente) return NextResponse.json({ sustitucion: existente, yaExistia: true });
-
-  // Modo de autonomía del estudio (0039).
-  const { data: estudio } = await admin
-    .from('studios').select('modo_autonomia').eq('id', sesion.studioId).maybeSingle();
-  const modo = (estudio?.modo_autonomia as string) ?? 'asistido';
-
-  // Scoring: top-3 de candidatas con motivos en lenguaje humano (función 0038).
-  const { data: ranking, error: errRank } = await admin.rpc('rankear_candidatas', { p_sesion_id: sesionId });
-  if (errRank) return errorInterno('sustituciones:rankear', errRank,
-    'No se han podido calcular las candidatas para cubrir esta clase. Inténtalo de nuevo en unos segundos.');
-
-  // asistido → espera el visto bueno de la propietaria; autonomo/vacaciones →
-  // arranca en 'contactando' y más abajo se avisa sola a la 1ª candidata.
-  const estado = modo === 'autonomo' || modo === 'vacaciones' ? 'contactando' : 'pendiente_aprobacion';
-
-  const nueva = {
-    id: `sust-${uid()}`,
-    studio_id: sesion.studioId,
-    sesion_id: sesionId,
-    instructor_original_id: clase.instructor_id,
-    motivo,
-    estado,
-    ranking: ranking ?? [],
-    candidata_actual: 0,
-  };
-
-  const { data: insertada, error: errIns } = await admin
-    .from('sustituciones').insert(nueva).select('*').single();
-
-  if (errIns) {
-    // Choque con el índice único parcial (dos bajas simultáneas de la misma
-    // clase) → gana la primera; devolvemos la activa en vez de crear otra.
-    if (errIns.code === '23505') {
-      const { data: activa } = await admin
-        .from('sustituciones').select('*')
-        .eq('sesion_id', sesionId).not('estado', 'in', ESTADOS_INACTIVOS).maybeSingle();
-      if (activa) return NextResponse.json({ sustitucion: activa, yaExistia: true });
-    }
-    return errorInterno('sustituciones:crear', errIns,
-      'No se ha podido registrar la baja. Inténtalo de nuevo en unos segundos.');
-  }
-
-  // Modo autónomo/vacaciones: la dueña ha "desaparecido" → el motor contacta solo
-  // a la primera candidata contactable y arranca el escalado. En asistido no se
-  // contacta a nadie aquí (espera el visto bueno de la propietaria en el panel).
-  if (insertada.estado === 'contactando') {
-    const rank = (Array.isArray(ranking) ? ranking : []) as RankingItem[];
-    const sesionMin = { inicio: clase.inicio as string, tipo_clase_id: clase.tipo_clase_id as string | null };
-    const r = await contactarDesde(admin, {
-      sustitucionId: insertada.id, studioId: sesion.studioId, sesion: sesionMin, ranking: rank, desde: 0,
-    });
-    if (r.contactada) {
-      await emitirEscalado({ sustitucionId: insertada.id, studioId: sesion.studioId, instructorId: r.instructorId, idx: r.idx });
-    }
-    // Si nadie es contactable (ranking vacío o sin emails), la baja queda en
-    // 'contactando' con el ranking vacío → el panel muestra "cancelar clase".
-  }
-
-  return NextResponse.json({ sustitucion: insertada, yaExistia: false });
+  if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+  return NextResponse.json({ sustitucion: r.sustitucion, yaExistia: r.yaExistia });
 }
 
 // GET /api/sustituciones — lista las sustituciones del estudio (activas +
@@ -121,7 +59,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from('sustituciones')
-    .select('id, estado, motivo, creado_en, resuelto_en, instructor_original_id, sustituta_final_id, ranking, sesion_id, sesiones(inicio, fin, tipo_clase_id, cancelada)')
+    .select('id, estado, motivo, origen, creado_en, resuelto_en, instructor_original_id, sustituta_final_id, ranking, sesion_id, sesiones(inicio, fin, tipo_clase_id, cancelada)')
     .eq('studio_id', sesion.studioId)
     .order('creado_en', { ascending: false })
     .limit(50);
@@ -129,10 +67,48 @@ export async function GET(req: NextRequest) {
   if (error) return errorInterno('sustituciones:listar', error,
     'No se ha podido cargar el listado de sustituciones. Recarga la página.');
 
+  const lista = data ?? [];
+
+  // Traza de contactos: a quién se avisó, por qué canal y qué contestó. En una
+  // consulta aparte (no embebida) a propósito: si esta falla, el panel se queda
+  // sin traza pero SIGUE funcionando. Embebida, un fallo tumbaría toda la página
+  // de Sustituciones — un extra informativo no puede llevarse por delante la
+  // herramienta con la que se resuelve una baja.
+  const ids = lista.map((s) => s.id);
+  const contactosPorSust = new Map<string, unknown[]>();
+  if (ids.length > 0) {
+    const { data: contactos, error: errCont } = await admin
+      .from('sustitucion_contactos')
+      .select('sustitucion_id, instructor_id, canal, estado, enviado_en, respondido_en')
+      .eq('studio_id', sesion.studioId)
+      .in('sustitucion_id', ids)
+      .order('enviado_en', { ascending: true });
+    if (errCont) {
+      console.error('[sustituciones] no se pudo cargar la traza de contactos', errCont);
+    } else {
+      for (const c of contactos ?? []) {
+        const arr = contactosPorSust.get(c.sustitucion_id) ?? [];
+        arr.push(c);
+        contactosPorSust.set(c.sustitucion_id, arr);
+      }
+    }
+  }
+
   const { data: estudio } = await admin
     .from('studios').select('avisar_alumnas').eq('id', sesion.studioId).maybeSingle();
 
-  return NextResponse.json({ sustituciones: data ?? [], avisarAlumnas: !!estudio?.avisar_alumnas });
+  // Diagnóstico del equipo: quién es INVISIBLE para el ranking por no tener
+  // ninguna franja en `instructora_disponibilidad`. `rankear_candidatas` (0038)
+  // las excluye, así que sin esto el panel enseña "ninguna candidata" sin decir
+  // que a media plantilla ni se la ha mirado. Dos consultas simples en vez de un
+  // join: el equipo de un estudio cabe de sobra en memoria.
+  const equipo = await diagnosticarEquipo(admin, sesion.studioId);
+
+  return NextResponse.json({
+    sustituciones: lista.map((s) => ({ ...s, sustitucion_contactos: contactosPorSust.get(s.id) ?? [] })),
+    avisarAlumnas: !!estudio?.avisar_alumnas,
+    equipo,
+  });
 }
 
 // PATCH /api/sustituciones — confirmar una candidata (aceptación atómica) o
@@ -201,10 +177,19 @@ export async function PATCH(req: NextRequest) {
       .eq('id', sustitucionId).eq('studio_id', sesion.studioId).maybeSingle();
     if (!sust) return NextResponse.json({ error: 'Sustitución no encontrada' }, { status: 404 });
 
-    await admin.from('sesiones').update({ cancelada: true }).eq('id', sust.sesion_id).eq('studio_id', sesion.studioId);
-    await admin.from('sustituciones')
+    // Cancelar manda un email a TODAS las alumnas: si la escritura falla, no se
+    // puede seguir como si nada y avisarlas de una cancelación que no ha pasado.
+    const canc = await admin.from('sesiones')
+      .update({ cancelada: true }).eq('id', sust.sesion_id).eq('studio_id', sesion.studioId).select('id');
+    if (canc.error) return NextResponse.json({ error: canc.error.message }, { status: 500 });
+    if (!canc.data || canc.data.length === 0) {
+      return NextResponse.json({ error: 'No se pudo cancelar la clase. Recarga la página.' }, { status: 409 });
+    }
+
+    const marc = await admin.from('sustituciones')
       .update({ estado: 'sin_sustituta', resuelto_en: new Date().toISOString() })
-      .eq('id', sustitucionId).eq('studio_id', sesion.studioId);
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId).select('id');
+    if (marc.error) return NextResponse.json({ error: marc.error.message }, { status: 500 });
 
     const alumnas = await avisarAlumnas(admin, {
       sesionId: sust.sesion_id as string, studioId: sesion.studioId, tipo: 'cancelada',
@@ -252,16 +237,112 @@ export async function PATCH(req: NextRequest) {
     });
   }
 
+  // "Volver a buscar": recalcula el ranking de una baja que ya existe. Hace
+  // falta porque el ranking se congela al crearla: si el equipo no tenía la
+  // disponibilidad cargada, la baja se quedaba en "ninguna candidata" para
+  // siempre aunque después se arreglara.
+  if (body?.action === 'recalcular') {
+    const { data: sust } = await admin
+      .from('sustituciones').select('id, estado, ranking, sesion_id')
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId).maybeSingle();
+    if (!sust) return NextResponse.json({ error: 'Sustitución no encontrada' }, { status: 404 });
+
+    const rankingActual = (Array.isArray(sust.ranking) ? sust.ranking : []) as RankingItem[];
+    const permiso = puedeRecalcular(sust.estado as string, rankingActual.length > 0);
+    if (!permiso.ok) {
+      return NextResponse.json({
+        error: permiso.motivo === 'contactando'
+          ? 'Ya estamos avisando a una candidata. Espera su respuesta antes de volver a buscar.'
+          : 'Esta sustitución ya está resuelta.',
+      }, { status: 409 });
+    }
+
+    const { data: nuevo, error: errRank } = await admin.rpc('rankear_candidatas', { p_sesion_id: sust.sesion_id });
+    if (errRank) return NextResponse.json({ error: errRank.message }, { status: 500 });
+
+    // Quien ya dijo que no puede para ESTA clase no vuelve a la lista: volver a
+    // escribirle es la vía rápida a que ignore los avisos del sistema.
+    const { data: rechazos } = await admin
+      .from('sustitucion_contactos').select('instructor_id')
+      .eq('sustitucion_id', sustitucionId).eq('estado', 'rechazado');
+    const rechazadas = Array.from(new Set((rechazos ?? []).map(r => r.instructor_id as string)));
+
+    const antes = rankingActual;
+    const ranking = filtrarYaRechazadas(
+      (Array.isArray(nuevo) ? nuevo : []) as RankingItem[],
+      rechazadas,
+    );
+    const estado = estadoTrasRecalcular(sust.estado as string, ranking.length);
+
+    const { data: act, error: errUpd } = await admin
+      .from('sustituciones')
+      .update({ ranking, estado, candidata_actual: 0 })
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId)
+      .eq('estado', sust.estado)   // compare-and-set: nadie ha tocado nada entretanto
+      .select('id');
+    if (errUpd) return NextResponse.json({ error: errUpd.message }, { status: 500 });
+    if (!act || act.length === 0) {
+      return NextResponse.json({ error: 'La sustitución ha cambiado mientras buscábamos. Recarga la página.' }, { status: 409 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      candidatas: ranking.length,
+      resumen: resumenRecalculo(antes.length, ranking.length),
+      omitidasPorRechazo: rechazadas.length,
+    });
+  }
+
   if (body?.action === 'descartar') {
-    const { error } = await admin
+    // `.select()` para saber CUÁNTAS filas ha tocado el compare-and-set. Sin él,
+    // un update que no encaja con ninguna fila (sustitución ya resuelta, o de
+    // otro estudio) devolvía `ok:true` y el panel daba por hecho que funcionó:
+    // la tarjeta seguía ahí y no había forma de saber por qué.
+    const { data, error } = await admin
       .from('sustituciones')
       .update({ estado: 'resuelta_fuera', resuelto_en: new Date().toISOString() })
       .eq('id', sustitucionId).eq('studio_id', sesion.studioId)
-      .in('estado', ESTADOS_EN_JUEGO);
+      .in('estado', ESTADOS_EN_JUEGO)
+      .select('id');
     if (error) return errorInterno('sustituciones:descartar', error,
       'No se ha podido descartar la sustitución. Vuelve a intentarlo.');
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: 'Esta sustitución ya está resuelta. Recarga la página.' }, { status: 409 });
+    }
     return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
+}
+
+/**
+ * Instructoras activas del estudio que NO tienen ninguna franja de disponibilidad
+ * cargada. Son las que `rankear_candidatas` descarta de entrada, así que nunca
+ * aparecerán como candidatas y la propietaria no tendría forma de saber por qué.
+ *
+ * Best-effort: si esto falla, el panel se queda sin el aviso pero sigue
+ * funcionando — es información de apoyo, no la herramienta.
+ */
+async function diagnosticarEquipo(
+  admin: ReturnType<typeof getSupabaseAdmin> & {},
+  studioId: string,
+): Promise<{ total: number; sinDisponibilidad: { id: string; nombre: string }[] }> {
+  try {
+    const [{ data: activas }, { data: franjas }] = await Promise.all([
+      admin.from('instructores').select('id, nombre').eq('studio_id', studioId).eq('activo', true),
+      admin.from('instructora_disponibilidad').select('instructor_id').eq('studio_id', studioId),
+    ]);
+
+    const conDisponibilidad = new Set((franjas ?? []).map((f) => f.instructor_id as string));
+    const lista = activas ?? [];
+    return {
+      total: lista.length,
+      sinDisponibilidad: lista
+        .filter((i) => !conDisponibilidad.has(i.id as string))
+        .map((i) => ({ id: i.id as string, nombre: (i.nombre as string) ?? '' })),
+    };
+  } catch (e) {
+    console.error('[sustituciones] no se pudo diagnosticar el equipo', e);
+    return { total: 0, sinDisponibilidad: [] };
+  }
 }

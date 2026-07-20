@@ -102,8 +102,8 @@ function CondicionDialog({
         <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
           {/* Categoría */}
           <div>
-            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Tipo</label>
-            <div className="flex flex-wrap gap-1.5">
+            <span id={`${uid}-tipo`} className="text-xs font-semibold text-muted-foreground mb-1.5 block">Tipo</span>
+            <div role="group" aria-labelledby={`${uid}-tipo`} className="flex flex-wrap gap-1.5">
               {CATEGORIAS.map(c => (
                 <button key={c} type="button" onClick={() => setF(p => ({ ...p, categoria: c }))}
                   className={cn('text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors',
@@ -131,8 +131,8 @@ function CondicionDialog({
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Severidad</label>
-              <div className="flex gap-1.5">
+              <span id={`${uid}-severidad`} className="text-xs font-semibold text-muted-foreground mb-1.5 block">Severidad</span>
+              <div role="group" aria-labelledby={`${uid}-severidad`} className="flex gap-1.5">
                 {SEVERIDADES.map(s => (
                   <button key={s} type="button" onClick={() => setF(p => ({ ...p, severidad: s }))}
                     className={cn('flex-1 text-xs font-semibold py-2 rounded-lg border transition-colors',
@@ -147,8 +147,8 @@ function CondicionDialog({
           {/* Restricciones */}
           {f.zona && catalogo.length > 0 && (
             <div>
-              <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Restricciones ({ZONA_LABEL[f.zona]})</label>
-              <div className="flex flex-wrap gap-1.5">
+              <span id={`${uid}-restricciones`} className="text-xs font-semibold text-muted-foreground mb-1.5 block">Restricciones ({ZONA_LABEL[f.zona]})</span>
+              <div role="group" aria-labelledby={`${uid}-restricciones`} className="flex flex-wrap gap-1.5">
                 {catalogo.map(r => {
                   const on = f.restricciones.includes(r.codigo);
                   const dura = r.codigo.startsWith('NO_');

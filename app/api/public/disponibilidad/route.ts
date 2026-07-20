@@ -4,6 +4,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { uid } from '@/lib/utils';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
+import { enlaceRevocado } from '@/lib/sustituciones/enlaces';
 import { FRANJAS, celdaKey, parseCeldaKey, franjaPorHoraInicio } from '@/lib/sustituciones/franjas';
 
 // Endpoint PÚBLICO (sin login): la instructora llega por deep link firmado y
@@ -23,6 +24,11 @@ export async function GET(req: NextRequest) {
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+
+  // Un enlace nuevo generado para esta instructora revoca este (migración 0057).
+  if (await enlaceRevocado(admin, claim.instructorId, 'disponibilidad', token!)) {
+    return NextResponse.json({ error: 'Enlace no válido o caducado' }, { status: 401 });
+  }
 
   const { data: instructora } = await admin
     .from('instructores')
@@ -65,6 +71,10 @@ export async function POST(req: NextRequest) {
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+
+  if (await enlaceRevocado(admin, claim.instructorId, 'disponibilidad', body!.token!)) {
+    return NextResponse.json({ error: 'Enlace no válido o caducado' }, { status: 401 });
+  }
 
   // Comprobación defensiva: la instructora del token pertenece a ese estudio.
   const { data: instructora } = await admin

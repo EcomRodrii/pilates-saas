@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useId } from 'react';
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import type { EstadoRecibo, Socio } from '@/lib/types';
@@ -38,10 +39,11 @@ const inputCls =
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
+  const { htmlFor, control } = useCampoAsociado(children);
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
-      {children}
+      <label htmlFor={htmlFor} className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
+      {control}
     </div>
   );
 }

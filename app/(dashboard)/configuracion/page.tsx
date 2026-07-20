@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useState, useEffect, useId } from 'react';
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertTriangle } from 'lucide-react';
@@ -58,31 +59,19 @@ export function Field({
   hint?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const autoId = React.useId();
-  // El control llega como children opaco, así que aquí se le inyectan las dos
-  // cosas que lo hacen accesible:
-  //   · un id, para que la etiqueta lo señale con htmlFor (antes el <label> y
-  //     el campo eran hermanos sueltos: visualmente parecían ir juntos, pero un
-  //     lector de pantalla leía el campo sin nombre);
-  //   · aria-describedby, para que la explicación se lea además del nombre.
-  // Si quien llama ya puso un id propio, se respeta.
-  type PropsControl = { id?: string; 'aria-describedby'?: string };
-  const hijo = React.isValidElement(children)
-    ? (children as React.ReactElement<PropsControl>)
-    : null;
-  const idControl = hijo ? (hijo.props.id ?? autoId) : undefined;
-  const idDesc = description ? `${autoId}-desc` : undefined;
-
-  const control = hijo
-    ? React.cloneElement(hijo, {
-        id: idControl,
-        'aria-describedby': idDesc ?? hijo.props['aria-describedby'],
-      })
-    : children;
+  // La asociación label↔control (htmlFor/id) la resuelve useCampoAsociado
+  // (WCAG 1.3.1/4.1.2, aplicado con el mismo barrido en toda la app). Aquí
+  // solo se añade encima el hueco de descripción que useCampoAsociado no trae.
+  const { htmlFor, control } = useCampoAsociado(children);
+  const descAutoId = React.useId();
+  const idDesc = description ? `${descAutoId}-desc` : undefined;
+  const controlDescrito = idDesc && React.isValidElement(control)
+    ? React.cloneElement(control as React.ReactElement<{ 'aria-describedby'?: string }>, { 'aria-describedby': idDesc })
+    : control;
 
   return (
     <div>
-      <label htmlFor={idControl} className={cn(labelCls, 'flex items-center gap-1.5')}>
+      <label htmlFor={htmlFor} className={cn(labelCls, 'flex items-center gap-1.5')}>
         {label}
         {hint}
       </label>
@@ -91,6 +80,9 @@ export function Field({
           {description}
         </p>
       )}
+      {controlDescrito}
+    </div>
+  );
       {control}
     </div>
   );

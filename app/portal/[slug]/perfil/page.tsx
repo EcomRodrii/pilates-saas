@@ -14,6 +14,7 @@ import {
 import { Card, Input, Button, BottomSheet } from '@/components/portal/ui';
 
 export default function PerfilPage() {
+  const uid = useId();
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const { session, logout } = usePortalAuth();
@@ -211,29 +212,29 @@ export default function PerfilPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={labelStyle}>Nombre</label>
-                  <Input autoComplete="given-name" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+                  <label htmlFor={`${uid}-1`} style={labelStyle}>Nombre</label>
+                  <Input id={`${uid}-1`} autoComplete="given-name" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Apellidos</label>
-                  <Input autoComplete="family-name" value={form.apellidos} onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
+                  <label htmlFor={`${uid}-2`} style={labelStyle}>Apellidos</label>
+                  <Input id={`${uid}-2`} autoComplete="family-name" value={form.apellidos} onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Email</label>
-                <Input type="email" autoComplete="email" inputMode="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                <label htmlFor={`${uid}-3`} style={labelStyle}>Email</label>
+                <Input id={`${uid}-3`} type="email" autoComplete="email" inputMode="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               </div>
               <div>
-                <label style={labelStyle}>Teléfono</label>
-                <Input type="tel" autoComplete="tel" inputMode="tel" placeholder="+34 600 000 000" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+                <label htmlFor={`${uid}-4`} style={labelStyle}>Teléfono</label>
+                <Input id={`${uid}-4`} type="tel" autoComplete="tel" inputMode="tel" placeholder="+34 600 000 000" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
               </div>
               <div>
-                <label style={labelStyle}>Fecha de nacimiento</label>
-                <Input type="date" value={form.fechaNacimiento} onChange={e => setForm(f => ({ ...f, fechaNacimiento: e.target.value }))} />
+                <label htmlFor={`${uid}-5`} style={labelStyle}>Fecha de nacimiento</label>
+                <Input id={`${uid}-5`} type="date" value={form.fechaNacimiento} onChange={e => setForm(f => ({ ...f, fechaNacimiento: e.target.value }))} />
               </div>
               <div>
-                <label style={labelStyle}>Dirección</label>
-                <Input autoComplete="street-address" placeholder="Calle, número, ciudad" value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
+                <label htmlFor={`${uid}-6`} style={labelStyle}>Dirección</label>
+                <Input id={`${uid}-6`} autoComplete="street-address" placeholder="Calle, número, ciudad" value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
               </div>
             </div>
             <Button type="submit" style={{ width: '100%', marginTop: 20 }}>

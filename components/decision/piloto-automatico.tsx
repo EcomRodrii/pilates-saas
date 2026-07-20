@@ -19,6 +19,7 @@ const TIPO_LABEL: Record<string, string> = {
 // confianza se ejecuten solas (dentro de una allowlist y un tope diario). Off por
 // defecto. Nunca cobra tarjetas — solo mensajes.
 export function PilotoAutomatico() {
+  const uid = useId();
   const [config, setConfig] = useState<AutonomiaConfig | null>(null);
   const [tiposDisponibles, setTiposDisponibles] = useState<string[]>([]);
   const [maxTope, setMaxTope] = useState(50);
@@ -116,8 +117,8 @@ export function PilotoAutomatico() {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-[13px] text-foreground">Máximo por día</label>
-            <input
+            <label htmlFor={`${uid}-1`} className="text-[13px] text-foreground">Máximo por día</label>
+            <input id={`${uid}-1`}
               type="number" min={0} max={maxTope}
               value={config.maxDiario}
               onChange={e => setConfig(c => c ? { ...c, maxDiario: Number(e.target.value) } : c)}

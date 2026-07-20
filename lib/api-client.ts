@@ -6,6 +6,8 @@ import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
+import type { ContactoFila } from '@/lib/sustituciones/traza';
+import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -141,12 +143,13 @@ export function leerSociaLocal(): { socioId: string; email: string } | null {
 // PROPIETARIO; el studio_id sale del JWT. Devuelve la URL lista para compartir.
 export async function generarEnlaceDisponibilidad(
   instructorId: string,
+  scope: 'disponibilidad' | 'reportar_baja' = 'disponibilidad',
 ): Promise<{ url: string } | { error: string }> {
   try {
-    const res = await fetch('/api/sustituciones/disponibilidad-link', {
+    const res = await fetch('/api/sustituciones/enlace-instructora', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ instructorId }),
+      body: JSON.stringify({ instructorId, scope }),
     });
     const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
     if (!res.ok || !data.url) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
@@ -168,6 +171,9 @@ export interface SustitucionPanel {
   id: string;
   estado: string;
   motivo: string | null;
+  // 'instructora' = la avisó ella desde su móvil (0056). Las filas anteriores a
+  // esa migración no lo traen → tratar la ausencia como 'panel'.
+  origen?: 'panel' | 'instructora';
   creado_en: string;
   resuelto_en: string | null;
   instructor_original_id: string | null;
@@ -175,6 +181,8 @@ export interface SustitucionPanel {
   ranking: SustitucionCandidata[];
   sesion_id: string;
   sesiones: { inicio: string; fin: string; tipo_clase_id: string | null; cancelada: boolean } | null;
+  // Traza de contactos (embed). Ausente en respuestas antiguas → tratar como [].
+  sustitucion_contactos?: ContactoFila[];
 }
 
 // Marca una baja: "no puedo dar esta clase" → crea la sustitución + ranking.
@@ -193,14 +201,25 @@ export async function crearBaja(sesionId: string, motivo?: string): Promise<{ ok
   }
 }
 
-export async function listarSustituciones(): Promise<{ items: SustitucionPanel[]; avisarAlumnas: boolean }> {
+export async function listarSustituciones(): Promise<{
+  items: SustitucionPanel[]; avisarAlumnas: boolean; equipo: DiagnosticoEquipo;
+}> {
+  // Equipo vacío como valor por defecto: ante un fallo NO inventamos un aviso de
+  // "te falta configurar el equipo" que podría ser mentira.
+  const vacio: DiagnosticoEquipo = { total: 0, sinDisponibilidad: [] };
   try {
     const res = await fetch('/api/sustituciones', { headers: await authHeader() });
-    if (!res.ok) return { items: [], avisarAlumnas: false };
-    const data = (await res.json()) as { sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean };
-    return { items: data.sustituciones ?? [], avisarAlumnas: !!data.avisarAlumnas };
+    if (!res.ok) return { items: [], avisarAlumnas: false, equipo: vacio };
+    const data = (await res.json()) as {
+      sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean; equipo?: DiagnosticoEquipo;
+    };
+    return {
+      items: data.sustituciones ?? [],
+      avisarAlumnas: !!data.avisarAlumnas,
+      equipo: data.equipo ?? vacio,
+    };
   } catch {
-    return { items: [], avisarAlumnas: false };
+    return { items: [], avisarAlumnas: false, equipo: vacio };
   }
 }
 
@@ -272,6 +291,31 @@ export async function avisarSustituta(
 }
 
 // Descarta la sustitución (resuelto fuera del sistema).
+// Vuelve a calcular el ranking de una baja ya creada (p. ej. después de que el
+// equipo haya rellenado su disponibilidad). El ranking se congela al crearla.
+export async function recalcularCandidatas(
+  sustitucionId: string,
+): Promise<{ ok: true; candidatas: number; resumen: string; omitidasPorRechazo: number } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sustitucionId, action: 'recalcular' }),
+    });
+    const data = (await res.json().catch(() => ({}))) as
+      { error?: string; candidatas?: number; resumen?: string; omitidasPorRechazo?: number };
+    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    return {
+      ok: true,
+      candidatas: data.candidatas ?? 0,
+      resumen: data.resumen ?? '',
+      omitidasPorRechazo: data.omitidasPorRechazo ?? 0,
+    };
+  } catch {
+    return { error: 'No se pudo volver a buscar' };
+  }
+}
+
 export async function descartarSustitucion(sustitucionId: string): Promise<{ ok: true } | { error: string }> {
   try {
     const res = await fetch('/api/sustituciones', {
@@ -399,7 +443,7 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
-import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva } from '@/lib/csv';
+import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita } from '@/lib/csv';
 
 export interface ResultadoImport {
   total: number;
@@ -903,6 +947,35 @@ export async function importarReservas(rows: FilaReserva[]): Promise<ResultadoIm
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return data as ResultadoImportReservas;
+  } catch {
+    return { ...vacio, error: 'No se pudo conectar con el servidor' };
+  }
+}
+
+// Resultado de importar citas 1:1.
+export interface ResultadoImportCitas {
+  importadas: number;
+  duplicadas: number;
+  sinSocia: number;
+  sinInstructor: number;
+  sinServicioCatalogo: number;  // el servicio no estaba en el catálogo: se dedujo el tipo
+  errores: { fila: number; motivo: string }[];
+  error?: string;
+}
+
+// Importa citas 1:1. Empareja socia por email y servicio por nombre; el
+// studio_id sale del JWT.
+export async function importarCitas(rows: FilaCita[]): Promise<ResultadoImportCitas> {
+  const vacio = { importadas: 0, duplicadas: 0, sinSocia: 0, sinInstructor: 0, sinServicioCatalogo: 0, errores: [] };
+  try {
+    const res = await fetch('/api/citas/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rows }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
+    return data as ResultadoImportCitas;
   } catch {
     return { ...vacio, error: 'No se pudo conectar con el servidor' };
   }

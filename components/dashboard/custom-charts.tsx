@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useId } from 'react';
 import { BarChart3, Plus, Trash2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { computeSerieGrafico, METRICAS_GRAFICO, AGRUPACIONES_GRAFICO } from '@/lib/engines/dashboard-chart-engine';
@@ -86,6 +86,7 @@ function ChartCard({ chart, onDelete }: { chart: DashboardChart; onDelete: () =>
 }
 
 export function CustomChartsSection() {
+  const uid = useId();
   const { dashboardCharts, addDashboardChart, deleteDashboardChart } = useStudio();
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<{
@@ -142,37 +143,37 @@ export function CustomChartsSection() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div>
-              <label className={labelCls}>Nombre</label>
-              <input className={inputCls} placeholder="Ej. Ingresos últimos 6 meses" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+              <label htmlFor={`${uid}-1`} className={labelCls}>Nombre</label>
+              <input id={`${uid}-1`} className={inputCls} placeholder="Ej. Ingresos últimos 6 meses" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
             </div>
             <div>
-              <label className={labelCls}>Métrica</label>
-              <select className={inputCls} value={form.metrica} onChange={e => setForm(f => ({ ...f, metrica: e.target.value as MetricaGraficoDashboard }))}>
+              <label htmlFor={`${uid}-2`} className={labelCls}>Métrica</label>
+              <select id={`${uid}-2`} className={inputCls} value={form.metrica} onChange={e => setForm(f => ({ ...f, metrica: e.target.value as MetricaGraficoDashboard }))}>
                 {METRICAS_GRAFICO.map(m => <option key={m.metric} value={m.metric}>{m.nombre}</option>)}
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Tipo</label>
-                <select className={inputCls} value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoGraficoDashboard }))}>
+                <label htmlFor={`${uid}-3`} className={labelCls}>Tipo</label>
+                <select id={`${uid}-3`} className={inputCls} value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoGraficoDashboard }))}>
                   <option value="LINEA">Línea</option>
                   <option value="BARRAS">Barras</option>
                 </select>
               </div>
               <div>
-                <label className={labelCls}>Agrupar por</label>
-                <select className={inputCls} value={form.agrupacion} onChange={e => setForm(f => ({ ...f, agrupacion: e.target.value as AgrupacionGraficoDashboard }))}>
+                <label htmlFor={`${uid}-4`} className={labelCls}>Agrupar por</label>
+                <select id={`${uid}-4`} className={inputCls} value={form.agrupacion} onChange={e => setForm(f => ({ ...f, agrupacion: e.target.value as AgrupacionGraficoDashboard }))}>
                   {AGRUPACIONES_GRAFICO.map(a => <option key={a.value} value={a.value}>{a.nombre}</option>)}
                 </select>
               </div>
             </div>
             <div>
-              <label className={labelCls}>Cuántos periodos hacia atrás</label>
-              <input type="number" min={2} max={24} className={inputCls} value={form.rango} onChange={e => setForm(f => ({ ...f, rango: Math.min(24, Math.max(2, parseInt(e.target.value, 10) || 6)) }))} />
+              <label htmlFor={`${uid}-5`} className={labelCls}>Cuántos periodos hacia atrás</label>
+              <input id={`${uid}-5`} type="number" min={2} max={24} className={inputCls} value={form.rango} onChange={e => setForm(f => ({ ...f, rango: Math.min(24, Math.max(2, parseInt(e.target.value, 10) || 6)) }))} />
             </div>
             <div>
-              <label className={labelCls}>Color</label>
-              <div className="flex gap-2">
+              <span id={`${uid}-color`} className={labelCls}>Color</span>
+              <div role="group" aria-labelledby={`${uid}-color`} className="flex gap-2">
                 {COLORES.map(c => (
                   <button
                     key={c}

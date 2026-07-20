@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
@@ -130,7 +131,9 @@ type RecurringFormData = {
 // ─── FormField wrapper ────────────────────────────────────────────────────────
 
 // `description` es lo que faltaba: sin él no había dónde explicar, p.ej., qué
-// pasa al superar el aforo o hasta cuándo se repite una clase recurrente.
+// pasa al superar el aforo o hasta cuándo se repite una clase recurrente. La
+// asociación label↔control la resuelve useCampoAsociado (WCAG 1.3.1/4.1.2);
+// aquí solo se añade el hueco de descripción por encima.
 function FormField({
   label,
   description,
@@ -140,24 +143,22 @@ function FormField({
   description?: ReactNode;
   children: ReactNode;
 }) {
-  const autoId = useId();
-  type PropsControl = { id?: string; 'aria-describedby'?: string };
-  const hijo = isValidElement(children) ? (children as ReactElement<PropsControl>) : null;
-  const idControl = hijo ? (hijo.props.id ?? autoId) : undefined;
-  const idDesc = description ? `${autoId}-desc` : undefined;
-  const control = hijo
-    ? cloneElement(hijo, { id: idControl, 'aria-describedby': idDesc ?? hijo.props['aria-describedby'] })
-    : children;
+  const { htmlFor, control } = useCampoAsociado(children);
+  const descAutoId = useId();
+  const idDesc = description ? `${descAutoId}-desc` : undefined;
+  const controlDescrito = idDesc && isValidElement(control)
+    ? cloneElement(control as ReactElement<{ 'aria-describedby'?: string }>, { 'aria-describedby': idDesc })
+    : control;
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor={idControl} className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
+      <label htmlFor={htmlFor} className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
       {description && (
         <p id={idDesc} className="text-xs leading-relaxed text-muted-foreground text-balance">
           {description}
         </p>
       )}
-      {control}
+      {controlDescrito}
     </div>
   );
 }
@@ -857,6 +858,7 @@ function ModalClasesRecurrentes({
   onCrear: (sesiones: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]) => void;
   sesionesExistentes: SlotSesion[];
 }) {
+  const uid = useId();
   const today = new Date().toISOString().slice(0, 10);
   const inOneMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -973,11 +975,11 @@ function ModalClasesRecurrentes({
             </FormField>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">Días de la semana</label>
+            <span id={`${uid}-dias`} className="text-xs font-bold text-foreground uppercase tracking-wider">Días de la semana</span>
             <p className="text-xs leading-relaxed text-muted-foreground text-balance">
               Se creará una clase cada semana en estos días, desde la fecha de inicio hasta la de fin.
             </p>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div role="group" aria-labelledby={`${uid}-dias`} className="flex items-center gap-2 flex-wrap">
               {DIA_PILLS.map(({ label, day }) => (
                 <DiaPill key={day} label={label} active={form.diasSemana.includes(day)} onClick={() => toggleDia(day)} />
               ))}
@@ -1883,8 +1885,17 @@ export default function Calendario() {
               <FormField label="Aforo máximo" description="Al llenarse, las siguientes reservas entran en lista de espera; no se bloquean.">
                 <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
               </FormField>
+              {/* Era un <span onClick> dentro de un <label>: no lo alcanzaba el
+                  tabulador ni lo anunciaba ningún lector. Ahora todo el bloque
+                  es el botón, así que sigue siendo pulsable entero. */}
               {showForm === 'nueva' && (
-                <label className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-muted/60 border border-border cursor-pointer">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={form.repetir}
+                  onClick={() => setForm(f => ({ ...f, repetir: !f.repetir }))}
+                  className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-muted/60 border border-border cursor-pointer text-left"
+                >
                   <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <RefreshCw size={14} className="text-brand" />
                     Repetir semanalmente
@@ -1892,14 +1903,13 @@ export default function Calendario() {
                   <span
                     className="w-11 h-6 rounded-full flex items-center px-0.5 transition-colors shrink-0"
                     style={{ backgroundColor: form.repetir ? 'var(--primary)' : 'var(--muted-foreground)' }}
-                    onClick={e => { e.preventDefault(); setForm(f => ({ ...f, repetir: !f.repetir })); }}
                   >
                     <span
                       className="w-5 h-5 bg-card rounded-full shadow transition-transform"
                       style={{ transform: form.repetir ? 'translateX(20px)' : 'translateX(0)' }}
                     />
                   </span>
-                </label>
+                </button>
               )}
               {showForm === 'nueva' && form.repetir && (
                 <div className="flex items-center gap-3 pl-1">

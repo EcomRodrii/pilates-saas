@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { useRouter } from 'next/navigation';
 import { Play, Eye, Heart, Upload, X, Search, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -76,6 +76,7 @@ type UploadForm = {
 };
 
 function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; onSave: (fields: UploadForm, streamUid: string | null) => void; instructores: { id: string; nombre: string }[] }) {
+  const uid = useId();
   const [form, setForm] = useState<UploadForm>({
     titulo: '',
     descripcion: '',
@@ -134,8 +135,8 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
         </div>
         <div className="px-5 py-4 space-y-3">
           <div>
-            <label className="block text-[12px] font-medium text-foreground mb-1">Título *</label>
-            <input
+            <label htmlFor={`${uid}-1`} className="block text-[12px] font-medium text-foreground mb-1">Título *</label>
+            <input id={`${uid}-1`}
               type="text"
               value={form.titulo}
               onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
@@ -144,8 +145,8 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
             />
           </div>
           <div>
-            <label className="block text-[12px] font-medium text-foreground mb-1">Descripción</label>
-            <textarea
+            <label htmlFor={`${uid}-2`} className="block text-[12px] font-medium text-foreground mb-1">Descripción</label>
+            <textarea id={`${uid}-2`}
               value={form.descripcion}
               onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
               placeholder="Describe el contenido del vídeo..."
@@ -154,8 +155,8 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
             />
           </div>
           <div>
-            <label className="block text-[12px] font-medium text-foreground mb-1">Vídeo</label>
-            <input
+            <label htmlFor={`${uid}-3`} className="block text-[12px] font-medium text-foreground mb-1">Vídeo</label>
+            <input id={`${uid}-3`}
               ref={fileRef}
               type="file"
               accept="video/*"
@@ -174,8 +175,8 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[12px] font-medium text-foreground mb-1">Categoría</label>
-              <select
+              <label htmlFor={`${uid}-4`} className="block text-[12px] font-medium text-foreground mb-1">Categoría</label>
+              <select id={`${uid}-4`}
                 value={form.categoria}
                 onChange={e => setForm(f => ({ ...f, categoria: e.target.value as CategoriaVideo }))}
                 className="w-full px-3 py-2 rounded-lg border border-border text-[13px] text-foreground outline-none focus:border-foreground transition-colors bg-card"
@@ -186,8 +187,8 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
               </select>
             </div>
             <div>
-              <label className="block text-[12px] font-medium text-foreground mb-1">Nivel</label>
-              <select
+              <label htmlFor={`${uid}-5`} className="block text-[12px] font-medium text-foreground mb-1">Nivel</label>
+              <select id={`${uid}-5`}
                 value={form.nivel}
                 onChange={e => setForm(f => ({ ...f, nivel: e.target.value as NivelClase }))}
                 className="w-full px-3 py-2 rounded-lg border border-border text-[13px] text-foreground outline-none focus:border-foreground transition-colors bg-card"
@@ -200,8 +201,8 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[12px] font-medium text-foreground mb-1">Duración (minutos)</label>
-              <input
+              <label htmlFor={`${uid}-6`} className="block text-[12px] font-medium text-foreground mb-1">Duración (minutos)</label>
+              <input id={`${uid}-6`}
                 type="number"
                 value={form.duracion}
                 onChange={e => setForm(f => ({ ...f, duracion: e.target.value }))}
@@ -211,8 +212,8 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
               />
             </div>
             <div>
-              <label className="block text-[12px] font-medium text-foreground mb-1">Instructora</label>
-              <select
+              <label htmlFor={`${uid}-7`} className="block text-[12px] font-medium text-foreground mb-1">Instructora</label>
+              <select id={`${uid}-7`}
                 value={form.instructorId}
                 onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg border border-border text-[13px] text-foreground outline-none focus:border-foreground transition-colors bg-card"

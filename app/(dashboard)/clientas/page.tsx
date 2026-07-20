@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
@@ -95,18 +96,16 @@ function FF({
   description?: ReactNode;
   children: ReactNode;
 }) {
-  const autoId = useId();
-  type PropsControl = { id?: string; 'aria-describedby'?: string };
-  const hijo = isValidElement(children) ? (children as ReactElement<PropsControl>) : null;
-  const idControl = hijo ? (hijo.props.id ?? autoId) : undefined;
-  const idDesc = description ? `${autoId}-desc` : undefined;
-  const control = hijo
-    ? cloneElement(hijo, { id: idControl, 'aria-describedby': idDesc ?? hijo.props['aria-describedby'] })
-    : children;
+  const { htmlFor, control } = useCampoAsociado(children);
+  const descAutoId = useId();
+  const idDesc = description ? `${descAutoId}-desc` : undefined;
+  const controlDescrito = idDesc && isValidElement(control)
+    ? cloneElement(control as ReactElement<{ 'aria-describedby'?: string }>, { 'aria-describedby': idDesc })
+    : control;
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor={idControl} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <label htmlFor={htmlFor} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </label>
       {description && (
@@ -114,7 +113,7 @@ function FF({
           {description}
         </p>
       )}
-      {control}
+      {controlDescrito}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { Mail, AlertCircle, CheckCircle2 } from 'lucide-react';
 // a crear (primera vez) o restablecer (olvidó su contraseña) su contraseña en
 // /clave-nueva. El día a día se entra con email + contraseña en /login.
 export default function PortalAcceso() {
+  const uid = useId();
   const { slug } = useParams<{ slug: string }>();
   const { enviarEnlace } = usePortalAuth();
   const { studio } = useStudio();
@@ -99,10 +100,10 @@ export default function PortalAcceso() {
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Email</label>
+                <label htmlFor={`${uid}-email`} style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Email</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.muted }} />
-                  <input
+                  <input id={`${uid}-email`}
                     type="email"
                     value={email}
                     onChange={e => { setEmail(e.target.value); setError(''); }}

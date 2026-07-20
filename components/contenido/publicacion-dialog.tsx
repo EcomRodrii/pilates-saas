@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useId } from 'react';
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useContenido } from '@/lib/contenido/store';
@@ -160,10 +161,11 @@ export function PublicacionDialog({
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const { htmlFor, control } = useCampoAsociado(children);
   return (
     <div className="space-y-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
-      {children}
+      <label htmlFor={htmlFor} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
+      {control}
     </div>
   );
 }

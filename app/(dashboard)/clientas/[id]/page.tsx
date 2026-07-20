@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState, useEffect, useRef, useMemo, useId } from 'react';
+import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { resumenSocio } from '@/lib/socio-resumen';
@@ -90,10 +91,11 @@ const inputCls = "w-full rounded-xl border border-border bg-card px-3.5 py-2.5 t
 const selectCls = inputCls + " appearance-none";
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
+  const { htmlFor, control } = useCampoAsociado(children);
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
-      {children}
+      <label htmlFor={htmlFor} className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
+      {control}
     </div>
   );
 }

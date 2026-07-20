@@ -9,6 +9,7 @@ import { enviarMensajeTwilio } from '@/lib/twilio';
 import {
   cuerpoNudgeCandidata,
   cuerpoAlertaPropietaria,
+  type TipoAlertaPropietaria,
 } from '@/lib/sustituciones/mensajes';
 
 // ── Núcleo del contacto a una candidata ─────────────────────────────────────
@@ -51,6 +52,38 @@ type SesionMin = { inicio: string; tipo_clase_id: string | null } | null;
 function unaSesion(v: unknown): SesionMin {
   const s = Array.isArray(v) ? v[0] : v;
   return (s ?? null) as SesionMin;
+}
+
+/**
+ * Anota un intento de contacto. Único sitio que escribe en `sustitucion_contactos`
+ * para que la traza que ve la propietaria no mienta por omisión: durante un tiempo
+ * solo se registraba el email y el nudge de WhatsApp/SMS era invisible, así que el
+ * historial daba a entender que no se había hecho nada más.
+ *
+ * Best-effort a propósito: un fallo al ESCRIBIR EL LOG no puede tumbar un contacto
+ * que ya se ha hecho. Perder una línea de traza es malo; no avisar a la sustituta
+ * porque el log falló es mucho peor.
+ */
+async function registrarContacto(
+  admin: SupabaseClient,
+  p: {
+    studioId: string; sustitucionId: string; instructorId: string;
+    canal: 'email' | 'whatsapp' | 'sms'; estado: 'enviado' | 'fallido'; token?: string;
+  },
+): Promise<void> {
+  try {
+    await admin.from('sustitucion_contactos').insert({
+      id: `cont-${uid()}`,
+      studio_id: p.studioId,
+      sustitucion_id: p.sustitucionId,
+      instructor_id: p.instructorId,
+      canal: p.canal,
+      estado: p.estado,
+      token: p.token ?? null,
+    });
+  } catch (e) {
+    console.error('[sustituciones] no se pudo registrar el contacto', e);
+  }
 }
 
 export interface ResultadoContacto {
@@ -111,16 +144,9 @@ export async function contactarCandidata(
   const url = `${appUrl()}/aceptar-sustitucion/${token}`;
 
   // Registra el intento con su token (para poder marcar aceptado/rechazado luego).
-  // canal siempre 'email' aquí (el CHECK de la tabla solo admite email/whatsapp/
-  // sms/llamada/push); el tono recordatorio lo lleva el propio email.
-  await admin.from('sustitucion_contactos').insert({
-    id: `cont-${uid()}`,
-    studio_id: studioId,
-    sustitucion_id: sustitucionId,
-    instructor_id: instructorId,
-    canal: 'email',
-    estado: 'enviado',
-    token,
+  // canal siempre 'email' aquí; el tono recordatorio lo lleva el propio email.
+  await registrarContacto(admin, {
+    studioId, sustitucionId, instructorId, canal: 'email', estado: 'enviado', token,
   });
 
   const envio = await enviarEmailContactoSustituta({
@@ -191,26 +217,44 @@ export async function recordatorioPorMensaje(
     url,
   });
 
+  const comun = { studioId, sustitucionId, instructorId } as const;
+
   const wa = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: cand.telefono, cuerpo });
-  if (wa.ok) return { enviado: true, skipped: false };
+  if (wa.ok) {
+    await registrarContacto(admin, { ...comun, canal: 'whatsapp', estado: 'enviado' });
+    return { enviado: true, skipped: false };
+  }
   // Si WhatsApp no está configurado, intenta SMS antes de rendirse.
   const sms = await enviarMensajeTwilio({ canal: 'SMS', to: cand.telefono, cuerpo });
-  if (sms.ok) return { enviado: true, skipped: false };
-  return { enviado: false, skipped: !!(wa.skipped && sms.skipped) };
+  if (sms.ok) {
+    await registrarContacto(admin, { ...comun, canal: 'sms', estado: 'enviado' });
+    return { enviado: true, skipped: false };
+  }
+
+  // Distinguir "no configurado" de "falló": si Twilio no está puesto, el canal
+  // sencillamente no existe para este estudio y anotarlo como fallo llenaría la
+  // traza de ruido rojo. Si estaba puesto y el envío petó, eso SÍ hay que verlo.
+  const noConfigurado = !!(wa.skipped && sms.skipped);
+  if (!noConfigurado) {
+    await registrarContacto(admin, { ...comun, canal: 'whatsapp', estado: 'fallido' });
+  }
+  return { enviado: false, skipped: noConfigurado };
 }
 
 /**
- * Alerta a la propietaria: nadie responde / se agotó el ranking. Email al estudio
- * + WhatsApp/SMS si hay teléfono. Idempotencia la garantiza el llamador (un solo
- * disparo por candidata/agotamiento vía step.run de Inngest).
+ * Alerta a la propietaria: se ha dado una baja fuera del panel, nadie responde,
+ * o se agotó el ranking. Email al estudio + WhatsApp/SMS si hay teléfono.
+ * Idempotencia la garantiza el llamador (un solo disparo por candidata/
+ * agotamiento vía step.run de Inngest; una sola vez al crear la baja).
  */
 export async function alertarPropietaria(
   admin: SupabaseClient,
   params: {
     studioId: string;
     sesion: SesionMin;
-    tipo: 'agotada' | 'sin_respuesta';
-    candidataNombre?: string; // para 'sin_respuesta'
+    tipo: TipoAlertaPropietaria;
+    candidataNombre?: string;  // 'sin_respuesta': la candidata; 'baja': quien no puede venir
+    yaContactando?: boolean;   // 'baja': el motor ya está avisando (modo autónomo)
   },
 ): Promise<{ email: boolean; mensaje: boolean }> {
   const { studioId, sesion, tipo } = params;
@@ -230,13 +274,17 @@ export async function alertarPropietaria(
     const r = await enviarEmailAlertaPropietaria({
       to: estudio.email, estudioNombre, claseNombre, cuando, tipo,
       candidataNombre: params.candidataNombre, urlPanel,
+      yaContactando: params.yaContactando,
     });
     email = 'ok' in r && r.ok === true;
   }
 
   let mensaje = false;
   if (estudio?.telefono) {
-    const cuerpo = cuerpoAlertaPropietaria({ claseNombre, cuando, tipo, candidataNombre: params.candidataNombre, urlPanel });
+    const cuerpo = cuerpoAlertaPropietaria({
+      claseNombre, cuando, tipo, candidataNombre: params.candidataNombre, urlPanel,
+      yaContactando: params.yaContactando,
+    });
     const wa = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: estudio.telefono, cuerpo });
     if (wa.ok) mensaje = true;
     else {
