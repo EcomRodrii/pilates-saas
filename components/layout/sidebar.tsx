@@ -4,11 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, Calendar, Users, CreditCard,
-  FileText, Settings, BarChart2, X,
-  Clock, MessageCircle, Megaphone, Play,
-  Menu, Bot, ArrowLeftRight, Package, Store, Inbox, ExternalLink,
-  LogOut, UserCog, Users2, Check, PanelLeft, Compass, Replace,
+  X, Menu, LogOut, Check, PanelLeft, ExternalLink,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -16,84 +12,9 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos } from '@/lib/permisos';
-import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
+import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { fetchLayout } from '@/lib/api-client';
 import { filtrarItemsMenu } from '@/lib/layout-runtime';
-
-// ─── Nav config ──────────────────────────────────────────────────────────────
-
-const RAW_NAV_SECTIONS = [
-  // Decision OS (DECISION-OS-ARQUITECTURA.md §9): sección propia, arriba del
-  // todo — el sitio natural junto a "Automatizaciones IA". La página gatea el
-  // acceso por plan/feature flag; el propio dashboard sigue existiendo igual.
-  { items: [{ href: '/centro-de-control', label: 'Centro de Control', icon: Compass }] },
-  { items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
-  { items: [{ href: '/automatizaciones', label: 'Automatizaciones IA', icon: Bot }] },
-  {
-    label: 'Clases',
-    items: [
-      { href: '/calendario', label: 'Calendario', icon: Calendar },
-      { href: '/citas', label: 'Citas', icon: Clock },
-      { href: '/sustituciones', label: 'Sustituciones', icon: Replace },
-    ],
-  },
-  {
-    label: 'Clientes',
-    items: [
-      { href: '/clientas', label: 'Clientas', icon: Users },
-      { href: '/mensajeria', label: 'Mensajería', icon: Inbox },
-      { href: '/comunidad', label: 'Comunidad', icon: MessageCircle },
-      { href: '/chat', label: 'Chat de equipo', icon: Users2 },
-    ],
-  },
-  {
-    label: 'Ventas',
-    items: [
-      // "Cobros" reúne pendientes, facturas y movimientos: antes eran tres
-      // entradas distintas para la misma pregunta ("¿quién me debe y cuánto ha
-      // entrado?"). La caja se llama Caja y no POS porque es la palabra que se
-      // usa en el mostrador.
-      { href: '/cobros', label: 'Cobros', icon: CreditCard },
-      { href: '/pos', label: 'Caja', icon: Store },
-      { href: '/productos', label: 'Productos', icon: Package },
-    ],
-  },
-  {
-    label: 'Estudio',
-    items: [
-      { href: '/equipo', label: 'Equipo', icon: UserCog },
-      { href: '/marketing', label: 'Marketing', icon: Megaphone },
-      { href: '/ondemand', label: 'Oferta digital', icon: Play },
-      { href: '/informes', label: 'Informes', icon: BarChart2 },
-      { href: '/configuracion', label: 'Mi estudio', icon: Settings },
-      { href: '/suscripcion', label: 'Suscripción', icon: CreditCard },
-    ],
-  },
-];
-
-// Oferta digital + Marketing ocultos temporalmente (ver lib/feature-flags.ts):
-// se filtran del menú lateral. El código permanece; reactivar = flag a true.
-const OCULTOS_MARKETING = ['/marketing', '/ondemand'];
-const navSections = MARKETING_MODULE_ENABLED
-  ? RAW_NAV_SECTIONS
-  : RAW_NAV_SECTIONS.map((s) => ({ ...s, items: s.items.filter((i) => !OCULTOS_MARKETING.includes(i.href)) }));
-
-// Bottom nav shows 4 main items + "Más"
-const bottomNavItems = [
-  { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
-  { href: '/calendario', label: 'Clases', icon: Calendar },
-  { href: '/clientas', label: 'Clientas', icon: Users },
-  { href: '/cobros', label: 'Cobros', icon: CreditCard },
-];
-
-// Modo Esencial: lo que un estudio pequeño con una sola propietaria necesita
-// de verdad para el día a día — todo lo demás (IA, marketing, POS, oferta
-// digital, comunidad...) se desbloquea cambiando a Modo Avanzado. Preferencia
-// puramente de UI, guardada en este navegador (no en el negocio).
-// Las seis acciones del día a día + inicio y ajustes. Antes faltaban /citas y
-// /equipo, así que un estudio nuevo —que arranca en Esencial— no las veía en el
-// menú por defecto pese a ser parte del trabajo diario.
-const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/citas', '/clientas', '/equipo', '/cobros', '/informes', '/configuracion'];
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se

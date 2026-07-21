@@ -87,3 +87,13 @@ export function puedeAnadirSocia(
 ): boolean {
   return sociasActuales < entitlementsDe(studio).maxSocios;
 }
+
+/**
+ * El plan más barato que ya incluye esta feature, para poder decir "Disponible
+ * en el plan Estudio" en un bloqueo suave de UI. `null` si ningún plan la
+ * incluye (no debería pasar con las features actuales, pero deja la puerta
+ * abierta sin reventar en runtime).
+ */
+export function planMinimoPara(feature: keyof Entitlements['features']): Plan | null {
+  return PLANES.find((p) => PLAN_ENTITLEMENTS[p].features[feature]) ?? null;
+}
