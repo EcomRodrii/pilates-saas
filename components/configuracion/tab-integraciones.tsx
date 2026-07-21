@@ -37,6 +37,13 @@ type CatalogoIntegracion = {
   proximamente?: boolean;
   // Integración de plataforma: el operador pone los secretos por ENV y el
   // estudio la activa/desactiva. El estado real se consulta a /api/integrations/estado.
+  // Mientras no está configurada, NINGÚN estudio ve `envVars` ni `docsUrl` en
+  // la UI — son para el operador, no para quien lleva el negocio (no puede
+  // tocar el servidor, así que mostrárselo es solo jerga sin sentido para
+  // ella). El propio operador los tiene aquí, en el código:
+  //   ZOOM       → https://marketplace.zoom.us/develop/create
+  //   KISI       → https://api.kisi.io/docs
+  //   WHATSAPP   → https://developers.facebook.com/docs/whatsapp/cloud-api/get-started
   plataforma?: boolean;
   envVars?: string[];
 };
@@ -544,31 +551,28 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                     </p>
                   )
                 ) : cat.plataforma ? (
-                  <>
-                    {estadoPlataforma && !estadoPlataforma[cat.tipo as keyof IntegracionesEstado] ? (
-                      <p className="text-[11px] text-muted-foreground">
-                        Falta configurar en el servidor:{' '}
-                        {cat.envVars?.map((v, i) => (
-                          <span key={v}>{i > 0 ? ', ' : ''}<code className="font-mono bg-muted px-1 rounded">{v}</code></span>
-                        ))}
-                      </p>
-                    ) : conectado ? (
-                      <>
-                        <button onClick={() => probarPlataforma(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
-                          {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
-                        </button>
-                        <button onClick={() => activarPlataforma(cat, false)} className={btnSecondary}>Desactivar</button>
-                      </>
-                    ) : (
-                      <button onClick={() => activarPlataforma(cat, true)} className={btnPrimary}>Activar</button>
-                    )}
-                    {cat.docsUrl && (
-                      <a href={cat.docsUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                        Dónde conseguirlo <ExternalLink size={11} />
-                      </a>
-                    )}
-                  </>
+                  estadoPlataforma && !estadoPlataforma[cat.tipo as keyof IntegracionesEstado] ? (
+                    // Sin configurar en el servidor todavía: nunca se le enseña a
+                    // quien lleva un estudio el nombre de la variable de entorno
+                    // que falta — no puede tocarla, y solo consigue jerga técnica
+                    // sin sentido para ella. Mismo trato que "Próximamente".
+                    <button
+                      onClick={() => avisarme(cat)}
+                      disabled={avisado.has(cat.tipo)}
+                      className={cn(btnSecondary, avisado.has(cat.tipo) && 'opacity-50')}
+                    >
+                      <BellRing size={14} /> {avisado.has(cat.tipo) ? 'Ya te avisaremos' : 'Avísame cuando esté disponible'}
+                    </button>
+                  ) : conectado ? (
+                    <>
+                      <button onClick={() => probarPlataforma(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
+                        {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
+                      </button>
+                      <button onClick={() => activarPlataforma(cat, false)} className={btnSecondary}>Desactivar</button>
+                    </>
+                  ) : (
+                    <button onClick={() => activarPlataforma(cat, true)} className={btnPrimary}>Activar</button>
+                  )
                 ) : (
                   <>
                     <button onClick={() => abrirConfig(cat)} className={conectado ? btnSecondary : btnPrimary}>
