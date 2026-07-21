@@ -1,27 +1,33 @@
-// WhatsApp Business — Meta Cloud API (integración de plataforma).
-// Secretos por ENV del operador (no per-estudio): WHATSAPP_TOKEN + WHATSAPP_PHONE_ID.
-// El estudio activa el uso desde Configuración → Integraciones (fila `activo`).
+// WhatsApp Business — Meta Cloud API. Cada estudio pega su PROPIO token de
+// acceso y su ID de número de teléfono (su propia app de Meta for Developers,
+// su propio número de WhatsApp Business) en Configuración → Integraciones —
+// no hay cuenta compartida de plataforma. Mismo mecanismo que Kisi/Resend:
+// tabla `integraciones` por estudio (ver dbUpsertIntegracion).
+//
+// Nota: esto es DISTINTO de lib/twilio.ts, que envuelve Twilio (WhatsApp+SMS)
+// y sigue siendo una integración de plataforma aparte usada por
+// /api/mensajes/send, el motor de decisión, las automatizaciones de
+// marketing y los avisos de sustituciones — no se toca aquí.
 
-const TOKEN = process.env.WHATSAPP_TOKEN;
-const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const API_VERSION = process.env.WHATSAPP_API_VERSION ?? 'v21.0';
 
-export function isWhatsAppConfigurado(): boolean {
-  return !!(TOKEN && PHONE_ID);
+export interface WhatsAppCredenciales {
+  token: string;
+  phoneId: string;
 }
 
 /** Envía un mensaje de texto simple por WhatsApp. `to` en formato E.164 sin '+'. */
 export async function enviarWhatsAppTexto(
+  creds: WhatsAppCredenciales,
   to: string,
   texto: string,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  if (!isWhatsAppConfigurado()) return { ok: false, error: 'WhatsApp no configurado (faltan WHATSAPP_TOKEN / WHATSAPP_PHONE_ID)' };
   const destino = to.replace(/[^\d]/g, '');
   if (!destino) return { ok: false, error: 'Número de destino inválido' };
   try {
-    const res = await fetch(`https://graph.facebook.com/${API_VERSION}/${PHONE_ID}/messages`, {
+    const res = await fetch(`https://graph.facebook.com/${API_VERSION}/${creds.phoneId}/messages`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messaging_product: 'whatsapp', to: destino, type: 'text', text: { body: texto } }),
     });
     const data = (await res.json().catch(() => null)) as { messages?: { id: string }[]; error?: { message?: string } } | null;
@@ -33,11 +39,10 @@ export async function enviarWhatsAppTexto(
 }
 
 /** Comprobación de conexión: valida credenciales consultando el número. */
-export async function probarWhatsApp(): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!isWhatsAppConfigurado()) return { ok: false, error: 'Faltan WHATSAPP_TOKEN / WHATSAPP_PHONE_ID' };
+export async function probarWhatsApp(creds: WhatsAppCredenciales): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const res = await fetch(`https://graph.facebook.com/${API_VERSION}/${PHONE_ID}?fields=verified_name,display_phone_number`, {
-      headers: { Authorization: `Bearer ${TOKEN}` },
+    const res = await fetch(`https://graph.facebook.com/${API_VERSION}/${creds.phoneId}?fields=verified_name,display_phone_number`, {
+      headers: { Authorization: `Bearer ${creds.token}` },
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;

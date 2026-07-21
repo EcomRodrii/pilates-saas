@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
-import { authHeader, fetchIntegracionesEstado, probarIntegracion, type IntegracionesEstado } from '@/lib/api-client';
+import { authHeader } from '@/lib/api-client';
 import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
@@ -35,10 +35,15 @@ type CatalogoIntegracion = {
   accion?: 'exportar';
   categoria?: string;
   proximamente?: boolean;
-  // Integración de plataforma: el operador pone los secretos por ENV y el
-  // estudio la activa/desactiva. El estado real se consulta a /api/integrations/estado.
-  plataforma?: boolean;
-  envVars?: string[];
+  // Pasos numerados que se enseñan en el modal ANTES de los campos — cada
+  // negocio pega su propia credencial (su propia cuenta de Kisi, su propio
+  // número de WhatsApp Business), así que necesita saber dónde conseguirla,
+  // no solo un enlace a documentación en inglés.
+  instrucciones?: string[];
+  // Si está definida, cuando la integración está conectada aparece un botón
+  // "Probar conexión" que llama a esta ruta (POST autenticado) — la ruta lee
+  // la credencial guardada de ESE estudio y la valida contra la API real.
+  probarUrl?: string;
 };
 
 const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
@@ -78,15 +83,24 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'WHATSAPP',
     nombre: 'WhatsApp Business',
-    descripcion: 'Envía recordatorios y automatizaciones por WhatsApp con la API de Meta.',
+    descripcion: 'Envía recordatorios de clase por WhatsApp desde tu propio número de WhatsApp Business.',
     Icon: WhatsAppIcon,
     color: '#25D366',
     bg: '#F5F5F5',
     categoria: 'Mensajería',
-    campos: [],
-    plataforma: true,
-    envVars: ['WHATSAPP_TOKEN', 'WHATSAPP_PHONE_ID'],
+    campos: [
+      { key: 'token', label: 'Token de acceso', placeholder: 'EAAxxxxxxxxxxxx...', tipo: 'password' },
+      { key: 'phoneId', label: 'ID de número de teléfono', placeholder: '109xxxxxxxxxxx' },
+    ],
+    instrucciones: [
+      'Entra en developers.facebook.com/apps y crea (o abre) una app de tipo "Business".',
+      'Añade el producto "WhatsApp" a tu app.',
+      'En WhatsApp → Introducción, copia el "ID del número de teléfono".',
+      'En la misma pantalla, genera un token de acceso permanente (token de usuario del sistema — no el token temporal de 24h de prueba).',
+      'Pega aquí el token y el ID del número, y pulsa Guardar.',
+    ],
     docsUrl: 'https://developers.facebook.com/docs/whatsapp/cloud-api/get-started',
+    probarUrl: '/api/integrations/whatsapp/probar',
   },
   {
     tipo: 'EXCEL',
@@ -111,15 +125,12 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'ZOOM',
     nombre: 'Zoom',
-    descripcion: 'Lleva tus clases más allá del estudio y ofrece sesiones en cualquier momento y lugar.',
+    descripcion: 'Lleva tus clases más allá del estudio y ofrece sesiones en cualquier momento y lugar. Conexión OAuth — no necesitas pegar ninguna clave.',
     Icon: ZoomIcon,
     color: '#0B5CFF',
     bg: '#F5F5F5',
     categoria: 'Contenido digital',
     campos: [],
-    plataforma: true,
-    envVars: ['ZOOM_ACCOUNT_ID', 'ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET'],
-    docsUrl: 'https://marketplace.zoom.us/develop/create',
   },
   {
     tipo: 'KISI',
@@ -129,10 +140,20 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     color: '#4F46E5',
     bg: '#EEF0FE',
     categoria: 'Control de acceso',
-    campos: [],
-    plataforma: true,
-    envVars: ['KISI_API_KEY'],
+    campos: [
+      { key: 'apiKey', label: 'Clave API', placeholder: 'kisi_xxxxxxxxxxxxxxxx', tipo: 'password' },
+    ],
+    instrucciones: [
+      'Inicia sesión en tu panel de Kisi (kisi.io).',
+      'Arriba a la derecha, haz clic en tu email y entra en "Mi cuenta".',
+      'En el menú de la izquierda, entra en "API".',
+      'Pulsa "Agregar clave API" (si ya tenías una para Tentare, bórrala antes).',
+      'Ponle de nombre "Tentare" y confirma con tu contraseña de Kisi.',
+      'Copia la clave que te genera Kisi.',
+      'Pégala aquí abajo y pulsa Guardar.',
+    ],
     docsUrl: 'https://api.kisi.io/docs',
+    probarUrl: '/api/integrations/kisi/probar',
   },
   {
     tipo: 'MAILCHIMP',
@@ -176,23 +197,19 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   const { studio, updateStudio, integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos } = useStudio();
   const [editando, setEditando] = useState<TipoIntegracion | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
-  // Integraciones de plataforma: qué tiene ENV configurada en el servidor.
-  const [estadoPlataforma, setEstadoPlataforma] = useState<IntegracionesEstado | null>(null);
   const [probando, setProbando] = useState<TipoIntegracion | null>(null);
-  useEffect(() => {
-    let vivo = true;
-    fetchIntegracionesEstado().then((e) => { if (vivo) setEstadoPlataforma(e); });
-    return () => { vivo = false; };
-  }, []);
-  const activarPlataforma = (cat: CatalogoIntegracion, activar: boolean) => {
-    upsertIntegracion(cat.tipo, activar, {});
-    showToast(`${cat.nombre} ${activar ? 'activado' : 'desactivado'}`);
-  };
-  const probarPlataforma = async (cat: CatalogoIntegracion) => {
+  // Kisi/WhatsApp: "Probar conexión" contra la credencial que ESE estudio
+  // pegó y guardó (no hay secreto de plataforma que consultar).
+  const probarCampos = async (cat: CatalogoIntegracion) => {
+    if (!cat.probarUrl) return;
     setProbando(cat.tipo);
-    const r = await probarIntegracion(cat.tipo);
-    setProbando(null);
-    showToast(r.ok ? `Conexión con ${cat.nombre} correcta ✓` : `Error: ${r.error ?? 'no se pudo conectar'}`);
+    try {
+      const res = await fetch(cat.probarUrl, { method: 'POST', headers: await authHeader() });
+      const data = await res.json();
+      showToast(res.ok && data.ok ? `Conexión con ${cat.nombre} correcta ✓` : `Error: ${data.error ?? 'no se pudo conectar'}`);
+    } finally {
+      setProbando(null);
+    }
   };
 
   const getIntegracion = (tipo: TipoIntegracion) => integraciones.find(i => i.tipo === tipo) ?? null;
@@ -373,6 +390,58 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   };
 
+  // Zoom: mismo patrón OAuth que Google Calendar/Gmail, pero con una app de
+  // Zoom Marketplace propia (NEXT_PUBLIC_ZOOM_CLIENT_ID/ZOOM_CLIENT_SECRET) —
+  // ver lib/zoom.ts. Sustituye a la cuenta única de operador de antes.
+  const zoomConectado = !!studio?.zoomEmail;
+  const zoomClientId = process.env.NEXT_PUBLIC_ZOOM_CLIENT_ID;
+  const puedeConectarZoom = !!(zoomClientId && studio);
+  async function conectarZoom() {
+    if (!zoomClientId) return;
+    const res = await fetch('/api/integrations/oauth-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ provider: 'zoom' }),
+    });
+    if (!res.ok) { showToast('No se pudo iniciar la conexión con Zoom'); return; }
+    const { state } = await res.json() as { state: string };
+    const redirect = encodeURIComponent(`${appUrl}/api/integrations/zoom/callback`);
+    window.location.href = `https://zoom.us/oauth/authorize?response_type=code&client_id=${zoomClientId}&redirect_uri=${redirect}&state=${encodeURIComponent(state)}`;
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('zoom_connected')) {
+      showToast('Zoom conectado');
+      window.history.replaceState({}, '', '/configuracion');
+    } else if (params.get('zoom_error')) {
+      showToast(`Error al conectar Zoom: ${params.get('zoom_error')}`);
+      window.history.replaceState({}, '', '/configuracion');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const desconectarZoom = async () => {
+    const res = await fetch('/api/integrations/zoom/disconnect', { method: 'POST', headers: await authHeader() });
+    if (res.ok) {
+      updateStudio({ zoomEmail: null });
+      showToast('Zoom desconectado');
+    } else {
+      const data = await res.json().catch(() => null);
+      showToast(`No se pudo desconectar: ${data?.error ?? 'error desconocido'}`);
+    }
+  };
+
+  const probarZoomConexion = async () => {
+    setProbando('ZOOM');
+    try {
+      const res = await fetch('/api/integrations/zoom/probar', { method: 'POST', headers: await authHeader() });
+      const data = await res.json();
+      showToast(res.ok && data.ok ? 'Conexión con Zoom correcta ✓' : `Error: ${data.error ?? 'no se pudo conectar'}`);
+    } finally {
+      setProbando(null);
+    }
+  };
+
   const abrirConfig = (cat: CatalogoIntegracion) => {
     const actual = getIntegracion(cat.tipo);
     setForm(actual?.config ?? {});
@@ -459,7 +528,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CATALOGO_INTEGRACIONES.map(cat => {
           const intg = getIntegracion(cat.tipo);
-          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : !!intg?.activo;
+          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : !!intg?.activo;
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
               <div className="flex items-start gap-3">
@@ -543,37 +612,31 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                       Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
                     </p>
                   )
-                ) : cat.plataforma ? (
-                  <>
-                    {estadoPlataforma && !estadoPlataforma[cat.tipo as keyof IntegracionesEstado] ? (
-                      <p className="text-[11px] text-muted-foreground">
-                        Falta configurar en el servidor:{' '}
-                        {cat.envVars?.map((v, i) => (
-                          <span key={v}>{i > 0 ? ', ' : ''}<code className="font-mono bg-muted px-1 rounded">{v}</code></span>
-                        ))}
-                      </p>
-                    ) : conectado ? (
-                      <>
-                        <button onClick={() => probarPlataforma(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
-                          {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
-                        </button>
-                        <button onClick={() => activarPlataforma(cat, false)} className={btnSecondary}>Desactivar</button>
-                      </>
-                    ) : (
-                      <button onClick={() => activarPlataforma(cat, true)} className={btnPrimary}>Activar</button>
-                    )}
-                    {cat.docsUrl && (
-                      <a href={cat.docsUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                        Dónde conseguirlo <ExternalLink size={11} />
-                      </a>
-                    )}
-                  </>
+                ) : cat.tipo === 'ZOOM' ? (
+                  zoomConectado ? (
+                    <>
+                      <button onClick={probarZoomConexion} disabled={probando === 'ZOOM'} className={cn(btnSecondary, probando === 'ZOOM' && 'opacity-50')}>
+                        {probando === 'ZOOM' ? 'Probando…' : 'Probar conexión'}
+                      </button>
+                      <button onClick={desconectarZoom} className={btnSecondary}>Desconectar</button>
+                    </>
+                  ) : puedeConectarZoom ? (
+                    <button type="button" onClick={conectarZoom} className={cn(btnPrimary, 'no-underline')}>Conectar cuenta de Zoom</button>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_ZOOM_CLIENT_ID</code>
+                    </p>
+                  )
                 ) : (
                   <>
                     <button onClick={() => abrirConfig(cat)} className={conectado ? btnSecondary : btnPrimary}>
                       {conectado ? 'Gestionar' : 'Conectar'}
                     </button>
+                    {conectado && cat.probarUrl && (
+                      <button onClick={() => probarCampos(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
+                        {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
+                      </button>
+                    )}
                     {cat.docsUrl && (
                       <a href={cat.docsUrl} target="_blank" rel="noopener noreferrer"
                         className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
@@ -621,6 +684,11 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
+                {cat.instrucciones && cat.instrucciones.length > 0 && (
+                  <ol className="space-y-1.5 text-[12px] text-muted-foreground bg-muted/50 rounded-lg p-3 list-decimal list-inside">
+                    {cat.instrucciones.map((paso, i) => <li key={i}>{paso}</li>)}
+                  </ol>
+                )}
                 {cat.campos.map(campo => (
                   <div key={campo.key}>
                     <label htmlFor={`${uid}-${campo.key}`} className={labelCls}>{campo.label}</label>
