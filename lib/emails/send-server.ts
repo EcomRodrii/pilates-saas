@@ -4,7 +4,7 @@ import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
 import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { ReservaEmail } from '@/lib/emails/reserva-template';
-import { resolverPlantilla, interpolar, type PlantillaOverride } from '@/lib/emails/plantillas-server';
+import { resolverPlantilla, interpolar, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Envío de emails transaccionales desde CÓDIGO DE SERVIDOR (no una ruta staff):
@@ -21,6 +21,8 @@ export interface DatosClaseEmail {
   sala: string;
   instructor: string;
   estudioNombre?: string;
+  logoUrl?: string | null;
+  colorPrimario?: string | null;
   bonoConsumido?: boolean;
   bonoDevuelto?: boolean;
 }
@@ -37,11 +39,12 @@ async function renderPorTipo(
   toName: string,
   d: DatosClaseEmail,
   plantilla: PlantillaOverride,
+  marca: MarcaEstudio,
 ): Promise<{ html: string; subject: string }> {
   const vars = { nombre: toName, estudio: d.estudioNombre, clase: d.claseNombre };
   const intro = plantilla.intro ? interpolar(plantilla.intro, vars) : undefined;
   const asunto = plantilla.asunto ? interpolar(plantilla.asunto, vars) : undefined;
-  const base = { socioNombre: toName, intro, ...d };
+  const base = { socioNombre: toName, intro, ...marca, ...d };
   switch (tipo) {
     case 'promocion':
       return { html: await render(PromocionEsperaEmail(base)), subject: asunto ?? `Se ha liberado tu plaza — ${d.claseNombre}` };
@@ -73,8 +76,11 @@ export async function enviarEmailTransaccional(params: {
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
 
   try {
-    const plantilla = await resolverPlantilla(params.studioId, params.tipo);
-    const { html, subject } = await renderPorTipo(params.tipo, params.toName, params.data, plantilla);
+    const [plantilla, marca] = await Promise.all([
+      resolverPlantilla(params.studioId, params.tipo),
+      resolverMarcaEstudio(params.studioId),
+    ]);
+    const { html, subject } = await renderPorTipo(params.tipo, params.toName, params.data, plantilla, marca);
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send(
       {

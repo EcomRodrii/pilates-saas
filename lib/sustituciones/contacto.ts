@@ -129,7 +129,7 @@ export async function contactarCandidata(
 
   const [{ data: tipo }, { data: estudio }] = await Promise.all([
     admin.from('tipos_clase').select('nombre').eq('id', sesion?.tipo_clase_id ?? '').maybeSingle(),
-    admin.from('studios').select('nombre').eq('id', studioId).maybeSingle(),
+    admin.from('studios').select('nombre, color_primario, logo_url').eq('id', studioId).maybeSingle(),
   ]);
 
   // Marca contactando + la candidata actual. Guard de estado: solo si la
@@ -153,6 +153,8 @@ export async function contactarCandidata(
     to: cand.email,
     toName: cand.nombre,
     estudioNombre: estudio?.nombre ?? 'Tu estudio',
+    colorPrimario: estudio?.color_primario,
+    logoUrl: estudio?.logo_url,
     claseNombre: tipo?.nombre ?? 'Clase',
     cuando: sesion?.inicio ? formatCuando(sesion.inicio) : '',
     url,
@@ -259,7 +261,7 @@ export async function alertarPropietaria(
 ): Promise<{ email: boolean; mensaje: boolean }> {
   const { studioId, sesion, tipo } = params;
   const { data: estudio } = await admin
-    .from('studios').select('nombre, email, telefono').eq('id', studioId).maybeSingle();
+    .from('studios').select('nombre, email, telefono, color_primario, logo_url').eq('id', studioId).maybeSingle();
 
   const { data: tc } = await admin
     .from('tipos_clase').select('nombre').eq('id', sesion?.tipo_clase_id ?? '').maybeSingle();
@@ -272,7 +274,8 @@ export async function alertarPropietaria(
   let email = false;
   if (estudio?.email) {
     const r = await enviarEmailAlertaPropietaria({
-      to: estudio.email, estudioNombre, claseNombre, cuando, tipo,
+      to: estudio.email, estudioNombre, colorPrimario: estudio.color_primario, logoUrl: estudio.logo_url,
+      claseNombre, cuando, tipo,
       candidataNombre: params.candidataNombre, urlPanel,
       yaContactando: params.yaContactando,
     });

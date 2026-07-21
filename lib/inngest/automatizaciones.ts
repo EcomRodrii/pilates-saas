@@ -59,6 +59,8 @@ function logIdCandidato(studioId: string, c: AutomationCandidato, index: number,
 interface ProcesarOpts {
   studioId: string;
   studioNombre: string;
+  studioColor?: string | null;
+  studioLogo?: string | null;
   index: number;
   nowISO: string;
   dry: boolean;
@@ -70,7 +72,7 @@ interface ProcesarOpts {
 // persiste el log idempotente. Devuelve el log resultante. Es el cuerpo que va
 // dentro de un step.run() por candidato: durable y reintentable en aislamiento.
 export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, studioNombre, index, nowISO, dry, resend } = opts;
+  const { studioId, studioNombre, studioColor, studioLogo, index, nowISO, dry, resend } = opts;
   const base = {
     id: logIdCandidato(studioId, c, index, nowISO),
     studioId,
@@ -156,6 +158,8 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       titulo: c.titulo,
       mensaje: c.mensajeCliente,
       estudioNombre: studioNombre,
+      colorPrimario: studioColor,
+      logoUrl: studioLogo,
     }));
     const { error } = await resend!.emails.send(
       {
@@ -183,7 +187,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
 // usuario) y persiste el log en automation_logs (ruleId = id de la
 // automatización, para dedup y contador). Idempotency-Key por id de log.
 export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, index, nowISO, dry, resend } = opts;
+  const { studioId, studioColor, studioLogo, index, nowISO, dry, resend } = opts;
   const accionLog: AutomationLog['accion'] =
     c.canal === 'WHATSAPP' ? 'ENVIAR_WHATSAPP' : c.canal === 'NOTIFICACION' ? 'NOTIFICAR_ADMIN' : 'ENVIAR_EMAIL';
   const base = {
@@ -245,7 +249,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
   } else if (!c.socio.email) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado' };
   } else {
-    const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre }));
+    const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre, colorPrimario: studioColor, logoUrl: studioLogo }));
     const { error } = await resend!.emails.send(
       { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
       { idempotencyKey: base.id },
@@ -276,7 +280,7 @@ export const automatizacionesDispatcher = inngest.createFunction(
     // así que con el cliente anónimo RLS devolvería CERO estudios y el cron
     // "completaría" sin procesar a nadie — en silencio y para todos los tenants.
     const studios = await step.run('list-studios', async () => {
-      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre');
+      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre, color_primario, logo_url');
       if (error) throw new Error(error.message);
       return data ?? [];
     });
@@ -284,9 +288,9 @@ export const automatizacionesDispatcher = inngest.createFunction(
     if (studios.length > 0) {
       await step.sendEvent(
         'fan-out-estudios',
-        studios.map((s: { id: string; nombre: string }) => ({
+        studios.map((s: { id: string; nombre: string; color_primario: string | null; logo_url: string | null }) => ({
           name: EVENTS.AUTOMATIZACIONES_ESTUDIO,
-          data: { studioId: s.id, studioNombre: s.nombre, nowISO, dry: false },
+          data: { studioId: s.id, studioNombre: s.nombre, studioColor: s.color_primario, studioLogo: s.logo_url, nowISO, dry: false },
         }))
       );
     }
@@ -314,8 +318,8 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     retries: 3,
   },
   async ({ event, step }) => {
-    const { studioId, studioNombre, nowISO, dry } = event.data as {
-      studioId: string; studioNombre: string; nowISO: string; dry: boolean;
+    const { studioId, studioNombre, studioColor, studioLogo, nowISO, dry } = event.data as {
+      studioId: string; studioNombre: string; studioColor: string | null; studioLogo: string | null; nowISO: string; dry: boolean;
     };
     const now = new Date(nowISO);
 
@@ -351,7 +355,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       // id de step estable entre replays (índice + regla). Cada candidato es
       // un paso durable e independiente.
       const log = await step.run(`candidato-${i}-${c.rule.id}`, () =>
-        procesarCandidato(c, { studioId, studioNombre, index: i, nowISO, dry, resend })
+        procesarCandidato(c, { studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend })
       );
 
       if (c.accion === 'COBRAR_RECIBO') cobrosPropuestos++;
@@ -385,7 +389,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     for (let i = 0; i < mktCandidatos.length; i++) {
       const c = mktCandidatos[i];
       const log = await step.run(`mkt-${i}-${c.automatizacion.id}-${c.socio.id}`, () =>
-        procesarCandidatoMkt(c, { studioId, studioNombre, index: i, nowISO, dry, resend }),
+        procesarCandidatoMkt(c, { studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend }),
       );
       if (log.resultado === 'EJECUTADO') mktEnviados++; else if (log.resultado === 'FALLIDO') mktFallidos++;
       firedPorAuto.set(c.automatizacion.id, (firedPorAuto.get(c.automatizacion.id) ?? 0) + 1);
