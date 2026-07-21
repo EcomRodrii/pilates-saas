@@ -1,5 +1,5 @@
 import type { Factura, IngresoManual } from '@/lib/types';
-import type { RowIngresosManuales } from '@/lib/db-types';
+import type { RowIngresosManuales, RowFacturas } from '@/lib/db-types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Motor del Cierre de año. PURO y determinista: dadas las facturas selladas del
@@ -145,6 +145,29 @@ export function computeCierreAnual(input: {
   return { anio, totales, trimestres, porIva, meses, candidatos347, sellado, lineas };
 }
 
+// Mapea una fila de `facturas` a Factura. Existe aquí (además del mapper interno
+// del god-file) para que el servidor pueda computar el cierre sin importar
+// lib/supabase-data. Puro.
+export function mapFacturaRow(r: RowFacturas): Factura {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    reciboId: r.recibo_id ?? '',
+    numeroCompleto: r.numero_completo,
+    fechaEmision: r.fecha_emision,
+    receptorNombre: r.receptor_nombre ?? '',
+    receptorNIF: r.receptor_nif,
+    baseImponible: N(r.base_imponible),
+    tipoIVA: N(r.tipo_iva),
+    cuotaIVA: N(r.cuota_iva),
+    total: N(r.total),
+    verifactuHash: r.verifactu_hash,
+    verifactuPrevHash: r.verifactu_prev_hash,
+    verifactuTs: r.verifactu_ts,
+    verifactuSeq: r.verifactu_seq,
+  };
+}
+
 // ── Mappers de la tabla ingresos_manuales ────────────────────────────────────
 export function mapIngresoManual(r: RowIngresosManuales): IngresoManual {
   return {
@@ -161,6 +184,17 @@ export function mapIngresoManual(r: RowIngresosManuales): IngresoManual {
     nota: r.nota,
     creadoEn: r.creado_en,
   };
+}
+
+// Datos del "libro de facturas emitidas" para exportar a CSV. Formato único que
+// comparten la descarga del panel y el adjunto del email a la gestoría.
+export function cierreLibroCsvData(cierre: CierreAnual): { headers: string[]; rows: string[][] } {
+  const headers = ['Fecha', 'Nº factura', 'Origen', 'Cliente', 'NIF', 'Base imponible', 'Tipo IVA', 'Cuota IVA', 'Total'];
+  const rows = cierre.lineas.map((l) => [
+    l.fecha, l.numero ?? '', l.origen === 'FACTURA' ? 'Factura Tentare' : 'Manual', l.nombre, l.nif ?? '',
+    l.base.toFixed(2), String(l.tipoIva), l.cuota.toFixed(2), l.total.toFixed(2),
+  ]);
+  return { headers, rows };
 }
 
 // Calcula base + cuota a partir de un total (IVA incluido) y un tipo de IVA.
