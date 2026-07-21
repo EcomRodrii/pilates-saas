@@ -41,3 +41,25 @@ export function interpolar(texto: string, vars: { nombre?: string; estudio?: str
     .replace(/\{estudio\}/gi, vars.estudio ?? '')
     .replace(/\{clase\}/gi, vars.clase ?? '');
 }
+
+export type MarcaEstudio = { colorPrimario?: string | null; logoUrl?: string | null };
+
+// Resuelve el logo + color de marca de un estudio para pintarlos en la
+// plantilla premium compartida (lib/emails/layout.tsx). Sin studioId (emails
+// de plataforma, no de un estudio concreto) devuelve {} y el layout cae al
+// morado por defecto de Tentare.
+export async function resolverMarcaEstudio(studioId: string | null | undefined): Promise<MarcaEstudio> {
+  if (!studioId) return {};
+  const admin = getSupabaseAdmin();
+  if (!admin) return {};
+  const { data } = await admin
+    .from('studios')
+    .select('color_primario, logo_url')
+    .eq('id', studioId)
+    .maybeSingle();
+  if (!data) return {};
+  return {
+    colorPrimario: (data.color_primario as string | null) ?? undefined,
+    logoUrl: data.logo_url as string | null,
+  };
+}

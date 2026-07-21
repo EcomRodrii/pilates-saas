@@ -19,7 +19,7 @@ export async function avisarAlumnas(
   params: { sesionId: string; studioId: string; tipo: 'cubierta' | 'cancelada'; sustituta?: string },
 ): Promise<{ avisadas: number; total: number; skipped: boolean; desactivado: boolean }> {
   const { data: estudio } = await admin
-    .from('studios').select('nombre, avisar_alumnas').eq('id', params.studioId).maybeSingle();
+    .from('studios').select('nombre, avisar_alumnas, color_primario, logo_url').eq('id', params.studioId).maybeSingle();
   if (!estudio?.avisar_alumnas) return { avisadas: 0, total: 0, skipped: false, desactivado: true };
 
   const { data: ses } = await admin
@@ -36,9 +36,10 @@ export async function avisarAlumnas(
   let avisadas = 0, skipped = false;
   for (const a of lista) {
     if (!a.email) continue;
+    const marca = { colorPrimario: estudio.color_primario, logoUrl: estudio.logo_url };
     const r = params.tipo === 'cubierta'
-      ? await enviarEmailAlumnaClaseCubierta({ to: a.email, toName: a.nombre, estudioNombre, claseNombre, cuando, sustituta: params.sustituta ?? 'otra instructora' })
-      : await enviarEmailAlumnaClaseCancelada({ to: a.email, toName: a.nombre, estudioNombre, claseNombre, cuando });
+      ? await enviarEmailAlumnaClaseCubierta({ to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando, sustituta: params.sustituta ?? 'otra instructora' })
+      : await enviarEmailAlumnaClaseCancelada({ to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando });
     if ('ok' in r && r.ok) avisadas++;
     if ('skipped' in r) skipped = true;
   }

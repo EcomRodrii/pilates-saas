@@ -81,6 +81,7 @@ async function notificarFalloCobro(params: {
       to: socio.email,
       toName: socio.nombre ?? 'socia',
       estudioNombre,
+      studioId: rec.studio_id,
       concepto: rec.concepto,
       importe: rec.importe,
       definitivo: plan.esDefinitivo,
