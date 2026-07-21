@@ -69,6 +69,7 @@ export interface RowAutomationLogs {
   accion: string | null;
   resultado: string | null;
   detalle: string | null;
+  mensaje_cliente: string | null;
   ejecutado_en: string | null;
   proxima_accion_en: string | null;
   recibo_id: string | null;

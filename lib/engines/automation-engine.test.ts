@@ -39,6 +39,9 @@ test('AUSENCIA_DIAS: socia con última asistencia hace 10d → recordatorio (ENV
   assert.equal(c.length, 1);
   assert.equal(c[0].accion, 'ENVIAR_EMAIL');
   assert.equal(c[0].socio?.id, 'a');
+  // ENVIAR_EMAIL se manda tal cual: debe llevar mensajeCliente, nunca notaInterna.
+  assert.ok(c[0].mensajeCliente, 'ENVIAR_EMAIL debe traer mensajeCliente');
+  assert.equal(c[0].notaInterna, undefined);
 });
 
 test('AUSENCIA_DIAS: hace 25d (>= crítico) → OFRECER_DESCUENTO', () => {
@@ -48,6 +51,12 @@ test('AUSENCIA_DIAS: hace 25d (>= crítico) → OFRECER_DESCUENTO', () => {
   const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reservas: [res] }), NOW);
   assert.equal(c.length, 1);
   assert.equal(c[0].accion, 'OFRECER_DESCUENTO');
+  // OFRECER_DESCUENTO requiere aprobación humana: la nota es SIEMPRE interna
+  // (para la propietaria) — nunca debe traer mensajeCliente ya listo, porque
+  // ese texto lo redacta aparte lib/inngest/automatizaciones.ts antes de
+  // poder enviarse (regresión del bug: la nota interna llegando a la socia).
+  assert.ok(c[0].notaInterna, 'OFRECER_DESCUENTO debe traer notaInterna');
+  assert.equal(c[0].mensajeCliente, undefined);
 });
 
 test('AUSENCIA_DIAS: reciente (3d < umbral), inactiva, y sin asistencias → sin candidatos', () => {
@@ -104,6 +113,9 @@ test('CLASE_LLENA_RECURRENTE: 3 semanas seguidas llenas → NOTIFICAR_ADMIN', ()
   const c = computeAutomationCandidatos(input({ automationRules: [r], sesiones, reservas }), NOW);
   assert.equal(c.length, 1);
   assert.equal(c[0].accion, 'NOTIFICAR_ADMIN');
+  // Insight sin cliente asociado: nota interna sí, mensajeCliente nunca.
+  assert.ok(c[0].notaInterna, 'NOTIFICAR_ADMIN debe traer notaInterna');
+  assert.equal(c[0].mensajeCliente, undefined);
 });
 
 test('CLASE_LLENA_RECURRENTE: una semana no llena → sin candidato', () => {

@@ -842,6 +842,7 @@ function mapAutomationLog(r: RowAutomationLogs): AutomationLog {
     accion: r.accion,
     resultado: r.resultado,
     detalle: r.detalle,
+    mensajeCliente: r.mensaje_cliente ?? null,
     ejecutadoEn: r.ejecutado_en,
     proximaAccionEn: r.proxima_accion_en ?? null,
     reciboId: r.recibo_id ?? null,
@@ -3894,6 +3895,7 @@ export async function dbInsertAutomationLog(log: AutomationLog) {
     accion: log.accion,
     resultado: log.resultado,
     detalle: log.detalle,
+    mensaje_cliente: log.mensajeCliente ?? null,
     ejecutado_en: log.ejecutadoEn,
     proxima_accion_en: log.proximaAccionEn,
     recibo_id: log.reciboId ?? null,
@@ -3920,6 +3922,7 @@ export async function dbUpsertAutomationLog(log: AutomationLog) {
     accion: log.accion,
     resultado: log.resultado,
     detalle: log.detalle,
+    mensaje_cliente: log.mensajeCliente ?? null,
     ejecutado_en: log.ejecutadoEn,
     proxima_accion_en: log.proximaAccionEn,
     recibo_id: log.reciboId ?? null,
@@ -3936,6 +3939,7 @@ export async function dbUpdateAutomationLog(id: string, studioId: string, change
   const db: Record<string, unknown> = {};
   if ('resultado' in changes) db.resultado = changes.resultado;
   if ('detalle' in changes) db.detalle = changes.detalle;
+  if ('mensajeCliente' in changes) db.mensaje_cliente = changes.mensajeCliente;
   if ('proximaAccionEn' in changes) db.proxima_accion_en = changes.proximaAccionEn;
   const { error } = await dbEscritura().from('automation_logs').update(db).eq('id', id).eq('studio_id', studioId);
   if (error) reportDbError('[dbUpdateAutomationLog]', error);

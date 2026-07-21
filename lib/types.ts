@@ -611,7 +611,14 @@ export interface AutomationLog {
   pasoIndex: number;
   accion: AccionAutomatica;
   resultado: ResultadoLog;
+  // Nota INTERNA para la propietaria (nunca contenido enviable a un cliente).
   detalle: string;
+  // Texto que recibió (o recibiría, si está pendiente de aprobación) la
+  // clienta — null cuando la acción no implica ningún envío a cliente
+  // (COBRAR_RECIBO, NOTIFICAR_ADMIN) o cuando aún no se ha podido redactar.
+  // Separado de `detalle` a propósito: mezclarlos fue el bug que mandaba la
+  // nota interna tal cual a la socia.
+  mensajeCliente?: string | null;
   ejecutadoEn: string;
   proximaAccionEn: string | null;
   reciboId?: string | null;
