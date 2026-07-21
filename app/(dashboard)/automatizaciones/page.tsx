@@ -47,7 +47,6 @@ const triggerLabels: Record<string, string> = {
   AUSENCIA_DIAS:       'Ausencia de clienta',
   PAGO_PENDIENTE_DIAS: 'Pago pendiente',
   BONO_SESIONES_BAJAS: 'Bono casi agotado',
-  SUSCRIPCION_EXPIRA_DIAS: 'Suscripción próxima a expirar',
   NUEVA_SOCIA:         'Nueva clienta',
   CLASE_MANANA:        'Clase mañana',
   RENOVACION_COBRADA:  'Renovación cobrada',
@@ -60,20 +59,32 @@ const triggerLabels: Record<string, string> = {
 // punto de partida razonable, no están grabados a fuego en ningún sitio.
 const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>[] = [
   {
-    nombre: 'Clienta ausente', descripcion: 'Recuerda a las clientas que llevan días sin venir, y ofrece una vuelta con descuento si la ausencia se alarga',
-    icono: '👤', trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCritico: 21, descuentoPct: 15 }, pasos: [], activa: true,
+    nombre: 'Clienta ausente', descripcion: 'Recuerda a las clientas que llevan días sin venir, pregunta cómo están a las 2 semanas, y ofrece una vuelta con descuento si la ausencia se alarga',
+    icono: '👤', trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCheckin: 14, diasCritico: 25, descuentoPct: 15 }, pasos: [], activa: true,
   },
   {
-    nombre: 'Pago pendiente', descripcion: 'Persigue pagos vencidos — cobra directo si hay tarjeta guardada (con tu aprobación) o recuerda por email',
-    icono: '💳', trigger: 'PAGO_PENDIENTE_DIAS', condicion: { dias: 3 }, pasos: [], activa: true,
+    nombre: 'Pago pendiente', descripcion: 'Persigue pagos vencidos con dos avisos escalados — cobra directo si hay tarjeta guardada (con tu aprobación) o te avisa a ti si tras dos avisos sigue sin resolverse',
+    icono: '💳', trigger: 'PAGO_PENDIENTE_DIAS', condicion: { dias: 3, diasSegundo: 8, diasEscalada: 15 }, pasos: [], activa: true,
   },
   {
-    nombre: 'Recordatorio de clase', descripcion: 'Avisa a las clientas con reserva confirmada el día antes de su clase',
+    nombre: 'Recordatorio de clase', descripcion: 'Avisa a las clientas con reserva confirmada el día antes de su clase — por WhatsApp si tienen teléfono, por email si no',
     icono: '📅', trigger: 'CLASE_MANANA', condicion: {}, pasos: [], activa: true,
   },
   {
     nombre: 'Clase con demanda sostenida', descripcion: 'Detecta franjas horarias que llevan varias semanas casi llenas y te recomienda abrir otra sesión',
     icono: '📈', trigger: 'CLASE_LLENA_RECURRENTE', condicion: { semanasConsecutivas: 3, ocupacionMinima: 0.95 }, pasos: [], activa: true,
+  },
+  {
+    nombre: 'Bono casi agotado', descripcion: 'Si una clienta compra el mismo bono varias veces seguidas, te propone ofrecerle pasarse a un plan ilimitado (con tu aprobación)',
+    icono: '🔁', trigger: 'BONO_SESIONES_BAJAS', condicion: { comprasSeguidas: 3 }, pasos: [], activa: true,
+  },
+  {
+    nombre: 'Seguimiento de clienta nueva', descripcion: 'Si no ha reservado en 2 días le anima a hacerlo; si a los 10 días sigue sin venir a ninguna clase, te avisa a ti para que la llames',
+    icono: '🌱', trigger: 'NUEVA_SOCIA', condicion: { diasSinReservar: 2, diasSinAsistir: 10 }, pasos: [], activa: true,
+  },
+  {
+    nombre: 'Renovación confirmada', descripcion: 'Confirma automáticamente cada renovación cobrada, con un detalle extra en los hitos de antigüedad',
+    icono: '✅', trigger: 'RENOVACION_COBRADA', condicion: { hitoMeses: 6 }, pasos: [], activa: true,
   },
 ];
 
@@ -235,13 +246,20 @@ function RuleCard({
 
 // ─── Log Item ─────────────────────────────────────────────────────────────────
 
+// OFRECER_DESCUENTO y PROPONER_PLAN comparten el mismo flujo de aprobación
+// (enviar log.mensajeCliente por email) — solo cambia la etiqueta del botón.
+const ETIQUETA_APROBAR: Partial<Record<AutomationLog['accion'], string>> = {
+  OFRECER_DESCUENTO: 'Enviar oferta',
+  PROPONER_PLAN: 'Proponer plan',
+};
+
 function LogItem({
-  log, onDismiss, onApproveCharge, onSendOffer, approving,
+  log, onDismiss, onApproveCharge, onAprobarEnvio, approving,
 }: {
   log: AutomationLog;
   onDismiss: () => void;
   onApproveCharge?: () => void;
-  onSendOffer?: () => void;
+  onAprobarEnvio?: () => void;
   approving?: boolean;
 }) {
   const cfg = resultadoConfig[log.resultado];
@@ -275,7 +293,7 @@ function LogItem({
           </span>
         </div>
         <p className="text-xs text-foreground mt-0.5">{log.detalle}</p>
-        {onSendOffer && (
+        {onAprobarEnvio && (
           <div className="mt-2 rounded-lg border border-border bg-card px-2.5 py-2">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
               Esto es lo que recibirá la socia
@@ -309,15 +327,15 @@ function LogItem({
           {approving ? 'Cobrando…' : 'Aprobar y cobrar'}
         </button>
       )}
-      {onSendOffer && (
+      {onAprobarEnvio && (
         <button
-          onClick={onSendOffer}
+          onClick={onAprobarEnvio}
           disabled={approving || !log.mensajeCliente}
           title={!log.mensajeCliente ? 'No se pudo redactar un mensaje para la clienta' : undefined}
           className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
         >
           {approving ? <Loader2 size={12} className="animate-spin" /> : <Gift size={12} />}
-          {approving ? 'Enviando…' : 'Enviar oferta'}
+          {approving ? 'Enviando…' : (ETIQUETA_APROBAR[log.accion] ?? 'Aprobar y enviar')}
         </button>
       )}
       <button
@@ -377,7 +395,15 @@ export default function AutomatizacionesPage() {
     setApprovingId(null);
   }
 
-  async function handleSendOffer(log: AutomationLog) {
+  // Común a OFRECER_DESCUENTO ("Enviar oferta") y PROPONER_PLAN ("Proponer
+  // plan") — las dos son acciones con aprobación humana que, al aprobarse,
+  // mandan log.mensajeCliente (nunca log.detalle) como email a la socia.
+  const ASUNTO_POR_ACCION: Partial<Record<AutomationLog['accion'], string>> = {
+    OFRECER_DESCUENTO: 'Te guardamos un hueco 💛',
+    PROPONER_PLAN: 'Una idea para tu plan 💡',
+  };
+
+  async function handleAprobarYEnviar(log: AutomationLog) {
     if (!log.socioId) return;
     // Nunca enviar sin un mensajeCliente ya redactado — usar log.detalle (nota
     // interna, para la propietaria) aquí sería reintroducir el bug que mandaba
@@ -400,14 +426,14 @@ export default function AutomatizacionesPage() {
           tipo: 'automatizacion',
           to: socio.email,
           toName: socio.nombre,
-          data: { titulo: 'Te guardamos un hueco 💛', mensaje: log.mensajeCliente },
+          data: { titulo: ASUNTO_POR_ACCION[log.accion] ?? 'Un mensaje de tu estudio', mensaje: log.mensajeCliente },
         }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         actualizarLog(log.id, { resultado: 'FALLIDO', detalle: body.error ?? `No se pudo enviar el email (HTTP ${res.status})` });
       } else {
-        actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: `Oferta enviada a ${socio.email}.` });
+        actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: `Mensaje enviado a ${socio.email}.` });
       }
     } catch (err) {
       actualizarLog(log.id, { resultado: 'FALLIDO', detalle: mensajeSeguro(err instanceof Error ? err.message : null, 'Error de red al enviar el email') });
@@ -444,7 +470,7 @@ export default function AutomatizacionesPage() {
                 log={log}
                 onDismiss={() => dismissLog(log.id)}
                 onApproveCharge={log.accion === 'COBRAR_RECIBO' ? () => handleApproveCharge(log) : undefined}
-                onSendOffer={log.accion === 'OFRECER_DESCUENTO' ? () => handleSendOffer(log) : undefined}
+                onAprobarEnvio={(log.accion === 'OFRECER_DESCUENTO' || log.accion === 'PROPONER_PLAN') ? () => handleAprobarYEnviar(log) : undefined}
                 approving={approvingId === log.id}
               />
             ))}

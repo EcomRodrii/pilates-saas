@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { enviarWhatsAppTexto, isWhatsAppConfigurado } from '@/lib/whatsapp';
+import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
@@ -91,6 +91,7 @@ import type {
   Factura,
   Instructor,
   Integracion,
+  TipoIntegracion,
   LevelDefinition,
   MemberCredits,
   MensajeEquipo,
@@ -262,6 +263,7 @@ function mapStudio(r: RowStudios): Studio {
     stripeAccountId: r.stripe_account_id ?? null,
     googleCalendarEmail: r.google_calendar_email ?? null,
     gmailEmail: r.gmail_email ?? null,
+    zoomEmail: r.zoom_email ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,
@@ -1634,14 +1636,25 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
   const sesionIds = sesiones.map(s => s.id as string);
 
   // 2) Catálogos + reservas de TODAS las sesiones en paralelo (1 query cada uno).
-  const [{ data: tiposR }, { data: salasR }, { data: instR }, { data: studiosR }, { data: reservasR }] = await Promise.all([
+  const studioIds = uniq(sesiones.map(s => s.studio_id as string));
+  const [{ data: tiposR }, { data: salasR }, { data: instR }, { data: studiosR }, { data: reservasR }, { data: whatsappR }] = await Promise.all([
     admin.from('tipos_clase').select('id, nombre').in('id', uniq(sesiones.map(s => s.tipo_clase_id as string))),
     admin.from('salas').select('id, nombre').in('id', uniq(sesiones.map(s => s.sala_id as string))),
     admin.from('instructores').select('id, nombre').in('id', uniq(sesiones.map(s => s.instructor_id as string))),
     admin.from('studios').select('id, nombre').in('id', uniq(sesiones.map(s => s.studio_id as string))),
     admin.from('reservas').select('sesion_id, socio_id').in('sesion_id', sesionIds).in('estado', ['CONFIRMADA', 'ASISTIDA']),
+    // WhatsApp ya no es una integración de plataforma (secreto único del
+    // operador): cada estudio pega su propio token + phoneId, así que hay que
+    // cargar el de CADA estudio implicado en la ventana, no un único flag global.
+    admin.from('integraciones').select('studio_id, activo, config').eq('tipo', 'WHATSAPP').in('studio_id', studioIds),
   ]);
   const reservas = reservasR ?? [];
+  const whatsappPorStudio = new Map<string, WhatsAppCredenciales>();
+  for (const row of whatsappR ?? []) {
+    if (!row.activo) continue;
+    const config = (row.config as Record<string, string>) ?? {};
+    if (config.token && config.phoneId) whatsappPorStudio.set(row.studio_id as string, { token: config.token, phoneId: config.phoneId });
+  }
 
   // 3) Socias implicadas (1 query) y mapas de lookup.
   const socioIds = uniq(reservas.map(r => r.socio_id as string));
@@ -1673,7 +1686,6 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
   let sinEmail = 0;
   let enviadosWhatsapp = 0;
   let fallidosWhatsapp = 0;
-  const whatsappDisponible = isWhatsAppConfigurado();
 
   for (const ses of sesiones) {
     const rs = reservasPorSesion.get(ses.id as string) ?? [];
@@ -1715,9 +1727,10 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
         }
       }
 
-      if (quiereWhatsapp && whatsappDisponible && socia.telefono) {
+      const whatsapp = whatsappPorStudio.get(ses.studio_id as string);
+      if (quiereWhatsapp && whatsapp && socia.telefono) {
         const texto = `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`;
-        const res = await enviarWhatsAppTexto(socia.telefono, texto);
+        const res = await enviarWhatsAppTexto(whatsapp, socia.telefono, texto);
         if (res.ok) enviadosWhatsapp++;
         else fallidosWhatsapp++;
       }
@@ -4419,6 +4432,75 @@ export async function dbDeleteGmailCredenciales(studioId: string) {
   if (!admin) return;
   const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'gmail');
   if (error) reportDbError('[dbDeleteGmailCredenciales]', error);
+}
+
+// Zoom: mismo patrón exacto que Google Calendar/Gmail (una app de Zoom para
+// toda la plataforma, `integracion_credenciales` genérico por proveedor con
+// provider='zoom'). Sustituye al Server-to-Server OAuth de una sola cuenta:
+// cada estudio conecta ahora la suya propia.
+export async function dbSetZoomEmail(studioId: string, email: string | null) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('studios').update({ zoom_email: email }).eq('id', studioId);
+  if (error) reportDbError('[dbSetZoomEmail]', error);
+}
+
+export interface ZoomCredenciales {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+}
+
+export async function dbGetZoomCredenciales(studioId: string): Promise<ZoomCredenciales | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from('integracion_credenciales')
+    .select('access_token, refresh_token, expires_at')
+    .eq('studio_id', studioId)
+    .eq('provider', 'zoom')
+    .maybeSingle();
+  if (error) { reportDbError('[dbGetZoomCredenciales]', error); return null; }
+  if (!data || !data.refresh_token) return null;
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+}
+
+export async function dbSaveZoomCredenciales(studioId: string, c: ZoomCredenciales) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').upsert({
+    studio_id: studioId,
+    provider: 'zoom',
+    access_token: c.accessToken,
+    refresh_token: c.refreshToken,
+    expires_at: c.expiresAt,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'studio_id,provider' });
+  if (error) reportDbError('[dbSaveZoomCredenciales]', error);
+}
+
+export async function dbDeleteZoomCredenciales(studioId: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'zoom');
+  if (error) reportDbError('[dbDeleteZoomCredenciales]', error);
+}
+
+// Config guardada por el propio estudio para una integración "campos" (Kisi,
+// WhatsApp Business) — cada negocio pega su propia clave/token, no hay
+// secreto compartido de plataforma. Lo usan las rutas de "Probar conexión".
+export async function dbGetIntegracionConfig(studioId: string, tipo: TipoIntegracion): Promise<{ activo: boolean; config: Record<string, string> } | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from('integraciones')
+    .select('activo, config')
+    .eq('studio_id', studioId)
+    .eq('tipo', tipo)
+    .maybeSingle();
+  if (error) { reportDbError('[dbGetIntegracionConfig]', error); return null; }
+  if (!data) return null;
+  return { activo: !!data.activo, config: (data.config as Record<string, string>) ?? {} };
 }
 
 function slugify(nombre: string): string {

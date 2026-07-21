@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (bloqueoIA) return bloqueoIA;
   try {
     const body = await req.json() as RecomendacionInput;
-    if (body.tipo !== 'REACTIVACION' && body.tipo !== 'CLASE_LLENA') {
+    if (body.tipo !== 'REACTIVACION' && body.tipo !== 'CLASE_LLENA' && body.tipo !== 'CROSS_SELL') {
       return NextResponse.json({ error: 'tipo inválido' }, { status: 400 });
     }
 

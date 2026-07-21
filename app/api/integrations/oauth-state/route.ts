@@ -11,8 +11,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => null) as { provider?: 'stripe' | 'google' | 'gmail' } | null;
-  if (body?.provider !== 'stripe' && body?.provider !== 'google' && body?.provider !== 'gmail') {
+  const body = await req.json().catch(() => null) as { provider?: 'stripe' | 'google' | 'gmail' | 'zoom' } | null;
+  if (body?.provider !== 'stripe' && body?.provider !== 'google' && body?.provider !== 'gmail' && body?.provider !== 'zoom') {
     return NextResponse.json({ error: 'Proveedor no válido' }, { status: 400 });
   }
 
