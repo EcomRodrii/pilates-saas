@@ -41,6 +41,7 @@ export interface Studio {
   stripeAccountId: string | null;
   googleCalendarEmail: string | null;
   gmailEmail: string | null;
+  zoomEmail: string | null;
   // Suscripción de la plataforma (Stripe Billing — el SaaS cobra al estudio).
   stripeCustomerId: string | null;
   subscriptionId: string | null;

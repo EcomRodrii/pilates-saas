@@ -17,7 +17,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 
 const TTL_MS = 10 * 60 * 1000;
 
-type Provider = 'stripe' | 'google' | 'gmail';
+type Provider = 'stripe' | 'google' | 'gmail' | 'zoom';
 
 function secret(): string {
   const s = process.env.OAUTH_STATE_SECRET;
