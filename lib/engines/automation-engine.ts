@@ -7,6 +7,8 @@ import type {
   Sesion,
   TipoClase,
   AccionAutomatica,
+  Suscripcion,
+  PlanTarifa,
 } from '@/lib/types';
 
 // Detección de candidatos a notificar, compartida entre el botón "Ejecutar
@@ -53,10 +55,14 @@ export interface AutomationEngineInput {
   recibos: Recibo[];
   sesiones: Sesion[];
   tiposClase: TipoClase[];
+  // Solo para BONO_SESIONES_BAJAS (cross-sell a plan ilimitado) y
+  // RENOVACION_COBRADA (confirmar renovación + hito de fidelidad).
+  suscripciones: Suscripcion[];
+  planesTarifa: PlanTarifa[];
 }
 
 export function computeAutomationCandidatos(
-  { automationRules, automationLogs, socios, reservas, recibos, sesiones, tiposClase }: AutomationEngineInput,
+  { automationRules, automationLogs, socios, reservas, recibos, sesiones, tiposClase, suscripciones, planesTarifa }: AutomationEngineInput,
   now: Date
 ): AutomationCandidato[] {
   const candidatos: AutomationCandidato[] = [];
@@ -95,14 +101,26 @@ export function computeAutomationCandidatos(
     ocupadasPorSesion.set(r.sesionId, (ocupadasPorSesion.get(r.sesionId) ?? 0) + 1);
   }
 
+  // Socias con AL MENOS una reserva alguna vez (cualquier estado) — para
+  // NUEVA_SOCIA (seguimiento de onboarding).
+  const socioTieneReserva = new Set(reservas.map(r => r.socioId));
+
+  // Planes indexados por id — para BONO_SESIONES_BAJAS (cross-sell).
+  const planById = new Map(planesTarifa.map(p => [p.id, p]));
+
   automationRules.filter(r => r.activa).forEach(rule => {
     if (rule.trigger === 'AUSENCIA_DIAS') {
       const diasUmbral = (rule.condicion.dias as number) ?? 7;
-      // A partir de este umbral (más alto) ya no basta un recordatorio
-      // genérico — se propone una oferta de reactivación redactada por IA,
-      // y SIEMPRE con aprobación humana antes de enviarse (nunca se regala
-      // un descuento en automático).
-      const diasCritico = (rule.condicion.diasCritico as number) ?? 21;
+      // Paso intermedio: check-in humano, SIN oferta — pesca las razones
+      // reales (lesión, viaje, horario) antes de asumir que hace falta un
+      // descuento para que vuelva.
+      const diasCheckin = (rule.condicion.diasCheckin as number) ?? 14;
+      // A partir de este umbral (más alto, antes 21) ya no basta un check-in
+      // — se propone una oferta de reactivación redactada por IA, y SIEMPRE
+      // con aprobación humana antes de enviarse (nunca se regala un
+      // descuento en automático). 25 en vez de 21 para dar margen a que el
+      // check-in del paso anterior surta efecto antes de pasar a lo comercial.
+      const diasCritico = (rule.condicion.diasCritico as number) ?? 25;
       const descuentoPct = (rule.condicion.descuentoPct as number) ?? 15;
       socios.filter(s => s.activo).forEach(socio => {
         const ultimaCreado = ultimaAsistidaCreado.get(socio.id);
@@ -110,8 +128,15 @@ export function computeAutomationCandidatos(
         const dias = Math.floor((now.getTime() - new Date(ultimaCreado).getTime()) / 86400000);
         if (dias < diasUmbral) return;
 
+        // Dedup por EPISODIO de ausencia, no "una vez en la vida de la
+        // socia": solo cuentan avisos posteriores a su última asistencia
+        // registrada. Si no, una socia que ya recibió la secuencia completa
+        // una vez nunca volvería a recibir nada en una segunda racha de
+        // ausencia meses después.
+        const logsEpisodio = logsDe(rule.id, socio.id).filter(l => l.ejecutadoEn > ultimaCreado);
+
         if (dias >= diasCritico) {
-          const yaOfrecido = logsDe(rule.id, socio.id).some(
+          const yaOfrecido = logsEpisodio.some(
             l => l.accion === 'OFRECER_DESCUENTO' && l.resultado !== 'FALLIDO'
           );
           if (yaOfrecido) return;
@@ -126,13 +151,26 @@ export function computeAutomationCandidatos(
           return;
         }
 
+        if (dias >= diasCheckin) {
+          const yaCheckin = logsEpisodio.some(l => l.detalle.includes('¿Todo bien por el estudio?'));
+          if (yaCheckin) return;
+          candidatos.push({
+            rule, socio,
+            titulo: '¿Todo bien por el estudio?',
+            mensajeCliente: `${socio.nombre}, hace un par de semanas que no coincidimos en clase. Si hay algo que te esté costando encajar el horario, o alguna molestia, dínoslo — nos encanta ayudarte a volver a tu ritmo.`,
+            proximaAccionEn: null,
+            accion: 'ENVIAR_EMAIL',
+          });
+          return;
+        }
+
         // A-11: dedup por lo que REALMENTE se escribe. Antes buscaba
         // resultado === 'ESPERANDO', un estado que ningún camino de ejecución
         // persiste (ambos escriben 'EJECUTADO') → el recordatorio se reenviaba
         // CADA DÍA (~14 días seguidos). Ahora se deduplica como OFRECER_DESCUENTO
         // y PAGO_PENDIENTE: por acción y salvo fallo (para reintentar tras un
-        // FALLIDO).
-        const alreadyLogged = logsDe(rule.id, socio.id).some(
+        // FALLIDO), y solo dentro del episodio actual (ver logsEpisodio arriba).
+        const alreadyLogged = logsEpisodio.some(
           l => l.accion === 'ENVIAR_EMAIL' && l.resultado !== 'FALLIDO',
         );
         if (alreadyLogged) return;
@@ -148,18 +186,28 @@ export function computeAutomationCandidatos(
 
     if (rule.trigger === 'PAGO_PENDIENTE_DIAS') {
       const diasUmbral = (rule.condicion.dias as number) ?? 3;
+      // Escalada: aviso → segundo aviso → si sigue sin tarjeta y sin
+      // resolverse, deja de mandar emails automáticos (ya no aportan) y pide
+      // contacto manual en vez de insistir indefinidamente.
+      const diasSegundo = (rule.condicion.diasSegundo as number) ?? 8;
+      const diasEscalada = (rule.condicion.diasEscalada as number) ?? 15;
       recibos.filter(r => r.estado === 'PENDIENTE').forEach(recibo => {
         const dias = Math.floor((now.getTime() - new Date(recibo.fechaVencimiento).getTime()) / 86400000);
         if (dias < diasUmbral) return;
         const socio = recibo.socioId ? socioById.get(recibo.socioId) : undefined;
         if (!socio) return;
-        const alreadyLogged = logsDe(rule.id, socio.id).some(l => l.resultado !== 'FALLIDO');
-        if (alreadyLogged) return;
+
+        // Dedup por RECIBO concreto (no por socia): una socia puede tener
+        // varios recibos pendientes en momentos distintos de su vida, cada
+        // uno con su propia escalada.
+        const logsRecibo = logsDe(rule.id, socio.id).filter(l => l.reciboId === recibo.id);
 
         // Si ya hay tarjeta guardada, proponemos cobrar directamente en vez
         // de solo recordar por email — pero SIEMPRE con aprobación humana de
         // un toque (resultado PENDIENTE_ADMIN), nunca se cobra en automático.
         if (socio.stripeCustomerId && socio.stripePaymentMethodId) {
+          const yaPropuesto = logsRecibo.some(l => l.accion === 'COBRAR_RECIBO' && l.resultado !== 'FALLIDO');
+          if (yaPropuesto) return;
           candidatos.push({
             rule, socio,
             titulo: '¿Cobramos el pago pendiente?',
@@ -168,15 +216,47 @@ export function computeAutomationCandidatos(
             accion: 'COBRAR_RECIBO',
             reciboId: recibo.id,
           });
-        } else {
+          return;
+        }
+
+        if (dias >= diasEscalada) {
+          const yaEscalado = logsRecibo.some(l => l.accion === 'NOTIFICAR_ADMIN');
+          if (yaEscalado) return;
           candidatos.push({
             rule, socio,
-            titulo: 'Tienes un pago pendiente',
-            mensajeCliente: `${socio.nombre}, tienes un pago pendiente de ${recibo.importe}€ (${recibo.concepto}). Puedes regularizarlo cuando quieras desde el estudio.`,
-            proximaAccionEn: new Date(now.getTime() + 72 * 3600000).toISOString(),
-            accion: 'ENVIAR_EMAIL',
+            titulo: 'Pago pendiente sin resolver',
+            notaInterna: `${socio.nombre} lleva ${dias} días sin pagar ${recibo.importe}€ (${recibo.concepto}) y no tiene tarjeta guardada. Ya se han mandado los avisos automáticos — conviene contactarla a mano.`,
+            proximaAccionEn: null,
+            accion: 'NOTIFICAR_ADMIN',
+            reciboId: recibo.id,
           });
+          return;
         }
+
+        if (dias >= diasSegundo) {
+          const yaSegundo = logsRecibo.some(l => l.detalle.includes('Segundo aviso: pago pendiente'));
+          if (yaSegundo) return;
+          candidatos.push({
+            rule, socio,
+            titulo: 'Segundo aviso: pago pendiente',
+            mensajeCliente: `${socio.nombre}, tu pago de ${recibo.importe}€ (${recibo.concepto}) sigue pendiente desde hace ${dias} días. Puedes regularizarlo desde tu área de socia o pasando por el estudio — si ya lo hiciste, ignora este aviso.`,
+            proximaAccionEn: null,
+            accion: 'ENVIAR_EMAIL',
+            reciboId: recibo.id,
+          });
+          return;
+        }
+
+        const yaPrimero = logsRecibo.some(l => l.detalle.includes('Tienes un pago pendiente'));
+        if (yaPrimero) return;
+        candidatos.push({
+          rule, socio,
+          titulo: 'Tienes un pago pendiente',
+          mensajeCliente: `${socio.nombre}, tienes un pago pendiente de ${recibo.importe}€ (${recibo.concepto}) desde hace ${dias} días. Puedes regularizarlo fácilmente desde tu área de socia o pasando por el estudio — si ya lo has hecho, ignora este aviso. ¡Gracias!`,
+          proximaAccionEn: new Date(now.getTime() + 72 * 3600000).toISOString(),
+          accion: 'ENVIAR_EMAIL',
+          reciboId: recibo.id,
+        });
       });
     }
 
@@ -197,12 +277,15 @@ export function computeAutomationCandidatos(
               if (!socio) return;
               const alreadyLogged = logsDe(rule.id, socio.id).some(l => l.ejecutadoEn.startsWith(hoyStr));
               if (alreadyLogged) return;
+              // WhatsApp tiene muchísima mejor tasa de lectura a tiempo que
+              // el email para un "mañana a las X" — se usa si hay teléfono,
+              // con email como alternativa cuando no.
               candidatos.push({
                 rule, socio,
                 titulo: 'Recordatorio: tu clase es mañana',
-                mensajeCliente: `${socio.nombre}, te recordamos tu clase de ${tipo?.nombre ?? 'pilates'} mañana a las ${hora}. ¡Te esperamos!`,
+                mensajeCliente: `${socio.nombre}, te recordamos tu clase de ${tipo?.nombre ?? 'pilates'} mañana a las ${hora}. Si no puedes venir, cancela desde tu portal (Mis reservas) para liberar la plaza — ¡te esperamos!`,
                 proximaAccionEn: null,
-                accion: 'ENVIAR_EMAIL',
+                accion: socio.telefono ? 'ENVIAR_WHATSAPP' : 'ENVIAR_EMAIL',
               });
             });
         });
@@ -269,6 +352,124 @@ export function computeAutomationCandidatos(
           contextoIA: { tipoClase: tipo?.nombre ?? 'pilates', diaSemana, hora, semanas: ordenadas.length },
         });
       });
+    }
+
+    // Cross-sell a plan ilimitado: la socia lleva `comprasSeguidas` bonos del
+    // MISMO plan seguidos y va a tener que comprar otro — puede que un plan
+    // mensual le salga mejor. SIEMPRE con aprobación humana (implica una
+    // propuesta comercial con precios concretos), nunca se cambia el plan
+    // de nadie en automático.
+    if (rule.trigger === 'BONO_SESIONES_BAJAS') {
+      const comprasSeguidasUmbral = (rule.condicion.comprasSeguidas as number) ?? 3;
+      const suscripcionesPorSocio = new Map<string, Suscripcion[]>();
+      for (const s of suscripciones) {
+        const arr = suscripcionesPorSocio.get(s.socioId) ?? [];
+        arr.push(s);
+        suscripcionesPorSocio.set(s.socioId, arr);
+      }
+      const planesMensuales = planesTarifa
+        .filter(p => p.activo && p.tipo === 'MENSUAL')
+        .sort((a, b) => a.precio - b.precio);
+      if (planesMensuales.length === 0) return; // nada que proponer sin un plan ilimitado en la casa
+
+      suscripcionesPorSocio.forEach((subsSocio, socioId) => {
+        const socio = socioById.get(socioId);
+        if (!socio?.activo) return;
+        const ordenadas = [...subsSocio].sort((a, b) => b.fechaInicio.localeCompare(a.fechaInicio));
+        const actual = ordenadas[0];
+        if (!actual || actual.estado !== 'ACTIVA') return;
+        if (actual.sesionesRestantes === null || actual.sesionesRestantes > 1) return;
+        const plan = planById.get(actual.planId);
+        if (!plan || plan.tipo !== 'BONO') return;
+
+        const ultimasN = ordenadas.slice(0, comprasSeguidasUmbral);
+        if (ultimasN.length < comprasSeguidasUmbral) return;
+        if (!ultimasN.every(s => s.planId === actual.planId)) return;
+
+        const yaPropuesto = logsDe(rule.id, socioId).some(l => l.accion === 'PROPONER_PLAN' && l.resultado !== 'FALLIDO');
+        if (yaPropuesto) return;
+
+        const planSugerido = planesMensuales[0];
+        candidatos.push({
+          rule, socio,
+          titulo: '¿Le proponemos pasarse a un plan ilimitado?',
+          notaInterna: `${socio.nombre} ha comprado el bono "${plan.nombre}" ${ultimasN.length} veces seguidas. Con su ritmo, el plan ${planSugerido.nombre} (${planSugerido.precio}€/mes) puede salirle mejor que seguir comprando bonos sueltos. ¿Se lo proponemos?`,
+          proximaAccionEn: null,
+          accion: 'PROPONER_PLAN',
+          contextoIA: { nombre: socio.nombre, planActual: plan.nombre, planSugerido: planSugerido.nombre, precioSugerido: planSugerido.precio },
+        });
+      });
+    }
+
+    // Seguimiento de onboarding: la bienvenida del día 0 la manda el motor de
+    // marketing (NUEVA_ALTA) — esto cubre lo que falta después, la ventana
+    // donde más se pierde a una socia nueva sin que nadie se entere.
+    if (rule.trigger === 'NUEVA_SOCIA') {
+      const diasSinReservar = (rule.condicion.diasSinReservar as number) ?? 2;
+      const diasSinAsistir = (rule.condicion.diasSinAsistir as number) ?? 10;
+      socios.filter(s => s.activo).forEach(socio => {
+        const diasDesdeAlta = Math.floor((now.getTime() - new Date(socio.fechaAlta).getTime()) / 86400000);
+        if (diasDesdeAlta < diasSinReservar) return;
+
+        const tieneAsistencia = ultimaAsistidaCreado.has(socio.id);
+        if (!tieneAsistencia && diasDesdeAlta >= diasSinAsistir) {
+          const yaAvisado = logsDe(rule.id, socio.id).some(l => l.accion === 'NOTIFICAR_ADMIN');
+          if (yaAvisado) return;
+          candidatos.push({
+            rule, socio,
+            titulo: 'Socia nueva sin actividad',
+            notaInterna: `${socio.nombre} se dio de alta hace ${diasDesdeAlta} días y todavía no ha venido a ninguna clase. Puede valer la pena una llamada antes de que se enfríe.`,
+            proximaAccionEn: null,
+            accion: 'NOTIFICAR_ADMIN',
+          });
+          return;
+        }
+
+        if (!socioTieneReserva.has(socio.id) && diasDesdeAlta >= diasSinReservar) {
+          const yaAvisado = logsDe(rule.id, socio.id).some(l => l.accion === 'ENVIAR_EMAIL' && l.resultado !== 'FALLIDO');
+          if (yaAvisado) return;
+          candidatos.push({
+            rule, socio,
+            titulo: '¿Ya has visto los horarios?',
+            mensajeCliente: `${socio.nombre}, ¿ya has echado un vistazo a los horarios? Reserva tu primera clase cuando quieras desde tu área de socia — te esperamos.`,
+            proximaAccionEn: null,
+            accion: 'ENVIAR_EMAIL',
+          });
+        }
+      });
+    }
+
+    // Confirmación automática de una renovación cobrada — hoy el recibo solo
+    // se manda por email si alguien lo dispara a mano, nunca en automático al
+    // cobrarse una recurrencia. Bajo riesgo (puramente informativo): se manda
+    // sin aprobación, a diferencia de las acciones comerciales de arriba.
+    if (rule.trigger === 'RENOVACION_COBRADA') {
+      const hitoMeses = (rule.condicion.hitoMeses as number) ?? 6;
+      recibos
+        .filter(r => r.estado === 'COBRADO' && r.suscripcionId)
+        .forEach(recibo => {
+          const socio = recibo.socioId ? socioById.get(recibo.socioId) : undefined;
+          if (!socio) return;
+          const yaAvisado = logsDe(rule.id, socio.id).some(l => l.reciboId === recibo.id);
+          if (yaAvisado) return;
+
+          const mesesAntiguedad = Math.floor(
+            (now.getTime() - new Date(socio.fechaAlta).getTime()) / (30 * 86400000)
+          );
+          const esHito = hitoMeses > 0 && mesesAntiguedad > 0 && mesesAntiguedad % hitoMeses === 0;
+          const cierre = esHito
+            ? ` Y hoy además cumples ${mesesAntiguedad} meses con nosotros — ¡gracias por tu confianza!`
+            : '';
+
+          candidatos.push({
+            rule, socio,
+            titulo: 'Renovación confirmada',
+            mensajeCliente: `${socio.nombre}, hemos cobrado tu renovación de ${recibo.concepto} por ${recibo.importe}€. Aquí tienes tu recibo desde tu área de socia.${cierre}`,
+            proximaAccionEn: null,
+            accion: 'ENVIAR_EMAIL',
+            reciboId: recibo.id,
+          });
+        });
     }
   });
 

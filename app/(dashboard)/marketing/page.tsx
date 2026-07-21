@@ -43,7 +43,7 @@ const triggerLabel: Record<string, string> = {
   SUSCRIPCION_EXPIRA_1D: 'Suscripción expira mañana',
   CUMPLEANOS: 'Cumpleaños de clienta',
   NUEVA_ALTA: 'Nueva clienta registrada',
-  INACTIVIDAD_30D: 'Sin actividad 30 días',
+  INACTIVIDAD_30D: 'Sin actividad 45 días',
   BONO_AGOTADO: 'Bono agotado',
   BONO_QUEDA_1: 'Queda 1 sesión en bono',
   CITA_RECORDATORIO: 'Recordatorio de cita',
@@ -56,7 +56,7 @@ const triggerDesc: Record<string, string> = {
   SUSCRIPCION_EXPIRA_1D: 'El día antes de que caduque la suscripción',
   CUMPLEANOS: 'El día del cumpleaños de la clienta',
   NUEVA_ALTA: 'Cuando se registra una nueva clienta',
-  INACTIVIDAD_30D: 'Si no hay actividad en los últimos 30 días',
+  INACTIVIDAD_30D: 'Si no hay actividad en los últimos 45 días — si ya usas "Automatizaciones IA" con la regla de Ausencia, esta se solapa con su secuencia (días 7/14/25); actívala solo si no usas aquella',
   BONO_AGOTADO: 'Cuando se agota el bono de sesiones',
   BONO_QUEDA_1: 'Cuando solo queda 1 sesión en el bono',
   CITA_RECORDATORIO: 'Recordatorio antes de una clase reservada',
@@ -67,7 +67,11 @@ const triggerDesc: Record<string, string> = {
 const accionDesc: Record<string, string> = {
   EMAIL: 'Envía un email automático',
   WHATSAPP: 'Envía un mensaje de WhatsApp',
-  NOTIFICACION: 'Envía una notificación push',
+  // Aviso INTERNO para el equipo (aparece en Notificaciones) — no le llega
+  // nada a la clienta. Útil para "que se entere el equipo" sin generar
+  // contacto automático con ella (p.ej. suscripción cancelada: mejor que lo
+  // gestione una persona a que la trate un email genérico).
+  NOTIFICACION: 'Crea un aviso interno para el equipo (no llega nada a la clienta)',
 }
 
 // Email templates

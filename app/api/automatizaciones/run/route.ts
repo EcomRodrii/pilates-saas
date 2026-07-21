@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
         recibos: data.recibos,
         sesiones: data.sesiones,
         tiposClase: data.tiposClase,
+        suscripciones: data.suscripciones,
+        planesTarifa: data.planesTarifa,
       },
       new Date(nowISO),
     );

@@ -44,6 +44,11 @@ function fallbackReactivacion(nombre: string, descuentoPct: number, studioNombre
   return `Hola ${nombre}, hace unos días que no te vemos por el estudio y nos encantaría que volvieras. Como agradecimiento por formar parte de ${studioNombre}, te ofrecemos un ${descuentoPct}% de descuento en tu próxima renovación. Nos encantaría verte en clase pronto — un abrazo, el equipo de ${studioNombre}.`;
 }
 
+// Fallback fijo para CROSS_SELL (PROPONER_PLAN) — mismo contrato que arriba.
+function fallbackCrossSell(nombre: string, planSugerido: string, precioSugerido: number, studioNombre: string): string {
+  return `Hola ${nombre}, hemos visto que sueles agotar tu bono cada mes — ¡nos encanta verte tan constante! Con tu ritmo actual, el plan ${planSugerido} (${precioSugerido}€/mes) puede salirte más a cuenta que seguir comprando bonos sueltos. ¿Te lo explicamos sin compromiso? Un abrazo, el equipo de ${studioNombre}.`;
+}
+
 // Id DETERMINISTA de log por candidato: mismo (estudio, regla, socia, día) →
 // mismo id. Es lo que hace idempotente el upsert cuando un step se reintenta.
 // El índice del candidato desempata dentro de la misma tanda.
@@ -100,6 +105,16 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       fallbackReactivacion(nombre, descuentoPct, studioNombre)
     );
     log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.notaInterna ?? '', mensajeCliente };
+  } else if (c.accion === 'PROPONER_PLAN' && c.contextoIA) {
+    const nombre = String(c.contextoIA.nombre);
+    const planSugerido = String(c.contextoIA.planSugerido);
+    const precioSugerido = Number(c.contextoIA.precioSugerido);
+    // Fallback SIEMPRE apto para la clienta — nunca c.notaInterna.
+    const mensajeCliente = await redactarConIA(
+      { tipo: 'CROSS_SELL', nombre, planActual: String(c.contextoIA.planActual), planSugerido, precioSugerido },
+      fallbackCrossSell(nombre, planSugerido, precioSugerido, studioNombre)
+    );
+    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.notaInterna ?? '', mensajeCliente };
   } else if (c.accion === 'NOTIFICAR_ADMIN' && c.contextoIA) {
     // Seguro usar c.notaInterna como fallback aquí: NOTIFICAR_ADMIN no tiene
     // ningún camino de envío a cliente (sin botón de "enviar" en la UI) — el
@@ -112,7 +127,23 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
   } else if (!c.socio) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Acción sin socia asociada', mensajeCliente: null };
   } else if (dry) {
-    log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.titulo} → ${c.socio.email}`, mensajeCliente: c.mensajeCliente ?? null };
+    const destino = c.accion === 'ENVIAR_WHATSAPP' ? c.socio.telefono : c.socio.email;
+    log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.titulo} → ${destino}`, mensajeCliente: c.mensajeCliente ?? null };
+  } else if (c.accion === 'ENVIAR_WHATSAPP') {
+    if (!c.mensajeCliente) {
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para la clienta', mensajeCliente: null };
+    } else if (!c.socio.telefono || !twilioConfigurado('WHATSAPP')) {
+      // Sin teléfono o sin Twilio configurado: no hay forma de mandarlo por
+      // WhatsApp. El motor solo elige este canal cuando SÍ hay teléfono (ver
+      // automation-engine.ts), así que llegar aquí sin poder enviar es un
+      // fallo real, no algo que debamos disfrazar reintentando por email.
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no disponible (sin teléfono o sin Twilio configurado)', mensajeCliente: c.mensajeCliente };
+    } else {
+      const r = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: c.mensajeCliente });
+      log = r.ok
+        ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}.`, mensajeCliente: c.mensajeCliente }
+        : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio', mensajeCliente: c.mensajeCliente };
+    }
   } else if (!c.socio.email) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado', mensajeCliente: null };
   } else if (!c.mensajeCliente) {
@@ -152,8 +183,9 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
 // usuario) y persiste el log en automation_logs (ruleId = id de la
 // automatización, para dedup y contador). Idempotency-Key por id de log.
 export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, studioNombre, index, nowISO, dry, resend } = opts;
-  const esWhatsApp = c.canal === 'WHATSAPP';
+  const { studioId, index, nowISO, dry, resend } = opts;
+  const accionLog: AutomationLog['accion'] =
+    c.canal === 'WHATSAPP' ? 'ENVIAR_WHATSAPP' : c.canal === 'NOTIFICACION' ? 'NOTIFICAR_ADMIN' : 'ENVIAR_EMAIL';
   const base = {
     id: `mkt-${studioId}-${c.automatizacion.id}-${c.socio.id}-${index}-${nowISO.slice(0, 10)}`,
     studioId,
@@ -167,7 +199,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     socioId: c.socio.id,
     socioNombre: `${c.socio.nombre} ${c.socio.apellidos}`,
     pasoIndex: 0,
-    accion: (esWhatsApp ? 'ENVIAR_WHATSAPP' : 'ENVIAR_EMAIL') as AutomationLog['accion'],
+    accion: accionLog,
     ejecutadoEn: nowISO,
     proximaAccionEn: null,
     reciboId: null,
@@ -175,9 +207,29 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
 
   let log: AutomationLog;
   if (dry) {
-    const destino = esWhatsApp ? c.socio.telefono : c.socio.email;
+    const destino = c.canal === 'WHATSAPP' ? c.socio.telefono : c.canal === 'NOTIFICACION' ? 'equipo (interno)' : c.socio.email;
     log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.asunto} → ${destino}` };
-  } else if (esWhatsApp) {
+  } else if (c.canal === 'NOTIFICACION') {
+    // Aviso interno para el equipo: NUNCA se construye a partir de
+    // asunto/mensaje de la automatización (esos están redactados en segunda
+    // persona para la socia — reusarlos aquí tal cual sería el mismo tipo de
+    // mezcla interno/cliente que el bug de OFRECER_DESCUENTO, solo que al
+    // revés). Se genera un texto propio, siempre inequívocamente interno.
+    const admin = requireSupabaseAdmin();
+    const { error } = await admin.from('notificaciones').insert({
+      id: `noti-${base.id}`,
+      studio_id: studioId,
+      titulo: `Automatización: ${c.automatizacion.nombre}`,
+      texto: `Se ha disparado para ${c.socio.nombre} ${c.socio.apellidos}.`,
+      leida: false,
+      tipo: 'INFO',
+      enlace: `/socios/${c.socio.id}`,
+      creada_en: nowISO,
+    });
+    log = error
+      ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message }
+      : { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Aviso interno creado para el equipo sobre ${c.socio.nombre}.` };
+  } else if (c.canal === 'WHATSAPP') {
     // WhatsApp vía Twilio. Sin idempotency-key nativo: la garantía anti-reenvío es
     // la memoización del step.run (Inngest no re-ejecuta un step ya completado) +
     // el dedup por automation_logs del motor. Gap residual (envío OK y caída antes
@@ -193,7 +245,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
   } else if (!c.socio.email) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado' };
   } else {
-    const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: studioNombre }));
+    const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre }));
     const { error } = await resend!.emails.send(
       { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
       { idempotencyKey: base.id },
@@ -285,6 +337,8 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
         recibos: data.recibos,
         sesiones: data.sesiones,
         tiposClase: data.tiposClase,
+        suscripciones: data.suscripciones,
+        planesTarifa: data.planesTarifa,
       },
       now
     );
