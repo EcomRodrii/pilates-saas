@@ -4393,19 +4393,32 @@ async function generateUniqueSlug(nombre: string): Promise<string> {
 // vincula a la cuenta de Supabase Auth que lo creó. Devuelve el id del nuevo
 // negocio, o null si falló.
 export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string }): Promise<string | null> {
-  const id = `studio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const slug = await generateUniqueSlug(fields.nombre);
-  const { error } = await supabase.from('studios').insert({
-    id,
-    nombre: fields.nombre,
-    ciudad: fields.ciudad,
-    telefono: fields.telefono,
-    plan: 'BASE',
-    owner_auth_user_id: fields.ownerAuthUserId,
-    slug,
-  });
-  if (error) { reportDbError('[dbCreateStudio]', error); return null; }
-  return id;
+  // generateUniqueSlug comprueba disponibilidad y el insert llega después: un
+  // segundo alta con el mismo nombre (doble clic, dos pestañas) puede colarse
+  // en ese hueco y quedarse con el slug "libre" que acabamos de comprobar.
+  // Se reintenta unas pocas veces regenerando el slug ante ese choque concreto
+  // en vez de dejar pasar el 23505 crudo (Sentry JAVASCRIPT-NEXTJS-F).
+  for (let intento = 0; intento < 3; intento++) {
+    const id = `studio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const slug = await generateUniqueSlug(fields.nombre);
+    const { error } = await supabase.from('studios').insert({
+      id,
+      nombre: fields.nombre,
+      ciudad: fields.ciudad,
+      telefono: fields.telefono,
+      plan: 'BASE',
+      owner_auth_user_id: fields.ownerAuthUserId,
+      slug,
+    });
+    if (!error) return id;
+    if (error.code !== '23505' || !error.message.includes('studios_slug_key')) {
+      reportDbError('[dbCreateStudio]', error);
+      return null;
+    }
+    // Choque de slug: reintenta con uno recién generado.
+  }
+  reportDbError('[dbCreateStudio]', { message: 'No se pudo generar un slug único tras varios intentos' });
+  return null;
 }
 
 // Resuelve el studio_id a partir del slug público de la URL (/reservar/[slug]...).
