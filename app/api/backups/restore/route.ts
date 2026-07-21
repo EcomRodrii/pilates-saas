@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { restaurarSnapshot, cargarSnapshot, type BackupRow } from '@/lib/engines/backup-engine';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Restaurar sobrescribe TODOS los datos actuales del negocio con los del
 // backup elegido — irreversible salvo que exista otro backup posterior.
@@ -44,7 +45,6 @@ export async function POST(req: NextRequest) {
     await restaurarSnapshot(admin, sesion.studioId, snapshot);
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Error desconocido';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return errorInterno('backups/restore:POST', err, 'No se ha podido restaurar la copia de seguridad.');
   }
 }

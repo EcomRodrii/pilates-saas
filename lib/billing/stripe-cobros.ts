@@ -180,9 +180,12 @@ export async function cobrarReciboOffSession(params: {
         : 'El banco pidió autenticación adicional (3DS) que no se puede completar sin la socia presente. Pídele que pague desde un enlace de cobro normal.',
     };
   } catch (err) {
-    const mensaje = err instanceof Stripe.errors.StripeError
+    // El mensaje de Stripe/JS es para el log, nunca para la socia ni para quien
+    // aprueba el cobro desde Automatizaciones (mismo criterio que setup-sepa).
+    const detalle = err instanceof Stripe.errors.StripeError
       ? err.message
       : (err instanceof Error ? err.message : 'Error desconocido al cobrar');
-    return { ok: false, error: mensaje, errorCode: 'FALLO_COBRO' };
+    console.error('[cobrarReciboOffSession]', detalle);
+    return { ok: false, error: 'No se pudo completar el cobro. Inténtalo de nuevo más tarde.', errorCode: 'FALLO_COBRO' };
   }
 }

@@ -4,6 +4,7 @@ import {
 } from '@/lib/supabase-data';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Huecos reservables de una instructora para un servicio y un día (Madrid). No
 // requiere sesión: consultar disponibilidad es público (como el horario de
@@ -29,8 +30,7 @@ export async function GET(req: NextRequest) {
     if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 });
     return NextResponse.json(r);
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : 'Error al calcular disponibilidad';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('public/citas:GET', err, 'No se ha podido calcular la disponibilidad.');
   }
 }
 
@@ -81,7 +81,6 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : 'Error al procesar la cita';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('public/citas:POST', err, 'No se ha podido procesar la cita.');
   }
 }

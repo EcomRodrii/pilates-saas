@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -123,34 +124,38 @@ export async function POST(req: NextRequest) {
   const conBizum = body.bizum === true;
   const paymentMethodTypes: Array<'card' | 'bizum'> = conBizum ? ['card', 'bizum'] : ['card'];
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'payment',
-    payment_method_types: paymentMethodTypes,
-    line_items: [
-      {
-        price_data: {
-          currency: 'eur',
-          product_data: {
-            name: concepto,
-            description: body.socioNombre ? `Tentare · ${body.socioNombre}` : 'Tentare',
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: paymentMethodTypes,
+      line_items: [
+        {
+          price_data: {
+            currency: 'eur',
+            product_data: {
+              name: concepto,
+              description: body.socioNombre ? `Tentare · ${body.socioNombre}` : 'Tentare',
+            },
+            unit_amount: Math.round(importe * 100),
           },
-          unit_amount: Math.round(importe * 100),
+          quantity: 1,
         },
-        quantity: 1,
+      ],
+      customer_email: body.socioEmail ?? undefined,
+      // Solo creamos Customer + guardamos tarjeta cuando NO hay Bizum (flujo recurrente).
+      ...(conBizum ? {} : { customer_creation: 'always' as const }),
+      payment_intent_data: {
+        ...(conBizum ? {} : { setup_future_usage: 'off_session' as const }),
+        ...(fee !== undefined ? { application_fee_amount: fee } : {}),
       },
-    ],
-    customer_email: body.socioEmail ?? undefined,
-    // Solo creamos Customer + guardamos tarjeta cuando NO hay Bizum (flujo recurrente).
-    ...(conBizum ? {} : { customer_creation: 'always' as const }),
-    payment_intent_data: {
-      ...(conBizum ? {} : { setup_future_usage: 'off_session' as const }),
-      ...(fee !== undefined ? { application_fee_amount: fee } : {}),
-    },
-    metadata,
-    success_url: `${appUrl}/cobros?tab=pendientes&stripe_success=1${body.reciboId ? `&recibo=${body.reciboId}` : ''}`,
-    cancel_url: `${appUrl}/cobros?tab=pendientes&stripe_cancel=1`,
-    locale: 'es',
-  }, { stripeAccount: studio.stripe_account_id });
+      metadata,
+      success_url: `${appUrl}/cobros?tab=pendientes&stripe_success=1${body.reciboId ? `&recibo=${body.reciboId}` : ''}`,
+      cancel_url: `${appUrl}/cobros?tab=pendientes&stripe_cancel=1`,
+      locale: 'es',
+    }, { stripeAccount: studio.stripe_account_id });
 
-  return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    return errorInterno('stripe/checkout:POST', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo más tarde.');
+  }
 }

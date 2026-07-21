@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, paymentIntentId: pi.id, test });
   } catch (err) {
-    const msg = err instanceof Stripe.errors.StripeError ? err.message : 'No se pudo iniciar el cobro en el datáfono';
-    return NextResponse.json({ error: msg }, { status: 400 });
+    console.error('[terminal/cobrar]', err instanceof Stripe.errors.StripeError ? err.message : err);
+    return NextResponse.json({ error: 'No se pudo iniciar el cobro en el datáfono' }, { status: 400 });
   }
 }

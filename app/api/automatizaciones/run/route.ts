@@ -7,6 +7,7 @@ import { computeAutomationCandidatos } from '@/lib/engines/automation-engine';
 import { procesarCandidato } from '@/lib/inngest/automatizaciones';
 import { mapLimit } from '@/lib/concurrency';
 import type { AutomationLog } from '@/lib/types';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Un estudio grande puede tener bastantes candidatos (email + redacción IA por
 // cada uno); damos margen sobre el default de Vercel para que no corte a medias.
@@ -40,38 +41,43 @@ export async function POST(req: NextRequest) {
   }
 
   const nowISO = new Date().toISOString();
-  const data = await fetchAllStudioData(sesion.studioId);
-  const studioNombre = data.studio?.nombre ?? 'tu estudio';
 
-  const candidatos = computeAutomationCandidatos(
-    {
-      automationRules: data.automationRules,
-      automationLogs: data.automationLogs,
-      socios: data.socios,
-      reservas: data.reservas,
-      recibos: data.recibos,
-      sesiones: data.sesiones,
-      tiposClase: data.tiposClase,
-    },
-    new Date(nowISO),
-  );
+  try {
+    const data = await fetchAllStudioData(sesion.studioId);
+    const studioNombre = data.studio?.nombre ?? 'tu estudio';
 
-  // Concurrencia acotada (como el botón anterior): procesarCandidato es
-  // independiente por candidato, escribe su log (dbUpsert, id determinista) y
-  // Resend deduplica por idempotency-key, así que paralelizar es seguro.
-  const logs: AutomationLog[] = await mapLimit(
-    candidatos,
-    6,
-    (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, index: i, nowISO, dry: false, resend }),
-  );
+    const candidatos = computeAutomationCandidatos(
+      {
+        automationRules: data.automationRules,
+        automationLogs: data.automationLogs,
+        socios: data.socios,
+        reservas: data.reservas,
+        recibos: data.recibos,
+        sesiones: data.sesiones,
+        tiposClase: data.tiposClase,
+      },
+      new Date(nowISO),
+    );
 
-  // Contador de disparos por regla (determinista, como el cron).
-  const firedPorRegla = new Map<string, number>();
-  for (const c of candidatos) firedPorRegla.set(c.rule.id, (firedPorRegla.get(c.rule.id) ?? 0) + 1);
-  for (const [ruleId, count] of firedPorRegla) {
-    const base = data.automationRules.find((r) => r.id === ruleId)?.ejecutadaVeces ?? 0;
-    await dbUpdateAutomationRule(ruleId, sesion.studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
+    // Concurrencia acotada (como el botón anterior): procesarCandidato es
+    // independiente por candidato, escribe su log (dbUpsert, id determinista) y
+    // Resend deduplica por idempotency-key, así que paralelizar es seguro.
+    const logs: AutomationLog[] = await mapLimit(
+      candidatos,
+      6,
+      (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, index: i, nowISO, dry: false, resend }),
+    );
+
+    // Contador de disparos por regla (determinista, como el cron).
+    const firedPorRegla = new Map<string, number>();
+    for (const c of candidatos) firedPorRegla.set(c.rule.id, (firedPorRegla.get(c.rule.id) ?? 0) + 1);
+    for (const [ruleId, count] of firedPorRegla) {
+      const base = data.automationRules.find((r) => r.id === ruleId)?.ejecutadaVeces ?? 0;
+      await dbUpdateAutomationRule(ruleId, sesion.studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
+    }
+
+    return NextResponse.json({ logs });
+  } catch (err) {
+    return errorInterno('automatizaciones/run:POST', err, 'No se han podido ejecutar las automatizaciones. Inténtalo de nuevo.');
   }
-
-  return NextResponse.json({ logs });
 }

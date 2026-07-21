@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     await dbSetTerminalReader(sesion.studioId, reader.id, locationId);
     return NextResponse.json({ ok: true, readerId: reader.id, estado: reader.status, test: s.test });
   } catch (err) {
-    const msg = err instanceof Stripe.errors.StripeError ? err.message : 'No se pudo registrar el datáfono';
-    return NextResponse.json({ error: msg }, { status: 400 });
+    console.error('[terminal/lector]', err instanceof Stripe.errors.StripeError ? err.message : err);
+    return NextResponse.json({ error: 'No se pudo registrar el datáfono' }, { status: 400 });
   }
 }

@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid } from '@/lib/utils';
 import type { FilaCita } from '@/lib/csv';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Importación de CITAS 1:1 desde CSV — última pieza de la migración asistida.
 //
@@ -149,7 +150,7 @@ export async function POST(req: NextRequest) {
     }));
     const { error } = await admin.from('citas').insert(lote);
     if (error) {
-      return NextResponse.json({ error: `Error al insertar citas: ${error.message}`, importadas }, { status: 500 });
+      return errorInterno('citas/import:POST', error, 'No se pudieron guardar las citas.', 500, { importadas });
     }
     importadas += lote.length;
   }

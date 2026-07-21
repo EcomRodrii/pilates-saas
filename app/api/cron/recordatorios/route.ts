@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { enviarRecordatoriosClasesProximas } from '@/lib/supabase-data';
+import { errorInterno } from '@/lib/errores-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ejecutadoEn: desde.toISOString(), ...resumen });
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'recordatorios' } });
-    const mensaje = err instanceof Error ? err.message : 'Error al enviar recordatorios';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('cron/recordatorios:GET', err, 'Error al enviar los recordatorios.');
   }
 }

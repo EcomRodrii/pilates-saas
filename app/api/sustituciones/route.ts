@@ -181,7 +181,8 @@ export async function PATCH(req: NextRequest) {
     // puede seguir como si nada y avisarlas de una cancelación que no ha pasado.
     const canc = await admin.from('sesiones')
       .update({ cancelada: true }).eq('id', sust.sesion_id).eq('studio_id', sesion.studioId).select('id');
-    if (canc.error) return NextResponse.json({ error: canc.error.message }, { status: 500 });
+    if (canc.error) return errorInterno('sustituciones:cancelar_clase:cancelar-sesion', canc.error,
+      'No se ha podido cancelar la clase. Recarga la página.');
     if (!canc.data || canc.data.length === 0) {
       return NextResponse.json({ error: 'No se pudo cancelar la clase. Recarga la página.' }, { status: 409 });
     }
@@ -189,7 +190,8 @@ export async function PATCH(req: NextRequest) {
     const marc = await admin.from('sustituciones')
       .update({ estado: 'sin_sustituta', resuelto_en: new Date().toISOString() })
       .eq('id', sustitucionId).eq('studio_id', sesion.studioId).select('id');
-    if (marc.error) return NextResponse.json({ error: marc.error.message }, { status: 500 });
+    if (marc.error) return errorInterno('sustituciones:cancelar_clase:marcar-sustitucion', marc.error,
+      'La clase se canceló, pero no se ha podido cerrar la sustitución. Recarga la página.');
 
     const alumnas = await avisarAlumnas(admin, {
       sesionId: sust.sesion_id as string, studioId: sesion.studioId, tipo: 'cancelada',
@@ -258,7 +260,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     const { data: nuevo, error: errRank } = await admin.rpc('rankear_candidatas', { p_sesion_id: sust.sesion_id });
-    if (errRank) return NextResponse.json({ error: errRank.message }, { status: 500 });
+    if (errRank) return errorInterno('sustituciones:recalcular:rankear', errRank,
+      'No se ha podido recalcular las candidatas. Inténtalo de nuevo.');
 
     // Quien ya dijo que no puede para ESTA clase no vuelve a la lista: volver a
     // escribirle es la vía rápida a que ignore los avisos del sistema.
@@ -280,7 +283,8 @@ export async function PATCH(req: NextRequest) {
       .eq('id', sustitucionId).eq('studio_id', sesion.studioId)
       .eq('estado', sust.estado)   // compare-and-set: nadie ha tocado nada entretanto
       .select('id');
-    if (errUpd) return NextResponse.json({ error: errUpd.message }, { status: 500 });
+    if (errUpd) return errorInterno('sustituciones:recalcular:actualizar', errUpd,
+      'No se ha podido guardar el nuevo ranking. Inténtalo de nuevo.');
     if (!act || act.length === 0) {
       return NextResponse.json({ error: 'La sustitución ha cambiado mientras buscábamos. Recarga la página.' }, { status: 409 });
     }

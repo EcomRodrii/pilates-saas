@@ -5,6 +5,7 @@ import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
 import { parseJsonIA } from '@/lib/ai/parse-ia';
 import { FICHA_CLINICA_CLASE_SYSTEM_PROMPT, buildFichaClinicaClaseUserPrompt } from '@/lib/ai/ficha-clinica-clase-prompt';
 import type { ResumenClaseSalud } from '@/lib/ficha-clinica';
+import { errorInterno } from '@/lib/errores-servidor';
 
 const client = new Anthropic();
 
@@ -43,7 +44,6 @@ export async function POST(req: NextRequest) {
       variantes: Array.isArray(parsed.variantes) ? parsed.variantes : [],
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Error desconocido';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return errorInterno('ai/ficha-clinica-clase:POST', err, 'No se ha podido generar el resumen con IA.');
   }
 }

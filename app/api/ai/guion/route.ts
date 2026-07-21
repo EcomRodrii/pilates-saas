@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
 import { parseJsonIA } from '@/lib/ai/parse-ia';
+import { errorInterno } from '@/lib/errores-servidor';
 
 const client = new Anthropic();
 
@@ -63,7 +64,6 @@ export async function POST(req: NextRequest) {
       plataforma: plat,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Error desconocido';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return errorInterno('ai/guion:POST', err, 'No se ha podido generar el guion con IA.');
   }
 }

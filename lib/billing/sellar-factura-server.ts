@@ -157,7 +157,8 @@ export async function sellarFacturaDeRecibo(
 
   const { error } = await admin.from('facturas').insert(fila);
   if (error) {
-    return { ok: false, error: error.message };
+    console.error('[sellarFacturaDeRecibo]', error.message);
+    return { ok: false, error: 'No se ha podido guardar la factura sellada.' };
   }
 
   return {
