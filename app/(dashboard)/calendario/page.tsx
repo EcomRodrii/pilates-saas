@@ -1414,6 +1414,12 @@ export default function Calendario() {
     [sesionActual, reservas, socios, spots]
   );
 
+  // Hora fin <= hora inicio: guardar así llegaba crudo a la BD, donde
+  // sesiones_instructor_sin_solape construye tstzrange(inicio, fin) y Postgres
+  // rechaza el rango invertido con un 22000 que el usuario veía como error
+  // genérico (Sentry JAVASCRIPT-NEXTJS-E). Se bloquea aquí, antes de guardar.
+  const horaInvalida = !!(showForm && form.horaInicio && form.horaFin && form.horaFin <= form.horaInicio);
+
   // ── Conflictos de sala/instructora (I-1) y aforo (I-2) del formulario abierto ──
   // Se recalcula en vivo con los valores del form para avisar antes de guardar.
   const conflictosForm = useMemo(() => {
@@ -1492,6 +1498,7 @@ export default function Calendario() {
   }
 
   function crearSesion() {
+    if (horaInvalida) return;
     const semanas = form.repetir ? form.repetirSemanas : 1;
     for (let i = 0; i < semanas; i++) {
       const base = new Date(`${form.fecha}T${form.horaInicio}:00`);
@@ -1513,7 +1520,7 @@ export default function Calendario() {
   }
 
   function editarSesion() {
-    if (!sesionId) return;
+    if (!sesionId || horaInvalida) return;
     updateSesion(sesionId, {
       tipoClaseId: form.tipoClaseId,
       salaId: form.salaId,
@@ -1547,7 +1554,7 @@ export default function Calendario() {
   // aforo/notas y la hora (manteniendo la fecha de cada sesión). La fecha del
   // form no se propaga —cada sesión conserva su día—, solo la hora.
   function editarSerie() {
-    if (!sesionId) return;
+    if (!sesionId || horaInvalida) return;
     const n = sesionesEnriquecidas.filter(s => {
       const base = sesionesEnriquecidas.find(x => x.id === sesionId);
       return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio;
@@ -1937,6 +1944,16 @@ export default function Calendario() {
               </FormField>
             </div>
 
+            {/* Hora fin <= hora inicio: bloquea guardar (no es un aviso, es inválido) */}
+            {horaInvalida && (
+              <div className="px-6 pb-1 shrink-0">
+                <div className="rounded-xl px-3.5 py-2.5 text-xs bg-red-50 border border-red-200 text-red-800 flex gap-2">
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5 text-red-600" />
+                  <p>La hora de fin debe ser posterior a la hora de inicio.</p>
+                </div>
+              </div>
+            )}
+
             {/* Avisos de conflicto (I-1) y aforo (I-2) — no bloquean, informan */}
             {(conflictosForm || aforoSobrante > 0) && (
               <div className="px-6 pb-1 shrink-0 space-y-2">
@@ -1967,13 +1984,15 @@ export default function Calendario() {
               <div className="px-6 py-5 border-t border-border flex flex-col gap-2 shrink-0">
                 <button
                   onClick={editarSesion}
-                  className="w-full py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand"
+                  disabled={horaInvalida}
+                  className="w-full py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Guardar solo esta clase
                 </button>
                 <button
                   onClick={editarSerie}
-                  className="w-full py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors"
+                  disabled={horaInvalida}
+                  className="w-full py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Guardar esta y las siguientes
                 </button>
@@ -1985,7 +2004,8 @@ export default function Calendario() {
                 </button>
                 <button
                   onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-                  className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand"
+                  disabled={horaInvalida}
+                  className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
                 >
                   {showForm === 'nueva'
                     ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'

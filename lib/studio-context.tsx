@@ -453,7 +453,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // tiene publicSlug pero SÍ estamos en una de esas rutas, es la sombreada:
   // no hace falta que traiga nada.
   const pathname = usePathname();
-  const shadowedByPublicRoute = !publicSlug && /^\/(portal|reservar|kiosk|disponibilidad|aceptar-sustitucion|valorar|no-puedo)\//.test(pathname ?? '');
+  const shadowedByPublicRoute = !publicSlug && /^\/(portal|reservar|kiosk|disponibilidad|aceptar-sustitucion|valorar|no-puedo|confirmar-reserva)\//.test(pathname ?? '');
 
   // Surface fire-and-forget DB write failures to the user instead of losing them.
   useEffect(() => {
@@ -971,9 +971,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ...socioFields,
     };
     setSocios(prev => [...prev, nuevaSocia]);
-    dbInsertSocio(nuevaSocia).then(ok => {
-      if (ok) addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
-    });
+
+    // El estado local (optimista) se actualiza ya para no bloquear la UI, pero
+    // suscripcion/recibo referencian socioId por FK: si se mandan en paralelo
+    // con el insert de la socia y este tarda un pelín más, la BD los rechaza
+    // ("Key is not present in table socios" — Sentry JAVASCRIPT-NEXTJS-3/4).
+    // Se encadenan al ok de dbInsertSocio para garantizar el orden real.
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
       if (plan) {
@@ -990,9 +993,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           stripeSubscriptionId: null,
         };
         setSuscripciones(prev => [...prev, sus]);
-        dbInsertSuscripcion(sus);
 
-        // Auto-generate a paid recibo + factura at enrolment
         const reciboId = `rec-${uid()}`;
         const reciboCobrado: Recibo = {
           id: reciboId,
@@ -1008,14 +1009,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           intentosReintento: 0,
         };
         setRecibos(prev => [...prev, reciboCobrado]);
-        dbInsertRecibo(reciboCobrado);
         setFacturas(prev => {
           const fac = buildFactura(reciboCobrado, prev);
           void sellarFacturaYActualizar(fac);
           return [...prev, fac];
         });
+
+        dbInsertSocio(nuevaSocia).then(ok => {
+          if (!ok) return;
+          addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+          dbInsertSuscripcion(sus);
+          dbInsertRecibo(reciboCobrado);
+        });
+        return;
       }
     }
+
+    dbInsertSocio(nuevaSocia).then(ok => {
+      if (ok) addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+    });
   }
 
   // En ruta pública, las escrituras van por los endpoints de servidor (service-
