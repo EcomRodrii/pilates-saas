@@ -24,3 +24,22 @@ export const HOME_SECCIONES: HomeSeccion[] = [
   { id: 'graficos', label: 'Gráficas personalizadas' },
   { id: 'principal', label: 'Clases, pagos y actividad' },
 ];
+
+// Secciones que NO se pueden arrastrar a otra posición ni ocultar desde el
+// editor de inicio (HomeEditor las excluye de la lista). No son contenido que
+// tenga sentido personalizar: son avisos de estado que aparecen y desaparecen
+// solos (el checklist de primeros pasos se oculta él mismo al completarse).
+// Se detectó en producción un estudio con 'onboarding' guardado en la
+// posición 5 de un `studio_layout.config.home.orden` de una personalización
+// anterior a que la sección tuviera lógica real — quedaba enterrado sin que
+// nadie lo hubiera decidido a propósito. `ordenarSeccionesHome` fuerza estas
+// siempre a la cabeza, ignorando cualquier orden guardado, así que ese tipo
+// de desajuste ya no puede volver a pasar.
+export const HOME_FIJAS_PRIMERO: readonly string[] = ['onboarding'];
+
+/** Aplica el orden fijo por encima del orden elegido por el estudio. */
+export function ordenarSeccionesHome(visibles: string[]): string[] {
+  const fijas = HOME_FIJAS_PRIMERO.filter((id) => visibles.includes(id));
+  const resto = visibles.filter((id) => !fijas.includes(id));
+  return [...fijas, ...resto];
+}

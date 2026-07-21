@@ -21,7 +21,7 @@ import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 import { fetchLayout } from '@/lib/api-client';
 import { aplicarLayout, DEFAULT_LAYOUT } from '@/lib/layout-runtime';
 import type { LayoutConfig } from '@/lib/layout-schema';
-import { HOME_SECCIONES } from '@/lib/home-sections';
+import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
 import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -410,7 +410,7 @@ export default function Dashboard() {
     window.addEventListener('tentare-layout-changed', onCambio);
     return () => { vivo = false; window.removeEventListener('tentare-layout-changed', onCambio); };
   }, []);
-  const homeVisibles = aplicarLayout(HOME_SECCIONES.map((s) => s.id), layout.home);
+  const homeVisibles = ordenarSeccionesHome(aplicarLayout(HOME_SECCIONES.map((s) => s.id), layout.home));
   const ordenSeccion = (id: string) => {
     const i = homeVisibles.indexOf(id);
     return i === -1 ? undefined : i; // undefined → oculta

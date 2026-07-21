@@ -21,7 +21,14 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { usePermisos } from '@/lib/permisos';
 import { fetchLayout, guardarLayoutApi } from '@/lib/api-client';
-import { HOME_SECCIONES, type HomeSeccion } from '@/lib/home-sections';
+import { HOME_SECCIONES, HOME_FIJAS_PRIMERO, type HomeSeccion } from '@/lib/home-sections';
+
+// Las secciones de HOME_FIJAS_PRIMERO (hoy solo 'onboarding') no se listan
+// aquí: no son contenido que tenga sentido arrastrar u ocultar a mano, son
+// avisos de estado que se muestran y ocultan solos. Así se evita que alguien
+// las reordene sin querer y el aviso importante quede enterrado (ver el
+// comentario de HOME_FIJAS_PRIMERO en lib/home-sections.ts).
+const SECCIONES_EDITABLES = HOME_SECCIONES.filter((s) => !HOME_FIJAS_PRIMERO.includes(s.id));
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 
 function Fila({ seccion, oculto, onToggle }: { seccion: HomeSeccion; oculto: boolean; onToggle: () => void }) {
@@ -47,7 +54,7 @@ function Fila({ seccion, oculto, onToggle }: { seccion: HomeSeccion; oculto: boo
 
 export function HomeEditor() {
   const { rol } = usePermisos();
-  const [items, setItems] = useState<string[]>(HOME_SECCIONES.map((s) => s.id));
+  const [items, setItems] = useState<string[]>(SECCIONES_EDITABLES.map((s) => s.id));
   const [ocultos, setOcultos] = useState<Set<string>>(new Set());
   const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando');
   const [guardando, setGuardando] = useState(false);
@@ -63,7 +70,7 @@ export function HomeEditor() {
     fetchLayout()
       .then((l) => {
         if (!vivo) return;
-        const todos = HOME_SECCIONES.map((s) => s.id);
+        const todos = SECCIONES_EDITABLES.map((s) => s.id);
         const orden = [...l.home.orden.filter((h) => todos.includes(h)), ...todos.filter((h) => !l.home.orden.includes(h))];
         setItems(orden);
         setOcultos(new Set(l.home.ocultos));
@@ -117,7 +124,7 @@ export function HomeEditor() {
   }
 
   function restaurar() {
-    setItems(HOME_SECCIONES.map((s) => s.id));
+    setItems(SECCIONES_EDITABLES.map((s) => s.id));
     setOcultos(new Set());
     setAviso(null);
   }
