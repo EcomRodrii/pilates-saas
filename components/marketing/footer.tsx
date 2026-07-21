@@ -40,7 +40,7 @@ export function MarketingFooter() {
         { href: '/recursos/testimonios', label: 'Testimonios' },
         { href: '/recursos/blog', label: 'Blog' },
         { href: '/recursos/guias', label: 'Guías' },
-        { href: '/informes', label: 'Informes' },
+        { href: '/recursos/informes', label: 'Informes' },
         { href: '/recursos/centro-de-ayuda', label: 'Centro de ayuda' },
         { href: '/recursos/faq', label: 'FAQ' },
       ],
