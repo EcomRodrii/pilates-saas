@@ -40,7 +40,7 @@ export const CARACTERISTICAS: AnclaMarketing[] = [
   { slug: 'sustituciones', label: 'Sustituciones' },
   { slug: 'automatizaciones-ia', label: 'Automatizaciones IA' },
   { slug: 'centro-de-control', label: 'Centro de Control' },
-  { slug: 'marketing', label: 'Marketing y contenido con IA' },
+  { slug: 'gamificacion', label: 'Gamificación y fidelización' },
   { slug: 'crm', label: 'CRM y comunidad' },
   { slug: 'app-personalizada', label: 'App y portal personalizados' },
   { slug: 'panel-de-rendimiento', label: 'Panel de rendimiento' },

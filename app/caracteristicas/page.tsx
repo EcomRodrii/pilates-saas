@@ -5,7 +5,7 @@ import { CARACTERISTICAS } from '@/lib/marketing-nav';
 
 export const metadata: Metadata = {
   title: 'Características | Tentare',
-  description: 'Todas las funciones de Tentare: horarios, reservas, pagos, automatizaciones IA, marketing, informes y más.',
+  description: 'Todas las funciones de Tentare: horarios, reservas, pagos, automatizaciones IA, Centro de Control, gamificación, informes y más.',
 };
 
 interface Contenido {
@@ -43,15 +43,15 @@ const CONTENIDO: Record<string, Contenido> = {
   },
   'automatizaciones-ia': {
     descripcion: 'Reglas que vigilan datos reales (ausencias, pagos pendientes, clases llenas) y redactan el mensaje con IA.',
-    puntos: ['Secuencia de reactivación en varios pasos, no un único aviso', 'Aprobación humana antes de enviar cualquier oferta', 'Automatizaciones de marketing por cumpleaños, altas o inactividad'],
+    puntos: ['Secuencia de reactivación en varios pasos, no un único aviso', 'Aprobación humana antes de enviar cualquier oferta', 'Avisos de pago escalados y recordatorios de clase automáticos'],
   },
   'centro-de-control': {
     descripcion: 'Tu copiloto de decisiones: cada mañana resume qué necesita tu atención.',
     puntos: ['Recomendaciones con nivel de autonomía configurable', 'Ejecuta solo lo que tú decidas que no necesita tu OK', 'Riesgo de concentración por instructora, entre otras señales'],
   },
-  marketing: {
-    descripcion: 'Calendario de contenido, guiones y carruseles para redes generados con IA, más campañas con objetivo y presupuesto.',
-    puntos: ['Biblioteca e ideas de contenido', 'Guiones y carruseles redactados con IA', 'Campañas de marketing con ciclo de vida y cupones'],
+  gamificacion: {
+    descripcion: 'Rachas, logros, retos y niveles en el portal de tus socias para darles un motivo más para volver.',
+    puntos: ['Racha de asistencia semanal, con aviso cuando está en riesgo', 'Logros y retos con recompensas', 'Niveles de progreso por socia'],
   },
   crm: {
     descripcion: 'Mensajería, comunidad y chat de equipo integrados, sin salir del panel.',
@@ -71,7 +71,7 @@ const CONTENIDO: Record<string, Contenido> = {
   },
   integraciones: {
     descripcion: 'Conecta las herramientas que ya usas, configurables por estudio.',
-    puntos: ['Videollamada (Zoom) para clases online', 'Control de accesos (Kisi)', 'WhatsApp y Gmail para comunicación con socias'],
+    puntos: ['Cobros con Stripe (tarjeta y SEPA), sin comisión de Tentare', 'Google Calendar sincronizado', 'WhatsApp y Gmail para comunicación con socias'],
   },
 };
 

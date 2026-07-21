@@ -661,11 +661,11 @@ export default function LandingPage() {
           </Reveal>
           <Reveal delay={130} className="lp-bento-2" style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 22, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F3ECF5', color: '#171717', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4" /><path d="m6.41 6.41 2.83 2.83" /><path d="M2 12h4" /><path d="m6.41 17.59 2.83-2.83" /><circle cx={12} cy={12} r={4} /></svg>
+              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" /><path d="M8 7h8" /><path d="M8 11h8" /><path d="M8 15h5" /></svg>
             </div>
             <div>
-              <h3 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 6px' }}>Contenido y marketing con IA</h3>
-              <p style={{ fontSize: 14, color: '#5A5A52', margin: 0 }}>Calendario de contenido, guiones y carruseles para redes generados con IA, más campañas con objetivo y presupuesto.</p>
+              <h3 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 6px' }}>Facturación legal en España</h3>
+              <p style={{ fontSize: 14, color: '#5A5A52', margin: 0 }}>Facturas con NIF, IVA y numeración correlativa desde el primer cobro — cumplimiento fiscal español, sin plugins ni gestorías extra.</p>
             </div>
           </Reveal>
           <Reveal delay={60} className="lp-bento-2" style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 22, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -694,7 +694,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <Reveal><h2 className="lp-h2" style={{ fontWeight: 800, fontSize: 54, letterSpacing: '-.04em', margin: '0 0 10px' }}>Precios sin letra pequeña</h2></Reveal>
-            <Reveal delay={80}><p style={{ fontSize: 18, color: '#5A5A52', margin: 0 }}>Todo incluido, sistema autónomo desde el primer plan. Cancela cuando quieras.</p></Reveal>
+            <Reveal delay={80}><p style={{ fontSize: 18, color: '#5A5A52', margin: 0 }}>Sin permanencia y sin comisión sobre tus cobros. Cancela cuando quieras.</p></Reveal>
           </div>
           <div className="lp-pricing" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, alignItems: 'stretch' }}>
             <Reveal style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 24, padding: 36 }}>
@@ -708,7 +708,7 @@ export default function LandingPage() {
               <div className="lp-mono" style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: '#F7A6C4', marginBottom: 16 }}>Estudio</div>
               <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-.03em' }}>59€<span style={{ fontSize: 17, fontWeight: 500, color: '#8E8E86' }}>/mes</span></div>
               <p style={{ fontSize: 14, color: '#8E8E86', margin: '6px 0 24px' }}>El plan completo. Socias ilimitadas.</p>
-              <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 20, fontSize: 15, color: '#D8D8D2', lineHeight: 2.1 }}>Todo lo de Base<br />Socias ilimitadas<br />Gamificación y retención<br />Marketing e IA</div>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 20, fontSize: 15, color: '#D8D8D2', lineHeight: 2.1 }}>Todo lo de Base<br />Socias ilimitadas<br />Centro de Control con IA<br />Gamificación y retención</div>
               <Link href="/crear-estudio" className="block hover:brightness-95 transition-all" style={{ background: ACC, color: '#171717', textAlign: 'center', fontWeight: 700, padding: 14, borderRadius: 14, marginTop: 24 }}>
                 Crear estudio
               </Link>
