@@ -23,6 +23,7 @@ import { aplicarLayout, DEFAULT_LAYOUT } from '@/lib/layout-runtime';
 import type { LayoutConfig } from '@/lib/layout-schema';
 import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
 import { PageHeader } from '@/components/ui/page-header';
+import { CifraPrivada } from '@/components/ui/cifra-privada';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -657,13 +658,13 @@ export default function Dashboard() {
         <div {...wrap('resumen')}>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Alumnos hoy', alert: false },
-            { href: '/informes', Icon: Activity, value: `${ocupacionMedia}%`, label: 'Ocupación semana', alert: ocupacionMedia >= 85 },
-            { href: '/cobros', Icon: CreditCard, value: pendientesTotal, label: 'Pagos pendientes', alert: pendientesTotal > 0 },
-            { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0 },
-            { href: '/clientas', Icon: Clock, value: resumenHoy.inactivas30d, label: '30d sin venir', alert: resumenHoy.inactivas30d > 0 },
-            { href: '/informes', Icon: TrendingUp, value: `${ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €`, label: 'Ingresos del mes', alert: false },
-          ].map(({ href, Icon, value, label, alert }) => (
+            { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Alumnos hoy', alert: false, privada: false },
+            { href: '/informes', Icon: Activity, value: `${ocupacionMedia}%`, label: 'Ocupación semana', alert: ocupacionMedia >= 85, privada: false },
+            { href: '/cobros', Icon: CreditCard, value: pendientesTotal, label: 'Pagos pendientes', alert: pendientesTotal > 0, privada: false },
+            { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0, privada: false },
+            { href: '/clientas', Icon: Clock, value: resumenHoy.inactivas30d, label: '30d sin venir', alert: resumenHoy.inactivas30d > 0, privada: false },
+            { href: '/informes', Icon: TrendingUp, value: `${ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €`, label: 'Ingresos del mes', alert: false, privada: true },
+          ].map(({ href, Icon, value, label, alert, privada }) => (
             <Link
               key={label}
               href={href}
@@ -674,7 +675,11 @@ export default function Dashboard() {
               }}
             >
               <Icon size={15} style={{ color: alert ? 'var(--destructive)' : 'var(--muted-foreground)' }} />
-              <p className="text-[22px] font-bold leading-none mt-2" style={{ color: alert ? 'var(--destructive)' : 'var(--foreground)' }}>{value}</p>
+              {privada ? (
+                <CifraPrivada className="text-[22px] font-bold leading-none mt-2" style={{ color: alert ? 'var(--destructive)' : 'var(--foreground)' }}>{value}</CifraPrivada>
+              ) : (
+                <p className="text-[22px] font-bold leading-none mt-2" style={{ color: alert ? 'var(--destructive)' : 'var(--foreground)' }}>{value}</p>
+              )}
               <p className="text-[10.5px] font-medium text-muted-foreground mt-1 leading-tight">{label}</p>
             </Link>
           ))}
@@ -724,9 +729,9 @@ export default function Dashboard() {
             <div>
               <p className="text-xs font-medium text-muted-foreground">Ingresos cobrados este mes</p>
               <div className="mt-1.5 flex items-end gap-2.5">
-                <p className="text-4xl font-semibold leading-none tracking-tight text-foreground">
+                <CifraPrivada className="text-4xl font-semibold leading-none tracking-tight text-foreground">
                   {ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
-                </p>
+                </CifraPrivada>
                 <Badge
                   variant="secondary"
                   className="mb-1"
@@ -737,7 +742,7 @@ export default function Dashboard() {
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 {pctChange >= 0 ? 'Vas por delante' : 'Vas por detrás'} del mismo día del mes pasado
-                {' · '}<span className="font-semibold text-foreground">{ingresosMTDPrev.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €</span> a estas alturas de {MONTH_LABELS[new Date(now.getFullYear(), now.getMonth() - 1, 1).getMonth()]}
+                {' · '}<CifraPrivada inline className="font-semibold text-foreground">{ingresosMTDPrev.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €</CifraPrivada> a estas alturas de {MONTH_LABELS[new Date(now.getFullYear(), now.getMonth() - 1, 1).getMonth()]}
               </p>
             </div>
             <Link href="/informes" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
@@ -745,7 +750,9 @@ export default function Dashboard() {
             </Link>
           </CardContent>
           <CardContent className="h-[120px]">
-            <RevenueSparkline data={sparkData} labels={sparkLabels} currentIdx={sparkCurrentIdx} />
+            <CifraPrivada className="h-full">
+              <RevenueSparkline data={sparkData} labels={sparkLabels} currentIdx={sparkCurrentIdx} />
+            </CifraPrivada>
           </CardContent>
         </Card>
         </div>
@@ -863,9 +870,9 @@ export default function Dashboard() {
                         <p className="text-[11px] text-muted-foreground truncate">{r.concepto}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[13px] font-bold text-foreground">
+                        <CifraPrivada inline className="text-[13px] font-bold text-foreground">
                           {r.importe} €
-                        </span>
+                        </CifraPrivada>
                         <button
                           onClick={() => marcarCobrado(r.id)}
                           className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors"
@@ -963,9 +970,9 @@ export default function Dashboard() {
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-[11px] font-bold text-foreground">
+                          <CifraPrivada className="text-[11px] font-bold text-foreground">
                             {r.plan!.precio} €
-                          </p>
+                          </CifraPrivada>
                           <p
                             className="text-[10px] font-semibold"
                             style={{ color: isUrgent ? 'var(--destructive)' : 'var(--muted-foreground)' }}
