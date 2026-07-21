@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
@@ -26,11 +26,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
   // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción
   // activa. Con la enforcement apagada (por defecto) nunca redirige.
+  // `null` = todavía no resuelto: mientras tanto NO se pinta el dashboard real
+  // (antes se veía un flash del contenido del panel antes del redirect a
+  // /suscripcion en estudios bloqueados).
+  const [billingBloqueado, setBillingBloqueado] = useState<boolean | null>(null);
   useEffect(() => {
     if (loading || !session) return;
     let vivo = true;
     estadoBilling().then((e) => {
-      if (vivo && e?.bloqueado) router.replace('/suscripcion');
+      if (!vivo) return;
+      setBillingBloqueado(!!e?.bloqueado);
+      if (e?.bloqueado) router.replace('/suscripcion');
     });
     return () => { vivo = false; };
   }, [loading, session, router]);
@@ -53,7 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // I3: el login redirige las altas sin estudio a /crear-estudio, así que quien
   // llega aquí tiene estudio y `studio` acaba cargando; por eso gatear sobre
   // `studio === null` no deja a nadie en un skeleton perpetuo.
-  const cargandoDatos = !!session && studio === null;
+  const cargandoDatos = !!session && (studio === null || billingBloqueado !== false);
   useEffect(() => {
     if (!loading && session && rolResuelto && !autorizado) router.replace('/dashboard');
   }, [loading, session, rolResuelto, autorizado, router]);

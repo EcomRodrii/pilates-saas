@@ -4443,9 +4443,11 @@ async function generateUniqueSlug(nombre: string): Promise<string> {
 }
 
 // Crea un negocio nuevo (multi-tenancy: alta real desde /crear-estudio) y lo
-// vincula a la cuenta de Supabase Auth que lo creó. Devuelve el id del nuevo
-// negocio, o null si falló.
-export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string }): Promise<string | null> {
+// vincula a la cuenta de Supabase Auth que lo creó. Devuelve id+slug del nuevo
+// negocio (el slug real, que puede llevar sufijo "-2" si hubo colisión de
+// nombre — la UI de éxito lo necesita para no inventarse la URL del portal),
+// o null si falló.
+export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string }): Promise<{ id: string; slug: string } | null> {
   // generateUniqueSlug comprueba disponibilidad y el insert llega después: un
   // segundo alta con el mismo nombre (doble clic, dos pestañas) puede colarse
   // en ese hueco y quedarse con el slug "libre" que acabamos de comprobar.
@@ -4463,7 +4465,7 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
       owner_auth_user_id: fields.ownerAuthUserId,
       slug,
     });
-    if (!error) return id;
+    if (!error) return { id, slug };
     if (error.code !== '23505' || !error.message.includes('studios_slug_key')) {
       reportDbError('[dbCreateStudio]', error);
       return null;
