@@ -21,7 +21,18 @@ export interface AutomationCandidato {
   // socio queda opcional — la UI ya trata socioNombre nulo como "Sistema".
   socio?: Socio;
   titulo: string;
-  mensaje: string;
+  // Contenido YA LISTO para la clienta, dirigido a ella en segunda persona.
+  // Solo se usa (y solo debe rellenarse) en accion:'ENVIAR_EMAIL' — el motor
+  // lo manda TAL CUAL, sin pasar por IA ni por aprobación. Nunca debe
+  // contener texto pensado para la propietaria.
+  mensajeCliente?: string;
+  // Nota INTERNA para la propietaria — habla DE la socia, no A ella (p.ej.
+  // "Marta lleva 23 días sin venir. ¿Le ofrecemos un descuento?"). Se usa en
+  // acciones con aprobación humana (OFRECER_DESCUENTO, COBRAR_RECIBO) y en
+  // insights sin cliente asociado (NOTIFICAR_ADMIN). NUNCA debe enviarse tal
+  // cual a una clienta — si la acción necesita texto para el cliente, se
+  // redacta aparte (ver redactarConIA en lib/inngest/automatizaciones.ts).
+  notaInterna?: string;
   proximaAccionEn: string | null;
   // ENVIAR_EMAIL se ejecuta solo (manda el email). COBRAR_RECIBO y
   // OFRECER_DESCUENTO requieren aprobación humana de un toque — nunca se
@@ -107,7 +118,7 @@ export function computeAutomationCandidatos(
           candidatos.push({
             rule, socio,
             titulo: '¿Le ofrecemos una vuelta con descuento?',
-            mensaje: `${socio.nombre} lleva ${dias} días sin venir. ¿Le enviamos una oferta del ${descuentoPct}% para que vuelva?`,
+            notaInterna: `${socio.nombre} lleva ${dias} días sin venir. ¿Le enviamos una oferta del ${descuentoPct}% para que vuelva?`,
             proximaAccionEn: null,
             accion: 'OFRECER_DESCUENTO',
             contextoIA: { nombre: socio.nombre, diasSinVenir: dias, descuentoPct },
@@ -128,7 +139,7 @@ export function computeAutomationCandidatos(
         candidatos.push({
           rule, socio,
           titulo: 'Te echamos de menos',
-          mensaje: `${socio.nombre}, llevas ${dias} días sin venir a clase. ¿Todo bien? Te esperamos pronto por el estudio.`,
+          mensajeCliente: `${socio.nombre}, llevas ${dias} días sin venir a clase. ¿Todo bien? Te esperamos pronto por el estudio.`,
           proximaAccionEn: new Date(now.getTime() + 48 * 3600000).toISOString(),
           accion: 'ENVIAR_EMAIL',
         });
@@ -152,7 +163,7 @@ export function computeAutomationCandidatos(
           candidatos.push({
             rule, socio,
             titulo: '¿Cobramos el pago pendiente?',
-            mensaje: `${socio.nombre} tiene ${recibo.importe}€ pendientes (${recibo.concepto}) desde hace ${dias} días. Hay tarjeta guardada — ¿lo cobramos ahora?`,
+            notaInterna: `${socio.nombre} tiene ${recibo.importe}€ pendientes (${recibo.concepto}) desde hace ${dias} días. Hay tarjeta guardada — ¿lo cobramos ahora?`,
             proximaAccionEn: null,
             accion: 'COBRAR_RECIBO',
             reciboId: recibo.id,
@@ -161,7 +172,7 @@ export function computeAutomationCandidatos(
           candidatos.push({
             rule, socio,
             titulo: 'Tienes un pago pendiente',
-            mensaje: `${socio.nombre}, tienes un pago pendiente de ${recibo.importe}€ (${recibo.concepto}). Puedes regularizarlo cuando quieras desde el estudio.`,
+            mensajeCliente: `${socio.nombre}, tienes un pago pendiente de ${recibo.importe}€ (${recibo.concepto}). Puedes regularizarlo cuando quieras desde el estudio.`,
             proximaAccionEn: new Date(now.getTime() + 72 * 3600000).toISOString(),
             accion: 'ENVIAR_EMAIL',
           });
@@ -189,7 +200,7 @@ export function computeAutomationCandidatos(
               candidatos.push({
                 rule, socio,
                 titulo: 'Recordatorio: tu clase es mañana',
-                mensaje: `${socio.nombre}, te recordamos tu clase de ${tipo?.nombre ?? 'pilates'} mañana a las ${hora}. ¡Te esperamos!`,
+                mensajeCliente: `${socio.nombre}, te recordamos tu clase de ${tipo?.nombre ?? 'pilates'} mañana a las ${hora}. ¡Te esperamos!`,
                 proximaAccionEn: null,
                 accion: 'ENVIAR_EMAIL',
               });
@@ -252,7 +263,7 @@ export function computeAutomationCandidatos(
         candidatos.push({
           rule,
           titulo: 'Clase con demanda sostenida',
-          mensaje: `[${clave}] Las clases de ${tipo?.nombre ?? 'pilates'} de los ${diaSemana} a las ${hora} llevan ${ordenadas.length} semanas seguidas casi llenas. Valora abrir otra sesión en ese horario.`,
+          notaInterna: `[${clave}] Las clases de ${tipo?.nombre ?? 'pilates'} de los ${diaSemana} a las ${hora} llevan ${ordenadas.length} semanas seguidas casi llenas. Valora abrir otra sesión en ese horario.`,
           proximaAccionEn: null,
           accion: 'NOTIFICAR_ADMIN',
           contextoIA: { tipoClase: tipo?.nombre ?? 'pilates', diaSemana, hora, semanas: ordenadas.length },

@@ -275,6 +275,20 @@ function LogItem({
           </span>
         </div>
         <p className="text-xs text-foreground mt-0.5">{log.detalle}</p>
+        {onSendOffer && (
+          <div className="mt-2 rounded-lg border border-border bg-card px-2.5 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              Esto es lo que recibirá la socia
+            </p>
+            {log.mensajeCliente ? (
+              <p className="text-xs text-foreground whitespace-pre-wrap">{log.mensajeCliente}</p>
+            ) : (
+              <p className="text-xs text-red-600">
+                No se ha podido redactar un mensaje para la clienta — no se puede enviar todavía.
+              </p>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-3 mt-1">
           <span className="text-[10px] text-muted-foreground">{log.ruleName}</span>
           <span className="text-[10px] text-muted-foreground">{formatFecha(log.ejecutadoEn)}</span>
@@ -298,7 +312,8 @@ function LogItem({
       {onSendOffer && (
         <button
           onClick={onSendOffer}
-          disabled={approving}
+          disabled={approving || !log.mensajeCliente}
+          title={!log.mensajeCliente ? 'No se pudo redactar un mensaje para la clienta' : undefined}
           className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
         >
           {approving ? <Loader2 size={12} className="animate-spin" /> : <Gift size={12} />}
@@ -364,6 +379,13 @@ export default function AutomatizacionesPage() {
 
   async function handleSendOffer(log: AutomationLog) {
     if (!log.socioId) return;
+    // Nunca enviar sin un mensajeCliente ya redactado — usar log.detalle (nota
+    // interna, para la propietaria) aquí sería reintroducir el bug que mandaba
+    // ese texto tal cual a la socia.
+    if (!log.mensajeCliente) {
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'No se pudo redactar el mensaje para la clienta — no se envió nada.' });
+      return;
+    }
     const socio = socios.find(s => s.id === log.socioId);
     if (!socio?.email) {
       actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'La clienta no tiene email registrado' });
@@ -378,14 +400,14 @@ export default function AutomatizacionesPage() {
           tipo: 'automatizacion',
           to: socio.email,
           toName: socio.nombre,
-          data: { titulo: 'Te echamos de menos 💛', mensaje: log.detalle },
+          data: { titulo: 'Te guardamos un hueco 💛', mensaje: log.mensajeCliente },
         }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         actualizarLog(log.id, { resultado: 'FALLIDO', detalle: body.error ?? `No se pudo enviar el email (HTTP ${res.status})` });
       } else {
-        actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: `Oferta enviada a ${socio.email}: "${log.detalle}"` });
+        actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: `Oferta enviada a ${socio.email}.` });
       }
     } catch (err) {
       actualizarLog(log.id, { resultado: 'FALLIDO', detalle: mensajeSeguro(err instanceof Error ? err.message : null, 'Error de red al enviar el email') });

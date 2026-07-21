@@ -14,7 +14,13 @@ import Anthropic from '@anthropic-ai/sdk';
 const anthropic = new Anthropic();
 
 // ── Redacción con IA (movida tal cual desde el cron) ─────────────────────────
-// Falla-suave: si la IA no responde o no parsea, cae al mensaje del motor.
+// Falla-suave: si la IA no responde o no parsea, cae a `fallback`. CONTRATO
+// DE SEGURIDAD: `fallback` debe ser SIEMPRE un texto ya apto para el
+// destinatario final de este `input.tipo` (REACTIVACION → apto para la
+// clienta; CLASE_LLENA → apto para la propietaria, nunca sale de aquí).
+// Nunca pasar la nota interna de un candidato (AutomationCandidato.notaInterna)
+// como fallback de un tipo que pueda acabar en un email a una clienta — eso
+// fue exactamente el bug que mandaba la nota interna tal cual a la socia.
 async function redactarConIA(input: RecomendacionInput, fallback: string): Promise<string> {
   try {
     const message = await anthropic.messages.create({
@@ -29,6 +35,13 @@ async function redactarConIA(input: RecomendacionInput, fallback: string): Promi
   } catch {
     return fallback;
   }
+}
+
+// Fallback fijo para REACTIVACION (OFRECER_DESCUENTO) cuando la IA falla o no
+// responde. Debe seguir siendo válido para enviarse tal cual a la clienta —
+// NUNCA la nota interna del candidato (ver contrato de redactarConIA arriba).
+function fallbackReactivacion(nombre: string, descuentoPct: number, studioNombre: string): string {
+  return `Hola ${nombre}, hace unos días que no te vemos por el estudio y nos encantaría que volvieras. Como agradecimiento por formar parte de ${studioNombre}, te ofrecemos un ${descuentoPct}% de descuento en tu próxima renovación. Nos encantaría verte en clase pronto — un abrazo, el equipo de ${studioNombre}.`;
 }
 
 // Id DETERMINISTA de log por candidato: mismo (estudio, regla, socia, día) →
@@ -71,31 +84,46 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
   let log: AutomationLog;
   // COBRAR_RECIBO y OFRECER_DESCUENTO nunca se ejecutan aquí — quedan
   // PENDIENTE_ADMIN a la espera de aprobación. NOTIFICAR_ADMIN es un insight.
+  //
+  // `detalle` = SIEMPRE nota interna (para la propietaria). `mensajeCliente` =
+  // SIEMPRE el texto que recibiría la clienta si se envía, o null si no aplica
+  // — nunca el mismo campo para las dos cosas (ese solapamiento era el bug).
   if (c.accion === 'COBRAR_RECIBO') {
-    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.mensaje };
+    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.notaInterna ?? '', mensajeCliente: null };
   } else if (c.accion === 'OFRECER_DESCUENTO' && c.contextoIA) {
-    const detalle = await redactarConIA(
-      { tipo: 'REACTIVACION', nombre: String(c.contextoIA.nombre), diasSinVenir: Number(c.contextoIA.diasSinVenir), descuentoPct: Number(c.contextoIA.descuentoPct) },
-      c.mensaje
+    const nombre = String(c.contextoIA.nombre);
+    const descuentoPct = Number(c.contextoIA.descuentoPct);
+    // Fallback SIEMPRE apto para la clienta — nunca c.notaInterna (esa es la
+    // frase "¿le enviamos una oferta...?" dirigida a la propietaria).
+    const mensajeCliente = await redactarConIA(
+      { tipo: 'REACTIVACION', nombre, diasSinVenir: Number(c.contextoIA.diasSinVenir), descuentoPct },
+      fallbackReactivacion(nombre, descuentoPct, studioNombre)
     );
-    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle };
+    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.notaInterna ?? '', mensajeCliente };
   } else if (c.accion === 'NOTIFICAR_ADMIN' && c.contextoIA) {
+    // Seguro usar c.notaInterna como fallback aquí: NOTIFICAR_ADMIN no tiene
+    // ningún camino de envío a cliente (sin botón de "enviar" en la UI) — el
+    // resultado de este redactarConIA es, por diseño, solo para la propietaria.
     const detalle = await redactarConIA(
       { tipo: 'CLASE_LLENA', tipoClase: String(c.contextoIA.tipoClase), diaSemana: String(c.contextoIA.diaSemana), hora: String(c.contextoIA.hora), semanas: Number(c.contextoIA.semanas) },
-      c.mensaje
+      c.notaInterna ?? ''
     );
-    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle };
+    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle, mensajeCliente: null };
   } else if (!c.socio) {
-    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Acción sin socia asociada' };
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Acción sin socia asociada', mensajeCliente: null };
   } else if (dry) {
-    log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.titulo} → ${c.socio.email}` };
+    log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.titulo} → ${c.socio.email}`, mensajeCliente: c.mensajeCliente ?? null };
   } else if (!c.socio.email) {
-    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado' };
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado', mensajeCliente: null };
+  } else if (!c.mensajeCliente) {
+    // ENVIAR_EMAIL sin mensajeCliente sería exactamente el patrón del bug si
+    // se intentara enviar otra cosa por defecto — mejor fallar explícito.
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para la clienta', mensajeCliente: null };
   } else {
     const html = await render(AutomatizacionEmail({
       socioNombre: c.socio.nombre,
       titulo: c.titulo,
-      mensaje: c.mensaje,
+      mensaje: c.mensajeCliente,
       estudioNombre: studioNombre,
     }));
     const { error } = await resend!.emails.send(
@@ -110,9 +138,9 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       { idempotencyKey: base.id }
     );
     if (error) {
-      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message };
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message, mensajeCliente: c.mensajeCliente };
     } else {
-      log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"` };
+      log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"`, mensajeCliente: c.mensajeCliente };
     }
   }
 
