@@ -1,24 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { createPortal } from 'react-dom';
 import { X, Moon, Sun, Palette, ChevronRight } from 'lucide-react';
 import { usePermisos } from '@/lib/permisos';
 import { usePanelTheme } from '@/lib/panel-theme';
+import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 
 export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { rol } = usePermisos();
   const { dark, setDark } = usePanelTheme();
 
-  if (!open) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div
-        className="relative w-full lg:w-[440px] bg-card rounded-t-3xl lg:rounded-3xl shadow-2xl flex flex-col"
-        style={{ maxHeight: '85vh' }}
-      >
+  return (
+    <DashboardSheet
+      open={open}
+      onClose={onClose}
+      label="Apariencia"
+      portal
+      backdropClassName="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4 bg-black/30"
+      backdropStyle={{}}
+      sheetClassName="w-full lg:w-[440px] bg-card rounded-t-3xl lg:rounded-3xl shadow-2xl flex flex-col"
+      sheetStyle={{ maxHeight: '85vh' }}
+    >
+      <>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <p className="text-[15px] font-extrabold text-foreground">Apariencia</p>
@@ -74,8 +77,7 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
             </div>
           )}
         </div>
-      </div>
-    </div>,
-    document.body,
+      </>
+    </DashboardSheet>
   );
 }

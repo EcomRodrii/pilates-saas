@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const nowISO = new Date().toISOString();
-  const resultado = await dbTransicionarRecomendacion(id, 'PENDIENTE', 'RECHAZADA', {
+  const resultado = await dbTransicionarRecomendacion(id, sesion.studioId, 'PENDIENTE', 'RECHAZADA', {
     resueltoPor: sesion.userId,
     resueltoEn: nowISO,
   });

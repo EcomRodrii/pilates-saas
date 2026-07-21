@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
   }
 
-  const resultado = await dbTransicionarRecomendacion(id, 'PENDIENTE', 'APROBADA', {
+  const resultado = await dbTransicionarRecomendacion(id, sesion.studioId, 'PENDIENTE', 'APROBADA', {
     resueltoPor: sesion.userId,
     resueltoEn: new Date().toISOString(),
   });

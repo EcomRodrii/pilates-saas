@@ -7,6 +7,7 @@ import { Search, ArrowRight, Calendar, CreditCard, X, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePermisos } from '@/lib/permisos';
 import { buscarTareas, rutaBase } from '@/lib/tareas';
+import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 
 export function GlobalSearch({
   collapsed,
@@ -32,13 +33,14 @@ export function GlobalSearch({
   const { socios, sesiones, recibos, tiposClase } = useStudio();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // El cierre con Escape lo gestiona DashboardSheet (useDialogA11y) cuando
+  // está abierto — aquí solo el atajo global para abrir/alternar.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setOpen(!open);
       }
-      if (e.key === 'Escape') setOpen(false);
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -120,11 +122,17 @@ export function GlobalSearch({
         </button>
       )}
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-lg bg-card rounded-2xl shadow-2xl border border-border overflow-hidden">
-            {/* Input */}
+      <DashboardSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        label="Buscar"
+        portal
+        backdropClassName="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/40 backdrop-blur-sm"
+        backdropStyle={{}}
+        sheetClassName="w-full max-w-lg bg-card rounded-2xl shadow-2xl border border-border overflow-hidden"
+      >
+        <>
+          {/* Input */}
             <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
               <Search size={16} style={{ color: 'var(--muted-foreground)' }} className="shrink-0" />
               <input
@@ -264,9 +272,8 @@ export function GlobalSearch({
                 <kbd className="border border-border rounded px-1 mr-1 font-mono">Esc</kbd>cerrar
               </span>
             </div>
-          </div>
-        </div>
-      )}
+        </>
+      </DashboardSheet>
     </>
   );
 }

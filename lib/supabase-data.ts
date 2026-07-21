@@ -3902,12 +3902,16 @@ export async function dbUpsertAutomationLog(log: AutomationLog) {
   if (error) reportDbError('[dbUpsertAutomationLog]', error);
 }
 
-export async function dbUpdateAutomationLog(id: string, changes: Partial<AutomationLog>) {
+// `studioId` obligatorio: dbEscritura() es service-role (bypasa RLS), así que
+// sin acotar por estudio, un log de OTRO estudio (id adivinado o filtrado)
+// quedaría escribible desde una sesión de staff cualquiera — mismo hueco que
+// el de #195, aquí sobre el registro de auditoría, no sobre el cobro en sí.
+export async function dbUpdateAutomationLog(id: string, studioId: string, changes: Partial<AutomationLog>) {
   const db: Record<string, unknown> = {};
   if ('resultado' in changes) db.resultado = changes.resultado;
   if ('detalle' in changes) db.detalle = changes.detalle;
   if ('proximaAccionEn' in changes) db.proxima_accion_en = changes.proximaAccionEn;
-  const { error } = await dbEscritura().from('automation_logs').update(db).eq('id', id);
+  const { error } = await dbEscritura().from('automation_logs').update(db).eq('id', id).eq('studio_id', studioId);
   if (error) reportDbError('[dbUpdateAutomationLog]', error);
 }
 
@@ -3922,12 +3926,12 @@ export async function dbInsertAutomationRule(r: AutomationRule) {
   if (error) reportDbError('[dbInsertAutomationRule]', error);
 }
 
-export async function dbUpdateAutomationRule(id: string, changes: Partial<AutomationRule>) {
+export async function dbUpdateAutomationRule(id: string, studioId: string, changes: Partial<AutomationRule>) {
   const db: Record<string, unknown> = {};
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadaVeces' in changes) db.ejecutada_veces = changes.ejecutadaVeces;
   if ('ultimaEjecucion' in changes) db.ultima_ejecucion = changes.ultimaEjecucion;
-  const { error } = await dbEscritura().from('automation_rules').update(db).eq('id', id);
+  const { error } = await dbEscritura().from('automation_rules').update(db).eq('id', id).eq('studio_id', studioId);
   if (error) reportDbError('[dbUpdateAutomationRule]', error);
 }
 
@@ -4048,7 +4052,7 @@ export async function dbInsertAutomatizacion(a: Automatizacion) {
   if (error) reportDbError('[dbInsertAutomatizacion]', error);
 }
 
-export async function dbUpdateAutomatizacion(id: string, changes: Partial<Automatizacion>) {
+export async function dbUpdateAutomatizacion(id: string, studioId: string, changes: Partial<Automatizacion>) {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('trigger' in changes) db.trigger = changes.trigger;
@@ -4058,7 +4062,7 @@ export async function dbUpdateAutomatizacion(id: string, changes: Partial<Automa
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadas' in changes) db.ejecutadas = changes.ejecutadas;
   if ('pasos' in changes) db.pasos = changes.pasos;
-  const { error } = await dbEscritura().from('automatizaciones').update(db).eq('id', id);
+  const { error } = await dbEscritura().from('automatizaciones').update(db).eq('id', id).eq('studio_id', studioId);
   if (error) reportDbError('[dbUpdateAutomatizacion]', error);
 }
 

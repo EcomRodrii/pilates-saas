@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { X, ChevronDown, Search, Send, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import type { TipoSoporte } from '@/lib/types';
+import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 
 interface FaqItem {
   pregunta: string;
@@ -68,15 +68,18 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
     setTimeout(() => setEnviado(false), 4000);
   }
 
-  if (!open) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div
-        className="relative w-full lg:w-[420px] bg-card rounded-t-3xl lg:rounded-3xl shadow-2xl flex flex-col"
-        style={{ maxHeight: '85vh' }}
-      >
+  return (
+    <DashboardSheet
+      open={open}
+      onClose={onClose}
+      label="Preguntas frecuentes"
+      portal
+      backdropClassName="fixed inset-0 z-50 flex items-end lg:items-center justify-center px-0 lg:px-4 bg-black/30"
+      backdropStyle={{}}
+      sheetClassName="w-full lg:w-[420px] bg-card rounded-t-3xl lg:rounded-3xl shadow-2xl flex flex-col"
+      sheetStyle={{ maxHeight: '85vh' }}
+    >
+      <>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
@@ -188,8 +191,7 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                 )}
               </div>
             </div>
-      </div>
-    </div>,
-    document.body,
+      </>
+    </DashboardSheet>
   );
 }
