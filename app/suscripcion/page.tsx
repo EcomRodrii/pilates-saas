@@ -12,7 +12,7 @@ const ACC = '#FFC8E2';
 // Bullets por plan (derivadas del catálogo de entitlements, en lenguaje de la clienta).
 const BULLETS: Record<Plan, string[]> = {
   BASE: ['Reservas y agenda', 'Cobros y bonos', 'Check-in y portal de socias', 'Hasta 150 socias'],
-  ESTUDIO: ['Todo lo de Base', 'Socias ilimitadas', 'Centro de Control con IA', 'Gamificación y retención'],
+  ESTUDIO: ['Todo lo de Base', 'Socias ilimitadas', 'Gamificación y retención', 'Marketing e IA'],
   CADENA: ['Todo lo de Estudio', 'Varios centros', 'Todo incluido', 'Soporte dedicado'],
 };
 
