@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { isWhatsAppConfigurado, probarWhatsApp } from '@/lib/whatsapp';
-import { isPayPalConfigurado, probarPayPal } from '@/lib/paypal';
 import { isZoomConfigurado, probarZoom } from '@/lib/zoom';
 import { isKisiConfigurado, probarKisi } from '@/lib/kisi';
 
@@ -15,7 +14,6 @@ export async function GET(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   return NextResponse.json({
     WHATSAPP: isWhatsAppConfigurado(),
-    PAYPAL: isPayPalConfigurado(),
     ZOOM: isZoomConfigurado(),
     KISI: isKisiConfigurado(),
   });
@@ -31,7 +29,6 @@ export async function POST(req: NextRequest) {
   const provider = body?.provider;
   const r =
     provider === 'WHATSAPP' ? await probarWhatsApp()
-    : provider === 'PAYPAL' ? await probarPayPal()
     : provider === 'ZOOM' ? await probarZoom()
     : provider === 'KISI' ? await probarKisi()
     : { ok: false as const, error: 'Proveedor desconocido' };

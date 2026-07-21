@@ -7,18 +7,15 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   ExternalLink,
-  Ticket,
-  Dumbbell,
-  HeartPulse,
-  Activity,
-  Users2,
   KeyRound,
   BellRing,
+  Mail,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
-import { StripeIcon, PayPalIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
+import { StripeIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
 import { authHeader, fetchIntegracionesEstado, probarIntegracion, type IntegracionesEstado } from '@/lib/api-client';
 import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
@@ -89,6 +86,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     campos: [],
     plataforma: true,
     envVars: ['WHATSAPP_TOKEN', 'WHATSAPP_PHONE_ID'],
+    docsUrl: 'https://developers.facebook.com/docs/whatsapp/cloud-api/get-started',
   },
   {
     tipo: 'EXCEL',
@@ -101,71 +99,14 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     accion: 'exportar',
   },
   {
-    tipo: 'PAYPAL',
-    nombre: 'PayPal',
-    descripcion: 'Acepta pagos con una de las soluciones FinTech más usadas del mundo.',
-    Icon: PayPalIcon,
-    color: '#003087',
+    tipo: 'GMAIL',
+    nombre: 'Gmail',
+    descripcion: 'Envía emails desde el Gmail de la propietaria y trae sus contactos como clientas nuevas. Conexión OAuth — no necesitas pegar ninguna clave.',
+    Icon: Mail,
+    color: '#EA4335',
     bg: '#F5F5F5',
-    categoria: 'Pagos',
+    categoria: 'Correo',
     campos: [],
-    plataforma: true,
-    envVars: ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET'],
-  },
-  {
-    tipo: 'CLASSPASS',
-    nombre: 'ClassPass',
-    descripcion: 'Gana visibilidad entre miles de usuarios con la mayor red de fitness y bienestar.',
-    Icon: Ticket,
-    color: '#8B5CF6',
-    bg: '#F3EEFF',
-    categoria: 'Agregadores',
-    campos: [],
-    proximamente: true,
-  },
-  {
-    tipo: 'URBAN_SPORTS_CLUB',
-    nombre: 'Urban Sports Club',
-    descripcion: 'Forma parte de una de las suscripciones deportivas más populares de Europa.',
-    Icon: Dumbbell,
-    color: '#111827',
-    bg: '#F1F1EC',
-    categoria: 'Agregadores',
-    campos: [],
-    proximamente: true,
-  },
-  {
-    tipo: 'WELLHUB',
-    nombre: 'Wellhub',
-    descripcion: 'Conecta con una red global de profesionales del bienestar y atrae clientes vía programas corporativos.',
-    Icon: HeartPulse,
-    color: '#EE5A6F',
-    bg: '#FFF0F2',
-    categoria: 'Agregadores',
-    campos: [],
-    proximamente: true,
-  },
-  {
-    tipo: 'EGYM_WELLPASS',
-    nombre: 'EGYM Wellpass',
-    descripcion: 'Accede a una red en crecimiento de profesionales preocupados por su salud.',
-    Icon: Activity,
-    color: 'var(--success)',
-    bg: '#E7F7F0',
-    categoria: 'Agregadores',
-    campos: [],
-    proximamente: true,
-  },
-  {
-    tipo: 'MYCLUBS',
-    nombre: 'myclubs',
-    descripcion: 'Integra tu estudio con uno de los principales agregadores de fitness en Austria y Suiza.',
-    Icon: Users2,
-    color: '#EA580C',
-    bg: '#FFF1E7',
-    categoria: 'Agregadores',
-    campos: [],
-    proximamente: true,
   },
   {
     tipo: 'ZOOM',
@@ -178,6 +119,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     campos: [],
     plataforma: true,
     envVars: ['ZOOM_ACCOUNT_ID', 'ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET'],
+    docsUrl: 'https://marketplace.zoom.us/develop/create',
   },
   {
     tipo: 'KISI',
@@ -190,6 +132,18 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     campos: [],
     plataforma: true,
     envVars: ['KISI_API_KEY'],
+    docsUrl: 'https://api.kisi.io/docs',
+  },
+  {
+    tipo: 'MAILCHIMP',
+    nombre: 'Mailchimp / Brevo',
+    descripcion: 'Sincroniza clientas, leads, etiquetas y campañas con tu lista de email marketing. Muy útil si vienes de otra plataforma.',
+    Icon: Megaphone,
+    color: '#B08A00',
+    bg: '#FFF9E0',
+    categoria: 'Marketing',
+    campos: [],
+    proximamente: true,
   },
 ];
 
@@ -353,6 +307,72 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   };
 
+  // Gmail: mismo patrón OAuth que Google Calendar (misma app, distinto scope
+  // y distinta ruta de callback — ver lib/gmail.ts). Un estudio puede tener
+  // las dos conectadas a la vez, o solo una.
+  const gmailConectado = !!studio?.gmailEmail;
+  const puedeConectarGmail = !!(googleClientId && studio);
+  async function conectarGmail() {
+    if (!googleClientId) return;
+    const res = await fetch('/api/integrations/oauth-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ provider: 'gmail' }),
+    });
+    if (!res.ok) { showToast('No se pudo iniciar la conexión con Gmail'); return; }
+    const { state } = await res.json() as { state: string };
+    const redirect = encodeURIComponent(`${appUrl}/api/integrations/gmail/callback`);
+    const scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/userinfo.email');
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${redirect}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gmail_connected')) {
+      showToast('Gmail conectado');
+      window.history.replaceState({}, '', '/configuracion');
+    } else if (params.get('gmail_error')) {
+      showToast(`Error al conectar Gmail: ${params.get('gmail_error')}`);
+      window.history.replaceState({}, '', '/configuracion');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const desconectarGmail = async () => {
+    const res = await fetch('/api/integrations/gmail/disconnect', { method: 'POST', headers: await authHeader() });
+    if (res.ok) {
+      updateStudio({ gmailEmail: null });
+      showToast('Gmail desconectado');
+    } else {
+      const data = await res.json().catch(() => null);
+      showToast(`No se pudo desconectar: ${data?.error ?? 'error desconocido'}`);
+    }
+  };
+
+  const [sincronizandoContactos, setSincronizandoContactos] = useState(false);
+  const sincronizarContactosGmail = async () => {
+    setSincronizandoContactos(true);
+    try {
+      const res = await fetch('/api/integrations/gmail/sync-contacts', { method: 'POST', headers: await authHeader() });
+      const data = await res.json();
+      if (!res.ok) { showToast(`Error al sincronizar contactos: ${data.error}`); return; }
+      showToast(`${data.creadas} clientas nuevas desde tus contactos de Gmail (${data.yaExistian} ya existían)`);
+    } finally {
+      setSincronizandoContactos(false);
+    }
+  };
+
+  const [probandoGmail, setProbandoGmail] = useState(false);
+  const enviarPruebaGmail = async () => {
+    setProbandoGmail(true);
+    try {
+      const res = await fetch('/api/integrations/gmail/test', { method: 'POST', headers: await authHeader() });
+      const data = await res.json();
+      showToast(res.ok ? 'Email de prueba enviado — revisa tu bandeja de entrada' : `Error: ${data.error}`);
+    } finally {
+      setProbandoGmail(false);
+    }
+  };
+
   const abrirConfig = (cat: CatalogoIntegracion) => {
     const actual = getIntegracion(cat.tipo);
     setForm(actual?.config ?? {});
@@ -383,21 +403,6 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     });
     setAvisado(prev => new Set(prev).add(cat.tipo));
     showToast(`Te avisaremos cuando ${cat.nombre} esté disponible`);
-  };
-
-  // Agregadores (ClassPass, Urban Sports, Wellhub…): no se conectan por API sin
-  // un alta como partner. "Solicitar acceso" registra el interés para que el
-  // equipo de Tentare gestione el alta con el agregador.
-  const solicitarAcceso = (cat: CatalogoIntegracion) => {
-    dbInsertSoporteSolicitud({
-      id: `sup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      tipo: 'MEJORA',
-      mensaje: `Solicito acceso al agregador ${cat.nombre} (requiere alta como partner). Estudio interesado en aparecer en su red.`,
-      contacto: null,
-      creadoEn: new Date().toISOString(),
-    });
-    setAvisado(prev => new Set(prev).add(cat.tipo));
-    showToast(`Solicitud enviada — te contactamos para el alta en ${cat.nombre}`);
   };
 
   const exportarExcel = () => {
@@ -454,7 +459,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CATALOGO_INTEGRACIONES.map(cat => {
           const intg = getIntegracion(cat.tipo);
-          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : !!intg?.activo;
+          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : !!intg?.activo;
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
               <div className="flex items-start gap-3">
@@ -483,15 +488,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-[#F1F1F4] flex items-center gap-2">
-                {cat.proximamente && cat.categoria === 'Agregadores' ? (
-                  <button
-                    onClick={() => solicitarAcceso(cat)}
-                    disabled={avisado.has(cat.tipo)}
-                    className={cn(btnPrimary, avisado.has(cat.tipo) && 'opacity-50')}
-                  >
-                    <Ticket size={14} /> {avisado.has(cat.tipo) ? 'Solicitud enviada' : 'Solicitar acceso'}
-                  </button>
-                ) : cat.proximamente ? (
+                {cat.proximamente ? (
                   <button
                     onClick={() => avisarme(cat)}
                     disabled={avisado.has(cat.tipo)}
@@ -528,24 +525,50 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                       Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
                     </p>
                   )
-                ) : cat.plataforma ? (
-                  estadoPlataforma && !estadoPlataforma[cat.tipo as keyof IntegracionesEstado] ? (
-                    <p className="text-[11px] text-muted-foreground">
-                      Falta configurar en el servidor:{' '}
-                      {cat.envVars?.map((v, i) => (
-                        <span key={v}>{i > 0 ? ', ' : ''}<code className="font-mono bg-muted px-1 rounded">{v}</code></span>
-                      ))}
-                    </p>
-                  ) : conectado ? (
-                    <>
-                      <button onClick={() => probarPlataforma(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
-                        {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
+                ) : cat.tipo === 'GMAIL' ? (
+                  gmailConectado ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button onClick={sincronizarContactosGmail} disabled={sincronizandoContactos} className={cn(btnPrimary, sincronizandoContactos && 'opacity-50')}>
+                        {sincronizandoContactos ? 'Sincronizando…' : 'Sincronizar contactos'}
                       </button>
-                      <button onClick={() => activarPlataforma(cat, false)} className={btnSecondary}>Desactivar</button>
-                    </>
+                      <button onClick={enviarPruebaGmail} disabled={probandoGmail} className={cn(btnSecondary, probandoGmail && 'opacity-50')}>
+                        {probandoGmail ? 'Enviando…' : 'Enviar email de prueba'}
+                      </button>
+                      <button onClick={desconectarGmail} className={btnSecondary}>Desconectar</button>
+                    </div>
+                  ) : puedeConectarGmail ? (
+                    <button type="button" onClick={conectarGmail} className={cn(btnPrimary, 'no-underline')}>Conectar con Gmail</button>
                   ) : (
-                    <button onClick={() => activarPlataforma(cat, true)} className={btnPrimary}>Activar</button>
+                    <p className="text-[11px] text-muted-foreground">
+                      Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
+                    </p>
                   )
+                ) : cat.plataforma ? (
+                  <>
+                    {estadoPlataforma && !estadoPlataforma[cat.tipo as keyof IntegracionesEstado] ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Falta configurar en el servidor:{' '}
+                        {cat.envVars?.map((v, i) => (
+                          <span key={v}>{i > 0 ? ', ' : ''}<code className="font-mono bg-muted px-1 rounded">{v}</code></span>
+                        ))}
+                      </p>
+                    ) : conectado ? (
+                      <>
+                        <button onClick={() => probarPlataforma(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
+                          {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
+                        </button>
+                        <button onClick={() => activarPlataforma(cat, false)} className={btnSecondary}>Desactivar</button>
+                      </>
+                    ) : (
+                      <button onClick={() => activarPlataforma(cat, true)} className={btnPrimary}>Activar</button>
+                    )}
+                    {cat.docsUrl && (
+                      <a href={cat.docsUrl} target="_blank" rel="noopener noreferrer"
+                        className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                        Dónde conseguirlo <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </>
                 ) : (
                   <>
                     <button onClick={() => abrirConfig(cat)} className={conectado ? btnSecondary : btnPrimary}>
