@@ -8,6 +8,7 @@ import {
   Bot, ArrowLeftRight, Package, Store, Inbox,
   UserCog, Users2, Compass, Replace,
   Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
+  Calculator,
 } from 'lucide-react';
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 
@@ -73,6 +74,7 @@ const allSections: NavSection[] = [
       { href: '/marketing', label: 'Marketing', icon: Megaphone },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
+      { href: '/cierre', label: 'Cierre de año', icon: Calculator },
       { href: '/configuracion', label: 'Mi estudio', icon: Settings },
       { href: '/suscripcion', label: 'Suscripción', icon: CreditCard },
     ],

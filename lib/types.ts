@@ -375,6 +375,25 @@ export interface Factura {
   verifactuSeq: number | null;
 }
 
+// Ingreso cobrado FUERA de Tentare (efectivo, transferencia, otra plataforma…)
+// que el estudio añade a mano al cierre de año para completar lo que entrega a
+// su gestoría. NO es una factura de Tentare: sin sello Verifactu ni numeración
+// correlativa. Se suma a los totales anuales, marcado como manual.
+export interface IngresoManual {
+  id: string;
+  studioId: string;
+  fecha: string;            // ISO date (YYYY-MM-DD)
+  concepto: string;
+  cliente: string | null;
+  nif: string | null;
+  baseImponible: number;
+  tipoIVA: number;
+  cuotaIVA: number;
+  total: number;            // IVA incluido
+  nota: string | null;
+  creadoEn: string;
+}
+
 // ─── Enriched (joined) types ──────────────────────────────────────────────────
 
 export interface SesionEnriquecida extends Sesion {

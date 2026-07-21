@@ -242,6 +242,21 @@ export interface RowFacturas {
   verifactu_seq: number | null;
 }
 
+export interface RowIngresosManuales {
+  id: string;
+  studio_id: string;
+  fecha: string;
+  concepto: string;
+  cliente: string | null;
+  nif: string | null;
+  base_imponible: number;
+  tipo_iva: number;
+  cuota_iva: number;
+  total: number;
+  nota: string | null;
+  creado_en: string;
+}
+
 export interface RowInstructores {
   id: string;
   studio_id: string;
