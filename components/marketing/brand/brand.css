@@ -1,0 +1,148 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Sistema de marca de MARKETING de Tentare — "cálido luxury" teal→magenta.
+   Todo va scopeado bajo `.tentare-mkt` a propósito: el panel/producto conserva
+   sus propios tokens (morado #6D28D9 en app/globals.css) y estos NUNCA lo tocan.
+   Los colores del degradado están muestreados píxel a píxel del isotipo real
+   (public/logo-mark.png) y luego subidos en saturación para el nivel "vivo"
+   validado con el usuario.
+
+   Claro por defecto. Oscuro es opt-in vía [data-theme="dark"] (no
+   prefers-color-scheme) para que la web de marketing no se vuelva oscura sola
+   mientras el rediseño está a medias.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.tentare-mkt {
+  --mkt-paper: #FCFBF9;         /* blanco cálido — lee como blanco, con temperatura */
+  --mkt-surface: #FFFFFF;       /* tarjetas */
+  --mkt-surface-2: #F7F4F1;     /* superficie cálida secundaria */
+  --mkt-band: #1B141F;          /* negro-ciruela cálido para secciones oscuras */
+  --mkt-band-text: #F4EFF1;
+  --mkt-band-muted: rgba(244, 239, 241, 0.62);
+  --mkt-band-line: rgba(255, 255, 255, 0.09);
+
+  --mkt-text: #241F26;          /* negro cálido */
+  --mkt-muted: #756B73;         /* gris-taupe cálido */
+  --mkt-line: #ECE6E3;          /* hairline cálida */
+
+  --mkt-teal: #12A6B4;
+  --mkt-teal-ink: #0C8391;      /* teal legible para texto pequeño / enlaces sobre blanco */
+  --mkt-violet: #7C4BA0;
+  --mkt-magenta: #D74A93;
+  --mkt-grad: linear-gradient(115deg, #12A6B4 0%, #7C4BA0 50%, #D74A93 100%);
+  --mkt-grad-soft: radial-gradient(circle at 40% 40%, rgba(215, 74, 147, 0.20), rgba(124, 75, 160, 0.12) 45%, transparent 68%);
+
+  /* sombras con tinte cálido (magenta muy sutil) → sensación "caro" */
+  --mkt-shadow: 0 34px 74px -34px rgba(74, 30, 58, 0.34);
+  --mkt-shadow-sm: 0 12px 28px -14px rgba(74, 30, 58, 0.24);
+
+  --mkt-font: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mkt-mono: var(--font-plex-mono), ui-monospace, "IBM Plex Mono", "Roboto Mono", Menlo, monospace;
+  --mkt-maxw: 1180px;
+  --mkt-r: 16px;
+
+  font-family: var(--mkt-font);
+  color: var(--mkt-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-theme="dark"] .tentare-mkt {
+  --mkt-paper: #17121A;
+  --mkt-surface: #1F1826;
+  --mkt-surface-2: #241C2C;
+  --mkt-band: #221A29;
+  --mkt-band-text: #F4EFF1;
+  --mkt-band-muted: rgba(244, 239, 241, 0.60);
+  --mkt-band-line: rgba(255, 255, 255, 0.09);
+
+  --mkt-text: #F2ECEF;
+  --mkt-muted: #AA9FA8;
+  --mkt-line: rgba(255, 255, 255, 0.10);
+
+  --mkt-teal: #2ABED0;
+  --mkt-teal-ink: #57D0DE;
+  --mkt-violet: #A06FCB;
+  --mkt-magenta: #EA6EAA;
+  --mkt-grad: linear-gradient(115deg, #2ABED0 0%, #A06FCB 50%, #EA6EAA 100%);
+  --mkt-grad-soft: radial-gradient(circle at 40% 40%, rgba(234, 110, 170, 0.24), rgba(160, 111, 203, 0.16) 45%, transparent 68%);
+
+  --mkt-shadow: 0 36px 84px -32px rgba(0, 0, 0, 0.72);
+  --mkt-shadow-sm: 0 14px 32px -16px rgba(0, 0, 0, 0.60);
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.mkt-container { max-width: var(--mkt-maxw); margin: 0 auto; padding: 0 30px; }
+
+/* ── Eyebrow (label mono con punto de degradado) ─────────────────────────── */
+.mkt-eyebrow {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: var(--mkt-mono); font-size: 12px; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--mkt-muted);
+}
+.mkt-eyebrow__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mkt-grad); flex: none; }
+
+/* ── Texto con relleno de degradado ──────────────────────────────────────── */
+.mkt-grad-text {
+  background: var(--mkt-grad);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* ── Botones ─────────────────────────────────────────────────────────────── */
+.mkt-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: inherit; font-size: 15.5px; font-weight: 700; line-height: 1;
+  text-decoration: none; cursor: pointer; border-radius: 999px; padding: 15px 27px;
+  border: 1px solid transparent;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.mkt-btn--primary {
+  background: var(--mkt-grad); color: #fff;
+  box-shadow: 0 18px 38px -14px color-mix(in srgb, var(--mkt-magenta) 66%, transparent);
+}
+.mkt-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 44px -14px color-mix(in srgb, var(--mkt-magenta) 72%, transparent);
+}
+.mkt-btn--ghost { background: var(--mkt-surface); color: var(--mkt-text); border-color: var(--mkt-line); }
+.mkt-btn--ghost:hover { border-color: var(--mkt-teal); }
+.mkt-btn--sm { padding: 10px 19px; font-size: 14.5px; }
+
+/* ── Enlace de marca ─────────────────────────────────────────────────────── */
+.mkt-link {
+  color: var(--mkt-teal-ink); font-weight: 700; text-decoration: none;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--mkt-teal) 45%, transparent);
+}
+.mkt-link:hover { border-bottom-color: var(--mkt-teal); }
+
+/* ── Halo ambiental de degradado ─────────────────────────────────────────── */
+.mkt-halo { position: absolute; background: var(--mkt-grad-soft); pointer-events: none; z-index: 0; }
+
+/* ── Tarjeta ─────────────────────────────────────────────────────────────── */
+.mkt-card {
+  background: var(--mkt-surface); border: 1px solid var(--mkt-line);
+  border-radius: 22px; box-shadow: var(--mkt-shadow-sm);
+}
+
+/* ── Sección oscura de marca ─────────────────────────────────────────────── */
+.mkt-band {
+  background: var(--mkt-band); color: var(--mkt-band-text);
+  border-top: 1px solid var(--mkt-band-line);
+}
+
+/* ── Marco de dispositivo (para capturas reales del producto) ────────────── */
+.mkt-device {
+  position: relative; border-radius: 20px; overflow: hidden;
+  background: var(--mkt-band); box-shadow: var(--mkt-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.mkt-device__bar {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.04); border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.mkt-device__dots { display: flex; gap: 6px; }
+.mkt-device__dots i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.18); display: block; }
+.mkt-device__dots i:first-child { background: var(--mkt-grad); }
+.mkt-device__url { flex: 1; text-align: center; font-family: var(--mkt-mono); font-size: 10.5px; color: rgba(255, 255, 255, 0.42); letter-spacing: 0.03em; }
+.mkt-device__shot { display: block; width: 100%; height: auto; }
+
+/* ── Accesibilidad ───────────────────────────────────────────────────────── */
+.tentare-mkt :focus-visible { outline: 2px solid var(--mkt-teal); outline-offset: 2px; border-radius: 4px; }
