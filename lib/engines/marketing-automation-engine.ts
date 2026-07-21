@@ -11,7 +11,10 @@ const MS_DIA = 86400000;
 export interface AutomatizacionMktCandidato {
   automatizacion: Automatizacion;
   socio: Socio;
-  canal: 'EMAIL' | 'WHATSAPP'; // el envío real elige transporte (Resend / Twilio)
+  // NOTIFICACION: aviso interno para el equipo (nunca llega a la socia) — el
+  // envío real (lib/inngest/automatizaciones.ts) crea una fila en
+  // `notificaciones` en vez de mandar nada por Resend/Twilio.
+  canal: 'EMAIL' | 'WHATSAPP' | 'NOTIFICACION';
   asunto: string;
   mensaje: string;
 }
@@ -25,7 +28,13 @@ const DEDUP_DIAS: Record<Automatizacion['trigger'], number> = {
   SUSCRIPCION_CANCELADA: UNA_VEZ,
   CUMPLEANOS: 300,
   PRIMERA_CLASE: UNA_VEZ,
-  INACTIVIDAD_30D: 30,
+  // Subido de 30 a 45: con AUSENCIA_DIAS del motor clásico ya cubriendo los
+  // días 7/14/25 de una ausencia, repetir cada 30 días aquí se sentía como
+  // spam encima de una oferta de reactivación recién mandada. 45 la deja como
+  // un recordatorio ocasional "más allá" de esa secuencia, no una repetición
+  // mensual agresiva. Si el estudio usa las dos a la vez, ver aviso de
+  // solapamiento en la UI (app/(dashboard)/automatizaciones/page.tsx).
+  INACTIVIDAD_30D: 45,
   BONO_AGOTADO: 30,
   BONO_QUEDA_1: 14,
   NUEVA_ALTA: UNA_VEZ,
@@ -89,15 +98,17 @@ export function computeAutomatizacionMktCandidatos(
   const diasDesde = (iso: string) => Math.floor((now.getTime() - new Date(iso).getTime()) / MS_DIA);
 
   const emitir = (a: Automatizacion, socio: Socio) => {
-    const canal: 'EMAIL' | 'WHATSAPP' = a.accion === 'WHATSAPP' ? 'WHATSAPP' : 'EMAIL';
+    const canal: 'EMAIL' | 'WHATSAPP' | 'NOTIFICACION' =
+      a.accion === 'WHATSAPP' ? 'WHATSAPP' : a.accion === 'NOTIFICACION' ? 'NOTIFICACION' : 'EMAIL';
     // Sin el dato de contacto del canal no hay envío (email para EMAIL, teléfono
-    // para WhatsApp). Se descarta aquí para no generar candidatas que fallarían.
-    if (canal === 'EMAIL' ? !socio.email : !(socio.telefono && socio.telefono.trim())) return;
+    // para WhatsApp). NOTIFICACION no toca a la socia, no necesita contacto.
+    if (canal === 'EMAIL' && !socio.email) return;
+    if (canal === 'WHATSAPP' && !(socio.telefono && socio.telefono.trim())) return;
     if (yaEnviado(a.id, socio.id, DEDUP_DIAS[a.trigger] ?? 14)) return;
     candidatos.push({ automatizacion: a, socio, canal, asunto: personalizar(a.asunto, socio), mensaje: personalizar(a.mensaje, socio) });
   };
 
-  for (const a of automatizaciones.filter(x => x.activa && (x.accion === 'EMAIL' || x.accion === 'WHATSAPP'))) {
+  for (const a of automatizaciones.filter(x => x.activa && (x.accion === 'EMAIL' || x.accion === 'WHATSAPP' || x.accion === 'NOTIFICACION'))) {
     switch (a.trigger) {
       case 'NUEVA_ALTA':
         for (const s of socios) if (s.activo && diasDesde(s.fechaAlta) <= 1 && diasDesde(s.fechaAlta) >= 0) emitir(a, s);
@@ -109,7 +120,7 @@ export function computeAutomatizacionMktCandidatos(
         for (const [socioId, fecha] of primeraAsistida) if (diasDesde(fecha) <= 1 && diasDesde(fecha) >= 0) { const s = socioById.get(socioId); if (s?.activo) emitir(a, s); }
         break;
       case 'INACTIVIDAD_30D':
-        for (const [socioId, fecha] of ultimaAsistida) if (diasDesde(fecha) >= 30) { const s = socioById.get(socioId); if (s?.activo) emitir(a, s); }
+        for (const [socioId, fecha] of ultimaAsistida) if (diasDesde(fecha) >= DEDUP_DIAS.INACTIVIDAD_30D) { const s = socioById.get(socioId); if (s?.activo) emitir(a, s); }
         break;
       case 'SUSCRIPCION_EXPIRA_7D':
         for (const [socioId, sus] of susActivaPorSocio) if (sus.fechaFin) { const d = diasHasta(sus.fechaFin); if (d >= 2 && d <= 7) { const s = socioById.get(socioId); if (s) emitir(a, s); } }

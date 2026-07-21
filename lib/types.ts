@@ -551,11 +551,14 @@ export interface PasoFlujo {
 
 // ─── Motor de automatización avanzado ────────────────────────────────────────
 
+// SUSCRIPCION_EXPIRA_DIAS existió declarado pero nunca implementado — se quitó
+// porque duplicaba SUSCRIPCION_EXPIRA_7D/1D del motor de marketing
+// (TriggerAutomatizacion), que además deja escribir el texto al propio
+// estudio en vez de depender de una redacción genérica.
 export type TriggerRule =
   | 'AUSENCIA_DIAS'
   | 'PAGO_PENDIENTE_DIAS'
   | 'BONO_SESIONES_BAJAS'
-  | 'SUSCRIPCION_EXPIRA_DIAS'
   | 'NUEVA_SOCIA'
   | 'CLASE_MANANA'
   | 'RENOVACION_COBRADA'
