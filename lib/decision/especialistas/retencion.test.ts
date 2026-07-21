@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Socio, Reserva, Suscripcion, PlanTarifa } from '@/lib/types';
+import type { Socio, Reserva, Suscripcion, PlanTarifa, Sesion } from '@/lib/types';
 import type { SnapshotEstudio, MemoriaEstudio, HechoMemoria } from '../tipos.ts';
 import { retencion } from './retencion.ts';
 
@@ -19,6 +19,9 @@ function suscripcion(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'pl
 }
 function plan(p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id'>): PlanTarifa {
   return { studioId: 'e1', nombre: 'Mensual', descripcion: null, precio: 89, tipo: 'MENSUAL', sesiones: null, activo: true, ...p };
+}
+function sesion(p: Partial<Sesion> & Pick<Sesion, 'id' | 'inicio'>): Sesion {
+  return { studioId: 'e1', tipoClaseId: 'tc1', salaId: 's1', instructorId: 'i1', fin: p.inicio, aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null, ...p };
 }
 function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return {
@@ -76,19 +79,42 @@ test('R3: renovacion en 5 dias + enganche cae a la mitad → CONTACTO_MANUAL (ll
   assert.equal(retencion.detectar(snap, memoriaVacia(), NOW).length, 1); // una sola candidata por socia
 });
 
-test('R4: 3+ no-shows con ratio >=40% → CONTACTO_MANUAL', () => {
+// R4 usa el score graduado de riesgoNoShowDeSocio (lib/no-show.ts), que pesa
+// por la fecha de la CLASE (sesión), no por creadoEn — de ahí que las reservas
+// referencien sesiones con `inicio` real en vez de solo variar `creadoEn`.
+test('R4: patrón claro de no-shows recientes (score ALTO) → CONTACTO_MANUAL', () => {
   const socios = [socio({ id: 'a' })];
-  const reservas = [
-    reserva({ socioId: 'a', estado: 'NO_ASISTIO', creadoEn: diasAntes(5) }),
-    reserva({ socioId: 'a', estado: 'NO_ASISTIO', creadoEn: diasAntes(10) }),
-    reserva({ socioId: 'a', estado: 'NO_ASISTIO', creadoEn: diasAntes(15) }),
-    reserva({ socioId: 'a', estado: 'ASISTIDA', creadoEn: diasAntes(20) }),
+  const sesiones = [
+    sesion({ id: 'ses-a', inicio: diasAntes(5) }),
+    sesion({ id: 'ses-b', inicio: diasAntes(10) }),
+    sesion({ id: 'ses-c', inicio: diasAntes(15) }),
+    sesion({ id: 'ses-d', inicio: diasAntes(20) }),
   ];
-  const snap = snapshot({ socios, reservas });
+  const reservas = [
+    reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-a' }),
+    reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-b' }),
+    reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-c' }),
+    reserva({ socioId: 'a', estado: 'ASISTIDA', sesionId: 'ses-d' }),
+  ];
+  const snap = snapshot({ socios, sesiones, reservas });
   const [c] = retencion.detectar(snap, memoriaVacia(), NOW);
   assert.ok(c);
   assert.equal(c.tipo, 'RECUPERAR_SOCIA');
   assert.equal(c.datosUsados.noShows, 3);
+  assert.equal(c.datosUsados.resueltas, 4);
+});
+
+test('R4: sin sesiones en el snapshot (fecha de clase desconocida) no dispara — no se inventa el dato', () => {
+  const socios = [socio({ id: 'a' })];
+  // Mismas reservas de arriba, pero SIN el array de sesiones: riesgoNoShowDeSocio
+  // no puede resolver la fecha de clase y las omite → SIN_DATOS, no ALTO.
+  const reservas = [
+    reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-a' }),
+    reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-b' }),
+    reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-c' }),
+  ];
+  const snap = snapshot({ socios, reservas });
+  assert.equal(retencion.detectar(snap, memoriaVacia(), NOW).length, 0);
 });
 
 test('elegibilidad: socia inactiva no genera candidatas', () => {
