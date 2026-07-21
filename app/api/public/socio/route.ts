@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { registrarSociaPublica, actualizarSociaPublica, guardarPreferenciasPublica, socioAutenticado } from '@/lib/supabase-data';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Operaciones de la propia socia desde el portal/reserva. SEGURIDAD: todas
 // exigen sesión real de socia (JWT de Supabase Auth); la identidad se deriva del
@@ -58,7 +59,6 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : 'Error al procesar la operación';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('public/socio:POST', err, 'No se ha podido procesar la operación.');
   }
 }

@@ -65,11 +65,13 @@ export async function enviarMensajeTwilio(params: { canal: CanalMensaje; to: str
     });
     if (!res.ok) {
       const detalle = await res.text().catch(() => '');
-      return { ok: false, error: `Twilio ${res.status}: ${detalle.slice(0, 200)}` };
+      console.error(`[twilio] ${res.status}: ${detalle.slice(0, 500)}`);
+      return { ok: false, error: 'No se ha podido enviar el mensaje. Comprueba el número o inténtalo de nuevo.' };
     }
     const data = (await res.json().catch(() => ({}))) as { sid?: string };
     return { ok: true, id: data.sid };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Error de red con Twilio' };
+    console.error('[twilio]', e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se ha podido enviar el mensaje. Inténtalo de nuevo.' };
   }
 }

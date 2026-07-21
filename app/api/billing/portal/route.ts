@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Portal de facturación de Stripe: la propietaria gestiona/cancela su
 // suscripción, cambia de plan y ve sus facturas del SaaS.
@@ -27,10 +28,15 @@ export async function POST(req: NextRequest) {
 
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const portal = await stripe.billingPortal.sessions.create({
-    customer: studio.stripe_customer_id,
-    return_url: `${appUrl}/configuracion`,
-  });
 
-  return NextResponse.json({ url: portal.url });
+  try {
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: studio.stripe_customer_id,
+      return_url: `${appUrl}/configuracion`,
+    });
+
+    return NextResponse.json({ url: portal.url });
+  } catch (err) {
+    return errorInterno('billing/portal:POST', err, 'No se pudo abrir el portal de facturación. Inténtalo de nuevo más tarde.');
+  }
 }

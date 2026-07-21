@@ -55,7 +55,9 @@ export async function GET(req: NextRequest) {
         // pero sin esto Sentry nunca lo vería: lo reportamos con contexto para no
         // quedarnos ciegos ante un backup que lleva días fallando en silencio.
         Sentry.captureException(err, { tags: { cron: 'backups', tipo }, extra: { studioId: studio.id } });
-        resultados.push({ studioId: studio.id, tipo, ok: false, error: err instanceof Error ? err.message : 'Error desconocido' });
+        // El detalle completo va a Sentry (arriba); aquí solo un resumen — este
+        // JSON puede acabar en un log o panel, no es sitio para volcar la excepción.
+        resultados.push({ studioId: studio.id, tipo, ok: false, error: 'Fallo al hacer la copia de seguridad (ver Sentry).' });
       }
     }
   }

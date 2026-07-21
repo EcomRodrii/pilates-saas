@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json({ url: session.url });
   } catch (err) {
-    const mensaje = err instanceof Stripe.errors.StripeError ? err.message : 'No se pudo iniciar el cobro Bizum';
-    return NextResponse.json({ error: mensaje }, { status: 400 });
+    console.error('[pos-bizum]', err instanceof Stripe.errors.StripeError ? err.message : err);
+    return NextResponse.json({ error: 'No se pudo iniciar el cobro Bizum' }, { status: 400 });
   }
 }

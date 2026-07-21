@@ -5,6 +5,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { priceIdDe } from '@/lib/billing/billing';
 import { PLANES, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
 // suscribir su negocio. Crea (o reutiliza) el Customer de Stripe del estudio y
@@ -48,36 +49,40 @@ export async function POST(req: NextRequest) {
 
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
 
-  // Customer del estudio (se crea una vez y se guarda).
-  let customerId = studio.stripe_customer_id as string | null;
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: studio.email ?? undefined,
-      name: studio.nombre ?? undefined,
-      metadata: { studioId: studio.id },
-    });
-    customerId = customer.id;
-    await admin.from('studios').update({ stripe_customer_id: customerId }).eq('id', studio.id);
-  }
+  try {
+    // Customer del estudio (se crea una vez y se guarda).
+    let customerId = studio.stripe_customer_id as string | null;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: studio.email ?? undefined,
+        name: studio.nombre ?? undefined,
+        metadata: { studioId: studio.id },
+      });
+      customerId = customer.id;
+      await admin.from('studios').update({ stripe_customer_id: customerId }).eq('id', studio.id);
+    }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    customer: customerId,
-    line_items: [{ price, quantity: 1 }],
-    // Vincula la suscripción al estudio y al plan (lo lee el webhook). En la
-    // primera suscripción añade la prueba gratuita: el Checkout recoge la tarjeta
-    // pero no cobra hasta que termina el trial (se convierte sola).
-    subscription_data: {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: customerId,
+      line_items: [{ price, quantity: 1 }],
+      // Vincula la suscripción al estudio y al plan (lo lee el webhook). En la
+      // primera suscripción añade la prueba gratuita: el Checkout recoge la tarjeta
+      // pero no cobra hasta que termina el trial (se convierte sola).
+      subscription_data: {
+        metadata: { studioId: studio.id, plan },
+        ...(primeraVez ? { trial_period_days: TRIAL_DIAS } : {}),
+      },
       metadata: { studioId: studio.id, plan },
-      ...(primeraVez ? { trial_period_days: TRIAL_DIAS } : {}),
-    },
-    metadata: { studioId: studio.id, plan },
-    success_url: `${appUrl}/configuracion?suscripcion=ok`,
-    cancel_url: `${appUrl}/configuracion?suscripcion=cancel`,
-    locale: 'es',
-    allow_promotion_codes: true,
-  });
+      success_url: `${appUrl}/configuracion?suscripcion=ok`,
+      cancel_url: `${appUrl}/configuracion?suscripcion=cancel`,
+      locale: 'es',
+      allow_promotion_codes: true,
+    });
 
-  return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    return errorInterno('billing/checkout:POST', err, 'No se pudo iniciar la suscripción. Inténtalo de nuevo más tarde.');
+  }
 }

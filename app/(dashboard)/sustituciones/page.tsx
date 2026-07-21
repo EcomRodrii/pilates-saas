@@ -135,7 +135,7 @@ export default function SustitucionesPage() {
   async function volverABuscar(s: SustitucionPanel) {
     setAccion(s.id);
     const r = await recalcularCandidatas(s.id);
-    if ('error' in r) { alert(r.error); setAccion(null); return; }
+    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     setAviso(r.omitidasPorRechazo > 0
       ? `${r.resumen} (no volvemos a escribir a quien ya dijo que no puede).`
       : r.resumen);
@@ -149,7 +149,7 @@ export default function SustitucionesPage() {
     // Antes se ignoraba el resultado: si fallaba, la tarjeta seguía ahí sin
     // explicación y no había forma de saber si se había guardado o no.
     const r = await descartarSustitucion(s.id);
-    if ('error' in r) { alert(r.error); setAccion(null); return; }
+    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     await recargar();
     setAccion(null);
   }

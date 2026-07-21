@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     await dbSetStripeAccountId(studioId, token.stripe_user_id);
     return NextResponse.redirect(`${appUrl}/configuracion?stripe_connected=1`);
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : 'Error desconocido al conectar con Stripe';
-    return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=${encodeURIComponent(mensaje)}`);
+    console.error('[stripe/connect/callback]', err instanceof Error ? err.message : err);
+    return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=${encodeURIComponent('No se pudo completar la conexión con Stripe. Inténtalo de nuevo.')}`);
   }
 }

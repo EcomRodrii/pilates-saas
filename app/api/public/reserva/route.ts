@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { crearReservaPublica, cancelarReservaPublica, socioAutenticado } from '@/lib/supabase-data';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Crear o cancelar una reserva desde las páginas públicas (reserva/portal).
 // SEGURIDAD: exige sesión real de socia (JWT de Supabase Auth) y deriva su id
@@ -47,7 +48,6 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : 'Error al procesar la reserva';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('public/reserva:POST', err, 'No se ha podido procesar la reserva.');
   }
 }

@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const pi = await stripe.paymentIntents.retrieve(body.paymentIntentId, {}, { stripeAccount });
     return NextResponse.json({ ok: true, status: pi.status });
   } catch (err) {
-    const msg = err instanceof Stripe.errors.StripeError ? err.message : 'No se pudo consultar el estado del cobro';
-    return NextResponse.json({ error: msg }, { status: 400 });
+    console.error('[terminal/estado]', err instanceof Stripe.errors.StripeError ? err.message : err);
+    return NextResponse.json({ error: 'No se pudo consultar el estado del cobro' }, { status: 400 });
   }
 }

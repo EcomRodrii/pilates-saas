@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchPublicStudioData, resolveStudioIdBySlug, socioAutenticado } from '@/lib/supabase-data';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Datos para las páginas públicas (reserva/portal/kiosk): catálogo público del
 // estudio + (si hay socia autenticada) SUS datos.
@@ -34,7 +35,6 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(data);
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : 'Error al cargar los datos';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('public/studio-data:POST', err, 'No se han podido cargar los datos del estudio.');
   }
 }

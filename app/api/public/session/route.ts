@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { resolverSociaAutenticada } from '@/lib/supabase-data';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Resuelve la sesión de una socia del portal a partir de su JWT de Supabase Auth
 // (obtenido con magic link / OTP en el cliente). Sustituye a /api/public/login,
@@ -30,7 +31,6 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(socia);
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : 'Error al iniciar sesión';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('public/session:POST', err, 'No se ha podido iniciar sesión.');
   }
 }

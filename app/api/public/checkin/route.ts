@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkinPublico, validarKioskToken } from '@/lib/supabase-data';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Check-in de kiosk (service-role): marca la reserva ASISTIDA y otorga los
 // créditos/premios correspondientes. La reserva se valida contra el estudio.
@@ -31,7 +32,6 @@ export async function POST(req: NextRequest) {
     if ('error' in r) return NextResponse.json({ error: r.error }, { status: 404 });
     return NextResponse.json(r);
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : 'Error en el check-in';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('public/checkin:POST', err, 'No se ha podido registrar el check-in.');
   }
 }
