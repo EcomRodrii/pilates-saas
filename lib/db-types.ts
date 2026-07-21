@@ -550,6 +550,7 @@ export interface RowStudios {
   avatar_admin: string | null;
   tema_portal: string | null;
   google_calendar_email: string | null;
+  gmail_email: string | null;
   cancelacion_ventana_horas: number | null;
   cancelacion_devolver_bono_tardia: boolean | null;
   reserva_exigir_plan: boolean | null;

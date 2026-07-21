@@ -261,6 +261,7 @@ function mapStudio(r: RowStudios): Studio {
     creadoEn: r.creado_en,
     stripeAccountId: r.stripe_account_id ?? null,
     googleCalendarEmail: r.google_calendar_email ?? null,
+    gmailEmail: r.gmail_email ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,
@@ -4362,6 +4363,58 @@ export async function dbDeleteGoogleCalendarCredenciales(studioId: string) {
   if (!admin) return;
   const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'google_calendar');
   if (error) reportDbError('[dbDeleteGoogleCalendarCredenciales]', error);
+}
+
+// Gmail: mismo patrón exacto que Google Calendar (misma app de Google,
+// mismo `integracion_credenciales` genérico por proveedor — solo cambia el
+// valor de `provider` a 'gmail' para no mezclar los tokens de las dos
+// integraciones, que un estudio puede tener conectadas independientemente).
+export async function dbSetGmailEmail(studioId: string, email: string | null) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('studios').update({ gmail_email: email }).eq('id', studioId);
+  if (error) reportDbError('[dbSetGmailEmail]', error);
+}
+
+export interface GmailCredenciales {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+}
+
+export async function dbGetGmailCredenciales(studioId: string): Promise<GmailCredenciales | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from('integracion_credenciales')
+    .select('access_token, refresh_token, expires_at')
+    .eq('studio_id', studioId)
+    .eq('provider', 'gmail')
+    .maybeSingle();
+  if (error) { reportDbError('[dbGetGmailCredenciales]', error); return null; }
+  if (!data || !data.refresh_token) return null;
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+}
+
+export async function dbSaveGmailCredenciales(studioId: string, c: GmailCredenciales) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').upsert({
+    studio_id: studioId,
+    provider: 'gmail',
+    access_token: c.accessToken,
+    refresh_token: c.refreshToken,
+    expires_at: c.expiresAt,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'studio_id,provider' });
+  if (error) reportDbError('[dbSaveGmailCredenciales]', error);
+}
+
+export async function dbDeleteGmailCredenciales(studioId: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'gmail');
+  if (error) reportDbError('[dbDeleteGmailCredenciales]', error);
 }
 
 function slugify(nombre: string): string {

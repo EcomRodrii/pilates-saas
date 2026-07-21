@@ -307,6 +307,72 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   };
 
+  // Gmail: mismo patrón OAuth que Google Calendar (misma app, distinto scope
+  // y distinta ruta de callback — ver lib/gmail.ts). Un estudio puede tener
+  // las dos conectadas a la vez, o solo una.
+  const gmailConectado = !!studio?.gmailEmail;
+  const puedeConectarGmail = !!(googleClientId && studio);
+  async function conectarGmail() {
+    if (!googleClientId) return;
+    const res = await fetch('/api/integrations/oauth-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ provider: 'gmail' }),
+    });
+    if (!res.ok) { showToast('No se pudo iniciar la conexión con Gmail'); return; }
+    const { state } = await res.json() as { state: string };
+    const redirect = encodeURIComponent(`${appUrl}/api/integrations/gmail/callback`);
+    const scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/userinfo.email');
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${redirect}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gmail_connected')) {
+      showToast('Gmail conectado');
+      window.history.replaceState({}, '', '/configuracion');
+    } else if (params.get('gmail_error')) {
+      showToast(`Error al conectar Gmail: ${params.get('gmail_error')}`);
+      window.history.replaceState({}, '', '/configuracion');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const desconectarGmail = async () => {
+    const res = await fetch('/api/integrations/gmail/disconnect', { method: 'POST', headers: await authHeader() });
+    if (res.ok) {
+      updateStudio({ gmailEmail: null });
+      showToast('Gmail desconectado');
+    } else {
+      const data = await res.json().catch(() => null);
+      showToast(`No se pudo desconectar: ${data?.error ?? 'error desconocido'}`);
+    }
+  };
+
+  const [sincronizandoContactos, setSincronizandoContactos] = useState(false);
+  const sincronizarContactosGmail = async () => {
+    setSincronizandoContactos(true);
+    try {
+      const res = await fetch('/api/integrations/gmail/sync-contacts', { method: 'POST', headers: await authHeader() });
+      const data = await res.json();
+      if (!res.ok) { showToast(`Error al sincronizar contactos: ${data.error}`); return; }
+      showToast(`${data.creadas} clientas nuevas desde tus contactos de Gmail (${data.yaExistian} ya existían)`);
+    } finally {
+      setSincronizandoContactos(false);
+    }
+  };
+
+  const [probandoGmail, setProbandoGmail] = useState(false);
+  const enviarPruebaGmail = async () => {
+    setProbandoGmail(true);
+    try {
+      const res = await fetch('/api/integrations/gmail/test', { method: 'POST', headers: await authHeader() });
+      const data = await res.json();
+      showToast(res.ok ? 'Email de prueba enviado — revisa tu bandeja de entrada' : `Error: ${data.error}`);
+    } finally {
+      setProbandoGmail(false);
+    }
+  };
+
   const abrirConfig = (cat: CatalogoIntegracion) => {
     const actual = getIntegracion(cat.tipo);
     setForm(actual?.config ?? {});
@@ -393,7 +459,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CATALOGO_INTEGRACIONES.map(cat => {
           const intg = getIntegracion(cat.tipo);
-          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : !!intg?.activo;
+          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : !!intg?.activo;
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
               <div className="flex items-start gap-3">
@@ -454,6 +520,24 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                     </>
                   ) : puedeConectarGoogle ? (
                     <button type="button" onClick={conectarGoogle} className={cn(btnPrimary, 'no-underline')}>Conectar con Google</button>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
+                    </p>
+                  )
+                ) : cat.tipo === 'GMAIL' ? (
+                  gmailConectado ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button onClick={sincronizarContactosGmail} disabled={sincronizandoContactos} className={cn(btnPrimary, sincronizandoContactos && 'opacity-50')}>
+                        {sincronizandoContactos ? 'Sincronizando…' : 'Sincronizar contactos'}
+                      </button>
+                      <button onClick={enviarPruebaGmail} disabled={probandoGmail} className={cn(btnSecondary, probandoGmail && 'opacity-50')}>
+                        {probandoGmail ? 'Enviando…' : 'Enviar email de prueba'}
+                      </button>
+                      <button onClick={desconectarGmail} className={btnSecondary}>Desconectar</button>
+                    </div>
+                  ) : puedeConectarGmail ? (
+                    <button type="button" onClick={conectarGmail} className={cn(btnPrimary, 'no-underline')}>Conectar con Gmail</button>
                   ) : (
                     <p className="text-[11px] text-muted-foreground">
                       Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
