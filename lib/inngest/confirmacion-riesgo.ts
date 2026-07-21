@@ -39,7 +39,7 @@ async function datosParaEmail(admin: SupabaseClient, studioId: string, socioId: 
   const [{ data: socia }, { data: ses }, { data: studio }] = await Promise.all([
     admin.from('socios').select('nombre, email').eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
     admin.from('sesiones').select('inicio, tipo_clase_id').eq('id', sesionId).eq('studio_id', studioId).maybeSingle(),
-    admin.from('studios').select('nombre').eq('id', studioId).maybeSingle(),
+    admin.from('studios').select('nombre, color_primario, logo_url').eq('id', studioId).maybeSingle(),
   ]);
   if (!socia?.email || !ses) return null;
   const { data: tipo } = ses.tipo_clase_id
@@ -51,6 +51,8 @@ async function datosParaEmail(admin: SupabaseClient, studioId: string, socioId: 
     claseNombre: (tipo?.nombre as string) ?? 'Clase',
     cuando: cuandoTexto(ses.inicio as string),
     estudioNombre: (studio?.nombre as string) ?? 'Tu estudio',
+    colorPrimario: (studio as { color_primario?: string | null } | null)?.color_primario,
+    logoUrl: (studio as { logo_url?: string | null } | null)?.logo_url,
   };
 }
 
@@ -149,6 +151,7 @@ export const procesarConfirmacionAskEstudio = inngest.createFunction(
         const url = `${appUrl()}/confirmar-reserva/${token}`;
         const envio = await enviarEmailPedirConfirmacion({
           to: datos.socioEmail, toName: datos.socioNombre, estudioNombre: datos.estudioNombre,
+          colorPrimario: datos.colorPrimario, logoUrl: datos.logoUrl,
           claseNombre: datos.claseNombre, cuando: datos.cuando, url,
         });
         return { pedida: true, emailEnviado: 'ok' in envio && envio.ok === true };
@@ -233,6 +236,7 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
         if (datos) {
           await enviarEmailPlazaLiberada({
             to: datos.socioEmail, toName: datos.socioNombre, estudioNombre: datos.estudioNombre,
+            colorPrimario: datos.colorPrimario, logoUrl: datos.logoUrl,
             claseNombre: datos.claseNombre, cuando: datos.cuando,
           });
         }

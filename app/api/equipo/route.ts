@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { enviarEmailInvitacionEquipo } from '@/lib/emails/invitacion-equipo-server';
+
+function appUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
+}
 
 // A-2: gestión del equipo (alta/edición/baja de instructoras y su ROL) con
 // enforcement de servidor. Antes el cliente escribía `rol` —incluido PROPIETARIO—
@@ -74,6 +79,24 @@ export async function POST(req: NextRequest) {
   const { error } = await admin.from('instructores').insert(row);
   if (error) return errorInterno('equipo:crear', error,
     'No se ha podido dar de alta a esta persona. Revisa que el email no esté ya en uso e inténtalo de nuevo.');
+
+  // Aviso de invitación (best-effort): antes la ficha se creaba con email pero
+  // nadie se enteraba salvo de palabra. Si el email falla, el alta ya está
+  // hecha — no debe romper la respuesta.
+  if (row.email) {
+    const { data: studio } = await admin.from('studios').select('nombre, color_primario, logo_url').eq('id', sesion.studioId).maybeSingle();
+    await enviarEmailInvitacionEquipo({
+      to: row.email,
+      nombre: row.nombre,
+      propietariaNombre: sesion.nombre,
+      estudioNombre: studio?.nombre ?? 'tu estudio',
+      colorPrimario: studio?.color_primario,
+      logoUrl: studio?.logo_url,
+      rol: row.rol,
+      url: `${appUrl()}/login`,
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }
 

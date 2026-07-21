@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
   try {
     const data = await fetchAllStudioData(sesion.studioId);
     const studioNombre = data.studio?.nombre ?? 'tu estudio';
+    const studioColor = data.studio?.colorPrimario;
+    const studioLogo = data.studio?.logoUrl;
 
     const candidatos = computeAutomationCandidatos(
       {
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
     const logs: AutomationLog[] = await mapLimit(
       candidatos,
       6,
-      (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, index: i, nowISO, dry: false, resend }),
+      (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry: false, resend }),
     );
 
     // Contador de disparos por regla (determinista, como el cron).

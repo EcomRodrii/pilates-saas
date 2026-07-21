@@ -238,7 +238,7 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   if (!r.socioId) return { ok: false, detalle: 'Sin socia asociada' };
   const [{ data: socio }, { data: studio }] = await Promise.all([
     requireSupabaseAdmin().from('socios').select('nombre, email').eq('id', r.socioId).single(),
-    requireSupabaseAdmin().from('studios').select('nombre').eq('id', r.studioId).single(),
+    requireSupabaseAdmin().from('studios').select('nombre, color_primario, logo_url').eq('id', r.studioId).single(),
   ]);
   if (!socio?.email) return { ok: false, detalle: 'La socia no tiene email registrado' };
 
@@ -264,7 +264,10 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
     literalesObligatorios: codigoDescuento ? [codigoDescuento] : [],
   });
 
-  const html = await render(AutomatizacionEmail({ socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo, estudioNombre }));
+  const html = await render(AutomatizacionEmail({
+    socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo, estudioNombre,
+    colorPrimario: studio?.color_primario, logoUrl: studio?.logo_url,
+  }));
   const { error } = await resend.emails.send(
     { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: mensaje.asunto, html },
     { idempotencyKey: r.id }
@@ -288,7 +291,7 @@ async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; d
   if (!r.socioId) return { ok: true, detalle: 'Recomendación sin socia — marcada como gestionada.' };
   const [{ data: socio }, { data: studio }] = await Promise.all([
     requireSupabaseAdmin().from('socios').select('nombre, email, telefono').eq('id', r.socioId).single(),
-    requireSupabaseAdmin().from('studios').select('nombre').eq('id', r.studioId).single(),
+    requireSupabaseAdmin().from('studios').select('nombre, color_primario, logo_url').eq('id', r.studioId).single(),
   ]);
   const base = mensajeParaSocia(r.tipo, r.datosUsados, studio?.nombre ?? '');
   if (!base) return { ok: true, detalle: 'Sin mensaje automático para este tipo — marcada como gestionada.' };
@@ -312,7 +315,10 @@ async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; d
   const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
   if (!resend) return { ok: true, detalle: 'Email no configurado — contáctala por WhatsApp desde la tarjeta.' };
 
-  const html = await render(AutomatizacionEmail({ socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo, estudioNombre: studio?.nombre ?? '' }));
+  const html = await render(AutomatizacionEmail({
+    socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo, estudioNombre: studio?.nombre ?? '',
+    colorPrimario: studio?.color_primario, logoUrl: studio?.logo_url,
+  }));
   const { error } = await resend.emails.send(
     { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: mensaje.asunto, html },
     { idempotencyKey: r.id }

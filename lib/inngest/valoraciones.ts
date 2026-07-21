@@ -96,7 +96,7 @@ export const procesarValoracionesEstudio = inngest.createFunction(
         const [{ data: tipo }, { data: instructora }, { data: estudio }] = await Promise.all([
           admin.from('tipos_clase').select('nombre').eq('id', c.tipo_clase_id ?? '').maybeSingle(),
           admin.from('instructores').select('nombre').eq('id', c.instructor_id).maybeSingle(),
-          admin.from('studios').select('nombre').eq('id', studioId).maybeSingle(),
+          admin.from('studios').select('nombre, color_primario, logo_url').eq('id', studioId).maybeSingle(),
         ]);
 
         const { data: alumnas } = await admin.rpc('alumnas_apuntadas', { p_sesion_id: c.id });
@@ -110,6 +110,8 @@ export const procesarValoracionesEstudio = inngest.createFunction(
             to: a.email,
             toName: a.nombre,
             estudioNombre: estudio?.nombre ?? 'Tu estudio',
+            colorPrimario: estudio?.color_primario,
+            logoUrl: estudio?.logo_url,
             claseNombre: tipo?.nombre ?? 'tu clase',
             cuando: cuandoTexto(c.inicio),
             instructorNombre: instructora?.nombre ?? '',
