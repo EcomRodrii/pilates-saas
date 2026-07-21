@@ -33,6 +33,7 @@ export default function CrearEstudioPage() {
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [needsConfirmEmail, setNeedsConfirmEmail] = useState(false);
+  const [nuevoSlug, setNuevoSlug] = useState<string | null>(null);
 
   function handleStudioSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,16 +70,15 @@ export default function CrearEstudioPage() {
     // — creamos el negocio ahora mismo.
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const newStudioId = await dbCreateStudio({ ...studioFields, ownerAuthUserId: user.id });
-      if (newStudioId) setCurrentStudioId(newStudioId);
+      const newStudio = await dbCreateStudio({ ...studioFields, ownerAuthUserId: user.id });
+      if (newStudio) {
+        setCurrentStudioId(newStudio.id);
+        setNuevoSlug(newStudio.slug);
+      }
     }
     setCreating(false);
     setStep(3);
   }
-
-  const portalSlug = studio.nombre
-    ? studio.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    : 'tu-estudio';
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center px-4 py-10">
@@ -288,12 +288,14 @@ export default function CrearEstudioPage() {
                 </p>
               </div>
 
-              <div className="bg-[#F8F9FA] rounded-xl px-4 py-3 text-left space-y-1">
-                <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#9CA3AF]">URL del portal</p>
-                <p className="text-[13px] font-medium text-[#B57A8E] break-all">
-                  https://{portalSlug}.miapp.com/portal
-                </p>
-              </div>
+              {nuevoSlug && (
+                <div className="bg-[#F8F9FA] rounded-xl px-4 py-3 text-left space-y-1">
+                  <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#9CA3AF]">URL del portal</p>
+                  <p className="text-[13px] font-medium text-[#B57A8E] break-all">
+                    {typeof window !== 'undefined' ? window.location.origin : ''}/portal/{nuevoSlug}
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2.5">
                 {/* Hard navigation on purpose: forces StudioProvider to remount

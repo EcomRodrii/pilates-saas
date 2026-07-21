@@ -31,8 +31,8 @@ export default function LoginPage() {
         | { nombre: string; ciudad: string; telefono: string }
         | undefined;
       if (pending) {
-        const newStudioId = await dbCreateStudio({ ...pending, ownerAuthUserId: user.id });
-        if (newStudioId) setCurrentStudioId(newStudioId);
+        const newStudio = await dbCreateStudio({ ...pending, ownerAuthUserId: user.id });
+        if (newStudio) setCurrentStudioId(newStudio.id);
         await supabase.auth.updateUser({ data: { pending_studio: null } });
       }
       await claimInstructorAccount(user.email ?? '', user.id);
