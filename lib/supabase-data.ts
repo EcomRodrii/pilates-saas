@@ -264,6 +264,7 @@ function mapStudio(r: RowStudios): Studio {
     googleCalendarEmail: r.google_calendar_email ?? null,
     gmailEmail: r.gmail_email ?? null,
     zoomEmail: r.zoom_email ?? null,
+    gestoriaEmail: r.gestoria_email ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,

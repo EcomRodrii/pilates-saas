@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Printer, Plus, Pencil, Trash2, Info, ShieldCheck } from 'lucide-react';
+import { Download, Printer, Plus, Pencil, Trash2, Info, ShieldCheck, Mail, Send, Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { serializeCsv } from '@/lib/csv';
 import { computeCierreAnual, desglosarIvaDesdeTotal, type CierreLinea } from '@/lib/fiscal/cierre-engine';
 import type { IngresoManual } from '@/lib/types';
@@ -46,6 +47,12 @@ export default function CierreDeAnoPage() {
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [borrar, setBorrar] = useState<IngresoManual | null>(null);
+
+  // Envío a la gestoría
+  const [envOpen, setEnvOpen] = useState(false);
+  const [gestEmail, setGestEmail] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [envResult, setEnvResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // Años disponibles: los de las facturas + el año actual.
   const anios = useMemo(() => {
@@ -172,6 +179,26 @@ export default function CierreDeAnoPage() {
     setTimeout(() => w.print(), 250);
   };
 
+  const abrirEnvio = () => {
+    setGestEmail(studio?.gestoriaEmail ?? '');
+    setEnvResult(null);
+    setEnvOpen(true);
+  };
+  const enviarGestoria = async () => {
+    setEnviando(true); setEnvResult(null);
+    try {
+      const res = await fetch('/api/cierre/enviar-gestoria', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ anio, email: gestEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setEnvResult({ ok: false, msg: data.error ?? 'No se ha podido enviar.' }); return; }
+      setEnvResult({ ok: true, msg: `Enviado a ${data.email}` });
+    } catch { setEnvResult({ ok: false, msg: 'Error de red. Inténtalo de nuevo.' }); }
+    finally { setEnviando(false); }
+  };
+
   const facturasAnio = useMemo(() => cierre.lineas.filter(l => l.origen === 'FACTURA'), [cierre]);
   const totalAnual = cierre.totales.numFacturas + cierre.totales.numManuales;
 
@@ -183,7 +210,8 @@ export default function CierreDeAnoPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={descargarCsv}><Download className="size-4" /> CSV</Button>
-            <Button onClick={imprimir}><Printer className="size-4" /> Imprimir / PDF</Button>
+            <Button variant="outline" onClick={imprimir}><Printer className="size-4" /> Imprimir / PDF</Button>
+            <Button onClick={abrirEnvio}><Mail className="size-4" /> Enviar a mi gestoría</Button>
           </div>
         }
       />
@@ -498,6 +526,45 @@ export default function CierreDeAnoPage() {
         destructivo
         onConfirm={confirmarBorrado}
       />
+
+      {/* Enviar a la gestoría */}
+      <Dialog open={envOpen} onOpenChange={(v) => { setEnvOpen(v); if (!v) setEnvResult(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar el cierre {anio} a tu gestoría</DialogTitle>
+            <DialogDescription>
+              Le llegará el resumen del año ({eur(cierre.totales.total)} facturado) y el libro de facturas emitidas en CSV. Podrá responder directamente a tu estudio.
+            </DialogDescription>
+          </DialogHeader>
+
+          {envResult?.ok ? (
+            <div className="flex items-center gap-2.5 rounded-xl border border-border bg-accent px-4 py-3 text-sm">
+              <span className="size-7 rounded-full grid place-items-center shrink-0 bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400"><Check className="size-4" /></span>
+              <span>{envResult.msg}</span>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="gest-email">Email de la gestoría</Label>
+              <Input id="gest-email" type="email" value={gestEmail} onChange={(e) => setGestEmail(e.target.value)} placeholder="gestoria@ejemplo.com" autoFocus />
+              {studio?.gestoriaEmail && <p className="text-xs text-muted-foreground mt-0.5">Guardado la última vez. Puedes cambiarlo.</p>}
+              {envResult && !envResult.ok && <p className="text-xs text-destructive mt-1">{envResult.msg}</p>}
+            </div>
+          )}
+
+          <DialogFooter>
+            {envResult?.ok ? (
+              <DialogClose render={<Button />}>Cerrar</DialogClose>
+            ) : (
+              <>
+                <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
+                <Button onClick={enviarGestoria} disabled={enviando || !gestEmail.trim()}>
+                  {enviando ? 'Enviando…' : <><Send className="size-4" /> Enviar</>}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
