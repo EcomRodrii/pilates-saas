@@ -3,12 +3,31 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { Search, ArrowRight, Calendar, CreditCard, X } from 'lucide-react';
+import { Search, ArrowRight, Calendar, CreditCard, X, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePermisos } from '@/lib/permisos';
+import { buscarTareas, rutaBase } from '@/lib/tareas';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 
-export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: boolean; variant?: 'dark' | 'light' } = {}) {
-  const [open, setOpen] = useState(false);
+export function GlobalSearch({
+  collapsed,
+  variant = 'dark',
+  abierto,
+  onAbiertoChange,
+  renderTrigger = true,
+}: {
+  collapsed?: boolean;
+  variant?: 'dark' | 'light';
+  /** Permite abrirlo desde fuera (botón "¿Qué quieres hacer o buscar?" del Topbar). */
+  abierto?: boolean;
+  onAbiertoChange?: (v: boolean) => void;
+  /** false = no pinta su propio disparador; solo el modal, controlado por `abierto`.
+   *  Evita el bug de dos botones de búsqueda uno junto al otro. */
+  renderTrigger?: boolean;
+} = {}) {
+  const [openInterno, setOpenInterno] = useState(false);
+  const open = abierto ?? openInterno;
+  const setOpen = (v: boolean) => { setOpenInterno(v); onAbiertoChange?.(v); };
   const [query, setQuery] = useState('');
   const router = useRouter();
   const { socios, sesiones, recibos, tiposClase } = useStudio();
@@ -20,12 +39,13 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setOpen(v => !v);
+        setOpen(!open);
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (open) { setTimeout(() => inputRef.current?.focus(), 40); setQuery(''); }
@@ -65,31 +85,42 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
     }).slice(0, 4);
   }, [recibos, socioById, q]);
 
-  const hasResults = sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0;
+  // Las TAREAS van primero y salen incluso con la caja vacía: quien abre ⌘K sin
+  // saber qué buscar ve de qué es capaz el programa. Es la vía para llegar a un
+  // sitio sin conocer la estructura del menú.
+  const { puedeVer } = usePermisos();
+  const tareasRes = useMemo(
+    () => buscarTareas(q, q ? 5 : 4).filter(t => puedeVer(rutaBase(t.href))),
+    [q, puedeVer],
+  );
+
+  const hasResults = tareasRes.length > 0 || sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0;
 
   function go(href: string) { router.push(href); setOpen(false); }
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        title="Buscar (⌘K)"
-        className={collapsed
-          ? cn('flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'hover:bg-muted')
-          : cn('flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'bg-muted hover:bg-background w-full max-w-xs')}
-        style={{ color: variant === 'dark' ? 'rgba(255,255,255,0.45)' : 'var(--muted-foreground)' }}
-      >
-        <Search size={15} className="shrink-0" />
-        {!collapsed && <span className="hidden md:inline text-xs">Buscar</span>}
-        {!collapsed && (
-          <kbd
-            className="hidden md:inline ml-auto text-[10px] px-1.5 py-0.5 rounded font-mono leading-none"
-            style={variant === 'dark'
-              ? { backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }
-              : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
-          >⌘K</kbd>
-        )}
-      </button>
+      {renderTrigger && (
+        <button
+          onClick={() => setOpen(true)}
+          title="Buscar (⌘K)"
+          className={collapsed
+            ? cn('flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'hover:bg-muted')
+            : cn('flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'bg-muted hover:bg-background w-full max-w-xs')}
+          style={{ color: variant === 'dark' ? 'rgba(255,255,255,0.45)' : 'var(--muted-foreground)' }}
+        >
+          <Search size={15} className="shrink-0" />
+          {!collapsed && <span className="hidden md:inline text-xs">Buscar</span>}
+          {!collapsed && (
+            <kbd
+              className="hidden md:inline ml-auto text-[10px] px-1.5 py-0.5 rounded font-mono leading-none"
+              style={variant === 'dark'
+                ? { backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }
+                : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
+            >⌘K</kbd>
+          )}
+        </button>
+      )}
 
       <DashboardSheet
         open={open}
@@ -107,13 +138,13 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
               <input
                 ref={inputRef}
                 type="text"
-                placeholder="Buscar socias, clases, pagos…"
+                placeholder="¿Qué quieres hacer? O busca una clienta, clase o pago…"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 className="flex-1 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none bg-transparent"
               />
               {query ? (
-                <button onClick={() => setQuery('')} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
+                <button onClick={() => setQuery('')} aria-label="Borrar búsqueda" className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
                   <X size={13} style={{ color: 'var(--muted-foreground)' }} />
                 </button>
               ) : (
@@ -123,14 +154,38 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
 
             {/* Results */}
             <div className="max-h-[400px] overflow-y-auto p-2">
+              {/* Tareas — primero: responde a "¿qué quiero hacer?" */}
+              {tareasRes.length > 0 && (
+                <div className="mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>
+                    {q ? 'Acciones' : '¿Qué quieres hacer?'}
+                  </p>
+                  {tareasRes.map(t => (
+                    <button key={t.id} onClick={() => go(t.href)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-brand/10">
+                        <Zap size={14} className="text-brand" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{t.label}</p>
+                        {t.pista && (
+                          <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>{t.pista}</p>
+                        )}
+                      </div>
+                      <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Socias */}
               {sociosRes.length > 0 && (
                 <div className="mb-1">
                   <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>
-                    {q ? 'Socias' : 'Socias activas'}
+                    {q ? 'Clientas' : 'Clientas activas'}
                   </p>
                   {sociosRes.map(s => (
-                    <button key={s.id} onClick={() => go(`/socios/${s.id}`)}
+                    <button key={s.id} onClick={() => go(`/clientas/${s.id}`)}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-brand-secondary/10 text-brand-secondary">
                         {s.nombre[0]}{s.apellidos[0]}
@@ -183,10 +238,10 @@ export function GlobalSearch({ collapsed, variant = 'dark' }: { collapsed?: bool
                   {recibosRes.map(r => {
                     const s = socioById.get(r.socioId ?? '');
                     return (
-                      <button key={r.id} onClick={() => go('/pagos')}
+                      <button key={r.id} onClick={() => go('/cobros?tab=pendientes')}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#FEF3C7' }}>
-                          <CreditCard size={14} style={{ color: '#92400E' }} />
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))' }}>
+                          <CreditCard size={14} style={{ color: 'var(--warning)' }} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-foreground truncate">{r.concepto}</p>

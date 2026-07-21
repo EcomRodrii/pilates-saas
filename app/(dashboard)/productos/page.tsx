@@ -4,6 +4,7 @@ import { useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Package, Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Check } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS } from '@/lib/types';
+import { PageHeader } from '@/components/ui/page-header';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 
 type Tab = 'planes' | 'pos';
@@ -11,14 +12,14 @@ type Tab = 'planes' | 'pos';
 const TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bono sesiones', PUNTUAL: 'Puntual' };
 const TIPO_COLOR: Record<string, { bg: string; text: string }> = {
   MENSUAL: { bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', text: 'var(--brand-secondary)' },
-  BONO: { bg: '#FEF3C7', text: '#B45309' },
-  PUNTUAL: { bg: '#F0FDF4', text: '#15803D' },
+  BONO: { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
+  PUNTUAL: { bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
 };
 const CAT_LABEL: Record<string, string> = { SESION: 'Sesión', PACK: 'Pack', PRODUCTO: 'Producto', OTRO: 'Otro' };
 const CAT_COLOR: Record<string, { bg: string; text: string }> = {
   SESION: { bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', text: 'var(--brand-secondary)' },
-  PACK: { bg: '#FEF3C7', text: '#B45309' },
-  PRODUCTO: { bg: '#F0FDF4', text: '#15803D' },
+  PACK: { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
+  PRODUCTO: { bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
   OTRO: { bg: 'var(--muted)', text: 'var(--muted-foreground)' },
 };
 function fmt(n: number) { return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -49,7 +50,7 @@ function PlanModal({ initial, onSave, onClose }: {
       <>
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-foreground">{initial ? 'Editar plan' : 'Nuevo plan'}</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
+          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
@@ -146,7 +147,7 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
       <>
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-foreground">{initial ? 'Editar producto' : 'Nuevo producto'}</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
+          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
@@ -191,7 +192,7 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
         <div className="flex gap-3 px-6 pb-6">
           {initial && onDelete && (
             <button onClick={onDelete}
-              className="py-2.5 px-3 rounded-xl border border-[#FECACA] text-sm font-semibold text-[#DC2626] hover:bg-[#FEF2F2]"
+              className="py-2.5 px-3 rounded-xl border border-[#FECACA] text-sm font-semibold text-destructive hover:bg-destructive/10"
               title="Eliminar producto">
               <Trash2 size={15} />
             </button>
@@ -255,22 +256,20 @@ export default function Productos() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Productos</h1>
-          <p className="text-sm font-medium mt-0.5 text-muted-foreground">
-            Planes de suscripción y catálogo de productos POS
-          </p>
-        </div>
-        <button
-          onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold transition-colors"
-          style={{ backgroundColor: 'var(--brand)' }}
-        >
-          <Plus size={15} />
-          {tab === 'planes' ? 'Nuevo plan' : 'Nuevo producto'}
-        </button>
-      </div>
+      <PageHeader
+        title="Productos"
+        description="Planes de suscripción y catálogo de productos POS"
+        actions={
+          <button
+            onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold transition-colors"
+            style={{ backgroundColor: 'var(--brand)' }}
+          >
+            <Plus size={15} />
+            {tab === 'planes' ? 'Nuevo plan' : 'Nuevo producto'}
+          </button>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
@@ -306,11 +305,11 @@ export default function Productos() {
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => setPlanModal(plan)}
+                    <button onClick={() => setPlanModal(plan)} aria-label="Editar plan"
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => deletePlan(plan.id)}
+                    <button onClick={() => deletePlan(plan.id)} aria-label="Eliminar plan"
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors">
                       <Trash2 size={13} />
                     </button>
@@ -338,8 +337,8 @@ export default function Productos() {
                 )}
 
                 <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: plan.activo ? '#22C55E' : 'var(--muted-foreground)' }} />
-                  <span className="text-xs font-medium" style={{ color: plan.activo ? '#15803D' : 'var(--muted-foreground)' }}>
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: plan.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
+                  <span className="text-xs font-medium" style={{ color: plan.activo ? 'var(--success)' : 'var(--muted-foreground)' }}>
                     {plan.activo ? 'Activo' : 'Inactivo'}
                   </span>
                 </div>
@@ -396,14 +395,14 @@ export default function Productos() {
                         <td className="px-5 py-3.5 font-bold text-foreground">{fmt(p.precio)} €</td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : 'var(--muted-foreground)' }} />
-                            <span className="text-xs font-medium" style={{ color: p.activo ? '#15803D' : 'var(--muted-foreground)' }}>
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
+                            <span className="text-xs font-medium" style={{ color: p.activo ? 'var(--success)' : 'var(--muted-foreground)' }}>
                               {p.activo ? 'Activo' : 'Inactivo'}
                             </span>
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
-                          <button onClick={() => setPosModal(p)}
+                          <button onClick={() => setPosModal(p)} aria-label="Editar producto"
                             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
                             <Pencil size={13} />
                           </button>
@@ -429,8 +428,8 @@ export default function Productos() {
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: c.bg, color: c.text }}>
                             {CAT_LABEL[p.categoria]}
                           </span>
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: p.activo ? '#15803D' : 'var(--muted-foreground)' }}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? '#22C55E' : 'var(--muted-foreground)' }} />
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: p.activo ? 'var(--success)' : 'var(--muted-foreground)' }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
                             {p.activo ? 'Activo' : 'Inactivo'}
                           </span>
                         </div>

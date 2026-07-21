@@ -93,7 +93,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'EXCEL',
     nombre: 'Exportar a Excel',
-    descripcion: 'Descarga tus socias, suscripciones y recibos en un archivo compatible con Excel.',
+    descripcion: 'Descarga tus clientas, suscripciones y recibos en un archivo compatible con Excel.',
     Icon: FileSpreadsheet,
     color: '#1D6F42',
     bg: '#E7F4EC',
@@ -150,7 +150,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     nombre: 'EGYM Wellpass',
     descripcion: 'Accede a una red en crecimiento de profesionales preocupados por su salud.',
     Icon: Activity,
-    color: '#059669',
+    color: 'var(--success)',
     bg: '#E7F7F0',
     categoria: 'Agregadores',
     campos: [],
@@ -425,11 +425,11 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
         plan?.nombre ?? '', sus?.estado ?? '', sus?.sesionesRestantes ?? '',
       ]);
     }
-    descargarCsv(`tentare-socias-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows));
+    descargarCsv(`tentare-clientas-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows));
 
     // Hoja recibos
     const rRows: (string | number | null)[][] = [
-      ['Concepto', 'Socia', 'Importe (€)', 'Estado', 'Vencimiento', 'Cobro'],
+      ['Concepto', 'Clienta', 'Importe (€)', 'Estado', 'Vencimiento', 'Cobro'],
     ];
     for (const r of recibos) {
       const s = r.socioId ? socioById.get(r.socioId) : undefined;
@@ -439,7 +439,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       ]);
     }
     descargarCsv(`tentare-recibos-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rRows));
-    showToast('Exportación descargada (socias y recibos)');
+    showToast('Exportación descargada (clientas y recibos)');
   };
 
   return (
@@ -465,15 +465,15 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   <div className="flex items-center gap-2">
                     <p className="text-[14px] font-semibold text-foreground">{cat.nombre}</p>
                     {cat.proximamente ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FFF7ED] text-[#B45309]">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FFF7ED] text-warning">
                         Próximamente
                       </span>
                     ) : cat.accion !== 'exportar' && (
                       <span className={cn(
                         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
-                        conectado ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-muted text-muted-foreground',
+                        conectado ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
                       )}>
-                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-[#059669]' : 'bg-muted-foreground')} />
+                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-success' : 'bg-muted-foreground')} />
                         {conectado ? 'Conectado' : 'No conectado'}
                       </span>
                     )}
@@ -612,9 +612,9 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   </div>
                 ))}
                 {cat.secretoEnv && (
-                  <div className="flex items-start gap-2 bg-[#FFFBEB] border border-[#FDE68A] rounded-lg p-3">
-                    <AlertTriangle size={14} className="text-[#D97706] shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-[#92400E] leading-snug">
+                  <div className="flex items-start gap-2 bg-warning/10 border border-[#FDE68A] rounded-lg p-3">
+                    <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-warning leading-snug">
                       El proveedor de envío lo gestiona Tentare a nivel de plataforma — aquí solo
                       configuras tu remitente. Para enviar desde tu propio dominio, verifícalo con
                       nosotros primero; te avisamos cuando esté listo.
@@ -623,7 +623,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                 )}
                 <div className="flex items-center justify-between pt-1">
                   {conectado ? (
-                    <button onClick={() => desconectar(cat)} className="text-[13px] font-medium text-[#DC2626] hover:underline">
+                    <button onClick={() => desconectar(cat)} className="text-[13px] font-medium text-destructive hover:underline">
                       Desconectar
                     </button>
                   ) : <span />}

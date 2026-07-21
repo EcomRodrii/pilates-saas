@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
@@ -63,7 +64,8 @@ export async function GET(req: NextRequest) {
     .order('creado_en', { ascending: false })
     .limit(50);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorInterno('sustituciones:listar', error,
+    'No se ha podido cargar el listado de sustituciones. Recarga la página.');
 
   const lista = data ?? [];
 
@@ -126,7 +128,8 @@ export async function PATCH(req: NextRequest) {
     if (typeof body?.avisar !== 'boolean') return NextResponse.json({ error: 'Falta el valor' }, { status: 400 });
     if (sesion.rol !== 'PROPIETARIO') return NextResponse.json({ error: 'Solo la propietaria' }, { status: 403 });
     const { error } = await admin.from('studios').update({ avisar_alumnas: body.avisar }).eq('id', sesion.studioId);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return errorInterno('sustituciones:config_avisar', error,
+      'No se ha podido guardar el ajuste de avisos. Vuelve a intentarlo.');
     return NextResponse.json({ ok: true, avisarAlumnas: body.avisar });
   }
 
@@ -145,7 +148,8 @@ export async function PATCH(req: NextRequest) {
       p_studio_id: sesion.studioId,
       p_aprobada_por: sesion.userId,
     });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return errorInterno('sustituciones:confirmar', error,
+      'No se ha podido confirmar la sustituta. La clase sigue sin cubrir; inténtalo de nuevo.');
     const r = (data ?? {}) as { ok?: boolean; motivo?: string; sesion_id?: string };
     if (!r.ok) {
       const mensaje = r.motivo === 'conflicto_horario'
@@ -300,7 +304,8 @@ export async function PATCH(req: NextRequest) {
       .eq('id', sustitucionId).eq('studio_id', sesion.studioId)
       .in('estado', ESTADOS_EN_JUEGO)
       .select('id');
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return errorInterno('sustituciones:descartar', error,
+      'No se ha podido descartar la sustitución. Vuelve a intentarlo.');
     if (!data || data.length === 0) {
       return NextResponse.json({ error: 'Esta sustitución ya está resuelta. Recarga la página.' }, { status: 409 });
     }

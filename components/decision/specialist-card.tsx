@@ -18,10 +18,10 @@ const ESPECIALISTA_INFO: Record<string, { nombre: string; icon: LucideIcon }> = 
 };
 
 const ESTADO_INFO: Record<PorEspecialistaAPI['estado'], { label: string; color: string; bg: string }> = {
-  EXCELENTE: { label: 'Excelente', color: '#059669', bg: '#ECFDF5' },
-  BUENO: { label: 'Bueno', color: '#059669', bg: '#ECFDF5' },
-  ATENCION: { label: 'Atención', color: '#D97706', bg: '#FFFBEB' },
-  CRITICO: { label: 'Crítico', color: '#DC2626', bg: '#FEF2F2' },
+  EXCELENTE: { label: 'Excelente', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
+  BUENO: { label: 'Bueno', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
+  ATENCION: { label: 'Atención', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))' },
+  CRITICO: { label: 'Crítico', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
 };
 
 export function SpecialistCard({ data }: { data: PorEspecialistaAPI }) {

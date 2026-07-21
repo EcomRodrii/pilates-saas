@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest) {
     .from('instructor_dependency_snapshots')
     .select('*')
     .eq('studio_id', sesion.studioId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorInterno('dependency_risk', error,
+    'No se ha podido calcular el riesgo por instructora. Recarga la página.');
 
   const snapshots = (data ?? []).sort((a, b) => {
     const n = (ORDEN_NIVEL[a.nivel_riesgo as string] ?? 3) - (ORDEN_NIVEL[b.nivel_riesgo as string] ?? 3);

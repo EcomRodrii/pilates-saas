@@ -131,7 +131,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                         </button>
                         <button
                           onClick={() => setConfirmDel(sala.id)}
-                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground hover:text-[#DC2626] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                           aria-label="Eliminar sala"
                         >
                           <Trash2 size={13} />
@@ -158,7 +158,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                     <button onClick={() => openEditar(sala)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground" aria-label="Editar sala">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => setConfirmDel(sala.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground" aria-label="Eliminar sala">
+                    <button onClick={() => setConfirmDel(sala.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" aria-label="Eliminar sala">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -178,7 +178,10 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
-            <Field label="Nombre de la sala">
+            <Field
+              label="Nombre de la sala"
+              description="Como la llamáis en el estudio. La verá la clienta al reservar."
+            >
               <input
                 className={inputCls}
                 value={form.nombre}
@@ -186,7 +189,10 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                 placeholder="Ej: Sala Reformer"
               />
             </Field>
-            <Field label="Capacidad (personas)">
+            <Field
+              label="Capacidad (personas)"
+              description="Cuántas caben. Es el tope de reservas de cualquier clase en esta sala."
+            >
               <input
                 className={inputCls}
                 type="number"
@@ -196,7 +202,10 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                 onChange={e => setForm(f => ({ ...f, capacidad: e.target.value }))}
               />
             </Field>
-            <Field label="Color identificador">
+            <Field
+              label="Color identificador"
+              description="Sirve para distinguirla de un vistazo en la agenda."
+            >
               <ColorInput value={form.color} onChange={v => setForm(f => ({ ...f, color: v }))} />
             </Field>
           </div>

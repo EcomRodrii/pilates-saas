@@ -108,9 +108,9 @@ export default function CalendarioContenidoPage() {
       {/* Barra de control */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <button onClick={() => navegar(-1)} className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+          <button onClick={() => navegar(-1)} aria-label="Mes anterior" className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"><ChevronLeft className="w-4 h-4" /></button>
           <button onClick={() => setCursor(new Date())} className="rounded-full border border-border px-3 h-9 text-sm font-semibold hover:bg-muted transition-colors">Hoy</button>
-          <button onClick={() => navegar(1)} className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"><ChevronRight className="w-4 h-4" /></button>
+          <button onClick={() => navegar(1)} aria-label="Mes siguiente" className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"><ChevronRight className="w-4 h-4" /></button>
           <h2 className="text-base font-bold text-foreground capitalize ml-1">{titulo}</h2>
         </div>
         <div className="flex items-center gap-2">

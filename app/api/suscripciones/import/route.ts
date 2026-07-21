@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { emailValido, parsearFecha, normalizarEstadoMembresia } from '@/lib/csv';
 import { uid } from '@/lib/utils';
@@ -131,9 +132,11 @@ export async function POST(req: NextRequest) {
     const lote = paraInsertar.slice(i, i + LOTE);
     const { error } = await admin.from('suscripciones').insert(lote);
     if (error) {
-      return NextResponse.json(
-        { error: `Error al insertar (lote ${Math.floor(i / LOTE) + 1}): ${error.message}`, importadas, duplicadas, errores },
-        { status: 500 },
+      return errorInterno('suscripciones:import', error,
+        `Se han importado ${importadas} membresías y el proceso se ha detenido ahí. `
+        + 'Comprueba que las socias y los planes del archivo existan ya en tu cuenta, y vuelve a subirlo.',
+        500,
+        { importadas, duplicadas, errores },
       );
     }
     importadas += lote.length;

@@ -32,9 +32,9 @@ const ZONA_LABEL: Record<ZonaCorporal, string> = {
 };
 const SEVERIDAD_LABEL: Record<SeveridadCondicion, string> = { LEVE: 'Leve', MEDIA: 'Media', ALTA: 'Alta' };
 const SEVERIDAD_COLOR: Record<SeveridadCondicion, { bg: string; text: string }> = {
-  LEVE: { bg: '#D1FAE5', text: '#059669' },
-  MEDIA: { bg: '#FEF3C7', text: '#92400E' },
-  ALTA: { bg: '#FEE2E2', text: '#B91C1C' },
+  LEVE: { bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
+  MEDIA: { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
+  ALTA: { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)' },
 };
 
 const CATEGORIAS: CategoriaCondicion[] = ['LESION', 'EMBARAZO', 'POSTPARTO', 'CRONICA', 'PROTESIS', 'OTRO'];
@@ -156,7 +156,7 @@ function CondicionDialog({
                     <button key={r.codigo} type="button" onClick={() => toggleRestriccion(r.codigo)}
                       className={cn('text-xs font-medium px-3 py-1.5 rounded-full border transition-colors',
                         on ? 'border-transparent' : 'border-border text-muted-foreground hover:text-foreground')}
-                      style={on ? { backgroundColor: dura ? '#FEE2E2' : '#FEF3C7', color: dura ? '#B91C1C' : '#92400E' } : undefined}>
+                      style={on ? { backgroundColor: dura ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: dura ? 'var(--destructive)' : 'var(--warning)' } : undefined}>
                       {r.etiqueta}
                     </button>
                   );
@@ -384,7 +384,7 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
         open={aBorrar !== null}
         onOpenChange={abierto => { if (!abierto) setABorrar(null); }}
         titulo={aBorrar ? `¿Eliminar "${aBorrar.etiqueta}" de la ficha?` : ''}
-        descripcion="Se borra de la línea de tiempo clínica de la socia. No se puede deshacer."
+        descripcion="Se borra de la línea de tiempo clínica de la clienta. No se puede deshacer."
         textoConfirmar="Eliminar"
         destructivo
         onConfirm={() => { if (aBorrar) deleteCondicion(aBorrar.id); setABorrar(null); }}

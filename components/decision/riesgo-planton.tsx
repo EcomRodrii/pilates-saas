@@ -81,7 +81,7 @@ export function RiesgoPlanton() {
       if (apuntadas.length === 0) continue;
 
       const enRiesgo = apuntadas
-        .map(socioId => ({ nombre: socioPorId.get(socioId)?.nombre ?? 'Socia', riesgo: riesgoDe(socioId) }))
+        .map(socioId => ({ nombre: socioPorId.get(socioId)?.nombre ?? 'Clienta', riesgo: riesgoDe(socioId) }))
         .filter(x => x.riesgo.nivel === 'ALTO')
         .sort((a, b) => b.riesgo.score - a.riesgo.score);
 
@@ -106,8 +106,8 @@ export function RiesgoPlanton() {
         {filas.map(f => (
           <div key={f.sesionId} className="flex items-start justify-between gap-3 rounded-2xl px-4 py-3 hover:bg-muted/50">
             <div className="flex min-w-0 items-start gap-3">
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FEF3C7]">
-                <UserX size={14} className="text-[#92400E]" />
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-warning/10">
+                <UserX size={14} className="text-warning" />
               </div>
               <div className="min-w-0">
                 <p className="text-[13px] font-semibold text-foreground">
@@ -122,7 +122,7 @@ export function RiesgoPlanton() {
               <span className="inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground">
                 <Clock size={12} />{fmtCuando(f.inicio)}
               </span>
-              <span className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[11px] font-semibold text-[#92400E]">
+              <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
                 {f.enRiesgo.length} en riesgo
               </span>
             </div>

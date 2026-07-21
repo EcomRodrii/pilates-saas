@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { errorInterno } from '@/lib/errores-servidor';
 import { render } from '@react-email/render';
 import { ReciboEmail } from '@/lib/emails/recibo-template';
 import { BienvenidaEmail } from '@/lib/emails/bienvenida-template';
@@ -100,8 +101,8 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
-    console.error('[Resend error]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return errorInterno('emails:send', error,
+      'No se ha podido enviar el email. Comprueba que la dirección sea correcta e inténtalo de nuevo.');
   }
 
   return NextResponse.json({ id: data?.id });

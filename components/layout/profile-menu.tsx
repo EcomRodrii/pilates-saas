@@ -40,6 +40,9 @@ export function ProfileMenu() {
       <div className="relative" ref={ref}>
         <button
           onClick={() => setOpen(v => !v)}
+          aria-label="Abrir menú de perfil"
+          aria-expanded={open}
+          aria-haspopup="menu"
           className="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-background transition-colors"
         >
           <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={userInitials} size="sm" />

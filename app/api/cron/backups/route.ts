@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 import { guardarBackup, podarBackupsAntiguos, type TipoBackup } from '@/lib/engines/backup-engine';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,8 @@ export async function GET(req: NextRequest) {
 
   const { data: studios, error: studiosError } = await admin.from('studios').select('id');
   if (studiosError) {
-    return NextResponse.json({ error: studiosError.message }, { status: 500 });
+    return errorInterno('cron:backups:listar-studios', studiosError,
+      'No se ha podido listar los estudios para la copia de seguridad.');
   }
 
   const resultados: { studioId: string; tipo: TipoBackup; ok: boolean; error?: string }[] = [];

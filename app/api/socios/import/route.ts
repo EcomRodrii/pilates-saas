@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing/billing-guard';
 import { emailValido, parsearFecha } from '@/lib/csv';
@@ -125,14 +126,14 @@ export async function POST(req: NextRequest) {
     const lote = paraInsertar.slice(i, i + LOTE);
     const { error } = await admin.from('socios').insert(lote);
     if (error) {
-      return NextResponse.json(
-        {
-          error: `Error al insertar (lote ${Math.floor(i / LOTE) + 1}): ${error.message}`,
-          importadas, // las de lotes anteriores sí entraron
-          duplicadas,
-          errores,
-        },
-        { status: 500 },
+      // Se dice CUÁNTAS entraron: si no, la usuaria no sabe si repetir la
+      // importación le va a duplicar media cartera de clientas.
+      return errorInterno('socios:import', error,
+        `Se han importado ${importadas} clientes y el proceso se ha detenido ahí. `
+        + 'Suele deberse a un email repetido en el archivo. Revísalo y vuelve a subirlo: '
+        + 'los que ya están importados se detectan y no se duplican.',
+        500,
+        { importadas, duplicadas, errores },
       );
     }
     importadas += lote.length;

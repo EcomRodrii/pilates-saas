@@ -18,12 +18,12 @@ const inputCls = 'w-full rounded-lg border border-border bg-card px-3 py-2 text-
 
 const TRIGGERS: { value: TriggerAutomatizacion; label: string; desc: string }[] = [
   { value: 'CONTENIDO_PUBLICADO', label: 'Se publica un contenido', desc: 'Al publicar una publicación del módulo de Contenido' },
-  { value: 'NUEVA_ALTA', label: 'Nueva socia registrada', desc: 'Cuando se registra una nueva socia' },
-  { value: 'CUMPLEANOS', label: 'Cumpleaños de socia', desc: 'El día del cumpleaños' },
+  { value: 'NUEVA_ALTA', label: 'Nueva clienta registrada', desc: 'Cuando se registra una nueva clienta' },
+  { value: 'CUMPLEANOS', label: 'Cumpleaños de clienta', desc: 'El día del cumpleaños' },
   { value: 'PRIMERA_CLASE', label: 'Primera clase', desc: 'Tras completar la primera clase' },
   { value: 'SUSCRIPCION_EXPIRA_7D', label: 'Suscripción expira en 7 días', desc: 'Aviso de renovación' },
   { value: 'SUSCRIPCION_CANCELADA', label: 'Suscripción cancelada', desc: 'Cuando se cancela una suscripción' },
-  { value: 'INACTIVIDAD_30D', label: 'Sin actividad 30 días', desc: 'Reactivación de socias inactivas' },
+  { value: 'INACTIVIDAD_30D', label: 'Sin actividad 30 días', desc: 'Reactivación de clientas inactivas' },
   { value: 'BONO_AGOTADO', label: 'Bono agotado', desc: 'Cuando se agota el bono' },
 ]
 
@@ -40,7 +40,7 @@ export const ACCIONES: Record<AccionFlujo, { label: string; icon: React.ElementT
   TAREA: {
     label: 'Crear tarea', icon: CheckSquare, color: '#8b5cf6',
     campos: [
-      { key: 'titulo', label: 'Título de la tarea', placeholder: 'Llamar a la socia' },
+      { key: 'titulo', label: 'Título de la tarea', placeholder: 'Llamar a la clienta' },
       { key: 'asignadoA', label: 'Asignar a', placeholder: 'Recepción' },
     ],
   },
@@ -149,7 +149,7 @@ export function FlowBuilder({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-lg font-bold text-foreground">{editando ? 'Editar flujo' : 'Nuevo flujo de automatización'}</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-0">
@@ -157,7 +157,7 @@ export function FlowBuilder({
           <div className="p-5 space-y-4 lg:border-r border-border">
             <div className="space-y-1.5">
               <label htmlFor={`${uid}-1`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Nombre del flujo</label>
-              <input id={`${uid}-1`} className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Bienvenida a nuevas socias" autoFocus />
+              <input id={`${uid}-1`} className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Bienvenida a nuevas clientas" autoFocus />
             </div>
 
             {/* Desencadenante */}
@@ -182,9 +182,9 @@ export function FlowBuilder({
                         {ORDEN_ACCIONES.map(a => <option key={a} value={a}>{ACCIONES[a].label}</option>)}
                       </select>
                       <div className="flex items-center gap-0.5 shrink-0">
-                        <button onClick={() => movePaso(p.id, -1)} disabled={i === 0} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronUp className="w-4 h-4" /></button>
-                        <button onClick={() => movePaso(p.id, 1)} disabled={i === pasos.length - 1} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronDown className="w-4 h-4" /></button>
-                        <button onClick={() => removePaso(p.id)} disabled={pasos.length <= 1} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 disabled:opacity-30 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => movePaso(p.id, -1)} disabled={i === 0} aria-label="Mover paso arriba" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronUp className="w-4 h-4" /></button>
+                        <button onClick={() => movePaso(p.id, 1)} disabled={i === pasos.length - 1} aria-label="Mover paso abajo" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronDown className="w-4 h-4" /></button>
+                        <button onClick={() => removePaso(p.id)} disabled={pasos.length <= 1} aria-label="Eliminar paso" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 disabled:opacity-30 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                     <div className="pl-9 space-y-2">

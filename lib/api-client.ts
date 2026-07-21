@@ -5,6 +5,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
+import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 
@@ -39,7 +40,7 @@ export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeCon
   });
   if (!res.ok) {
     const b = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(b.error ?? 'Error al guardar el borrador');
+    throw new Error(mensajeSeguro(b.error, 'No se han podido guardar los cambios de marca. Vuelve a intentarlo.'));
   }
   return res.json();
 }
@@ -73,7 +74,7 @@ export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfi
   });
   if (!res.ok) {
     const b = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(b.error ?? 'Error al guardar el menú');
+    throw new Error(mensajeSeguro(b.error, 'No se ha podido guardar el menú. Vuelve a intentarlo.'));
   }
   return res.json();
 }
@@ -151,7 +152,7 @@ export async function generarEnlaceDisponibilidad(
       body: JSON.stringify({ instructorId, scope }),
     });
     const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-    if (!res.ok || !data.url) return { error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok || !data.url) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return { url: data.url };
   } catch {
     return { error: 'No se pudo generar el enlace' };
@@ -193,7 +194,7 @@ export async function crearBaja(sesionId: string, motivo?: string): Promise<{ ok
       body: JSON.stringify({ sesionId, motivo }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return { ok: true };
   } catch {
     return { error: 'No se pudo crear la baja' };
@@ -231,7 +232,7 @@ export async function cancelarClase(sustitucionId: string): Promise<{ ok: true; 
       body: JSON.stringify({ sustitucionId, action: 'cancelar_clase' }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } };
-    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return { ok: true, alumnas: data.alumnas };
   } catch {
     return { error: 'No se pudo cancelar' };
@@ -247,7 +248,7 @@ export async function setAvisarAlumnas(avisar: boolean): Promise<{ ok: true } | 
       body: JSON.stringify({ action: 'config_avisar', avisar }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return { ok: true };
   } catch {
     return { error: 'No se pudo cambiar el ajuste' };
@@ -263,7 +264,7 @@ export async function confirmarSustituta(sustitucionId: string, instructorId: st
       body: JSON.stringify({ sustitucionId, action: 'confirmar', instructorId }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return { ok: true };
   } catch {
     return { error: 'No se pudo confirmar' };
@@ -282,7 +283,7 @@ export async function avisarSustituta(
       body: JSON.stringify({ sustitucionId, action: 'contactar', instructorId }),
     });
     const data = (await res.json().catch(() => ({}))) as { candidata?: string; emailEnviado?: boolean; emailSkipped?: boolean; error?: string };
-    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return { ok: true, candidata: data.candidata ?? '', emailEnviado: !!data.emailEnviado, emailSkipped: !!data.emailSkipped };
   } catch {
     return { error: 'No se pudo avisar' };
@@ -323,7 +324,7 @@ export async function descartarSustitucion(sustitucionId: string): Promise<{ ok:
       body: JSON.stringify({ sustitucionId, action: 'descartar' }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return { ok: true };
   } catch {
     return { error: 'No se pudo descartar' };
@@ -379,7 +380,7 @@ export async function aprobarCobroAutonomo(params: {
     body: JSON.stringify(params),
   });
   const data = await res.json();
-  if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
   return { ok: true };
 }
 
@@ -418,7 +419,7 @@ export async function iniciarSuscripcion(plan: 'BASE' | 'ESTUDIO' | 'CADENA'): P
       body: JSON.stringify({ plan }),
     });
     const data = await res.json();
-    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return data as { url: string };
   } catch {
     return { error: 'No se pudo iniciar la suscripción' };
@@ -433,7 +434,7 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     });
     const data = await res.json();
-    if (!res.ok) return { error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return data as { url: string };
   } catch {
     return { error: 'No se pudo abrir el portal de facturación' };
@@ -468,7 +469,7 @@ export async function importarSocias(rows: FilaSocia[]): Promise<ResultadoImport
         importadas: data.importadas ?? 0,
         duplicadas: data.duplicadas ?? 0,
         errores: data.errores ?? [],
-        error: data.error ?? `Error HTTP ${res.status}`,
+        error: mensajeSeguro(data.error, mensajeHttp(res.status)),
       };
     }
     return data as ResultadoImport;
@@ -493,7 +494,7 @@ export async function importarMembresias(rows: FilaMembresia[]): Promise<Resulta
         importadas: data.importadas ?? 0,
         duplicadas: data.duplicadas ?? 0,
         errores: data.errores ?? [],
-        error: data.error ?? `Error HTTP ${res.status}`,
+        error: mensajeSeguro(data.error, mensajeHttp(res.status)),
       };
     }
     return data as ResultadoImport;
@@ -740,7 +741,7 @@ export async function pedirSubidaVideo(nombre: string): Promise<
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      return { ok: false, status: res.status, error: (j as { error?: string }).error ?? `Error ${res.status}` };
+      return { ok: false, status: res.status, error: mensajeSeguro((j as { error?: string }).error, mensajeHttp(res.status)) };
     }
     const j = (await res.json()) as { uid: string; uploadURL: string };
     return { ok: true, uid: j.uid, uploadURL: j.uploadURL };
@@ -914,7 +915,7 @@ export async function importarClases(
       body: JSON.stringify({ rows, semanas: opciones.semanas, desde: opciones.desde }),
     });
     const data = await res.json();
-    if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return data as ResultadoImportClases;
   } catch {
     return { ...vacio, error: 'No se pudo conectar con el servidor' };
@@ -944,7 +945,7 @@ export async function importarReservas(rows: FilaReserva[]): Promise<ResultadoIm
       body: JSON.stringify({ rows }),
     });
     const data = await res.json();
-    if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
+    if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return data as ResultadoImportReservas;
   } catch {
     return { ...vacio, error: 'No se pudo conectar con el servidor' };

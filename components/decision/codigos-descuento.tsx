@@ -18,8 +18,8 @@ import type { CodigoDescuento } from '@/lib/types';
 function estadoDe(c: CodigoDescuento, hoy: string): { texto: string; clase: string } {
   if (!c.activo) return { texto: 'Desactivado', clase: 'bg-muted text-muted-foreground' };
   if (c.expira && c.expira < hoy) return { texto: 'Caducado', clase: 'bg-muted text-muted-foreground' };
-  if (c.usosMax != null && c.usos >= c.usosMax) return { texto: 'Agotado', clase: 'bg-[#D1FAE5] text-[#065F46]' };
-  return { texto: 'Activo', clase: 'bg-[#FEF3C7] text-[#92400E]' };
+  if (c.usosMax != null && c.usos >= c.usosMax) return { texto: 'Agotado', clase: 'bg-success/10 text-success' };
+  return { texto: 'Activo', clase: 'bg-warning/10 text-warning' };
 }
 
 function fmtFecha(iso: string | null): string {

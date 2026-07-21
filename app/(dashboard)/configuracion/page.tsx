@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useState, useEffect, useId } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useSearchParams } from 'next/navigation';
@@ -23,6 +24,7 @@ import { TabRetos } from '@/components/configuracion/tab-retos';
 import { TabBackups } from '@/components/configuracion/tab-backups';
 import { TabServiciosCita } from '@/components/configuracion/tab-servicios-cita';
 import { TabHorarioCitas } from '@/components/configuracion/tab-horario-citas';
+import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -36,12 +38,49 @@ export const cardCls = 'bg-card border border-border rounded-xl';
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
 
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  description,
+  hint,
+  children,
+}: {
+  label: string;
+  /**
+   * Qué es esto y cómo decidir. Va debajo de la etiqueta y encima del control:
+   * se lee ANTES de elegir, no después de haberse equivocado.
+   *
+   * Existe porque antes este helper solo aceptaba { label, children }, así que
+   * no había ni dónde escribir la explicación — y por eso las pestañas de
+   * conceptos propios del producto (planes, logros, niveles, retos) acababan
+   * pidiendo decisiones sin contar en ningún sitio qué significaban.
+   */
+  description?: React.ReactNode;
+  /** <InfoTip> junto a la etiqueta, para el detalle largo que no cabe aquí. */
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  // La asociación label↔control (htmlFor/id) la resuelve useCampoAsociado
+  // (WCAG 1.3.1/4.1.2, aplicado con el mismo barrido en toda la app). Aquí
+  // solo se añade encima el hueco de descripción que useCampoAsociado no trae.
   const { htmlFor, control } = useCampoAsociado(children);
+  const descAutoId = React.useId();
+  const idDesc = description ? `${descAutoId}-desc` : undefined;
+  const controlDescrito = idDesc && React.isValidElement(control)
+    ? React.cloneElement(control as React.ReactElement<{ 'aria-describedby'?: string }>, { 'aria-describedby': idDesc })
+    : control;
+
   return (
     <div>
-      <label htmlFor={htmlFor} className={labelCls}>{label}</label>
-      {control}
+      <label htmlFor={htmlFor} className={cn(labelCls, 'flex items-center gap-1.5')}>
+        {label}
+        {hint}
+      </label>
+      {description && (
+        <p id={idDesc} className="text-xs leading-relaxed text-muted-foreground mb-1.5 text-balance">
+          {description}
+        </p>
+      )}
+      {controlDescrito}
     </div>
   );
 }
@@ -120,8 +159,8 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <div className="flex flex-col items-center text-center gap-4 py-2">
-          <div className="w-12 h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center">
-            <AlertTriangle size={20} className="text-[#DC2626]" />
+          <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
+            <AlertTriangle size={20} className="text-destructive" />
           </div>
           <div>
             <h3 className="text-[14px] font-semibold text-foreground mb-1">{title}</h3>
@@ -135,7 +174,7 @@ export function ConfirmDialog({
               Cancelar
             </button>
             <button
-              className="flex-1 bg-[#DC2626] text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-red-700 transition-colors"
+              className="flex-1 bg-destructive text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-red-700 transition-colors"
               onClick={() => { onConfirm(); onOpenChange(false); }}
             >
               Eliminar
@@ -198,7 +237,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'retos',       label: 'Retos' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
-  { id: 'campos',      label: 'Campos de socia' },
+  { id: 'campos',      label: 'Campos de clienta' },
   { id: 'plantillas',  label: 'Emails' },
   { id: 'backups',     label: 'Copias de seguridad' },
   { id: 'perfil',      label: 'Mi perfil' },
@@ -223,13 +262,10 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-[22px] font-bold text-foreground">Configuración</h1>
-        <p className="text-[13px] text-muted-foreground mt-0.5">
-          Gestiona los planes, clases, salas, instructores e integraciones de tu estudio
-        </p>
-      </div>
+      <PageHeader
+        title="Configuración"
+        description="Gestiona los planes, clases, salas, instructores e integraciones de tu estudio"
+      />
 
       {/* Tab nav */}
       <div className="flex gap-1 p-1 bg-card border border-border rounded-xl overflow-x-auto">

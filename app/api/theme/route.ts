@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getThemePublicado, getThemeBorrador, guardarBorradorTheme } from '@/lib/theme-data';
 import { themeDraftSchema } from '@/lib/theme-schema';
 
@@ -32,6 +33,7 @@ export async function PUT(req: NextRequest) {
     const borrador = await guardarBorradorTheme(sesion.studioId, parsed.data);
     return NextResponse.json(borrador);
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorInterno('theme:guardar', e,
+      'No se han podido guardar los cambios de marca. Vuelve a intentarlo.');
   }
 }

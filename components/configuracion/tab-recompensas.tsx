@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useId } from 'react';
+import { useState } from 'react';
 import { Coins, Gift, Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { REWARD_TRIGGERS } from '@/lib/engines/reward-engine';
 import type { RewardCatalogItem } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 // Valores de partida sugeridos — un punto de arranque, no un límite: el
 // estudio los edita libremente en cuanto carga esta pantalla.
@@ -25,7 +25,6 @@ const emptyCatalogForm = (): Omit<RewardCatalogItem, 'id' | 'studioId' | 'creado
 });
 
 export function TabRecompensas({ showToast }: { showToast: (m: string) => void }) {
-  const uid = useId();
   const {
     rewardRules, addRewardRule, updateRewardRule,
     rewardCatalog, addRewardCatalogItem, updateRewardCatalogItem, deleteRewardCatalogItem,
@@ -91,7 +90,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
           <h3 className="text-[14px] font-semibold text-foreground">Créditos por acción</h3>
         </div>
         <p className="text-[12px] text-muted-foreground mb-3">
-          Cuántos créditos gana una socia por cada acción. Cambia cualquier valor o desactívalo — nunca están fijos en el código.
+          Cuántos créditos gana una clienta por cada acción. Cambia cualquier valor o desactívalo — nunca están fijos en el código.
         </p>
         <div className={cn(cardCls, 'divide-y divide-[#F1F1F4]')}>
           {REWARD_TRIGGERS.map(def => {
@@ -156,7 +155,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             <Plus size={14} /> Nueva recompensa
           </button>
         </div>
-        <p className="text-[12px] text-muted-foreground mb-3">Lo que las socias pueden canjear con sus créditos.</p>
+        <p className="text-[12px] text-muted-foreground mb-3">Lo que las clientas pueden canjear con sus créditos.</p>
 
         {rewardCatalog.length === 0 ? (
           <div className={cn(cardCls, 'p-8 text-center')}>
@@ -175,10 +174,10 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                   {!item.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactiva</span>}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button onClick={() => openEditar(item)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
+                  <button onClick={() => openEditar(item)} aria-label="Editar recompensa" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
                     <Pencil size={13} />
                   </button>
-                  <button onClick={() => setConfirmDel(item)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500">
+                  <button onClick={() => setConfirmDel(item)} aria-label="Eliminar recompensa" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -197,30 +196,45 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
           <div className="space-y-4">
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
-                <label htmlFor={`${uid}-1`} className={labelCls}>Icono</label>
-                <input id={`${uid}-1`} className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                <Field label="Icono"
+                  description="Un emoji. Es lo que verá la clienta en el catálogo de recompensas."
+                >
+                  <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                </Field>
               </div>
               <div>
-                <label htmlFor={`${uid}-2`} className={labelCls}>Nombre</label>
-                <input id={`${uid}-2`} className={inputCls} value={form.nombre} placeholder="Ej. Clase gratis" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                <Field label="Nombre"
+                  description="Qué se lleva al canjearla. Ej: «Clase invitada» o «Botella de agua»."
+                >
+                  <input className={inputCls} value={form.nombre} placeholder="Ej. Clase gratis" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                </Field>
               </div>
             </div>
             <div>
-              <label htmlFor={`${uid}-3`} className={labelCls}>Descripción</label>
-              <input id={`${uid}-3`} className={inputCls} value={form.descripcion ?? ''} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              <Field label="Descripción"
+                description="Condiciones o detalles. Aparece bajo el nombre en el catálogo."
+              >
+                <input className={inputCls} value={form.descripcion ?? ''} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor={`${uid}-4`} className={labelCls}>Coste en créditos</label>
-                <input id={`${uid}-4`} type="number" min={1} className={inputCls} value={form.costeCreditos} onChange={e => setForm(f => ({ ...f, costeCreditos: Math.max(1, parseInt(e.target.value, 10) || 1) }))} />
+                <Field label="Coste en créditos"
+                  description="Cuántos créditos le cuesta canjearla. Se le descuentan al confirmar."
+                >
+                  <input type="number" min={1} className={inputCls} value={form.costeCreditos} onChange={e => setForm(f => ({ ...f, costeCreditos: Math.max(1, parseInt(e.target.value, 10) || 1) }))} />
+                </Field>
               </div>
               <div>
-                <label htmlFor={`${uid}-5`} className={labelCls}>Stock (vacío = ilimitado)</label>
-                <input id={`${uid}-5`}
-                  type="number" min={0} className={inputCls}
-                  value={form.stock ?? ''}
-                  onChange={e => setForm(f => ({ ...f, stock: e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10) || 0) }))}
-                />
+                <Field label="Stock (vacío = ilimitado)"
+                  description="Cuántas quedan por canjear. Al llegar a cero deja de ofrecerse."
+                >
+                  <input
+                    type="number" min={0} className={inputCls}
+                    value={form.stock ?? ''}
+                    onChange={e => setForm(f => ({ ...f, stock: e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                  />
+                </Field>
               </div>
             </div>
             <div className="flex items-center justify-between pt-1">
@@ -246,7 +260,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             <DialogTitle>Eliminar recompensa</DialogTitle>
           </DialogHeader>
           <p className="text-[13px] text-muted-foreground">
-            ¿Eliminar <strong className="text-foreground">{confirmDel?.nombre}</strong> del catálogo? Las socias ya no podrán canjearla.
+            ¿Eliminar <strong className="text-foreground">{confirmDel?.nombre}</strong> del catálogo? Las clientas ya no podrán canjearla.
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <button onClick={() => setConfirmDel(null)} className={btnSecondary}>Cancelar</button>

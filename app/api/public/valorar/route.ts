@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarTokenValoracion } from '@/lib/valoraciones/token';
@@ -50,10 +51,12 @@ export async function POST(req: NextRequest) {
       const { error: errUpd } = await admin.from('valoraciones')
         .update({ puntuacion, comentario, instructor_id: ses.instructor_id })
         .eq('socio_id', claim.socioId).eq('sesion_id', claim.sesionId);
-      if (errUpd) return NextResponse.json({ error: errUpd.message }, { status: 500 });
+      if (errUpd) return errorInterno('public:valorar:actualizar', errUpd,
+        'No se ha podido guardar tu valoración. Inténtalo de nuevo en unos segundos.');
       return NextResponse.json({ ok: true, actualizada: true });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return errorInterno('public:valorar', error,
+      'No se ha podido guardar tu valoración. Inténtalo de nuevo en unos segundos.');
   }
 
   return NextResponse.json({ ok: true });

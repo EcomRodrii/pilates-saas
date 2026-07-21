@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { TrendingUp, Users, CreditCard, Activity, Download, FileText } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -317,7 +318,7 @@ export default function Informes() {
     setCsvState('loading');
     const cobrados = recibos.filter(r => r.estado === 'COBRADO' && r.fechaCobro && new Date(r.fechaCobro) >= periodStart);
     const rows = [
-      ['Fecha', 'Socia', 'Concepto', 'Importe (€)', 'Estado'],
+      ['Fecha', 'Clienta', 'Concepto', 'Importe (€)', 'Estado'],
       ...cobrados.map(r => {
         const socia = socios.find(s => s.id === r.socioId);
         const nombre = socia ? `${socia.nombre} ${socia.apellidos}` : r.socioId;
@@ -368,11 +369,11 @@ export default function Informes() {
   function barColor(i: number, value: number): string {
     if (value === 0) return 'var(--border)';
     const prev = revenueChart[i - 1]?.value ?? 0;
-    if (i === 0 || prev === 0) return '#059669';
+    if (i === 0 || prev === 0) return 'var(--success)';
     const delta = value - prev;
-    if (delta > 0) return '#059669';
-    if (Math.abs(delta) / prev < 0.05) return '#F59E0B';
-    return '#EF4444';
+    if (delta > 0) return 'var(--success)';
+    if (Math.abs(delta) / prev < 0.05) return 'var(--warning)';
+    return 'var(--destructive)';
   }
 
   if (!mounted) {
@@ -398,39 +399,33 @@ export default function Informes() {
   return (
     <div className="space-y-6" style={{ backgroundColor: 'var(--background)', minHeight: '100%', padding: '0 0 40px' }}>
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--foreground)' }}>
-            Informes y analítica
-          </h1>
-          <p className="text-sm mt-0.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>
-            Panel de rendimiento del estudio · {now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
-
-        {/* Period selector */}
-        <div
-          className="flex items-center gap-1 p-1 rounded-xl overflow-x-auto flex-nowrap"
-          style={{ backgroundColor: 'var(--border)' }}
-          role="group"
-          aria-label="Seleccionar periodo"
-        >
-          {PERIOD_OPTS.map(opt => (
-            <button
-              key={opt.key}
-              onClick={() => setPeriod(opt.key)}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
-              style={period === opt.key
-                ? { backgroundColor: 'var(--foreground)', color: 'var(--background)', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }
-                : { color: 'var(--muted-foreground)', backgroundColor: 'transparent' }
-              }
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        className="pt-2"
+        title="Informes y analítica"
+        description={`Panel de rendimiento del estudio · ${now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`}
+        actions={
+          <div
+            className="flex items-center gap-1 p-1 rounded-xl overflow-x-auto flex-nowrap"
+            style={{ backgroundColor: 'var(--border)' }}
+            role="group"
+            aria-label="Seleccionar periodo"
+          >
+            {PERIOD_OPTS.map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setPeriod(opt.key)}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+                style={period === opt.key
+                  ? { backgroundColor: 'var(--foreground)', color: 'var(--background)', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }
+                  : { color: 'var(--muted-foreground)', backgroundColor: 'transparent' }
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {/* ── Section 1: KPI cards ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -438,9 +433,9 @@ export default function Informes() {
         <div className="bg-card border border-border rounded-xl p-5">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-            style={{ backgroundColor: '#D1FAE5' }}
+            style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))' }}
           >
-            <TrendingUp size={17} style={{ color: '#059669' }} />
+            <TrendingUp size={17} style={{ color: 'var(--success)' }} />
           </div>
           <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos período</p>
           <p className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
@@ -467,9 +462,9 @@ export default function Informes() {
         <div className="bg-card border border-border rounded-xl p-5">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-            style={{ backgroundColor: '#FEF3C7' }}
+            style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))' }}
           >
-            <Activity size={17} style={{ color: '#D97706' }} />
+            <Activity size={17} style={{ color: 'var(--warning)' }} />
           </div>
           <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ticket medio / cliente</p>
           <p className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
@@ -482,14 +477,14 @@ export default function Informes() {
         <div className="bg-card border border-border rounded-xl p-5">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-            style={{ backgroundColor: tasaRetencion >= 80 ? '#D1FAE5' : tasaRetencion >= 60 ? '#FEF3C7' : '#FEE2E2' }}
+            style={{ backgroundColor: tasaRetencion >= 80 ? 'color-mix(in srgb, var(--success) 12%, var(--card))' : tasaRetencion >= 60 ? 'color-mix(in srgb, var(--warning) 12%, var(--card))' : 'color-mix(in srgb, var(--destructive) 12%, var(--card))' }}
           >
-            <Users size={17} style={{ color: tasaRetencion >= 80 ? '#059669' : tasaRetencion >= 60 ? '#D97706' : '#DC2626' }} />
+            <Users size={17} style={{ color: tasaRetencion >= 80 ? 'var(--success)' : tasaRetencion >= 60 ? 'var(--warning)' : 'var(--destructive)' }} />
           </div>
           <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Tasa retención</p>
           <p
             className="text-2xl font-extrabold leading-none"
-            style={{ color: tasaRetencion >= 80 ? '#059669' : tasaRetencion >= 60 ? '#D97706' : '#DC2626' }}
+            style={{ color: tasaRetencion >= 80 ? 'var(--success)' : tasaRetencion >= 60 ? 'var(--warning)' : 'var(--destructive)' }}
           >
             {tasaRetencion}%
           </p>
@@ -515,15 +510,15 @@ export default function Informes() {
         {/* Legend */}
         <div className="flex items-center gap-4 mb-5 mt-3">
           <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#059669' }} />
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--success)' }} />
             <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>Creciendo</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#F59E0B' }} />
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--warning)' }} />
             <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>Estable</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#EF4444' }} />
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--destructive)' }} />
             <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>Decreciendo</span>
           </div>
         </div>
@@ -641,7 +636,7 @@ export default function Informes() {
                         y={y - 28}
                         textAnchor="middle"
                         fontSize="10"
-                        fill="#fff"
+                        fill="var(--background)"
                         fontWeight="600"
                       >
                         {d.label}
@@ -651,7 +646,7 @@ export default function Informes() {
                         y={y - 16}
                         textAnchor="middle"
                         fontSize="10"
-                        fill="#D1FAE5"
+                        fill="color-mix(in srgb, var(--success) 12%, var(--card))"
                         fontWeight="700"
                       >
                         {fmtEurFull(d.value)}
@@ -696,7 +691,7 @@ export default function Informes() {
                       <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{tc.ocupadas}/{tc.aforo}</span>
                       <span
                         className="text-sm font-bold tabular-nums"
-                        style={{ color: tc.pct >= 80 ? '#059669' : tc.pct >= 50 ? '#D97706' : 'var(--muted-foreground)' }}
+                        style={{ color: tc.pct >= 80 ? 'var(--success)' : tc.pct >= 50 ? 'var(--warning)' : 'var(--muted-foreground)' }}
                       >
                         {tc.pct}%
                       </span>
@@ -760,8 +755,8 @@ export default function Informes() {
                         <span
                           className="inline-block px-1.5 py-0.5 rounded font-bold tabular-nums"
                           style={{
-                            backgroundColor: row.pct30 >= 70 ? '#D1FAE5' : row.pct30 >= 40 ? '#FEF3C7' : '#FEE2E2',
-                            color: row.pct30 >= 70 ? '#065F46' : row.pct30 >= 40 ? '#92400E' : '#991B1B',
+                            backgroundColor: row.pct30 >= 70 ? 'color-mix(in srgb, var(--success) 12%, var(--card))' : row.pct30 >= 40 ? 'color-mix(in srgb, var(--warning) 12%, var(--card))' : 'color-mix(in srgb, var(--destructive) 12%, var(--card))',
+                            color: row.pct30 >= 70 ? 'var(--success)' : row.pct30 >= 40 ? 'var(--warning)' : '#991B1B',
                           }}
                         >
                           {row.total > 0 ? `${row.pct30}%` : '—'}
@@ -799,8 +794,7 @@ export default function Informes() {
 
                     {/* Avatar */}
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: '#EDE9FE', color: '#7C3AED' }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 bg-accent text-accent-foreground"
                     >
                       {s.nombre[0]}{s.apellidos?.[0] ?? ''}
                     </div>
@@ -893,7 +887,7 @@ export default function Informes() {
               disabled={csvState !== 'idle'}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
               style={csvState === 'done'
-                ? { backgroundColor: '#D1FAE5', color: '#065F46', borderColor: '#A7F3D0' }
+                ? { backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)', borderColor: '#A7F3D0' }
                 : { backgroundColor: 'var(--card)', color: 'var(--foreground)', borderColor: 'var(--border)' }
               }
             >
@@ -909,7 +903,7 @@ export default function Informes() {
               disabled={pdfState !== 'idle'}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
               style={pdfState === 'done'
-                ? { backgroundColor: '#D1FAE5', color: '#065F46', borderColor: '#A7F3D0' }
+                ? { backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)', borderColor: '#A7F3D0' }
                 : { backgroundColor: 'var(--foreground)', color: 'var(--background)', borderColor: 'var(--foreground)' }
               }
             >

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // GET /api/equipo/stats — métricas por instructora para el rediseño de Equipo:
 // valoración media de alumnas (0044) + % de asistencia real (0045). Un solo
@@ -16,8 +17,10 @@ export async function GET(req: NextRequest) {
     admin.rpc('valoraciones_resumen_estudio', { p_studio_id: sesion.studioId }),
     admin.rpc('instructor_asistencia_estudio', { p_studio_id: sesion.studioId }),
   ]);
-  if (val.error) return NextResponse.json({ error: val.error.message }, { status: 500 });
-  if (asis.error) return NextResponse.json({ error: asis.error.message }, { status: 500 });
+  if (val.error) return errorInterno('equipo:stats:valoraciones', val.error,
+    'No se han podido cargar las estadísticas del equipo. Recarga la página.');
+  if (asis.error) return errorInterno('equipo:stats:asistencia', asis.error,
+    'No se han podido cargar las estadísticas del equipo. Recarga la página.');
 
   const valoracion: Record<string, { media: number; total: number }> = {};
   for (const r of (val.data ?? []) as { instructor_id: string; media: number | string; total: number | string }[]) {

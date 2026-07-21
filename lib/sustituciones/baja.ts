@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { uid } from '@/lib/utils';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { contactarDesde, alertarPropietaria, type RankingItem } from '@/lib/sustituciones/contacto';
+import { mensajeSeguro } from '@/lib/errores';
 
 // ── Núcleo de "marcar una baja" ─────────────────────────────────────────────
 //
@@ -83,7 +84,11 @@ export async function crearBaja(
 
   // Scoring: top-3 de candidatas con motivos en lenguaje humano (función 0038).
   const { data: ranking, error: errRank } = await admin.rpc('rankear_candidatas', { p_sesion_id: sesionId });
-  if (errRank) return { ok: false, error: errRank.message, status: 500 };
+  if (errRank) {
+    console.error('[crearBaja:rankear]', errRank.message);
+    return { ok: false, error: mensajeSeguro(errRank.message,
+      'No se han podido calcular las candidatas para cubrir esta clase. Inténtalo de nuevo en unos segundos.'), status: 500 };
+  }
 
   // asistido → espera el visto bueno de la propietaria; autonomo/vacaciones →
   // arranca en 'contactando' y más abajo se avisa sola a la 1ª candidata.
@@ -113,7 +118,9 @@ export async function crearBaja(
         .eq('sesion_id', sesionId).not('estado', 'in', ESTADOS_INACTIVOS).maybeSingle();
       if (activa) return { ok: true, sustitucion: activa, yaExistia: true };
     }
-    return { ok: false, error: errIns.message, status: 500 };
+    console.error('[crearBaja:insertar]', errIns.message);
+    return { ok: false, error: mensajeSeguro(errIns.message,
+      'No se ha podido registrar la baja. Inténtalo de nuevo en unos segundos.'), status: 500 };
   }
 
   const sesionMin = { inicio: clase.inicio as string, tipo_clase_id: clase.tipo_clase_id as string | null };

@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Upload, FileSpreadsheet, Download, Check, AlertTriangle,
-  ArrowLeft, ArrowRight, CalendarDays, PartyPopper, Info, Repeat, Users,
+  ArrowRight, CalendarDays, PartyPopper, Info, Repeat, Users,
 } from 'lucide-react';
 import {
   parseCsv, autoMapearClase, validarFilasClase, serializeCsv, CAMPOS_CLASE,
   type CampoClase, type ParsedCsv,
 } from '@/lib/csv';
 import { importarClases, type ResultadoImportClases } from '@/lib/api-client';
+import { PageHeader } from '@/components/ui/page-header';
 
 // Asistente de importación del HORARIO — tercera pieza de la migración asistida
 // (tras socias y membresías). Acepta las dos formas en que las plataformas
@@ -109,18 +110,11 @@ export default function ImportarHorarioPage() {
 
   return (
     <div className="flex flex-col gap-6 pb-10 max-w-4xl">
-      {/* Cabecera */}
-      <div className="flex items-center gap-3">
-        <Link href="/calendario" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <h1 className="text-[22px] font-bold text-foreground">Importar horario</h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">
-            Trae tus clases y tu horario desde tu programa anterior.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        back={{ href: '/calendario', label: 'Volver a la agenda' }}
+        title="Importar horario"
+        description="Trae tus clases y tu horario desde tu programa anterior."
+      />
 
       {/* Pasos */}
       <div className="flex items-center gap-2">
@@ -253,11 +247,11 @@ export default function ImportarHorarioPage() {
 
           {/* Resumen */}
           <div className="flex flex-wrap gap-3">
-            <span className="rounded-xl bg-[#D1FAE5] px-3 py-1.5 text-[12.5px] font-semibold text-[#065F46]">
+            <span className="rounded-xl bg-success/10 px-3 py-1.5 text-[12.5px] font-semibold text-success">
               {conteo.ok} filas correctas
             </span>
             {conteo.err > 0 && (
-              <span className="rounded-xl bg-[#FEE2E2] px-3 py-1.5 text-[12.5px] font-semibold text-[#991B1B]">
+              <span className="rounded-xl bg-destructive/10 px-3 py-1.5 text-[12.5px] font-semibold text-[#991B1B]">
                 {conteo.err} con problemas (se omiten)
               </span>
             )}
@@ -305,8 +299,8 @@ export default function ImportarHorarioPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card py-10 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#D1FAE5]">
-                <PartyPopper size={26} className="text-[#059669]" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10">
+                <PartyPopper size={26} className="text-success" />
               </div>
               <p className="text-[18px] font-bold text-foreground">Horario importado</p>
               <p className="text-[13px] text-muted-foreground">

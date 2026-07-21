@@ -107,11 +107,11 @@ export default function CrearEstudioPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-[#E8EAED] overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-lg border border-border overflow-hidden">
           {step === 1 && (
             <form onSubmit={handleStudioSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-[#FFF2F7] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
                   <Building2 size={20} className="text-[#B57A8E]" />
                 </div>
                 <div>
@@ -179,7 +179,7 @@ export default function CrearEstudioPage() {
           {step === 2 && (
             <form onSubmit={handleOwnerSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-[#FFF2F7] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
                   <User size={20} className="text-[#B57A8E]" />
                 </div>
                 <div>
@@ -252,7 +252,7 @@ export default function CrearEstudioPage() {
           {needsConfirmEmail && (
             <div className="p-6 space-y-4 text-center">
               <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#FFF2F7] flex items-center justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center">
                   <Mail size={32} className="text-[#B57A8E]" />
                 </div>
               </div>
@@ -275,7 +275,7 @@ export default function CrearEstudioPage() {
           {step === 3 && !needsConfirmEmail && (
             <div className="p-6 space-y-5 text-center">
               <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#FFF2F7] flex items-center justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center">
                   <CheckCircle2 size={32} className="text-[#B57A8E]" />
                 </div>
               </div>

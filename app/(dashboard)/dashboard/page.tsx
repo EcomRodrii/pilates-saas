@@ -21,7 +21,8 @@ import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 import { fetchLayout } from '@/lib/api-client';
 import { aplicarLayout, DEFAULT_LAYOUT } from '@/lib/layout-runtime';
 import type { LayoutConfig } from '@/lib/layout-schema';
-import { HOME_SECCIONES } from '@/lib/home-sections';
+import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
+import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -56,27 +57,27 @@ function limpiarActividad(texto: string): string {
 }
 
 const actividadConfig: Record<TipoActividad, { color: string; bg: string; label: string }> = {
-  NUEVA_SOCIA:        { color: '#059669', bg: '#ECFDF5', label: 'Alta' },
-  NUEVA_RESERVA:      { color: '#7AA80E', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', label: 'Reserva' },
-  CANCELACION:        { color: '#DC2626', bg: '#FEF2F2', label: 'Cancelación' },
-  PAGO_COBRADO:       { color: '#059669', bg: '#ECFDF5', label: 'Cobro' },
-  PAGO_PENDIENTE:     { color: '#D97706', bg: '#FFFBEB', label: 'Pendiente' },
+  NUEVA_SOCIA:        { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Alta' },
+  NUEVA_RESERVA:      { color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', label: 'Reserva' },
+  CANCELACION:        { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Cancelación' },
+  PAGO_COBRADO:       { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Cobro' },
+  PAGO_PENDIENTE:     { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Pendiente' },
   NUEVA_SUSCRIPCION:  { color: '#7C3AED', bg: '#EDE9FE', label: 'Plan' },
-  SUSCRIPCION_PAUSADA:{ color: '#D97706', bg: '#FFFBEB', label: 'Pausa' },
+  SUSCRIPCION_PAUSADA:{ color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Pausa' },
   CITA_CREADA:        { color: '#0891B2', bg: '#ECFEFF', label: 'Cita' },
-  CITA_COMPLETADA:    { color: '#059669', bg: '#ECFDF5', label: 'Cita ✓' },
-  VENTA_POS:          { color: '#059669', bg: '#ECFDF5', label: 'Venta' },
+  CITA_COMPLETADA:    { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Cita ✓' },
+  VENTA_POS:          { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Venta' },
   MENSAJE_ENVIADO:    { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Email' },
   SOCIA_EDITADA:      { color: '#0891B2', bg: '#ECFEFF', label: 'Edición' },
-  SOCIA_ELIMINADA:    { color: '#DC2626', bg: '#FEF2F2', label: 'Baja' },
+  SOCIA_ELIMINADA:    { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Baja' },
   PLAN_CREADO:        { color: '#7C3AED', bg: '#EDE9FE', label: 'Plan nuevo' },
   PLAN_EDITADO:       { color: '#7C3AED', bg: '#EDE9FE', label: 'Plan editado' },
-  PLAN_ELIMINADO:     { color: '#DC2626', bg: '#FEF2F2', label: 'Plan borrado' },
+  PLAN_ELIMINADO:     { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Plan borrado' },
   PLAN_ASIGNADO:      { color: '#7C3AED', bg: '#EDE9FE', label: 'Plan asignado' },
-  COBRO_MANUAL:       { color: '#059669', bg: '#ECFDF5', label: 'Cobro manual' },
-  EQUIPO_ALTA:        { color: '#059669', bg: '#ECFDF5', label: 'Alta equipo' },
+  COBRO_MANUAL:       { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Cobro manual' },
+  EQUIPO_ALTA:        { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Alta equipo' },
   EQUIPO_EDITADO:     { color: '#0891B2', bg: '#ECFEFF', label: 'Equipo editado' },
-  EQUIPO_BAJA:        { color: '#DC2626', bg: '#FEF2F2', label: 'Baja equipo' },
+  EQUIPO_BAJA:        { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Baja equipo' },
   AUTOMATIZACION_CAMBIO: { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Automatización' },
   DECISION_GESTIONADA: { color: '#7C3AED', bg: '#EDE9FE', label: 'Centro de Control' },
   SESION_REASIGNADA:  { color: '#0891B2', bg: '#ECFEFF', label: 'Sustitución' },
@@ -177,7 +178,7 @@ function RevenueSparkline({
 // ─── Ocupación week bar ───────────────────────────────────────────────────────
 
 function OcupacionBar({ pct }: { pct: number }) {
-  const color = pct >= 85 ? '#DC2626' : pct >= 60 ? '#D97706' : '#059669';
+  const color = pct >= 85 ? 'var(--destructive)' : pct >= 60 ? 'var(--warning)' : 'var(--success)';
   return (
     <div className="flex items-center gap-2 flex-1">
       <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
@@ -255,7 +256,7 @@ function ClaseHoyCard({
     sesion.aforoMaximo > 0
       ? Math.round((ocupadas / sesion.aforoMaximo) * 100)
       : 0;
-  const fillColor = pct >= 100 ? '#DC2626' : pct >= 75 ? '#D97706' : '#059669';
+  const fillColor = pct >= 100 ? 'var(--destructive)' : pct >= 75 ? 'var(--warning)' : 'var(--success)';
 
   return (
     <div
@@ -269,7 +270,7 @@ function ClaseHoyCard({
         className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted transition-colors"
       >
         {isNow && (
-          <span className="shrink-0 w-2 h-2 rounded-full bg-[#059669] animate-pulse" />
+          <span className="shrink-0 w-2 h-2 rounded-full bg-success animate-pulse" />
         )}
         <div
           className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -279,7 +280,7 @@ function ClaseHoyCard({
           <div className="flex items-center gap-2">
             <p className="text-[13px] font-semibold text-foreground truncate">{sesion.tipoNombre}</p>
             {isNow && (
-              <span className="text-[10px] font-bold text-[#059669] bg-[#ECFDF5] px-1.5 py-0.5 rounded-full shrink-0">
+              <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full shrink-0">
                 AHORA
               </span>
             )}
@@ -291,7 +292,7 @@ function ClaseHoyCard({
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {asistidas > 0 && (
-            <span className="text-[11px] font-bold text-[#059669]">{asistidas}✓</span>
+            <span className="text-[11px] font-bold text-success">{asistidas}✓</span>
           )}
           <span className="text-[12px] font-semibold text-foreground">
             {reservasSesion.length}/{sesion.aforoMaximo}
@@ -324,7 +325,7 @@ function ClaseHoyCard({
                       className={cn(
                         'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
                         asistida
-                          ? 'bg-[#ECFDF5] text-[#059669]'
+                          ? 'bg-success/10 text-success'
                           : 'bg-muted text-foreground'
                       )}
                     >
@@ -332,7 +333,7 @@ function ClaseHoyCard({
                       {r.socio!.apellidos[0]}
                     </div>
                     <Link
-                      href={`/socios/${r.socioId}`}
+                      href={`/clientas/${r.socioId}`}
                       className="flex-1 min-w-0 hover:underline"
                     >
                       <p className="text-[12px] font-medium text-foreground truncate">
@@ -340,7 +341,7 @@ function ClaseHoyCard({
                       </p>
                     </Link>
                     {asistida ? (
-                      <span className="text-[10px] font-bold text-[#059669] flex items-center gap-1 shrink-0">
+                      <span className="text-[10px] font-bold text-success flex items-center gap-1 shrink-0">
                         <CheckCircle2 size={12} /> Asistió
                       </span>
                     ) : (
@@ -353,7 +354,7 @@ function ClaseHoyCard({
                         </button>
                         <button
                           onClick={() => cancelarReserva(r.id)}
-                          className="text-[10px] font-medium px-2 py-1 rounded-lg text-muted-foreground hover:bg-[#FEF2F2] hover:text-[#DC2626] transition-colors"
+                          className="text-[10px] font-medium px-2 py-1 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                         >
                           ✕
                         </button>
@@ -367,7 +368,7 @@ function ClaseHoyCard({
           <div className="px-4 py-2.5 border-t border-muted">
             <Link
               href="/calendario"
-              className="text-[11px] font-medium text-[#7AA80E] hover:underline"
+              className="text-[11px] font-medium text-brand hover:underline"
             >
               Gestionar clase →
             </Link>
@@ -409,7 +410,7 @@ export default function Dashboard() {
     window.addEventListener('tentare-layout-changed', onCambio);
     return () => { vivo = false; window.removeEventListener('tentare-layout-changed', onCambio); };
   }, []);
-  const homeVisibles = aplicarLayout(HOME_SECCIONES.map((s) => s.id), layout.home);
+  const homeVisibles = ordenarSeccionesHome(aplicarLayout(HOME_SECCIONES.map((s) => s.id), layout.home));
   const ordenSeccion = (id: string) => {
     const i = homeVisibles.indexOf(id);
     return i === -1 ? undefined : i; // undefined → oculta
@@ -622,9 +623,9 @@ export default function Dashboard() {
   const TrendIcon =
     pctChange > 0 ? TrendingUp : pctChange < 0 ? TrendingDown : Minus;
   const trendColor =
-    pctChange > 0 ? '#059669' : pctChange < 0 ? '#DC2626' : 'var(--muted-foreground)';
+    pctChange > 0 ? 'var(--success)' : pctChange < 0 ? 'var(--destructive)' : 'var(--muted-foreground)';
   const trendBg =
-    pctChange > 0 ? '#ECFDF5' : pctChange < 0 ? '#FEF2F2' : 'var(--muted)';
+    pctChange > 0 ? 'color-mix(in srgb, var(--success) 12%, var(--card))' : pctChange < 0 ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : 'var(--muted)';
 
   if (!mounted) return null;
 
@@ -634,22 +635,23 @@ export default function Dashboard() {
       <div className="flex flex-col gap-5">
 
         {/* ── Header (fijo arriba, no reordenable) ───────────────────────────── */}
-        <div className="flex items-start justify-between gap-3 flex-wrap" style={{ order: -1 }}>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground capitalize">{mesFecha}</p>
-            <h1 className="text-[26px] font-semibold text-foreground mt-0.5 tracking-tight">
-              {saludo} 👋
-            </h1>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link href="/socios?nuevo=1" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
-              <UserPlus /> Nuevo cliente
-            </Link>
-            <Link href="/pos" className={cn(buttonVariants({ size: 'lg' }))}>
-              <ShoppingCart /> Abrir caja
-            </Link>
-          </div>
-        </div>
+        {/* El mes pasa de antetítulo a descripción: es el mismo dato, pero en
+            la ranura que ocupa en todas las demás pantallas. */}
+        <PageHeader
+          style={{ order: -1 }}
+          title={`${saludo} 👋`}
+          description={<span className="capitalize">{mesFecha}</span>}
+          actions={
+            <>
+              <Link href="/clientas?nuevo=1" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
+                <UserPlus /> Nuevo cliente
+              </Link>
+              <Link href="/pos" className={cn(buttonVariants({ size: 'lg' }))}>
+                <ShoppingCart /> Abrir caja
+              </Link>
+            </>
+          }
+        />
 
         {/* ── Hoy de un vistazo (10 segundos) ─────────────────────────────────── */}
         <div {...wrap('resumen')}>
@@ -657,9 +659,9 @@ export default function Dashboard() {
           {[
             { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Alumnos hoy', alert: false },
             { href: '/informes', Icon: Activity, value: `${ocupacionMedia}%`, label: 'Ocupación semana', alert: ocupacionMedia >= 85 },
-            { href: '/transacciones', Icon: CreditCard, value: pendientesTotal, label: 'Pagos pendientes', alert: pendientesTotal > 0 },
-            { href: '/socios', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0 },
-            { href: '/socios', Icon: Clock, value: resumenHoy.inactivas30d, label: '30d sin venir', alert: resumenHoy.inactivas30d > 0 },
+            { href: '/cobros', Icon: CreditCard, value: pendientesTotal, label: 'Pagos pendientes', alert: pendientesTotal > 0 },
+            { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0 },
+            { href: '/clientas', Icon: Clock, value: resumenHoy.inactivas30d, label: '30d sin venir', alert: resumenHoy.inactivas30d > 0 },
             { href: '/informes', Icon: TrendingUp, value: `${ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €`, label: 'Ingresos del mes', alert: false },
           ].map(({ href, Icon, value, label, alert }) => (
             <Link
@@ -667,12 +669,12 @@ export default function Dashboard() {
               href={href}
               className="rounded-xl border p-3.5 transition-colors hover:bg-muted"
               style={{
-                backgroundColor: alert ? 'color-mix(in srgb, #DC2626 12%, var(--card))' : 'var(--card)',
-                borderColor: alert ? '#FCA5A5' : 'var(--border)',
+                backgroundColor: alert ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : 'var(--card)',
+                borderColor: alert ? 'color-mix(in srgb, var(--destructive) 40%, var(--card))' : 'var(--border)',
               }}
             >
-              <Icon size={15} style={{ color: alert ? '#DC2626' : 'var(--muted-foreground)' }} />
-              <p className="text-[22px] font-bold leading-none mt-2" style={{ color: alert ? '#DC2626' : 'var(--foreground)' }}>{value}</p>
+              <Icon size={15} style={{ color: alert ? 'var(--destructive)' : 'var(--muted-foreground)' }} />
+              <p className="text-[22px] font-bold leading-none mt-2" style={{ color: alert ? 'var(--destructive)' : 'var(--foreground)' }}>{value}</p>
               <p className="text-[10.5px] font-medium text-muted-foreground mt-1 leading-tight">{label}</p>
             </Link>
           ))}
@@ -751,14 +753,14 @@ export default function Dashboard() {
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
         <div {...wrap('kpis')}>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard label="Clientes activos" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
+          <KpiCard label="Clientas activas" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
           <Card size="sm" className="gap-2.5">
             <CardContent className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
               <span className="flex size-7 items-center justify-center rounded-lg bg-brand/10"><Activity className="size-3.5 text-brand-secondary" /></span>
             </CardContent>
             <CardContent>
-              <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? '#DC2626' : ocupacionMedia >= 60 ? '#D97706' : '#059669' }}>{ocupacionMedia}%</p>
+              <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? 'var(--destructive)' : ocupacionMedia >= 60 ? 'var(--warning)' : 'var(--success)' }}>{ocupacionMedia}%</p>
               <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
             </CardContent>
           </Card>
@@ -808,7 +810,7 @@ export default function Dashboard() {
                   <p className="text-[13px] text-muted-foreground">Sin clases hoy</p>
                   <Link
                     href="/calendario"
-                    className="text-[12px] font-medium text-[#7AA80E] hover:underline"
+                    className="text-[12px] font-medium text-brand hover:underline"
                   >
                     + Programar clase
                   </Link>
@@ -831,14 +833,14 @@ export default function Dashboard() {
                     <h2 className="text-[13px] font-semibold text-foreground">
                       Pagos pendientes
                     </h2>
-                    <span className="text-[10px] font-bold text-[#DC2626] bg-[#FEF2F2] px-1.5 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">
                       {recibos.filter(r => r.estado === 'PENDIENTE').length}
                     </span>
                   </div>
                   {pendientes.length > 1 && (
                     <button
                       onClick={() => cobrarTodosPendientes()}
-                      className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-[#ECFDF5] text-[#059669] hover:bg-[#D1FAE5] transition-colors"
+                      className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/10 transition-colors"
                     >
                       <Zap size={11} /> Cobrar todos
                     </button>
@@ -848,8 +850,8 @@ export default function Dashboard() {
                   {pendientes.map(r => (
                     <div key={r.id} className="flex items-center gap-3 px-5 py-3">
                       <Link
-                        href={`/socios/${r.socioId}`}
-                        className="w-8 h-8 rounded-full bg-[#DBEAFE] text-[#7AA80E] font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
+                        href={`/clientas/${r.socioId}`}
+                        className="w-8 h-8 rounded-full bg-info/10 text-brand font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
                       >
                         {r.socio!.nombre[0]}
                         {r.socio!.apellidos[0]}
@@ -877,8 +879,8 @@ export default function Dashboard() {
                 {recibos.filter(r => r.estado === 'PENDIENTE').length > 5 && (
                   <div className="px-5 py-3 border-t border-muted">
                     <Link
-                      href="/pagos"
-                      className="text-[11px] font-medium text-[#7AA80E] hover:underline"
+                      href="/cobros?tab=pendientes"
+                      className="text-[11px] font-medium text-brand hover:underline"
                     >
                       Ver todos los pagos pendientes →
                     </Link>
@@ -898,7 +900,7 @@ export default function Dashboard() {
               </p>
               <div className="space-y-2">
                 <Link
-                  href="/socios?nuevo=1"
+                  href="/clientas?nuevo=1"
                   className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                 >
                   <UserPlus size={14} /> Nuevo cliente
@@ -910,7 +912,7 @@ export default function Dashboard() {
                   <CalendarPlus size={14} /> Nueva reserva
                 </Link>
                 <Link
-                  href="/pagos"
+                  href="/cobros?tab=pendientes"
                   className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
                 >
                   <CreditCard size={14} /> Cobrar
@@ -929,7 +931,7 @@ export default function Dashboard() {
               <div className="bg-card rounded-xl border border-border">
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-muted">
                   <div className="flex items-center gap-2">
-                    <RefreshCw size={13} className="text-[#059669]" />
+                    <RefreshCw size={13} className="text-success" />
                     <h2 className="text-[13px] font-semibold text-foreground">
                       Renovaciones
                     </h2>
@@ -945,10 +947,10 @@ export default function Dashboard() {
                     return (
                       <Link
                         key={r.id}
-                        href={`/socios/${r.socioId}`}
+                        href={`/clientas/${r.socioId}`}
                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted transition-colors"
                       >
-                        <div className="w-7 h-7 rounded-full bg-[#DBEAFE] text-[#7AA80E] text-[10px] font-bold flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-info/10 text-brand text-[10px] font-bold flex items-center justify-center shrink-0">
                           {r.socio!.nombre[0]}
                           {r.socio!.apellidos[0]}
                         </div>
@@ -966,7 +968,7 @@ export default function Dashboard() {
                           </p>
                           <p
                             className="text-[10px] font-semibold"
-                            style={{ color: isUrgent ? '#DC2626' : 'var(--muted-foreground)' }}
+                            style={{ color: isUrgent ? 'var(--destructive)' : 'var(--muted-foreground)' }}
                           >
                             {diasRestantes}d
                           </p>
@@ -983,7 +985,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between px-4 py-3.5 border-b border-muted">
                 <div className="flex items-center gap-2">
                   <h2 className="text-[13px] font-semibold text-foreground">Actividad</h2>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#059669] animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
                 </div>
                 <Link
                   href="/notificaciones"
