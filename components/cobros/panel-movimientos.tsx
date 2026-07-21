@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { ArrowLeftRight, TrendingUp, CreditCard, ShoppingCart, FileText, Download, Search } from 'lucide-react';
 import Link from 'next/link';
+import { CifraPrivada } from '@/components/ui/cifra-privada';
 
 type FiltroTipo = 'todas' | 'cobro' | 'pos' | 'devolucion';
 
@@ -135,7 +136,7 @@ export function PanelMovimientos() {
                 <k.icon size={14} style={{ color: k.color }} />
               </div>
             </div>
-            <p className="text-2xl font-extrabold text-foreground">{k.value}</p>
+            <CifraPrivada className="text-2xl font-extrabold text-foreground">{k.value}</CifraPrivada>
           </div>
         ))}
       </div>
@@ -197,17 +198,17 @@ export function PanelMovimientos() {
                     </Link>
                   )}
                 </div>
-                <p className="text-[15px] font-extrabold whitespace-nowrap shrink-0"
+                <CifraPrivada className="text-[15px] font-extrabold whitespace-nowrap shrink-0"
                   style={{ color: m.importe < 0 ? 'var(--destructive)' : 'var(--foreground)' }}>
                   {m.importe < 0 ? '-' : ''}{fmt(Math.abs(m.importe))} €
-                </p>
+                </CifraPrivada>
               </div>
             );
           })}
           {filtrados.length > 0 && (
             <div className="px-4 py-3.5 flex items-center justify-between bg-muted">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total ({filtrados.length})</span>
-              <span className="text-[15px] font-extrabold text-foreground">{fmt(filtrados.reduce((s, m) => s + m.importe, 0))} €</span>
+              <CifraPrivada inline className="text-[15px] font-extrabold text-foreground">{fmt(filtrados.reduce((s, m) => s + m.importe, 0))} €</CifraPrivada>
             </div>
           )}
         </div>
@@ -258,7 +259,7 @@ export function PanelMovimientos() {
                     </td>
                     <td className="px-4 py-3 font-extrabold text-right whitespace-nowrap"
                       style={{ color: m.importe < 0 ? 'var(--destructive)' : 'var(--foreground)' }}>
-                      {m.importe < 0 ? '-' : ''}{fmt(Math.abs(m.importe))} €
+                      <CifraPrivada inline>{m.importe < 0 ? '-' : ''}{fmt(Math.abs(m.importe))} €</CifraPrivada>
                     </td>
                     <td className="px-4 py-3">
                       {m.facturaId && (
@@ -279,7 +280,7 @@ export function PanelMovimientos() {
                     Total ({filtrados.length})
                   </td>
                   <td className="px-4 py-3 font-extrabold text-right text-foreground text-base">
-                    {fmt(filtrados.reduce((s, m) => s + m.importe, 0))} €
+                    <CifraPrivada inline>{fmt(filtrados.reduce((s, m) => s + m.importe, 0))} €</CifraPrivada>
                   </td>
                   <td />
                 </tr>

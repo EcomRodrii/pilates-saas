@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { Search, Download, FileText, ChevronDown, ChevronRight, X, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
@@ -188,7 +189,7 @@ export function PanelFacturas() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Este mes</p>
-          <p className="text-2xl font-extrabold text-foreground mt-1">{kpi(totalMes)} €</p>
+          <CifraPrivada className="text-2xl font-extrabold text-foreground mt-1">{kpi(totalMes)} €</CifraPrivada>
           {totalMesAnterior > 0 && (
             <p className={cn('text-xs font-semibold mt-1', variacion >= 0 ? 'text-success' : 'text-destructive')}>
               {variacion >= 0 ? '+' : ''}{variacion.toFixed(1)}% vs mes anterior
@@ -197,17 +198,17 @@ export function PanelFacturas() {
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Base imponible</p>
-          <p className="text-2xl font-extrabold text-foreground mt-1">{kpi(baseTotal)} €</p>
+          <CifraPrivada className="text-2xl font-extrabold text-foreground mt-1">{kpi(baseTotal)} €</CifraPrivada>
           <p className="text-xs font-medium text-muted-foreground mt-1">sin IVA</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">IVA repercutido</p>
-          <p className="text-2xl font-extrabold text-foreground mt-1">{kpi(ivaTotal)} €</p>
+          <CifraPrivada className="text-2xl font-extrabold text-foreground mt-1">{kpi(ivaTotal)} €</CifraPrivada>
           <p className="text-xs font-medium text-muted-foreground mt-1">21% tipo general</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total emitido</p>
-          <p className="text-2xl font-extrabold text-foreground mt-1">{kpi(totalGeneral)} €</p>
+          <CifraPrivada className="text-2xl font-extrabold text-foreground mt-1">{kpi(totalGeneral)} €</CifraPrivada>
           <p className="text-xs font-medium text-muted-foreground mt-1">{filtradas.length} facturas</p>
         </div>
       </div>
@@ -279,7 +280,7 @@ export function PanelFacturas() {
                     <Download size={11} />
                     CSV
                   </button>
-                  <span className="text-sm font-extrabold text-foreground">{kpi(grupo.total)} €</span>
+                  <CifraPrivada inline className="text-sm font-extrabold text-foreground">{kpi(grupo.total)} €</CifraPrivada>
                 </div>
               </div>
 
@@ -303,15 +304,15 @@ export function PanelFacturas() {
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-[15px] font-extrabold text-foreground whitespace-nowrap">{kpi(f.total)} €</p>
-                          <p className="text-[11px] text-muted-foreground whitespace-nowrap">base {kpi(f.baseImponible)} €</p>
+                          <CifraPrivada className="text-[15px] font-extrabold text-foreground whitespace-nowrap">{kpi(f.total)} €</CifraPrivada>
+                          <p className="text-[11px] text-muted-foreground whitespace-nowrap">base <CifraPrivada inline>{kpi(f.baseImponible)} €</CifraPrivada></p>
                         </div>
                       </div>
                     );
                   })}
                   <div className="px-4 py-3 flex items-center justify-between bg-muted">
                     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Subtotal ({grupo.items.length})</span>
-                    <span className="text-[15px] font-extrabold text-foreground">{kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €</span>
+                    <CifraPrivada inline className="text-[15px] font-extrabold text-foreground">{kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €</CifraPrivada>
                   </div>
                 </div>
 
@@ -338,9 +339,9 @@ export function PanelFacturas() {
                               }
                             </td>
                             <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{f.receptorNIF ?? '—'}</td>
-                            <td className="px-4 py-3 text-right font-medium text-foreground">{kpi(f.baseImponible)} €</td>
+                            <td className="px-4 py-3 text-right font-medium text-foreground"><CifraPrivada inline>{kpi(f.baseImponible)} €</CifraPrivada></td>
                             <td className="px-4 py-3 text-right text-muted-foreground">{f.tipoIVA}%</td>
-                            <td className="px-4 py-3 font-extrabold text-right text-foreground">{kpi(f.total)} €</td>
+                            <td className="px-4 py-3 font-extrabold text-right text-foreground"><CifraPrivada inline>{kpi(f.total)} €</CifraPrivada></td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
                                 <button
@@ -366,11 +367,11 @@ export function PanelFacturas() {
                       <tr className="border-t-2 border-border bg-muted">
                         <td colSpan={4} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Subtotal ({grupo.items.length})</td>
                         <td className="px-4 py-3 text-right font-semibold text-foreground">
-                          {kpi(grupo.items.reduce((s, f) => s + f.baseImponible, 0))} €
+                          <CifraPrivada inline>{kpi(grupo.items.reduce((s, f) => s + f.baseImponible, 0))} €</CifraPrivada>
                         </td>
                         <td />
                         <td className="px-4 py-3 text-right font-extrabold text-foreground">
-                          {kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €
+                          <CifraPrivada inline>{kpi(grupo.items.reduce((s, f) => s + f.total, 0))} €</CifraPrivada>
                         </td>
                         <td />
                       </tr>
@@ -388,9 +389,9 @@ export function PanelFacturas() {
           <div className="border-t-2 border-border bg-muted flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-5 py-3.5">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">TOTAL ({filtradas.length} facturas)</span>
             <div className="flex items-center gap-4 sm:gap-8 text-sm flex-wrap">
-              <span className="text-muted-foreground font-medium">Base: <strong className="text-foreground">{kpi(baseTotal)} €</strong></span>
-              <span className="text-muted-foreground font-medium">IVA: <strong className="text-foreground">{kpi(ivaTotal)} €</strong></span>
-              <span className="text-muted-foreground font-bold">Total: <strong className="text-foreground text-base">{kpi(totalGeneral)} €</strong></span>
+              <span className="text-muted-foreground font-medium">Base: <CifraPrivada inline className="font-bold text-foreground">{kpi(baseTotal)} €</CifraPrivada></span>
+              <span className="text-muted-foreground font-medium">IVA: <CifraPrivada inline className="font-bold text-foreground">{kpi(ivaTotal)} €</CifraPrivada></span>
+              <span className="text-muted-foreground font-bold">Total: <CifraPrivada inline className="font-bold text-foreground text-base">{kpi(totalGeneral)} €</CifraPrivada></span>
             </div>
           </div>
         )}

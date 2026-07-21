@@ -2,14 +2,17 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Inbox, Bell, Zap, Search } from 'lucide-react';
+import { Inbox, Bell, Zap, Search, Eye, EyeOff } from 'lucide-react';
 import { GlobalSearch } from '@/components/search/global-search';
 import { ProfileMenu } from '@/components/layout/profile-menu';
+import { IconButton } from '@/components/ui/icon-button';
 import { useStudio } from '@/lib/studio-context';
+import { usePanelPrivacy } from '@/lib/panel-privacy';
 
 export function Topbar() {
   const { notificaciones } = useStudio();
   const sinLeer = notificaciones.filter(n => !n.leida).length;
+  const { oculto, setOculto } = usePanelPrivacy();
   // Un solo disparador para las dos cosas (antes había dos pills contiguos que
   // abrían el mismo modal: éste y el propio botón "Buscar" de GlobalSearch).
   // El buscador ya sabe resolver tareas; este botón solo lo abre. Existe porque
@@ -37,6 +40,12 @@ export function Topbar() {
         />
       </div>
       <div className="flex items-center gap-1.5">
+        <IconButton
+          label={oculto ? 'Mostrar cifras' : 'Ocultar cifras (modo privacidad)'}
+          icon={oculto ? EyeOff : Eye}
+          onClick={() => setOculto(!oculto)}
+          className={oculto ? 'text-brand' : 'text-muted-foreground'}
+        />
         <Link
           href="/mensajeria"
           title="Mensajería"

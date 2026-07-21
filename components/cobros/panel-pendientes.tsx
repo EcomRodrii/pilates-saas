@@ -7,6 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import type { EstadoRecibo, Socio } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn, formatEuro } from '@/lib/utils';
+import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { crearCheckoutStripe, enviarEmailRecibo } from '@/lib/api-client';
 import {
   CheckCircle,
@@ -548,9 +549,9 @@ export function PanelPendientes() {
               <TrendingUp size={15} className="text-success" />
             </div>
           </div>
-          <p className="text-2xl font-extrabold text-success">
+          <CifraPrivada className="text-2xl font-extrabold text-success">
             {kpis.cobradoMes.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
-          </p>
+          </CifraPrivada>
           <p className="text-xs text-muted-foreground mt-1">{monthLabel(thisMonth)}</p>
         </div>
 
@@ -564,9 +565,9 @@ export function PanelPendientes() {
               <Clock size={15} className="text-warning" />
             </div>
           </div>
-          <p className="text-2xl font-extrabold text-warning">
+          <CifraPrivada className="text-2xl font-extrabold text-warning">
             {kpis.pendienteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
-          </p>
+          </CifraPrivada>
           <p className="text-xs text-muted-foreground mt-1">{pendientesCount} recibo{pendientesCount !== 1 ? 's' : ''} pendiente{pendientesCount !== 1 ? 's' : ''}</p>
         </div>
 
@@ -596,9 +597,9 @@ export function PanelPendientes() {
               <BarChart3 size={15} className="text-brand" />
             </div>
           </div>
-          <p className="text-2xl font-extrabold text-foreground">
+          <CifraPrivada className="text-2xl font-extrabold text-foreground">
             {kpis.mediaXSocia.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
-          </p>
+          </CifraPrivada>
           <p className="text-xs text-muted-foreground mt-1">sobre clientes activos este mes</p>
         </div>
       </div>
@@ -790,9 +791,9 @@ export function PanelPendientes() {
 
                         {/* Amount + badge */}
                         <div className="text-right shrink-0 mr-2">
-                          <p className="text-sm font-extrabold text-foreground">
+                          <CifraPrivada className="text-sm font-extrabold text-foreground">
                             {r.importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
-                          </p>
+                          </CifraPrivada>
                           <span
                             className="text-xs font-semibold px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: badge.bg, color: badge.text }}
@@ -1000,9 +1001,9 @@ export function PanelPendientes() {
                         <p className="text-sm text-foreground font-medium truncate">{plan?.nombre ?? '—'}</p>
 
                         {/* Precio */}
-                        <p className="text-sm font-bold text-foreground">
+                        <CifraPrivada className="text-sm font-bold text-foreground">
                           {plan ? `${plan.precio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €` : '—'}
-                        </p>
+                        </CifraPrivada>
 
                         {/* Próximo cobro */}
                         <p className="text-sm text-muted-foreground">{fecha(nextCobro.toISOString())}</p>
@@ -1113,9 +1114,9 @@ export function PanelPendientes() {
                       {group.items.length} recibo{group.items.length !== 1 ? 's' : ''}
                     </span>
                   </div>
-                  <p className="text-sm font-extrabold text-success">
+                  <CifraPrivada className="text-sm font-extrabold text-success">
                     {group.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € cobrado
-                  </p>
+                  </CifraPrivada>
                 </div>
 
                 {/* Items */}
@@ -1131,9 +1132,9 @@ export function PanelPendientes() {
                           <p className="text-sm font-semibold text-foreground truncate">{r.concepto}</p>
                           <p className="text-xs text-muted-foreground truncate">{socioName(r.socioId)}</p>
                         </div>
-                        <p className="text-sm font-bold text-foreground shrink-0">
+                        <CifraPrivada className="text-sm font-bold text-foreground shrink-0">
                           {r.importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
-                        </p>
+                        </CifraPrivada>
                         <span
                           className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
                           style={{ backgroundColor: badge.bg, color: badge.text }}
@@ -1176,7 +1177,7 @@ export function PanelPendientes() {
                   {masivoTotal} cobro{masivoTotal !== 1 ? 's' : ''} procesado{masivoTotal !== 1 ? 's' : ''}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € marcados como cobrados
+                  <CifraPrivada inline>{masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</CifraPrivada> marcados como cobrados
                 </p>
               </div>
               <button
@@ -1267,10 +1268,10 @@ export function PanelPendientes() {
                         <div className="text-right shrink-0">
                           {hasPending ? (
                             <>
-                              <p className="text-sm font-extrabold text-warning">
+                              <CifraPrivada className="text-sm font-extrabold text-warning">
                                 {pendientesRecibos.reduce((s, r) => s + r.importe, 0)
                                   .toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
-                              </p>
+                              </CifraPrivada>
                               <p className="text-xs text-warning">
                                 {pendientesRecibos.length} pendiente{pendientesRecibos.length !== 1 ? 's' : ''}
                               </p>
@@ -1294,7 +1295,7 @@ export function PanelPendientes() {
                     {masivoSelected.size} recibo{masivoSelected.size !== 1 ? 's' : ''} seleccionado{masivoSelected.size !== 1 ? 's' : ''}
                   </p>
                   <p className="font-extrabold text-foreground">
-                    Total: {masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                    Total: <CifraPrivada inline>{masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</CifraPrivada>
                   </p>
                 </div>
                 <div className="flex gap-3">

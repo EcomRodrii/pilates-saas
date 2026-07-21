@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { TrendingUp, Users, CreditCard, Activity, Download, FileText } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
+import { CifraPrivada } from '@/components/ui/cifra-privada';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -438,9 +439,9 @@ export default function Informes() {
             <TrendingUp size={17} style={{ color: 'var(--success)' }} />
           </div>
           <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos período</p>
-          <p className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
+          <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
             {fmtEurFull(totalIngresos)}
-          </p>
+          </CifraPrivada>
           <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>cobrados en el periodo</p>
         </div>
 
@@ -452,9 +453,9 @@ export default function Informes() {
             <CreditCard size={17} className="text-brand-secondary" />
           </div>
           <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos del mes</p>
-          <p className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
+          <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
             {fmtEurFull(mrr)}
-          </p>
+          </CifraPrivada>
           <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>ingresos mes actual</p>
         </div>
 
@@ -467,9 +468,9 @@ export default function Informes() {
             <Activity size={17} style={{ color: 'var(--warning)' }} />
           </div>
           <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ticket medio / cliente</p>
-          <p className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
+          <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
             {fmtEurFull(ticketMedio)}
-          </p>
+          </CifraPrivada>
           <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>por cliente en el periodo</p>
         </div>
 
@@ -502,7 +503,7 @@ export default function Informes() {
             <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>Cobros realizados en el periodo seleccionado</p>
           </div>
           <div className="text-right">
-            <span className="text-lg font-extrabold" style={{ color: 'var(--foreground)' }}>{fmtEurFull(totalIngresos)}</span>
+            <CifraPrivada inline className="text-lg font-extrabold" style={{ color: 'var(--foreground)' }}>{fmtEurFull(totalIngresos)}</CifraPrivada>
             <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>acumulado</p>
           </div>
         </div>
@@ -523,7 +524,7 @@ export default function Informes() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <CifraPrivada className="overflow-x-auto">
           <svg
             width={Math.max(chartW, 480)}
             height={CHART_H + 52}
@@ -660,7 +661,7 @@ export default function Informes() {
             {/* X baseline */}
             <line x1={PADDING_L} y1={CHART_H} x2={Math.max(chartW, 480)} y2={CHART_H} stroke="var(--border)" strokeWidth="1" />
           </svg>
-        </div>
+        </CifraPrivada>
       </div>
 
       {/* ── Section 3: 2-col grid ────────────────────────────────────────────── */}
