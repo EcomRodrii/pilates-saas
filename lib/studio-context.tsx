@@ -453,7 +453,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // tiene publicSlug pero SÍ estamos en una de esas rutas, es la sombreada:
   // no hace falta que traiga nada.
   const pathname = usePathname();
-  const shadowedByPublicRoute = !publicSlug && /^\/(portal|reservar|kiosk|disponibilidad|aceptar-sustitucion|valorar|no-puedo)\//.test(pathname ?? '');
+  const shadowedByPublicRoute = !publicSlug && /^\/(portal|reservar|kiosk|disponibilidad|aceptar-sustitucion|valorar|no-puedo|confirmar-reserva)\//.test(pathname ?? '');
 
   // Surface fire-and-forget DB write failures to the user instead of losing them.
   useEffect(() => {

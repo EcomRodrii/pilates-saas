@@ -1846,16 +1846,25 @@ async function asignarSpotReserva(
   return spotId;
 }
 
-// Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.
-export async function cancelarReservaPublica(params: {
-  studioId: string; reservaId: string; socioId: string; email: string;
-}) {
-  const admin = getSupabaseAdmin();
-  if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
-  if (!socia) return { error: 'No autorizado' as const };
-
-  // Cancelación + promoción de la lista de espera, atómicas en la BD.
+/**
+ * Núcleo de "liberar una plaza": cancela la reserva vía RPC (atómico, promociona
+ * la lista de espera), aplica la política de devolución de bono, avisa a quien
+ * se promociona y re-evalúa la gamificación de la socia afectada.
+ *
+ * Compartido por la cancelación pública (`cancelarReservaPublica`, la socia
+ * decide) y el corte de confirmación por riesgo de plantón
+ * (`lib/inngest/confirmacion-riesgo.ts`, el sistema decide porque no respondió
+ * a tiempo) — el resultado para la clase y la lista de espera debe ser
+ * IDÉNTICO venga de donde venga: misma regla de bono, mismo aviso a quien sube.
+ *
+ * `socioId: null` = lo dispara el sistema, no la propia socia (bypassa la
+ * comprobación NO_AUTORIZADO de la función; quién puede llamar con null se
+ * decide en el caller, nunca aquí).
+ */
+export async function ejecutarCancelacionReserva(
+  admin: SupabaseClient,
+  params: { studioId: string; reservaId: string; socioId: string | null },
+): Promise<{ ok: true; tardia: boolean; bonoDevuelto: boolean } | { error: string }> {
   const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
   });
@@ -1869,18 +1878,20 @@ export async function cancelarReservaPublica(params: {
   // Sesión cancelada + política (C-2): decide si se devuelve el bono. Una
   // cancelación tardía (dentro de la ventana) no lo devuelve, salvo que el
   // estudio lo permita. La plaza igualmente se libera y promociona la espera.
+  // `socio_id` sale de la RESERVA (no de params.socioId, que puede ser null si
+  // lo dispara el sistema) — es a ELLA a quien hay que devolverle el bono.
   const { data: cancelada } = await admin
-    .from('reservas').select('sesion_id').eq('id', params.reservaId).maybeSingle();
+    .from('reservas').select('sesion_id, socio_id').eq('id', params.reservaId).maybeSingle();
   let bonoDevuelto = false;
   let tardia = false;
-  if (row?.era_confirmada && cancelada?.sesion_id) {
+  if (row?.era_confirmada && cancelada?.sesion_id && cancelada?.socio_id) {
     const pol = await cargarPoliticaEstudio(admin, params.studioId);
     const { data: ses } = await admin
       .from('sesiones').select('inicio').eq('id', cancelada.sesion_id).maybeSingle();
     const inicio = ses?.inicio as string | undefined;
     tardia = inicio ? esCancelacionTardia(inicio, new Date(), pol.ventanaHoras) : false;
     if (inicio && debeDevolverBono(inicio, new Date(), pol.ventanaHoras, pol.devolverBonoTardia)) {
-      await devolverBonoServidor(admin, params.studioId, params.socioId);
+      await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string);
       bonoDevuelto = true;
     }
   }
@@ -1895,12 +1906,26 @@ export async function cancelarReservaPublica(params: {
       await notificarPromocionEspera(admin, params.studioId, promSocioId, cancelada.sesion_id as string, bonoConsumido);
     }
   }
-  // tardia/bonoDevuelto → la UI puede confirmar a la socia si recuperó la sesión.
   // S-1: cancelar baja RESERVAS_TOTALES, así que se re-evalúa para que el
-  // progreso mostrado (logros y retos) siga siendo cierto. Un logro YA conseguido no se revoca
-  // (el bucle salta los completados), igual que hacía la evaluación en cliente.
-  await evaluarGamificacionServidor(admin, params.studioId, params.socioId);
+  // progreso mostrado (logros y retos) siga siendo cierto. Un logro YA conseguido
+  // no se revoca (el bucle salta los completados), igual que hacía la evaluación
+  // en cliente.
+  if (cancelada?.socio_id) {
+    await evaluarGamificacionServidor(admin, params.studioId, cancelada.socio_id as string);
+  }
   return { ok: true as const, tardia, bonoDevuelto };
+}
+
+// Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.
+export async function cancelarReservaPublica(params: {
+  studioId: string; reservaId: string; socioId: string; email: string;
+}) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+  // tardia/bonoDevuelto → la UI puede confirmar a la socia si recuperó la sesión.
+  return ejecutarCancelacionReserva(admin, { studioId: params.studioId, reservaId: params.reservaId, socioId: params.socioId });
 }
 
 // ─── Citas 1:1 auto-reservables (0046) — escrituras/lecturas públicas ─────────

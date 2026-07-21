@@ -24,4 +24,9 @@ export const EVENTS = {
   // Valoraciones (0044) — barrido que, tras cada clase, pide valoración a las
   // alumnas apuntadas. Un evento por estudio (fan-out del dispatcher cron).
   VALORACIONES_ESTUDIO: 'valoraciones/studio.sweep',
+  // Confirmación por riesgo de plantón (0059) — dos barridos, un evento por
+  // estudio cada uno: pedir confirmación (víspera) y liberar si no responde
+  // a tiempo (corte).
+  CONFIRMACION_RIESGO_ASK_ESTUDIO: 'confirmacion-riesgo/studio.ask',
+  CONFIRMACION_RIESGO_CORTE_ESTUDIO: 'confirmacion-riesgo/studio.corte',
 } as const;

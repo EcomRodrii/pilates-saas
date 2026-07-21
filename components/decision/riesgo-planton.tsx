@@ -1,14 +1,19 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { UserX, Clock } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { riesgoNoShow, explicarRiesgo, type ReservaHistorica, type RiesgoNoShow } from '@/lib/no-show';
+import { obtenerConfirmacionRiesgo, actualizarConfirmacionRiesgo } from '@/lib/api-client';
 
-// Riesgo de plantón en las clases que vienen. Solo INFORMA (no manda nada): el
-// recordatorio genérico previo a clase ya lo cubre la automatización CLASE_MANANA,
-// así que aquí no se envía ningún email — se le enseña al propietario dónde tiene
-// plazas en riesgo para que decida.
+// Riesgo de plantón en las clases que vienen. El recordatorio genérico previo a
+// clase ya lo cubre la automatización CLASE_MANANA, así que este panel por sí
+// solo no envía nada — solo enseña al propietario dónde tiene plazas en riesgo.
+//
+// El toggle de abajo es la "opción 2" (lib/confirmacion-riesgo): pedir
+// confirmación de verdad a quien tiene riesgo ALTO y, si no responde a tiempo,
+// liberar su plaza a la lista de espera. Apagado por defecto — es una acción
+// real sobre una reserva de pago, el estudio la enciende conscientemente.
 
 const DIAS_VISTA = 7;
 const OCUPA_PLAZA = ['CONFIRMADA', 'ASISTIDA'];
@@ -35,6 +40,23 @@ function fmtCuando(iso: string): string {
 
 export function RiesgoPlanton() {
   const { sesiones, reservas, socios, tiposClase } = useStudio();
+  const [activo, setActivo] = useState<boolean | null>(null); // null = cargando
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    obtenerConfirmacionRiesgo().then(r => { if (vivo) setActivo('activo' in r ? r.activo : false); });
+    return () => { vivo = false; };
+  }, []);
+
+  async function toggle() {
+    const nuevo = !activo;
+    setActivo(nuevo); // optimista
+    setGuardando(true);
+    const r = await actualizarConfirmacionRiesgo(nuevo);
+    if ('error' in r) { setActivo(!nuevo); alert(r.error); }
+    setGuardando(false);
+  }
 
   const filas = useMemo<FilaRiesgo[]>(() => {
     const now = new Date();
@@ -95,13 +117,27 @@ export function RiesgoPlanton() {
     return out.sort((a, b) => a.inicio.localeCompare(b.inicio));
   }, [sesiones, reservas, socios, tiposClase]);
 
-  if (filas.length === 0) return null;
-
+  // El toggle SIEMPRE se ve, aunque ahora mismo no haya nadie en riesgo — si no,
+  // quien quiera encenderlo por primera vez nunca vería dónde hacerlo.
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-        Riesgo de plantón
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Riesgo de plantón
+        </h2>
+        <label className="flex items-center gap-2 cursor-pointer text-[12px] text-muted-foreground select-none">
+          Pedir confirmación
+          <button
+            type="button" role="switch" aria-checked={!!activo} onClick={toggle} disabled={activo === null || guardando}
+            className={`relative w-9 h-5 rounded-full transition-colors shrink-0 disabled:opacity-50 ${activo ? 'bg-brand' : 'bg-muted'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${activo ? 'translate-x-4' : ''}`} />
+          </button>
+        </label>
+      </div>
+      {filas.length === 0 ? (
+        <p className="px-1 text-[12px] text-muted-foreground">Ninguna plaza en riesgo en los próximos {DIAS_VISTA} días.</p>
+      ) : (
       <div className="rounded-3xl border border-border bg-card p-1">
         {filas.map(f => (
           <div key={f.sesionId} className="flex items-start justify-between gap-3 rounded-2xl px-4 py-3 hover:bg-muted/50">
@@ -129,8 +165,12 @@ export function RiesgoPlanton() {
           </div>
         ))}
       </div>
+      )}
       <p className="px-1 text-[11px] text-muted-foreground">
-        Basado en su historial reciente de asistencia. Solo informativo — no se envía ningún aviso automático.
+        Basado en su historial reciente de asistencia.{' '}
+        {activo
+          ? 'Con la confirmación activada, se les pide venir y se libera su plaza si no responden a tiempo.'
+          : 'Solo informativo — no se envía ningún aviso automático.'}
       </p>
     </div>
   );

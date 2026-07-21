@@ -255,6 +255,33 @@ export async function setAvisarAlumnas(avisar: boolean): Promise<{ ok: true } | 
   }
 }
 
+// Toggle de "pedir confirmación a socias de riesgo de plantón" (migración 0059).
+export async function obtenerConfirmacionRiesgo(): Promise<{ activo: boolean } | { error: string }> {
+  try {
+    const res = await fetch('/api/decisiones/confirmacion-riesgo', { headers: await authHeader() });
+    const data = (await res.json().catch(() => ({}))) as { activo?: boolean; error?: string };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { activo: !!data.activo };
+  } catch {
+    return { error: 'No se pudo cargar el ajuste' };
+  }
+}
+
+export async function actualizarConfirmacionRiesgo(activo: boolean): Promise<{ ok: true } | { error: string }> {
+  try {
+    const res = await fetch('/api/decisiones/confirmacion-riesgo', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ activo }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true };
+  } catch {
+    return { error: 'No se pudo cambiar el ajuste' };
+  }
+}
+
 // Confirma a una candidata (aceptación atómica + reasigna la clase).
 export async function confirmarSustituta(sustitucionId: string, instructorId: string): Promise<{ ok: true } | { error: string }> {
   try {
