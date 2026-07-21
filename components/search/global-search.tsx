@@ -13,12 +13,16 @@ export function GlobalSearch({
   variant = 'dark',
   abierto,
   onAbiertoChange,
+  renderTrigger = true,
 }: {
   collapsed?: boolean;
   variant?: 'dark' | 'light';
-  /** Permite abrirlo desde fuera (botón "¿Qué quieres hacer?"). */
+  /** Permite abrirlo desde fuera (botón "¿Qué quieres hacer o buscar?" del Topbar). */
   abierto?: boolean;
   onAbiertoChange?: (v: boolean) => void;
+  /** false = no pinta su propio disparador; solo el modal, controlado por `abierto`.
+   *  Evita el bug de dos botones de búsqueda uno junto al otro. */
+  renderTrigger?: boolean;
 } = {}) {
   const [openInterno, setOpenInterno] = useState(false);
   const open = abierto ?? openInterno;
@@ -94,25 +98,27 @@ export function GlobalSearch({
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        title="Buscar (⌘K)"
-        className={collapsed
-          ? cn('flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'hover:bg-muted')
-          : cn('flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'bg-muted hover:bg-background w-full max-w-xs')}
-        style={{ color: variant === 'dark' ? 'rgba(255,255,255,0.45)' : 'var(--muted-foreground)' }}
-      >
-        <Search size={15} className="shrink-0" />
-        {!collapsed && <span className="hidden md:inline text-xs">Buscar</span>}
-        {!collapsed && (
-          <kbd
-            className="hidden md:inline ml-auto text-[10px] px-1.5 py-0.5 rounded font-mono leading-none"
-            style={variant === 'dark'
-              ? { backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }
-              : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
-          >⌘K</kbd>
-        )}
-      </button>
+      {renderTrigger && (
+        <button
+          onClick={() => setOpen(true)}
+          title="Buscar (⌘K)"
+          className={collapsed
+            ? cn('flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'hover:bg-muted')
+            : cn('flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'bg-muted hover:bg-background w-full max-w-xs')}
+          style={{ color: variant === 'dark' ? 'rgba(255,255,255,0.45)' : 'var(--muted-foreground)' }}
+        >
+          <Search size={15} className="shrink-0" />
+          {!collapsed && <span className="hidden md:inline text-xs">Buscar</span>}
+          {!collapsed && (
+            <kbd
+              className="hidden md:inline ml-auto text-[10px] px-1.5 py-0.5 rounded font-mono leading-none"
+              style={variant === 'dark'
+                ? { backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }
+                : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
+            >⌘K</kbd>
+          )}
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
