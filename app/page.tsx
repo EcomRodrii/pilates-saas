@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
+import { MarketingFooter } from '@/components/marketing/footer';
 
 const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' });
 
@@ -728,10 +729,7 @@ export default function LandingPage() {
       </section>
 
       {/* ================= FOOTER ================= */}
-      <footer className="lp-section" style={{ background: '#0F0F0F', color: '#8E8E86', padding: '44px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <Image src="/logo-mark.png" alt="Tentare" width={32} height={32} style={{ height: 32, width: 'auto' }} />
-        <span style={{ fontSize: 14 }}>© 2026 Tentare · Software para estudios de Pilates</span>
-      </footer>
+      <MarketingFooter />
 
       <style>{`
         .lp-mono { font-family: var(--font-plex-mono), ui-monospace, monospace; }
