@@ -5,7 +5,7 @@ import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '.
 import type { Socio } from '@/lib/types';
 import {
   construirIndices, frecuenciaHabitual, diasSinVenir, umbralAnomalo, ausenciaAnomala,
-  renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, noShow30d,
+  renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, riesgoNoShowDeSocio,
   diasDesdeVencimientoSinRenovar, totalAsistencias,
   type IndicesSenal,
 } from '../senales.ts';
@@ -166,10 +166,18 @@ function reglaR3(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
   };
 }
 
-/** R4 · Desenganche por no-shows → CONTACTO_MANUAL. */
+/**
+ * R4 · Desenganche por no-shows → CONTACTO_MANUAL.
+ *
+ * Gate por el score graduado de riesgoNoShowDeSocio (lib/no-show.ts) en vez
+ * del umbral booleano anterior (≥3 no-shows y ratio≥40% sobre los últimos 30
+ * días, contando también CANCELADA en el denominador): pesa por recencia real
+ * de la CLASE, solo cuenta ASISTIDA/NO_ASISTIO, y se suaviza con poca muestra
+ * en vez de disparar con 3 datos sueltos.
+ */
 function reglaR4(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
-  const { noShows, total, ratio } = noShow30d(socio.id, idx, now);
-  if (noShows < 3 || ratio < 0.4) return null;
+  const riesgo = riesgoNoShowDeSocio(socio.id, idx, now);
+  if (riesgo.nivel !== 'ALTO') return null;
 
   const renovProx = renovacionProxima(socio.id, idx, now);
   const diasContacto = diasDesdeUltimoContacto(socio.id, idx, now);
@@ -181,7 +189,7 @@ function reglaR4(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
   if (!confianza) return null;
 
   const valor = redondear2(valorMensual(socio.id, idx, now));
-  const motivoMotor = `Ha faltado a ${noShows} de sus últimas ${total} reservas. Algo pasa — yo le preguntaría.`;
+  const motivoMotor = `Ha faltado a ${riesgo.noShows} de sus últimas ${riesgo.resueltas} reservas. Algo pasa — yo le preguntaría.`;
 
   return {
     especialista: 'RETENCION',
@@ -189,7 +197,10 @@ function reglaR4(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
     dedupeKey: `RETENCION:RECUPERAR_SOCIA:${socio.id}`,
     tituloMotor: `${socio.nombre} reserva pero no está viniendo`,
     motivoMotor,
-    datosUsados: { nombre: socio.nombre, noShows, totalReservas: total, ratioNoShow: redondear2(ratio), valorMensual: valor },
+    datosUsados: {
+      nombre: socio.nombre, noShows: riesgo.noShows, resueltas: riesgo.resueltas,
+      scoreNoShow: riesgo.score, valorMensual: valor,
+    },
     riesgo: 'PERDIDA',
     impacto: valor > 0 ? { valor, unidad: 'EUR_MES', formula: `cuota de ${socio.nombre}; reserva pero no viene` } : undefined,
     confianza,

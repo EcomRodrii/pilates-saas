@@ -4,7 +4,7 @@ import type { Socio, Reserva, Suscripcion, PlanTarifa, Recibo, Sesion, Automatio
 import type { SnapshotEstudio } from './tipos.ts';
 import {
   construirIndices, frecuenciaHabitual, diasSinVenir, umbralAnomalo, ausenciaAnomala,
-  renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, noShow30d,
+  renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, riesgoNoShowDeSocio,
   pagosEnRiesgo, agruparFranjasRecurrentes, demandaInsatisfecha,
 } from './senales.ts';
 
@@ -158,17 +158,51 @@ test('emailsSinRespuesta: email sin reserva en los 7 días siguientes cuenta; co
   assert.equal(emailsSinRespuesta('a', idx, NOW), 1);
 });
 
-test('noShow30d: ratio de no-shows sobre reservas resueltas en 30 días', () => {
-  const reservas = [
-    reserva({ socioId: 'a', estado: 'NO_ASISTIO', creadoEn: diasAntes(5) }),
-    reserva({ socioId: 'a', estado: 'NO_ASISTIO', creadoEn: diasAntes(10) }),
-    reserva({ socioId: 'a', estado: 'ASISTIDA', creadoEn: diasAntes(15) }),
+test('riesgoNoShowDeSocio: usa la fecha de la CLASE (sesión), no la de creación de la reserva', () => {
+  // creadoEn muy reciente a propósito (si el signal mirara esto, el peso saldría
+  // distinto): lo que cuenta es sesion.inicio.
+  const sesiones = [
+    sesion({ id: 'ses-a', inicio: diasAntes(5) }),
+    sesion({ id: 'ses-b', inicio: diasAntes(10) }),
+    sesion({ id: 'ses-c', inicio: diasAntes(15) }),
   ];
-  const idx = construirIndices(snapshot({ reservas }));
-  const r = noShow30d('a', idx, NOW);
+  const reservas = [
+    reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-a', creadoEn: diasAntes(60) }),
+    reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-b', creadoEn: diasAntes(60) }),
+    reserva({ socioId: 'a', estado: 'ASISTIDA', sesionId: 'ses-c', creadoEn: diasAntes(60) }),
+  ];
+  const idx = construirIndices(snapshot({ sesiones, reservas }));
+  const r = riesgoNoShowDeSocio('a', idx, NOW);
   assert.equal(r.noShows, 2);
-  assert.equal(r.total, 3);
-  assert.ok(Math.abs(r.ratio - 2 / 3) < 1e-9);
+  assert.equal(r.resueltas, 3);
+});
+
+test('riesgoNoShowDeSocio: una reserva sin sesión en el snapshot se omite (no inventa la fecha)', () => {
+  const reservas = [reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-fantasma' })];
+  const idx = construirIndices(snapshot({ reservas }));
+  const r = riesgoNoShowDeSocio('a', idx, NOW);
+  assert.equal(r.resueltas, 0);
+  assert.equal(r.nivel, 'SIN_DATOS');
+});
+
+test('riesgoNoShowDeSocio: CANCELADA no cuenta como resuelta (a diferencia del antiguo noShow30d)', () => {
+  // 3 resueltas de verdad (para superar el mínimo de datos) + 1 CANCELADA que
+  // el antiguo noShow30d SÍ contaba en el denominador y este signal no debe.
+  const sesiones = [
+    sesion({ id: 'ses-a', inicio: diasAntes(5) }),
+    sesion({ id: 'ses-b', inicio: diasAntes(10) }),
+    sesion({ id: 'ses-c', inicio: diasAntes(15) }),
+    sesion({ id: 'ses-d', inicio: diasAntes(20) }),
+  ];
+  const reservas = [
+    reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-a' }),
+    reserva({ socioId: 'a', estado: 'NO_ASISTIO', sesionId: 'ses-b' }),
+    reserva({ socioId: 'a', estado: 'ASISTIDA', sesionId: 'ses-c' }),
+    reserva({ socioId: 'a', estado: 'CANCELADA', sesionId: 'ses-d' }),
+  ];
+  const idx = construirIndices(snapshot({ sesiones, reservas }));
+  const r = riesgoNoShowDeSocio('a', idx, NOW);
+  assert.equal(r.resueltas, 3); // no 4: la cancelada queda fuera
 });
 
 // ── pagosEnRiesgo ─────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@
 // colecciones completas por socia.
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
 import type { SnapshotEstudio } from './tipos.ts';
+import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
 
 export interface IndicesSenal {
   socioPorId: Map<string, Socio>;
@@ -201,15 +202,25 @@ export function emailsSinRespuesta(socioId: string, idx: IndicesSenal, now: Date
   return sinRespuesta;
 }
 
-/** Reservas NO_ASISTIO / ASISTIDA / CANCELADA en los últimos 30 días, y el ratio de no-shows. */
-export function noShow30d(socioId: string, idx: IndicesSenal, now: Date): { noShows: number; total: number; ratio: number } {
-  const reservas = (idx.todasPorSocio.get(socioId) ?? []).filter(r => {
-    if (now.getTime() - new Date(r.creadoEn).getTime() > 30 * MS_DIA) return false;
-    return r.estado === 'NO_ASISTIO' || r.estado === 'ASISTIDA' || r.estado === 'CANCELADA';
-  });
-  const noShows = reservas.filter(r => r.estado === 'NO_ASISTIO').length;
-  const total = reservas.length;
-  return { noShows, total, ratio: total > 0 ? noShows / total : 0 };
+/**
+ * Riesgo de plantón de una socia con el score graduado de lib/no-show.ts —
+ * sustituye al antiguo umbral booleano `noShow30d` (≥3 no-shows y ratio≥40%,
+ * que trataba igual a quien falló 3 de 4 la semana pasada que a quien falló 3
+ * de 40 hace dos meses; ver la cabecera de no-show.ts para el resto de razones).
+ *
+ * Traduce las reservas de la socia (creadoEn) a historial por FECHA DE CLASE
+ * (idx.sesionPorId → inicio), que es lo que riesgoNoShow necesita para pesar
+ * por recencia real. Una reserva cuya sesión no está en el snapshot se omite
+ * en vez de sustituir por creadoEn — mentir la fecha sería peor que no contarla.
+ */
+export function riesgoNoShowDeSocio(socioId: string, idx: IndicesSenal, now: Date): RiesgoNoShow {
+  const reservas = idx.todasPorSocio.get(socioId) ?? [];
+  const historial: ReservaHistorica[] = [];
+  for (const r of reservas) {
+    const sesion = idx.sesionPorId.get(r.sesionId);
+    if (sesion) historial.push({ estado: r.estado, fecha: sesion.inicio });
+  }
+  return riesgoNoShow(historial, now);
 }
 
 /**
