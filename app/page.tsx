@@ -9,8 +9,6 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
-import { MarketingFooter } from '@/components/marketing/footer';
-import { FAQ_ITEMS } from '@/lib/faq-items';
 
 const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' });
 
@@ -461,9 +459,7 @@ export default function LandingPage() {
               </Reveal>
             </div>
             <Reveal delay={160} style={{ fontSize: 17, color: '#8E8E86', maxWidth: 320, margin: '0 0 6px' }}>
-              <p style={{ margin: 0 }}>
-                No es un panel más. Es el <strong style={{ color: '#E8E8E4' }}>Centro de Control</strong>: cada mañana te dice qué necesita tu atención y, con las <strong style={{ color: '#E8E8E4' }}>Automatizaciones IA</strong>, ejecuta tareas de gestión solo — tú eliges qué se ejecuta sin preguntar y qué espera tu aprobación.
-              </p>
+              <p style={{ margin: 0 }}>No es un panel más. Tentare toma decisiones y ejecuta tareas de gestión solo — tú solo apruebas.</p>
             </Reveal>
           </div>
 
@@ -612,8 +608,8 @@ export default function LandingPage() {
               <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect width={14} height={20} x={5} y={2} rx={2} ry={2} /><path d="M12 18h.01" /></svg>
             </div>
             <div>
-              <h3 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 6px' }}>Portal y app de socias</h3>
-              <p style={{ fontSize: 14, color: '#5A5A52', margin: 0 }}>Reservan, pagan, valoran su clase y ven su racha — todo con tu nombre, no solo un check-in.</p>
+              <h3 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 6px' }}>App de marca</h3>
+              <p style={{ fontSize: 14, color: '#5A5A52', margin: 0 }}>Tu estudio en el móvil, con tu nombre.</p>
             </div>
           </Reveal>
           <Reveal delay={120} className="lp-bento-2" style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 22, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -641,51 +637,6 @@ export default function LandingPage() {
               <p style={{ fontSize: 14, color: '#5A5A52', margin: 0 }}>Ingresos, ocupación y retención al día.</p>
             </div>
           </Reveal>
-          <Reveal delay={70} className="lp-bento-2" style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 22, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#FFF2F7', color: '#171717', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8" /><rect width={16} height={12} x={4} y={8} rx={2} /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" /></svg>
-            </div>
-            <div>
-              <h3 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 6px' }}>Automatizaciones IA</h3>
-              <p style={{ fontSize: 14, color: '#5A5A52', margin: 0 }}>Reglas que vigilan ausencias, pagos pendientes y clases llenas, y redactan el mensaje con IA — tú apruebas antes de que salga.</p>
-            </div>
-          </Reveal>
-          <Reveal delay={100} className="lp-bento-2" style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 22, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#EDF3F4', color: '#171717', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M17 2.1 21 6l-4 3.9" /><path d="M3 12.5V9a4 4 0 0 1 4-4h14" /><path d="m7 21.9-4-3.9 4-3.9" /><path d="M21 11.5V15a4 4 0 0 1-4 4H3" /></svg>
-            </div>
-            <div>
-              <h3 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 6px' }}>Sustituciones</h3>
-              <p style={{ fontSize: 14, color: '#5A5A52', margin: 0 }}>Si una instructora avisa de que no puede dar su clase, el sistema busca sustituta por disponibilidad y avisa a las alumnas — sin llamadas de última hora.</p>
-            </div>
-          </Reveal>
-          <Reveal delay={130} className="lp-bento-2" style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 22, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F3ECF5', color: '#171717', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" /><path d="M8 7h8" /><path d="M8 11h8" /><path d="M8 15h5" /></svg>
-            </div>
-            <div>
-              <h3 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 6px' }}>Facturación legal en España</h3>
-              <p style={{ fontSize: 14, color: '#5A5A52', margin: 0 }}>Facturas con NIF, IVA y numeración correlativa desde el primer cobro — cumplimiento fiscal español, sin plugins ni gestorías extra.</p>
-            </div>
-          </Reveal>
-          <Reveal delay={60} className="lp-bento-2" style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 22, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#FFF2F7', color: '#171717', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M8.21 13.89 7 23l5-3 5 3-1.21-9.12" /><circle cx={12} cy={8} r={7} /></svg>
-            </div>
-            <div>
-              <h3 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 6px' }}>Gamificación</h3>
-              <p style={{ fontSize: 14, color: '#5A5A52', margin: 0 }}>Rachas de asistencia, logros y retos que dan a tus socias un motivo más para no faltar.</p>
-            </div>
-          </Reveal>
-          <Reveal delay={110} className="lp-bento-2" style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 22, padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#0F0F0F', color: ACC, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><circle cx={13.5} cy={6.5} r={.5} /><circle cx={17.5} cy={10.5} r={.5} /><circle cx={8.5} cy={7.5} r={.5} /><circle cx={6.5} cy={12.5} r={.5} /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" /></svg>
-            </div>
-            <div>
-              <h3 style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 6px' }}>Tu marca, no la nuestra</h3>
-              <p style={{ fontSize: 14, color: '#5A5A52', margin: 0 }}>Colores y logo de tu estudio en el portal de socias, la app y los emails — no en los de Tentare.</p>
-            </div>
-          </Reveal>
         </div>
       </section>
 
@@ -694,7 +645,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <Reveal><h2 className="lp-h2" style={{ fontWeight: 800, fontSize: 54, letterSpacing: '-.04em', margin: '0 0 10px' }}>Precios sin letra pequeña</h2></Reveal>
-            <Reveal delay={80}><p style={{ fontSize: 18, color: '#5A5A52', margin: 0 }}>Sin permanencia y sin comisión sobre tus cobros. Cancela cuando quieras.</p></Reveal>
+            <Reveal delay={80}><p style={{ fontSize: 18, color: '#5A5A52', margin: 0 }}>Todo incluido, sistema autónomo desde el primer plan. Cancela cuando quieras.</p></Reveal>
           </div>
           <div className="lp-pricing" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, alignItems: 'stretch' }}>
             <Reveal style={{ background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 24, padding: 36 }}>
@@ -708,7 +659,7 @@ export default function LandingPage() {
               <div className="lp-mono" style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: '#F7A6C4', marginBottom: 16 }}>Estudio</div>
               <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-.03em' }}>59€<span style={{ fontSize: 17, fontWeight: 500, color: '#8E8E86' }}>/mes</span></div>
               <p style={{ fontSize: 14, color: '#8E8E86', margin: '6px 0 24px' }}>El plan completo. Socias ilimitadas.</p>
-              <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 20, fontSize: 15, color: '#D8D8D2', lineHeight: 2.1 }}>Todo lo de Base<br />Socias ilimitadas<br />Centro de Control con IA<br />Gamificación y retención</div>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 20, fontSize: 15, color: '#D8D8D2', lineHeight: 2.1 }}>Todo lo de Base<br />Socias ilimitadas<br />Gamificación y retención<br />Marketing e IA</div>
               <Link href="/crear-estudio" className="block hover:brightness-95 transition-all" style={{ background: ACC, color: '#171717', textAlign: 'center', fontWeight: 700, padding: 14, borderRadius: 14, marginTop: 24 }}>
                 Crear estudio
               </Link>
@@ -769,7 +720,7 @@ export default function LandingPage() {
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 680, height: 680, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,200,226,.55),transparent 62%)', pointerEvents: 'none' }} />
         <Reveal style={{ position: 'relative' }}>
           <h2 className="lp-cta-h2" style={{ fontWeight: 800, fontSize: 72, lineHeight: .98, letterSpacing: '-.04em', margin: '0 0 22px' }}>Tu estudio merece<br />menos caos.</h2>
-          <p style={{ fontSize: 20, color: '#5A5A52', margin: '0 0 34px' }}>Importa tus datos en minutos con tu CSV actual. Sin permanencia. Empieza hoy.</p>
+          <p style={{ fontSize: 20, color: '#5A5A52', margin: '0 0 34px' }}>Migramos tus datos por ti. Sin permanencia. Empieza hoy.</p>
           <Link href="/crear-estudio" className={btnCta} style={{ fontSize: 17, fontWeight: 600, padding: '18px 40px', boxShadow: '0 16px 34px rgba(255,200,226,.6)' }}>
             Crear mi estudio →
           </Link>
@@ -777,7 +728,10 @@ export default function LandingPage() {
       </section>
 
       {/* ================= FOOTER ================= */}
-      <MarketingFooter />
+      <footer className="lp-section" style={{ background: '#0F0F0F', color: '#8E8E86', padding: '44px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <Image src="/logo-mark.png" alt="Tentare" width={32} height={32} style={{ height: 32, width: 'auto' }} />
+        <span style={{ fontSize: 14 }}>© 2026 Tentare · Software para estudios de Pilates</span>
+      </footer>
 
       <style>{`
         .lp-mono { font-family: var(--font-plex-mono), ui-monospace, monospace; }
@@ -818,8 +772,37 @@ export default function LandingPage() {
 }
 
 // ─── FAQ accordion ────────────────────────────────────────────────────────────
-// FAQ_ITEMS vive en lib/faq-items.ts: la comparte esta landing y /recursos/faq
-// (enlazada desde el footer) para que nunca queden desincronizadas.
+
+const FAQ_ITEMS: { q: string; a: string }[] = [
+  {
+    q: '¿Y si el sistema le cobra a una clienta por error mientras yo duermo?',
+    a: 'El sistema autónomo prepara la acción (renovar un bono, reintentar un cobro fallido) pero cada cobro sale con tu aprobación de un toque, no en automático sin control. Tú decides qué acciones requieren tu OK y cuáles se ejecutan solas — configurable por tipo de acción.',
+  },
+  {
+    q: '¿Cuánto tarda de verdad la migración y quién la hace?',
+    a: 'La migración de tus socias, planes y bonos la hacemos nosotros a partir de tu export actual (Excel, Bsport, Mindbody u otro). El tiempo depende del volumen de datos; para un estudio típico son 24–48h.',
+  },
+  {
+    q: '¿Esto emite factura legal en España? ¿Verifactu?',
+    a: 'Sí generamos factura con NIF, IVA y numeración correlativa desde el primer cobro. La integración con Verifactu/AEAT está en desarrollo — hoy la facturación es real pero aún no envía a Hacienda automáticamente.',
+  },
+  {
+    q: '¿Os lleváis comisión de mis cobros?',
+    a: 'No. Los pagos se procesan por Stripe (tarjeta y SEPA) y solo pagas la cuota estándar de Stripe — Tentare no añade ninguna comisión extra sobre tus cobros.',
+  },
+  {
+    q: '¿Funciona con reformer, salas y aforo, o es genérico?',
+    a: 'Está pensado para pilates de verdad: gestión de salas con capacidad propia, mapa de spots por reformer, tipos de clase con aforo y precio independiente, y bonos de sesiones — no es un calendario genérico reetiquetado.',
+  },
+  {
+    q: '¿Y si quiero cancelar, me llevo mis datos?',
+    a: 'Sí. Sin permanencia: puedes exportar socias, historial de asistencia y facturas en cualquier momento, te quedes o te vayas.',
+  },
+  {
+    q: '¿La app de marca está de verdad en las stores, o es una web?',
+    a: 'Hoy es un portal web instalable (PWA) con tu nombre y tus colores — tus socias lo añaden a su pantalla de inicio como una app, sin pasar por App Store ni Google Play. La publicación en tiendas está en el roadmap.',
+  },
+];
 
 function Faq() {
   const [open, setOpen] = useState<number | null>(0);
