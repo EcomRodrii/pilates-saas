@@ -1,16 +1,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Riesgo de plantón (no-show) — score graduado, PURO y testeable.
 //
-// Sustituye al umbral booleano (`noShow30d` + regla R4: "≥3 plantones y ratio
-// ≥40%"), que trata igual a quien falló 3 de 4 veces la semana pasada y a quien
-// falló 3 de 40 hace dos meses.
+// Reemplazó al umbral booleano que usaba la regla R4 ("≥3 plantones y ratio
+// ≥40%" sobre los últimos 30 días, vía `noShow30d` — ya eliminado), que trataba
+// igual a quien falló 3 de 4 veces la semana pasada y a quien falló 3 de 40
+// hace dos meses. Cableado en R4 desde lib/decision/senales.ts (riesgoNoShowDeSocio).
 //
 // Tres decisiones de modelado, explícitas:
 //
 //  1. DENOMINADOR: solo cuentan las reservas que llegaron a resolverse en
 //     asistir o no asistir (ASISTIDA + NO_ASISTIO). Una CANCELADA a tiempo NO es
 //     un plantón — es buen comportamiento — y meterla en el denominador diluía
-//     el ratio (lo hace `noShow30d`, que sí la cuenta).
+//     el ratio (lo hacía `noShow30d`).
 //  2. FECHA: se usa la fecha de la CLASE, no la de creación de la reserva. Lo
 //     que importa es cuándo falló, no cuándo reservó.
 //  3. RECENCIA: cada reserva pesa por antigüedad con decaimiento exponencial
