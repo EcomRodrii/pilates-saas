@@ -6,6 +6,10 @@ import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing/billing-g
 import { emailValido, parsearFecha } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 
+// Una importación con miles de filas hace varios lotes secuenciales de INSERT;
+// damos margen sobre el default de Vercel para que no corte a medias.
+export const maxDuration = 60;
+
 // Importación masiva de socias desde CSV. Autenticada (JWT de staff), scopeada al
 // estudio de la sesión (NO se fía del body para el studio_id), con dedup contra
 // los emails ya existentes del estudio. Solo PROPIETARIO y RECEPCION.

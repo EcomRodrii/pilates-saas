@@ -6,6 +6,10 @@ import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid } from '@/lib/utils';
 import type { FilaReserva } from '@/lib/csv';
 
+// Una importación con miles de filas hace varios lotes secuenciales de INSERT;
+// damos margen sobre el default de Vercel para que no corte a medias.
+export const maxDuration = 60;
+
 // Importación de RESERVAS desde CSV — cuarta pieza de la migración asistida.
 // Sin ella, el día del cambio las clases salen vacías y las alumnas llegan sin su
 // sitio. Admite además el histórico (ASISTIDA / NO_ASISTIO), que alimenta el
