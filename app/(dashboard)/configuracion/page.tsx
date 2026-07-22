@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useState, useEffect, useId } from 'react';
+import dynamic from 'next/dynamic';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useSearchParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
@@ -9,18 +10,25 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Toast, useToast } from '@/components/ui/toast';
-import { TabCamposPersonalizados } from '@/components/configuracion/tab-campos-personalizados';
-import { TabPlantillasEmail } from '@/components/configuracion/tab-plantillas-email';
-import { TabPlanes } from '@/components/configuracion/tab-planes';
-import { TabIntegraciones } from '@/components/configuracion/tab-integraciones';
-import { TabEstudio } from '@/components/configuracion/tab-estudio';
-import { TabPerfil } from '@/components/configuracion/tab-perfil';
+import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import type { PlanTarifa, TipoClase } from '@/lib/types';
-import { TabGamificacion } from '@/components/configuracion/tab-gamificacion';
-import { TabBackups } from '@/components/configuracion/tab-backups';
-import { TabClasesSalas } from '@/components/configuracion/tab-clases-salas';
-import { TabCitas } from '@/components/configuracion/tab-citas';
 import { PageHeader } from '@/components/ui/page-header';
+
+// Cada pestaña solo se ve una a la vez (activeTab) pero antes se importaban
+// las 10 de golpe: visitar "Planes" descargaba también el JS de
+// Integraciones (735 líneas), Backups, Gamificación... aunque no se abrieran
+// en esa visita. `next/dynamic` parte cada pestaña en su propio chunk,
+// cargado solo cuando activeTab la selecciona.
+const TabCamposPersonalizados = dynamic(() => import('@/components/configuracion/tab-campos-personalizados').then(m => m.TabCamposPersonalizados), { loading: () => <PanelSkeleton /> });
+const TabPlantillasEmail = dynamic(() => import('@/components/configuracion/tab-plantillas-email').then(m => m.TabPlantillasEmail), { loading: () => <PanelSkeleton /> });
+const TabPlanes = dynamic(() => import('@/components/configuracion/tab-planes').then(m => m.TabPlanes), { loading: () => <PanelSkeleton /> });
+const TabIntegraciones = dynamic(() => import('@/components/configuracion/tab-integraciones').then(m => m.TabIntegraciones), { loading: () => <PanelSkeleton /> });
+const TabEstudio = dynamic(() => import('@/components/configuracion/tab-estudio').then(m => m.TabEstudio), { loading: () => <PanelSkeleton /> });
+const TabPerfil = dynamic(() => import('@/components/configuracion/tab-perfil').then(m => m.TabPerfil), { loading: () => <PanelSkeleton /> });
+const TabGamificacion = dynamic(() => import('@/components/configuracion/tab-gamificacion').then(m => m.TabGamificacion), { loading: () => <PanelSkeleton /> });
+const TabBackups = dynamic(() => import('@/components/configuracion/tab-backups').then(m => m.TabBackups), { loading: () => <PanelSkeleton /> });
+const TabClasesSalas = dynamic(() => import('@/components/configuracion/tab-clases-salas').then(m => m.TabClasesSalas), { loading: () => <PanelSkeleton /> });
+const TabCitas = dynamic(() => import('@/components/configuracion/tab-citas').then(m => m.TabCitas), { loading: () => <PanelSkeleton /> });
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
