@@ -17,10 +17,7 @@ import { TabIntegraciones } from '@/components/configuracion/tab-integraciones';
 import { TabEstudio } from '@/components/configuracion/tab-estudio';
 import { TabPerfil } from '@/components/configuracion/tab-perfil';
 import type { PlanTarifa, TipoClase } from '@/lib/types';
-import { TabRecompensas } from '@/components/configuracion/tab-recompensas';
-import { TabLogros } from '@/components/configuracion/tab-logros';
-import { TabNiveles } from '@/components/configuracion/tab-niveles';
-import { TabRetos } from '@/components/configuracion/tab-retos';
+import { TabGamificacion } from '@/components/configuracion/tab-gamificacion';
 import { TabBackups } from '@/components/configuracion/tab-backups';
 import { TabServiciosCita } from '@/components/configuracion/tab-servicios-cita';
 import { TabHorarioCitas } from '@/components/configuracion/tab-horario-citas';
@@ -223,7 +220,7 @@ export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'servicios-cita' | 'horario-citas' | 'recompensas' | 'logros' | 'niveles' | 'retos' | 'integraciones' | 'estudio' | 'campos' | 'plantillas' | 'backups' | 'perfil';
+type TabId = 'planes' | 'clases' | 'salas' | 'servicios-cita' | 'horario-citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'campos' | 'plantillas' | 'backups' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
@@ -231,10 +228,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'salas',       label: 'Salas' },
   { id: 'servicios-cita', label: 'Servicios de cita' },
   { id: 'horario-citas',  label: 'Horario de citas' },
-  { id: 'recompensas', label: 'Recompensas' },
-  { id: 'logros',      label: 'Logros' },
-  { id: 'niveles',     label: 'Niveles' },
-  { id: 'retos',       label: 'Retos' },
+  { id: 'gamificacion', label: 'Gamificación' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
   { id: 'campos',      label: 'Campos de clienta' },
@@ -243,19 +237,38 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'perfil',      label: 'Mi perfil' },
 ];
 
+// Las 4 pestañas antiguas (Recompensas/Logros/Niveles/Retos) se unificaron en
+// "gamificacion" con sub-navegación interna (tab-gamificacion.tsx). Cualquier
+// enlace guardado con el id antiguo en ?tab= sigue funcionando: aterriza en
+// Gamificación, abierto directamente en esa sub-pestaña.
+const SUB_GAMIFICACION = new Set(['recompensas', 'logros', 'niveles', 'retos']);
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ConfiguracionPage() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('planes');
+  // Sub-pestaña con la que abrir Gamificación, si el ?tab= venía con un id
+  // antiguo (recompensas/logros/niveles/retos) de antes de la unificación.
+  const [gamificacionSub, setGamificacionSub] = useState<string | undefined>(undefined);
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const searchParams = useSearchParams();
 
   useEffect(() => setMounted(true), []);
 
+  // Sincroniza el tab activo con ?tab= (incluye compatibilidad con los ids
+  // antiguos de gamificación). Mismo patrón ya usado en el resto del repo
+  // (calendario, sustituciones, equipo, cierre) para leer estado inicial de la URL.
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && TABS.some(t => t.id === tab)) setActiveTab(tab as TabId);
+    if (!tab) return;
+    if (SUB_GAMIFICACION.has(tab)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGamificacionSub(tab);
+      setActiveTab('gamificacion');
+    } else if (TABS.some(t => t.id === tab)) {
+      setActiveTab(tab as TabId);
+    }
   }, [searchParams]);
 
   if (!mounted) return null;
@@ -291,10 +304,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'salas'       && <TabSalas        showToast={showToast} />}
       {activeTab === 'servicios-cita' && <TabServiciosCita showToast={showToast} />}
       {activeTab === 'horario-citas'  && <TabHorarioCitas  showToast={showToast} />}
-      {activeTab === 'recompensas' && <TabRecompensas  showToast={showToast} />}
-      {activeTab === 'logros'      && <TabLogros       showToast={showToast} />}
-      {activeTab === 'niveles'     && <TabNiveles      showToast={showToast} />}
-      {activeTab === 'retos'       && <TabRetos        showToast={showToast} />}
+      {activeTab === 'gamificacion' && <TabGamificacion showToast={showToast} sub={gamificacionSub} />}
       {activeTab === 'backups'     && <TabBackups      showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
