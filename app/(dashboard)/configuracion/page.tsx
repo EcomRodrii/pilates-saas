@@ -11,8 +11,6 @@ import { cn } from '@/lib/utils';
 import { Toast, useToast } from '@/components/ui/toast';
 import { TabCamposPersonalizados } from '@/components/configuracion/tab-campos-personalizados';
 import { TabPlantillasEmail } from '@/components/configuracion/tab-plantillas-email';
-import { TabClases } from '@/components/configuracion/tab-clases';
-import { TabSalas } from '@/components/configuracion/tab-salas';
 import { TabPlanes } from '@/components/configuracion/tab-planes';
 import { TabIntegraciones } from '@/components/configuracion/tab-integraciones';
 import { TabEstudio } from '@/components/configuracion/tab-estudio';
@@ -20,8 +18,8 @@ import { TabPerfil } from '@/components/configuracion/tab-perfil';
 import type { PlanTarifa, TipoClase } from '@/lib/types';
 import { TabGamificacion } from '@/components/configuracion/tab-gamificacion';
 import { TabBackups } from '@/components/configuracion/tab-backups';
-import { TabServiciosCita } from '@/components/configuracion/tab-servicios-cita';
-import { TabHorarioCitas } from '@/components/configuracion/tab-horario-citas';
+import { TabClasesSalas } from '@/components/configuracion/tab-clases-salas';
+import { TabCitas } from '@/components/configuracion/tab-citas';
 import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -221,14 +219,12 @@ export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'servicios-cita' | 'horario-citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'campos' | 'plantillas' | 'backups' | 'perfil';
+type TabId = 'planes' | 'clases-salas' | 'citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'campos' | 'plantillas' | 'backups' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
-  { id: 'clases',      label: 'Clases' },
-  { id: 'salas',       label: 'Salas' },
-  { id: 'servicios-cita', label: 'Servicios de cita' },
-  { id: 'horario-citas',  label: 'Horario de citas' },
+  { id: 'clases-salas', label: 'Clases y salas' },
+  { id: 'citas',       label: 'Citas' },
   { id: 'gamificacion', label: 'Gamificación' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
@@ -244,6 +240,12 @@ const TABS: { id: TabId; label: string }[] = [
 // Gamificación, abierto directamente en esa sub-pestaña.
 const SUB_GAMIFICACION = new Set(['recompensas', 'logros', 'niveles', 'retos']);
 
+// Mismo patrón: Clases/Salas → "clases-salas", Servicios de cita/Horario de
+// citas → "citas". Los enlaces antiguos (onboarding, lista de tareas) usan
+// ?tab=clases y ?tab=salas y deben seguir aterrizando en la sub-pestaña correcta.
+const SUB_CLASES_SALAS = new Map([['clases', 'clases'], ['salas', 'salas']]);
+const SUB_CITAS = new Map([['servicios-cita', 'servicios'], ['horario-citas', 'horario']]);
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ConfiguracionPage() {
@@ -253,6 +255,8 @@ export default function ConfiguracionPage() {
   // Sub-pestaña con la que abrir Gamificación, si el ?tab= venía con un id
   // antiguo (recompensas/logros/niveles/retos) de antes de la unificación.
   const [gamificacionSub, setGamificacionSub] = useState<string | undefined>(undefined);
+  const [clasesSalasSub, setClasesSalasSub] = useState<string | undefined>(undefined);
+  const [citasSub, setCitasSub] = useState<string | undefined>(undefined);
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const searchParams = useSearchParams();
 
@@ -268,6 +272,14 @@ export default function ConfiguracionPage() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setGamificacionSub(tab);
       setActiveTab('gamificacion');
+    } else if (SUB_CLASES_SALAS.has(tab)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setClasesSalasSub(SUB_CLASES_SALAS.get(tab));
+      setActiveTab('clases-salas');
+    } else if (SUB_CITAS.has(tab)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCitasSub(SUB_CITAS.get(tab));
+      setActiveTab('citas');
     } else if (TABS.some(t => t.id === tab)) {
       setActiveTab(tab as TabId);
     }
@@ -302,10 +314,8 @@ export default function ConfiguracionPage() {
 
       {/* Tab content */}
       {activeTab === 'planes'      && <TabPlanes      showToast={showToast} />}
-      {activeTab === 'clases'      && <TabClases       showToast={showToast} />}
-      {activeTab === 'salas'       && <TabSalas        showToast={showToast} />}
-      {activeTab === 'servicios-cita' && <TabServiciosCita showToast={showToast} />}
-      {activeTab === 'horario-citas'  && <TabHorarioCitas  showToast={showToast} />}
+      {activeTab === 'clases-salas' && <TabClasesSalas showToast={showToast} sub={clasesSalasSub} />}
+      {activeTab === 'citas'       && <TabCitas       showToast={showToast} sub={citasSub} />}
       {activeTab === 'gamificacion' && <TabGamificacion showToast={showToast} sub={gamificacionSub} studio={studio} />}
       {activeTab === 'backups'     && <TabBackups      showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
