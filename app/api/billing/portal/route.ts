@@ -21,8 +21,17 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: studio } = await admin
-    .from('studios').select('stripe_customer_id').eq('id', sesion.studioId).single();
-  if (!studio?.stripe_customer_id) {
+    .from('studios').select('stripe_customer_id, cadena_id').eq('id', sesion.studioId).single();
+  if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
+
+  // Plan CADENA: el customer de Stripe vive en `cadenas`, no en `studios`
+  // (una sola suscripción cubre todas las sedes) — ver app/api/billing/checkout.
+  let customerId = studio.stripe_customer_id as string | null;
+  if (!customerId && studio.cadena_id) {
+    const { data: cadena } = await admin.from('cadenas').select('stripe_customer_id').eq('id', studio.cadena_id).maybeSingle();
+    customerId = cadena?.stripe_customer_id ?? null;
+  }
+  if (!customerId) {
     return NextResponse.json({ error: 'Este estudio aún no tiene suscripción' }, { status: 409 });
   }
 
@@ -31,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const portal = await stripe.billingPortal.sessions.create({
-      customer: studio.stripe_customer_id,
+      customer: customerId,
       return_url: `${appUrl}/configuracion`,
     });
 

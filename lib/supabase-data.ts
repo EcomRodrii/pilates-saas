@@ -4559,7 +4559,7 @@ export interface SedeSeleccionable {
 
 // Lista las sedes que el usuario autenticado puede operar (dueño o
 // instructora), para pintar el selector de sede del ProfileMenu. Vía RPC
-// SECURITY DEFINER con columnas whitelisted (mis_estudios(), migración 0062)
+// SECURITY DEFINER con columnas whitelisted (mis_estudios(), migración 0065)
 // — nunca una policy de fila sobre `studios`, que expone columnas sensibles
 // (nif, stripe_customer_id, kiosk_token...) a cualquiera con acceso de fila.
 export async function fetchMisEstudios(): Promise<SedeSeleccionable[]> {

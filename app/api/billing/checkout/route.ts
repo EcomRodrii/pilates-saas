@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: studio } = await admin
-    .from('studios').select('id, nombre, email, cadena_id, stripe_customer_id, subscription_status')
+    .from('studios').select('id, nombre, email, cadena_id, stripe_customer_id, subscription_id, subscription_status')
     .eq('id', sesion.studioId).single();
   if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
 
@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
     if (plan === 'CADENA') {
       let cadenaId = studio.cadena_id as string | null;
       let cadena: { id: string; stripe_customer_id: string | null; subscription_status: string | null } | null = null;
+      let cadenaRecienCreada = false;
 
       if (cadenaId) {
         const { data } = await admin.from('cadenas').select('id, stripe_customer_id, subscription_status').eq('id', cadenaId).maybeSingle();
@@ -59,18 +60,47 @@ export async function POST(req: NextRequest) {
       }
       if (!cadena) {
         // Primera vez que esta propietaria contrata CADENA: crea la cadena y
-        // vincula el estudio actual como su primera sede.
+        // vincula el estudio actual como su primera sede. El UPDATE lleva
+        // `is('cadena_id', null)` para detectar una carrera con otra petición
+        // concurrente (doble clic): si no afecta a ninguna fila, alguien más
+        // ganó — se borra la cadena huérfana recién creada y se usa la real.
         cadenaId = `cadena-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const { error: cadenaError } = await admin.from('cadenas').insert({
           id: cadenaId, nombre: studio.nombre, owner_auth_user_id: sesion.userId,
         });
         if (cadenaError) throw new Error(`crear cadena: ${cadenaError.message}`);
-        const { error: linkError } = await admin.from('studios').update({ cadena_id: cadenaId }).eq('id', studio.id);
+        const { data: vinculado, error: linkError } = await admin.from('studios')
+          .update({ cadena_id: cadenaId }).eq('id', studio.id).is('cadena_id', null)
+          .select('id').maybeSingle();
         if (linkError) throw new Error(`vincular cadena_id: ${linkError.message}`);
-        cadena = { id: cadenaId, stripe_customer_id: null, subscription_status: null };
+        if (!vinculado) {
+          await admin.from('cadenas').delete().eq('id', cadenaId);
+          const { data: real } = await admin.from('studios').select('cadena_id').eq('id', studio.id).single();
+          cadenaId = real?.cadena_id ?? null;
+          if (!cadenaId) throw new Error('No se pudo resolver la cadena tras condición de carrera');
+          const { data } = await admin.from('cadenas').select('id, stripe_customer_id, subscription_status').eq('id', cadenaId).maybeSingle();
+          cadena = data;
+        } else {
+          cadena = { id: cadenaId, stripe_customer_id: null, subscription_status: null };
+          cadenaRecienCreada = true;
+        }
+      }
+      if (!cadena) throw new Error('No se pudo resolver la cadena');
+
+      // Al crear la cadena en esta misma petición, `cadena.subscription_status`
+      // siempre es null — el historial real de prueba gratuita es el del propio
+      // estudio, no el de la fila de cadena recién nacida (si no, cada alta de
+      // cadena regalaría un trial nuevo aunque el estudio ya hubiera gastado el suyo).
+      const primeraVez = cadenaRecienCreada ? !studio.subscription_status : !cadena.subscription_status;
+
+      // Si el estudio venía de ESTUDIO/BASE con una suscripción individual viva,
+      // hay que cancelarla — si no, queda cobrando en paralelo con la de cadena.
+      if (studio.subscription_id && studio.subscription_status && studio.subscription_status !== 'canceled') {
+        await stripe.subscriptions.cancel(studio.subscription_id).catch(() => {
+          // Ya cancelada en Stripe (o inexistente) — no bloquea el alta de cadena.
+        });
       }
 
-      const primeraVez = !cadena.subscription_status;
       let customerId = cadena.stripe_customer_id;
       if (!customerId) {
         const customer = await stripe.customers.create({

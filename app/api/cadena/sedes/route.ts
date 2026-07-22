@@ -7,7 +7,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 
 // "Añadir sede" (Configuración → Estudio, solo con el plan CADENA activo).
 // Server-side porque hace falta un gate que RLS por sí sola no puede expresar:
-// insert_studios (migración 0062) ya impide vincular cadena_id a una cadena
+// insert_studios (migración 0065) ya impide vincular cadena_id a una cadena
 // ajena, pero NO sabe si la suscripción de ESA cadena sigue entitled a
 // multiCentro — eso es una regla de negocio, se valida aquí.
 export async function POST(req: NextRequest) {
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // El trigger heredar_plan_de_cadena (migración 0062) rellena plan/
+    // El trigger heredar_plan_de_cadena (migración 0065) rellena plan/
     // subscription_status/current_period_end desde `cadenas` en el propio
     // INSERT — la sede nueva queda operativa sin checkout aparte.
     for (let intento = 0; intento < 3; intento++) {

@@ -78,6 +78,18 @@ create trigger trg_heredar_plan_de_cadena
 -- ── Sede activa por sesión (selector "cambiar de sede") ──────────────────────
 -- Sin esto, current_studio_id() solo puede resolver una sede fija y determinista
 -- por usuario — no hay forma de "cambiar" a otra sede propia sin este registro.
+--
+-- LIMITACIÓN CONOCIDA (v1, aceptada a propósito): la PK es `auth_user_id`, no
+-- `(auth_user_id, dispositivo)` — es decir, la sede activa es POR USUARIO, no
+-- por pestaña/dispositivo/sesión de navegador. Si la misma persona tiene dos
+-- pestañas o dispositivos abiertos y cambia de sede en uno, el otro empieza a
+-- resolver la sede nueva en su siguiente petición server-side, aunque su UI
+-- no se haya refrescado. No es un fallo de autorización (nunca concede acceso
+-- a una sede ajena), pero SÍ puede hacer que una reserva/cobro aterrice en la
+-- sede equivocada si se trabaja desde dos dispositivos a la vez. Arreglarlo
+-- de verdad exige un identificador de sesión/dispositivo viajando en cada
+-- request (JWT custom claim + Auth Hook, o cookie firmada) — se descartó por
+-- complejidad para esta primera tanda; revisar si el uso real lo justifica.
 create table public.sesion_activa (
   auth_user_id uuid primary key references auth.users(id) on delete cascade,
   studio_id text not null,
