@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useState, useEffect, useId } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useSearchParams } from 'next/navigation';
+import { useStudio } from '@/lib/studio-context';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -246,6 +247,7 @@ const SUB_GAMIFICACION = new Set(['recompensas', 'logros', 'niveles', 'retos']);
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ConfiguracionPage() {
+  const { studio } = useStudio();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('planes');
   // Sub-pestaña con la que abrir Gamificación, si el ?tab= venía con un id
@@ -304,7 +306,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'salas'       && <TabSalas        showToast={showToast} />}
       {activeTab === 'servicios-cita' && <TabServiciosCita showToast={showToast} />}
       {activeTab === 'horario-citas'  && <TabHorarioCitas  showToast={showToast} />}
-      {activeTab === 'gamificacion' && <TabGamificacion showToast={showToast} sub={gamificacionSub} />}
+      {activeTab === 'gamificacion' && <TabGamificacion showToast={showToast} sub={gamificacionSub} studio={studio} />}
       {activeTab === 'backups'     && <TabBackups      showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
