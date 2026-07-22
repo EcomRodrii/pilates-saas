@@ -8,6 +8,7 @@ import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } f
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
+import { conReintentoResend } from '@/lib/emails/resend-reintentos';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -153,6 +154,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     // se intentara enviar otra cosa por defecto — mejor fallar explícito.
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para la clienta', mensajeCliente: null };
   } else {
+    const email = c.socio.email;
     const html = await render(AutomatizacionEmail({
       socioNombre: c.socio.nombre,
       titulo: c.titulo,
@@ -161,16 +163,20 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       colorPrimario: studioColor,
       logoUrl: studioLogo,
     }));
-    const { error } = await resend!.emails.send(
-      {
-        from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
-        to: [c.socio.email],
-        subject: c.titulo,
-        html,
-      },
-      // Idempotency-Key: si el step se reintenta tras enviar pero antes de
-      // memoizar, Resend reconoce la clave y NO reenvía el email.
-      { idempotencyKey: base.id }
+    // Un 429 (u otro fallo transitorio de Resend) no debe perderse como
+    // FALLIDO permanente — ver lib/emails/resend-reintentos.ts.
+    const { error } = await conReintentoResend(() =>
+      resend!.emails.send(
+        {
+          from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+          to: [email],
+          subject: c.titulo,
+          html,
+        },
+        // Idempotency-Key: si el step se reintenta tras enviar pero antes de
+        // memoizar, Resend reconoce la clave y NO reenvía el email.
+        { idempotencyKey: base.id }
+      )
     );
     if (error) {
       log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message, mensajeCliente: c.mensajeCliente };
@@ -250,9 +256,12 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado' };
   } else {
     const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre, colorPrimario: studioColor, logoUrl: studioLogo }));
-    const { error } = await resend!.emails.send(
-      { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
-      { idempotencyKey: base.id },
+    // Mismo reintento ante fallos transitorios que en procesarCandidato.
+    const { error } = await conReintentoResend(() =>
+      resend!.emails.send(
+        { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
+        { idempotencyKey: base.id },
+      )
     );
     log = error
       ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message }
