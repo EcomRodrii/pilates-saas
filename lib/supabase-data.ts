@@ -10,6 +10,7 @@ import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engin
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
+import { evaluarFeature } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -2329,6 +2330,12 @@ async function otorgarCreditosServidor(
   admin: SupabaseClient, studioId: string, socioId: string,
   trigger: RewardTrigger, refId: string | null,
 ) {
+  // R7/gate de plan: la gamificación (créditos, logros, retos, niveles, rachas)
+  // es una feature de los planes Estudio/Cadena — un estudio en Base no gana
+  // créditos nuevos aquí. `evaluarFeature` falla abierto si BILLING_ENFORCED no
+  // está activo, igual que el resto de gates del producto (ver billing-rules.ts).
+  if (await evaluarFeature(studioId, 'gamificacion')) return;
+
   const [{ data: rulesRows }, { data: actionRows }] = await Promise.all([
     admin.from('reward_rules').select('*').eq('studio_id', studioId),
     admin.from('reward_actions').select('*').eq('studio_id', studioId),
@@ -2551,6 +2558,11 @@ async function evaluarGamificacionServidor(
   admin: SupabaseClient, studioId: string, socioId: string,
 ): Promise<void> {
   try {
+    // Mismo gate que otorgarCreditosServidor: sin la feature de plan, no se
+    // evalúa progreso nuevo de logros/retos. El progreso ya conseguido antes de
+    // perder el plan NO se borra (evaluarLogrosServidor/evaluarRetosServidor no
+    // tocan lo que ya está `completado`); solo se congela, no retrocede.
+    if (await evaluarFeature(studioId, 'gamificacion')) return;
     const ctx = await cargarContextoGamificacion(admin, studioId, socioId);
     if (!ctx) return;
     await evaluarLogrosServidor(admin, studioId, socioId, ctx);

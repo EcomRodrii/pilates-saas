@@ -111,6 +111,7 @@ import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarE
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
+import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
@@ -2186,6 +2187,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // estudio) — otorgarCreditos nunca usa un número fijo.
 
   function otorgarCreditos(socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) {
+    // Gate de plan (espejo del servidor en lib/supabase-data.ts): sin la
+    // feature 'gamificacion' del plan, el panel no otorga créditos nuevos desde
+    // acciones de staff. El servidor sigue siendo la fuente de verdad — este
+    // check es defensa en profundidad para no generar estado local que luego
+    // el servidor rechazaría de todos modos.
+    if (studio && !tieneFeature(studio, 'gamificacion')) return;
     const studioId = getCurrentStudioId();
     // Decisión pura y testeada (reward-engine): regla activa con créditos > 0 y
     // no otorgado ya para este refId (idempotencia).
@@ -2347,6 +2354,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function evaluarLogrosSocio(socioId: string, reservasOverride?: Reserva[]) {
+    // Gate de plan — ver comentario de otorgarCreditos.
+    if (studio && !tieneFeature(studio, 'gamificacion')) return;
     const now = new Date();
     const studioId = getCurrentStudioId();
     const socio = socios.find(s => s.id === socioId);
@@ -2463,6 +2472,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function evaluarRetosSocio(socioId: string, reservasOverride?: Reserva[]) {
+    // Gate de plan — ver comentario de otorgarCreditos.
+    if (studio && !tieneFeature(studio, 'gamificacion')) return;
     const now = new Date();
     const studioId = getCurrentStudioId();
     const socio = socios.find(s => s.id === socioId);

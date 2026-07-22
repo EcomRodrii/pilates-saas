@@ -6,6 +6,8 @@ import { TabRecompensas } from './tab-recompensas';
 import { TabLogros } from './tab-logros';
 import { TabNiveles } from './tab-niveles';
 import { TabRetos } from './tab-retos';
+import { PlanGate } from '@/components/ui/plan-gate';
+import type { Studio } from '@/lib/types';
 
 // Antes Recompensas/Logros/Niveles/Retos eran 4 pestañas sueltas en el nivel
 // superior de Configuración, todas para la misma función (la gamificación que
@@ -22,7 +24,7 @@ const SUBS: { id: Sub; label: string }[] = [
   { id: 'retos', label: 'Retos' },
 ];
 
-export function TabGamificacion({ showToast, sub: subInicial }: { showToast: (m: string) => void; sub?: string }) {
+export function TabGamificacion({ showToast, sub: subInicial, studio }: { showToast: (m: string) => void; sub?: string; studio?: Studio | null }) {
   const [sub, setSub] = useState<Sub>(SUBS.some(s => s.id === subInicial) ? (subInicial as Sub) : 'recompensas');
 
   return (
@@ -34,17 +36,19 @@ export function TabGamificacion({ showToast, sub: subInicial }: { showToast: (m:
         </p>
       </div>
 
-      <Tabs value={sub} onValueChange={(v) => setSub(v as Sub)}>
-        <TabsList>
-          {SUBS.map(s => (
-            <TabsTrigger key={s.id} value={s.id}>{s.label}</TabsTrigger>
-          ))}
-        </TabsList>
-        <TabsContent value="recompensas"><TabRecompensas showToast={showToast} /></TabsContent>
-        <TabsContent value="logros"><TabLogros showToast={showToast} /></TabsContent>
-        <TabsContent value="niveles"><TabNiveles showToast={showToast} /></TabsContent>
-        <TabsContent value="retos"><TabRetos showToast={showToast} /></TabsContent>
-      </Tabs>
+      <PlanGate studio={studio ?? {}} feature="gamificacion">
+        <Tabs value={sub} onValueChange={(v) => setSub(v as Sub)}>
+          <TabsList>
+            {SUBS.map(s => (
+              <TabsTrigger key={s.id} value={s.id}>{s.label}</TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value="recompensas"><TabRecompensas showToast={showToast} /></TabsContent>
+          <TabsContent value="logros"><TabLogros showToast={showToast} /></TabsContent>
+          <TabsContent value="niveles"><TabNiveles showToast={showToast} /></TabsContent>
+          <TabsContent value="retos"><TabRetos showToast={showToast} /></TabsContent>
+        </Tabs>
+      </PlanGate>
     </div>
   );
 }
