@@ -634,7 +634,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (studioIdOverride) {
         setCurrentStudioId(studioIdOverride);
       } else if (authUserId) {
-        const resolved = await resolveStudioId(authUserId);
+        const resolved = await resolveStudioId();
         // Resetea a vacío si no resuelve, para no heredar el estudio de una
         // sesión anterior en el mismo cliente.
         setCurrentStudioId(resolved ?? '');

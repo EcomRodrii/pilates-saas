@@ -43,6 +43,8 @@ export interface Studio {
   gmailEmail: string | null;
   zoomEmail: string | null;
   gestoriaEmail: string | null;
+  // Sede de una cadena multi-centro (plan CADENA). null = estudio independiente.
+  cadenaId: string | null;
   // Suscripción de la plataforma (Stripe Billing — el SaaS cobra al estudio).
   stripeCustomerId: string | null;
   subscriptionId: string | null;

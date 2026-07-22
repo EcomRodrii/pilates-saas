@@ -569,6 +569,7 @@ export interface RowStudios {
   gmail_email: string | null;
   zoom_email: string | null;
   gestoria_email: string | null;
+  cadena_id: string | null;
   cancelacion_ventana_horas: number | null;
   cancelacion_devolver_bono_tardia: boolean | null;
   reserva_exigir_plan: boolean | null;
