@@ -349,32 +349,42 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
 
       <div style={{ width: 3, borderRadius: 999, background: slot.claseColor, alignSelf: 'stretch', flexShrink: 0 }} />
 
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <p style={{ fontSize: 15, fontWeight: 800, color: t.ink, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '-0.01em' }}>
-            {slot.claseNombre}
-          </p>
-          {slot.miEstado && <EstadoIcono estado={slot.miEstado} />}
+      <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {/* Clase + nivel */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <p style={{ fontSize: 15, fontWeight: 800, color: t.ink, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '-0.01em' }}>
+              {slot.claseNombre}
+            </p>
+            {slot.miEstado && <EstadoIcono estado={slot.miEstado} />}
+          </div>
+          <span style={{ ...nivelBadge(slot.nivel), marginTop: 5 }}>{NIVEL_LABEL[slot.nivel]}</span>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-          <span style={nivelBadge(slot.nivel)}>{NIVEL_LABEL[slot.nivel]}</span>
-          {slot.instructorNombre && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <InstructorAvatar nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={18} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: t.muted }}>{slot.instructorNombre}</span>
-            </span>
-          )}
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 800,
-            padding: '4px 10px', borderRadius: 999,
-            background: `color-mix(in srgb, ${capColor} 14%, transparent)`, color: capColor,
-          }}>
-            <Users size={12} />
-            {lleno ? 'Completa · lista de espera' : `${slot.ocupadas}/${slot.aforoMaximo} plazas`}
-          </span>
-        </div>
+
+        {/* Instructora — fila propia, bien visible (no una badge más) */}
+        {slot.instructorNombre && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 8, borderTop: `1px solid ${t.line}` }}>
+            <InstructorAvatar nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={28} />
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: t.ink, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {slot.instructorNombre}
+              </p>
+              <p style={{ fontSize: 10.5, fontWeight: 600, color: t.muted, lineHeight: 1.2 }}>
+                {slot.instructorRol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Plazas */}
+        <span style={{
+          display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 800,
+          padding: '4px 10px', borderRadius: 999,
+          background: `color-mix(in srgb, ${capColor} 14%, transparent)`, color: capColor,
+        }}>
+          <Users size={12} />
+          {lleno ? 'Completa · lista de espera' : `${slot.ocupadas}/${slot.aforoMaximo} plazas`}
+        </span>
       </div>
     </button>
   );
