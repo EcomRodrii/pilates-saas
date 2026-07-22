@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
 }
 
 async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscription) {
+  // Plan CADENA: una sola suscripción cubre varias sedes (studios.cadena_id).
+  // metadata.cadenaId la puso el checkout (ver app/api/billing/checkout).
+  const cadenaId = sub.metadata?.cadenaId ?? null;
   const studioId = sub.metadata?.studioId ?? null;
   const priceId = sub.items?.data?.[0]?.price?.id ?? null;
   const plan = planDePriceId(priceId) ?? (sub.metadata?.plan as string | undefined) ?? null;
@@ -75,6 +78,16 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
     current_period_end: periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null,
   };
   if (plan) update.plan = plan;
+
+  if (cadenaId) {
+    // `cadenas` es la única fuente de verdad para el billing de una cadena —
+    // el trigger propagar_plan_cadena (migración 0062) hace el fan-out a
+    // TODAS sus sedes en la misma transacción. No tocar `studios` aquí.
+    const { error } = await admin.from('cadenas').update(update).eq('id', cadenaId);
+    if (error) throw new Error(`update cadenas: ${error.message}`);
+    capturar(cadenaId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+    return;
+  }
 
   const q = admin.from('studios').update(update);
   const { error } = studioId

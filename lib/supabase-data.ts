@@ -162,32 +162,18 @@ export function getCurrentStudioId() {
   return STUDIO_ID;
 }
 
-// Looks up which studio a just-authenticated user belongs to: first as a
-// claimed team member (instructores.auth_user_id), then as an owner
-// (studios.owner_auth_user_id). Returns null if neither matches (a brand
-// new signup that hasn't created or joined a studio yet).
-export async function resolveStudioId(userId: string): Promise<string | null> {
-  // limit(1) en vez de maybeSingle(): un usuario puede pertenecer a varios
-  // estudios (instructor en dos centros, o dueño de varias sedes). maybeSingle()
-  // lanzaba error con >1 fila y dejaba el estudio sin resolver. Orden por id
-  // determinista = mismo estudio primario que verificarSesionStaff (servidor).
-  const { data: instructores } = await supabase
-    .from('instructores')
-    .select('studio_id')
-    .eq('auth_user_id', userId)
-    .order('studio_id', { ascending: true })
-    .limit(1);
-  if (instructores?.[0]?.studio_id) return instructores[0].studio_id;
-
-  const { data: studios } = await supabase
-    .from('studios')
-    .select('id')
-    .eq('owner_auth_user_id', userId)
-    .order('id', { ascending: true })
-    .limit(1);
-  if (studios?.[0]?.id) return studios[0].id;
-
-  return null;
+// Resuelve el estudio del usuario autenticado delegando en la función SQL
+// current_studio_id() — la misma que ya usa RLS en cada tabla. Respeta la
+// sede activa elegida en `sesion_activa` (revalidada dentro de la propia
+// función: un usuario nunca puede "activar" una sede que no le pertenece) y,
+// si no hay ninguna elegida, cae al criterio determinista de siempre
+// (instructora vinculada, si no propietaria). Delegar en el RPC —en vez de
+// reimplementar la misma lógica aquí— evita que cliente y RLS puedan
+// resolver sedes distintas para el mismo usuario.
+export async function resolveStudioId(): Promise<string | null> {
+  const { data, error } = await supabase.rpc('current_studio_id');
+  if (error) { reportDbError('[resolveStudioId]', error); return null; }
+  return (data as string | null) ?? null;
 }
 
 // ─── Cliente de escritura sensible al entorno ────────────────────────────────
@@ -265,6 +251,7 @@ function mapStudio(r: RowStudios): Studio {
     gmailEmail: r.gmail_email ?? null,
     zoomEmail: r.zoom_email ?? null,
     gestoriaEmail: r.gestoria_email ?? null,
+    cadenaId: r.cadena_id ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,
@@ -4514,7 +4501,7 @@ function slugify(nombre: string): string {
 
 // Genera un slug único para /reservar/[slug], /kiosk/[slug], /portal/[slug]
 // probando sufijos -2, -3... si el base ya existe.
-async function generateUniqueSlug(nombre: string): Promise<string> {
+export async function generateUniqueSlug(nombre: string): Promise<string> {
   const base = slugify(nombre);
   let candidate = base;
   let n = 2;
@@ -4561,6 +4548,36 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
   }
   reportDbError('[dbCreateStudio]', { message: 'No se pudo generar un slug único tras varios intentos' });
   return null;
+}
+
+export interface SedeSeleccionable {
+  id: string;
+  nombre: string;
+  slug: string | null;
+  ciudad: string | null;
+}
+
+// Lista las sedes que el usuario autenticado puede operar (dueño o
+// instructora), para pintar el selector de sede del ProfileMenu. Vía RPC
+// SECURITY DEFINER con columnas whitelisted (mis_estudios(), migración 0062)
+// — nunca una policy de fila sobre `studios`, que expone columnas sensibles
+// (nif, stripe_customer_id, kiosk_token...) a cualquiera con acceso de fila.
+export async function fetchMisEstudios(): Promise<SedeSeleccionable[]> {
+  const { data, error } = await supabase.rpc('mis_estudios');
+  if (error) { reportDbError('[fetchMisEstudios]', error); return []; }
+  return (data as SedeSeleccionable[]) ?? [];
+}
+
+// Cambia la sede activa de la sesión actual (selector "cambiar de sede").
+// Upsert directo del lado del cliente: la policy `self_rw_sesion_activa` ya
+// restringe la escritura a la propia fila, y `current_studio_id()` revalida
+// en cada lectura posterior que el usuario realmente tiene acceso a esa sede
+// — un studioId ajeno aquí simplemente queda sin efecto, no hace falta una
+// ruta de servidor intermedia.
+export async function cambiarSedeActiva(authUserId: string, studioId: string): Promise<boolean> {
+  const { error } = await supabase.from('sesion_activa').upsert({ auth_user_id: authUserId, studio_id: studioId });
+  if (error) { reportDbError('[cambiarSedeActiva]', error); return false; }
+  return true;
 }
 
 // Resuelve el studio_id a partir del slug público de la URL (/reservar/[slug]...).

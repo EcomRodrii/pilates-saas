@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { RotateCcw, AlertTriangle, Monitor, ExternalLink, Calendar as CalendarLinkIcon } from 'lucide-react';
+import { RotateCcw, AlertTriangle, Monitor, ExternalLink, Calendar as CalendarLinkIcon, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { subirLogoEstudio, eliminarLogoEstudio } from '@/lib/portal-storage';
+import { authHeader } from '@/lib/api-client';
+import { tieneFeature } from '@/lib/billing/entitlements';
 import type { Studio } from '@/lib/types';
-import { Toggle, inputCls, labelCls, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Toggle, inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 type StudioForm = {
   nombre: string; razonSocial: string; nif: string;
@@ -55,6 +57,30 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   // Marca (logo) e IVA — Tanda 1.
   const [subiendoLogo, setSubiendoLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Añadir sede (plan CADENA — soporte multi-sede). Solo visible con
+  // multiCentro activo; el gate real (cadena_id + suscripción vigente) lo
+  // hace app/api/cadena/sedes, esto es solo la UI.
+  const puedeAnadirSedes = !!studio && tieneFeature({ plan: studio.plan, subscriptionStatus: studio.subscriptionStatus }, 'multiCentro');
+  const [nuevaSede, setNuevaSede] = useState({ nombre: '', ciudad: '', telefono: '' });
+  const [creandoSede, setCreandoSede] = useState(false);
+  async function anadirSede() {
+    if (!nuevaSede.nombre.trim()) { showToast('Ponle un nombre a la sede'); return; }
+    setCreandoSede(true);
+    try {
+      const res = await fetch('/api/cadena/sedes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify(nuevaSede),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(`Error: ${data.error ?? 'no se pudo crear la sede'}`); return; }
+      showToast(`Sede "${nuevaSede.nombre}" creada — cámbiate a ella desde el menú de perfil`);
+      setNuevaSede({ nombre: '', ciudad: '', telefono: '' });
+    } finally {
+      setCreandoSede(false);
+    }
+  }
 
   useEffect(() => { setForm(studioToForm(studio)); }, [studio]);
   useEffect(() => { setPol(studioToPolitica(studio)); }, [studio]);
@@ -146,6 +172,36 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           Guardar datos del estudio
         </button>
       </div>
+
+      {/* Añadir sede (plan CADENA) */}
+      {puedeAnadirSedes && (
+        <div className={cn(cardCls, 'p-6')}>
+          <h3 className="text-[14px] font-semibold text-foreground mb-1 flex items-center gap-2">
+            <Building2 size={15} className="text-muted-foreground" /> Añadir sede
+          </h3>
+          <p className="text-[12px] text-muted-foreground mb-4">
+            Tu plan Cadena cubre todas tus sedes con una sola suscripción. La sede nueva queda operativa
+            al momento — cámbiate a ella desde el menú de perfil (arriba a la derecha).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <p className={labelCls}>Nombre</p>
+              <input className={inputCls} value={nuevaSede.nombre} onChange={e => setNuevaSede(s => ({ ...s, nombre: e.target.value }))} />
+            </div>
+            <div>
+              <p className={labelCls}>Ciudad</p>
+              <input className={inputCls} value={nuevaSede.ciudad} onChange={e => setNuevaSede(s => ({ ...s, ciudad: e.target.value }))} />
+            </div>
+            <div>
+              <p className={labelCls}>Teléfono</p>
+              <input className={inputCls} value={nuevaSede.telefono} onChange={e => setNuevaSede(s => ({ ...s, telefono: e.target.value }))} />
+            </div>
+          </div>
+          <button onClick={anadirSede} disabled={creandoSede} className={cn(btnPrimary, 'mt-4', creandoSede && 'opacity-50')}>
+            {creandoSede ? 'Creando…' : 'Añadir sede'}
+          </button>
+        </div>
+      )}
 
       {/* Marca — logo del estudio */}
       <div className={cn(cardCls, 'p-6')}>

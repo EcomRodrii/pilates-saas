@@ -38,18 +38,73 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: studio } = await admin
-    .from('studios').select('id, nombre, email, stripe_customer_id, subscription_status')
+    .from('studios').select('id, nombre, email, cadena_id, stripe_customer_id, subscription_status')
     .eq('id', sesion.studioId).single();
   if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
 
-  // Prueba gratuita solo en la PRIMERA suscripción: si el estudio nunca ha tenido
-  // suscripción (subscription_status vacío) le damos TRIAL_DIAS días. Un estudio
-  // que ya se suscribió antes (aunque cancelara) no vuelve a tener prueba.
-  const primeraVez = !studio.subscription_status;
-
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 
   try {
+    // Plan CADENA: una sola suscripción cubre todas las sedes de la cadena
+    // (studios.cadena_id) — el customer/subscription viven en `cadenas`, no en
+    // `studios`. BASE/ESTUDIO siguen 1:1 contra la propia fila de studios.
+    if (plan === 'CADENA') {
+      let cadenaId = studio.cadena_id as string | null;
+      let cadena: { id: string; stripe_customer_id: string | null; subscription_status: string | null } | null = null;
+
+      if (cadenaId) {
+        const { data } = await admin.from('cadenas').select('id, stripe_customer_id, subscription_status').eq('id', cadenaId).maybeSingle();
+        cadena = data;
+      }
+      if (!cadena) {
+        // Primera vez que esta propietaria contrata CADENA: crea la cadena y
+        // vincula el estudio actual como su primera sede.
+        cadenaId = `cadena-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const { error: cadenaError } = await admin.from('cadenas').insert({
+          id: cadenaId, nombre: studio.nombre, owner_auth_user_id: sesion.userId,
+        });
+        if (cadenaError) throw new Error(`crear cadena: ${cadenaError.message}`);
+        const { error: linkError } = await admin.from('studios').update({ cadena_id: cadenaId }).eq('id', studio.id);
+        if (linkError) throw new Error(`vincular cadena_id: ${linkError.message}`);
+        cadena = { id: cadenaId, stripe_customer_id: null, subscription_status: null };
+      }
+
+      const primeraVez = !cadena.subscription_status;
+      let customerId = cadena.stripe_customer_id;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: studio.email ?? undefined,
+          name: studio.nombre ?? undefined,
+          metadata: { cadenaId: cadena.id },
+        });
+        customerId = customer.id;
+        await admin.from('cadenas').update({ stripe_customer_id: customerId }).eq('id', cadena.id);
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        customer: customerId,
+        line_items: [{ price, quantity: 1 }],
+        subscription_data: {
+          metadata: { cadenaId: cadena.id, plan },
+          ...(primeraVez ? { trial_period_days: TRIAL_DIAS } : {}),
+        },
+        metadata: { cadenaId: cadena.id, plan },
+        success_url: `${appUrl}/configuracion?suscripcion=ok`,
+        cancel_url: `${appUrl}/configuracion?suscripcion=cancel`,
+        locale: 'es',
+        allow_promotion_codes: true,
+      });
+
+      return NextResponse.json({ url: session.url });
+    }
+
+    // Prueba gratuita solo en la PRIMERA suscripción: si el estudio nunca ha tenido
+    // suscripción (subscription_status vacío) le damos TRIAL_DIAS días. Un estudio
+    // que ya se suscribió antes (aunque cancelara) no vuelve a tener prueba.
+    const primeraVez = !studio.subscription_status;
+
     // Customer del estudio (se crea una vez y se guarda).
     let customerId = studio.stripe_customer_id as string | null;
     if (!customerId) {
@@ -62,7 +117,6 @@ export async function POST(req: NextRequest) {
       await admin.from('studios').update({ stripe_customer_id: customerId }).eq('id', studio.id);
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,

@@ -30,6 +30,30 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
   // hay service-role, para no cambiar el comportamiento del dueño.
   const db = getSupabaseAdmin() ?? supabase;
 
+  // Sede activa elegida explícitamente (selector multi-sede de una cadena) —
+  // se usa con service-role, así que la validación de acceso hay que hacerla
+  // aquí en TS (mismo criterio que current_studio_id() en SQL, que sí puede
+  // apoyarse en RLS/auth.uid() porque corre dentro de la sesión del usuario).
+  // Si la sede elegida ya no pertenece al usuario (revocado, cadena borrada),
+  // se ignora sin más y cae al criterio determinista de siempre.
+  const { data: activa } = await db
+    .from('sesion_activa')
+    .select('studio_id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+  if (activa?.studio_id) {
+    const [{ data: comoInstructor }, { data: comoOwner }] = await Promise.all([
+      db.from('instructores').select('rol, nombre').eq('auth_user_id', user.id).eq('studio_id', activa.studio_id).maybeSingle(),
+      db.from('studios').select('nombre').eq('owner_auth_user_id', user.id).eq('id', activa.studio_id).maybeSingle(),
+    ]);
+    if (comoInstructor) {
+      return { userId: user.id, studioId: activa.studio_id, rol: comoInstructor.rol, nombre: comoInstructor.nombre || 'Equipo' };
+    }
+    if (comoOwner) {
+      return { userId: user.id, studioId: activa.studio_id, rol: 'PROPIETARIO', nombre: comoOwner.nombre || 'Estudio' };
+    }
+  }
+
   // limit(1) en vez de maybeSingle(): un mismo usuario puede estar vinculado a
   // varios estudios (instructor en dos centros, o dueño de varias sedes —el plan
   // CADENA). maybeSingle() lanzaba error con >1 fila y bloqueaba el acceso. El
