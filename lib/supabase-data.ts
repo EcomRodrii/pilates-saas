@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
@@ -1277,52 +1278,66 @@ export async function fetchPublicStudioData(
   // Catálogo público (nada de PII): clases, horarios, salas, instructoras,
   // planes, spots, vídeos y la configuración de gamificación (niveles, logros,
   // retos, recompensas y sus reglas) — el portal la necesita para pintar.
-  const [
-    sesionesRes, tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
-    rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
-    citasServiciosRes, citasDisponibilidadRes,
-  ] = await Promise.all([
-    admin.from('sesiones').select('*').eq('studio_id', studioId),
-    admin.from('tipos_clase').select('*').eq('studio_id', studioId),
-    admin.from('salas').select('*').eq('studio_id', studioId),
-    admin.from('instructores').select('*').eq('studio_id', studioId),
-    admin.from('spots').select('*').eq('studio_id', studioId),
-    admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
-    admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
-    admin.from('reward_rules').select('*').eq('studio_id', studioId),
-    admin.from('reward_catalog').select('*').eq('studio_id', studioId),
-    admin.from('level_definitions').select('*').eq('studio_id', studioId),
-    admin.from('achievement_definitions').select('*').eq('studio_id', studioId),
-    admin.from('challenge_definitions').select('*').eq('studio_id', studioId),
-    // Catálogo de citas 1:1 (0046): solo servicios auto-reservables y activos +
-    // el horario fino. Nada de PII (los huecos se calculan aparte en servidor).
-    admin.from('citas_servicios').select('*').eq('studio_id', studioId).eq('activo', true).eq('auto_reservable', true),
-    admin.from('citas_disponibilidad').select('*').eq('studio_id', studioId),
-  ]);
+  //
+  // Es el mismo catálogo para CUALQUIER visitante de este estudio (nunca varía
+  // por socia), y cambia con frecuencia de días/semanas (un plan, una sala) —
+  // no de segundos. Se cachea con TTL corto: el mismo estudio recibe muchas
+  // visitas de socias distintas en ventanas de segundos/minutos, y hoy cada una
+  // repetía las mismas 13 queries desde cero (audit de rendimiento, hallazgo
+  // "CACHE"). sesiones y el aforo de plazas quedan FUERA del caché a propósito
+  // — cambian con cada reserva/cancelación y una socia no debe ver una plaza
+  // como libre cuando ya se ocupó hace 10 segundos.
+  const catalogo = await conCacheCatalogo(`catalogo-publico:${studioId}`, async () => {
+    const [
+      tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
+      rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
+      citasServiciosRes, citasDisponibilidadRes,
+    ] = await Promise.all([
+      admin.from('tipos_clase').select('*').eq('studio_id', studioId),
+      admin.from('salas').select('*').eq('studio_id', studioId),
+      admin.from('instructores').select('*').eq('studio_id', studioId),
+      admin.from('spots').select('*').eq('studio_id', studioId),
+      admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
+      admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
+      admin.from('reward_rules').select('*').eq('studio_id', studioId),
+      admin.from('reward_catalog').select('*').eq('studio_id', studioId),
+      admin.from('level_definitions').select('*').eq('studio_id', studioId),
+      admin.from('achievement_definitions').select('*').eq('studio_id', studioId),
+      admin.from('challenge_definitions').select('*').eq('studio_id', studioId),
+      // Catálogo de citas 1:1 (0046): solo servicios auto-reservables y activos +
+      // el horario fino. Nada de PII (los huecos se calculan aparte en servidor).
+      admin.from('citas_servicios').select('*').eq('studio_id', studioId).eq('activo', true).eq('auto_reservable', true),
+      admin.from('citas_disponibilidad').select('*').eq('studio_id', studioId),
+    ]);
 
-  // Aforo: para pintar plazas libres se necesita el conteo de reservas por
-  // sesión, pero SIN exponer quién reservó. Devolvemos id/sesion/estado y el
-  // spot ocupado (para pintar el mapa de sitios; el spot no identifica a nadie).
-  const { data: reservasAforo } = await admin
-    .from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId);
+    return {
+      tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
+      salas: (salasRes.data ?? []).map(mapSala),
+      instructores: (instructoresRes.data ?? []).map(mapInstructor),
+      spots: (spotsRes.data ?? []).map(mapSpot),
+      planesTarifa: (planesRes.data ?? []).map(mapPlanTarifa),
+      videosOnDemand: (videosRes.data ?? []).map(mapVideoOnDemand),
+      rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
+      rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
+      levelDefinitions: (levelDefsRes.data ?? []).map(mapLevelDefinition),
+      achievementDefinitions: (achDefsRes.data ?? []).map(mapAchievementDefinition),
+      challengeDefinitions: (chalDefsRes.data ?? []).map(mapChallengeDefinition),
+      citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
+      citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
+    };
+  });
+
+  // Fuera del caché a propósito (ver comentario arriba): disponibilidad real.
+  const [{ data: sesionesData }, { data: reservasAforo }] = await Promise.all([
+    admin.from('sesiones').select('*').eq('studio_id', studioId),
+    admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId),
+  ]);
 
   const base = {
     studio: studioPublico(studioRow as RowStudios),
-    sesiones: (sesionesRes.data ?? []).map(mapSesion),
-    tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
-    salas: (salasRes.data ?? []).map(mapSala),
-    instructores: (instructoresRes.data ?? []).map(mapInstructor),
-    spots: (spotsRes.data ?? []).map(mapSpot),
-    planesTarifa: (planesRes.data ?? []).map(mapPlanTarifa),
-    videosOnDemand: (videosRes.data ?? []).map(mapVideoOnDemand),
-    rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
-    rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
-    levelDefinitions: (levelDefsRes.data ?? []).map(mapLevelDefinition),
-    achievementDefinitions: (achDefsRes.data ?? []).map(mapAchievementDefinition),
-    challengeDefinitions: (chalDefsRes.data ?? []).map(mapChallengeDefinition),
+    sesiones: (sesionesData ?? []).map(mapSesion),
+    ...catalogo,
     aforoReservas: (reservasAforo ?? []) as { id: string; sesion_id: string; estado: string; spot_id: string | null }[],
-    citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
-    citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
   };
 
   if (!member) return { ...base, socia: null };
