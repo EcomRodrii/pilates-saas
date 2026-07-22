@@ -3,21 +3,29 @@
 // y, si no responde a tiempo, se libera su plaza a la lista de espera. Mismo
 // patrón dispatcher→fan-out→steps idempotentes que valoraciones.ts/dunning.
 //
-// DOS barridos con cadencias distintas a propósito:
+// TRES fases, dos cadencias:
 //  - ASK (víspera, banda ancha 20-30h): el riesgo se calcula con el snapshot
 //    completo del estudio (misma fuente que R4) — caro, así que corre poco (2x/día).
-//  - CORTE (cada 30 min): ya no hay nada que calcular, solo mirar si respondió
-//    — barato, y cuanto más ajustado el barrido, más fiel es el corte de 3h que
-//    el estudio eligió.
+//  - RECORDATORIO (a mitad de camino, 10-14h) y CORTE (cada 30 min): ya no hay
+//    nada que calcular, solo mirar si respondió — barato, y cuanto más ajustado
+//    el barrido, más fiel es la ventana elegida. Van en el MISMO worker de
+//    cadencia rápida porque comparten el mismo perfil (consulta directa, sin
+//    snapshot). El recordatorio existe porque, probando en vivo, un solo email
+//    perdido en la bandeja se convertía en una cancelación real de alguien que
+//    sí pensaba venir — antes de rendirse, se vuelve a avisar (mismo principio
+//    que el motor de escalado de sustituciones).
 import { inngest, EVENTS } from './client';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { construirSnapshot } from '@/lib/decision/snapshot';
 import { construirIndices, riesgoNoShowDeSocio } from '@/lib/decision/senales';
 import {
-  VENTANA_ASK_HORAS_MIN, VENTANA_ASK_HORAS_MAX, CUTOFF_HORAS_ANTES, horasHasta, enVentanaDeAviso, pasoElCorte,
+  VENTANA_ASK_HORAS_MIN, VENTANA_ASK_HORAS_MAX, VENTANA_RECORDATORIO_HORAS_MIN, VENTANA_RECORDATORIO_HORAS_MAX,
+  CUTOFF_HORAS_ANTES, horasHasta, enVentanaDeAviso, tocaRecordar, pasoElCorte,
 } from '@/lib/confirmacion-riesgo/logica';
 import { firmarTokenConfirmacion } from '@/lib/confirmacion-riesgo/token';
-import { enviarEmailPedirConfirmacion, enviarEmailPlazaLiberada } from '@/lib/confirmacion-riesgo/email';
+import {
+  enviarEmailPedirConfirmacion, enviarEmailRecordatorioConfirmacion, enviarEmailPlazaLiberada,
+} from '@/lib/confirmacion-riesgo/email';
 import { ejecutarCancelacionReserva } from '@/lib/supabase-data';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -163,7 +171,7 @@ export const procesarConfirmacionAskEstudio = inngest.createFunction(
   },
 );
 
-// ═══ CORTE — liberar si no confirmó a tiempo ════════════════════════════════
+// ═══ RECORDATORIO + CORTE — mismo worker de cadencia rápida (cada 30 min) ═══
 
 export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
   { id: 'confirmacion-riesgo-corte-dispatcher', triggers: [{ cron: '*/30 * * * *' }] },
@@ -190,6 +198,64 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
   async ({ event, step }) => {
     const { studioId, nowISO } = event.data as { studioId: string; nowISO: string };
     const now = new Date(nowISO);
+
+    // Reservas a las que se les pidió confirmar, no han respondido, no se les
+    // ha recordado aún, y su clase está a mitad de camino (10-14h). Mismo
+    // patrón de pre-filtro SQL + decisión real en JS (`tocaRecordar`) que el
+    // resto del módulo.
+    const paraRecordar = await step.run('para-recordar', async () => {
+      const admin = requireSupabaseAdmin();
+      const desde = new Date(now.getTime() + (VENTANA_RECORDATORIO_HORAS_MIN - 1) * 3600_000).toISOString();
+      const hasta = new Date(now.getTime() + (VENTANA_RECORDATORIO_HORAS_MAX + 1) * 3600_000).toISOString();
+      const { data: sesiones, error: errSes } = await admin
+        .from('sesiones').select('id, inicio')
+        .eq('studio_id', studioId).eq('cancelada', false)
+        .gte('inicio', desde).lte('inicio', hasta);
+      if (errSes) throw new Error(errSes.message);
+      const sesionPorId = new Map((sesiones ?? []).map(s => [s.id as string, s.inicio as string]));
+      if (sesionPorId.size === 0) return [];
+
+      const { data: reservas, error: errRes } = await admin
+        .from('reservas').select('id, socio_id, sesion_id')
+        .eq('studio_id', studioId).eq('estado', 'CONFIRMADA')
+        .not('confirmacion_pedida_en', 'is', null)
+        .is('confirmado_en', null)
+        .is('recordatorio_confirmacion_en', null)
+        .in('sesion_id', Array.from(sesionPorId.keys()));
+      if (errRes) throw new Error(errRes.message);
+
+      return (reservas ?? [])
+        .filter(r => r.socio_id && sesionPorId.has(r.sesion_id as string))
+        .map(r => ({ ...r, sesionInicio: sesionPorId.get(r.sesion_id as string)! }))
+        .filter(r => tocaRecordar(horasHasta(r.sesionInicio, now))) as
+        { id: string; socio_id: string; sesion_id: string; sesionInicio: string }[];
+    });
+
+    let recordadas = 0, emailsRecordatorio = 0;
+    for (const c of paraRecordar) {
+      const r = await step.run(`recordar-${c.id}`, async () => {
+        const admin = requireSupabaseAdmin();
+        // Compare-and-set: marca recordada ANTES de enviar.
+        const { data: marcada } = await admin
+          .from('reservas').update({ recordatorio_confirmacion_en: new Date().toISOString() })
+          .eq('id', c.id).is('recordatorio_confirmacion_en', null).select('id');
+        if (!marcada || marcada.length === 0) return { recordada: false, emailEnviado: false };
+
+        const datos = await datosParaEmail(admin, studioId, c.socio_id, c.sesion_id);
+        if (!datos) return { recordada: true, emailEnviado: false };
+
+        const token = firmarTokenConfirmacion(studioId, c.socio_id, c.id);
+        const url = `${appUrl()}/confirmar-reserva/${token}`;
+        const envio = await enviarEmailRecordatorioConfirmacion({
+          to: datos.socioEmail, toName: datos.socioNombre, estudioNombre: datos.estudioNombre,
+          colorPrimario: datos.colorPrimario, logoUrl: datos.logoUrl,
+          claseNombre: datos.claseNombre, cuando: datos.cuando, url,
+        });
+        return { recordada: true, emailEnviado: 'ok' in envio && envio.ok === true };
+      });
+      if (r.recordada) recordadas++;
+      if (r.emailEnviado) emailsRecordatorio++;
+    }
 
     // Reservas a las que se les pidió confirmar, no han respondido, y su clase
     // ya está dentro del corte. El filtro SQL es un pre-filtro amplio (mismo
@@ -244,6 +310,10 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
       });
       if (r.liberada) liberadas++;
     }
-    return { studioId, revisadas: pendientes.length, liberadas };
+    return {
+      studioId,
+      paraRecordar: paraRecordar.length, recordadas, emailsRecordatorio,
+      revisadas: pendientes.length, liberadas,
+    };
   },
 );

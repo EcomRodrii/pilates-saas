@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  horasHasta, enVentanaDeAviso, pasoElCorte,
-  VENTANA_ASK_HORAS_MIN, VENTANA_ASK_HORAS_MAX, CUTOFF_HORAS_ANTES,
+  horasHasta, enVentanaDeAviso, tocaRecordar, pasoElCorte,
+  VENTANA_ASK_HORAS_MIN, VENTANA_ASK_HORAS_MAX, VENTANA_RECORDATORIO_HORAS_MIN, VENTANA_RECORDATORIO_HORAS_MAX,
+  CUTOFF_HORAS_ANTES,
 } from './logica.ts';
 
 const AHORA = new Date('2026-07-21T12:00:00.000Z');
@@ -30,6 +31,32 @@ test('enVentanaDeAviso: límites inclusive', () => {
 test('enVentanaDeAviso: fuera de la banda (muy pronto o muy lejos) → false', () => {
   assert.equal(enVentanaDeAviso(10), false);
   assert.equal(enVentanaDeAviso(40), false);
+});
+
+// ── Recordatorio ─────────────────────────────────────────────────────────────
+// Hueco encontrado probando en vivo: un solo email que se pierde en la bandeja
+// se convertía en una cancelación real de alguien que sí pensaba venir.
+
+test('tocaRecordar: a mitad de camino (10-14h antes) → true', () => {
+  assert.equal(tocaRecordar(12), true);
+});
+
+test('tocaRecordar: límites inclusive', () => {
+  assert.equal(tocaRecordar(VENTANA_RECORDATORIO_HORAS_MIN), true);
+  assert.equal(tocaRecordar(VENTANA_RECORDATORIO_HORAS_MAX), true);
+});
+
+test('tocaRecordar: todavía en la ventana de aviso, muy pronto para recordar → false', () => {
+  assert.equal(tocaRecordar(25), false);
+});
+
+test('tocaRecordar: ya cerca del corte, esto ya no es un recordatorio → false', () => {
+  assert.equal(tocaRecordar(2), false);
+});
+
+test('la ventana de recordatorio no se solapa con la de aviso ni con el corte', () => {
+  assert.ok(VENTANA_RECORDATORIO_HORAS_MAX < VENTANA_ASK_HORAS_MIN);
+  assert.ok(VENTANA_RECORDATORIO_HORAS_MIN > CUTOFF_HORAS_ANTES);
 });
 
 // ── Corte ────────────────────────────────────────────────────────────────────
