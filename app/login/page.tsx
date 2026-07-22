@@ -31,8 +31,8 @@ export default function LoginPage() {
         | { nombre: string; ciudad: string; telefono: string }
         | undefined;
       if (pending) {
-        const newStudioId = await dbCreateStudio({ ...pending, ownerAuthUserId: user.id });
-        if (newStudioId) setCurrentStudioId(newStudioId);
+        const newStudio = await dbCreateStudio({ ...pending, ownerAuthUserId: user.id });
+        if (newStudio) setCurrentStudioId(newStudio.id);
         await supabase.auth.updateUser({ data: { pending_studio: null } });
       }
       await claimInstructorAccount(user.email ?? '', user.id);
@@ -77,7 +77,7 @@ export default function LoginPage() {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#EEEEE8] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
@@ -86,7 +86,7 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-[#E7E7E0] p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-border p-6">
           <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-5">
             {modo === 'entrar' ? 'Iniciar sesión' : 'Crear cuenta de equipo'}
           </h2>
@@ -108,7 +108,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="tu@email.com"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/20 focus:border-[#1A1A1A] transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-border text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/20 focus:border-[#1A1A1A] transition-all"
               />
             </div>
 
@@ -123,7 +123,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/20 focus:border-[#1A1A1A] transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-border text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/20 focus:border-[#1A1A1A] transition-all"
               />
             </div>
 
@@ -131,7 +131,7 @@ export default function LoginPage() {
               <p className="text-[13px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
             )}
             {info && (
-              <p className="text-[13px] text-[#B57A8E] bg-[#FFF2F7] rounded-lg px-3 py-2">{info}</p>
+              <p className="text-[13px] text-accent-foreground bg-accent rounded-lg px-3 py-2">{info}</p>
             )}
 
             <button

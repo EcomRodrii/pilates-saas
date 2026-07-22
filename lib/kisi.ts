@@ -1,24 +1,25 @@
-// Kisi — control de acceso (integración de plataforma).
-// ENV del operador: KISI_API_KEY. Opcional KISI_LOCK_ID por defecto.
-// Nota: mapear puertas a estudios/salas concretas es un paso posterior; aquí
-// queda el cliente listo (abrir puerta, listar cerraduras) y la comprobación.
+// Kisi — control de acceso. Cada estudio pega su PROPIA clave API de Kisi
+// (su propia cuenta, sus propias cerraduras) en Configuración → Integraciones
+// — no hay cuenta compartida de plataforma. Kisi no ofrece OAuth de
+// aplicación de terceros para esto, solo claves API generadas a mano desde
+// el panel del propio negocio, así que el flujo de pegar-y-guardar es el
+// correcto (mismo mecanismo que Resend hoy: tabla `integraciones` por
+// estudio, ver dbUpsertIntegracion).
 
-const API_KEY = process.env.KISI_API_KEY;
 const BASE = 'https://api.kisi.io';
 
-export function isKisiConfigurado(): boolean {
-  return !!API_KEY;
+export interface KisiCredenciales {
+  apiKey: string;
 }
 
-function headers(): HeadersInit {
-  return { Authorization: `KISI-LOGIN ${API_KEY}`, 'Content-Type': 'application/json' };
+function headers(creds: KisiCredenciales): HeadersInit {
+  return { Authorization: `KISI-LOGIN ${creds.apiKey}`, 'Content-Type': 'application/json' };
 }
 
-/** Abre (desbloquea) una cerradura por su id. */
-export async function abrirPuertaKisi(lockId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!isKisiConfigurado()) return { ok: false, error: 'Kisi no configurado (falta KISI_API_KEY)' };
+/** Abre (desbloquea) una cerradura por su id, con la clave del estudio dueño de esa cerradura. */
+export async function abrirPuertaKisi(creds: KisiCredenciales, lockId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const res = await fetch(`${BASE}/locks/${encodeURIComponent(lockId)}/unlock`, { method: 'POST', headers: headers() });
+    const res = await fetch(`${BASE}/locks/${encodeURIComponent(lockId)}/unlock`, { method: 'POST', headers: headers(creds) });
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       return { ok: false, error: data?.error ?? `Kisi API ${res.status}` };
@@ -29,10 +30,9 @@ export async function abrirPuertaKisi(lockId: string): Promise<{ ok: true } | { 
   }
 }
 
-export async function probarKisi(): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!isKisiConfigurado()) return { ok: false, error: 'Falta KISI_API_KEY' };
+export async function probarKisi(creds: KisiCredenciales): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const res = await fetch(`${BASE}/locks?limit=1`, { headers: headers() });
+    const res = await fetch(`${BASE}/locks?limit=1`, { headers: headers(creds) });
     return res.ok ? { ok: true } : { ok: false, error: `Kisi API ${res.status}` };
   } catch (e) {
     return { ok: false, error: (e as Error).message };

@@ -40,6 +40,11 @@ export interface Studio {
   creadoEn: string;
   stripeAccountId: string | null;
   googleCalendarEmail: string | null;
+  gmailEmail: string | null;
+  zoomEmail: string | null;
+  gestoriaEmail: string | null;
+  // Sede de una cadena multi-centro (plan CADENA). null = estudio independiente.
+  cadenaId: string | null;
   // Suscripción de la plataforma (Stripe Billing — el SaaS cobra al estudio).
   stripeCustomerId: string | null;
   subscriptionId: string | null;
@@ -53,12 +58,16 @@ export interface Studio {
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
   stripeTerminalLocationId: string | null;
+  // Checklist de "Primeros pasos": cuándo se descartó (null = sigue siendo
+  // relevante). Vive en el estudio, no en localStorage, para que lo vea igual
+  // toda persona que trabaje ahí, en cualquier dispositivo.
+  onboardingDescartadoEn: string | null;
 }
 
 // ─── Integraciones por negocio ───────────────────────────────────────────────
 export type TipoIntegracion =
-  | 'STRIPE' | 'RESEND' | 'GOOGLE_CALENDAR' | 'WHATSAPP' | 'EXCEL'
-  | 'PAYPAL' | 'CLASSPASS' | 'URBAN_SPORTS_CLUB' | 'WELLHUB' | 'EGYM_WELLPASS' | 'MYCLUBS' | 'ZOOM' | 'KISI';
+  | 'STRIPE' | 'RESEND' | 'GOOGLE_CALENDAR' | 'GMAIL' | 'WHATSAPP' | 'EXCEL'
+  | 'ZOOM' | 'KISI' | 'MAILCHIMP';
 
 export interface Integracion {
   id: string;
@@ -369,6 +378,25 @@ export interface Factura {
   verifactuSeq: number | null;
 }
 
+// Ingreso cobrado FUERA de Tentare (efectivo, transferencia, otra plataforma…)
+// que el estudio añade a mano al cierre de año para completar lo que entrega a
+// su gestoría. NO es una factura de Tentare: sin sello Verifactu ni numeración
+// correlativa. Se suma a los totales anuales, marcado como manual.
+export interface IngresoManual {
+  id: string;
+  studioId: string;
+  fecha: string;            // ISO date (YYYY-MM-DD)
+  concepto: string;
+  cliente: string | null;
+  nif: string | null;
+  baseImponible: number;
+  tipoIVA: number;
+  cuotaIVA: number;
+  total: number;            // IVA incluido
+  nota: string | null;
+  creadoEn: string;
+}
+
 // ─── Enriched (joined) types ──────────────────────────────────────────────────
 
 export interface SesionEnriquecida extends Sesion {
@@ -546,11 +574,14 @@ export interface PasoFlujo {
 
 // ─── Motor de automatización avanzado ────────────────────────────────────────
 
+// SUSCRIPCION_EXPIRA_DIAS existió declarado pero nunca implementado — se quitó
+// porque duplicaba SUSCRIPCION_EXPIRA_7D/1D del motor de marketing
+// (TriggerAutomatizacion), que además deja escribir el texto al propio
+// estudio en vez de depender de una redacción genérica.
 export type TriggerRule =
   | 'AUSENCIA_DIAS'
   | 'PAGO_PENDIENTE_DIAS'
   | 'BONO_SESIONES_BAJAS'
-  | 'SUSCRIPCION_EXPIRA_DIAS'
   | 'NUEVA_SOCIA'
   | 'CLASE_MANANA'
   | 'RENOVACION_COBRADA'
@@ -606,7 +637,14 @@ export interface AutomationLog {
   pasoIndex: number;
   accion: AccionAutomatica;
   resultado: ResultadoLog;
+  // Nota INTERNA para la propietaria (nunca contenido enviable a un cliente).
   detalle: string;
+  // Texto que recibió (o recibiría, si está pendiente de aprobación) la
+  // clienta — null cuando la acción no implica ningún envío a cliente
+  // (COBRAR_RECIBO, NOTIFICAR_ADMIN) o cuando aún no se ha podido redactar.
+  // Separado de `detalle` a propósito: mezclarlos fue el bug que mandaba la
+  // nota interna tal cual a la socia.
+  mensajeCliente?: string | null;
   ejecutadoEn: string;
   proximaAccionEn: string | null;
   reciboId?: string | null;

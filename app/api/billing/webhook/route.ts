@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
 }
 
 async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscription) {
+  // Plan CADENA: una sola suscripción cubre varias sedes (studios.cadena_id).
+  // metadata.cadenaId la puso el checkout (ver app/api/billing/checkout).
+  const cadenaId = sub.metadata?.cadenaId ?? null;
   const studioId = sub.metadata?.studioId ?? null;
   const priceId = sub.items?.data?.[0]?.price?.id ?? null;
   const plan = planDePriceId(priceId) ?? (sub.metadata?.plan as string | undefined) ?? null;
@@ -76,15 +79,36 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
   };
   if (plan) update.plan = plan;
 
-  const q = admin.from('studios').update(update);
-  const { error } = studioId
-    ? await q.eq('id', studioId)
-    : await q.eq('stripe_customer_id', customerId);
-  // Si falla la escritura, propagamos para que el POST devuelva 500 y Stripe
-  // reintente (no silenciamos como hacía el webhook de Connect).
-  if (error) throw new Error(`update studios: ${error.message}`);
+  if (cadenaId) {
+    // `cadenas` es la única fuente de verdad para el billing de una cadena —
+    // el trigger propagar_plan_cadena (migración 0065) hace el fan-out a
+    // TODAS sus sedes en la misma transacción. No tocar `studios` aquí.
+    const { error } = await admin.from('cadenas').update(update).eq('id', cadenaId);
+    if (error) throw new Error(`update cadenas: ${error.message}`);
+    capturar(cadenaId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+    return;
+  }
 
-  // R4: señal de ciclo de vida de la suscripción (alta/renovación/impago/baja).
-  // Solo si conocemos el estudio por metadata (los legacy sin studioId se omiten).
-  if (studioId) capturar(studioId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+  if (studioId) {
+    const { error } = await admin.from('studios').update(update).eq('id', studioId);
+    if (error) throw new Error(`update studios: ${error.message}`);
+    // R4: señal de ciclo de vida de la suscripción (alta/renovación/impago/baja).
+    capturar(studioId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+    return;
+  }
+
+  // Sin metadata (legacy, o edición manual en el dashboard de Stripe): el
+  // mismo stripe_customer_id puede pertenecer a un estudio individual o a una
+  // cadena — son dos tablas independientes, así que hay que probar ambas. Un
+  // UPDATE que no matchea ninguna fila NO da error en Supabase, de ahí el
+  // `.select('id')` para saber si de verdad escribió algo antes de caer al
+  // siguiente candidato (si no, el estado de la cadena queda obsoleto en
+  // silencio y Stripe nunca reintenta porque el webhook responde 200).
+  const { data: enStudios, error: studiosError } = await admin
+    .from('studios').update(update).eq('stripe_customer_id', customerId).select('id');
+  if (studiosError) throw new Error(`update studios: ${studiosError.message}`);
+  if (enStudios && enStudios.length > 0) return;
+
+  const { error: cadenasError } = await admin.from('cadenas').update(update).eq('stripe_customer_id', customerId);
+  if (cadenasError) throw new Error(`update cadenas (fallback sin metadata): ${cadenasError.message}`);
 }

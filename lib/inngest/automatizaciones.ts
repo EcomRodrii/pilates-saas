@@ -8,13 +8,20 @@ import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } f
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
+import { conReintentoResend } from '@/lib/emails/resend-reintentos';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic();
 
 // ── Redacción con IA (movida tal cual desde el cron) ─────────────────────────
-// Falla-suave: si la IA no responde o no parsea, cae al mensaje del motor.
+// Falla-suave: si la IA no responde o no parsea, cae a `fallback`. CONTRATO
+// DE SEGURIDAD: `fallback` debe ser SIEMPRE un texto ya apto para el
+// destinatario final de este `input.tipo` (REACTIVACION → apto para la
+// clienta; CLASE_LLENA → apto para la propietaria, nunca sale de aquí).
+// Nunca pasar la nota interna de un candidato (AutomationCandidato.notaInterna)
+// como fallback de un tipo que pueda acabar en un email a una clienta — eso
+// fue exactamente el bug que mandaba la nota interna tal cual a la socia.
 async function redactarConIA(input: RecomendacionInput, fallback: string): Promise<string> {
   try {
     const message = await anthropic.messages.create({
@@ -31,6 +38,18 @@ async function redactarConIA(input: RecomendacionInput, fallback: string): Promi
   }
 }
 
+// Fallback fijo para REACTIVACION (OFRECER_DESCUENTO) cuando la IA falla o no
+// responde. Debe seguir siendo válido para enviarse tal cual a la clienta —
+// NUNCA la nota interna del candidato (ver contrato de redactarConIA arriba).
+function fallbackReactivacion(nombre: string, descuentoPct: number, studioNombre: string): string {
+  return `Hola ${nombre}, hace unos días que no te vemos por el estudio y nos encantaría que volvieras. Como agradecimiento por formar parte de ${studioNombre}, te ofrecemos un ${descuentoPct}% de descuento en tu próxima renovación. Nos encantaría verte en clase pronto — un abrazo, el equipo de ${studioNombre}.`;
+}
+
+// Fallback fijo para CROSS_SELL (PROPONER_PLAN) — mismo contrato que arriba.
+function fallbackCrossSell(nombre: string, planSugerido: string, precioSugerido: number, studioNombre: string): string {
+  return `Hola ${nombre}, hemos visto que sueles agotar tu bono cada mes — ¡nos encanta verte tan constante! Con tu ritmo actual, el plan ${planSugerido} (${precioSugerido}€/mes) puede salirte más a cuenta que seguir comprando bonos sueltos. ¿Te lo explicamos sin compromiso? Un abrazo, el equipo de ${studioNombre}.`;
+}
+
 // Id DETERMINISTA de log por candidato: mismo (estudio, regla, socia, día) →
 // mismo id. Es lo que hace idempotente el upsert cuando un step se reintenta.
 // El índice del candidato desempata dentro de la misma tanda.
@@ -41,6 +60,8 @@ function logIdCandidato(studioId: string, c: AutomationCandidato, index: number,
 interface ProcesarOpts {
   studioId: string;
   studioNombre: string;
+  studioColor?: string | null;
+  studioLogo?: string | null;
   index: number;
   nowISO: string;
   dry: boolean;
@@ -52,7 +73,7 @@ interface ProcesarOpts {
 // persiste el log idempotente. Devuelve el log resultante. Es el cuerpo que va
 // dentro de un step.run() por candidato: durable y reintentable en aislamiento.
 export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, studioNombre, index, nowISO, dry, resend } = opts;
+  const { studioId, studioNombre, studioColor, studioLogo, index, nowISO, dry, resend } = opts;
   const base = {
     id: logIdCandidato(studioId, c, index, nowISO),
     studioId,
@@ -71,48 +92,96 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
   let log: AutomationLog;
   // COBRAR_RECIBO y OFRECER_DESCUENTO nunca se ejecutan aquí — quedan
   // PENDIENTE_ADMIN a la espera de aprobación. NOTIFICAR_ADMIN es un insight.
+  //
+  // `detalle` = SIEMPRE nota interna (para la propietaria). `mensajeCliente` =
+  // SIEMPRE el texto que recibiría la clienta si se envía, o null si no aplica
+  // — nunca el mismo campo para las dos cosas (ese solapamiento era el bug).
   if (c.accion === 'COBRAR_RECIBO') {
-    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.mensaje };
+    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.notaInterna ?? '', mensajeCliente: null };
   } else if (c.accion === 'OFRECER_DESCUENTO' && c.contextoIA) {
-    const detalle = await redactarConIA(
-      { tipo: 'REACTIVACION', nombre: String(c.contextoIA.nombre), diasSinVenir: Number(c.contextoIA.diasSinVenir), descuentoPct: Number(c.contextoIA.descuentoPct) },
-      c.mensaje
+    const nombre = String(c.contextoIA.nombre);
+    const descuentoPct = Number(c.contextoIA.descuentoPct);
+    // Fallback SIEMPRE apto para la clienta — nunca c.notaInterna (esa es la
+    // frase "¿le enviamos una oferta...?" dirigida a la propietaria).
+    const mensajeCliente = await redactarConIA(
+      { tipo: 'REACTIVACION', nombre, diasSinVenir: Number(c.contextoIA.diasSinVenir), descuentoPct },
+      fallbackReactivacion(nombre, descuentoPct, studioNombre)
     );
-    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle };
+    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.notaInterna ?? '', mensajeCliente };
+  } else if (c.accion === 'PROPONER_PLAN' && c.contextoIA) {
+    const nombre = String(c.contextoIA.nombre);
+    const planSugerido = String(c.contextoIA.planSugerido);
+    const precioSugerido = Number(c.contextoIA.precioSugerido);
+    // Fallback SIEMPRE apto para la clienta — nunca c.notaInterna.
+    const mensajeCliente = await redactarConIA(
+      { tipo: 'CROSS_SELL', nombre, planActual: String(c.contextoIA.planActual), planSugerido, precioSugerido },
+      fallbackCrossSell(nombre, planSugerido, precioSugerido, studioNombre)
+    );
+    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.notaInterna ?? '', mensajeCliente };
   } else if (c.accion === 'NOTIFICAR_ADMIN' && c.contextoIA) {
+    // Seguro usar c.notaInterna como fallback aquí: NOTIFICAR_ADMIN no tiene
+    // ningún camino de envío a cliente (sin botón de "enviar" en la UI) — el
+    // resultado de este redactarConIA es, por diseño, solo para la propietaria.
     const detalle = await redactarConIA(
       { tipo: 'CLASE_LLENA', tipoClase: String(c.contextoIA.tipoClase), diaSemana: String(c.contextoIA.diaSemana), hora: String(c.contextoIA.hora), semanas: Number(c.contextoIA.semanas) },
-      c.mensaje
+      c.notaInterna ?? ''
     );
-    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle };
+    log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle, mensajeCliente: null };
   } else if (!c.socio) {
-    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Acción sin socia asociada' };
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Acción sin socia asociada', mensajeCliente: null };
   } else if (dry) {
-    log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.titulo} → ${c.socio.email}` };
+    const destino = c.accion === 'ENVIAR_WHATSAPP' ? c.socio.telefono : c.socio.email;
+    log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.titulo} → ${destino}`, mensajeCliente: c.mensajeCliente ?? null };
+  } else if (c.accion === 'ENVIAR_WHATSAPP') {
+    if (!c.mensajeCliente) {
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para la clienta', mensajeCliente: null };
+    } else if (!c.socio.telefono || !twilioConfigurado('WHATSAPP')) {
+      // Sin teléfono o sin Twilio configurado: no hay forma de mandarlo por
+      // WhatsApp. El motor solo elige este canal cuando SÍ hay teléfono (ver
+      // automation-engine.ts), así que llegar aquí sin poder enviar es un
+      // fallo real, no algo que debamos disfrazar reintentando por email.
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no disponible (sin teléfono o sin Twilio configurado)', mensajeCliente: c.mensajeCliente };
+    } else {
+      const r = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: c.mensajeCliente });
+      log = r.ok
+        ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}.`, mensajeCliente: c.mensajeCliente }
+        : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio', mensajeCliente: c.mensajeCliente };
+    }
   } else if (!c.socio.email) {
-    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado' };
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado', mensajeCliente: null };
+  } else if (!c.mensajeCliente) {
+    // ENVIAR_EMAIL sin mensajeCliente sería exactamente el patrón del bug si
+    // se intentara enviar otra cosa por defecto — mejor fallar explícito.
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para la clienta', mensajeCliente: null };
   } else {
+    const email = c.socio.email;
     const html = await render(AutomatizacionEmail({
       socioNombre: c.socio.nombre,
       titulo: c.titulo,
-      mensaje: c.mensaje,
+      mensaje: c.mensajeCliente,
       estudioNombre: studioNombre,
+      colorPrimario: studioColor,
+      logoUrl: studioLogo,
     }));
-    const { error } = await resend!.emails.send(
-      {
-        from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
-        to: [c.socio.email],
-        subject: c.titulo,
-        html,
-      },
-      // Idempotency-Key: si el step se reintenta tras enviar pero antes de
-      // memoizar, Resend reconoce la clave y NO reenvía el email.
-      { idempotencyKey: base.id }
+    // Un 429 (u otro fallo transitorio de Resend) no debe perderse como
+    // FALLIDO permanente — ver lib/emails/resend-reintentos.ts.
+    const { error } = await conReintentoResend(() =>
+      resend!.emails.send(
+        {
+          from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+          to: [email],
+          subject: c.titulo,
+          html,
+        },
+        // Idempotency-Key: si el step se reintenta tras enviar pero antes de
+        // memoizar, Resend reconoce la clave y NO reenvía el email.
+        { idempotencyKey: base.id }
+      )
     );
     if (error) {
-      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message };
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message, mensajeCliente: c.mensajeCliente };
     } else {
-      log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"` };
+      log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"`, mensajeCliente: c.mensajeCliente };
     }
   }
 
@@ -124,8 +193,9 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
 // usuario) y persiste el log en automation_logs (ruleId = id de la
 // automatización, para dedup y contador). Idempotency-Key por id de log.
 export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, studioNombre, index, nowISO, dry, resend } = opts;
-  const esWhatsApp = c.canal === 'WHATSAPP';
+  const { studioId, studioColor, studioLogo, index, nowISO, dry, resend } = opts;
+  const accionLog: AutomationLog['accion'] =
+    c.canal === 'WHATSAPP' ? 'ENVIAR_WHATSAPP' : c.canal === 'NOTIFICACION' ? 'NOTIFICAR_ADMIN' : 'ENVIAR_EMAIL';
   const base = {
     id: `mkt-${studioId}-${c.automatizacion.id}-${c.socio.id}-${index}-${nowISO.slice(0, 10)}`,
     studioId,
@@ -139,7 +209,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     socioId: c.socio.id,
     socioNombre: `${c.socio.nombre} ${c.socio.apellidos}`,
     pasoIndex: 0,
-    accion: (esWhatsApp ? 'ENVIAR_WHATSAPP' : 'ENVIAR_EMAIL') as AutomationLog['accion'],
+    accion: accionLog,
     ejecutadoEn: nowISO,
     proximaAccionEn: null,
     reciboId: null,
@@ -147,9 +217,29 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
 
   let log: AutomationLog;
   if (dry) {
-    const destino = esWhatsApp ? c.socio.telefono : c.socio.email;
+    const destino = c.canal === 'WHATSAPP' ? c.socio.telefono : c.canal === 'NOTIFICACION' ? 'equipo (interno)' : c.socio.email;
     log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.asunto} → ${destino}` };
-  } else if (esWhatsApp) {
+  } else if (c.canal === 'NOTIFICACION') {
+    // Aviso interno para el equipo: NUNCA se construye a partir de
+    // asunto/mensaje de la automatización (esos están redactados en segunda
+    // persona para la socia — reusarlos aquí tal cual sería el mismo tipo de
+    // mezcla interno/cliente que el bug de OFRECER_DESCUENTO, solo que al
+    // revés). Se genera un texto propio, siempre inequívocamente interno.
+    const admin = requireSupabaseAdmin();
+    const { error } = await admin.from('notificaciones').insert({
+      id: `noti-${base.id}`,
+      studio_id: studioId,
+      titulo: `Automatización: ${c.automatizacion.nombre}`,
+      texto: `Se ha disparado para ${c.socio.nombre} ${c.socio.apellidos}.`,
+      leida: false,
+      tipo: 'INFO',
+      enlace: `/socios/${c.socio.id}`,
+      creada_en: nowISO,
+    });
+    log = error
+      ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message }
+      : { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Aviso interno creado para el equipo sobre ${c.socio.nombre}.` };
+  } else if (c.canal === 'WHATSAPP') {
     // WhatsApp vía Twilio. Sin idempotency-key nativo: la garantía anti-reenvío es
     // la memoización del step.run (Inngest no re-ejecuta un step ya completado) +
     // el dedup por automation_logs del motor. Gap residual (envío OK y caída antes
@@ -165,10 +255,13 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
   } else if (!c.socio.email) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado' };
   } else {
-    const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: studioNombre }));
-    const { error } = await resend!.emails.send(
-      { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
-      { idempotencyKey: base.id },
+    const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre, colorPrimario: studioColor, logoUrl: studioLogo }));
+    // Mismo reintento ante fallos transitorios que en procesarCandidato.
+    const { error } = await conReintentoResend(() =>
+      resend!.emails.send(
+        { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
+        { idempotencyKey: base.id },
+      )
     );
     log = error
       ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message }
@@ -196,7 +289,7 @@ export const automatizacionesDispatcher = inngest.createFunction(
     // así que con el cliente anónimo RLS devolvería CERO estudios y el cron
     // "completaría" sin procesar a nadie — en silencio y para todos los tenants.
     const studios = await step.run('list-studios', async () => {
-      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre');
+      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre, color_primario, logo_url');
       if (error) throw new Error(error.message);
       return data ?? [];
     });
@@ -204,9 +297,9 @@ export const automatizacionesDispatcher = inngest.createFunction(
     if (studios.length > 0) {
       await step.sendEvent(
         'fan-out-estudios',
-        studios.map((s: { id: string; nombre: string }) => ({
+        studios.map((s: { id: string; nombre: string; color_primario: string | null; logo_url: string | null }) => ({
           name: EVENTS.AUTOMATIZACIONES_ESTUDIO,
-          data: { studioId: s.id, studioNombre: s.nombre, nowISO, dry: false },
+          data: { studioId: s.id, studioNombre: s.nombre, studioColor: s.color_primario, studioLogo: s.logo_url, nowISO, dry: false },
         }))
       );
     }
@@ -234,8 +327,8 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     retries: 3,
   },
   async ({ event, step }) => {
-    const { studioId, studioNombre, nowISO, dry } = event.data as {
-      studioId: string; studioNombre: string; nowISO: string; dry: boolean;
+    const { studioId, studioNombre, studioColor, studioLogo, nowISO, dry } = event.data as {
+      studioId: string; studioNombre: string; studioColor: string | null; studioLogo: string | null; nowISO: string; dry: boolean;
     };
     const now = new Date(nowISO);
 
@@ -257,6 +350,8 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
         recibos: data.recibos,
         sesiones: data.sesiones,
         tiposClase: data.tiposClase,
+        suscripciones: data.suscripciones,
+        planesTarifa: data.planesTarifa,
       },
       now
     );
@@ -269,7 +364,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       // id de step estable entre replays (índice + regla). Cada candidato es
       // un paso durable e independiente.
       const log = await step.run(`candidato-${i}-${c.rule.id}`, () =>
-        procesarCandidato(c, { studioId, studioNombre, index: i, nowISO, dry, resend })
+        procesarCandidato(c, { studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend })
       );
 
       if (c.accion === 'COBRAR_RECIBO') cobrosPropuestos++;
@@ -285,7 +380,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       await step.run('actualizar-reglas', async () => {
         for (const [ruleId, count] of firedPorRegla) {
           const base = data.automationRules.find(r => r.id === ruleId)?.ejecutadaVeces ?? 0;
-          await dbUpdateAutomationRule(ruleId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
+          await dbUpdateAutomationRule(ruleId, studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
         }
       });
     }
@@ -303,7 +398,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     for (let i = 0; i < mktCandidatos.length; i++) {
       const c = mktCandidatos[i];
       const log = await step.run(`mkt-${i}-${c.automatizacion.id}-${c.socio.id}`, () =>
-        procesarCandidatoMkt(c, { studioId, studioNombre, index: i, nowISO, dry, resend }),
+        procesarCandidatoMkt(c, { studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend }),
       );
       if (log.resultado === 'EJECUTADO') mktEnviados++; else if (log.resultado === 'FALLIDO') mktFallidos++;
       firedPorAuto.set(c.automatizacion.id, (firedPorAuto.get(c.automatizacion.id) ?? 0) + 1);
@@ -312,7 +407,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       await step.run('actualizar-automatizaciones', async () => {
         for (const [autoId, count] of firedPorAuto) {
           const base = data.automatizaciones.find(a => a.id === autoId)?.ejecutadas ?? 0;
-          await dbUpdateAutomatizacion(autoId, { ejecutadas: base + count });
+          await dbUpdateAutomatizacion(autoId, studioId, { ejecutadas: base + count });
         }
       });
     }

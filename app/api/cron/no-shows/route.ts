@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { barrerNoShows } from '@/lib/supabase-data';
+import { errorInterno } from '@/lib/errores-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ejecutadoEn: now.toISOString(), ...resumen });
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'no-shows' } });
-    const mensaje = err instanceof Error ? err.message : 'Error en el barrido de no-shows';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('cron/no-shows:GET', err, 'Error en el barrido de no-shows.');
   }
 }

@@ -13,6 +13,7 @@ import type { Campana, Automatizacion, CodigoDescuento, TipoCampana, LeadStage }
 import { FlowBuilder, ACCIONES } from '@/components/marketing/flow-builder'
 import { leerPublicacionesContenido } from '@/lib/contenido/read-publicaciones'
 import type { PublicacionAsociada } from '@/lib/types'
+import { PageHeader } from '@/components/ui/page-header';
 
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
@@ -29,9 +30,9 @@ const inputCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-
 const selectCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-foreground/10'
 
 const destinatariosLabel: Record<string, string> = {
-  TODAS: 'Todas las socias',
-  ACTIVAS: 'Socias activas',
-  INACTIVAS: 'Socias inactivas',
+  TODAS: 'Todas las clientas',
+  ACTIVAS: 'Clientas activas',
+  INACTIVAS: 'Clientas inactivas',
   SIN_PLAN: 'Sin plan',
   BONO: 'Con bono',
   VIP: 'VIP',
@@ -40,9 +41,9 @@ const destinatariosLabel: Record<string, string> = {
 const triggerLabel: Record<string, string> = {
   SUSCRIPCION_EXPIRA_7D: 'Suscripción expira en 7 días',
   SUSCRIPCION_EXPIRA_1D: 'Suscripción expira mañana',
-  CUMPLEANOS: 'Cumpleaños de socia',
-  NUEVA_ALTA: 'Nueva socia registrada',
-  INACTIVIDAD_30D: 'Sin actividad 30 días',
+  CUMPLEANOS: 'Cumpleaños de clienta',
+  NUEVA_ALTA: 'Nueva clienta registrada',
+  INACTIVIDAD_30D: 'Sin actividad 45 días',
   BONO_AGOTADO: 'Bono agotado',
   BONO_QUEDA_1: 'Queda 1 sesión en bono',
   CITA_RECORDATORIO: 'Recordatorio de cita',
@@ -53,9 +54,9 @@ const triggerLabel: Record<string, string> = {
 const triggerDesc: Record<string, string> = {
   SUSCRIPCION_EXPIRA_7D: 'Cuando una suscripción caduca en 7 días',
   SUSCRIPCION_EXPIRA_1D: 'El día antes de que caduque la suscripción',
-  CUMPLEANOS: 'El día del cumpleaños de la socia',
-  NUEVA_ALTA: 'Cuando se registra una nueva socia',
-  INACTIVIDAD_30D: 'Si no hay actividad en los últimos 30 días',
+  CUMPLEANOS: 'El día del cumpleaños de la clienta',
+  NUEVA_ALTA: 'Cuando se registra una nueva clienta',
+  INACTIVIDAD_30D: 'Si no hay actividad en los últimos 45 días — si ya usas "Automatizaciones IA" con la regla de Ausencia, esta se solapa con su secuencia (días 7/14/25); actívala solo si no usas aquella',
   BONO_AGOTADO: 'Cuando se agota el bono de sesiones',
   BONO_QUEDA_1: 'Cuando solo queda 1 sesión en el bono',
   CITA_RECORDATORIO: 'Recordatorio antes de una clase reservada',
@@ -66,7 +67,11 @@ const triggerDesc: Record<string, string> = {
 const accionDesc: Record<string, string> = {
   EMAIL: 'Envía un email automático',
   WHATSAPP: 'Envía un mensaje de WhatsApp',
-  NOTIFICACION: 'Envía una notificación push',
+  // Aviso INTERNO para el equipo (aparece en Notificaciones) — no le llega
+  // nada a la clienta. Útil para "que se entere el equipo" sin generar
+  // contacto automático con ella (p.ej. suscripción cancelada: mejor que lo
+  // gestione una persona a que la trate un email genérico).
+  NOTIFICACION: 'Crea un aviso interno para el equipo (no llega nada a la clienta)',
 }
 
 // Email templates
@@ -102,18 +107,18 @@ function formatDateEs(dateStr: string | null | undefined) {
 // Estado badge with colored dot
 function EstadoBadge({ estado, programadaEn, enviadaEn }: { estado: string; programadaEn?: string | null; enviadaEn?: string | null }) {
   const dotColor =
-    estado === 'ENVIADA' ? 'bg-[#059669]' :
-    estado === 'PROGRAMADA' ? 'bg-[#D97706]' :
+    estado === 'ENVIADA' ? 'bg-success' :
+    estado === 'PROGRAMADA' ? 'bg-warning' :
     estado === 'BORRADOR' ? 'bg-muted-foreground' :
-    estado === 'ACTIVA' ? 'bg-[#7AA80E]' :
+    estado === 'ACTIVA' ? 'bg-brand' :
     estado === 'PAUSADA' ? 'bg-[#EA580C]' :
     'bg-muted-foreground'
 
   const bgColor =
-    estado === 'ENVIADA' ? 'bg-[#D1FAE5] text-[#065F46]' :
-    estado === 'PROGRAMADA' ? 'bg-[#FEF3C7] text-[#92400E]' :
+    estado === 'ENVIADA' ? 'bg-success/10 text-success' :
+    estado === 'PROGRAMADA' ? 'bg-warning/10 text-warning' :
     estado === 'BORRADOR' ? 'bg-muted text-muted-foreground' :
-    estado === 'ACTIVA' ? 'bg-[#DBEAFE] text-[#1D4ED8]' :
+    estado === 'ACTIVA' ? 'bg-info/10 text-info' :
     estado === 'PAUSADA' ? 'bg-[#FFEDD5] text-[#C2410C]' :
     'bg-muted text-muted-foreground'
 
@@ -154,7 +159,7 @@ function CopyButton({ text }: { text: string }) {
         className={cn(
           'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors border',
           copied
-            ? 'bg-[#D1FAE5] border-[#059669] text-[#065F46]'
+            ? 'bg-success/10 border-success text-success'
             : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground'
         )}
         title="Copiar código"
@@ -230,7 +235,7 @@ function KpiTrendCard({ title, value, deltaPct, points, color, axisLabels }: {
         {deltaPct !== null && (
           <span className={cn(
             'text-[11px] font-bold px-2 py-0.5 rounded-full',
-            positive ? 'bg-brand/10 text-brand-secondary' : 'bg-[#FEF3C7] text-[#92400E]'
+            positive ? 'bg-brand/10 text-brand-secondary' : 'bg-warning/10 text-warning'
           )}>
             {positive ? '+' : ''}{deltaPct.toFixed(1)}%
           </span>
@@ -282,7 +287,7 @@ function ConversionFunnelCard({ socios }: { socios: { leadStage?: LeadStage }[] 
       <WidgetCard icon={Filter} title="Embudo de captación" className="lg:col-span-2">
         <div className="flex flex-col items-center justify-center text-center py-10">
           <p className="text-[14px] font-semibold text-foreground">Aún no hay leads en el embudo</p>
-          <p className="text-[12px] text-muted-foreground mt-1">Asigna una etapa (lead, interesada, prueba…) a tus socias en su ficha para ver la conversión real aquí.</p>
+          <p className="text-[12px] text-muted-foreground mt-1">Asigna una etapa (lead, interesada, prueba…) a tus clientas en su ficha para ver la conversión real aquí.</p>
         </div>
       </WidgetCard>
     )
@@ -340,7 +345,7 @@ function TopClasesCard({ sesiones, reservas, tiposClase }: {
       {total === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-10">
           <p className="text-[14px] font-semibold text-foreground">Aún no hay reservas</p>
-          <p className="text-[12px] text-muted-foreground mt-1">Cuando tus socias empiecen a reservar clases, verás aquí el ranking real de demanda.</p>
+          <p className="text-[12px] text-muted-foreground mt-1">Cuando tus clientas empiecen a reservar clases, verás aquí el ranking real de demanda.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -440,7 +445,7 @@ function UsageBar({ usos, usosMax }: { usos: number; usosMax: number | null }) {
     return <span className="text-muted-foreground">{usos} usos</span>
   }
   const pct = Math.min(100, Math.round((usos / usosMax) * 100))
-  const barColor = pct >= 90 ? 'bg-[#DC2626]' : pct >= 60 ? 'bg-[#D97706]' : 'bg-[#059669]'
+  const barColor = pct >= 90 ? 'bg-destructive' : pct >= 60 ? 'bg-warning' : 'bg-success'
   return (
     <div className="flex flex-col gap-1 min-w-[80px]">
       <span className="text-xs text-muted-foreground">{usos} / {usosMax}</span>
@@ -710,14 +715,14 @@ export default function MarketingPage() {
   }
 
   const tipoBadge = (tipo: string) => {
-    if (tipo === 'EMAIL') return 'bg-[#DBEAFE] text-[#1D4ED8]'
-    if (tipo === 'WHATSAPP') return 'bg-[#D1FAE5] text-[#065F46]'
-    return 'bg-[#FEF3C7] text-[#92400E]'
+    if (tipo === 'EMAIL') return 'bg-info/10 text-info'
+    if (tipo === 'WHATSAPP') return 'bg-success/10 text-success'
+    return 'bg-warning/10 text-warning'
   }
 
   const accionBadge = (accion: string) => {
-    if (accion === 'EMAIL') return 'bg-[#DBEAFE] text-[#1D4ED8]'
-    if (accion === 'WHATSAPP') return 'bg-[#D1FAE5] text-[#065F46]'
+    if (accion === 'EMAIL') return 'bg-info/10 text-info'
+    if (accion === 'WHATSAPP') return 'bg-success/10 text-success'
     return 'bg-muted text-muted-foreground'
   }
 
@@ -731,10 +736,7 @@ export default function MarketingPage() {
 
   return (
     <div className="min-h-screen bg-background p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Marketing</h1>
-      </div>
+      <PageHeader className="mb-6" title="Marketing" />
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1 flex-nowrap">
@@ -761,7 +763,7 @@ export default function MarketingPage() {
           {[
             { label: 'Ingresos (30 días)', value: `${ingresos30d.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €`, sub: 'recibos cobrados' },
             { label: 'Campañas activas', value: String(campanasActivas), sub: `${enviadas.length} enviadas` },
-            { label: 'Conversión a socia', value: `${Math.round(tasaConversion)}%`, sub: `${activas} de ${totalConLeadStage} leads` },
+            { label: 'Conversión a clienta', value: `${Math.round(tasaConversion)}%`, sub: `${activas} de ${totalConLeadStage} leads` },
             { label: 'Automatizaciones activas', value: String(autoActivas), sub: `${totalEjecuciones} ejecuciones` },
             { label: 'Apertura media (envíos)', value: `${tasaApertura}%`, sub: `${enviadas.length} campañas` },
             { label: 'Usos de códigos', value: String(totalUsos), sub: `${codigosActivos} activos` },
@@ -817,9 +819,9 @@ export default function MarketingPage() {
           </div>
 
           {resultadoEnvio && (
-            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-[#D1FAE5] text-[#065F46] text-sm px-4 py-2.5">
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-success/10 text-success text-sm px-4 py-2.5">
               <span>{resultadoEnvio}</span>
-              <button onClick={() => setResultadoEnvio(null)} className="text-[#065F46]/70 hover:text-[#065F46]">✕</button>
+              <button onClick={() => setResultadoEnvio(null)} className="text-success/70 hover:text-success">✕</button>
             </div>
           )}
 
@@ -934,7 +936,7 @@ export default function MarketingPage() {
                         </button>
                         <button
                           onClick={() => deleteCampana(c.id)}
-                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground hover:text-[#DC2626] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                           title="Eliminar"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1229,7 +1231,7 @@ export default function MarketingPage() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{formatDateEs(cod.expira)}</td>
                         <td className="px-4 py-3">
-                          <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', cod.activo ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-muted text-muted-foreground')}>
+                          <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', cod.activo ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground')}>
                             {cod.activo ? 'Activo' : 'Inactivo'}
                           </span>
                         </td>
@@ -1240,11 +1242,11 @@ export default function MarketingPage() {
                               className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                               title={cod.activo ? 'Desactivar' : 'Activar'}
                             >
-                              {cod.activo ? <ToggleRight className="w-4 h-4 text-[#059669]" /> : <ToggleLeft className="w-4 h-4" />}
+                              {cod.activo ? <ToggleRight className="w-4 h-4 text-success" /> : <ToggleLeft className="w-4 h-4" />}
                             </button>
                             <button
                               onClick={() => deleteCodigoDescuento(cod.id)}
-                              className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground hover:text-[#DC2626] transition-colors"
+                              className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                               title="Eliminar"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1268,9 +1270,9 @@ export default function MarketingPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <button onClick={() => toggleCodigoDescuento(cod.id)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title={cod.activo ? 'Desactivar' : 'Activar'}>
-                          {cod.activo ? <ToggleRight className="w-4 h-4 text-[#059669]" /> : <ToggleLeft className="w-4 h-4" />}
+                          {cod.activo ? <ToggleRight className="w-4 h-4 text-success" /> : <ToggleLeft className="w-4 h-4" />}
                         </button>
-                        <button onClick={() => deleteCodigoDescuento(cod.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground" title="Eliminar">
+                        <button onClick={() => deleteCodigoDescuento(cod.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" title="Eliminar">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -1280,7 +1282,7 @@ export default function MarketingPage() {
                       <span className="text-[12px] font-semibold text-foreground bg-muted px-2 py-0.5 rounded-md">
                         {cod.tipo === 'PORCENTAJE' ? `${cod.valor}%` : `${cod.valor} €`}
                       </span>
-                      <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', cod.activo ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-muted text-muted-foreground')}>
+                      <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium', cod.activo ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground')}>
                         {cod.activo ? 'Activo' : 'Inactivo'}
                       </span>
                       <span className="text-[11px] text-muted-foreground">Expira {formatDateEs(cod.expira)}</span>
@@ -1333,7 +1335,7 @@ export default function MarketingPage() {
                   Generar
                 </button>
               </div>
-              {errorIA && <p className="text-[11px] text-[#DC2626]">{errorIA}</p>}
+              {errorIA && <p className="text-[11px] text-destructive">{errorIA}</p>}
               {razonSegmentoIA && (
                 <p className="text-[11px] text-muted-foreground">
                   <span className="font-semibold text-brand-secondary">Segmento elegido: </span>{razonSegmentoIA}
@@ -1376,9 +1378,9 @@ export default function MarketingPage() {
                   value={newCampana.destinatarios}
                   onChange={e => setNewCampana(p => ({ ...p, destinatarios: e.target.value }))}
                 >
-                  <option value="TODAS">Todas las socias</option>
-                  <option value="ACTIVAS">Socias activas</option>
-                  <option value="INACTIVAS">Socias inactivas</option>
+                  <option value="TODAS">Todas las clientas</option>
+                  <option value="ACTIVAS">Clientas activas</option>
+                  <option value="INACTIVAS">Clientas inactivas</option>
                   <option value="SIN_PLAN">Sin plan</option>
                   <option value="BONO">Con bono</option>
                   <option value="VIP">VIP</option>
@@ -1392,7 +1394,7 @@ export default function MarketingPage() {
               <FF label="Objetivo (opcional)">
                 <input
                   className={inputCls}
-                  placeholder="Ej. recuperar socias inactivas"
+                  placeholder="Ej. recuperar clientas inactivas"
                   value={newCampana.objetivo}
                   onChange={e => setNewCampana(p => ({ ...p, objetivo: e.target.value }))}
                 />

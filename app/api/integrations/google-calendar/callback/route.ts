@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     await dbSetGoogleCalendarEmail(studioId, email);
     return NextResponse.redirect(`${appUrl}/configuracion?google_calendar_connected=1`);
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : 'Error desconocido al conectar con Google Calendar';
-    return NextResponse.redirect(`${appUrl}/configuracion?google_calendar_error=${encodeURIComponent(mensaje)}`);
+    console.error('[integrations/google-calendar/callback]', err instanceof Error ? err.message : err);
+    return NextResponse.redirect(`${appUrl}/configuracion?google_calendar_error=${encodeURIComponent('No se pudo completar la conexión con Google Calendar. Inténtalo de nuevo.')}`);
   }
 }

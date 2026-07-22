@@ -41,9 +41,9 @@ test('SUSCRIPCION_EXPIRA_7D: activa que vence en 5 días dispara; en 20 no', () 
   assert.deepEqual(c.map(x => x.socio.id), ['1']);
 });
 
-test('INACTIVIDAD_30D: última asistencia hace 40 días dispara; hace 10 no', () => {
+test('INACTIVIDAD_30D: última asistencia hace 50 días dispara; hace 40 no (umbral subido a 45)', () => {
   const s1 = socio({ id: '1' }), s2 = socio({ id: '2' });
-  const c = run({ automatizaciones: [auto('INACTIVIDAD_30D')], socios: [s1, s2], reservas: [reserva('1', 'ASISTIDA', diasAntes(40)), reserva('2', 'ASISTIDA', diasAntes(10))] });
+  const c = run({ automatizaciones: [auto('INACTIVIDAD_30D')], socios: [s1, s2], reservas: [reserva('1', 'ASISTIDA', diasAntes(50)), reserva('2', 'ASISTIDA', diasAntes(40))] });
   assert.deepEqual(c.map(x => x.socio.id), ['1']);
 });
 
@@ -60,11 +60,14 @@ test('dedup: no reenvía si ya hay log reciente de esa automatización+socia', (
   assert.equal(c.length, 0);
 });
 
-test('solo dispara automatizaciones ACTIVAS; NOTIFICACION no es un canal de envío', () => {
+test('solo dispara automatizaciones ACTIVAS; NOTIFICACION genera candidata de canal interno', () => {
   const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
   assert.equal(run({ automatizaciones: [auto('CUMPLEANOS', { activa: false })], socios: [s] }).length, 0);
-  // NOTIFICACION no tiene transporte de mensaje → no genera candidata.
-  assert.equal(run({ automatizaciones: [auto('CUMPLEANOS', { accion: 'NOTIFICACION' })], socios: [s] }).length, 0);
+  // NOTIFICACION no exige email/teléfono: el envío real crea un aviso interno,
+  // no toca a la socia (ver lib/inngest/automatizaciones.ts).
+  const c = run({ automatizaciones: [auto('CUMPLEANOS', { accion: 'NOTIFICACION' })], socios: [s] });
+  assert.equal(c.length, 1);
+  assert.equal(c[0].canal, 'NOTIFICACION');
 });
 
 test('canal WHATSAPP: emite con canal WHATSAPP solo si la socia tiene teléfono', () => {

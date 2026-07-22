@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useId } from 'react';
+import { useState } from 'react';
 import { Medal, Plus, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import type { LevelDefinition } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 // Punto de partida opcional — el estudio decide si le sirve esta progresión
 // o prefiere otros nombres/umbrales/colores. Nunca se inserta solo.
@@ -23,7 +23,6 @@ const emptyForm = (siguienteOrden: number): Omit<LevelDefinition, 'id' | 'studio
 });
 
 export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
-  const uid = useId();
   const { levelDefinitions, addLevelDefinition, updateLevelDefinition, deleteLevelDefinition } = useStudio();
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -75,7 +74,7 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
         </div>
       </div>
       <p className="text-[12px] text-muted-foreground">
-        El nivel se calcula sobre el total histórico de créditos ganados por la socia, no sobre su saldo — canjear recompensas nunca le hace bajar de nivel.
+        El nivel se calcula sobre el total histórico de créditos ganados por la clienta, no sobre su saldo — canjear recompensas nunca le hace bajar de nivel.
       </p>
 
       {ordenados.length === 0 ? (
@@ -97,10 +96,10 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
                 <p className="text-[12px] text-muted-foreground">Desde {l.umbralCreditos} créditos ganados</p>
                 {!l.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactivo</span>}
               </div>
-              <button onClick={() => openEditar(l)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
+              <button onClick={() => openEditar(l)} aria-label="Editar nivel" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
                 <Pencil size={13} />
               </button>
-              <button onClick={() => setBorrarId(l.id)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#FFF2F2] text-[#C4695A] shrink-0">
+              <button onClick={() => setBorrarId(l.id)} aria-label="Eliminar nivel" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#FFF2F2] text-[#C4695A] shrink-0">
                 <Trash2 size={13} />
               </button>
             </div>
@@ -116,31 +115,49 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
           <div className="space-y-4">
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
-                <label htmlFor={`${uid}-1`} className={labelCls}>Icono</label>
-                <input id={`${uid}-1`} className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                <Field label="Icono"
+                  description="Un emoji. Acompaña al nombre del nivel en el perfil de la clienta."
+                >
+                  <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                </Field>
               </div>
               <div>
-                <label htmlFor={`${uid}-2`} className={labelCls}>Nombre</label>
-                <input id={`${uid}-2`} className={inputCls} value={form.nombre} placeholder="Ej. Plata" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                <Field label="Nombre"
+                  description="Los niveles suelen ir de menos a más: Bronce, Plata, Oro."
+                >
+                  <input className={inputCls} value={form.nombre} placeholder="Ej. Plata" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                </Field>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor={`${uid}-3`} className={labelCls}>Orden</label>
-                <input id={`${uid}-3`} type="number" min={0} className={inputCls} value={form.orden} onChange={e => setForm(f => ({ ...f, orden: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                <Field label="Orden"
+                  description="De menor a mayor. El 0 es el nivel de entrada, con el que empieza todo el mundo."
+                >
+                  <input type="number" min={0} className={inputCls} value={form.orden} onChange={e => setForm(f => ({ ...f, orden: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                </Field>
               </div>
               <div>
-                <label htmlFor={`${uid}-4`} className={labelCls}>Créditos necesarios</label>
-                <input id={`${uid}-4`} type="number" min={0} className={inputCls} value={form.umbralCreditos} onChange={e => setForm(f => ({ ...f, umbralCreditos: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                <Field label="Créditos necesarios"
+                  description="Créditos acumulados para alcanzar este nivel. Debe ser mayor que el del nivel anterior."
+                >
+                  <input type="number" min={0} className={inputCls} value={form.umbralCreditos} onChange={e => setForm(f => ({ ...f, umbralCreditos: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                </Field>
               </div>
             </div>
             <div>
-              <label htmlFor={`${uid}-5`} className={labelCls}>Color</label>
-              <input id={`${uid}-5`} type="color" className="h-9 w-16 rounded-lg border border-border cursor-pointer" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} />
+              <Field label="Color"
+                description="Color de la insignia del nivel."
+              >
+                <input type="color" className="h-9 w-16 rounded-lg border border-border cursor-pointer" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} />
+              </Field>
             </div>
             <div>
-              <label htmlFor={`${uid}-6`} className={labelCls}>Beneficios (opcional)</label>
-              <input id={`${uid}-6`} className={inputCls} value={form.beneficios ?? ''} placeholder="Ej. 10% dto. en recompensas" onChange={e => setForm(f => ({ ...f, beneficios: e.target.value }))} />
+              <Field label="Beneficios (opcional)"
+                description="Qué gana al llegar aquí. Es solo texto informativo: los descuentos no se aplican solos."
+              >
+                <input className={inputCls} value={form.beneficios ?? ''} placeholder="Ej. 10% dto. en recompensas" onChange={e => setForm(f => ({ ...f, beneficios: e.target.value }))} />
+              </Field>
             </div>
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2 text-[13px] text-foreground">
@@ -161,7 +178,7 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
           <DialogHeader>
             <DialogTitle>Eliminar nivel</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este nivel? Las socias que lo tengan alcanzado pasarán a mostrarse en el nivel inmediatamente inferior.</p>
+          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este nivel? Las clientas que lo tengan alcanzado pasarán a mostrarse en el nivel inmediatamente inferior.</p>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setBorrarId(null)} className={btnSecondary}>Cancelar</button>
             <button onClick={confirmarBorrar} className="px-4 py-2 rounded-xl bg-[#C4695A] text-white text-[13px] font-semibold hover:bg-[#B25B4D]">Eliminar</button>

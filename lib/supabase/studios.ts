@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { enviarWhatsAppTexto, isWhatsAppConfigurado } from '@/lib/whatsapp';
+import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -85,6 +85,7 @@ import type {
   Factura,
   Instructor,
   Integracion,
+  TipoIntegracion,
   LevelDefinition,
   MemberCredits,
   MensajeEquipo,
@@ -148,32 +149,18 @@ export function getCurrentStudioId() {
   return STUDIO_ID;
 }
 
-// Looks up which studio a just-authenticated user belongs to: first as a
-// claimed team member (instructores.auth_user_id), then as an owner
-// (studios.owner_auth_user_id). Returns null if neither matches (a brand
-// new signup that hasn't created or joined a studio yet).
-export async function resolveStudioId(userId: string): Promise<string | null> {
-  // limit(1) en vez de maybeSingle(): un usuario puede pertenecer a varios
-  // estudios (instructor en dos centros, o dueño de varias sedes). maybeSingle()
-  // lanzaba error con >1 fila y dejaba el estudio sin resolver. Orden por id
-  // determinista = mismo estudio primario que verificarSesionStaff (servidor).
-  const { data: instructores } = await supabase
-    .from('instructores')
-    .select('studio_id')
-    .eq('auth_user_id', userId)
-    .order('studio_id', { ascending: true })
-    .limit(1);
-  if (instructores?.[0]?.studio_id) return instructores[0].studio_id;
-
-  const { data: studios } = await supabase
-    .from('studios')
-    .select('id')
-    .eq('owner_auth_user_id', userId)
-    .order('id', { ascending: true })
-    .limit(1);
-  if (studios?.[0]?.id) return studios[0].id;
-
-  return null;
+// Resuelve el estudio del usuario autenticado delegando en la función SQL
+// current_studio_id() — la misma que ya usa RLS en cada tabla. Respeta la
+// sede activa elegida en `sesion_activa` (revalidada dentro de la propia
+// función: un usuario nunca puede "activar" una sede que no le pertenece) y,
+// si no hay ninguna elegida, cae al criterio determinista de siempre
+// (instructora vinculada, si no propietaria). Delegar en el RPC —en vez de
+// reimplementar la misma lógica aquí— evita que cliente y RLS puedan
+// resolver sedes distintas para el mismo usuario.
+export async function resolveStudioId(): Promise<string | null> {
+  const { data, error } = await supabase.rpc('current_studio_id');
+  if (error) { reportDbError('[resolveStudioId]', error); return null; }
+  return (data as string | null) ?? null;
 }
 
 // ─── Cliente de escritura sensible al entorno ────────────────────────────────
@@ -1395,6 +1382,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
   if ('reservaMaxSimultaneas' in changes) db.reserva_max_simultaneas = changes.reservaMaxSimultaneas;
   if ('stripeAccountId' in changes) db.stripe_account_id = changes.stripeAccountId;
+  if ('onboardingDescartadoEn' in changes) db.onboarding_descartado_en = changes.onboardingDescartadoEn;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);
 }
@@ -1452,6 +1440,127 @@ export async function dbDeleteGoogleCalendarCredenciales(studioId: string) {
   if (!admin) return;
   const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'google_calendar');
   if (error) reportDbError('[dbDeleteGoogleCalendarCredenciales]', error);
+}
+
+// Gmail: mismo patrón exacto que Google Calendar (misma app de Google,
+// mismo `integracion_credenciales` genérico por proveedor — solo cambia el
+// valor de `provider` a 'gmail' para no mezclar los tokens de las dos
+// integraciones, que un estudio puede tener conectadas independientemente).
+export async function dbSetGmailEmail(studioId: string, email: string | null) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('studios').update({ gmail_email: email }).eq('id', studioId);
+  if (error) reportDbError('[dbSetGmailEmail]', error);
+}
+
+export interface GmailCredenciales {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+}
+
+export async function dbGetGmailCredenciales(studioId: string): Promise<GmailCredenciales | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from('integracion_credenciales')
+    .select('access_token, refresh_token, expires_at')
+    .eq('studio_id', studioId)
+    .eq('provider', 'gmail')
+    .maybeSingle();
+  if (error) { reportDbError('[dbGetGmailCredenciales]', error); return null; }
+  if (!data || !data.refresh_token) return null;
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+}
+
+export async function dbSaveGmailCredenciales(studioId: string, c: GmailCredenciales) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').upsert({
+    studio_id: studioId,
+    provider: 'gmail',
+    access_token: c.accessToken,
+    refresh_token: c.refreshToken,
+    expires_at: c.expiresAt,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'studio_id,provider' });
+  if (error) reportDbError('[dbSaveGmailCredenciales]', error);
+}
+
+export async function dbDeleteGmailCredenciales(studioId: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'gmail');
+  if (error) reportDbError('[dbDeleteGmailCredenciales]', error);
+}
+
+// Zoom: mismo patrón exacto que Google Calendar/Gmail (una app de Zoom para
+// toda la plataforma, `integracion_credenciales` genérico por proveedor con
+// provider='zoom'). Sustituye al Server-to-Server OAuth de una sola cuenta:
+// cada estudio conecta ahora la suya propia.
+export async function dbSetZoomEmail(studioId: string, email: string | null) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('studios').update({ zoom_email: email }).eq('id', studioId);
+  if (error) reportDbError('[dbSetZoomEmail]', error);
+}
+
+export interface ZoomCredenciales {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+}
+
+export async function dbGetZoomCredenciales(studioId: string): Promise<ZoomCredenciales | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from('integracion_credenciales')
+    .select('access_token, refresh_token, expires_at')
+    .eq('studio_id', studioId)
+    .eq('provider', 'zoom')
+    .maybeSingle();
+  if (error) { reportDbError('[dbGetZoomCredenciales]', error); return null; }
+  if (!data || !data.refresh_token) return null;
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+}
+
+export async function dbSaveZoomCredenciales(studioId: string, c: ZoomCredenciales) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').upsert({
+    studio_id: studioId,
+    provider: 'zoom',
+    access_token: c.accessToken,
+    refresh_token: c.refreshToken,
+    expires_at: c.expiresAt,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'studio_id,provider' });
+  if (error) reportDbError('[dbSaveZoomCredenciales]', error);
+}
+
+export async function dbDeleteZoomCredenciales(studioId: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'zoom');
+  if (error) reportDbError('[dbDeleteZoomCredenciales]', error);
+}
+
+// Config guardada por el propio estudio para una integración "campos" (Kisi,
+// WhatsApp Business) — cada negocio pega su propia clave/token, no hay
+// secreto compartido de plataforma. Lo usan las rutas de "Probar conexión".
+export async function dbGetIntegracionConfig(studioId: string, tipo: TipoIntegracion): Promise<{ activo: boolean; config: Record<string, string> } | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from('integraciones')
+    .select('activo, config')
+    .eq('studio_id', studioId)
+    .eq('tipo', tipo)
+    .maybeSingle();
+  if (error) { reportDbError('[dbGetIntegracionConfig]', error); return null; }
+  if (!data) return null;
+  return { activo: !!data.activo, config: (data.config as Record<string, string>) ?? {} };
 }
 
 // ─── Instructor operations ───────────────────────────────────────────────────
@@ -1531,7 +1640,7 @@ function slugify(nombre: string): string {
     .replace(/^-+|-+$/g, '') || 'estudio';
 }
 
-async function generateUniqueSlug(nombre: string): Promise<string> {
+export async function generateUniqueSlug(nombre: string): Promise<string> {
   const base = slugify(nombre);
   let candidate = base;
   let n = 2;
@@ -1543,20 +1652,68 @@ async function generateUniqueSlug(nombre: string): Promise<string> {
   }
 }
 
-export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string }): Promise<string | null> {
-  const id = `studio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const slug = await generateUniqueSlug(fields.nombre);
-  const { error } = await supabase.from('studios').insert({
-    id,
-    nombre: fields.nombre,
-    ciudad: fields.ciudad,
-    telefono: fields.telefono,
-    plan: 'BASE',
-    owner_auth_user_id: fields.ownerAuthUserId,
-    slug,
-  });
-  if (error) { reportDbError('[dbCreateStudio]', error); return null; }
-  return id;
+// Crea un negocio nuevo (multi-tenancy: alta real desde /crear-estudio) y lo
+// vincula a la cuenta de Supabase Auth que lo creó. Devuelve id+slug del nuevo
+// negocio (el slug real, que puede llevar sufijo "-2" si hubo colisión de
+// nombre — la UI de éxito lo necesita para no inventarse la URL del portal),
+// o null si falló.
+export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string }): Promise<{ id: string; slug: string } | null> {
+  // generateUniqueSlug comprueba disponibilidad y el insert llega después: un
+  // segundo alta con el mismo nombre (doble clic, dos pestañas) puede colarse
+  // en ese hueco y quedarse con el slug "libre" que acabamos de comprobar.
+  // Se reintenta unas pocas veces regenerando el slug ante ese choque concreto
+  // en vez de dejar pasar el 23505 crudo (Sentry JAVASCRIPT-NEXTJS-F).
+  for (let intento = 0; intento < 3; intento++) {
+    const id = `studio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const slug = await generateUniqueSlug(fields.nombre);
+    const { error } = await supabase.from('studios').insert({
+      id,
+      nombre: fields.nombre,
+      ciudad: fields.ciudad,
+      telefono: fields.telefono,
+      plan: 'BASE',
+      owner_auth_user_id: fields.ownerAuthUserId,
+      slug,
+    });
+    if (!error) return { id, slug };
+    if (error.code !== '23505' || !error.message.includes('studios_slug_key')) {
+      reportDbError('[dbCreateStudio]', error);
+      return null;
+    }
+    // Choque de slug: reintenta con uno recién generado.
+  }
+  reportDbError('[dbCreateStudio]', { message: 'No se pudo generar un slug único tras varios intentos' });
+  return null;
+}
+
+export interface SedeSeleccionable {
+  id: string;
+  nombre: string;
+  slug: string | null;
+  ciudad: string | null;
+}
+
+// Lista las sedes que el usuario autenticado puede operar (dueño o
+// instructora), para pintar el selector de sede del ProfileMenu. Vía RPC
+// SECURITY DEFINER con columnas whitelisted (mis_estudios(), migración 0065)
+// — nunca una policy de fila sobre `studios`, que expone columnas sensibles
+// (nif, stripe_customer_id, kiosk_token...) a cualquiera con acceso de fila.
+export async function fetchMisEstudios(): Promise<SedeSeleccionable[]> {
+  const { data, error } = await supabase.rpc('mis_estudios');
+  if (error) { reportDbError('[fetchMisEstudios]', error); return []; }
+  return (data as SedeSeleccionable[]) ?? [];
+}
+
+// Cambia la sede activa de la sesión actual (selector "cambiar de sede").
+// Upsert directo del lado del cliente: la policy `self_rw_sesion_activa` ya
+// restringe la escritura a la propia fila, y `current_studio_id()` revalida
+// en cada lectura posterior que el usuario realmente tiene acceso a esa sede
+// — un studioId ajeno aquí simplemente queda sin efecto, no hace falta una
+// ruta de servidor intermedia.
+export async function cambiarSedeActiva(authUserId: string, studioId: string): Promise<boolean> {
+  const { error } = await supabase.from('sesion_activa').upsert({ auth_user_id: authUserId, studio_id: studioId });
+  if (error) { reportDbError('[cambiarSedeActiva]', error); return false; }
+  return true;
 }
 
 export async function resolveStudioIdBySlug(slug: string): Promise<string | null> {
@@ -1667,14 +1824,25 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
   const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter(Boolean) as string[])];
   const sesionIds = sesiones.map(s => s.id as string);
 
-  const [{ data: tiposR }, { data: salasR }, { data: instR }, { data: studiosR }, { data: reservasR }] = await Promise.all([
+  const studioIds = uniq(sesiones.map(s => s.studio_id as string));
+  const [{ data: tiposR }, { data: salasR }, { data: instR }, { data: studiosR }, { data: reservasR }, { data: whatsappR }] = await Promise.all([
     admin.from('tipos_clase').select('id, nombre').in('id', uniq(sesiones.map(s => s.tipo_clase_id as string))),
     admin.from('salas').select('id, nombre').in('id', uniq(sesiones.map(s => s.sala_id as string))),
     admin.from('instructores').select('id, nombre').in('id', uniq(sesiones.map(s => s.instructor_id as string))),
     admin.from('studios').select('id, nombre').in('id', uniq(sesiones.map(s => s.studio_id as string))),
     admin.from('reservas').select('sesion_id, socio_id').in('sesion_id', sesionIds).in('estado', ['CONFIRMADA', 'ASISTIDA']),
+    // WhatsApp ya no es una integración de plataforma (secreto único del
+    // operador): cada estudio pega su propio token + phoneId, así que hay que
+    // cargar el de CADA estudio implicado en la ventana, no un único flag global.
+    admin.from('integraciones').select('studio_id, activo, config').eq('tipo', 'WHATSAPP').in('studio_id', studioIds),
   ]);
   const reservas = reservasR ?? [];
+  const whatsappPorStudio = new Map<string, WhatsAppCredenciales>();
+  for (const row of whatsappR ?? []) {
+    if (!row.activo) continue;
+    const config = (row.config as Record<string, string>) ?? {};
+    if (config.token && config.phoneId) whatsappPorStudio.set(row.studio_id as string, { token: config.token, phoneId: config.phoneId });
+  }
 
   const socioIds = uniq(reservas.map(r => r.socio_id as string));
   const [{ data: sociosR }, { data: prefsR }] = socioIds.length
@@ -1704,7 +1872,6 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
   let sinEmail = 0;
   let enviadosWhatsapp = 0;
   let fallidosWhatsapp = 0;
-  const whatsappDisponible = isWhatsAppConfigurado();
 
   for (const ses of sesiones) {
     const rs = reservasPorSesion.get(ses.id as string) ?? [];
@@ -1740,9 +1907,10 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
         }
       }
 
-      if (quiereWhatsapp && whatsappDisponible && socia.telefono) {
+      const whatsapp = whatsappPorStudio.get(ses.studio_id as string);
+      if (quiereWhatsapp && whatsapp && socia.telefono) {
         const texto = `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`;
-        const res = await enviarWhatsAppTexto(socia.telefono, texto);
+        const res = await enviarWhatsAppTexto(whatsapp, socia.telefono, texto);
         if (res.ok) enviadosWhatsapp++;
         else fallidosWhatsapp++;
       }

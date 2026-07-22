@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { InfoTip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { PlanTarifa } from '@/lib/types';
@@ -174,7 +175,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                         </button>
                         <button
                           onClick={() => setConfirmDel(plan.id)}
-                          className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground hover:text-[#DC2626] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                           aria-label="Eliminar plan"
                         >
                           <Trash2 size={13} />
@@ -199,7 +200,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                       <button onClick={() => openEditar(plan)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground" aria-label="Editar plan">
                         <Pencil size={13} />
                       </button>
-                      <button onClick={() => setConfirmDel(plan.id)} className="p-1.5 rounded-lg hover:bg-[#FEE2E2] text-muted-foreground" aria-label="Eliminar plan">
+                      <button onClick={() => setConfirmDel(plan.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" aria-label="Eliminar plan">
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -227,7 +228,10 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
-            <Field label="Nombre del plan">
+            <Field
+              label="Nombre del plan"
+              description="Es el nombre que verá la clienta al reservar y el que saldrá en su factura."
+            >
               <input
                 className={inputCls}
                 value={form.nombre}
@@ -235,7 +239,10 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                 placeholder="Ej: Mensual ilimitado"
               />
             </Field>
-            <Field label="Descripción (opcional)">
+            <Field
+              label="Descripción (opcional)"
+              description="Una línea explicando qué incluye. Aparece bajo el nombre en la página de reservas."
+            >
               <textarea
                 className={cn(inputCls, 'resize-none h-16')}
                 value={form.descripcion}
@@ -244,7 +251,18 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
               />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Tipo">
+              <Field
+                label="Tipo"
+                description="MENSUAL se cobra solo cada mes hasta que se dé de baja. BONO son sesiones sueltas que se van gastando. PUNTUAL es un pago único, sin renovación."
+                hint={
+                  <InfoTip label="Cómo elegir el tipo de plan">
+                    Si la clienta viene todas las semanas, MENSUAL: se cobra solo y no
+                    tienes que perseguir el pago. Si viene a temporadas, un BONO de 10
+                    sesiones se ajusta mejor y no se siente atada. PUNTUAL es para clases
+                    sueltas, talleres o una prueba.
+                  </InfoTip>
+                }
+              >
                 <select
                   className={inputCls}
                   value={form.tipo}
@@ -261,7 +279,10 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                   <option value="PUNTUAL">PUNTUAL</option>
                 </select>
               </Field>
-              <Field label="Precio (€)">
+              <Field
+                label="Precio (€)"
+                description="IVA incluido. Es lo que se le cobra a la clienta cada vez que se renueva."
+              >
                 <input
                   className={inputCls}
                   type="number"
@@ -274,7 +295,10 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
               </Field>
             </div>
             {sesionesRequeridas && (
-              <Field label="Número de sesiones">
+              <Field
+                label="Número de sesiones"
+                description="Cuántas clases incluye el bono. Se descuenta una por cada reserva; al llegar a cero, la clienta ya no puede reservar hasta renovar."
+              >
                 <input
                   className={inputCls}
                   type="number"
@@ -285,9 +309,15 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                 />
               </Field>
             )}
-            <div className="flex items-center justify-between py-1">
-              <span className={labelCls}>Plan activo</span>
-              <Toggle on={form.activo} onChange={v => setForm(f => ({ ...f, activo: v }))} />
+            <div className="py-1">
+              <div className="flex items-center justify-between">
+                <span className={cn(labelCls, 'mb-0')}>Plan activo</span>
+                <Toggle on={form.activo} onChange={v => setForm(f => ({ ...f, activo: v }))} />
+              </div>
+              <p className="text-xs leading-relaxed text-muted-foreground mt-1 text-balance">
+                Si lo desactivas, deja de ofrecerse a clientas nuevas. Las que ya lo tienen
+                siguen igual y se les sigue cobrando.
+              </p>
             </div>
           </div>
           <div className="flex gap-2 mt-4">

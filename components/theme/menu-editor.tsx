@@ -1,47 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { GripVertical, Eye, EyeOff, RotateCcw, Check, AlertTriangle } from 'lucide-react';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  arrayMove,
-  useSortable,
-  sortableKeyboardCoordinates,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { Eye, EyeOff, RotateCcw, Check, AlertTriangle } from 'lucide-react';
 import { usePermisos } from '@/lib/permisos';
 import { fetchLayout, guardarLayoutApi } from '@/lib/api-client';
 import { MODULOS, NO_OCULTABLES, type NavItemDef } from '@/lib/nav-config';
 import { type MenuPosicion } from '@/lib/layout-schema';
+import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 
+// El orden del menú NO se puede cambiar, a propósito: si cada estudio coloca
+// las cosas a su manera, aprender una pantalla deja de servir para entender el
+// resto, y ninguna captura ni instrucción vale para dos estudios distintos.
+// Ocultar sí, porque quita ruido sin mover de sitio lo que queda.
 function Fila({ item, oculto, onToggle }: { item: NavItemDef; oculto: boolean; onToggle: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.href });
   const noOcultable = NO_OCULTABLES.includes(item.href);
   const Icon = item.icon;
   return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
-      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card"
-    >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
-        aria-label={`Reordenar ${item.label}`}
-      >
-        <GripVertical size={16} />
-      </button>
+    <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card">
       <Icon size={16} className={oculto ? 'text-muted-foreground/40' : 'text-foreground'} />
       <span className={`flex-1 text-[13px] font-medium ${oculto ? 'text-muted-foreground/50 line-through' : 'text-foreground'}`}>
         {item.label}
@@ -68,10 +43,6 @@ export function MenuEditor() {
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
 
   useEffect(() => {
     let vivo = true;
@@ -100,14 +71,6 @@ export function MenuEditor() {
     return <p className="text-sm text-muted-foreground">Cargando el menú…</p>;
   }
 
-  function onDragEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (over && active.id !== over.id) {
-      setItems((prev) => arrayMove(prev, prev.indexOf(active.id as string), prev.indexOf(over.id as string)));
-      setAviso(null);
-    }
-  }
-
   function toggle(href: string) {
     if (NO_OCULTABLES.includes(href)) return;
     setOcultos((prev) => {
@@ -123,11 +86,11 @@ export function MenuEditor() {
     setGuardando(true);
     setAviso(null);
     try {
-      await guardarLayoutApi({ orden: items, ocultos: [...ocultos], menuPosition: posicion });
+      await guardarLayoutApi({ orden: [], ocultos: [...ocultos], menuPosition: posicion });
       window.dispatchEvent(new CustomEvent('tentare-layout-changed'));
       setAviso({ tipo: 'ok', texto: 'Menú guardado y aplicado.' });
     } catch (e) {
-      setAviso({ tipo: 'error', texto: (e as Error).message });
+      setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
     } finally {
       setGuardando(false);
     }
@@ -145,7 +108,7 @@ export function MenuEditor() {
   return (
     <div className="space-y-4 max-w-xl">
       <p className="text-[13px] text-muted-foreground">
-        Arrastra para reordenar los módulos del menú y usa el ojo para ocultar los que no uses. Se aplica a todo el equipo del estudio.
+        Oculta los módulos que tu estudio no use. El orden es siempre el mismo para que cualquier persona del equipo se oriente igual. Se aplica a todo el estudio.
       </p>
 
       {/* Posición del menú */}
@@ -169,17 +132,13 @@ export function MenuEditor() {
         </p>
       </div>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={items} strategy={verticalListSortingStrategy}>
-          <div className="space-y-1.5">
-            {items.map((href) => {
-              const item = porHref.get(href);
-              if (!item) return null;
-              return <Fila key={href} item={item} oculto={ocultos.has(href)} onToggle={() => toggle(href)} />;
-            })}
-          </div>
-        </SortableContext>
-      </DndContext>
+      <div className="space-y-1.5">
+        {items.map((href) => {
+          const item = porHref.get(href);
+          if (!item) return null;
+          return <Fila key={href} item={item} oculto={ocultos.has(href)} onToggle={() => toggle(href)} />;
+        })}
+      </div>
 
       {aviso && (
         <div className={`flex items-center gap-2 text-[12.5px] font-medium ${aviso.tipo === 'ok' ? 'text-green-700' : 'text-destructive'}`}>

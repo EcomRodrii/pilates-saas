@@ -43,7 +43,7 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
           {impactoTexto && (
             <span
               className="shrink-0 text-[15px] font-bold"
-              style={{ color: recomendacion.riesgo === 'PERDIDA' ? 'var(--foreground)' : '#059669' }}
+              style={{ color: recomendacion.riesgo === 'PERDIDA' ? 'var(--foreground)' : 'var(--success)' }}
             >
               {impactoTexto}
             </span>

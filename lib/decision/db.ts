@@ -154,8 +154,14 @@ export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
  * Transición condicional (Arquitectura §7): solo aplica si el estado actual
  * en DB coincide con `desde` — hace el "doble clic" seguro sin locks.
  */
+// `studioId` es obligatorio a propósito: sin él, la única barrera contra
+// aprobar/rechazar la recomendación de OTRO estudio vivía en el caller (la
+// comprobación `recomendacion.studioId !== sesion.studioId` de las rutas
+// aprobar/rechazar) — correcta hoy, pero frágil: un futuro caller que no la
+// repitiera reabriría el mismo hueco que ya se cerró una vez en #195.
 export async function dbTransicionarRecomendacion(
   id: string,
+  studioId: string,
   desde: EstadoRecomendacion,
   hacia: EstadoRecomendacion,
   extra: { resueltoPor?: string | null; resueltoEn?: string } = {}
@@ -168,6 +174,7 @@ export async function dbTransicionarRecomendacion(
     .from('recomendaciones')
     .update(patch)
     .eq('id', id)
+    .eq('studio_id', studioId)
     .eq('estado', desde)
     .select('id')
     .maybeSingle();

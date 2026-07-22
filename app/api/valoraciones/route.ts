@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // GET /api/valoraciones — resumen (media + total) por instructora del estudio,
@@ -22,7 +23,8 @@ export async function GET(req: NextRequest) {
       .eq('instructor_id', instructorId)
       .order('creado_en', { ascending: false })
       .limit(100);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return errorInterno('valoraciones:listar', error,
+      'No se han podido cargar las valoraciones. Recarga la página.');
 
     const items = ((data ?? []) as Array<{
       id: string; puntuacion: number; comentario: string | null; creado_en: string;
@@ -45,7 +47,8 @@ export async function GET(req: NextRequest) {
   }
 
   const { data, error } = await admin.rpc('valoraciones_resumen_estudio', { p_studio_id: sesion.studioId });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorInterno('valoraciones:resumen', error,
+    'No se ha podido cargar el resumen de valoraciones. Recarga la página.');
 
   // Mapa instructor_id → { media, total } para lookup O(1) en la UI.
   const resumen: Record<string, { media: number; total: number }> = {};

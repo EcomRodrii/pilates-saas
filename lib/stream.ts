@@ -41,10 +41,12 @@ export async function crearSubidaDirecta(opts: { nombre: string; maxDurationSeco
       | { success: boolean; result?: { uid: string; uploadURL: string }; errors?: { message: string }[] }
       | null;
     if (!res.ok || !json?.success || !json.result) {
-      return { ok: false, error: json?.errors?.[0]?.message ?? `Cloudflare Stream ${res.status}` };
+      console.error('[stream]', res.status, json?.errors?.[0]?.message ?? '(sin detalle)');
+      return { ok: false, error: 'No se ha podido preparar la subida del vídeo. Inténtalo de nuevo.' };
     }
     return { ok: true, data: { uid: json.result.uid, uploadURL: json.result.uploadURL } };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Error de red con Cloudflare Stream' };
+    console.error('[stream]', e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se ha podido preparar la subida del vídeo. Inténtalo de nuevo.' };
   }
 }

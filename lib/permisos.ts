@@ -7,7 +7,7 @@ import type { Rol } from './types';
 // Instructoras: su agenda, sus alumnas y las herramientas de contenido/equipo
 // — nada de cobros, informes, marketing ni ajustes del negocio.
 const PERMITIDO_INSTRUCTOR = [
-  '/dashboard', '/calendario', '/citas', '/socios', '/ondemand', '/comunidad', '/mensajeria', '/chat',
+  '/dashboard', '/calendario', '/citas', '/clientas', '/ondemand', '/comunidad', '/mensajeria', '/chat',
 ];
 
 // Recepción: todo lo operativo, nada de configuración del negocio,

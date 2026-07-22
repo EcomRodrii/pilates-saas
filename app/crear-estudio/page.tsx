@@ -33,6 +33,7 @@ export default function CrearEstudioPage() {
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [needsConfirmEmail, setNeedsConfirmEmail] = useState(false);
+  const [nuevoSlug, setNuevoSlug] = useState<string | null>(null);
 
   function handleStudioSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,16 +70,15 @@ export default function CrearEstudioPage() {
     // — creamos el negocio ahora mismo.
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const newStudioId = await dbCreateStudio({ ...studioFields, ownerAuthUserId: user.id });
-      if (newStudioId) setCurrentStudioId(newStudioId);
+      const newStudio = await dbCreateStudio({ ...studioFields, ownerAuthUserId: user.id });
+      if (newStudio) {
+        setCurrentStudioId(newStudio.id);
+        setNuevoSlug(newStudio.slug);
+      }
     }
     setCreating(false);
     setStep(3);
   }
-
-  const portalSlug = studio.nombre
-    ? studio.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    : 'tu-estudio';
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center px-4 py-10">
@@ -107,11 +107,11 @@ export default function CrearEstudioPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-[#E8EAED] overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-lg border border-border overflow-hidden">
           {step === 1 && (
             <form onSubmit={handleStudioSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-[#FFF2F7] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
                   <Building2 size={20} className="text-[#B57A8E]" />
                 </div>
                 <div>
@@ -179,7 +179,7 @@ export default function CrearEstudioPage() {
           {step === 2 && (
             <form onSubmit={handleOwnerSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-[#FFF2F7] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
                   <User size={20} className="text-[#B57A8E]" />
                 </div>
                 <div>
@@ -252,7 +252,7 @@ export default function CrearEstudioPage() {
           {needsConfirmEmail && (
             <div className="p-6 space-y-4 text-center">
               <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#FFF2F7] flex items-center justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center">
                   <Mail size={32} className="text-[#B57A8E]" />
                 </div>
               </div>
@@ -275,7 +275,7 @@ export default function CrearEstudioPage() {
           {step === 3 && !needsConfirmEmail && (
             <div className="p-6 space-y-5 text-center">
               <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#FFF2F7] flex items-center justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center">
                   <CheckCircle2 size={32} className="text-[#B57A8E]" />
                 </div>
               </div>
@@ -288,12 +288,14 @@ export default function CrearEstudioPage() {
                 </p>
               </div>
 
-              <div className="bg-[#F8F9FA] rounded-xl px-4 py-3 text-left space-y-1">
-                <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#9CA3AF]">URL del portal</p>
-                <p className="text-[13px] font-medium text-[#B57A8E] break-all">
-                  https://{portalSlug}.miapp.com/portal
-                </p>
-              </div>
+              {nuevoSlug && (
+                <div className="bg-[#F8F9FA] rounded-xl px-4 py-3 text-left space-y-1">
+                  <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#9CA3AF]">URL del portal</p>
+                  <p className="text-[13px] font-medium text-[#B57A8E] break-all">
+                    {typeof window !== 'undefined' ? window.location.origin : ''}/portal/{nuevoSlug}
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2.5">
                 {/* Hard navigation on purpose: forces StudioProvider to remount

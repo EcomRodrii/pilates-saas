@@ -111,6 +111,7 @@ import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarE
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
+import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
@@ -453,7 +454,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // tiene publicSlug pero SÍ estamos en una de esas rutas, es la sombreada:
   // no hace falta que traiga nada.
   const pathname = usePathname();
-  const shadowedByPublicRoute = !publicSlug && /^\/(portal|reservar|kiosk|disponibilidad|aceptar-sustitucion|valorar|no-puedo)\//.test(pathname ?? '');
+  const shadowedByPublicRoute = !publicSlug && /^\/(portal|reservar|kiosk|disponibilidad|aceptar-sustitucion|valorar|no-puedo|confirmar-reserva)\//.test(pathname ?? '');
 
   // Surface fire-and-forget DB write failures to the user instead of losing them.
   useEffect(() => {
@@ -633,7 +634,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (studioIdOverride) {
         setCurrentStudioId(studioIdOverride);
       } else if (authUserId) {
-        const resolved = await resolveStudioId(authUserId);
+        const resolved = await resolveStudioId();
         // Resetea a vacío si no resuelve, para no heredar el estudio de una
         // sesión anterior en el mismo cliente.
         setCurrentStudioId(resolved ?? '');
@@ -971,9 +972,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ...socioFields,
     };
     setSocios(prev => [...prev, nuevaSocia]);
-    dbInsertSocio(nuevaSocia).then(ok => {
-      if (ok) addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
-    });
+
+    // El estado local (optimista) se actualiza ya para no bloquear la UI, pero
+    // suscripcion/recibo referencian socioId por FK: si se mandan en paralelo
+    // con el insert de la socia y este tarda un pelín más, la BD los rechaza
+    // ("Key is not present in table socios" — Sentry JAVASCRIPT-NEXTJS-3/4).
+    // Se encadenan al ok de dbInsertSocio para garantizar el orden real.
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
       if (plan) {
@@ -990,9 +994,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           stripeSubscriptionId: null,
         };
         setSuscripciones(prev => [...prev, sus]);
-        dbInsertSuscripcion(sus);
 
-        // Auto-generate a paid recibo + factura at enrolment
         const reciboId = `rec-${uid()}`;
         const reciboCobrado: Recibo = {
           id: reciboId,
@@ -1008,14 +1010,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           intentosReintento: 0,
         };
         setRecibos(prev => [...prev, reciboCobrado]);
-        dbInsertRecibo(reciboCobrado);
         setFacturas(prev => {
           const fac = buildFactura(reciboCobrado, prev);
           void sellarFacturaYActualizar(fac);
           return [...prev, fac];
         });
+
+        dbInsertSocio(nuevaSocia).then(ok => {
+          if (!ok) return;
+          addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+          dbInsertSuscripcion(sus);
+          dbInsertRecibo(reciboCobrado);
+        });
+        return;
       }
     }
+
+    dbInsertSocio(nuevaSocia).then(ok => {
+      if (ok) addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+    });
   }
 
   // En ruta pública, las escrituras van por los endpoints de servidor (service-
@@ -2118,7 +2131,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   function updateAutomatizacion(id: string, patch: Partial<Automatizacion>) {
     setAutomatizaciones(prev => prev.map(a => (a.id === id ? { ...a, ...patch } : a)));
-    dbUpdateAutomatizacion(id, patch);
+    dbUpdateAutomatizacion(id, getCurrentStudioId(), patch);
   }
 
   function deleteAutomatizacion(id: string) {
@@ -2131,7 +2144,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setAutomatizaciones(prev => prev.map(a =>
       a.id === autoId ? { ...a, activa: !a.activa } : a
     ));
-    if (actual) dbUpdateAutomatizacion(autoId, { activa: !actual.activa });
+    if (actual) dbUpdateAutomatizacion(autoId, getCurrentStudioId(), { activa: !actual.activa });
   }
 
   // ── Códigos de descuento ──────────────────────────────────────────────────────
@@ -2174,6 +2187,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // estudio) — otorgarCreditos nunca usa un número fijo.
 
   function otorgarCreditos(socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) {
+    // Gate de plan (espejo del servidor en lib/supabase-data.ts): sin la
+    // feature 'gamificacion' del plan, el panel no otorga créditos nuevos desde
+    // acciones de staff. El servidor sigue siendo la fuente de verdad — este
+    // check es defensa en profundidad para no generar estado local que luego
+    // el servidor rechazaría de todos modos.
+    if (studio && !tieneFeature(studio, 'gamificacion')) return;
     const studioId = getCurrentStudioId();
     // Decisión pura y testeada (reward-engine): regla activa con créditos > 0 y
     // no otorgado ya para este refId (idempotencia).
@@ -2335,6 +2354,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function evaluarLogrosSocio(socioId: string, reservasOverride?: Reserva[]) {
+    // Gate de plan — ver comentario de otorgarCreditos.
+    if (studio && !tieneFeature(studio, 'gamificacion')) return;
     const now = new Date();
     const studioId = getCurrentStudioId();
     const socio = socios.find(s => s.id === socioId);
@@ -2451,6 +2472,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function evaluarRetosSocio(socioId: string, reservasOverride?: Reserva[]) {
+    // Gate de plan — ver comentario de otorgarCreditos.
+    if (studio && !tieneFeature(studio, 'gamificacion')) return;
     const now = new Date();
     const studioId = getCurrentStudioId();
     const socio = socios.find(s => s.id === socioId);
@@ -2547,7 +2570,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setAutomationRules(prev => prev.map(r =>
       r.id === id ? { ...r, activa: !r.activa } : r
     ));
-    dbUpdateAutomationRule(id, { activa: !rule.activa });
+    dbUpdateAutomationRule(id, getCurrentStudioId(), { activa: !rule.activa });
     addActividadReciente('AUTOMATIZACION_CAMBIO', `${actorNombre ?? 'Alguien'} ${rule.activa ? 'desactivó' : 'activó'} la automatización "${rule.nombre}"`);
   }
 
@@ -2583,7 +2606,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           ? { ...r, ejecutadaVeces: r.ejecutadaVeces + 1, ultimaEjecucion: log.ejecutadoEn }
           : r
       ));
-      dbUpdateAutomationRule(ruleId, { ejecutadaVeces: (automationRules.find(r => r.id === ruleId)?.ejecutadaVeces ?? 0) + 1, ultimaEjecucion: log.ejecutadoEn });
+      dbUpdateAutomationRule(ruleId, getCurrentStudioId(), { ejecutadaVeces: (automationRules.find(r => r.id === ruleId)?.ejecutadaVeces ?? 0) + 1, ultimaEjecucion: log.ejecutadoEn });
     }
   }
 

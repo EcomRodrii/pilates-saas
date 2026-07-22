@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { RotateCcw, AlertTriangle, Monitor, ExternalLink, Calendar as CalendarLinkIcon } from 'lucide-react';
+import { RotateCcw, AlertTriangle, Monitor, ExternalLink, Calendar as CalendarLinkIcon, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { subirLogoEstudio, eliminarLogoEstudio } from '@/lib/portal-storage';
+import { authHeader } from '@/lib/api-client';
+import { tieneFeature } from '@/lib/billing/entitlements';
 import type { Studio } from '@/lib/types';
-import { Toggle, inputCls, labelCls, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Toggle, inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 type StudioForm = {
   nombre: string; razonSocial: string; nif: string;
@@ -55,6 +57,30 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   // Marca (logo) e IVA — Tanda 1.
   const [subiendoLogo, setSubiendoLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Añadir sede (plan CADENA — soporte multi-sede). Solo visible con
+  // multiCentro activo; el gate real (cadena_id + suscripción vigente) lo
+  // hace app/api/cadena/sedes, esto es solo la UI.
+  const puedeAnadirSedes = !!studio && tieneFeature({ plan: studio.plan, subscriptionStatus: studio.subscriptionStatus }, 'multiCentro');
+  const [nuevaSede, setNuevaSede] = useState({ nombre: '', ciudad: '', telefono: '' });
+  const [creandoSede, setCreandoSede] = useState(false);
+  async function anadirSede() {
+    if (!nuevaSede.nombre.trim()) { showToast('Ponle un nombre a la sede'); return; }
+    setCreandoSede(true);
+    try {
+      const res = await fetch('/api/cadena/sedes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify(nuevaSede),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(`Error: ${data.error ?? 'no se pudo crear la sede'}`); return; }
+      showToast(`Sede "${nuevaSede.nombre}" creada — cámbiate a ella desde el menú de perfil`);
+      setNuevaSede({ nombre: '', ciudad: '', telefono: '' });
+    } finally {
+      setCreandoSede(false);
+    }
+  }
 
   useEffect(() => { setForm(studioToForm(studio)); }, [studio]);
   useEffect(() => { setPol(studioToPolitica(studio)); }, [studio]);
@@ -147,12 +173,42 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         </button>
       </div>
 
+      {/* Añadir sede (plan CADENA) */}
+      {puedeAnadirSedes && (
+        <div className={cn(cardCls, 'p-6')}>
+          <h3 className="text-[14px] font-semibold text-foreground mb-1 flex items-center gap-2">
+            <Building2 size={15} className="text-muted-foreground" /> Añadir sede
+          </h3>
+          <p className="text-[12px] text-muted-foreground mb-4">
+            Tu plan Cadena cubre todas tus sedes con una sola suscripción. La sede nueva queda operativa
+            al momento — cámbiate a ella desde el menú de perfil (arriba a la derecha).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <p className={labelCls}>Nombre</p>
+              <input className={inputCls} value={nuevaSede.nombre} onChange={e => setNuevaSede(s => ({ ...s, nombre: e.target.value }))} />
+            </div>
+            <div>
+              <p className={labelCls}>Ciudad</p>
+              <input className={inputCls} value={nuevaSede.ciudad} onChange={e => setNuevaSede(s => ({ ...s, ciudad: e.target.value }))} />
+            </div>
+            <div>
+              <p className={labelCls}>Teléfono</p>
+              <input className={inputCls} value={nuevaSede.telefono} onChange={e => setNuevaSede(s => ({ ...s, telefono: e.target.value }))} />
+            </div>
+          </div>
+          <button onClick={anadirSede} disabled={creandoSede} className={cn(btnPrimary, 'mt-4', creandoSede && 'opacity-50')}>
+            {creandoSede ? 'Creando…' : 'Añadir sede'}
+          </button>
+        </div>
+      )}
+
       {/* Marca — logo del estudio */}
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-1">Marca</h3>
         <p className="text-[12px] text-muted-foreground mb-4">
           Tu logo aparece en la página pública de reservas. El color de la app de
-          socias se elige desde <span className="font-medium text-foreground">Apariencia</span> (menú de perfil).
+          clientas se elige desde <span className="font-medium text-foreground">Apariencia</span> (menú de perfil).
         </p>
         <div className="flex items-center gap-4">
           <div className="w-20 h-20 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
@@ -178,7 +234,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
                 type="button"
                 disabled={subiendoLogo}
                 onClick={handleEliminarLogo}
-                className="text-[12px] font-medium text-[#DC2626] hover:underline text-left disabled:opacity-40"
+                className="text-[12px] font-medium text-destructive hover:underline text-left disabled:opacity-40"
               >
                 Quitar logo
               </button>
@@ -217,7 +273,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-1">Reservas y cancelaciones</h3>
         <p className="text-[12px] text-muted-foreground mb-4">
-          Reglas que se aplican cuando una socia reserva o cancela desde el portal público.
+          Reglas que se aplican cuando una clienta reserva o cancela desde el portal público.
         </p>
         <div className="space-y-4">
           <div>
@@ -241,12 +297,12 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               Exigir plan o bono activo para reservar
-              <span className="block text-[11px] text-muted-foreground">La socia necesita una suscripción activa o bono con sesiones para reservar.</span>
+              <span className="block text-[11px] text-muted-foreground">La clienta necesita una suscripción activa o bono con sesiones para reservar.</span>
             </span>
             <Toggle on={pol.reservaExigirPlan} onChange={v => setPol(p => ({ ...p, reservaExigirPlan: v }))} />
           </label>
           <div>
-            <p className={labelCls}>Máximo de reservas simultáneas por socia</p>
+            <p className={labelCls}>Máximo de reservas simultáneas por clienta</p>
             <input
               type="number" min={0} max={99} className={inputCls}
               placeholder="Sin límite"
@@ -301,7 +357,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-1">Política de privacidad</h3>
         <p className="text-[12px] text-muted-foreground mb-3">
-          Este texto se muestra a las socias al registrarse y deben aceptarlo antes de completar la inscripción.
+          Este texto se muestra a las clientas al registrarse y deben aceptarlo antes de completar la inscripción.
         </p>
         <textarea
           rows={8}
@@ -321,7 +377,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-1">Términos y condiciones</h3>
         <p className="text-[12px] text-muted-foreground mb-3">
-          Contrato que acepta cada socia al inscribirse. Queda registrado con su firma digital.
+          Contrato que acepta cada clienta al inscribirse. Queda registrado con su firma digital.
         </p>
         <textarea
           rows={8}
@@ -339,11 +395,11 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
 
       {/* Danger zone */}
       <div className={cn(cardCls, 'p-6 border-[#FCA5A5]')}>
-        <h3 className="text-[14px] font-semibold text-[#DC2626] mb-1">Zona de riesgo</h3>
+        <h3 className="text-[14px] font-semibold text-destructive mb-1">Zona de riesgo</h3>
         <p className="text-[13px] text-muted-foreground mb-4">
           Las acciones de esta sección son irreversibles. Procede con precaución.
         </p>
-        <div className="flex items-center justify-between p-4 bg-[#FEF2F2] border border-[#FCA5A5] rounded-xl">
+        <div className="flex items-center justify-between p-4 bg-destructive/10 border border-[#FCA5A5] rounded-xl">
           <div>
             <p className="text-[13px] font-semibold text-foreground">Restablecer datos de demo</p>
             <p className="text-[12px] text-muted-foreground mt-0.5">
@@ -352,7 +408,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           </div>
           <button
             onClick={() => setConfirmReset(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#DC2626] text-[#DC2626] text-[12px] font-medium hover:bg-[#DC2626] hover:text-white transition-colors shrink-0 ml-4"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-destructive text-destructive text-[12px] font-medium hover:bg-destructive hover:text-white transition-colors shrink-0 ml-4"
           >
             <RotateCcw size={12} />
             Restablecer
@@ -364,8 +420,8 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
       <Dialog open={confirmReset} onOpenChange={setConfirmReset}>
         <DialogContent className="max-w-sm">
           <div className="flex flex-col items-center text-center gap-4 py-2">
-            <div className="w-12 h-12 rounded-xl bg-[#FEF3C7] flex items-center justify-center">
-              <AlertTriangle size={20} className="text-[#D97706]" />
+            <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+              <AlertTriangle size={20} className="text-warning" />
             </div>
             <div>
               <h3 className="text-[14px] font-semibold text-foreground mb-1">
@@ -384,7 +440,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
                 Cancelar
               </button>
               <button
-                className="flex-1 bg-[#D97706] text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-amber-700 transition-colors"
+                className="flex-1 bg-warning text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-amber-700 transition-colors"
                 onClick={() => { handleReset(); setConfirmReset(false); }}
               >
                 Sí, restablecer

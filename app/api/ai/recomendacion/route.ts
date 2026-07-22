@@ -4,6 +4,7 @@ import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type Recomen
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
 import { parseJsonIA } from '@/lib/ai/parse-ia';
+import { errorInterno } from '@/lib/errores-servidor';
 
 const client = new Anthropic();
 
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (bloqueoIA) return bloqueoIA;
   try {
     const body = await req.json() as RecomendacionInput;
-    if (body.tipo !== 'REACTIVACION' && body.tipo !== 'CLASE_LLENA') {
+    if (body.tipo !== 'REACTIVACION' && body.tipo !== 'CLASE_LLENA' && body.tipo !== 'CROSS_SELL') {
       return NextResponse.json({ error: 'tipo inválido' }, { status: 400 });
     }
 
@@ -36,7 +37,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ asunto: parsed.asunto ?? '', mensaje: parsed.mensaje ?? '' });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Error desconocido';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return errorInterno('ai/recomendacion:POST', err, 'No se ha podido generar la recomendación con IA.');
   }
 }

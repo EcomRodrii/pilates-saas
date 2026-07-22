@@ -1,15 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-
-const FOCUSABLE =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+import { useDialogA11y } from './use-dialog-a11y';
 
 // Hoja/modal accesible para las páginas públicas (reserva, confirmación de
 // cita). Es el mismo shell visual (backdrop con blur + hoja blanca, abajo en
 // móvil / centrada en desktop) que ya usan reservar/[slug] y citas-publica,
 // ahora con la semántica que le faltaba: `role="dialog"`, trampa de foco,
-// cierre con Escape y devolución del foco a quien la abrió al cerrarla.
+// cierre con Escape y devolución del foco a quien la abrió al cerrarla. La
+// mecánica de accesibilidad vive en useDialogA11y (compartida con
+// DashboardSheet, el equivalente para el dashboard con tema bg-card).
 //
 // No impone la estructura interna (título, cabecera, pasos) — cada caller
 // sigue siendo dueño de su contenido; esto solo resuelve la parte tediosa y
@@ -31,60 +30,7 @@ export function PublicSheet({
   sheetStyle?: React.CSSProperties;
   closeOnBackdropClick?: boolean;
 }) {
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const [disparador, setDisparador] = useState<HTMLElement | null>(null);
-  const [openAnterior, setOpenAnterior] = useState(open);
-
-  // Ajuste de estado durante el render (patrón oficial de React para
-  // "capturar algo antes de que cambie", sin refs — el lint de este proyecto
-  // exige React Compiler-safe, y leer/escribir refs en render no lo es).
-  // Importa que se capture AQUÍ y no en un efecto: si el contenido trae su
-  // propio `autoFocus` (p.ej. un <input> de login), React lo aplica en el
-  // commit, antes de que corra cualquier useEffect — para cuando el efecto
-  // de abajo se ejecutase, document.activeElement ya sería ese input y no lo
-  // de fuera que abrió la hoja.
-  if (open !== openAnterior) {
-    setOpenAnterior(open);
-    if (open) setDisparador(document.activeElement as HTMLElement | null);
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    const sheet = sheetRef.current;
-    // Si el contenido ya se autoenfocó a sí mismo (autoFocus), se respeta —
-    // solo se mueve el foco cuando nada dentro de la hoja lo tiene todavía.
-    if (!sheet?.contains(document.activeElement)) {
-      const primero = sheet?.querySelector<HTMLElement>(FOCUSABLE);
-      (primero ?? sheet)?.focus();
-    }
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key !== 'Tab' || !sheet) return;
-      const focusables = Array.from(sheet.querySelectorAll<HTMLElement>(FOCUSABLE));
-      if (focusables.length === 0) {
-        e.preventDefault();
-        return;
-      }
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      disparador?.focus();
-    };
-  }, [open, onClose, disparador]);
+  const { sheetRef } = useDialogA11y({ open, onClose });
 
   if (!open) return null;
 

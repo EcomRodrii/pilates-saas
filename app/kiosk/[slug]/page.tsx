@@ -307,13 +307,13 @@ export default function KioskPage() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/30 shrink-0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 <input
                   type="text"
-                  placeholder="Buscar socia para walk-in…"
+                  placeholder="Buscar clienta para walk-in…"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="flex-1 bg-transparent text-sm font-medium text-white placeholder:text-white/30 outline-none"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="text-white/30 hover:text-white/60"><X size={14} /></button>
+                  <button onClick={() => setSearchQuery('')} aria-label="Borrar búsqueda" className="text-white/30 hover:text-white/60"><X size={14} /></button>
                 )}
               </div>
               {allSocias.length > 0 && (

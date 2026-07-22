@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { Notificacion, ActividadReciente } from '@/lib/types';
+import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -34,18 +35,18 @@ function timeAgo(iso: string): string {
 // ─── Notification icon ────────────────────────────────────────────────────────
 
 function NotiIcon({ tipo, size = 16 }: { tipo: Notificacion['tipo']; size?: number }) {
-  if (tipo === 'AVISO') return <AlertTriangle size={size} className="text-[#D97706]" />;
-  if (tipo === 'ERROR') return <AlertCircle size={size} className="text-[#DC2626]" />;
-  if (tipo === 'EXITO') return <CheckCircle size={size} className="text-[#059669]" />;
-  return <Info size={size} className="text-[#7AA80E]" />;
+  if (tipo === 'AVISO') return <AlertTriangle size={size} className="text-warning" />;
+  if (tipo === 'ERROR') return <AlertCircle size={size} className="text-destructive" />;
+  if (tipo === 'EXITO') return <CheckCircle size={size} className="text-success" />;
+  return <Info size={size} className="text-brand" />;
 }
 
 function NotiIconBg({ tipo }: { tipo: Notificacion['tipo'] }) {
   const base = 'w-9 h-9 rounded-full flex items-center justify-center shrink-0';
-  if (tipo === 'AVISO') return <div className={cn(base, 'bg-amber-50')}><AlertTriangle size={16} className="text-[#D97706]" /></div>;
-  if (tipo === 'ERROR') return <div className={cn(base, 'bg-red-50')}><AlertCircle size={16} className="text-[#DC2626]" /></div>;
-  if (tipo === 'EXITO') return <div className={cn(base, 'bg-emerald-50')}><CheckCircle size={16} className="text-[#059669]" /></div>;
-  return <div className={cn(base, 'bg-blue-50')}><Info size={16} className="text-[#7AA80E]" /></div>;
+  if (tipo === 'AVISO') return <div className={cn(base, 'bg-amber-50')}><AlertTriangle size={16} className="text-warning" /></div>;
+  if (tipo === 'ERROR') return <div className={cn(base, 'bg-red-50')}><AlertCircle size={16} className="text-destructive" /></div>;
+  if (tipo === 'EXITO') return <div className={cn(base, 'bg-emerald-50')}><CheckCircle size={16} className="text-success" /></div>;
+  return <div className={cn(base, 'bg-blue-50')}><Info size={16} className="text-brand" /></div>;
 }
 
 // ─── Activity icon ────────────────────────────────────────────────────────────
@@ -54,23 +55,23 @@ function ActividadIcon({ tipo }: { tipo: ActividadReciente['tipo'] }) {
   const base = 'w-8 h-8 rounded-full flex items-center justify-center shrink-0';
   switch (tipo) {
     case 'NUEVA_SOCIA':
-      return <div className={cn(base, 'bg-emerald-50')}><UserPlus size={14} className="text-[#059669]" /></div>;
+      return <div className={cn(base, 'bg-emerald-50')}><UserPlus size={14} className="text-success" /></div>;
     case 'NUEVA_RESERVA':
-      return <div className={cn(base, 'bg-blue-50')}><Calendar size={14} className="text-[#7AA80E]" /></div>;
+      return <div className={cn(base, 'bg-blue-50')}><Calendar size={14} className="text-brand" /></div>;
     case 'CANCELACION':
-      return <div className={cn(base, 'bg-red-50')}><CalendarX size={14} className="text-[#DC2626]" /></div>;
+      return <div className={cn(base, 'bg-red-50')}><CalendarX size={14} className="text-destructive" /></div>;
     case 'PAGO_COBRADO':
-      return <div className={cn(base, 'bg-emerald-50')}><CheckCircle size={14} className="text-[#059669]" /></div>;
+      return <div className={cn(base, 'bg-emerald-50')}><CheckCircle size={14} className="text-success" /></div>;
     case 'PAGO_PENDIENTE':
-      return <div className={cn(base, 'bg-amber-50')}><Clock size={14} className="text-[#D97706]" /></div>;
+      return <div className={cn(base, 'bg-amber-50')}><Clock size={14} className="text-warning" /></div>;
     case 'NUEVA_SUSCRIPCION':
-      return <div className={cn(base, 'bg-blue-50')}><RefreshCw size={14} className="text-[#7AA80E]" /></div>;
+      return <div className={cn(base, 'bg-blue-50')}><RefreshCw size={14} className="text-brand" /></div>;
     case 'CITA_CREADA':
       return <div className={cn(base, 'bg-purple-50')}><Clock size={14} className="text-purple-600" /></div>;
     case 'VENTA_POS':
-      return <div className={cn(base, 'bg-emerald-50')}><ShoppingCart size={14} className="text-[#059669]" /></div>;
+      return <div className={cn(base, 'bg-emerald-50')}><ShoppingCart size={14} className="text-success" /></div>;
     case 'MENSAJE_ENVIADO':
-      return <div className={cn(base, 'bg-blue-50')}><Mail size={14} className="text-[#7AA80E]" /></div>;
+      return <div className={cn(base, 'bg-blue-50')}><Mail size={14} className="text-brand" /></div>;
     default:
       return <div className={cn(base, 'bg-muted')}><Info size={14} className="text-muted-foreground" /></div>;
   }
@@ -92,17 +93,14 @@ export default function NotificacionesPage() {
   return (
     <div className="space-y-6">
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-[20px] font-semibold text-foreground">Bandeja de entrada</h1>
-            {unreadCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[12px] font-semibold bg-[#7AA80E] text-white">
-                {unreadCount}
-              </span>
-            )}
-          </div>
-          {unreadCount > 0 && (
+        <PageHeader
+          title="Bandeja de entrada"
+          badge={unreadCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[12px] font-semibold bg-brand text-white">
+              <span className="sr-only">Sin leer: </span>{unreadCount}
+            </span>
+          )}
+          actions={unreadCount > 0 && (
             <button
               onClick={marcarTodasLeidas}
               className="px-4 py-2 rounded-lg bg-card border border-border text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
@@ -110,7 +108,7 @@ export default function NotificacionesPage() {
               Marcar todas leídas
             </button>
           )}
-        </div>
+        />
 
         {/* Two-column layout */}
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
@@ -131,7 +129,7 @@ export default function NotificacionesPage() {
                 )}
               >
                 {/* Unread dot */}
-                <div className="mt-1 shrink-0 w-2 h-2 rounded-full transition-colors" style={{ background: n.leida ? 'transparent' : '#7AA80E' }} />
+                <div className="mt-1 shrink-0 w-2 h-2 rounded-full transition-colors" style={{ background: n.leida ? 'transparent' : 'var(--brand)' }} />
 
                 <NotiIconBg tipo={n.tipo} />
 
@@ -220,7 +218,7 @@ export default function NotificacionesPage() {
                 {act.enlace && (
                   <a
                     href={act.enlace}
-                    className="shrink-0 mt-1 text-muted-foreground hover:text-[#7AA80E] transition-colors"
+                    className="shrink-0 mt-1 text-muted-foreground hover:text-brand transition-colors"
                     title="Ver"
                   >
                     <ExternalLink size={14} />

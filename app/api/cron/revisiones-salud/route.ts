@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { generarRecordatoriosRevision } from '@/lib/supabase-data';
+import { errorInterno } from '@/lib/errores-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ejecutadoEn: now.toISOString(), ...resumen });
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'revisiones-salud' } });
-    const mensaje = err instanceof Error ? err.message : 'Error al generar recordatorios de revisión';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('cron/revisiones-salud:GET', err, 'Error al generar los recordatorios de revisión.');
   }
 }

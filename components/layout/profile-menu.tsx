@@ -3,9 +3,11 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { HelpCircle, UserCog, LogOut, ChevronDown, Palette } from 'lucide-react';
+import { HelpCircle, UserCog, LogOut, ChevronDown, Palette, Building2, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
+import { cn } from '@/lib/utils';
+import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/lib/supabase-data';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { HelpWidget } from '@/components/layout/help-widget';
 import { AppearancePanel } from '@/components/layout/appearance-panel';
@@ -21,6 +23,32 @@ export function ProfileMenu() {
 
   const userInitials = user?.email?.slice(0, 2).toUpperCase() ?? 'TE';
   const userEmail = user?.email ?? 'Modo auditoría';
+
+  // Selector de sede (multi-centro / plan CADENA): solo se pinta si el usuario
+  // tiene acceso a más de una. mis_estudios() no depende de cadena_id (es
+  // autorización, no billing) — también lista a una instructora que trabaje
+  // en dos centros aunque no compartan cadena.
+  const [misEstudios, setMisEstudios] = useState<SedeSeleccionable[]>([]);
+  const [cambiandoSede, setCambiandoSede] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open || !user) return;
+    let vivo = true;
+    fetchMisEstudios().then(r => { if (vivo) setMisEstudios(r); });
+    return () => { vivo = false; };
+  }, [open, user]);
+
+  function elegirSede(studioId: string) {
+    if (!user || studioId === studio?.id) return;
+    setCambiandoSede(studioId);
+    // Hard-nav en el .then() (no en esta misma función, que ya hizo setState):
+    // StudioProvider necesita remontar limpio contra la nueva sede (mismo
+    // patrón que crear-estudio/login). resolveStudioId() delega en
+    // current_studio_id(), que ya lee sesion_activa.
+    cambiarSedeActiva(user.id, studioId).then(ok => {
+      if (!ok) { setCambiandoSede(null); return; }
+      window.location.href = '/dashboard';
+    });
+  }
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -40,6 +68,9 @@ export function ProfileMenu() {
       <div className="relative" ref={ref}>
         <button
           onClick={() => setOpen(v => !v)}
+          aria-label="Abrir menú de perfil"
+          aria-expanded={open}
+          aria-haspopup="menu"
           className="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-background transition-colors"
         >
           <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={userInitials} size="sm" />
@@ -52,6 +83,27 @@ export function ProfileMenu() {
               <p className="text-[13px] font-semibold text-foreground truncate">{studio?.nombre ?? 'Tentare'}</p>
               <p className="text-[12px] text-muted-foreground truncate">{userEmail}</p>
             </div>
+            {misEstudios.length > 1 && (
+              <div className="border-b border-muted py-1">
+                <p className="px-3.5 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wide text-[#B8B8AE] flex items-center gap-1.5">
+                  <Building2 size={11} /> Cambiar de sede
+                </p>
+                {misEstudios.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => elegirSede(s.id)}
+                    disabled={cambiandoSede !== null}
+                    className={cn(
+                      'w-full flex items-center justify-between gap-2 px-3.5 py-2 text-[13px] text-left hover:bg-muted transition-colors',
+                      cambiandoSede !== null && 'opacity-50',
+                    )}
+                  >
+                    <span className="truncate">{s.nombre}</span>
+                    {s.id === studio?.id && <Check size={13} className="text-success shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
             <Link
               href="/configuracion?tab=perfil"
               onClick={() => setOpen(false)}

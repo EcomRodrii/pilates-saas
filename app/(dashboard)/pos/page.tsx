@@ -9,6 +9,7 @@ import { terminalCobrar, terminalEstadoCobro, terminalRegistrarLector, terminalE
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import type { ProductoPOS, VentaPOS, MetodoPago, CodigoDescuento } from '@/lib/types';
 import { buscarCodigo, validarCodigoCanjeable, calcularDescuento } from '@/lib/codigos-descuento';
+import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 
 type CartItem = {
   producto: ProductoPOS;
@@ -107,11 +108,14 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
   const grandTotal = ventasHoy.reduce((sum, v) => sum + v.total, 0);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    <DashboardSheet
+      open
+      onClose={onClose}
+      label="Resumen de caja"
+      backdropClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      sheetClassName="bg-card rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
     >
-      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <>
         {/* Modal header */}
         <div className="px-6 py-5 border-b border-border">
           <div className="flex items-start justify-between">
@@ -121,6 +125,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
             </div>
             <button
               onClick={onClose}
+              aria-label="Cerrar"
               className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
             >
               <X size={14} />
@@ -137,7 +142,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
             </div>
             <div className="bg-card rounded-xl px-4 py-3 border border-border">
               <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Total recaudado</p>
-              <p className="text-[22px] font-bold text-[#059669]">{formatEuro(grandTotal)}</p>
+              <p className="text-[22px] font-bold text-success">{formatEuro(grandTotal)}</p>
             </div>
           </div>
         </div>
@@ -166,7 +171,7 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
               <tr className="border-t-2 border-foreground">
                 <td className="pt-3 pb-1 font-bold text-foreground">Total caja</td>
                 <td className="pt-3 pb-1 text-center font-bold text-foreground">{ventasHoy.length}</td>
-                <td className="pt-3 pb-1 text-right font-bold text-[16px] text-[#059669]">
+                <td className="pt-3 pb-1 text-right font-bold text-[16px] text-success">
                   {formatEuro(grandTotal)}
                 </td>
               </tr>
@@ -199,8 +204,8 @@ function CerrarCajaModal({ ventasHoy, onClose }: CerrarCajaModalProps) {
             Cerrar
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </DashboardSheet>
   );
 }
 
@@ -214,8 +219,8 @@ type SuccessOverlayProps = {
 function SuccessOverlay({ total, metodoPago }: SuccessOverlayProps) {
   return (
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 text-center bg-card rounded-lg animate-in fade-in duration-200">
-      <div className="w-16 h-16 rounded-full bg-[#ECFDF5] flex items-center justify-center animate-in zoom-in-50 duration-300">
-        <CheckCircle2 size={36} className="text-[#059669]" />
+      <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center animate-in zoom-in-50 duration-300">
+        <CheckCircle2 size={36} className="text-success" />
       </div>
       <p className="text-[16px] font-semibold text-foreground">¡Cobrado!</p>
       <p className="text-[13px] text-muted-foreground">
@@ -569,19 +574,19 @@ export default function POSPage() {
           </div>
           <div className="shrink-0 rounded-xl bg-background shadow-sm px-3.5 py-2">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" /> Total caja
+              <span className="w-1.5 h-1.5 rounded-full bg-success" /> Total caja
             </p>
             <p className="text-[16px] font-bold text-foreground leading-tight mt-1 tabular-nums">{formatEuro(totalHoy)}</p>
           </div>
           <div className="shrink-0 hidden sm:block rounded-xl bg-background shadow-sm px-3.5 py-2">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" /> Efectivo
+              <span className="w-1.5 h-1.5 rounded-full bg-success" /> Efectivo
             </p>
             <p className="text-[16px] font-bold text-foreground leading-tight mt-1 tabular-nums">{formatEuro(efectivoHoy)}</p>
           </div>
           <div className="shrink-0 hidden sm:block rounded-xl bg-background shadow-sm px-3.5 py-2">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1D4ED8]" /> Tarjeta
+              <span className="w-1.5 h-1.5 rounded-full bg-info" /> Tarjeta
             </p>
             <p className="text-[16px] font-bold text-foreground leading-tight mt-1 tabular-nums">{formatEuro(tarjetaHoy)}</p>
           </div>
@@ -594,7 +599,7 @@ export default function POSPage() {
             className={cn(
               'flex items-center gap-1.5 px-3 py-2 rounded-lg border text-[12px] font-medium transition-colors',
               lectorEmparejado
-                ? 'border-border text-[#059669] hover:border-foreground'
+                ? 'border-border text-success hover:border-foreground'
                 : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
             )}
           >
@@ -657,7 +662,7 @@ export default function POSPage() {
         >
           Carrito
           {carrito.length > 0 && (
-            <span className="ml-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-[#EF4444] text-white">
+            <span className="ml-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground">
               {carrito.reduce((s, i) => s + i.cantidad, 0)}
             </span>
           )}
@@ -800,7 +805,7 @@ export default function POSPage() {
                 ) : (
                   <>
                     <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
-                      <AlertTriangle size={26} className="text-[#DC2626]" />
+                      <AlertTriangle size={26} className="text-destructive" />
                     </div>
                     <div>
                       <p className="text-[14px] font-semibold text-foreground">No se pudo cobrar</p>
@@ -837,6 +842,7 @@ export default function POSPage() {
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => changeQty(item.producto.id, -1)}
+                      aria-label="Restar unidad"
                       className="w-6 h-6 rounded-md border border-border flex items-center justify-center hover:bg-background transition-colors"
                     >
                       <Minus size={10} />
@@ -844,6 +850,7 @@ export default function POSPage() {
                     <span className="w-6 text-center text-[13px] font-medium text-foreground">{item.cantidad}</span>
                     <button
                       onClick={() => changeQty(item.producto.id, 1)}
+                      aria-label="Añadir unidad"
                       className="w-6 h-6 rounded-md border border-border flex items-center justify-center hover:bg-background transition-colors"
                     >
                       <Plus size={10} />
@@ -854,7 +861,8 @@ export default function POSPage() {
                   </span>
                   <button
                     onClick={() => removeFromCart(item.producto.id)}
-                    className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-[#DC2626] hover:bg-red-50 transition-colors shrink-0"
+                    aria-label="Quitar del carrito"
+                    className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-red-50 transition-colors shrink-0"
                   >
                     <X size={12} />
                   </button>
@@ -876,7 +884,8 @@ export default function POSPage() {
                     </span>
                     <button
                       onClick={() => { setClienteId(''); setBusquedaCliente(''); }}
-                      className="text-muted-foreground hover:text-[#DC2626] transition-colors"
+                      aria-label="Quitar cliente"
+                      className="text-muted-foreground hover:text-destructive transition-colors"
                     >
                       <X size={12} />
                     </button>
@@ -885,7 +894,7 @@ export default function POSPage() {
                   <>
                     <input
                       type="text"
-                      placeholder="Buscar socia... (opcional)"
+                      placeholder="Buscar clienta... (opcional)"
                       value={busquedaCliente}
                       onChange={e => setBusquedaCliente(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg border border-border text-[13px] placeholder:text-muted-foreground text-foreground outline-none focus:border-foreground transition-colors"
@@ -927,12 +936,12 @@ export default function POSPage() {
 
               {/* Código de descuento (p.ej. el de reactivación del Centro de Control) */}
               {codigoAplicado ? (
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-[#D97706]/30 bg-[#FEF3C7] px-3 py-2">
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-[12px] font-bold text-[#92400E] truncate">{codigoAplicado.codigo}</p>
-                    <p className="text-[11px] text-[#92400E]/80 truncate">{codigoAplicado.descripcion}</p>
+                    <p className="text-[12px] font-bold text-warning truncate">{codigoAplicado.codigo}</p>
+                    <p className="text-[11px] text-warning/80 truncate">{codigoAplicado.descripcion}</p>
                   </div>
-                  <button onClick={quitarCodigo} className="text-[12px] font-semibold text-[#92400E] hover:underline shrink-0">
+                  <button onClick={quitarCodigo} className="text-[12px] font-semibold text-warning hover:underline shrink-0">
                     Quitar
                   </button>
                 </div>
@@ -966,7 +975,7 @@ export default function POSPage() {
                   <span>{formatEuro(subtotal)}</span>
                 </div>
                 {descuentoAmt > 0 && (
-                  <div className="flex justify-between text-[#D97706]">
+                  <div className="flex justify-between text-warning">
                     <span>Descuento</span>
                     <span>−{formatEuro(descuentoAmt)}</span>
                   </div>
@@ -1002,8 +1011,8 @@ export default function POSPage() {
                 <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
                   <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                   <span>
-                    Venta de <strong>{formatEuro(total)}</strong> sin socia: se emitirá como <strong>ticket
-                    simplificado</strong>. Por encima de 400 € Hacienda exige factura completa — asigna una socia
+                    Venta de <strong>{formatEuro(total)}</strong> sin clienta: se emitirá como <strong>ticket
+                    simplificado</strong>. Por encima de 400 € Hacienda exige factura completa — asigna una clienta
                     (con NIF) arriba para incluir sus datos.
                   </span>
                 </div>
@@ -1049,7 +1058,7 @@ export default function POSPage() {
             <span className="text-[12px] font-normal text-muted-foreground">· {ventasHoy.length} hoy · {formatEuro(totalHoy)}</span>
           </button>
           <Link
-            href="/pagos"
+            href="/cobros?tab=pendientes"
             className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
           >
             Ver todas las ventas
@@ -1121,10 +1130,10 @@ export default function POSPage() {
                         <td className="px-3 py-2.5 hidden sm:table-cell">
                           <span className={cn(
                             'px-2 py-0.5 rounded-full text-[11px] font-medium',
-                            v.metodoPago === 'EFECTIVO' && 'bg-[#F0FDF4] text-[#059669]',
+                            v.metodoPago === 'EFECTIVO' && 'bg-success/10 text-success',
                             v.metodoPago === 'TARJETA' && 'bg-blue-50 text-blue-700',
                             v.metodoPago === 'BIZUM' && 'bg-purple-50 text-purple-700',
-                            v.metodoPago === 'TRANSFERENCIA' && 'bg-amber-50 text-[#D97706]',
+                            v.metodoPago === 'TRANSFERENCIA' && 'bg-amber-50 text-warning',
                           )}>
                             {METODO_LABEL[v.metodoPago] ?? v.metodoPago}
                           </span>
@@ -1140,20 +1149,20 @@ export default function POSPage() {
                   {/* Today's total row */}
                   {group.isToday && group.ventas.length > 0 && (
                     <>
-                      <tr key="today-total-mobile" className="bg-[#F0FDF4] border-t border-[#059669]/20 sm:hidden">
-                        <td colSpan={2} className="px-3 py-2 text-[11px] font-semibold text-[#059669] uppercase tracking-wide">
+                      <tr key="today-total-mobile" className="bg-success/10 border-t border-success/20 sm:hidden">
+                        <td colSpan={2} className="px-3 py-2 text-[11px] font-semibold text-success uppercase tracking-wide">
                           Total del día
                         </td>
-                        <td className="px-3 py-2 text-right font-bold text-[13px] text-[#059669]">
+                        <td className="px-3 py-2 text-right font-bold text-[13px] text-success">
                           {formatEuro(todayTotal)}
                         </td>
                         <td />
                       </tr>
-                      <tr key="today-total" className="bg-[#F0FDF4] border-t border-[#059669]/20 hidden sm:table-row">
-                        <td colSpan={3} className="px-6 py-2 text-[11px] font-semibold text-[#059669] uppercase tracking-wide">
+                      <tr key="today-total" className="bg-success/10 border-t border-success/20 hidden sm:table-row">
+                        <td colSpan={3} className="px-6 py-2 text-[11px] font-semibold text-success uppercase tracking-wide">
                           Total del día
                         </td>
-                        <td className="px-3 py-2 text-right font-bold text-[13px] text-[#059669]">
+                        <td className="px-3 py-2 text-right font-bold text-[13px] text-success">
                           {formatEuro(todayTotal)}
                         </td>
                         <td colSpan={2} />

@@ -21,6 +21,12 @@ import {
   valoracionesDispatcher,
   procesarValoracionesEstudio,
 } from '@/lib/inngest/valoraciones';
+import {
+  confirmacionRiesgoAskDispatcher,
+  procesarConfirmacionAskEstudio,
+  confirmacionRiesgoCorteDispatcher,
+  procesarConfirmacionCorteEstudio,
+} from '@/lib/inngest/confirmacion-riesgo';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -41,5 +47,9 @@ export const { GET, POST, PUT } = serve({
     escalarSustitucion,
     valoracionesDispatcher,
     procesarValoracionesEstudio,
+    confirmacionRiesgoAskDispatcher,
+    procesarConfirmacionAskEstudio,
+    confirmacionRiesgoCorteDispatcher,
+    procesarConfirmacionCorteEstudio,
   ],
 });

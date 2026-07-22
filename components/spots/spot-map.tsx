@@ -140,14 +140,14 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
             </div>
           ) : onAsignarSpot ? (
             <div>
-              <p className="text-xs text-muted-foreground mb-2 font-medium">Asignar socia a este reformer:</p>
+              <p className="text-xs text-muted-foreground mb-2 font-medium">Asignar clienta a este reformer:</p>
               {/* P0-26: buscador + límite de resultados, en vez de renderizar la
                   lista completa de socias (con 200.000, colgaba el navegador). */}
               <input
                 autoFocus
                 value={buscarSocia}
                 onChange={e => setBuscarSocia(e.target.value)}
-                placeholder="Buscar socia…"
+                placeholder="Buscar clienta…"
                 className="w-full mb-2 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-brand"
               />
               <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { canjearRecompensaPublica, socioAutenticado } from '@/lib/supabase-data';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Canje de una recompensa desde el portal de la socia. Exige sesión real de
 // socia (JWT de Supabase Auth): la identidad se deriva del token verificado, no
@@ -31,7 +32,6 @@ export async function POST(req: NextRequest) {
     if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
     return NextResponse.json(r);
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : 'Error al canjear';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return errorInterno('public/canje:POST', err, 'No se ha podido completar el canje.');
   }
 }

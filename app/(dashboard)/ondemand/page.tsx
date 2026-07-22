@@ -9,6 +9,7 @@ import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 import { pedirSubidaVideo, subirVideoAStream } from '@/lib/api-client';
 import { urlIframeStream } from '@/lib/stream-playback';
 import type { VideoOnDemand, CategoriaVideo, NivelClase } from '@/lib/types';
+import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ function UploadModal({ onClose, onSave, instructores }: { onClose: () => void; o
       <div className="bg-card rounded-xl border border-border shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-[16px] font-semibold text-foreground">Subir vídeo</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={onClose} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -344,7 +345,7 @@ function VideoCard({
             onClick={() => onToggle(video.id)}
             className={cn(
               'relative w-9 h-5 rounded-full transition-colors shrink-0',
-              video.activo ? 'bg-[#059669]' : 'bg-border'
+              video.activo ? 'bg-success' : 'bg-border'
             )}
           >
             <span className={cn(
@@ -407,22 +408,23 @@ export default function OnDemandPage() {
   return (
     <div className="space-y-6">
 
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-[20px] font-semibold text-foreground">Biblioteca on-demand</h1>
+        <PageHeader
+          title="Biblioteca on-demand"
+          badge={
             <span className="px-2 py-0.5 rounded-full bg-card border border-border text-[12px] text-muted-foreground whitespace-nowrap">
               {totalVideos} vídeos
             </span>
-          </div>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[13px] font-medium hover:brightness-95 transition-colors shrink-0"
-          >
-            <Upload size={14} />
-            Subir vídeo
-          </button>
-        </div>
+          }
+          actions={
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[13px] font-medium hover:brightness-95 transition-colors shrink-0"
+            >
+              <Upload size={14} />
+              Subir vídeo
+            </button>
+          }
+        />
 
         {/* Stats row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">

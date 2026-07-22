@@ -1,8 +1,10 @@
 'use client';
 
+import * as React from 'react';
 import { useState, useEffect, useId } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useSearchParams } from 'next/navigation';
+import { useStudio } from '@/lib/studio-context';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,13 +18,11 @@ import { TabIntegraciones } from '@/components/configuracion/tab-integraciones';
 import { TabEstudio } from '@/components/configuracion/tab-estudio';
 import { TabPerfil } from '@/components/configuracion/tab-perfil';
 import type { PlanTarifa, TipoClase } from '@/lib/types';
-import { TabRecompensas } from '@/components/configuracion/tab-recompensas';
-import { TabLogros } from '@/components/configuracion/tab-logros';
-import { TabNiveles } from '@/components/configuracion/tab-niveles';
-import { TabRetos } from '@/components/configuracion/tab-retos';
+import { TabGamificacion } from '@/components/configuracion/tab-gamificacion';
 import { TabBackups } from '@/components/configuracion/tab-backups';
 import { TabServiciosCita } from '@/components/configuracion/tab-servicios-cita';
 import { TabHorarioCitas } from '@/components/configuracion/tab-horario-citas';
+import { PageHeader } from '@/components/ui/page-header';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -36,12 +36,49 @@ export const cardCls = 'bg-card border border-border rounded-xl';
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
 
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  description,
+  hint,
+  children,
+}: {
+  label: string;
+  /**
+   * Qué es esto y cómo decidir. Va debajo de la etiqueta y encima del control:
+   * se lee ANTES de elegir, no después de haberse equivocado.
+   *
+   * Existe porque antes este helper solo aceptaba { label, children }, así que
+   * no había ni dónde escribir la explicación — y por eso las pestañas de
+   * conceptos propios del producto (planes, logros, niveles, retos) acababan
+   * pidiendo decisiones sin contar en ningún sitio qué significaban.
+   */
+  description?: React.ReactNode;
+  /** <InfoTip> junto a la etiqueta, para el detalle largo que no cabe aquí. */
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  // La asociación label↔control (htmlFor/id) la resuelve useCampoAsociado
+  // (WCAG 1.3.1/4.1.2, aplicado con el mismo barrido en toda la app). Aquí
+  // solo se añade encima el hueco de descripción que useCampoAsociado no trae.
   const { htmlFor, control } = useCampoAsociado(children);
+  const descAutoId = React.useId();
+  const idDesc = description ? `${descAutoId}-desc` : undefined;
+  const controlDescrito = idDesc && React.isValidElement(control)
+    ? React.cloneElement(control as React.ReactElement<{ 'aria-describedby'?: string }>, { 'aria-describedby': idDesc })
+    : control;
+
   return (
     <div>
-      <label htmlFor={htmlFor} className={labelCls}>{label}</label>
-      {control}
+      <label htmlFor={htmlFor} className={cn(labelCls, 'flex items-center gap-1.5')}>
+        {label}
+        {hint}
+      </label>
+      {description && (
+        <p id={idDesc} className="text-xs leading-relaxed text-muted-foreground mb-1.5 text-balance">
+          {description}
+        </p>
+      )}
+      {controlDescrito}
     </div>
   );
 }
@@ -120,8 +157,8 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <div className="flex flex-col items-center text-center gap-4 py-2">
-          <div className="w-12 h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center">
-            <AlertTriangle size={20} className="text-[#DC2626]" />
+          <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
+            <AlertTriangle size={20} className="text-destructive" />
           </div>
           <div>
             <h3 className="text-[14px] font-semibold text-foreground mb-1">{title}</h3>
@@ -135,7 +172,7 @@ export function ConfirmDialog({
               Cancelar
             </button>
             <button
-              className="flex-1 bg-[#DC2626] text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-red-700 transition-colors"
+              className="flex-1 bg-destructive text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-red-700 transition-colors"
               onClick={() => { onConfirm(); onOpenChange(false); }}
             >
               Eliminar
@@ -184,7 +221,7 @@ export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases' | 'salas' | 'servicios-cita' | 'horario-citas' | 'recompensas' | 'logros' | 'niveles' | 'retos' | 'integraciones' | 'estudio' | 'campos' | 'plantillas' | 'backups' | 'perfil';
+type TabId = 'planes' | 'clases' | 'salas' | 'servicios-cita' | 'horario-citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'campos' | 'plantillas' | 'backups' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
@@ -192,44 +229,58 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'salas',       label: 'Salas' },
   { id: 'servicios-cita', label: 'Servicios de cita' },
   { id: 'horario-citas',  label: 'Horario de citas' },
-  { id: 'recompensas', label: 'Recompensas' },
-  { id: 'logros',      label: 'Logros' },
-  { id: 'niveles',     label: 'Niveles' },
-  { id: 'retos',       label: 'Retos' },
+  { id: 'gamificacion', label: 'Gamificación' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
-  { id: 'campos',      label: 'Campos de socia' },
+  { id: 'campos',      label: 'Campos de clienta' },
   { id: 'plantillas',  label: 'Emails' },
   { id: 'backups',     label: 'Copias de seguridad' },
   { id: 'perfil',      label: 'Mi perfil' },
 ];
 
+// Las 4 pestañas antiguas (Recompensas/Logros/Niveles/Retos) se unificaron en
+// "gamificacion" con sub-navegación interna (tab-gamificacion.tsx). Cualquier
+// enlace guardado con el id antiguo en ?tab= sigue funcionando: aterriza en
+// Gamificación, abierto directamente en esa sub-pestaña.
+const SUB_GAMIFICACION = new Set(['recompensas', 'logros', 'niveles', 'retos']);
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ConfiguracionPage() {
+  const { studio } = useStudio();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('planes');
+  // Sub-pestaña con la que abrir Gamificación, si el ?tab= venía con un id
+  // antiguo (recompensas/logros/niveles/retos) de antes de la unificación.
+  const [gamificacionSub, setGamificacionSub] = useState<string | undefined>(undefined);
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const searchParams = useSearchParams();
 
   useEffect(() => setMounted(true), []);
 
+  // Sincroniza el tab activo con ?tab= (incluye compatibilidad con los ids
+  // antiguos de gamificación). Mismo patrón ya usado en el resto del repo
+  // (calendario, sustituciones, equipo, cierre) para leer estado inicial de la URL.
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && TABS.some(t => t.id === tab)) setActiveTab(tab as TabId);
+    if (!tab) return;
+    if (SUB_GAMIFICACION.has(tab)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGamificacionSub(tab);
+      setActiveTab('gamificacion');
+    } else if (TABS.some(t => t.id === tab)) {
+      setActiveTab(tab as TabId);
+    }
   }, [searchParams]);
 
   if (!mounted) return null;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-[22px] font-bold text-foreground">Configuración</h1>
-        <p className="text-[13px] text-muted-foreground mt-0.5">
-          Gestiona los planes, clases, salas, instructores e integraciones de tu estudio
-        </p>
-      </div>
+      <PageHeader
+        title="Configuración"
+        description="Gestiona los planes, clases, salas, instructores e integraciones de tu estudio"
+      />
 
       {/* Tab nav */}
       <div className="flex gap-1 p-1 bg-card border border-border rounded-xl overflow-x-auto">
@@ -255,10 +306,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'salas'       && <TabSalas        showToast={showToast} />}
       {activeTab === 'servicios-cita' && <TabServiciosCita showToast={showToast} />}
       {activeTab === 'horario-citas'  && <TabHorarioCitas  showToast={showToast} />}
-      {activeTab === 'recompensas' && <TabRecompensas  showToast={showToast} />}
-      {activeTab === 'logros'      && <TabLogros       showToast={showToast} />}
-      {activeTab === 'niveles'     && <TabNiveles      showToast={showToast} />}
-      {activeTab === 'retos'       && <TabRetos        showToast={showToast} />}
+      {activeTab === 'gamificacion' && <TabGamificacion showToast={showToast} sub={gamificacionSub} studio={studio} />}
       {activeTab === 'backups'     && <TabBackups      showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}

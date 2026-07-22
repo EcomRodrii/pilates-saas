@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { usePermisos } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
+import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { estadoBilling } from '@/lib/api-client';
 
@@ -25,11 +26,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
   // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción
   // activa. Con la enforcement apagada (por defecto) nunca redirige.
+  // `null` = todavía no resuelto: mientras tanto NO se pinta el dashboard real
+  // (antes se veía un flash del contenido del panel antes del redirect a
+  // /suscripcion en estudios bloqueados).
+  const [billingBloqueado, setBillingBloqueado] = useState<boolean | null>(null);
   useEffect(() => {
     if (loading || !session) return;
     let vivo = true;
     estadoBilling().then((e) => {
-      if (vivo && e?.bloqueado) router.replace('/suscripcion');
+      if (!vivo) return;
+      setBillingBloqueado(!!e?.bloqueado);
+      if (e?.bloqueado) router.replace('/suscripcion');
     });
     return () => { vivo = false; };
   }, [loading, session, router]);
@@ -52,7 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // I3: el login redirige las altas sin estudio a /crear-estudio, así que quien
   // llega aquí tiene estudio y `studio` acaba cargando; por eso gatear sobre
   // `studio === null` no deja a nadie en un skeleton perpetuo.
-  const cargandoDatos = !!session && studio === null;
+  const cargandoDatos = !!session && (studio === null || billingBloqueado !== false);
   useEffect(() => {
     if (!loading && session && rolResuelto && !autorizado) router.replace('/dashboard');
   }, [loading, session, rolResuelto, autorizado, router]);
@@ -61,22 +68,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (rolResuelto && !autorizado) {
     return (
-      <PanelThemeProvider className="min-h-screen bg-background">
-        <Sidebar />
-        <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200" />
-      </PanelThemeProvider>
+      <PanelPrivacyProvider>
+        <PanelThemeProvider className="min-h-screen bg-background">
+          <Sidebar />
+          <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200" />
+        </PanelThemeProvider>
+      </PanelPrivacyProvider>
     );
   }
 
   return (
-    <PanelThemeProvider className="min-h-screen bg-background">
-      <Sidebar />
-      <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200">
-        <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
-          <Topbar />
-          {cargandoDatos ? <PanelSkeleton /> : children}
-        </div>
-      </main>
-    </PanelThemeProvider>
+    <PanelPrivacyProvider>
+      <PanelThemeProvider className="min-h-screen bg-background">
+        <Sidebar />
+        <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200">
+          <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+            <Topbar />
+            {cargandoDatos ? <PanelSkeleton /> : children}
+          </div>
+        </main>
+      </PanelThemeProvider>
+    </PanelPrivacyProvider>
   );
 }

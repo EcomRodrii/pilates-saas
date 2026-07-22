@@ -13,8 +13,8 @@ import { btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuraci
 const TIPO_LABEL: Record<TipoBackup, { label: string; bg: string; text: string }> = {
   DIARIO: { label: 'Diario', bg: '#EAF6FF', text: '#0369A1' },
   SEMANAL: { label: 'Semanal', bg: '#F3EEFF', text: '#7C3AED' },
-  MENSUAL: { label: 'Mensual', bg: '#ECFDF5', text: '#059669' },
-  MANUAL: { label: 'Manual', bg: '#FFFBEB', text: '#B45309' },
+  MENSUAL: { label: 'Mensual', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
+  MANUAL: { label: 'Manual', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
 };
 
 async function authHeader(): Promise<Record<string, string>> {
@@ -140,7 +140,7 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-[13px] text-muted-foreground">
-              Esto <strong>sobrescribirá todos los datos actuales</strong> del negocio (socias, reservas, cobros, todo) con los de{' '}
+              Esto <strong>sobrescribirá todos los datos actuales</strong> del negocio (clientas, reservas, cobros, todo) con los de{' '}
               {restaurando && new Date(restaurando.creadoEn).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.
               Es irreversible salvo que exista otra copia posterior.
             </p>

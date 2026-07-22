@@ -1,17 +1,17 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Upload, FileSpreadsheet, Download, Check, AlertTriangle,
-  ArrowLeft, ArrowRight, CalendarDays, PartyPopper, Info,
+  ArrowRight, CalendarDays, PartyPopper, Info,
 } from 'lucide-react';
 import {
   parseCsv, autoMapearReserva, validarFilasReserva, serializeCsv, CAMPOS_RESERVA,
   type CampoReserva, type ParsedCsv,
 } from '@/lib/csv';
 import { importarReservas, type ResultadoImportReservas } from '@/lib/api-client';
+import { PageHeader } from '@/components/ui/page-header';
 
 // Asistente de importación de RESERVAS — cuarta pieza de la migración asistida.
 // Requiere haber importado antes las socias y el horario: cada fila se empareja
@@ -103,17 +103,11 @@ export default function ImportarReservasPage() {
 
   return (
     <div className="flex flex-col gap-6 pb-10 max-w-4xl">
-      <div className="flex items-center gap-3">
-        <Link href="/calendario" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <h1 className="text-[22px] font-bold text-foreground">Importar reservas</h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">
-            Trae quién está apuntada a cada clase, para que nadie pierda su sitio.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        back={{ href: '/calendario', label: 'Volver a la agenda' }}
+        title="Importar reservas"
+        description="Trae quién está apuntada a cada clase, para que nadie pierda su sitio."
+      />
 
       <div className="flex items-center gap-2">
         {([1, 2, 3] as Paso[]).map(n => (
@@ -133,11 +127,11 @@ export default function ImportarReservasPage() {
       {/* ── Paso 1 ──────────────────────────────────────────────────────── */}
       {paso === 1 && (
         <div className="flex flex-col gap-4">
-          <div className="flex items-start gap-2.5 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-4">
-            <Info size={15} className="mt-0.5 shrink-0 text-[#92400E]" />
-            <p className="text-[12.5px] text-[#92400E]">
-              <span className="font-semibold">Importa antes las socias y el horario.</span> Cada reserva se empareja con
-              una socia por su email y con una clase por su fecha y hora: si no existen todavía, esas filas se omiten.
+          <div className="flex items-start gap-2.5 rounded-2xl border border-[#FDE68A] bg-warning/10 p-4">
+            <Info size={15} className="mt-0.5 shrink-0 text-warning" />
+            <p className="text-[12.5px] text-warning">
+              <span className="font-semibold">Importa antes las clientas y el horario.</span> Cada reserva se empareja con
+              una clienta por su email y con una clase por su fecha y hora: si no existen todavía, esas filas se omiten.
             </p>
           </div>
 
@@ -220,11 +214,11 @@ export default function ImportarReservasPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <span className="rounded-xl bg-[#D1FAE5] px-3 py-1.5 text-[12.5px] font-semibold text-[#065F46]">
+            <span className="rounded-xl bg-success/10 px-3 py-1.5 text-[12.5px] font-semibold text-success">
               {conteo.ok} filas correctas
             </span>
             {conteo.err > 0 && (
-              <span className="rounded-xl bg-[#FEE2E2] px-3 py-1.5 text-[12.5px] font-semibold text-[#991B1B]">
+              <span className="rounded-xl bg-destructive/10 px-3 py-1.5 text-[12.5px] font-semibold text-[#991B1B]">
                 {conteo.err} con problemas (se omiten)
               </span>
             )}
@@ -273,8 +267,8 @@ export default function ImportarReservasPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card py-10 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#D1FAE5]">
-                <PartyPopper size={26} className="text-[#059669]" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10">
+                <PartyPopper size={26} className="text-success" />
               </div>
               <p className="text-[18px] font-bold text-foreground">Reservas importadas</p>
               <p className="text-[13px] text-muted-foreground">{resultado.importadas} reservas creadas</p>
@@ -285,10 +279,10 @@ export default function ImportarReservasPage() {
             <div className="rounded-2xl border border-border bg-card p-4">
               <div className="flex flex-col gap-1 text-[12.5px] text-muted-foreground">
                 {resultado.duplicadas > 0 && <p>{resultado.duplicadas} ya estaban y no se han duplicado</p>}
-                {resultado.sinSocia > 0 && <p>{resultado.sinSocia} sin socia: ese email no está en tus clientas</p>}
+                {resultado.sinSocia > 0 && <p>{resultado.sinSocia} sin clienta: ese email no está en tus clientas</p>}
                 {resultado.sinSesion > 0 && <p>{resultado.sinSesion} sin clase: no hay ninguna a esa fecha y hora</p>}
                 {resultado.sobreAforo > 0 && (
-                  <p className="text-[#92400E]">
+                  <p className="text-warning">
                     {resultado.sobreAforo} {resultado.sobreAforo === 1 ? 'clase queda' : 'clases quedan'} por encima de su aforo —
                     se han importado igual para no quitarle el sitio a nadie, pero revísalas.
                   </p>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { guardarBackup, podarBackupsAntiguos } from '@/lib/engines/backup-engine';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Backup manual, disparado desde el panel por cualquier miembro del equipo
 // con sesión — crear una copia no es una operación destructiva, a
@@ -24,7 +25,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id, tipo: 'MANUAL', creadoEn });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Error desconocido';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return errorInterno('backups/create:POST', err, 'No se ha podido crear la copia de seguridad.');
   }
 }

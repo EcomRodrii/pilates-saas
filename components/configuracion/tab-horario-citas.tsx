@@ -174,8 +174,8 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
                     <span className="text-muted-foreground text-[12px]">–</span>
                     <input type="time" value={f.horaFin}
                       onChange={e => updateFranja(dia.dow, idx, 'horaFin', e.target.value)}
-                      className={cn('bg-transparent text-[12px] focus:outline-none w-[62px]', f.horaFin > f.horaInicio ? 'text-foreground' : 'text-[#DC2626]')} />
-                    <button onClick={() => removeFranja(dia.dow, idx)} className="ml-0.5 text-muted-foreground hover:text-[#DC2626]" aria-label="Quitar franja">
+                      className={cn('bg-transparent text-[12px] focus:outline-none w-[62px]', f.horaFin > f.horaInicio ? 'text-foreground' : 'text-destructive')} />
+                    <button onClick={() => removeFranja(dia.dow, idx)} className="ml-0.5 text-muted-foreground hover:text-destructive" aria-label="Quitar franja">
                       <X size={13} />
                     </button>
                   </div>

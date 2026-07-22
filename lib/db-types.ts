@@ -69,6 +69,7 @@ export interface RowAutomationLogs {
   accion: string | null;
   resultado: string | null;
   detalle: string | null;
+  mensaje_cliente: string | null;
   ejecutado_en: string | null;
   proxima_accion_en: string | null;
   recibo_id: string | null;
@@ -239,6 +240,21 @@ export interface RowFacturas {
   verifactu_prev_hash: string | null;
   verifactu_ts: string | null;
   verifactu_seq: number | null;
+}
+
+export interface RowIngresosManuales {
+  id: string;
+  studio_id: string;
+  fecha: string;
+  concepto: string;
+  cliente: string | null;
+  nif: string | null;
+  base_imponible: number;
+  tipo_iva: number;
+  cuota_iva: number;
+  total: number;
+  nota: string | null;
+  creado_en: string;
 }
 
 export interface RowInstructores {
@@ -550,6 +566,10 @@ export interface RowStudios {
   avatar_admin: string | null;
   tema_portal: string | null;
   google_calendar_email: string | null;
+  gmail_email: string | null;
+  zoom_email: string | null;
+  gestoria_email: string | null;
+  cadena_id: string | null;
   cancelacion_ventana_horas: number | null;
   cancelacion_devolver_bono_tardia: boolean | null;
   reserva_exigir_plan: boolean | null;
@@ -569,6 +589,7 @@ export interface RowStudios {
   modo_autonomia: string | null;
   umbral_score_autonomo: number | null;
   avisar_alumnas: boolean | null;
+  onboarding_descartado_en: string | null;
 }
 
 export interface RowSuscripciones {

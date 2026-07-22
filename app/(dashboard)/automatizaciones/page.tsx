@@ -12,6 +12,7 @@ import {
 import { cn, formatFechaHora as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
 import { aprobarCobroAutonomo } from '@/lib/api-client';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
+import { mensajeSeguro } from '@/lib/errores';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,30 +25,29 @@ function horasRestantes(iso: string) {
 }
 
 const accionConfig: Record<AccionAutomatica, { label: string; icon: React.ElementType; color: string }> = {
-  ENVIAR_EMAIL:      { label: 'Email', icon: Mail, color: '#7AA80E' },
+  ENVIAR_EMAIL:      { label: 'Email', icon: Mail, color: 'var(--brand)' },
   ENVIAR_WHATSAPP:   { label: 'WhatsApp', icon: MessageSquare, color: '#16A34A' },
   COBRAR_RECIBO:     { label: 'Cobro automático', icon: CreditCard, color: '#7C3AED' },
   CREAR_NOTA:        { label: 'Nota de progreso', icon: Eye, color: '#0891B2' },
-  NOTIFICAR_ADMIN:   { label: 'Notificación admin', icon: Bell, color: '#D97706' },
+  NOTIFICAR_ADMIN:   { label: 'Notificación admin', icon: Bell, color: 'var(--warning)' },
   OFRECER_CLASE_GRATIS: { label: 'Clase gratis', icon: Gift, color: '#DB2777' },
-  PROPONER_PLAN:     { label: 'Proponer plan', icon: TrendingUp, color: '#059669' },
+  PROPONER_PLAN:     { label: 'Proponer plan', icon: TrendingUp, color: 'var(--success)' },
   ENVIAR_EJERCICIOS: { label: 'Ejercicios casa', icon: Send, color: '#F7A6C4' },
-  OFRECER_DESCUENTO: { label: 'Oferta de reactivación', icon: Gift, color: '#B45309' },
+  OFRECER_DESCUENTO: { label: 'Oferta de reactivación', icon: Gift, color: 'var(--warning)' },
 };
 
 const resultadoConfig: Record<ResultadoLog, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  EJECUTADO:       { label: 'Ejecutado', color: '#16A34A', bg: '#DCFCE7', icon: CheckCircle2 },
-  ESPERANDO:       { label: 'Esperando', color: '#D97706', bg: '#FEF3C7', icon: Clock },
-  FALLIDO:         { label: 'Fallido', color: '#DC2626', bg: '#FEE2E2', icon: XCircle },
+  EJECUTADO:       { label: 'Ejecutado', color: '#16A34A', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', icon: CheckCircle2 },
+  ESPERANDO:       { label: 'Esperando', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', icon: Clock },
+  FALLIDO:         { label: 'Fallido', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', icon: XCircle },
   PENDIENTE_ADMIN: { label: 'Acción humana', color: 'var(--brand-secondary)', bg: 'color-mix(in srgb, var(--brand) 12%, var(--card))', icon: AlertTriangle },
 };
 
 const triggerLabels: Record<string, string> = {
-  AUSENCIA_DIAS:       'Ausencia de socia',
+  AUSENCIA_DIAS:       'Ausencia de clienta',
   PAGO_PENDIENTE_DIAS: 'Pago pendiente',
   BONO_SESIONES_BAJAS: 'Bono casi agotado',
-  SUSCRIPCION_EXPIRA_DIAS: 'Suscripción próxima a expirar',
-  NUEVA_SOCIA:         'Nueva socia',
+  NUEVA_SOCIA:         'Nueva clienta',
   CLASE_MANANA:        'Clase mañana',
   RENOVACION_COBRADA:  'Renovación cobrada',
   CLASE_LLENA_RECURRENTE: 'Clase con demanda sostenida',
@@ -59,20 +59,32 @@ const triggerLabels: Record<string, string> = {
 // punto de partida razonable, no están grabados a fuego en ningún sitio.
 const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>[] = [
   {
-    nombre: 'Socia ausente', descripcion: 'Recuerda a las socias que llevan días sin venir, y ofrece una vuelta con descuento si la ausencia se alarga',
-    icono: '👤', trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCritico: 21, descuentoPct: 15 }, pasos: [], activa: true,
+    nombre: 'Clienta ausente', descripcion: 'Recuerda a las clientas que llevan días sin venir, pregunta cómo están a las 2 semanas, y ofrece una vuelta con descuento si la ausencia se alarga',
+    icono: '👤', trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCheckin: 14, diasCritico: 25, descuentoPct: 15 }, pasos: [], activa: true,
   },
   {
-    nombre: 'Pago pendiente', descripcion: 'Persigue pagos vencidos — cobra directo si hay tarjeta guardada (con tu aprobación) o recuerda por email',
-    icono: '💳', trigger: 'PAGO_PENDIENTE_DIAS', condicion: { dias: 3 }, pasos: [], activa: true,
+    nombre: 'Pago pendiente', descripcion: 'Persigue pagos vencidos con dos avisos escalados — cobra directo si hay tarjeta guardada (con tu aprobación) o te avisa a ti si tras dos avisos sigue sin resolverse',
+    icono: '💳', trigger: 'PAGO_PENDIENTE_DIAS', condicion: { dias: 3, diasSegundo: 8, diasEscalada: 15 }, pasos: [], activa: true,
   },
   {
-    nombre: 'Recordatorio de clase', descripcion: 'Avisa a las socias con reserva confirmada el día antes de su clase',
+    nombre: 'Recordatorio de clase', descripcion: 'Avisa a las clientas con reserva confirmada el día antes de su clase — por WhatsApp si tienen teléfono, por email si no',
     icono: '📅', trigger: 'CLASE_MANANA', condicion: {}, pasos: [], activa: true,
   },
   {
     nombre: 'Clase con demanda sostenida', descripcion: 'Detecta franjas horarias que llevan varias semanas casi llenas y te recomienda abrir otra sesión',
     icono: '📈', trigger: 'CLASE_LLENA_RECURRENTE', condicion: { semanasConsecutivas: 3, ocupacionMinima: 0.95 }, pasos: [], activa: true,
+  },
+  {
+    nombre: 'Bono casi agotado', descripcion: 'Si una clienta compra el mismo bono varias veces seguidas, te propone ofrecerle pasarse a un plan ilimitado (con tu aprobación)',
+    icono: '🔁', trigger: 'BONO_SESIONES_BAJAS', condicion: { comprasSeguidas: 3 }, pasos: [], activa: true,
+  },
+  {
+    nombre: 'Seguimiento de clienta nueva', descripcion: 'Si no ha reservado en 2 días le anima a hacerlo; si a los 10 días sigue sin venir a ninguna clase, te avisa a ti para que la llames',
+    icono: '🌱', trigger: 'NUEVA_SOCIA', condicion: { diasSinReservar: 2, diasSinAsistir: 10 }, pasos: [], activa: true,
+  },
+  {
+    nombre: 'Renovación confirmada', descripcion: 'Confirma automáticamente cada renovación cobrada, con un detalle extra en los hitos de antigüedad',
+    icono: '✅', trigger: 'RENOVACION_COBRADA', condicion: { hitoMeses: 6 }, pasos: [], activa: true,
   },
 ];
 
@@ -175,6 +187,8 @@ function RuleCard({
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setExpanded(p => !p)}
+            aria-label="Expandir detalles"
+            aria-expanded={expanded}
             className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors"
           >
             <ChevronRight size={14} className={cn('transition-transform', expanded && 'rotate-90')} />
@@ -232,13 +246,20 @@ function RuleCard({
 
 // ─── Log Item ─────────────────────────────────────────────────────────────────
 
+// OFRECER_DESCUENTO y PROPONER_PLAN comparten el mismo flujo de aprobación
+// (enviar log.mensajeCliente por email) — solo cambia la etiqueta del botón.
+const ETIQUETA_APROBAR: Partial<Record<AutomationLog['accion'], string>> = {
+  OFRECER_DESCUENTO: 'Enviar oferta',
+  PROPONER_PLAN: 'Proponer plan',
+};
+
 function LogItem({
-  log, onDismiss, onApproveCharge, onSendOffer, approving,
+  log, onDismiss, onApproveCharge, onAprobarEnvio, approving,
 }: {
   log: AutomationLog;
   onDismiss: () => void;
   onApproveCharge?: () => void;
-  onSendOffer?: () => void;
+  onAprobarEnvio?: () => void;
   approving?: boolean;
 }) {
   const cfg = resultadoConfig[log.resultado];
@@ -272,6 +293,20 @@ function LogItem({
           </span>
         </div>
         <p className="text-xs text-foreground mt-0.5">{log.detalle}</p>
+        {onAprobarEnvio && (
+          <div className="mt-2 rounded-lg border border-border bg-card px-2.5 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              Esto es lo que recibirá la socia
+            </p>
+            {log.mensajeCliente ? (
+              <p className="text-xs text-foreground whitespace-pre-wrap">{log.mensajeCliente}</p>
+            ) : (
+              <p className="text-xs text-red-600">
+                No se ha podido redactar un mensaje para la clienta — no se puede enviar todavía.
+              </p>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-3 mt-1">
           <span className="text-[10px] text-muted-foreground">{log.ruleName}</span>
           <span className="text-[10px] text-muted-foreground">{formatFecha(log.ejecutadoEn)}</span>
@@ -292,14 +327,15 @@ function LogItem({
           {approving ? 'Cobrando…' : 'Aprobar y cobrar'}
         </button>
       )}
-      {onSendOffer && (
+      {onAprobarEnvio && (
         <button
-          onClick={onSendOffer}
-          disabled={approving}
+          onClick={onAprobarEnvio}
+          disabled={approving || !log.mensajeCliente}
+          title={!log.mensajeCliente ? 'No se pudo redactar un mensaje para la clienta' : undefined}
           className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
         >
           {approving ? <Loader2 size={12} className="animate-spin" /> : <Gift size={12} />}
-          {approving ? 'Enviando…' : 'Enviar oferta'}
+          {approving ? 'Enviando…' : (ETIQUETA_APROBAR[log.accion] ?? 'Aprobar y enviar')}
         </button>
       )}
       <button
@@ -359,11 +395,26 @@ export default function AutomatizacionesPage() {
     setApprovingId(null);
   }
 
-  async function handleSendOffer(log: AutomationLog) {
+  // Común a OFRECER_DESCUENTO ("Enviar oferta") y PROPONER_PLAN ("Proponer
+  // plan") — las dos son acciones con aprobación humana que, al aprobarse,
+  // mandan log.mensajeCliente (nunca log.detalle) como email a la socia.
+  const ASUNTO_POR_ACCION: Partial<Record<AutomationLog['accion'], string>> = {
+    OFRECER_DESCUENTO: 'Te guardamos un hueco 💛',
+    PROPONER_PLAN: 'Una idea para tu plan 💡',
+  };
+
+  async function handleAprobarYEnviar(log: AutomationLog) {
     if (!log.socioId) return;
+    // Nunca enviar sin un mensajeCliente ya redactado — usar log.detalle (nota
+    // interna, para la propietaria) aquí sería reintroducir el bug que mandaba
+    // ese texto tal cual a la socia.
+    if (!log.mensajeCliente) {
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'No se pudo redactar el mensaje para la clienta — no se envió nada.' });
+      return;
+    }
     const socio = socios.find(s => s.id === log.socioId);
     if (!socio?.email) {
-      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'La socia no tiene email registrado' });
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'La clienta no tiene email registrado' });
       return;
     }
     setApprovingId(log.id);
@@ -375,17 +426,17 @@ export default function AutomatizacionesPage() {
           tipo: 'automatizacion',
           to: socio.email,
           toName: socio.nombre,
-          data: { titulo: 'Te echamos de menos 💛', mensaje: log.detalle },
+          data: { titulo: ASUNTO_POR_ACCION[log.accion] ?? 'Un mensaje de tu estudio', mensaje: log.mensajeCliente },
         }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         actualizarLog(log.id, { resultado: 'FALLIDO', detalle: body.error ?? `No se pudo enviar el email (HTTP ${res.status})` });
       } else {
-        actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: `Oferta enviada a ${socio.email}: "${log.detalle}"` });
+        actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: `Mensaje enviado a ${socio.email}.` });
       }
     } catch (err) {
-      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: err instanceof Error ? err.message : 'Error de red al enviar el email' });
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: mensajeSeguro(err instanceof Error ? err.message : null, 'Error de red al enviar el email') });
     }
     setApprovingId(null);
   }
@@ -419,7 +470,7 @@ export default function AutomatizacionesPage() {
                 log={log}
                 onDismiss={() => dismissLog(log.id)}
                 onApproveCharge={log.accion === 'COBRAR_RECIBO' ? () => handleApproveCharge(log) : undefined}
-                onSendOffer={log.accion === 'OFRECER_DESCUENTO' ? () => handleSendOffer(log) : undefined}
+                onAprobarEnvio={(log.accion === 'OFRECER_DESCUENTO' || log.accion === 'PROPONER_PLAN') ? () => handleAprobarYEnviar(log) : undefined}
                 approving={approvingId === log.id}
               />
             ))}

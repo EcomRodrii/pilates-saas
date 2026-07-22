@@ -8,9 +8,9 @@ import type { ResumenAPI } from './use-decisiones';
 // Director (motor.ts + redaccion.ts) — este componente solo lo presenta,
 // nunca recalcula ni reinterpreta los números.
 const ESTADO_INFO: Record<ResumenAPI['estadoGeneral'], { label: string; color: string; bg: string }> = {
-  EXCELENTE: { label: 'Excelente', color: '#059669', bg: '#ECFDF5' },
-  ATENCION: { label: 'Atención', color: '#D97706', bg: '#FFFBEB' },
-  ACCION_INMEDIATA: { label: 'Acción inmediata', color: '#DC2626', bg: '#FEF2F2' },
+  EXCELENTE: { label: 'Excelente', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
+  ATENCION: { label: 'Atención', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))' },
+  ACCION_INMEDIATA: { label: 'Acción inmediata', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
 };
 
 export function ExecutiveSummary({ resumen }: { resumen: ResumenAPI }) {

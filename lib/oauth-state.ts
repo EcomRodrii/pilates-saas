@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 
-// C-8: `state` firmado para los flujos OAuth (Stripe Connect y Google Calendar).
+// C-8: `state` firmado para los flujos OAuth (Stripe Connect, Google Calendar y Gmail).
 //
 // Antes el `state` era el studioId EN CLARO: los callbacks (GET no autenticado)
 // se fiaban de él y vinculaban la cuenta de pagos / calendario a ESE estudio.
@@ -17,7 +17,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 
 const TTL_MS = 10 * 60 * 1000;
 
-type Provider = 'stripe' | 'google';
+type Provider = 'stripe' | 'google' | 'gmail' | 'zoom';
 
 function secret(): string {
   const s = process.env.OAUTH_STATE_SECRET;

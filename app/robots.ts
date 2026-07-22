@@ -15,8 +15,8 @@ export default function robots(): MetadataRoute.Robots {
       disallow: [
         '/api', '/login', '/crear-estudio', '/suscripcion',
         '/portal', '/kiosk',
-        '/dashboard', '/centro-de-control', '/calendario', '/citas', '/socios',
-        '/pagos', '/transacciones', '/facturas', '/informes', '/equipo',
+        '/dashboard', '/centro-de-control', '/calendario', '/citas', '/socios', '/clientas',
+        '/cobros', '/pagos', '/transacciones', '/facturas', '/informes', '/equipo',
         '/marketing', '/mensajeria', '/automatizaciones', '/notificaciones',
         '/comunidad', '/chat', '/pos', '/productos', '/ondemand', '/configuracion',
       ],

@@ -19,6 +19,7 @@ import { DEFAULT_THEME, FUENTES, RADIOS, type ThemeConfig } from '@/lib/theme-sc
 import { validarContrasteTheme } from '@/lib/theme-runtime';
 import { derivarPaleta } from '@/lib/color-utils';
 import { ThemePreview } from './theme-preview';
+import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 
 const CAMPOS_COLOR: { key: keyof ThemeConfig; label: string }[] = [
   { key: 'primary', label: 'Color de marca' },
@@ -36,7 +37,7 @@ const PALETAS: { label: string; primary: string }[] = [
   { label: 'Océano', primary: '#0F766E' },
   { label: 'Ciruela', primary: '#6D28D9' },
   { label: 'Índigo', primary: '#4F46E5' },
-  { label: 'Esmeralda', primary: '#065F46' },
+  { label: 'Esmeralda', primary: 'var(--success)' },
   { label: 'Burdeos', primary: '#7F1D1D' },
   { label: 'Arena', primary: '#B08968' },
   { label: 'Coral', primary: '#FF6F61' },
@@ -120,9 +121,9 @@ export function ThemeEditor() {
     setAviso(null);
     try {
       await guardarThemeBorrador(draft);
-      setAviso({ tipo: 'ok', texto: 'Borrador guardado. Aún no lo ven tus socias.' });
+      setAviso({ tipo: 'ok', texto: 'Borrador guardado. Aún no lo ven tus clientas.' });
     } catch (e) {
-      setAviso({ tipo: 'error', texto: (e as Error).message });
+      setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
     } finally {
       setGuardando(false);
     }
@@ -136,10 +137,10 @@ export function ThemeEditor() {
       const r = await publicarThemeApi();
       if (r.ok) {
         window.dispatchEvent(new CustomEvent('tentare-theme-changed'));
-        setAviso({ tipo: 'ok', texto: '¡Publicado! Ya lo ven tus socias.' });
+        setAviso({ tipo: 'ok', texto: '¡Publicado! Ya lo ven tus clientas.' });
       } else setAviso({ tipo: 'error', texto: r.errores.join(' ') });
     } catch (e) {
-      setAviso({ tipo: 'error', texto: (e as Error).message });
+      setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
     } finally {
       setPublicando(false);
     }
@@ -351,7 +352,7 @@ export function ThemeEditor() {
             </button>
           </div>
           <p className="text-[11.5px] text-muted-foreground">
-            El borrador solo lo ves tú. Al publicar, el nuevo aspecto pasa a la app de socias y a la página pública de reservas.
+            El borrador solo lo ves tú. Al publicar, el nuevo aspecto pasa a la app de clientas y a la página pública de reservas.
           </p>
         </section>
       </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 import { guardarBackup, podarBackupsAntiguos, type TipoBackup } from '@/lib/engines/backup-engine';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,8 @@ export async function GET(req: NextRequest) {
 
   const { data: studios, error: studiosError } = await admin.from('studios').select('id');
   if (studiosError) {
-    return NextResponse.json({ error: studiosError.message }, { status: 500 });
+    return errorInterno('cron:backups:listar-studios', studiosError,
+      'No se ha podido listar los estudios para la copia de seguridad.');
   }
 
   const resultados: { studioId: string; tipo: TipoBackup; ok: boolean; error?: string }[] = [];
@@ -53,7 +55,9 @@ export async function GET(req: NextRequest) {
         // pero sin esto Sentry nunca lo vería: lo reportamos con contexto para no
         // quedarnos ciegos ante un backup que lleva días fallando en silencio.
         Sentry.captureException(err, { tags: { cron: 'backups', tipo }, extra: { studioId: studio.id } });
-        resultados.push({ studioId: studio.id, tipo, ok: false, error: err instanceof Error ? err.message : 'Error desconocido' });
+        // El detalle completo va a Sentry (arriba); aquí solo un resumen — este
+        // JSON puede acabar en un log o panel, no es sitio para volcar la excepción.
+        resultados.push({ studioId: studio.id, tipo, ok: false, error: 'Fallo al hacer la copia de seguridad (ver Sentry).' });
       }
     }
   }

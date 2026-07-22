@@ -132,6 +132,10 @@ export function mapStudio(r: RowStudios): Studio {
     creadoEn: r.creado_en,
     stripeAccountId: r.stripe_account_id ?? null,
     googleCalendarEmail: r.google_calendar_email ?? null,
+    gmailEmail: r.gmail_email ?? null,
+    zoomEmail: r.zoom_email ?? null,
+    gestoriaEmail: r.gestoria_email ?? null,
+    cadenaId: r.cadena_id ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,
@@ -142,6 +146,7 @@ export function mapStudio(r: RowStudios): Studio {
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
+    onboardingDescartadoEn: r.onboarding_descartado_en ?? null,
   } as Studio;
 }
 
@@ -700,6 +705,7 @@ export function mapAutomationLog(r: RowAutomationLogs): AutomationLog {
     accion: r.accion,
     resultado: r.resultado,
     detalle: r.detalle,
+    mensajeCliente: r.mensaje_cliente ?? null,
     ejecutadoEn: r.ejecutado_en,
     proximaAccionEn: r.proxima_accion_en ?? null,
     reciboId: r.recibo_id ?? null,

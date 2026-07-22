@@ -9,6 +9,7 @@ import {
   Info, AlertTriangle, CheckCircle, XCircle, Users, Heart, ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
+import { PageHeader } from '@/components/ui/page-header';
 
 type Tab = 'notificaciones' | 'comunidad' | 'enviar';
 
@@ -24,10 +25,10 @@ function timeAgo(iso: string) {
 }
 
 const TIPO_ICON = {
-  INFO: { Icon: Info, color: '#1D4ED8', bg: '#DBEAFE' },
-  AVISO: { Icon: AlertTriangle, color: '#B45309', bg: '#FEF3C7' },
-  ERROR: { Icon: XCircle, color: '#B91C1C', bg: '#FEE2E2' },
-  EXITO: { Icon: CheckCircle, color: '#15803D', bg: '#DCFCE7' },
+  INFO: { Icon: Info, color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))' },
+  AVISO: { Icon: AlertTriangle, color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))' },
+  ERROR: { Icon: XCircle, color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
+  EXITO: { Icon: CheckCircle, color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
 } as const;
 
 // ── Message composer ──────────────────────────────────────────────────────────
@@ -74,14 +75,14 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
     const huboFallos = resultado.fallidos > 0;
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: huboFallos ? '#FEF3C7' : '#DCFCE7' }}>
-          <CheckCheck size={24} style={{ color: huboFallos ? '#D97706' : '#15803D' }} />
+        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: huboFallos ? 'color-mix(in srgb, var(--warning) 12%, var(--card))' : 'color-mix(in srgb, var(--success) 12%, var(--card))' }}>
+          <CheckCheck size={24} style={{ color: huboFallos ? 'var(--warning)' : 'var(--success)' }} />
         </div>
         <p className="font-bold text-foreground">
           {resultado.ok > 0 ? `Enviado a ${resultado.ok} miembro${resultado.ok !== 1 ? 's' : ''}` : 'No se pudo enviar'}
         </p>
         {huboFallos && (
-          <p className="text-sm text-[#D97706]">
+          <p className="text-sm text-warning">
             {resultado.fallidos} envío{resultado.fallidos !== 1 ? 's' : ''} fallaron
             {resultado.ok === 0 ? ' — revisa que Resend esté configurado (RESEND_API_KEY) en .env.local' : ''}
           </p>
@@ -177,20 +178,17 @@ export default function Mensajeria() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Mensajería</h1>
-          <p className="text-sm font-medium mt-0.5 text-muted-foreground">
-            Notificaciones, comunidad y comunicación con miembros
-          </p>
-        </div>
-        <Link href="/socios"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors">
-          <Users size={14} />
-          Ver miembros
-        </Link>
-      </div>
+      <PageHeader
+        title="Mensajería"
+        description="Notificaciones, comunidad y comunicación con miembros"
+        actions={
+          <Link href="/clientas"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors">
+            <Users size={14} />
+            Ver miembros
+          </Link>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
@@ -298,15 +296,20 @@ export default function Mensajeria() {
                   </div>
                 </div>
                 <p className="text-sm text-foreground leading-relaxed">{post.texto}</p>
+                {/* Son CONTADORES, no acciones: aquí no se da a me gusta ni se
+                    comenta (eso pasa en el portal de la clienta). Estaban puestos
+                    como <button> sin onClick, así que se veían pulsables y no
+                    hacían nada. Al no ser botones ya no prometen lo que no
+                    cumplen, y dejan de anunciarse como controles. */}
                 <div className="flex items-center gap-4 mt-4 pt-3 border-t border-muted">
-                  <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-500 transition-colors">
-                    <Heart size={13} />
-                    <span>{post.likes}</span>
-                  </button>
-                  <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-brand transition-colors">
-                    <MessageCircle size={13} />
-                    <span>{post.comentariosCount} comentarios</span>
-                  </button>
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Heart size={13} aria-hidden="true" />
+                    {post.likes} me gusta
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MessageCircle size={13} aria-hidden="true" />
+                    {post.comentariosCount} comentarios
+                  </span>
                 </div>
               </div>
             ))

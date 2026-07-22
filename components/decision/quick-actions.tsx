@@ -7,9 +7,9 @@ import { buttonVariants } from '@/components/ui/button';
 // Accesos rápidos (Bible doc 4): siempre visibles, nunca escondidos.
 const ACCESOS = [
   { href: '/calendario', label: 'Nueva reserva', icon: CalendarPlus },
-  { href: '/socios', label: 'Nuevo cliente', icon: UserPlus },
+  { href: '/clientas', label: 'Nueva clienta', icon: UserPlus },
   { href: '/pos', label: 'Nueva venta', icon: ShoppingCart },
-  { href: '/facturas', label: 'Nueva factura', icon: FileText },
+  { href: '/cobros?tab=facturas', label: 'Nueva factura', icon: FileText },
   { href: '/calendario', label: 'Nueva clase', icon: Calendar },
 ];
 

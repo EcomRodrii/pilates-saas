@@ -8,6 +8,7 @@ import {
   Bot, ArrowLeftRight, Package, Store, Inbox,
   UserCog, Users2, Compass, Replace,
   Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
+  Calculator,
 } from 'lucide-react';
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 
@@ -48,7 +49,7 @@ const allSections: NavSection[] = [
   {
     label: 'Clientes',
     items: [
-      { href: '/socios', label: 'Clientes', icon: Users },
+      { href: '/clientas', label: 'Clientas', icon: Users },
       { href: '/mensajeria', label: 'Mensajería', icon: Inbox },
       { href: '/comunidad', label: 'Comunidad', icon: MessageCircle },
       { href: '/chat', label: 'Chat de equipo', icon: Users2 },
@@ -57,10 +58,13 @@ const allSections: NavSection[] = [
   {
     label: 'Ventas',
     items: [
-      { href: '/transacciones', label: 'Transacciones', icon: ArrowLeftRight },
-      { href: '/facturas', label: 'Facturas', icon: FileText },
+      // "Cobros" reúne pendientes, facturas y movimientos: antes eran tres
+      // entradas distintas para la misma pregunta ("¿quién me debe y cuánto ha
+      // entrado?"). La caja se llama Caja y no POS porque es la palabra que se
+      // usa en el mostrador.
+      { href: '/cobros', label: 'Cobros', icon: CreditCard },
+      { href: '/pos', label: 'Caja', icon: Store },
       { href: '/productos', label: 'Productos', icon: Package },
-      { href: '/pos', label: 'POS', icon: Store },
     ],
   },
   {
@@ -70,6 +74,7 @@ const allSections: NavSection[] = [
       { href: '/marketing', label: 'Marketing', icon: Megaphone },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
+      { href: '/cierre', label: 'Cierre de año', icon: Calculator },
       { href: '/configuracion', label: 'Mi estudio', icon: Settings },
       { href: '/suscripcion', label: 'Suscripción', icon: CreditCard },
     ],
@@ -92,12 +97,12 @@ export const MODULOS: NavItemDef[] = navSections.flatMap((s) => s.items);
 export const bottomNavItems: NavItemDef[] = [
   { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
   { href: '/calendario', label: 'Clases', icon: Calendar },
-  { href: '/socios', label: 'Clientes', icon: Users },
-  { href: '/transacciones', label: 'Ventas', icon: ArrowLeftRight },
+  { href: '/clientas', label: 'Clientas', icon: Users },
+  { href: '/cobros', label: 'Cobros', icon: CreditCard },
 ];
 
 // Modo Esencial: módulos del día a día (preferencia de UI por-navegador).
-export const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/socios', '/transacciones', '/informes', '/configuracion'];
+export const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/citas', '/clientas', '/equipo', '/cobros', '/informes', '/configuracion'];
 
 // Módulos que nunca se pueden ocultar (acceso crítico a facturación/config).
 export const NO_OCULTABLES = ['/dashboard', '/configuracion', '/suscripcion'];

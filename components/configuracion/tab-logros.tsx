@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useId } from 'react';
+import { useState } from 'react';
 import { Trophy, Plus, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
 import type { AchievementDefinition, AchievementMetric } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 // Punto de partida opcional (botón "Cargar logros sugeridos") — no se
 // insertan solos, el estudio decide si los quiere y puede editarlos después.
@@ -31,7 +31,6 @@ const emptyForm = (): Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'
 });
 
 export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
-  const uid = useId();
   const { achievementDefinitions, addAchievementDefinition, updateAchievementDefinition } = useStudio();
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -95,7 +94,7 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
                 <p className="text-[12px] text-muted-foreground">{metricLabel(a.metric)} · umbral {a.umbral}{a.creditosRecompensa > 0 ? ` · +${a.creditosRecompensa} créditos` : ''}</p>
                 {!a.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactivo</span>}
               </div>
-              <button onClick={() => openEditar(a)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
+              <button onClick={() => openEditar(a)} aria-label="Editar logro" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
                 <Pencil size={13} />
               </button>
             </div>
@@ -111,34 +110,52 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
           <div className="space-y-4">
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
-                <label htmlFor={`${uid}-1`} className={labelCls}>Icono</label>
-                <input id={`${uid}-1`} className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                <Field label="Icono"
+                  description="Un emoji. Es lo que verá la clienta en su perfil al conseguirlo."
+                >
+                  <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
+                </Field>
               </div>
               <div>
-                <label htmlFor={`${uid}-2`} className={labelCls}>Nombre</label>
-                <input id={`${uid}-2`} className={inputCls} value={form.nombre} placeholder="Ej. 10 clases" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                <Field label="Nombre"
+                  description="Corto y celebratorio: es lo que aparece en la notificación de logro."
+                >
+                  <input className={inputCls} value={form.nombre} placeholder="Ej. 10 clases" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                </Field>
               </div>
             </div>
             <div>
-              <label htmlFor={`${uid}-3`} className={labelCls}>Descripción</label>
-              <input id={`${uid}-3`} className={inputCls} value={form.descripcion ?? ''} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              <Field label="Descripción"
+                description="Qué ha hecho para ganarlo. Aparece bajo el nombre en su perfil."
+              >
+                <input className={inputCls} value={form.descripcion ?? ''} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+              </Field>
             </div>
             <div>
-              <label htmlFor={`${uid}-4`} className={labelCls}>Métrica</label>
-              <select id={`${uid}-4`} className={inputCls} value={form.metric} onChange={e => setForm(f => ({ ...f, metric: e.target.value as AchievementMetric }))}>
-                {ACHIEVEMENT_METRICS.map(m => (
-                  <option key={m.metric} value={m.metric}>{m.nombre}</option>
-                ))}
-              </select>
+              <Field label="Métrica"
+                description="Qué se cuenta para dar el logro. Se calcula solo con la actividad que ya registra la app."
+              >
+                <select className={inputCls} value={form.metric} onChange={e => setForm(f => ({ ...f, metric: e.target.value as AchievementMetric }))}>
+                  {ACHIEVEMENT_METRICS.map(m => (
+                    <option key={m.metric} value={m.metric}>{m.nombre}</option>
+                  ))}
+                </select>
+              </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor={`${uid}-5`} className={labelCls}>Umbral</label>
-                <input id={`${uid}-5`} type="number" min={1} className={inputCls} value={form.umbral} onChange={e => setForm(f => ({ ...f, umbral: Math.max(1, parseInt(e.target.value, 10) || 1) }))} />
+                <Field label="Umbral"
+                  description="A partir de qué cifra se concede. Con métrica «clases asistidas» y umbral 10, se otorga en la décima clase."
+                >
+                  <input type="number" min={1} className={inputCls} value={form.umbral} onChange={e => setForm(f => ({ ...f, umbral: Math.max(1, parseInt(e.target.value, 10) || 1) }))} />
+                </Field>
               </div>
               <div>
-                <label htmlFor={`${uid}-6`} className={labelCls}>Créditos de regalo</label>
-                <input id={`${uid}-6`} type="number" min={0} className={inputCls} value={form.creditosRecompensa} onChange={e => setForm(f => ({ ...f, creditosRecompensa: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                <Field label="Créditos de regalo"
+                  description="Créditos que se le suman al conseguirlo, para canjear por recompensas. 0 = solo la insignia."
+                >
+                  <input type="number" min={0} className={inputCls} value={form.creditosRecompensa} onChange={e => setForm(f => ({ ...f, creditosRecompensa: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                </Field>
               </div>
             </div>
             <div className="flex items-center justify-between pt-1">

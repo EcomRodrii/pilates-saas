@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
@@ -27,7 +28,8 @@ export async function POST(req: NextRequest) {
       p_studio_id: claim.studioId,
       p_aprobada_por: null,
     });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return errorInterno('public:aceptar-sustitucion', error,
+      'No se ha podido registrar tu respuesta. Vuelve a abrir el enlace del email en unos segundos; si sigue fallando, avisa al estudio.');
     const r = (data ?? {}) as { ok?: boolean; motivo?: string; sesion_id?: string };
     if (!r.ok) {
       // Otra persona la cubrió antes (o se canceló) → 'ya_resuelta'. Si en el
