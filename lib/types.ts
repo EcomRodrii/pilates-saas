@@ -35,6 +35,7 @@ export interface Studio {
   depVentanaDias: number;
   plan: 'BASE' | 'ESTUDIO' | 'CADENA';
   avatarAdmin: string | null;
+  fotoUrl: string | null;
   ownerAuthUserId: string | null;
   slug: string | null;
   creadoEn: string;
@@ -307,6 +308,7 @@ export interface Instructor {
   color: string;
   activo: boolean;
   avatar?: string | null;
+  fotoUrl?: string | null;
   rol: Rol;
   authUserId: string | null;
 }

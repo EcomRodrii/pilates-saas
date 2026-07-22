@@ -173,8 +173,12 @@ export function Sidebar() {
   const [size, setSize] = useState<SidebarSize>('normal');
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
-  const { studio } = useStudio();
+  const { studio, instructores } = useStudio();
   const studioSlug = studio?.slug ?? 'tentare';
+  // El avatar de cabecera es el de QUIEN ha iniciado sesión, no siempre el de
+  // la propietaria: si es una instructora/recepción con ficha propia, se usa
+  // la suya (avatar y foto reales), igual que en Configuración > Mi perfil.
+  const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const { puedeVer } = usePermisos();
   const router = useRouter();
   const { mode: navMode, setNavMode } = useNavMode();
@@ -351,7 +355,7 @@ export function Sidebar() {
         <div className="px-3 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
           <div className={cn('flex items-center gap-2.5 rounded-lg', collapsed ? 'justify-center px-0 py-2' : 'px-2 py-2')}>
             <Link href="/configuracion" title="Editar mi perfil" className="shrink-0">
-              <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={userInitials} size="xs" />
+              <ProfileAvatar avatarId={yo ? yo.avatar : studio?.avatarAdmin} fotoUrl={yo ? yo.fotoUrl : studio?.fotoUrl} nombre={userInitials} size="xs" />
             </Link>
             {!collapsed && (
               <>

@@ -268,6 +268,7 @@ export interface RowInstructores {
   rol: string | null;
   auth_user_id: string | null;
   avatar: string | null;
+  foto_url: string | null;
 }
 
 export interface RowIntegracionCredenciales {
@@ -564,6 +565,7 @@ export interface RowStudios {
   slug: string | null;
   stripe_account_id: string | null;
   avatar_admin: string | null;
+  foto_url: string | null;
   tema_portal: string | null;
   google_calendar_email: string | null;
   gmail_email: string | null;

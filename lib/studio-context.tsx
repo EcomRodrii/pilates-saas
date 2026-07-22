@@ -389,7 +389,7 @@ interface StudioContextValue {
   recalcularDependencia: () => Promise<boolean>;
 
   // Instructores (mutable)
-  addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>) => void;
+  addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) => void;
   updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => void;
   deleteInstructor: (id: string) => void;
   claimInstructorAccount: (email: string, authUserId: string) => Promise<Instructor | null>;
@@ -917,8 +917,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Instructores ──────────────────────────────────────────────────────────────
 
-  function addInstructor(fields: Omit<Instructor, 'id' | 'studioId'>) {
-    const nuevo: Instructor = { ...fields, id: `ins-${uid()}`, studioId: getCurrentStudioId() };
+  // `id` opcional: el modal de alta lo pre-genera cuando necesita subir una
+  // foto ANTES de guardar (el storage necesita una clave estable ya en el
+  // primer upload). Si no se pasa, se genera aquí como siempre.
+  function addInstructor(fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) {
+    const nuevo: Instructor = { ...fields, id: id ?? `ins-${uid()}`, studioId: getCurrentStudioId() };
     setInstructores(prev => [...prev, nuevo]);
     dbInsertInstructor(nuevo);
     addActividadReciente('EQUIPO_ALTA', `${actorNombre ?? 'Alguien'} añadió a ${nuevo.nombre} al equipo (${nuevo.rol})`);

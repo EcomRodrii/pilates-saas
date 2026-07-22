@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode, useId } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, CalendarOff, Copy, Star, Search, LayoutGrid, List, MoreVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, CalendarOff, Copy, Star, Search, LayoutGrid, List, MoreVertical, Camera, Loader2 } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
-import { formatFechaHora } from '@/lib/utils';
+import { formatFechaHora, uid as generarId } from '@/lib/utils';
+import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, type EquipoStats, type ValoracionDetalle } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -50,8 +51,11 @@ const ROL_DESC: Record<Rol, string> = {
   INSTRUCTOR: 'Calendario, citas (sin precios), miembros, oferta digital, comunidad y mensajería — sin datos de facturación.',
 };
 
-type Form = { nombre: string; email: string; telefono: string; color: string; avatar: string | null; activo: boolean; rol: Rol };
-const emptyForm = (): Form => ({ nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, activo: true, rol: 'INSTRUCTOR' });
+// `tempId` es el id que usará la ficha si es de alta: se genera al abrir el
+// modal (no al guardar) para poder subir la foto ANTES de que la instructora
+// exista en BD — el storage necesita una clave estable desde el primer upload.
+type Form = { tempId: string; nombre: string; email: string; telefono: string; color: string; avatar: string | null; fotoUrl: string | null; activo: boolean; rol: Rol };
+const emptyForm = (): Form => ({ tempId: `ins-${generarId()}`, nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, fotoUrl: null, activo: true, rol: 'INSTRUCTOR' });
 
 export default function EquipoPage() {
   const uid = useId();
@@ -61,6 +65,9 @@ export default function EquipoPage() {
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [errorFoto, setErrorFoto] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmDel, setConfirmDel] = useState<Instructor | null>(null);
   const [enlace, setEnlace] = useState<
     { instructor: Instructor; scope: EnlaceScope; url: string | null; loading: boolean; error: string | null; copiado: boolean } | null
@@ -142,7 +149,7 @@ export default function EquipoPage() {
 
   function openNuevo() { setForm(emptyForm()); setEditId(null); setModal('nuevo'); }
   function openEditar(i: Instructor) {
-    setForm({ nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, activo: i.activo, rol: i.rol });
+    setForm({ tempId: i.id, nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, fotoUrl: i.fotoUrl ?? null, activo: i.activo, rol: i.rol });
     setEditId(i.id);
     setModal('editar');
   }
@@ -154,12 +161,39 @@ export default function EquipoPage() {
       telefono: form.telefono.trim() || null,
       color: form.color,
       avatar: form.avatar,
+      fotoUrl: form.fotoUrl,
       activo: form.activo,
       rol: form.rol,
     };
-    if (modal === 'nuevo') addInstructor({ ...fields, authUserId: null });
+    if (modal === 'nuevo') addInstructor({ ...fields, authUserId: null }, form.tempId);
     else if (editId) updateInstructor(editId, fields);
     setModal(null);
+  }
+
+  async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const invalido = validarFotoPerfil(file);
+    if (invalido) { setErrorFoto(invalido); return; }
+    setErrorFoto('');
+    setSubiendoFoto(true);
+    const result = await subirFotoInstructor(form.tempId, file);
+    setSubiendoFoto(false);
+    if ('error' in result) { setErrorFoto(result.error); return; }
+    setForm(f => ({ ...f, fotoUrl: result.url }));
+    // Si ya existe (edición), persiste al momento — igual que el avatar
+    // predefinido más abajo. Si es alta nueva, se guarda con el resto al pulsar "Guardar".
+    if (editId) updateInstructor(editId, { fotoUrl: result.url });
+  }
+
+  async function handleEliminarFoto() {
+    setSubiendoFoto(true);
+    const result = await eliminarFotoInstructor(form.tempId);
+    setSubiendoFoto(false);
+    if ('error' in result) { setErrorFoto(result.error); return; }
+    setForm(f => ({ ...f, fotoUrl: null }));
+    if (editId) updateInstructor(editId, { fotoUrl: null });
   }
 
   return (
@@ -296,12 +330,37 @@ export default function EquipoPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <ProfileAvatar avatarId={form.avatar} nombre={form.nombre || '?'} color={form.color} size="lg" />
+              <div className="relative shrink-0">
+                <ProfileAvatar avatarId={form.avatar} fotoUrl={form.fotoUrl} nombre={form.nombre || '?'} color={form.color} size="lg" />
+                {subiendoFoto && (
+                  <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+                    <Loader2 size={16} className="text-white animate-spin" />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center hover:bg-background transition-colors"
+                  aria-label="Subir foto"
+                >
+                  <Camera size={11} className="text-foreground" />
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
+              </div>
               <div className="min-w-0">
                 <label htmlFor={`${uid}-1`} className={labelCls + ' mb-1'}>Nombre</label>
                 <input id={`${uid}-1`} className={inputCls} value={form.nombre} placeholder="Ej. María Soler" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
               </div>
             </div>
+            <div className="flex items-center gap-3 -mt-2">
+              {form.fotoUrl && (
+                <button type="button" onClick={handleEliminarFoto} className="text-[11px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1">
+                  <Trash2 size={11} />Quitar foto
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground -mt-2">Sube una foto de su cara — solo la cara, sin recortes raros: es la que verán las clientas y el resto del equipo.</p>
+            {errorFoto && <p className="text-[11px] text-destructive -mt-2">{errorFoto}</p>}
             <div>
               <span id={`${uid}-avatar`} className={labelCls}>Avatar</span>
               <div role="group" aria-labelledby={`${uid}-avatar`}><AvatarPicker value={form.avatar} onChange={id => setForm(f => ({ ...f, avatar: id }))} /></div>
@@ -537,7 +596,7 @@ function InstructorCard({ i, carga, prox, val, asis, ...acc }: {
     <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <ProfileAvatar avatarId={i.avatar} nombre={i.nombre} color={i.color} size="md" />
+          <ProfileAvatar avatarId={i.avatar} fotoUrl={i.fotoUrl} nombre={i.nombre} color={i.color} size="md" />
           <div className="min-w-0">
             <p className="font-bold text-foreground text-[15px] leading-tight truncate">{i.nombre}</p>
             <Badges i={i} />
@@ -572,7 +631,7 @@ function InstructorRow({ i, carga, prox, val, asis, ...acc }: {
 } & AccProps) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
-      <ProfileAvatar avatarId={i.avatar} nombre={i.nombre} color={i.color} size="sm" />
+      <ProfileAvatar avatarId={i.avatar} fotoUrl={i.fotoUrl} nombre={i.nombre} color={i.color} size="sm" />
       <div className="min-w-0 flex-1">
         <p className="font-bold text-foreground text-[14px] leading-tight truncate">{i.nombre}</p>
         <Badges i={i} />

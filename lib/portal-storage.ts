@@ -27,6 +27,16 @@ export function validarImagenMarca(file: File, maxBytes: number): string | null 
 export const LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 export const FAVICON_MAX_BYTES = 512 * 1024; // 512 KB
 
+// Guardrail de fotos de perfil (socia/propietaria/instructora): mismo criterio
+// para las 3 — cualquier imagen, hasta 5 MB. Sin recorte: se sube tal cual y
+// se recorta visualmente en círculo (object-fit: cover) al mostrarla.
+export const FOTO_PERFIL_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+export function validarFotoPerfil(file: File): string | null {
+  if (!file.type.startsWith('image/')) return 'Elige un archivo de imagen.';
+  if (file.size > FOTO_PERFIL_MAX_BYTES) return 'La imagen no puede superar 5 MB.';
+  return null;
+}
+
 export async function subirFotoPerfil(socioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
@@ -62,6 +72,45 @@ export async function subirFotoClase(tipoClaseId: string, file: File): Promise<{
 
 export async function eliminarFotoClase(tipoClaseId: string): Promise<{ ok: true } | { error: string }> {
   const { error } = await supabase.storage.from(BUCKET).remove([`clase-${tipoClaseId}`]);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+// Foto de perfil de la propietaria — mismo bucket público, prefijo propio
+// para no colisionar con el path de socias (que no llevan prefijo).
+export async function subirFotoAdmin(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const path = `admin-${studioId}`;
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+export async function eliminarFotoAdmin(studioId: string): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([`admin-${studioId}`]);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+// Foto de perfil de instructora — mismo bucket público, prefijo propio.
+export async function subirFotoInstructor(instructorId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const path = `instructor-${instructorId}`;
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+export async function eliminarFotoInstructor(instructorId: string): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([`instructor-${instructorId}`]);
   if (error) return { error: error.message };
   return { ok: true };
 }

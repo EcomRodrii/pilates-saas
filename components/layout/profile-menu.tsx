@@ -14,8 +14,12 @@ import { AppearancePanel } from '@/components/layout/appearance-panel';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
-  const { studio } = useStudio();
+  const { studio, instructores } = useStudio();
   const router = useRouter();
+  // Mismo criterio que en el sidebar y en Configuración > Mi perfil: el
+  // avatar de cabecera es el de quien ha iniciado sesión, no siempre el de
+  // la propietaria.
+  const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const [open, setOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
@@ -73,7 +77,7 @@ export function ProfileMenu() {
           aria-haspopup="menu"
           className="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-background transition-colors"
         >
-          <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={userInitials} size="sm" />
+          <ProfileAvatar avatarId={yo ? yo.avatar : studio?.avatarAdmin} fotoUrl={yo ? yo.fotoUrl : studio?.fotoUrl} nombre={userInitials} size="sm" />
           <ChevronDown size={13} className="text-muted-foreground" />
         </button>
 
