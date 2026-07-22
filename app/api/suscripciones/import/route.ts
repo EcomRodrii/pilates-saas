@@ -5,6 +5,10 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { emailValido, parsearFecha, normalizarEstadoMembresia } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 
+// Una importación con miles de filas hace varios lotes secuenciales de INSERT;
+// damos margen sobre el default de Vercel para que no corte a medias.
+export const maxDuration = 60;
+
 // Importación masiva de MEMBRESÍAS / BONOS (suscripciones) desde CSV — segunda
 // parte de la migración asistida. Autenticada (JWT staff), scopeada al estudio de
 // la sesión (nunca se fía del body para el studio_id). Empareja cada fila con una

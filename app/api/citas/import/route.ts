@@ -6,6 +6,10 @@ import { uid } from '@/lib/utils';
 import type { FilaCita } from '@/lib/csv';
 import { errorInterno } from '@/lib/errores-servidor';
 
+// Una importación con miles de filas hace varios lotes secuenciales de INSERT;
+// damos margen sobre el default de Vercel para que no corte a medias.
+export const maxDuration = 60;
+
 // Importación de CITAS 1:1 desde CSV — última pieza de la migración asistida.
 //
 // A diferencia de las reservas, una cita NO necesita que exista una sesión: se

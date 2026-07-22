@@ -6,6 +6,10 @@ import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid } from '@/lib/utils';
 import type { FilaClase } from '@/lib/csv';
 
+// Una importación con miles de filas hace varios lotes secuenciales de INSERT;
+// damos margen sobre el default de Vercel para que no corte a medias.
+export const maxDuration = 60;
+
 // Importación del HORARIO (clases y sesiones) desde CSV — tercera pieza de la
 // migración asistida, tras socias y membresías. Sin horario el calendario llega
 // vacío y no puede colgar nada de él.
