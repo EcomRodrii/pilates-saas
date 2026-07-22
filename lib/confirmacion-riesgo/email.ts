@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
-import { PedirConfirmacionEmail, PlazaLiberadaEmail } from '@/lib/emails/confirmacion-riesgo-template';
+import { PedirConfirmacionEmail, RecordatorioConfirmacionEmail, PlazaLiberadaEmail } from '@/lib/emails/confirmacion-riesgo-template';
 
 // Emails de "opción 2" del riesgo de plantón (ver lib/confirmacion-riesgo/logica.ts):
 // pedir confirmación a quien tiene riesgo alto, y avisar con delicadeza si no
@@ -40,6 +40,13 @@ export async function enviarEmailPedirConfirmacion(params: Marca & {
 }): Promise<EnvioResultado> {
   const html = await render(PedirConfirmacionEmail(params));
   return enviar(params.to, `¿Vienes a ${params.claseNombre}? — ${params.estudioNombre}`, html);
+}
+
+export async function enviarEmailRecordatorioConfirmacion(params: Marca & {
+  to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; url: string;
+}): Promise<EnvioResultado> {
+  const html = await render(RecordatorioConfirmacionEmail(params));
+  return enviar(params.to, `¿Nos falta tu confirmación? — ${params.claseNombre}`, html);
 }
 
 export async function enviarEmailPlazaLiberada(params: Marca & {
