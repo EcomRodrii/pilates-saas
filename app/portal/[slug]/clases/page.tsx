@@ -89,6 +89,7 @@ export default function ClasesPage() {
           instructorNombre: instr?.nombre ?? null,
           instructorColor: instr?.color ?? null,
           instructorRol: instr?.rol ?? null,
+          instructorFotoUrl: instr?.fotoUrl ?? null,
           salaNombre: sala?.nombre ?? null,
           aforoMaximo: s.aforoMaximo,
           ocupadas: ocupadasPorSesion.get(s.id) ?? 0,

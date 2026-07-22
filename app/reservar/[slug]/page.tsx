@@ -331,6 +331,7 @@ export default function ReservarPage() {
           instructorNombre: s.instructor?.nombre ?? null,
           instructorColor: s.instructor?.color ?? null,
           instructorRol: s.instructor?.rol ?? null,
+          instructorFotoUrl: s.instructor?.fotoUrl ?? null,
           salaNombre: s.sala?.nombre ?? null,
           aforoMaximo: s.aforoMaximo,
           ocupadas: ocupadasPorSesion.get(s.id) ?? 0,

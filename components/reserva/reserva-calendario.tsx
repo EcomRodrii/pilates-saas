@@ -54,6 +54,7 @@ export interface ReservaSlot {
   instructorNombre?: string | null;
   instructorColor?: string | null;
   instructorRol?: string | null;
+  instructorFotoUrl?: string | null;
   salaNombre?: string | null;
   aforoMaximo: number;
   ocupadas: number;
@@ -90,6 +91,28 @@ function fmtHora(iso: string): string {
 }
 function fmtDiaLargo(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+// Foto real de la instructora si la ha subido; si no, sus iniciales sobre su
+// color — mismo criterio que el resto de la app (ver components/ui/profile-avatar).
+function InstructorAvatar({ nombre, color, fotoUrl, size }: { nombre: string; color?: string | null; fotoUrl?: string | null; size: number }) {
+  if (fotoUrl) {
+    return (
+      <img
+        src={fotoUrl}
+        alt={nombre}
+        style={{ width: size, height: size, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }}
+      />
+    );
+  }
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: size * 0.4, fontWeight: 800, color: '#fff', flexShrink: 0, background: color ?? 'var(--portal-brand)',
+    }}>
+      {nombre.charAt(0).toUpperCase()}
+    </div>
+  );
 }
 
 export function ReservaCalendario({
@@ -316,12 +339,12 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
         padding: 14, cursor: 'pointer',
       }}
     >
-      {/* Franja de color de la clase + hora */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, minWidth: 62 }}>
-        <span style={{ fontSize: 20, fontWeight: 800, color: t.ink, lineHeight: 1, letterSpacing: '-0.01em' }}>
+      {/* Franja de color de la clase + rango horario */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, minWidth: 62 }}>
+        <span style={{ fontSize: 18, fontWeight: 800, color: t.ink, lineHeight: 1.15, letterSpacing: '-0.01em' }}>
           {fmtHora(slot.inicio)}
         </span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: t.muted }}>{fmtHora(slot.fin)}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: t.muted, lineHeight: 1.15 }}>– {fmtHora(slot.fin)}</span>
       </div>
 
       <div style={{ width: 3, borderRadius: 999, background: slot.claseColor, alignSelf: 'stretch', flexShrink: 0 }} />
@@ -336,7 +359,10 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
           <span style={nivelBadge(slot.nivel)}>{NIVEL_LABEL[slot.nivel]}</span>
           {slot.instructorNombre && (
-            <span style={{ fontSize: 12, fontWeight: 700, color: t.muted }}>{slot.instructorNombre}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <InstructorAvatar nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={18} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: t.muted }}>{slot.instructorNombre}</span>
+            </span>
           )}
         </div>
         <div style={{ marginTop: 8 }}>
@@ -346,7 +372,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
             background: `color-mix(in srgb, ${capColor} 14%, transparent)`, color: capColor,
           }}>
             <Users size={12} />
-            {lleno ? 'Completa · lista de espera' : `${libres} ${libres === 1 ? 'plaza' : 'plazas'}`}
+            {lleno ? 'Completa · lista de espera' : `${slot.ocupadas}/${slot.aforoMaximo} plazas`}
           </span>
         </div>
       </div>
@@ -438,14 +464,12 @@ function BookingSheet({
             t={t}
             icon={<Users size={14} />}
             label="Plazas"
-            valor={lleno ? 'Completa' : `${libres} ${libres === 1 ? 'libre' : 'libres'}`}
+            valor={lleno ? `Completa (${slot.aforoMaximo}/${slot.aforoMaximo})` : `${slot.ocupadas}/${slot.aforoMaximo} · ${libres} ${libres === 1 ? 'libre' : 'libres'}`}
             valorColor={lleno ? semantic.danger.text : (libres <= 2 ? semantic.warning.text : t.ink)}
           />
           {slot.instructorNombre && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', flexShrink: 0, background: slot.instructorColor ?? 'var(--portal-brand)' }}>
-                {slot.instructorNombre.charAt(0).toUpperCase()}
-              </div>
+              <InstructorAvatar nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={34} />
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: 13.5, fontWeight: 800, color: t.ink, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.instructorNombre}</p>
                 <p style={{ fontSize: 11.5, color: t.muted }}>{slot.instructorRol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}</p>
