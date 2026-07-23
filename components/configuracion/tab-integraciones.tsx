@@ -105,7 +105,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'EXCEL',
     nombre: 'Exportar a Excel',
-    descripcion: 'Descarga tus clientas, suscripciones y recibos en un archivo compatible con Excel.',
+    descripcion: 'Descarga tus clientas, su historial de reservas y asistencia, y los recibos en archivos compatibles con Excel.',
     Icon: FileSpreadsheet,
     color: '#1D6F42',
     bg: '#E7F4EC',
@@ -194,7 +194,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   // dentro del JSX y un hook no puede llamarse ahí. El sufijo por campo.key
   // hace único cada id.
   const uid = useId();
-  const { studio, updateStudio, integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos } = useStudio();
+  const { studio, updateStudio, integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos, reservas, sesiones, tiposClase } = useStudio();
   const [editando, setEditando] = useState<TipoIntegracion | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [probando, setProbando] = useState<TipoIntegracion | null>(null);
@@ -500,7 +500,34 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       ]);
     }
     descargarCsv(`tentare-recibos-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rRows));
-    showToast('Exportación descargada (clientas y recibos)');
+
+    // Hoja historial: cada reserva con su clase, fecha y asistencia — es el
+    // "exportas tu historial" prometido en la FAQ pública, no solo el censo.
+    const sesionById = new Map(sesiones.map(s => [s.id, s]));
+    const tipoById = new Map(tiposClase.map(t => [t.id, t]));
+    const hRows: (string | number | null)[][] = [
+      ['Clienta', 'Email', 'Clase', 'Fecha', 'Hora', 'Estado', 'Check-in'],
+    ];
+    const reservasOrdenadas = [...reservas].sort((a, b) => {
+      const ia = sesionById.get(a.sesionId)?.inicio ?? '';
+      const ib = sesionById.get(b.sesionId)?.inicio ?? '';
+      return ib.localeCompare(ia);
+    });
+    for (const r of reservasOrdenadas) {
+      const s = socioById.get(r.socioId);
+      const ses = sesionById.get(r.sesionId);
+      const ini = ses ? new Date(ses.inicio) : null;
+      hRows.push([
+        s ? `${s.nombre} ${s.apellidos}` : '', s?.email ?? '',
+        ses ? tipoById.get(ses.tipoClaseId)?.nombre ?? '' : '',
+        ini ? ini.toLocaleDateString('es-ES') : '',
+        ini ? ini.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '',
+        r.estado, r.checkInEn ? 'Sí' : 'No',
+      ]);
+    }
+    descargarCsv(`tentare-historial-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(hRows));
+
+    showToast('Exportación descargada (clientas, historial y recibos)');
   };
 
   return (
