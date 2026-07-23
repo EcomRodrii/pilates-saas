@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseCsv, parsearFecha, separarNombre, autoMapear, validarFilas } from './csv.ts';
-import { analizarDeterminista } from './migracion/clasificador.ts';
+import { analizarDeterminista, analizarConMapeoManual } from './migracion/clasificador.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Robustez del importador frente a exports REALES y desordenados. Estos casos
@@ -86,4 +86,34 @@ test('se quita el apóstrofo con que Excel fuerza texto en teléfonos/NIF', () =
   const filas = validarFilas([['María', 'MARIA@GMAIL.COM', "'600111222"]], autoMapear(headers));
   assert.equal(filas[0].datos.telefono, '600111222');
   assert.equal(filas[0].datos.email, 'maria@gmail.com');
+});
+
+// ── Corrección manual del mapeo (red de seguridad cuando el auto falla) ────────
+
+const CRIPTICO = {
+  nombre: 'raro.csv',
+  contenido: 'col_a,col_b,col_c\nMaría,maria@gmail.com,600111222\nNora,nora@hotmail.com,611333444\n',
+};
+
+test('un archivo de cabeceras crípticas queda sin clasificar por el auto', () => {
+  assert.equal(analizarDeterminista([CRIPTICO]).archivos[0].entidad, null);
+});
+
+test('asignándolo a mano (entidad + columnas) se importa correctamente', () => {
+  const a = analizarConMapeoManual(CRIPTICO, 'socias', { nombre: 0, email: 1, telefono: 2 });
+  assert.equal(a.entidad, 'socias');
+  assert.equal(a.origen, 'manual');
+  assert.equal(a.ok, 2);
+  assert.equal(a.muestra[0].email, 'maria@gmail.com');
+});
+
+test('mapeo manual sin un campo obligatorio avisa y no importa nada', () => {
+  const a = analizarConMapeoManual(CRIPTICO, 'socias', { nombre: 0 });
+  assert.equal(a.ok, 0);
+  assert.match(a.avisos[0], /Asigna una columna para: Email/);
+});
+
+test('entidad manual = null → no se importa', () => {
+  const a = analizarConMapeoManual(CRIPTICO, null, {});
+  assert.equal(a.entidad, null);
 });

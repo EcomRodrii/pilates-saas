@@ -89,7 +89,7 @@ export interface ArchivoAnalizado {
   nombre: string;
   entidad: EntidadMigracion | null; // null = sin clasificar (decide el humano)
   entidadEtiqueta: string | null;
-  origen: 'auto' | 'ia' | null;
+  origen: 'auto' | 'ia' | 'manual' | null;
   confianza: number; // 0-1 (proporción de filas válidas del mapeo elegido)
   columnas: string[];
   mapeo: Record<string, number> | null;
@@ -168,7 +168,7 @@ function avisosDeContexto(entidad: EntidadMigracion, validadas: FilaValidadaComu
 
 export function construirAnalisis(
   nombre: string, headers: string[], rows: string[][],
-  entidad: EntidadMigracion, origen: 'auto' | 'ia',
+  entidad: EntidadMigracion, origen: 'auto' | 'ia' | 'manual',
   mapeo: Record<string, number>, validadas: FilaValidadaComun[], ctx: ContextoEstudio,
 ): ArchivoAnalizado {
   const ok = validadas.filter(v => v.estado === 'ok');
@@ -251,6 +251,30 @@ export function clasificarArchivoDeterminista(archivo: ArchivoEntrada, ctx: Cont
       ? `Se parece a "${ENTIDADES[mejor.entidad].etiqueta}" pero solo ${Math.round(mejor.tasaOk * 100)}% de filas válidas — asigna la entidad y columnas a mano.`
       : 'No se ha reconocido el formato — asigna la entidad y las columnas a mano.',
   };
+}
+
+// Reanaliza UN archivo con una entidad y un mapeo elegidos A MANO por la
+// propietaria (paso de revisión). Client-safe: reutiliza el mismo validador y
+// la misma construcción de análisis que la vía automática, así lo que ve en la
+// muestra es EXACTAMENTE lo que se importará. entidad=null → "no importar".
+export function analizarConMapeoManual(
+  archivo: ArchivoEntrada,
+  entidad: EntidadMigracion | null,
+  mapeo: Record<string, number>,
+  ctx: ContextoEstudio = CTX_VACIO,
+): ArchivoAnalizado {
+  let headers: string[] = [];
+  let rows: string[][] = [];
+  try { ({ headers, rows } = parseCsv(archivo.contenido)); } catch { /* archivo ilegible */ }
+  if (!entidad) return sinClasificar(archivo.nombre, headers, rows.length, 'Marcado como "no importar".');
+  const def = ENTIDADES[entidad];
+  const faltan = def.campos.filter(c => c.obligatorio && (mapeo[c.campo] ?? -1) === -1).map(c => c.etiqueta);
+  const validadas = def.validar(rows, mapeo);
+  const analisis = construirAnalisis(archivo.nombre, headers, rows, entidad, 'manual', mapeo, validadas, ctx);
+  if (faltan.length) {
+    analisis.avisos.unshift(`Asigna una columna para: ${faltan.join(', ')} — sin eso no se importará ninguna fila.`);
+  }
+  return analisis;
 }
 
 // Avisos globales de dependencias + orden de ejecución filtrado a lo presente.
