@@ -38,7 +38,7 @@ export function Precio() {
                 {plan.features.map((f, fi) => <span key={f}>{f}{fi < plan.features.length - 1 && <br />}</span>)}
               </div>
               <Link
-                href="/crear-estudio"
+                href={plan.name === 'Cadena' ? 'mailto:soporte@tentare.app' : '#lista-espera'}
                 className="block hover:brightness-95 transition-all"
                 style={{ textAlign: 'center', marginTop: 24, background: plan.popular ? ACC : '#F3F3EF', color: plan.popular ? '#fff' : '#1A1A1A', fontWeight: 700, padding: 14, borderRadius: 14 }}
               >
