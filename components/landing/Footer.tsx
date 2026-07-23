@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { DARK, MUTED_DARK } from './theme';
 
 export function Footer() {
@@ -22,6 +23,9 @@ export function Footer() {
               <a href="#sustituciones" style={{ color: '#8E8E86' }}>Sustituciones</a>
               <a href="#precio" style={{ color: '#8E8E86' }}>Precio</a>
               <a href="#faq" style={{ color: '#8E8E86' }}>FAQ</a>
+              <Link href="/recursos" style={{ color: '#8E8E86' }}>Recursos</Link>
+              <Link href="/comparativa" style={{ color: '#8E8E86' }}>Comparativa</Link>
+              <Link href="/seguridad" style={{ color: '#8E8E86' }}>Seguridad</Link>
             </div>
           </div>
           <div>

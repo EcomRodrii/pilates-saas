@@ -6,6 +6,7 @@ export const NAV_LINKS = [
   { href: '#sustituciones', label: 'Sustituciones' },
   { href: '#precio', label: 'Precio' },
   { href: '#faq', label: 'FAQ' },
+  { href: '/recursos', label: 'Recursos' },
 ];
 
 export const SPINE_SECTIONS = [
