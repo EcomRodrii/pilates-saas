@@ -504,6 +504,21 @@ export interface RowBloqueosMaquina {
   creado_en: string;
 }
 
+export interface RowPlazasFijas {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  dia_semana: number;
+  hora_inicio: string;
+  sala_id: string;
+  tipo_clase_id: string | null;
+  spot_id: string | null;
+  vigencia_desde: string;
+  vigencia_hasta: string | null;
+  estado: string;
+  creada_en: string;
+}
+
 export interface RowSesiones {
   id: string;
   studio_id: string;

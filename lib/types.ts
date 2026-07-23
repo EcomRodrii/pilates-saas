@@ -300,6 +300,23 @@ export interface BloqueoMaquina {
   creadoEn: string;
 }
 
+// F2 (B2.2): plaza fija semanal. Anclada a un SLOT (día+hora local+sala); la
+// materialización (pg_cron) crea reservas normales para las sesiones que encajan.
+export interface PlazaFija {
+  id: string;
+  studioId: string;
+  socioId: string;
+  diaSemana: number;           // 0=domingo … 6=sábado (= extract(dow))
+  horaInicio: string;          // 'HH:MM[:SS]' hora local
+  salaId: string;
+  tipoClaseId: string | null;  // opcional: acota a un tipo de clase
+  spotId: string | null;       // "tu reformer" (opcional)
+  vigenciaDesde: string;       // YYYY-MM-DD
+  vigenciaHasta: string | null;// null = indefinida
+  estado: 'ACTIVA' | 'PAUSADA' | 'BAJA';
+  creadaEn: string;
+}
+
 export interface Sala {
   id: string;
   studioId: string;

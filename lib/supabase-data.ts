@@ -58,6 +58,7 @@ import type {
   RowRewardRules,
   RowSalas,
   RowBloqueosMaquina,
+  RowPlazasFijas,
   RowSesiones,
   RowSocios,
   RowCamposPersonalizados,
@@ -119,6 +120,7 @@ import type {
   RewardTrigger,
   Sala,
   BloqueoMaquina,
+  PlazaFija,
   Sesion,
   Socio,
   CampoPersonalizado,
@@ -626,6 +628,39 @@ function bloqueoMaquinaToDb(b: BloqueoMaquina) {
     desde: b.desde,
     hasta: b.hasta ?? null,
     motivo: b.motivo ?? null,
+  };
+}
+
+function mapPlazaFija(r: RowPlazasFijas): PlazaFija {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    diaSemana: r.dia_semana,
+    horaInicio: r.hora_inicio,
+    salaId: r.sala_id,
+    tipoClaseId: r.tipo_clase_id ?? null,
+    spotId: r.spot_id ?? null,
+    vigenciaDesde: r.vigencia_desde,
+    vigenciaHasta: r.vigencia_hasta ?? null,
+    estado: (r.estado as PlazaFija['estado']) ?? 'ACTIVA',
+    creadaEn: r.creada_en,
+  };
+}
+
+function plazaFijaToDb(p: PlazaFija) {
+  return {
+    id: p.id,
+    studio_id: p.studioId ?? STUDIO_ID,
+    socio_id: p.socioId,
+    dia_semana: p.diaSemana,
+    hora_inicio: p.horaInicio,
+    sala_id: p.salaId,
+    tipo_clase_id: p.tipoClaseId ?? null,
+    spot_id: p.spotId ?? null,
+    vigencia_desde: p.vigenciaDesde,
+    vigencia_hasta: p.vigenciaHasta ?? null,
+    estado: p.estado,
   };
 }
 
@@ -3436,6 +3471,42 @@ export async function dbInsertBloqueoMaquina(b: BloqueoMaquina) {
 export async function dbCerrarBloqueoMaquina(id: string, hastaISO: string) {
   const { error } = await supabase.from('bloqueos_maquina').update({ hasta: hastaISO }).eq('id', id);
   if (error) reportDbError('[dbCerrarBloqueoMaquina]', error);
+}
+
+// F2 (B2.2): plazas fijas. Capa de datos (la materialización + UI llegan en 4b/4c).
+export async function dbListPlazasFijas(studioId: string): Promise<PlazaFija[]> {
+  const { data, error } = await supabase
+    .from('plazas_fijas').select('*').eq('studio_id', studioId)
+    .order('dia_semana', { ascending: true }).order('hora_inicio', { ascending: true });
+  if (error) { reportDbError('[dbListPlazasFijas]', error); return []; }
+  return (data ?? []).map(mapPlazaFija);
+}
+
+export async function dbInsertPlazaFija(p: PlazaFija): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.from('plazas_fijas').insert(plazaFijaToDb(p));
+  if (error) {
+    reportDbError('[dbInsertPlazaFija]', error);
+    // Violación de la exclusión GiST = ese sitio ya está pillado en ese slot.
+    if (error.message.includes('plazas_fijas_spot_sin_solape')) {
+      return { error: 'Ese sitio ya está asignado a otra socia en ese día y hora' };
+    }
+    return { error: error.message };
+  }
+  return { ok: true };
+}
+
+export async function dbUpdatePlazaFija(id: string, changes: Partial<PlazaFija>) {
+  const db: Record<string, unknown> = {};
+  if ('diaSemana' in changes) db.dia_semana = changes.diaSemana;
+  if ('horaInicio' in changes) db.hora_inicio = changes.horaInicio;
+  if ('salaId' in changes) db.sala_id = changes.salaId;
+  if ('tipoClaseId' in changes) db.tipo_clase_id = changes.tipoClaseId;
+  if ('spotId' in changes) db.spot_id = changes.spotId;
+  if ('vigenciaDesde' in changes) db.vigencia_desde = changes.vigenciaDesde;
+  if ('vigenciaHasta' in changes) db.vigencia_hasta = changes.vigenciaHasta;
+  if ('estado' in changes) db.estado = changes.estado;
+  const { error } = await supabase.from('plazas_fijas').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdatePlazaFija]', error);
 }
 
 export async function dbInsertSesion(ses: Sesion) {
