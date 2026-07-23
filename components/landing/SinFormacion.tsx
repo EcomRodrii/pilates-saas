@@ -6,6 +6,13 @@ const CARDS = [
   { title: 'El sistema te dice qué hacer', body: 'El Centro de Control te pone delante lo que necesita tu atención. No buscas nada entre menús: llega solo.', color: '#C08BE8' },
   { title: 'Empieza hoy, aprende sobre la marcha', body: 'Activas lo básico primero y el resto cuando te haga falta. Sin cursos ni configuraciones eternas.', color: '#7BD3A8' },
   { title: 'Migración incluida', body: 'Importas tus datos con asistentes guiados por CSV y te acompañamos en la puesta en marcha. No empiezas de cero ni te dejamos sola.', color: '#C08BE8' },
+  { title: 'Sin jerga, sin menús escondidos', body: 'Cada pantalla dice lo que hace en el propio botón. Si te pierdes, el soporte responde en español y en minutos.', color: '#7BD3A8' },
+];
+
+const STATS = [
+  { value: '0', label: 'formación necesaria' },
+  { value: '5 min', label: 'para hacer tu primera reserva' },
+  { value: '1 tarde', label: 'para que todo tu equipo lo use solo' },
 ];
 
 export function SinFormacion() {
@@ -15,11 +22,21 @@ export function SinFormacion() {
         <div style={{ position: 'absolute', top: '-30%', right: '-6%', width: 440, height: 440, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,.28), transparent 64%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative' }}>
           <div style={{ maxWidth: 640, marginBottom: 'clamp(28px,4vw,40px)' }}>
-            <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#C08BE8', marginBottom: 14 }}>Sin curva de aprendizaje</div>
-            <h2 style={{ fontWeight: 800, fontSize: 'clamp(28px,4.2vw,48px)', lineHeight: 1.03, letterSpacing: '-.03em', margin: '0 0 12px', color: '#fff' }}>Hecho para usarlo sin manual.</h2>
-            <p style={{ fontSize: 17, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>No necesitas formación ni un técnico. Tentare está pensado para que una propietaria ocupada lo maneje desde el primer día. Si sabes usar WhatsApp, sabes usar Tentare.</p>
+            <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#C08BE8', marginBottom: 14 }}>Facilidad de uso, en serio</div>
+            <h2 style={{ fontWeight: 800, fontSize: 'clamp(28px,4.2vw,48px)', lineHeight: 1.03, letterSpacing: '-.03em', margin: '0 0 12px', color: '#fff' }}>El software más sencillo que vas a usar hoy.</h2>
+            <p style={{ fontSize: 17, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>No necesitas formación ni un técnico. Tentare está pensado para que una propietaria ocupada lo maneje desde el primer día — sin cursos, sin manual, sin llamar a nadie. Si sabes usar WhatsApp, sabes usar Tentare.</p>
           </div>
-          <div className="tnt-g3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+
+          <div style={{ display: 'flex', gap: 'clamp(20px,4vw,40px)', flexWrap: 'wrap', marginBottom: 'clamp(28px,4vw,40px)', paddingBottom: 'clamp(28px,4vw,40px)', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+            {STATS.map((s) => (
+              <div key={s.label}>
+                <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-.03em', color: '#C08BE8' }}>{s.value}</div>
+                <div style={{ fontSize: 13.5, color: MUTED_DARK }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
             {CARDS.map((c) => (
               <div key={c.title} style={{ background: CARD_DARK, border: '1px solid rgba(255,255,255,.07)', borderRadius: 18, padding: 24 }}>
                 <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(255,255,255,.08)', color: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>{IconCheck(20)}</div>

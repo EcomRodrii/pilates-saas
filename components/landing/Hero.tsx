@@ -72,7 +72,7 @@ export function Hero() {
             </Link>
           </div>
           <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.03em', color: '#8E8E86', animation: 'lp-riseIn .85s cubic-bezier(.2,.7,0,1) .5s both' }}>
-            Sin permanencia · Migración incluida · Hecho en España
+            Sin permanencia · Fácil de usar desde el día 1 · Hecho en España
           </div>
         </div>
 
