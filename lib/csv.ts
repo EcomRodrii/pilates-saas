@@ -85,8 +85,36 @@ export function parseCsv(input: string): ParsedCsv {
 
   // Descarta registros totalmente vacíos (líneas en blanco).
   const limpios = registros.filter((r) => !(r.length === 1 && r[0] === ''));
-  const headers = (limpios.shift() ?? []).map((h) => h.trim());
-  return { headers, rows: limpios, delimiter };
+
+  // Detección de la fila de CABECERA real. Muchos export caseros (y algún Excel)
+  // meten un título ("Listado de clientas 2026") y/o filas en blanco ANTES de la
+  // cabecera; tomar la fila 1 a ciegas hacía que TODO el archivo quedara sin
+  // clasificar. La cabecera es la primera fila cuyo nº de columnas coincide con
+  // el ancho dominante (la moda de las primeras filas) — las de preámbulo, más
+  // estrechas (un título es 1 sola celda), se saltan.
+  const muestraN = Math.min(limpios.length, 12);
+  const cuentas = new Map<number, number>();
+  for (let k = 0; k < muestraN; k++) {
+    const n = limpios[k].length;
+    if (n >= 2) cuentas.set(n, (cuentas.get(n) ?? 0) + 1);
+  }
+  let anchoDom = 0;
+  let mejorCuenta = 0;
+  for (const [n, c] of cuentas) {
+    if (c > mejorCuenta || (c === mejorCuenta && n > anchoDom)) { anchoDom = n; mejorCuenta = c; }
+  }
+  // Solo se saltan filas de preámbulo cuando la PRIMERA fila es más estrecha que
+  // el ancho dominante (un título/nota ocupa 1 celda). Si la fila 1 ya es tan
+  // ancha como el resto, es la cabecera y no se toca — así no se pierde la
+  // cabecera en archivos cuyas filas de datos traen menos columnas (celdas
+  // finales vacías omitidas).
+  let inicio = 0;
+  if (anchoDom >= 2 && limpios[0].length < anchoDom) {
+    const idx = limpios.findIndex((r) => r.length >= anchoDom);
+    if (idx > 0) inicio = idx;
+  }
+  const headers = (limpios[inicio] ?? []).map((h) => h.trim());
+  return { headers, rows: limpios.slice(inicio + 1), delimiter };
 }
 
 /** Serializa filas a CSV (para plantilla descargable y reporte de errores). */
@@ -205,11 +233,34 @@ function fechaValidaISO(y: number, mo: number, d: number): string | null {
   return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+// Meses en español e inglés (nombre completo y abreviatura de 3 letras).
+const MESES: Record<string, number> = {
+  ene: 1, enero: 1, jan: 1, january: 1,
+  feb: 2, febrero: 2, february: 2,
+  mar: 3, marzo: 3, march: 3,
+  abr: 4, abril: 4, apr: 4, april: 4,
+  may: 5, mayo: 5,
+  jun: 6, junio: 6, june: 6,
+  jul: 7, julio: 7, july: 7,
+  ago: 8, agosto: 8, aug: 8, august: 8,
+  sep: 9, sept: 9, septiembre: 9, september: 9,
+  oct: 10, octubre: 10, october: 10,
+  nov: 11, noviembre: 11, november: 11,
+  dic: 12, diciembre: 12, dec: 12, december: 12,
+};
+
+/** Año de 2 dígitos → 4 dígitos con pivote en 69 (00-69 → 2000-2069, 70-99 → 1900+). */
+function anioDe2Digitos(yy: number): number {
+  return yy <= 69 ? 2000 + yy : 1900 + yy;
+}
+
 /**
- * Parsea una fecha de una celda a 'YYYY-MM-DD'. Acepta ISO (YYYY-MM-DD) y el
- * formato europeo DD/MM/YYYY (con separadores / - o .). Devuelve null si está
- * vacía o no es una fecha válida — para migración es lenient: una fecha ilegible
- * no invalida la fila, solo se ignora ese campo.
+ * Parsea una fecha de una celda a 'YYYY-MM-DD'. Acepta:
+ *  · ISO            YYYY-MM-DD (con hora opcional detrás)
+ *  · europeo        DD/MM/YYYY y DD/MM/YY (con separadores / - o .)
+ *  · nombre de mes  "15 mar 2024", "15 de marzo de 2024", "Mar 15, 2024" (ES/EN)
+ * Devuelve null si está vacía o no es una fecha válida — para migración es
+ * lenient: una fecha ilegible no invalida la fila, solo se ignora ese campo.
  */
 export function parsearFecha(celda: string | null | undefined): string | null {
   const s = (celda ?? '').trim();
@@ -218,7 +269,47 @@ export function parsearFecha(celda: string | null | undefined): string | null {
   if (m) return fechaValidaISO(+m[1], +m[2], +m[3]);
   m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/); // europeo: DD/MM/YYYY
   if (m) return fechaValidaISO(+m[3], +m[2], +m[1]);
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})(?!\d)/); // europeo con año de 2 díg.
+  if (m) return fechaValidaISO(anioDe2Digitos(+m[3]), +m[2], +m[1]);
+
+  // Fechas con nombre de mes, en cualquier orden razonable (día-mes-año o
+  // mes-día-año). Se localiza el mes por palabra y se reparten los números.
+  const norm = s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '');
+  const tokens = norm.split(/[\s,]+/).filter((t) => t && t !== 'de' && t !== 'del');
+  let mes: number | null = null;
+  const nums: number[] = [];
+  for (const t of tokens) {
+    if (t in MESES) mes = MESES[t];
+    else if (/^\d{1,4}$/.test(t)) nums.push(Number(t));
+  }
+  if (mes !== null && nums.length >= 2) {
+    const anioRaw = nums.find((n) => n > 31);
+    const anio = anioRaw != null ? (anioRaw >= 100 ? anioRaw : anioDe2Digitos(anioRaw)) : anioDe2Digitos(nums[nums.length - 1]);
+    const dia = anioRaw != null ? nums.find((n) => n <= 31) : nums[0];
+    if (dia != null) return fechaValidaISO(anio, mes, dia);
+  }
   return null;
+}
+
+/**
+ * Separa un nombre completo en {nombre, apellidos}. Reconoce el formato
+ * "Apellidos, Nombre" (coma) y el habitual "Nombre Apellido1 Apellido2"
+ * (primer token = nombre, resto = apellidos). Solo se usa cuando el archivo NO
+ * trae una columna de apellidos propia — así, un export con "Nombre completo"
+ * o "Client Name" no mete el apellido dentro del nombre de pila.
+ */
+export function separarNombre(completo: string): { nombre: string; apellidos: string } {
+  const s = completo.trim().replace(/\s+/g, ' ');
+  if (!s) return { nombre: '', apellidos: '' };
+  const coma = s.indexOf(',');
+  if (coma !== -1) {
+    const apellidos = s.slice(0, coma).trim();
+    const nombre = s.slice(coma + 1).trim();
+    if (nombre && apellidos) return { nombre, apellidos };
+  }
+  const partes = s.split(' ');
+  if (partes.length >= 2) return { nombre: partes[0], apellidos: partes.slice(1).join(' ') };
+  return { nombre: s, apellidos: '' };
 }
 
 /** Separa una celda de etiquetas en un array (soporta ; | y coma). */
@@ -262,12 +353,22 @@ export function validarFilas(
   const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
 
   return rows.map((fila, i) => {
-    const nombre = val(fila, mapeo.nombre);
-    const apellidos = val(fila, mapeo.apellidos);
+    let nombre = val(fila, mapeo.nombre);
+    let apellidos = val(fila, mapeo.apellidos);
+    // Sin columna de apellidos propia: intenta separar el nombre completo
+    // ("Apellidos, Nombre" o "Nombre Apellidos") en sus dos partes.
+    if (mapeo.apellidos < 0 && nombre) {
+      const sep = separarNombre(nombre);
+      nombre = sep.nombre;
+      apellidos = sep.apellidos;
+    }
     const emailRaw = val(fila, mapeo.email);
     const email = emailRaw.toLowerCase();
-    const telefono = val(fila, mapeo.telefono) || null;
-    const nif = val(fila, mapeo.nif) || null;
+    // Excel antepone un apóstrofo a los campos que fuerza a texto (teléfonos,
+    // DNIs con ceros): "'600111222". Se quita para no arrastrarlo al dato.
+    const sinApostrofo = (v: string) => v.replace(/^'/, '');
+    const telefono = sinApostrofo(val(fila, mapeo.telefono)) || null;
+    const nif = sinApostrofo(val(fila, mapeo.nif)) || null;
     const tags = mapeo.tags >= 0 ? parsearTags(val(fila, mapeo.tags)) : [];
     const fechaAlta = mapeo.fecha_alta >= 0 ? parsearFecha(val(fila, mapeo.fecha_alta)) : null;
     const direccion = mapeo.direccion >= 0 ? (val(fila, mapeo.direccion) || null) : null;
