@@ -129,7 +129,11 @@ export default function MisReservasPage() {
 
       <BottomSheet open={!!cancelando} onClose={() => setCancelando(null)}>
         <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Cancelar esta clase?</h2>
-        <p style={{ fontSize: 13, color: t.muted }}>Perderás tu plaza y liberarás el hueco para otra socia.</p>
+        <p style={{ fontSize: 13, color: t.muted }}>
+          {cancelando?.id.startsWith('res-pf-')
+            ? 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.'
+            : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
+        </p>
         <div style={{ display: 'flex', gap: 8 }}>
           <Button variant="secondary" onClick={() => setCancelando(null)} style={{ flex: 1 }}>Volver</Button>
           <Button
