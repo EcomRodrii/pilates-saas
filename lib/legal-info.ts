@@ -2,10 +2,11 @@
 // Datos legales del titular del sitio y servicios usados. FUENTE ÚNICA para las
 // páginas públicas /legal, /privacidad, /terminos y /cookies.
 //
-// ⚠️ PENDIENTE DE COMPLETAR: los identificadores de la sociedad (razón social,
-// NIF, domicilio, datos registrales) son PLACEHOLDERS entre corchetes. Rellénalos
-// AQUÍ, en un único sitio, antes del go-live definitivo, y que el abogado revise
-// el conjunto. No inventar datos legales: si no se conocen, se dejan marcados.
+// Titular = persona física (autónomo). Un autónomo NO tiene datos registrales
+// (el Registro Mercantil es solo para sociedades), por eso ese campo no existe.
+// El TEXTO legal de las páginas sigue siendo de plantilla y conviene que lo
+// revise asesoría jurídica. Si en el futuro se constituye una S.L., actualizar
+// titular/nif/domicilio y volver a añadir los datos registrales.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const LEGAL = {
@@ -15,21 +16,16 @@ export const LEGAL = {
   // Fecha de última revisión del contenido legal (no la de render).
   actualizado: '23 de julio de 2026',
 
-  // ── Identificación del titular (LSSI-CE art. 10) — COMPLETAR ────────────────
-  titular: '[RAZÓN SOCIAL, S.L.]',
-  nif: '[NIF/CIF]',
-  domicilio: '[Domicilio social completo]',
-  registro: '[Registro Mercantil de —, Tomo —, Folio —, Hoja —]',
+  // ── Identificación del titular (LSSI-CE art. 10) ────────────────────────────
+  // Persona física (autónomo). Sin datos registrales (ver cabecera).
+  titular: 'Marcos Roca Rodríguez',
+  nif: '27361301H',
+  domicilio: 'Barcelona',
 
   // ── Contacto ────────────────────────────────────────────────────────────────
   email: 'hola@tentare.app',
   emailPrivacidad: 'privacidad@tentare.app',
 } as const;
-
-/** ¿El valor sigue siendo un placeholder pendiente de completar? */
-export function esPlaceholder(v: string): boolean {
-  return v.trim().startsWith('[');
-}
 
 // Encargados/subencargados del tratamiento realmente usados por el producto
 // (RGPD art. 28). Se listan en la Política de Privacidad. Mantener en sync con
