@@ -24,7 +24,13 @@ import {
   type FilaSocia, type FilaMembresia, type FilaClase, type FilaReserva, type FilaCita,
 } from '@/lib/csv';
 import { uid } from '@/lib/utils';
-import type { PlanMigracion, ArchivoAnalizado, EntidadMigracion } from '@/lib/migracion/analizador';
+import type { PlanMigracion, ArchivoAnalizado } from '@/lib/migracion/analizador';
+// Runtime desde clasificador (client-safe): analizador.ts arrastra el SDK de
+// Anthropic y no puede entrar en un bundle de cliente.
+import {
+  ENTIDADES, analizarConMapeoManual, avisosGlobalesYOrden,
+  type EntidadMigracion, type ContextoEstudio,
+} from '@/lib/migracion/clasificador';
 
 type Paso = 'subir' | 'analizando' | 'revisar' | 'ejecutando' | 'acta';
 
@@ -64,7 +70,22 @@ export default function MigracionPage() {
   // Tras importar (o deshacer) hay que refrescar el estado global del panel:
   // si no, las clientas/reservas recién creadas NO aparecen en sus listados
   // hasta recargar la página a mano. resetDatosPilates re-lee todo del servidor.
-  const { resetDatosPilates } = useStudio();
+  const { resetDatosPilates, planesTarifa, instructores, salas, citasServicios } = useStudio();
+  // Contexto del estudio para reanalizar mapeos manuales con los mismos avisos
+  // (planes/instructoras/salas/servicios inexistentes) que la vía automática.
+  const ctxEstudio: ContextoEstudio = {
+    planes: planesTarifa.map(p => p.nombre),
+    instructores: instructores.map(i => i.nombre),
+    salas: salas.map(s => s.nombre),
+    servicios: citasServicios.map(s => s.nombre),
+  };
+
+  // Correcciones manuales de la propietaria en el paso de revisión: por archivo,
+  // qué entidad es y qué columna alimenta cada campo. Si el auto-mapeo se
+  // equivoca (inevitable con formatos que no hemos visto), aquí se arregla en
+  // segundos — sin esto, un archivo mal clasificado era un callejón sin salida.
+  const [overrides, setOverrides] = useState<Record<string, { entidad: EntidadMigracion | null; mapeo: Record<string, number> }>>({});
+  const [editando, setEditando] = useState<string | null>(null);
   const [paso, setPaso] = useState<Paso>('subir');
   const [arrastrando, setArrastrando] = useState(false);
   const [archivos, setArchivos] = useState<ArchivoLocal[]>([]);
@@ -133,8 +154,8 @@ export default function MigracionPage() {
     const out: ResultadoEntidad[] = [];
     const hoy = new Date().toISOString().slice(0, 10);
 
-    for (const entidad of plan.orden) {
-      const deEntidad = plan.archivos.filter(a => a.entidad === entidad);
+    for (const entidad of efectivo.orden) {
+      const deEntidad = archivosEfectivos.filter(a => a.entidad === entidad);
       const filas = deEntidad.flatMap(a => filasDe(a));
       if (filas.length === 0) continue;
       const etiqueta = deEntidad[0].entidadEtiqueta ?? entidad;
@@ -182,9 +203,37 @@ export default function MigracionPage() {
     resetDatosPilates();
   }
 
-  const listos = plan?.archivos.filter(a => a.entidad !== null) ?? [];
-  const sinClasificar = plan?.archivos.filter(a => a.entidad === null) ?? [];
+  // Plan EFECTIVO: el análisis del servidor con las correcciones manuales
+  // aplicadas encima (reanálisis determinista en cliente, mismos validadores).
+  const archivosEfectivos: ArchivoAnalizado[] = !plan ? [] : plan.archivos.map(a => {
+    const ov = overrides[a.nombre];
+    if (!ov) return a;
+    const raw = archivos.find(x => x.nombre === a.nombre);
+    if (!raw) return a;
+    return analizarConMapeoManual(raw, ov.entidad, ov.mapeo, ctxEstudio);
+  });
+
+  // Sin useMemo: el React Compiler ya memoiza y aquí no puede preservar la
+  // memoización manual (la salida es un objeto nuevo). El cálculo es trivial.
+  const efectivo = avisosGlobalesYOrden(archivosEfectivos);
+
+  const listos = archivosEfectivos.filter(a => a.entidad !== null);
+  const sinClasificar = archivosEfectivos.filter(a => a.entidad === null);
   const totalOk = listos.reduce((s, a) => s + a.ok, 0);
+
+  // Cambia la entidad de un archivo: prerellena el mapeo con el auto-mapeo de esa
+  // entidad (mejor punto de partida que en blanco) para que solo retoque lo justo.
+  function cambiarEntidad(a: ArchivoAnalizado, entidad: EntidadMigracion | null) {
+    const mapeo = entidad ? ENTIDADES[entidad].mapear(a.columnas) : {};
+    setOverrides(prev => ({ ...prev, [a.nombre]: { entidad, mapeo } }));
+  }
+  // Cambia a qué columna (índice, -1 = sin asignar) se mapea un campo.
+  function cambiarColumna(a: ArchivoAnalizado, campo: string, idx: number) {
+    setOverrides(prev => {
+      const base = prev[a.nombre] ?? { entidad: a.entidad, mapeo: { ...(a.mapeo ?? {}) } };
+      return { ...prev, [a.nombre]: { entidad: base.entidad, mapeo: { ...base.mapeo, [campo]: idx } } };
+    });
+  }
   const toggleAbierto = (n: string) => setAbiertos(prev => {
     const s = new Set(prev);
     if (s.has(n)) s.delete(n); else s.add(n);
@@ -260,13 +309,13 @@ export default function MigracionPage() {
       {/* ── Paso 2: revisar el plan ────────────────────────────────────────── */}
       {paso === 'revisar' && plan && (
         <div className="space-y-4">
-          {plan.avisos.map(av => (
+          {efectivo.avisos.map(av => (
             <div key={av} className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-[13px] text-amber-800">
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />{av}
             </div>
           ))}
 
-          {plan.archivos.map(a => (
+          {archivosEfectivos.map(a => (
             <div key={a.nombre} className="rounded-2xl border border-border bg-card p-4">
               <div className="flex items-center gap-3">
                 <FileSpreadsheet size={18} className={a.entidad ? 'text-brand' : 'text-muted-foreground'} />
@@ -274,7 +323,7 @@ export default function MigracionPage() {
                   <p className="text-[14px] font-bold text-foreground truncate">{a.nombre}</p>
                   <p className="text-[12px] text-muted-foreground">
                     {a.entidad
-                      ? <>{a.entidadEtiqueta} · {a.origen === 'ia' ? 'clasificado con IA' : 'reconocido automáticamente'}</>
+                      ? <>{a.entidadEtiqueta} · {a.origen === 'manual' ? 'ajustado a mano' : a.origen === 'ia' ? 'clasificado con IA' : 'reconocido automáticamente'}</>
                       : 'Sin clasificar — no se importará'}
                   </p>
                 </div>
@@ -282,6 +331,56 @@ export default function MigracionPage() {
                   <div className="text-right shrink-0">
                     <p className="text-[15px] font-extrabold text-foreground tabular-nums">{a.ok}</p>
                     <p className="text-[11px] text-muted-foreground">se importarán</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Corrección manual: entidad + columna por campo. La red de
+                  seguridad cuando el auto-mapeo no acierta en un formato nuevo. */}
+              <div className="mt-2.5">
+                <button
+                  onClick={() => setEditando(editando === a.nombre ? null : a.nombre)}
+                  className="text-[12px] font-semibold text-brand hover:underline"
+                >
+                  {editando === a.nombre ? 'Cerrar ajustes' : a.entidad ? 'Ajustar entidad o columnas' : 'Asignar a mano'}
+                </button>
+                {editando === a.nombre && (
+                  <div className="mt-2 rounded-xl border border-border bg-muted/30 p-3 space-y-2.5">
+                    <label className="block">
+                      <span className="text-[11px] font-semibold text-muted-foreground">¿Qué es este archivo?</span>
+                      <select
+                        value={a.entidad ?? ''}
+                        onChange={e => cambiarEntidad(a, (e.target.value || null) as EntidadMigracion | null)}
+                        className="mt-1 w-full rounded-lg border border-border bg-card px-2.5 py-2 text-[13px]"
+                      >
+                        <option value="">— No importar</option>
+                        {(Object.keys(ENTIDADES) as EntidadMigracion[]).map(ent => (
+                          <option key={ent} value={ent}>{ENTIDADES[ent].etiqueta}</option>
+                        ))}
+                      </select>
+                    </label>
+                    {a.entidad && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {ENTIDADES[a.entidad].campos.map(campo => (
+                          <label key={campo.campo} className="block">
+                            <span className="text-[11px] font-semibold text-muted-foreground">
+                              {campo.etiqueta}{campo.obligatorio ? ' *' : ''}
+                            </span>
+                            <select
+                              value={a.mapeo?.[campo.campo] ?? -1}
+                              onChange={e => cambiarColumna(a, campo.campo, Number(e.target.value))}
+                              className="mt-1 w-full rounded-lg border border-border bg-card px-2.5 py-2 text-[13px]"
+                            >
+                              <option value={-1}>— sin asignar</option>
+                              {a.columnas.map((h, i) => (
+                                <option key={i} value={i}>{h || `(columna ${i + 1})`}</option>
+                              ))}
+                            </select>
+                          </label>
+                        ))}
+                        <p className="sm:col-span-2 text-[11px] text-muted-foreground">Los campos con * son obligatorios. La muestra de abajo se actualiza al instante.</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
