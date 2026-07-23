@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { HelpCircle, UserCog, LogOut, ChevronDown, Palette, Building2, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 import { cn } from '@/lib/utils';
 import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/lib/supabase-data';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -14,7 +14,7 @@ import { AppearancePanel } from '@/components/layout/appearance-panel';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
-  const { studio, instructores } = useStudio();
+  const { studio, instructores } = useCore();
   const router = useRouter();
   // Mismo criterio que en el sidebar y en Configuración > Mi perfil: el
   // avatar de cabecera es el de quien ha iniciado sesión, no siempre el de
