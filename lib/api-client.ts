@@ -94,6 +94,25 @@ export async function cargarDatosPublicos(slug: string) {
   return res.json();
 }
 
+// "Renovar en un toque" (portal): garantiza en servidor que exista el recibo de
+// renovación del plan de la socia y devuelve su id, listo para pagarlo con el
+// checkout de recibos. La identidad va en el JWT; la suscripción se resuelve
+// en servidor.
+export async function prepararRenovacionPlan(studioId: string): Promise<{ reciboId: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/public/renovar-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ studioId }),
+    });
+    const data = await res.json().catch(() => null) as { reciboId?: string; error?: string } | null;
+    if (!res.ok || !data?.reciboId) return { error: data?.error ?? 'No se ha podido preparar la renovación.' };
+    return { reciboId: data.reciboId };
+  } catch {
+    return { error: 'No se ha podido preparar la renovación.' };
+  }
+}
+
 // Lee la identidad de la socia guardada en el navegador (portal o reserva).
 export function leerSociaLocal(): { socioId: string; email: string } | null {
   if (typeof window === 'undefined') return null;

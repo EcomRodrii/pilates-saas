@@ -7,7 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { CheckCircle2, Clock, XCircle, CreditCard, AlertCircle, Landmark } from 'lucide-react';
 import { formatFechaLarga as formatDate } from '@/lib/utils';
-import { iniciarDomiciliacionSepa, crearCheckoutStripe } from '@/lib/api-client';
+import { iniciarDomiciliacionSepa, crearCheckoutStripe, prepararRenovacionPlan } from '@/lib/api-client';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
 import { Card, Pill, Button, EmptyState } from '@/components/portal/ui';
 import { semantic } from '@/lib/portal-tokens';
@@ -54,6 +54,39 @@ export default function MiPlanPage() {
     } else {
       setPagoError('error' in result ? result.error : 'No se pudo iniciar el pago.');
       setPagoLoading(null);
+    }
+  }
+
+  // "Renovar en un toque": el servidor garantiza el recibo de renovación
+  // (o reutiliza el que ya exista) y se paga con el mismo checkout de recibos.
+  // No depende del recibo en el estado local: el checkout deriva importe y
+  // concepto del recibo real en servidor.
+  const [renovando, setRenovando] = useState(false);
+  const [renovarError, setRenovarError] = useState<string | null>(null);
+  async function renovarPlan() {
+    if (!studio?.id || renovando) return;
+    setRenovando(true);
+    setRenovarError(null);
+    const prep = await prepararRenovacionPlan(studio.id);
+    if ('error' in prep) {
+      setRenovarError(prep.error);
+      setRenovando(false);
+      return;
+    }
+    const result = await crearCheckoutStripe({
+      reciboId: prep.reciboId,
+      socioId: socioId ?? '',
+      studioId: studio.id,
+      concepto: 'Renovación',
+      importe: 0,
+      socioEmail: socia?.email ?? null,
+      socioNombre: socia?.nombre ?? 'Socia',
+    });
+    if ('url' in result && result.url) {
+      window.location.href = result.url;
+    } else {
+      setRenovarError('error' in result ? result.error : 'No se pudo iniciar el pago.');
+      setRenovando(false);
     }
   }
 
@@ -136,11 +169,17 @@ export default function MiPlanPage() {
                 )}
               </div>
               {caducada && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: t.surface2, borderRadius: 16, padding: '10px 16px', marginBottom: 12 }}>
-                  <AlertCircle size={15} style={{ color: '#DC2626', flexShrink: 0 }} />
-                  <p style={{ color: t.heroText, fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>
-                    Venció el {formatDate(suscripcion.fechaFin!)}. Habla con tu instructor para renovar.
-                  </p>
+                <div style={{ background: t.surface2, borderRadius: 16, padding: '12px 16px', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <AlertCircle size={15} style={{ color: '#DC2626', flexShrink: 0 }} />
+                    <p style={{ color: t.heroText, fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>
+                      Venció el {formatDate(suscripcion.fechaFin!)}.
+                    </p>
+                  </div>
+                  <Button onClick={renovarPlan} disabled={renovando} style={{ width: '100%' }}>
+                    {renovando ? 'Un momento…' : `Renovar ahora · ${formatEur(plan.precio)}`}
+                  </Button>
+                  {renovarError && <p style={{ color: '#DC2626', fontSize: 12, marginTop: 8 }}>{renovarError}</p>}
                 </div>
               )}
 
@@ -156,6 +195,15 @@ export default function MiPlanPage() {
                       backgroundColor: suscripcion.sesionesRestantes > 3 ? 'var(--portal-brand)' : '#EF4444',
                     }} />
                   </div>
+                  {/* Bono en las últimas: renovar en un toque, sin hablar con nadie */}
+                  {suscripcion.sesionesRestantes <= 1 && (
+                    <div style={{ marginTop: 12 }}>
+                      <Button onClick={renovarPlan} disabled={renovando} style={{ width: '100%' }}>
+                        {renovando ? 'Un momento…' : `Renovar bono · ${formatEur(plan.precio)}`}
+                      </Button>
+                      {renovarError && <p style={{ color: '#DC2626', fontSize: 12, marginTop: 8 }}>{renovarError}</p>}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ background: t.surface2, borderRadius: 16, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
