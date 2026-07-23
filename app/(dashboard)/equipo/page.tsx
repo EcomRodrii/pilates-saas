@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import type { Instructor, Rol } from '@/lib/types';
+import type { Instructor, Rol, Sesion, TipoClase } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, CalendarOff, Copy, Star, Search, LayoutGrid, List, MoreVertical, Camera, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, CalendarOff, Copy, Star, Search, LayoutGrid, List, MoreVertical, Camera, Loader2, Clock, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora, uid as generarId } from '@/lib/utils';
 import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
@@ -80,6 +80,7 @@ export default function EquipoPage() {
   const [vista, setVista] = useState<'grid' | 'lista'>('grid');
   const [menuId, setMenuId] = useState<string | null>(null);
   const [verValor, setVerValor] = useState<Instructor | null>(null);
+  const [verHoras, setVerHoras] = useState<Instructor | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -303,6 +304,7 @@ export default function EquipoPage() {
               menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
               onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
               onValoraciones={() => { setMenuId(null); setVerValor(i); }}
+              onHoras={() => { setMenuId(null); setVerHoras(i); }}
             />
           ))}
         </div>
@@ -315,6 +317,7 @@ export default function EquipoPage() {
               menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
               onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
               onValoraciones={() => { setMenuId(null); setVerValor(i); }}
+              onHoras={() => { setMenuId(null); setVerHoras(i); }}
             />
           ))}
         </div>
@@ -471,6 +474,9 @@ export default function EquipoPage() {
       {/* Valoraciones de una instructora (leer cada ⭐ + comentario) */}
       <ValoracionesDialog instructor={verValor} tiposClase={tiposClase} onClose={() => setVerValor(null)} />
 
+      {/* Horas del mes de una instructora (desglose clase a clase + CSV) */}
+      <HorasDialog instructor={verHoras} sesiones={sesiones} tiposClase={tiposClase} onClose={() => setVerHoras(null)} />
+
       {/* Delete confirm */}
       <Dialog open={confirmDel !== null} onOpenChange={open => !open && setConfirmDel(null)}>
         <DialogContent>
@@ -496,7 +502,7 @@ export default function EquipoPage() {
 
 type Val = { media: number; total: number } | undefined;
 type Asis = { pct: number; base: number } | undefined;
-type AccProps = { menuAbierto: boolean; onMenu: () => void; onEnlace: (scope: EnlaceScope) => void; onEdit: () => void; onDelete: () => void; onValoraciones: () => void };
+type AccProps = { menuAbierto: boolean; onMenu: () => void; onEnlace: (scope: EnlaceScope) => void; onEdit: () => void; onDelete: () => void; onValoraciones: () => void; onHoras: () => void };
 
 function PillSelect({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options: [string, string][];
@@ -555,7 +561,7 @@ function StatCol({ valor, sub, star, borde, onClick }: { valor: ReactNode; sub: 
   return <div className={cls}>{inner}</div>;
 }
 
-function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoraciones, tieneValoraciones }: AccProps & { tieneValoraciones: boolean }) {
+function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoraciones, onHoras, tieneValoraciones }: AccProps & { tieneValoraciones: boolean }) {
   return (
     <div className="flex items-center gap-1 shrink-0 relative">
       <button onClick={onEdit} title="Editar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
@@ -573,6 +579,9 @@ function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoracio
                 <Star size={14} className="text-[#F5B301]" fill="#F5B301" /> Ver valoraciones
               </button>
             )}
+            <button onClick={onHoras} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+              <Clock size={14} className="text-muted-foreground" /> Horas del mes
+            </button>
             <button onClick={() => onEnlace('disponibilidad')} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
               <CalendarClock size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.disponibilidad.menu}
             </button>
@@ -775,5 +784,127 @@ function ActividadTab({ actividadReciente }: { actividadReciente: import('@/lib/
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Horas del mes por instructora ───────────────────────────────────────────
+// Derivadas de las sesiones no canceladas (misma definición que la RPC
+// instructor_horas_mes que usa el motor de sustituciones para el reparto):
+// antes ese número solo existía dentro del scoring — aquí se hace visible y
+// exportable, que es lo que promete el chip "Registro de horas" de la landing.
+
+function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
+  instructor: Instructor | null; sesiones: Sesion[]; tiposClase: TipoClase[]; onClose: () => void;
+}) {
+  // 0 = mes actual; 1 = mes anterior; …
+  const [mesAtras, setMesAtras] = useState(0);
+  useEffect(() => { setMesAtras(0); }, [instructor?.id]);
+
+  const ref = new Date();
+  const mes = new Date(ref.getFullYear(), ref.getMonth() - mesAtras, 1);
+  const mesFin = new Date(ref.getFullYear(), ref.getMonth() - mesAtras + 1, 1);
+
+  const filas = useMemo(() => {
+    if (!instructor) return [];
+    const tipoById = new Map(tiposClase.map(t => [t.id, t]));
+    return sesiones
+      .filter(s => {
+        if (s.instructorId !== instructor.id || s.cancelada) return false;
+        const d = new Date(s.inicio);
+        return d >= mes && d < mesFin;
+      })
+      .sort((a, b) => a.inicio.localeCompare(b.inicio))
+      .map(s => {
+        const ini = new Date(s.inicio);
+        const horas = Math.max(0, (new Date(s.fin).getTime() - ini.getTime()) / 3600000);
+        return { id: s.id, inicio: ini, clase: tipoById.get(s.tipoClaseId)?.nombre ?? 'Clase', horas };
+      });
+  }, [instructor, sesiones, tiposClase, mesAtras]);
+
+  const totalHoras = filas.reduce((a, f) => a + f.horas, 0);
+  const fmtMes = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  const fmtH = (h: number) => `${h % 1 === 0 ? h : h.toFixed(1)} h`;
+
+  function exportar() {
+    if (!instructor) return;
+    const esc = (v: string | number) => { const s = String(v); return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const rows: (string | number)[][] = [['Fecha', 'Hora', 'Clase', 'Horas']];
+    for (const f of filas) {
+      rows.push([
+        f.inicio.toLocaleDateString('es-ES'),
+        f.inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        f.clase,
+        f.horas % 1 === 0 ? f.horas : f.horas.toFixed(2),
+      ]);
+    }
+    rows.push(['', '', 'TOTAL', totalHoras % 1 === 0 ? totalHoras : totalHoras.toFixed(2)]);
+    const csv = rows.map(r => r.map(esc).join(';')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `horas-${instructor.nombre.toLowerCase().replace(/\s+/g, '-')}-${mes.toISOString().slice(0, 7)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <Dialog open={instructor !== null} onOpenChange={open => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Horas de {instructor?.nombre}</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex items-center justify-between">
+          <button onClick={() => setMesAtras(m => Math.min(m + 1, 11))} disabled={mesAtras >= 11} aria-label="Mes anterior"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30">
+            <ChevronLeft size={16} />
+          </button>
+          <p className="text-[14px] font-bold text-foreground capitalize">{fmtMes}</p>
+          <button onClick={() => setMesAtras(m => Math.max(m - 1, 0))} disabled={mesAtras === 0} aria-label="Mes siguiente"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-6 py-3 px-4 rounded-xl bg-muted/50">
+          <div>
+            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{fmtH(totalHoras)}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">en clases este mes</p>
+          </div>
+          <div className="pl-6 border-l border-border">
+            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{filas.length}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">clase{filas.length === 1 ? '' : 's'}</p>
+          </div>
+        </div>
+
+        {filas.length === 0 ? (
+          <p className="text-[13px] text-muted-foreground text-center py-6">Sin clases este mes.</p>
+        ) : (
+          <div className="max-h-72 overflow-y-auto divide-y divide-[#F1F1F4] -mx-1 px-1">
+            {filas.map(f => (
+              <div key={f.id} className="flex items-center justify-between py-2 gap-3">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-foreground truncate">{f.clase}</p>
+                  <p className="text-[11.5px] text-muted-foreground capitalize">
+                    {f.inicio.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} · {f.inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                <span className="text-[13px] font-bold text-foreground tabular-nums shrink-0">{fmtH(f.horas)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-end pt-1">
+          <button onClick={exportar} disabled={filas.length === 0}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-40">
+            <Download size={14} /> Exportar CSV
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
