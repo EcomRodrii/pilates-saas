@@ -3,6 +3,7 @@ import { uid } from '@/lib/utils';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { contactarDesde, alertarPropietaria, type RankingItem } from '@/lib/sustituciones/contacto';
 import { mensajeSeguro } from '@/lib/errores';
+import { tieneFeature } from '@/lib/billing/entitlements';
 
 // ── Núcleo de "marcar una baja" ─────────────────────────────────────────────
 //
@@ -77,10 +78,17 @@ export async function crearBaja(
     .eq('sesion_id', sesionId).not('estado', 'in', ESTADOS_INACTIVOS).maybeSingle();
   if (existente) return { ok: true, sustitucion: existente, yaExistia: true };
 
-  // Modo de autonomía del estudio (0039).
+  // Modo de autonomía del estudio (0039), degradado por plan: autónomo y
+  // vacaciones son del plan Estudio+ (lo que anuncia la página de precios). Si
+  // el estudio bajó de plan con el modo puesto, el motor cae a asistido en vez
+  // de operar una feature que ya no paga.
   const { data: estudio } = await admin
-    .from('studios').select('modo_autonomia').eq('id', studioId).maybeSingle();
-  const modo = (estudio?.modo_autonomia as string) ?? 'asistido';
+    .from('studios').select('modo_autonomia, plan, subscription_status').eq('id', studioId).maybeSingle();
+  let modo = (estudio?.modo_autonomia as string) ?? 'asistido';
+  if ((modo === 'autonomo' || modo === 'vacaciones') &&
+      !tieneFeature({ plan: estudio?.plan, subscriptionStatus: estudio?.subscription_status }, 'sustitucionesAutonomas')) {
+    modo = 'asistido';
+  }
 
   // Scoring: top-3 de candidatas con motivos en lenguaje humano (función 0038).
   const { data: ranking, error: errRank } = await admin.rpc('rankear_candidatas', { p_sesion_id: sesionId });

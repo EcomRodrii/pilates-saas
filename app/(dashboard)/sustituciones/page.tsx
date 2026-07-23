@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
-  cancelarClase, reprogramarClase, setAvisarAlumnas, resumenValoraciones, generarEnlaceDisponibilidad, recalcularCandidatas,
+  cancelarClase, reprogramarClase, setAvisarAlumnas, setModoAutonomia, resumenValoraciones, generarEnlaceDisponibilidad, recalcularCandidatas,
   type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
@@ -59,17 +59,19 @@ export default function SustitucionesPage() {
   // Quién es invisible para el ranking por no tener disponibilidad cargada.
   const [equipo, setEquipo] = useState<DiagnosticoEquipo>({ total: 0, sinDisponibilidad: [] });
   const [pidiendo, setPidiendo] = useState(false); // diálogo "pedir disponibilidad"
+  const [modo, setModo] = useState('asistido');               // modo_autonomia del estudio
+  const [autonomiaOk, setAutonomiaOk] = useState(false);      // plan incluye autónomo/vacaciones
 
   const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'Instructora';
   const tipoDe = (id: string | null | undefined) => tiposClase.find(t => t.id === id);
 
   async function recargar() {
     const r = await listarSustituciones();
-    setItems(r.items); setAvisar(r.avisarAlumnas); setEquipo(r.equipo); setCargando(false);
+    setItems(r.items); setAvisar(r.avisarAlumnas); setModo(r.modoAutonomia); setAutonomiaOk(r.autonomiaDisponible); setEquipo(r.equipo); setCargando(false);
   }
   useEffect(() => {
     let vivo = true;
-    listarSustituciones().then(r => { if (vivo) { setItems(r.items); setAvisar(r.avisarAlumnas); setEquipo(r.equipo); setCargando(false); } });
+    listarSustituciones().then(r => { if (vivo) { setItems(r.items); setAvisar(r.avisarAlumnas); setModo(r.modoAutonomia); setAutonomiaOk(r.autonomiaDisponible); setEquipo(r.equipo); setCargando(false); } });
     resumenValoraciones().then(r => { if (vivo) setValoraciones(r); });
     return () => { vivo = false; };
   }, []);
@@ -81,6 +83,14 @@ export default function SustitucionesPage() {
     setAvisar(nuevo); // optimista
     const r = await setAvisarAlumnas(nuevo);
     if ('error' in r) { setAvisar(!nuevo); setErrorAccion(r.error); }
+  }
+
+  async function cambiarModo(nuevo: string) {
+    if (nuevo === modo) return;
+    const anterior = modo;
+    setModo(nuevo); // optimista
+    const r = await setModoAutonomia(nuevo);
+    if ('error' in r) { setModo(anterior); setErrorAccion(r.error); }
   }
   async function cancelar(s: SustitucionPanel) {
     setErrorAccion(null);
@@ -191,6 +201,33 @@ export default function SustitucionesPage() {
         <Users size={14} className="shrink-0" />
         Avisar a las alumnas por email cuando se confirma sustituta o se cancela una clase
       </label>
+
+      {/* Modo de autonomía del motor: hasta ahora vivía solo en la BD sin UI —
+          los 4 niveles que anuncia la web se eligen aquí. Autónomo y Vacaciones
+          van con candado en el plan Base (gate real en el servidor). */}
+      <div className="flex flex-wrap items-center gap-2.5 text-[13px] text-muted-foreground select-none">
+        <span className="font-semibold text-foreground">Modo de autonomía:</span>
+        <div className="flex gap-0.5 p-0.5 rounded-full bg-muted">
+          {([['manual', 'Manual', false], ['asistido', 'Asistido', false], ['autonomo', 'Autónomo', true], ['vacaciones', 'Vacaciones 🌴', true]] as const).map(([val, label, premium]) => {
+            const bloqueado = premium && !autonomiaOk;
+            return (
+              <button
+                key={val}
+                onClick={() => cambiarModo(val)}
+                disabled={bloqueado}
+                title={bloqueado ? 'Incluido a partir del plan Estudio' : undefined}
+                className={`px-3 py-1 rounded-full text-[12px] font-bold transition-all disabled:opacity-45 disabled:cursor-not-allowed ${modo === val ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                {bloqueado ? `🔒 ${label}` : label}
+              </button>
+            );
+          })}
+        </div>
+        {modo === 'autonomo' && <span className="text-[12px]">cubre las bajas solo y te lo cuenta después.</span>}
+        {modo === 'vacaciones' && <span className="text-[12px]">opera de principio a fin sin molestarte.</span>}
+        {modo === 'asistido' && <span className="text-[12px]">contacta candidatas; tú apruebas con un toque.</span>}
+        {modo === 'manual' && <span className="text-[12px]">te propone candidatas; tú das cada paso.</span>}
+      </div>
 
       {errorAccion && (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">

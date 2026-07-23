@@ -3,6 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getThemePublicado, getThemeBorrador, guardarBorradorTheme } from '@/lib/theme-data';
 import { themeDraftSchema } from '@/lib/theme-schema';
+import { featureDeEstudio } from '@/lib/billing/feature-estudio';
 
 // GET /api/theme            → tema PUBLICADO del estudio del staff (marca del panel).
 // GET /api/theme?draft=1    → tema BORRADOR (editor + preview en vivo).
@@ -23,6 +24,10 @@ export async function PUT(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (sesion.rol !== 'PROPIETARIO')
     return NextResponse.json({ error: 'Solo el propietario puede editar la marca' }, { status: 403 });
+  // Gate de plan: la app de marca personalizada es del plan Estudio en
+  // adelante (la lectura del tema publicado no se gata — el portal lo pinta).
+  if (!(await featureDeEstudio(sesion.studioId, 'marca')))
+    return NextResponse.json({ error: 'La app de marca personalizada está incluida a partir del plan Estudio. Mejora tu plan para editarla.' }, { status: 403 });
 
   const body = await req.json().catch(() => null);
   const parsed = themeDraftSchema.safeParse(body);

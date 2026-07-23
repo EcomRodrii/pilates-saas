@@ -6,6 +6,8 @@ import { inngest, EVENTS } from '@/lib/inngest/client';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
 import { contactarCandidata, ESTADOS_EN_JUEGO, type RankingItem } from '@/lib/sustituciones/contacto';
 import { crearBaja } from '@/lib/sustituciones/baja';
+import { featureDeEstudio } from '@/lib/billing/feature-estudio';
+import { tieneFeature } from '@/lib/billing/entitlements';
 import {
   puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
 } from '@/lib/sustituciones/recalculo';
@@ -95,7 +97,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { data: estudio } = await admin
-    .from('studios').select('avisar_alumnas').eq('id', sesion.studioId).maybeSingle();
+    .from('studios').select('avisar_alumnas, modo_autonomia, plan, subscription_status').eq('id', sesion.studioId).maybeSingle();
 
   // Diagnóstico del equipo: quién es INVISIBLE para el ranking por no tener
   // ninguna franja en `instructora_disponibilidad`. `rankear_candidatas` (0038)
@@ -107,6 +109,12 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     sustituciones: lista.map((s) => ({ ...s, sustitucion_contactos: contactosPorSust.get(s.id) ?? [] })),
     avisarAlumnas: !!estudio?.avisar_alumnas,
+    modoAutonomia: (estudio?.modo_autonomia as string) ?? 'asistido',
+    // Para pintar los modos Autónomo/Vacaciones bloqueados con candado en Base.
+    autonomiaDisponible: tieneFeature(
+      { plan: estudio?.plan, subscriptionStatus: estudio?.subscription_status },
+      'sustitucionesAutonomas',
+    ),
     equipo,
   });
 }
@@ -121,7 +129,28 @@ export async function PATCH(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   const body = (await req.json().catch(() => null)) as
-    { sustitucionId?: string; action?: string; instructorId?: string; avisar?: boolean; inicio?: string } | null;
+    { sustitucionId?: string; action?: string; instructorId?: string; avisar?: boolean; inicio?: string; modo?: string } | null;
+
+  // Modo de autonomía del motor (ajuste del estudio). Los modos autónomo y
+  // vacaciones son del plan Estudio+ — mismo gate que anuncia la página de
+  // precios ("sustituciones asistidas" en Base, "autónomas" en Estudio).
+  if (body?.action === 'config_modo') {
+    if (sesion.rol !== 'PROPIETARIO') return NextResponse.json({ error: 'Solo la propietaria' }, { status: 403 });
+    const modo = typeof body?.modo === 'string' ? body.modo : '';
+    if (!['manual', 'asistido', 'autonomo', 'vacaciones'].includes(modo)) {
+      return NextResponse.json({ error: 'Modo no válido' }, { status: 400 });
+    }
+    if ((modo === 'autonomo' || modo === 'vacaciones') && !(await featureDeEstudio(sesion.studioId, 'sustitucionesAutonomas'))) {
+      return NextResponse.json(
+        { error: 'Los modos Autónomo y Vacaciones están incluidos a partir del plan Estudio. Mejora tu plan para activarlos.' },
+        { status: 403 },
+      );
+    }
+    const { error } = await admin.from('studios').update({ modo_autonomia: modo }).eq('id', sesion.studioId);
+    if (error) return errorInterno('sustituciones:config_modo', error,
+      'No se ha podido guardar el modo de autonomía. Vuelve a intentarlo.');
+    return NextResponse.json({ ok: true, modoAutonomia: modo });
+  }
 
   // Toggle de "avisar a alumnas" (ajuste del estudio, no necesita sustitución).
   if (body?.action === 'config_avisar') {
