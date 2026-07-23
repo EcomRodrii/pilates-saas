@@ -1,7 +1,8 @@
 # F2 · Paso 3 — `reservar_plaza` transaccional (el canje atómico, D10)
 
-> **Estado:** propuesta de diseño para revisión. **Cero código todavía.**
-> Aterriza el refactor más delicado de F2 (camino crítico de reservas y dinero) sobre el flujo real de hoy. Necesito tus respuestas a **P1–P3** antes de tocar código.
+> **Estado:** Paso 3a (límite semanal) hecho y en prod (PR #285). El resto (3b) reevaluado a **baja prioridad** — ver la corrección de abajo.
+>
+> **⚠️ CORRECCIÓN (2026-07-23): NO existe el "G2 money-leak" que este doc afirmaba.** Al revisar el flujo entero se confirmó que **ambos** caminos de cancelación YA consumen el bono de la socia promovida: servidor `ejecutarCancelacionReserva` (`consumirBonoServidor(promSocioId)`, `lib/supabase-data.ts:1955`) y panel (`consumirSesionBono(promovidaSocioId)`, `lib/studio-context.tsx:1613`). La afirmación original vino de una lectura incompleta (parar en la l.1949). **Lo tachado como G2 más abajo es falso.** Lo único real que quedaba (G1) es una ventana estrecha de no-atomicidad que el código ya tolera y loguea → cerrarla es alto riesgo / valor marginal, **no se hace por ahora**.
 
 ---
 
@@ -33,7 +34,7 @@ Dos caminos idénticos en forma: **servidor/portal** (`admin`, service-role) y *
 | # | Hueco | Consecuencia |
 |---|---|---|
 | **G1** | **No atómico.** Reserva y consumo/devolución son 2 RPC en 2 pasos. | Si el proceso muere entre medias (o falla el paso 2), la reserva existe pero el saldo no se descontó (o al revés). Saldo y reservas divergen. |
-| **G2** | **La promoción de lista de espera NO consume bono.** Reservar directo descuenta (paso 3 arriba); pero cuando `cancelar_reserva_plaza` **promociona** a una socia de la espera a CONFIRMADA, **nadie descuenta su bono.** | Una socia con bono que entra por lista de espera acaba con plaza confirmada **sin gastar sesión**. Inconsistencia real de dinero. |
+| ~~**G2**~~ ❌ FALSO | ~~La promoción de lista de espera NO consume bono.~~ **Corrección: SÍ lo consume** — ambos paths lo hacen (`ejecutarCancelacionReserva:1955`, `studio-context.tsx:1613`). No hay hueco. | ~~Inconsistencia de dinero.~~ **Ninguna.** |
 | **G3** | **Límite semanal sin aplicar.** `planes_tarifa.limite_semanal` existe (Paso 1) pero ningún sitio lo comprueba. | El tope semanal del bono es decorativo. |
 
 ---
@@ -96,16 +97,11 @@ En la misma TX en la que ya cancela y promociona:
 
 Al aterrizarlo aparecieron dos cosas que reparten el trabajo en piezas de riesgo muy distinto:
 
-- **`consumirBonoServidor` está entrelazado con dunning:** al agotar el bono (saldo 0) **crea el recibo de renovación**. Mover el consumo a SQL (G1) implica que ese recibo se cree desde el `nuevo_saldo` que devuelva la RPC — factible, pero es cirugía del camino del dinero (2 RPC + 6 llamadas + estado optimista del context).
-- **G2 es un bug de dinero real** (la promoción de lista de espera no consume), independiente de G1.
+1. **3a-límite (✅ HECHO, PR #285)** — enforcement del **límite semanal** dentro de `reservar_plaza` (G3). Aditivo, una sola RPC, retrocompatible, cubierto por la E2E. Era la pieza segura y de valor inmediato (cerró el pendiente del Paso 1).
+2. **3b — NO se hace por ahora.** Su justificación principal (G2) resultó **falsa** (ver la corrección de arriba). Lo único que quedaba (G1, la ventana estrecha de no-atomicidad) ya está tolerado y logueado por el código, y cerrarlo implica cirugía del camino del dinero entrelazada con dunning → **alto riesgo, valor marginal**. Se aparca.
+3. **3c** — irrelevante mientras no se haga 3b.
 
-Por eso NO se hace todo de golpe:
-
-1. **3a-límite (✅ ESTE PR)** — enforcement del **límite semanal** dentro de `reservar_plaza` (G3). Aditivo, una sola RPC, retrocompatible, cubierto por la E2E. Es la pieza segura y de valor inmediato (cierra el pendiente del Paso 1).
-2. **3b — consumo atómico + G2 (PR siguiente, focalizado)** — `reservar_plaza`/`cancelar_reserva_plaza` absorben el consumo/devolución con `nuevo_saldo` en el `RETURNS`; el recibo de renovación se crea en JS desde ese saldo (evita duplicar dunning en SQL); se arregla el **money-leak de la promoción** (G2). Los 4 callers dejan de llamar a `consumir_sesion_bono`/`devolverBono*`.
-3. **3c (PR posterior)** — `bono-logic` a sólo-derivar; retirar `consumir_sesion_bono` y wrappers huérfanos.
-
-> **Por qué separado:** meter la cirugía del camino del dinero (3b) en el mismo PR que el enforcement seguro (3a) concentra riesgo sin necesidad. 3a entrega valor ya y no toca el consumo; 3b va con su propio drill de reserva/cancelación/promoción en prod.
+> **Lección:** afirmé un "bug de dinero" (G2) sin leer el flujo entero. Antes de tocar el camino del dinero, verificar la función completa. El valor real del Paso 3 (límite semanal) se entregó en 3a; el resto no compensa el riesgo.
 
 Cada sub-fase es un PR con su verificación en prod. Si algo se tuerce en 3a (lo más sensible), se revierte solo esa RPC sin arrastrar el resto.
 
