@@ -70,6 +70,7 @@ export function GlobalStyles() {
       @keyframes lp-msgIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
       @keyframes lp-cometpulse { 0%,100% { box-shadow: 0 0 14px 4px rgba(124,58,237,.7); } 50% { box-shadow: 0 0 22px 7px rgba(124,58,237,.95); } }
       @keyframes lp-fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes lp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
       @keyframes lp-marquee { to { transform: translateX(-50%); } }
 
       @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }

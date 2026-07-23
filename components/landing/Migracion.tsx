@@ -6,7 +6,7 @@
 // reales del producto (analizador IA + lotes reversibles + importación sin
 // tocar el software anterior), no promesas.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ACC, CARD_DARK, DARK, MUTED_DARK } from './theme';
 import { Reveal } from './Reveal';
 import { analizarDeterminista } from '@/lib/migracion/clasificador';
@@ -34,10 +34,33 @@ const GARANTIAS = [
 // formato reconocerse solo, aquí mismo. Corre `analizarDeterminista` (el MISMO
 // clasificador de la migración real) EN EL NAVEGADOR sobre un export de ejemplo
 // — no se sube nada, no hace falta cuenta. Prueba sin pedir confianza.
+// Rotación automática: la demo se reproduce sola en bucle (Timp → Eversports →
+// Excel casero) para quien solo pasa scrolleando, hasta que pulsa un software y
+// se queda en el suyo. Respeta prefers-reduced-motion (arranca en Timp y no
+// cicla). Es "la demo en bucle" nativa, sin incrustar un GIF pesado.
+const ROTACION = ['timp', 'eversports', 'excel'];
+
 function DemoMigracion() {
-  const [sel, setSel] = useState<string | null>(null);
+  const [sel, setSel] = useState<string>('timp');
+  const [fijado, setFijado] = useState(false); // el usuario ya eligió → deja de ciclar
   const plataforma = EJEMPLOS.find(e => e.id === sel) ?? null;
   const plan = useMemo(() => (plataforma ? analizarDeterminista(plataforma.archivos) : null), [plataforma]);
+
+  useEffect(() => {
+    if (fijado) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let i = Math.max(0, ROTACION.indexOf(sel));
+    const t = setInterval(() => { i = (i + 1) % ROTACION.length; setSel(ROTACION[i]); }, 2600);
+    return () => clearInterval(t);
+    // Solo depende de `fijado`: leer `sel` una vez al armar el intervalo evita
+    // reiniciarlo en cada tick (que congelaría la rotación en el primer paso).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fijado]);
+
+  function elegir(id: string) {
+    setFijado(true);
+    setSel(id);
+  }
 
   const ETIQUETA_ENTIDAD: Record<string, string> = {
     socias: 'Clientas', membresias: 'Bonos y membresías', clases: 'Clases', reservas: 'Reservas', citas: 'Citas',
@@ -45,19 +68,20 @@ function DemoMigracion() {
 
   return (
     <div style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 20, padding: 'clamp(20px,3vw,28px)', marginBottom: 'clamp(28px,4vw,40px)' }}>
-      <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 10 }}>
-        ¿No te fías todavía? Míralo funcionar
+      <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 10 }}>
+        <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 999, background: '#7BD3A8', animation: 'lp-pulse 1.8s ease-in-out infinite' }} />
+        {fijado ? 'Tu formato, reconocido' : 'En vivo · pasando por cada software'}
       </div>
       <p style={{ fontSize: 15, color: '#E8E8E4', margin: '0 0 16px', lineHeight: 1.5 }}>
-        Elige el software que usas ahora. Verás un archivo con <strong>su formato exacto</strong> reconocerse aquí mismo —
-        sin subir nada tuyo, sin crear cuenta.
+        Esto es lo que ve cada propietaria con <strong>su formato exacto</strong>, reconociéndose aquí mismo —
+        sin subir nada, sin crear cuenta. ¿Usas otro? Pulsa el tuyo.
       </p>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: plan ? 20 : 0 }}>
         {EJEMPLOS.map(e => (
           <button
             key={e.id}
-            onClick={() => setSel(e.id === sel ? null : e.id)}
+            onClick={() => elegir(e.id)}
             style={{
               fontSize: 13.5, fontWeight: 700, padding: '9px 16px', borderRadius: 999, cursor: 'pointer',
               border: `1px solid ${sel === e.id ? ACC : 'rgba(255,255,255,.18)'}`,
