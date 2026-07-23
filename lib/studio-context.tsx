@@ -254,6 +254,9 @@ interface StudioContextValue {
   // Reservas
   addReserva: (sesionId: string, socioId: string, spotId?: string | null) => EstadoReserva;
   cancelarReserva: (reservaId: string) => void;
+  // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
+  // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
+  bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
   checkin: (reservaId: string) => void;
   deshacerCheckin: (reservaId: string) => void;
   marcarNoShow: (reservaId: string) => void;
@@ -899,6 +902,41 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   function anularRecuperacion(id: string) {
     setRecuperaciones(prev => prev.map(r => r.id === id ? { ...r, estado: 'ANULADA' as const } : r));
     dbAnularRecuperacion(id);
+  }
+
+  // F2 (B2.4) dueña-first: "no puede venir". Da de baja una reserva y le concede una
+  // recuperación en su lugar (la recuperación ES la compensación → NO se devuelve
+  // bono). Se crea la recuperación PRIMERO (gateada por el tope): si ya tiene 4
+  // vivas, no se cancela nada. Devuelve el resultado + la caducidad para el wa.me.
+  async function bajaConRecuperacion(
+    reservaId: string, motivo: string | null,
+  ): Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }> {
+    const cancelada = reservas.find(r => r.id === reservaId);
+    if (!cancelada) return { recuperacion: 'ERROR', caduca: null };
+    const socioId = cancelada.socioId;
+    const sesionId = cancelada.sesionId;
+
+    const rc = await dbCrearRecuperacion(getCurrentStudioId(), socioId, reservaId, motivo);
+    if (rc !== 'CREADA') return { recuperacion: rc, caduca: null };
+
+    const lista = await dbListRecuperaciones(getCurrentStudioId());
+    setRecuperaciones(lista);
+    const caduca = lista
+      .filter(x => x.socioId === socioId && x.estado === 'DISPONIBLE')
+      .sort((a, b) => b.creadaEn.localeCompare(a.creadaEn))[0]?.caducaEl ?? null;
+
+    // Cancela (atómico: promociona espera). NO devuelve bono; sí consume el de la
+    // promovida (igual que cancelarReserva).
+    setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r));
+    const res = await dbCancelarReservaPlaza(getCurrentStudioId(), reservaId);
+    if (res && !('error' in res) && res.promovidaSocioId && sesionId) {
+      const promovidaSocioId = res.promovidaSocioId;
+      setReservas(prev => prev.map(r =>
+        (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
+          ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
+      consumirSesionBono(promovidaSocioId);
+    }
+    return { recuperacion: 'CREADA', caduca };
   }
 
   // ── Citas: servicios y horario fino (0046) ─────────────────────────────────────
@@ -2819,6 +2857,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     cancelarSerieDesde,
     addReserva,
     cancelarReserva,
+    bajaConRecuperacion,
     checkin,
     deshacerCheckin,
     marcarNoShow,

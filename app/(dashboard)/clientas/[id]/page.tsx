@@ -11,6 +11,7 @@ import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
+import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -667,6 +668,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               <span className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: badge.bg, color: badge.text }}>
                                 {badge.label}
                               </span>
+                              {r.estado === 'CONFIRMADA' && <BotonBajaRecuperacion reserva={r} socio={socio} />}
                             </div>
                           );
                         })}
