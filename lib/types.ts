@@ -7,7 +7,7 @@ export type TipoPlan = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO' | 'FALLIDO';
 // Pagos España (0036): método recurrente preferido de la socia y método real de cada cobro.
 export type MetodoPagoPreferido = 'TARJETA' | 'SEPA';
-export type MetodoCobro = 'TARJETA' | 'SEPA' | 'BIZUM';
+export type MetodoCobro = 'TARJETA' | 'SEPA' | 'BIZUM' | 'EFECTIVO' | 'TRANSFERENCIA';
 export type EstadoReserva = 'CONFIRMADA' | 'LISTA_ESPERA' | 'ASISTIDA' | 'CANCELADA' | 'NO_ASISTIO';
 export type NivelClase = 'TODOS' | 'PRINCIPIANTE' | 'MEDIO' | 'AVANZADO';
 export type TipoSpot = 'REFORMER' | 'MAT' | 'OTRO';

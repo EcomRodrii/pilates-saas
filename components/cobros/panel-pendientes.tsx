@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback, useId } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import type { EstadoRecibo, Socio } from '@/lib/types';
+import type { EstadoRecibo, Socio, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn, formatEuro } from '@/lib/utils';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
@@ -196,6 +196,7 @@ export function PanelPendientes() {
   const [sort, setSort]             = useState<SortKey>('reciente');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmEliminar, setConfirmEliminar] = useState<string | null>(null);
+  const [cobrandoRecibo, setCobrandoRecibo] = useState<string | null>(null); // F2 B2.6: elegir método al cobrar
 
   // ── Cobro masivo modal ──────────────────────────────────────────────────────
   const [showMasivo, setShowMasivo]               = useState(false);
@@ -422,8 +423,8 @@ export function PanelPendientes() {
     }
   }
 
-  async function cobrarYEmail(reciboId: string) {
-    marcarCobrado(reciboId);
+  async function cobrarYEmail(reciboId: string, metodo?: MetodoCobro) {
+    marcarCobrado(reciboId, metodo);
     const r = recibos.find(x => x.id === reciboId);
     const socio = r ? socios.find(s => s.id === r.socioId) : null;
     const factura = facturas.find(f => f.reciboId === reciboId);
@@ -810,9 +811,9 @@ export function PanelPendientes() {
                           {r.estado === 'PENDIENTE' && (
                             <>
                               <button
-                                onClick={() => cobrarYEmail(r.id)}
+                                onClick={() => setCobrandoRecibo(r.id)}
                                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-success/10 text-success hover:bg-[#A7F3D0] transition-colors"
-                                title="Marcar cobrado y enviar email"
+                                title="Marcar cobrado (elige cómo) y enviar email"
                               >
                                 <CheckCircle size={12} />
                                 Cobrar
@@ -1400,6 +1401,32 @@ export function PanelPendientes() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {/* MODAL: Nuevo cobro                                                     */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* F2 (B2.6): cobro sin pasarela de primera clase — elige cómo se cobró. */}
+      <Dialog open={!!cobrandoRecibo} onOpenChange={open => { if (!open) setCobrandoRecibo(null); }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-foreground">¿Cómo lo has cobrado?</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {([['BIZUM', 'Bizum'], ['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia'], ['TARJETA', 'Tarjeta']] as [MetodoCobro, string][]).map(([m, label]) => (
+              <button
+                key={m}
+                onClick={() => { const id = cobrandoRecibo; setCobrandoRecibo(null); if (id) cobrarYEmail(id, m); }}
+                className="px-3 py-2.5 rounded-lg text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => { const id = cobrandoRecibo; setCobrandoRecibo(null); if (id) cobrarYEmail(id); }}
+            className="mt-3 w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Marcar cobrado sin especificar
+          </button>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showNuevoCobro} onOpenChange={open => { if (!open) setShowNuevoCobro(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
