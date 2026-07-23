@@ -9,17 +9,6 @@ export const NAV_LINKS = [
   { href: '/recursos', label: 'Recursos' },
 ];
 
-export const SPINE_SECTIONS = [
-  { id: 'hero', label: 'Inicio' },
-  { id: 'problema', label: 'El problema' },
-  { id: 'antes-despues', label: 'Antes / después' },
-  { id: 'recorrido', label: 'Producto' },
-  { id: 'sustituciones', label: 'Sustituciones' },
-  { id: 'centro-de-control', label: 'Centro de Control' },
-  { id: 'precio', label: 'Precio' },
-  { id: 'faq', label: 'FAQ' },
-];
-
 export const RECORRIDO_ITEMS = [
   {
     n: '01',

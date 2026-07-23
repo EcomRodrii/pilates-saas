@@ -3,14 +3,6 @@ export function GlobalStyles() {
     <style>{`
       .lp-mono { font-family: var(--font-plex-mono), ui-monospace, monospace; }
 
-      /* Spine nav: dot + hover/active label, matching the source design */
-      .tnt-spine { display: flex; }
-      .tnt-spine::before { content:''; position:absolute; left:3.5px; top:0; bottom:0; width:2px; background:rgba(26,26,26,.12); border-radius:2px; z-index:0; }
-      .tnt-spine-dot { position: relative; }
-      .tnt-spine-label { position:absolute; left:16px; top:50%; transform:translateY(-50%) translateX(-4px); white-space:nowrap; font-family: var(--font-plex-mono), monospace; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:#5B21B6; background:#fff; padding:5px 10px; border-radius:6px; box-shadow:0 6px 16px -4px rgba(26,26,26,.25); opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; }
-      .tnt-spine-dot.on .tnt-spine-label, .tnt-spine-dot:hover .tnt-spine-label { opacity:1; transform: translateY(-50%) translateX(0); }
-      @media (max-width: 1150px) { .tnt-spine { display: none !important; } }
-
       /* Hover-lift cards: translateY + shadow + a radial glow tracking the
          cursor via --mx/--my custom properties written by LiftCard. */
       .tnt-lift { position: relative; transition: transform .28s cubic-bezier(.2,.7,0,1), box-shadow .28s; }
