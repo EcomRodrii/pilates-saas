@@ -3320,8 +3320,29 @@ export async function dbDeleteProductoPOS(id: string) {
   if (error) reportDbError('[dbDeleteProductoPOS]', error);
 }
 
+// B0.2: reintento acotado ante una violación de FK TRANSITORIA (23503). El alta
+// de una socia encadena su suscripción y su recibo al ok de `dbInsertSocio`,
+// pero aun así se han visto casos raros en los que la fila de `socios` todavía
+// no es visible al insertar la referida (commit-race) → 23503 (Sentry NEXTJS-4/-3).
+// La fila referida aparece en unos ms; se reintenta con backoff corto en vez de
+// dejar pasar el error. Si tras los intentos sigue ausente, se reporta igual: no
+// enmascara una FK realmente rota (solo reintenta ese código+constraint concretos).
+async function conReintentoFK<T extends { error: { code: string; message: string } | null }>(
+  constraint: string,
+  insertar: () => PromiseLike<T>,
+): Promise<T> {
+  let res = await insertar();
+  for (let i = 0; i < 3 && res.error?.code === '23503' && res.error.message.includes(constraint); i++) {
+    await new Promise((r) => setTimeout(r, 150 * (i + 1)));
+    res = await insertar();
+  }
+  return res;
+}
+
 export async function dbInsertSuscripcion(sus: Suscripcion) {
-  const { error } = await supabase.from('suscripciones').insert(suscripcionToDb(sus));
+  const { error } = await conReintentoFK('suscripciones_socio_id_fkey', () =>
+    supabase.from('suscripciones').insert(suscripcionToDb(sus)),
+  );
   if (error) reportDbError('[dbInsertSuscripcion]', error);
 }
 
@@ -3434,7 +3455,9 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
 }
 
 export async function dbInsertRecibo(rec: Recibo) {
-  const { error } = await supabase.from('recibos').insert(reciboToDb(rec));
+  const { error } = await conReintentoFK('recibos_socio_id_fkey', () =>
+    supabase.from('recibos').insert(reciboToDb(rec)),
+  );
   if (error) reportDbError('[dbInsertRecibo]', error);
 }
 
@@ -4553,12 +4576,15 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
 // nombre — la UI de éxito lo necesita para no inventarse la URL del portal),
 // o null si falló.
 export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string }): Promise<{ id: string; slug: string } | null> {
-  // generateUniqueSlug comprueba disponibilidad y el insert llega después: un
-  // segundo alta con el mismo nombre (doble clic, dos pestañas) puede colarse
-  // en ese hueco y quedarse con el slug "libre" que acabamos de comprobar.
-  // Se reintenta unas pocas veces regenerando el slug ante ese choque concreto
-  // en vez de dejar pasar el 23505 crudo (Sentry JAVASCRIPT-NEXTJS-F).
-  for (let intento = 0; intento < 3; intento++) {
+  // Dos carreras transitorias se reintentan (en vez de dejar pasar el error crudo):
+  //  · 23505 slug: generateUniqueSlug comprueba disponibilidad y el insert llega
+  //    después; un segundo alta con el mismo nombre (doble clic, dos pestañas)
+  //    puede colarse en ese hueco (Sentry NEXTJS-F). Se regenera el slug al vuelo.
+  //  · 23503 owner FK: al confirmar el email, el alta puede adelantar al commit
+  //    de auth.users y la FK owner_auth_user_id no encuentra la fila todavía
+  //    (Sentry NEXTJS-G, culprit /login). La fila aparece en unos ms → backoff.
+  let ultimoError: { code: string; message: string } | null = null;
+  for (let intento = 0; intento < 4; intento++) {
     const id = `studio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const slug = await generateUniqueSlug(fields.nombre);
     const { error } = await supabase.from('studios').insert({
@@ -4571,13 +4597,17 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
       slug,
     });
     if (!error) return { id, slug };
-    if (error.code !== '23505' || !error.message.includes('studios_slug_key')) {
-      reportDbError('[dbCreateStudio]', error);
-      return null;
+    ultimoError = error;
+    if (error.code === '23505' && error.message.includes('studios_slug_key')) {
+      continue; // choque de slug: reintenta con uno recién generado, sin esperar.
     }
-    // Choque de slug: reintenta con uno recién generado.
+    if (error.code === '23503' && error.message.includes('studios_owner_auth_user_id_fkey')) {
+      await new Promise((r) => setTimeout(r, 200 * (intento + 1))); // 200/400/600ms
+      continue;
+    }
+    break; // cualquier otro error: no reintentar.
   }
-  reportDbError('[dbCreateStudio]', { message: 'No se pudo generar un slug único tras varios intentos' });
+  reportDbError('[dbCreateStudio]', ultimoError ?? { message: 'No se pudo crear el estudio tras varios intentos' });
   return null;
 }
 
