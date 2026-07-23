@@ -287,6 +287,19 @@ export interface Congelacion {
   creadaEn: string;
 }
 
+// F2 (B2.7): máquina como recurso. Avería/mantenimiento de una máquina de una
+// sala durante un rango; reduce el aforo efectivo (ver lib/aforo-logic.ts).
+export interface BloqueoMaquina {
+  id: string;
+  studioId: string;
+  salaId: string;
+  spotId: string | null;       // opcional: reformer concreto (si hay mapa de spots)
+  desde: string;               // ISO timestamptz
+  hasta: string | null;        // null = avería abierta (sin fecha de arreglo)
+  motivo: string | null;
+  creadoEn: string;
+}
+
 export interface Sala {
   id: string;
   studioId: string;

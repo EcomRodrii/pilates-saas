@@ -493,6 +493,17 @@ export interface RowSalas {
   color: string | null;
 }
 
+export interface RowBloqueosMaquina {
+  id: string;
+  studio_id: string;
+  sala_id: string;
+  spot_id: string | null;
+  desde: string;
+  hasta: string | null;
+  motivo: string | null;
+  creado_en: string;
+}
+
 export interface RowSesiones {
   id: string;
   studio_id: string;

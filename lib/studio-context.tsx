@@ -12,6 +12,7 @@ import {
   dbFetchDependencySnapshots,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
+  dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
@@ -57,6 +58,7 @@ import type {
   Factura,
   PlanTarifa,
   Sala,
+  BloqueoMaquina,
   TipoClase,
   Instructor,
   Spot,
@@ -189,6 +191,7 @@ interface StudioContextValue {
   tiposClase: TipoClase[];
   instructores: Instructor[];
   spots: Spot[];
+  bloqueosMaquina: BloqueoMaquina[];
 
   // Mutable state
   socios: Socio[];
@@ -370,6 +373,9 @@ interface StudioContextValue {
   addSala: (fields: Omit<Sala, 'id' | 'studioId'>) => void;
   updateSala: (id: string, changes: Partial<Omit<Sala, 'id' | 'studioId'>>) => void;
   deleteSala: (id: string) => void;
+  // F2 (B2.7): averías de máquina. hasta=null → avería abierta.
+  marcarAveria: (salaId: string, spotId: string | null, motivo: string | null, hasta: string | null) => void;
+  quitarAveria: (id: string) => void;
 
   // Tipos de clase (mutable)
   addTipoClase: (fields: Omit<TipoClase, 'id' | 'studioId'>) => void;
@@ -481,6 +487,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [dependencySnapshots, setDependencySnapshots] = useState<InstructorDependencySnapshot[]>([]);
   const [instructores, setInstructores] = useState<Instructor[]>([]);
   const [spots, setSpots] = useState<Spot[]>([]);
+  const [bloqueosMaquina, setBloqueosMaquina] = useState<BloqueoMaquina[]>([]);
 
   const [socios, setSocios] = useState<Socio[]>([]);
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
@@ -656,6 +663,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setTiposClase(data.tiposClase);
       setInstructores(data.instructores);
       setSpots(data.spots);
+      setBloqueosMaquina(data.bloqueosMaquina);
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
@@ -824,6 +832,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
   function deleteSala(id: string) {
     setSalas(prev => prev.filter(s => s.id !== id));
+  }
+
+  // F2 (B2.7): marcar/quitar avería de máquina. Persiste en BD (a diferencia de
+  // las salas): el aforo real lo calcula reservar_plaza server-side sobre estas
+  // filas, así que tienen que estar guardadas para que el bloqueo sea efectivo.
+  function marcarAveria(salaId: string, spotId: string | null, motivo: string | null, hasta: string | null) {
+    const ahora = new Date().toISOString();
+    const b: BloqueoMaquina = {
+      id: `avr-${uid()}`, studioId: getCurrentStudioId(), salaId, spotId,
+      desde: ahora, hasta, motivo, creadoEn: ahora,
+    };
+    setBloqueosMaquina(prev => [b, ...prev]);
+    dbInsertBloqueoMaquina(b);
+  }
+  function quitarAveria(id: string) {
+    const ahora = new Date().toISOString();
+    setBloqueosMaquina(prev => prev.map(b => b.id === id ? { ...b, hasta: ahora } : b));
+    dbCerrarBloqueoMaquina(id, ahora);
   }
 
   // ── Citas: servicios y horario fino (0046) ─────────────────────────────────────
@@ -2682,12 +2708,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     tiposClase,
     instructores,
     spots,
+    bloqueosMaquina,
     addPlan,
     updatePlan,
     deletePlan,
     addSala,
     updateSala,
     deleteSala,
+    marcarAveria,
+    quitarAveria,
     addTipoClase,
     updateTipoClase,
     deleteTipoClase,
@@ -2890,6 +2919,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setTiposClase(data.tiposClase);
       setInstructores(data.instructores);
       setSpots(data.spots);
+      setBloqueosMaquina(data.bloqueosMaquina);
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);

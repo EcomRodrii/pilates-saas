@@ -57,6 +57,7 @@ import type {
   RowRewardRedemptions,
   RowRewardRules,
   RowSalas,
+  RowBloqueosMaquina,
   RowSesiones,
   RowSocios,
   RowCamposPersonalizados,
@@ -117,6 +118,7 @@ import type {
   RewardRule,
   RewardTrigger,
   Sala,
+  BloqueoMaquina,
   Sesion,
   Socio,
   CampoPersonalizado,
@@ -602,6 +604,31 @@ function mapSala(r: RowSalas): Sala {
   } as Sala;
 }
 
+function mapBloqueoMaquina(r: RowBloqueosMaquina): BloqueoMaquina {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    salaId: r.sala_id,
+    spotId: r.spot_id ?? null,
+    desde: r.desde,
+    hasta: r.hasta ?? null,
+    motivo: r.motivo ?? null,
+    creadoEn: r.creado_en,
+  };
+}
+
+function bloqueoMaquinaToDb(b: BloqueoMaquina) {
+  return {
+    id: b.id,
+    studio_id: b.studioId ?? STUDIO_ID,
+    sala_id: b.salaId,
+    spot_id: b.spotId ?? null,
+    desde: b.desde,
+    hasta: b.hasta ?? null,
+    motivo: b.motivo ?? null,
+  };
+}
+
 function mapSpot(r: RowSpots): Spot {
   return {
     id: r.id,
@@ -1081,6 +1108,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     dashboardChartsRes,
     citasServiciosRes,
     citasDisponibilidadRes,
+    bloqueosMaquinaRes,
   ] = await Promise.all([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('usuarios').select('*').eq('studio_id', sid),
@@ -1138,6 +1166,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('dashboard_charts').select('*').eq('studio_id', sid),
     db.from('citas_servicios').select('*').eq('studio_id', sid),
     db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
+    db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -1185,6 +1214,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     dashboardCharts: (dashboardChartsRes.data ?? []).map(mapDashboardChart),
     citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
     citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
+    bloqueosMaquina: (bloqueosMaquinaRes.data ?? []).map(mapBloqueoMaquina),
   };
 }
 
@@ -3385,6 +3415,26 @@ export async function dbDescongelarSuscripcion(susId: string, studioId: string):
   });
   if (error) { reportDbError('[dbDescongelarSuscripcion]', error); return null; }
   return (data as string | null) ?? null;
+}
+
+// F2 (B2.7): averías de máquina. Carga las del estudio (recientes/abiertas).
+export async function dbListBloqueosMaquina(studioId: string): Promise<BloqueoMaquina[]> {
+  const { data, error } = await supabase
+    .from('bloqueos_maquina').select('*').eq('studio_id', studioId)
+    .order('desde', { ascending: false });
+  if (error) { reportDbError('[dbListBloqueosMaquina]', error); return []; }
+  return (data ?? []).map(mapBloqueoMaquina);
+}
+
+export async function dbInsertBloqueoMaquina(b: BloqueoMaquina) {
+  const { error } = await supabase.from('bloqueos_maquina').insert(bloqueoMaquinaToDb(b));
+  if (error) reportDbError('[dbInsertBloqueoMaquina]', error);
+}
+
+// Cerrar una avería = fijar `hasta` (por defecto ahora → la máquina vuelve al aforo).
+export async function dbCerrarBloqueoMaquina(id: string, hastaISO: string) {
+  const { error } = await supabase.from('bloqueos_maquina').update({ hasta: hastaISO }).eq('id', id);
+  if (error) reportDbError('[dbCerrarBloqueoMaquina]', error);
 }
 
 export async function dbInsertSesion(ses: Sesion) {
