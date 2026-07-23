@@ -39,7 +39,7 @@ function suscripcion(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'pl
   };
 }
 function planTarifa(p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id' | 'tipo'>): PlanTarifa {
-  return { studioId: 'e1', nombre: 'Plan', descripcion: null, precio: 50, sesiones: null, activo: true, ...p };
+  return { studioId: 'e1', nombre: 'Plan', descripcion: null, precio: 50, sesiones: null, validezDias: null, limiteSemanal: null, activo: true, ...p };
 }
 function input(over: Partial<AutomationEngineInput>): AutomationEngineInput {
   return {

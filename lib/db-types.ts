@@ -363,7 +363,20 @@ export interface RowPlanesTarifa {
   precio: number;
   tipo: string;
   sesiones: number | null;
+  validez_dias: number | null;
+  limite_semanal: number | null;
   activo: boolean | null;
+}
+
+export interface RowCongelaciones {
+  id: string;
+  studio_id: string;
+  suscripcion_id: string;
+  desde: string;
+  hasta: string | null;
+  dias_aplicados: number | null;
+  motivo: string | null;
+  creada_en: string;
 }
 
 export interface RowPostsComunidad {

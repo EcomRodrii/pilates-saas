@@ -21,7 +21,7 @@ const asistencias = (socioId: string, cadaDias: number, cuantas: number, offset:
 const suscripcion = (p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion =>
   ({ id: `sus-${++n}`, studioId: 'e1', estado: 'ACTIVA', fechaInicio: '2025-01-01', fechaFin: null, sesionesRestantes: null, stripeSubscriptionId: null, ...p });
 const plan = (p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id'>): PlanTarifa =>
-  ({ studioId: 'e1', nombre: 'Plan', descripcion: null, precio: 89, tipo: 'MENSUAL', sesiones: null, activo: true, ...p });
+  ({ studioId: 'e1', nombre: 'Plan', descripcion: null, precio: 89, tipo: 'MENSUAL', sesiones: null, validezDias: null, limiteSemanal: null, activo: true, ...p });
 const sesion = (p: Partial<Sesion> & Pick<Sesion, 'id' | 'inicio'>): Sesion =>
   ({ studioId: 'e1', tipoClaseId: 'tc1', salaId: 's1', instructorId: 'i1', fin: p.inicio, aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null, ...p });
 const sala = (p: Partial<Sala> & Pick<Sala, 'id'>): Sala => ({ studioId: 'e1', nombre: 'Sala', capacidad: 8, color: '#000', ...p });

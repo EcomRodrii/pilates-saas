@@ -572,6 +572,8 @@ export function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
     precio: r.precio,
     tipo: r.tipo,
     sesiones: r.sesiones ?? null,
+    validezDias: r.validez_dias ?? null,
+    limiteSemanal: r.limite_semanal ?? null,
     activo: r.activo,
   } as PlanTarifa;
 }
@@ -2678,6 +2680,8 @@ function planTarifaToDb(plan: PlanTarifa) {
     precio: plan.precio,
     tipo: plan.tipo,
     sesiones: plan.sesiones ?? null,
+    validez_dias: plan.validezDias ?? null,
+    limite_semanal: plan.limiteSemanal ?? null,
     activo: plan.activo,
   };
 }
@@ -3218,6 +3222,8 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
   if ('precio' in changes) db.precio = changes.precio;
   if ('tipo' in changes) db.tipo = changes.tipo;
   if ('sesiones' in changes) db.sesiones = changes.sesiones;
+  if ('validezDias' in changes) db.validez_dias = changes.validezDias;
+  if ('limiteSemanal' in changes) db.limite_semanal = changes.limiteSemanal;
   if ('activo' in changes) db.activo = changes.activo;
   const { error } = await supabase.from('planes_tarifa').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdatePlanTarifa]', error);
@@ -3357,6 +3363,28 @@ export async function dbUpdateSuscripcion(id: string, changes: Partial<Suscripci
   if ('stripeSubscriptionId' in changes) db.stripe_subscription_id = changes.stripeSubscriptionId;
   const { error } = await supabase.from('suscripciones').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateSuscripcion]', error);
+}
+
+// F2 (B2.8): congelar = ventana + estado PAUSADA, atómico en el servidor.
+export async function dbCongelarSuscripcion(susId: string, studioId: string, motivo: string | null) {
+  const { error } = await supabase.rpc('congelar_suscripcion', {
+    p_id: `cong-${uid()}`,
+    p_suscripcion_id: susId,
+    p_studio_id: studioId,
+    p_motivo: motivo,
+  });
+  if (error) reportDbError('[dbCongelarSuscripcion]', error);
+}
+
+// F2 (B2.8): descongelar = cierra ventana + empuja fecha_fin + ACTIVA. Devuelve
+// la nueva fecha_fin (o null) para repintar sin recargar.
+export async function dbDescongelarSuscripcion(susId: string, studioId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('descongelar_suscripcion', {
+    p_suscripcion_id: susId,
+    p_studio_id: studioId,
+  });
+  if (error) { reportDbError('[dbDescongelarSuscripcion]', error); return null; }
+  return (data as string | null) ?? null;
 }
 
 export async function dbInsertSesion(ses: Sesion) {

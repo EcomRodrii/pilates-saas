@@ -11,7 +11,7 @@ import {
   dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
   dbFetchDependencySnapshots,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
-  dbInsertSuscripcion, dbUpdateSuscripcion,
+  dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
@@ -124,7 +124,7 @@ import {
   decidirPremioReferido,
   debeDevolverBono,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono } from '@/lib/bono-logic';
+import { bonoConsumible, calcularDevolucionBono, calcularFechaFinBono } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -209,7 +209,7 @@ interface StudioContextValue {
 
   // Suscripciones
   assignPlan: (socioId: string, planId: string | null) => void;
-  pausarSuscripcion: (susId: string) => void;
+  pausarSuscripcion: (susId: string, motivo?: string) => void;
   reanudarSuscripcion: (susId: string) => void;
 
   // Notas internas
@@ -1000,7 +1000,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           planId,
           estado: 'ACTIVA',
           fechaInicio: ahora,
-          fechaFin: null,
+          fechaFin: calcularFechaFinBono(ahora, plan.validezDias ?? null),
           sesionesRestantes: plan.sesiones,
           stripeSubscriptionId: null,
         };
@@ -1254,7 +1254,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       planId: plan.id,
       estado: 'ACTIVA',
       fechaInicio: new Date().toISOString(),
-      fechaFin: null,
+      fechaFin: calcularFechaFinBono(new Date().toISOString(), plan.validezDias ?? null),
       sesionesRestantes: plan.sesiones,
       stripeSubscriptionId: null,
     } : null;
@@ -1277,21 +1277,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     );
   }
 
-  function pausarSuscripcion(susId: string) {
-    // I7: persistir en BD (antes solo tocaba el estado local → pausar se perdía al
-    // recargar). Se guarda solo si la transición aplica, como hace assignPlan.
+  function pausarSuscripcion(susId: string, motivo?: string) {
+    // I7 + F2 (B2.8): pausar = congelar. La RPC registra la ventana de congelación
+    // y pone PAUSADA de forma atómica; al reanudar, los días congelados se
+    // devuelven a fecha_fin para que no consuman la validez del bono. Optimista.
     const sus = suscripciones.find(s => s.id === susId);
     if (!sus || sus.estado !== 'ACTIVA') return;
     setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'PAUSADA' as const } : s));
-    dbUpdateSuscripcion(susId, { estado: 'PAUSADA' });
+    dbCongelarSuscripcion(susId, getCurrentStudioId(), motivo ?? null);
   }
 
   function reanudarSuscripcion(susId: string) {
-    // I7: idem — persistir la reanudación.
+    // I7 + F2 (B2.8): reanudar = descongelar. Cierra la ventana, empuja fecha_fin y
+    // vuelve a ACTIVA en el servidor; repintamos la nueva fecha_fin al volver.
     const sus = suscripciones.find(s => s.id === susId);
     if (!sus || sus.estado !== 'PAUSADA') return;
     setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'ACTIVA' as const } : s));
-    dbUpdateSuscripcion(susId, { estado: 'ACTIVA' });
+    void dbDescongelarSuscripcion(susId, getCurrentStudioId()).then(nuevaFin => {
+      setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, fechaFin: nuevaFin } : s));
+    });
   }
 
   // ── Sesiones ─────────────────────────────────────────────────────────────────

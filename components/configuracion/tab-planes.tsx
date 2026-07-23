@@ -25,6 +25,8 @@ type PlanForm = {
   precio: string;
   tipo: PlanTarifa['tipo'];
   sesiones: string;
+  validezDias: string;
+  limiteSemanal: string;
   activo: boolean;
 };
 
@@ -34,6 +36,8 @@ const emptyPlanForm = (): PlanForm => ({
   precio: '',
   tipo: 'MENSUAL',
   sesiones: '',
+  validezDias: '',
+  limiteSemanal: '',
   activo: true,
 });
 
@@ -44,6 +48,8 @@ function planToForm(p: PlanTarifa): PlanForm {
     precio: String(p.precio),
     tipo: p.tipo,
     sesiones: p.sesiones !== null ? String(p.sesiones) : '',
+    validezDias: p.validezDias !== null ? String(p.validezDias) : '',
+    limiteSemanal: p.limiteSemanal !== null ? String(p.limiteSemanal) : '',
     activo: p.activo,
   };
 }
@@ -71,15 +77,16 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
   const closeModal = useCallback(() => setModal(null), []);
 
   const guardar = useCallback(() => {
+    const esBonoOPuntual = form.tipo !== 'MENSUAL';
     const fields = {
       nombre: form.nombre.trim(),
       descripcion: form.descripcion.trim() || null,
       precio: parseFloat(form.precio) || 0,
       tipo: form.tipo,
-      sesiones:
-        form.tipo !== 'MENSUAL' && form.sesiones
-          ? parseInt(form.sesiones, 10)
-          : null,
+      sesiones: esBonoOPuntual && form.sesiones ? parseInt(form.sesiones, 10) : null,
+      // Validez solo aplica a bonos/puntuales; el límite semanal a cualquier tipo.
+      validezDias: esBonoOPuntual && form.validezDias ? parseInt(form.validezDias, 10) : null,
+      limiteSemanal: form.limiteSemanal ? parseInt(form.limiteSemanal, 10) : null,
       activo: form.activo,
     };
     if (modal === 'nuevo') {
@@ -295,20 +302,48 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
               </Field>
             </div>
             {sesionesRequeridas && (
-              <Field
-                label="Número de sesiones"
-                description="Cuántas clases incluye el bono. Se descuenta una por cada reserva; al llegar a cero, la clienta ya no puede reservar hasta renovar."
-              >
-                <input
-                  className={inputCls}
-                  type="number"
-                  min={1}
-                  value={form.sesiones}
-                  onChange={e => setForm(f => ({ ...f, sesiones: e.target.value }))}
-                  placeholder="Ej: 10"
-                />
-              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field
+                  label="Número de sesiones"
+                  description="Cuántas clases incluye el bono. Se descuenta una por cada reserva; al llegar a cero, la clienta ya no puede reservar hasta renovar."
+                >
+                  <input
+                    className={inputCls}
+                    type="number"
+                    min={1}
+                    value={form.sesiones}
+                    onChange={e => setForm(f => ({ ...f, sesiones: e.target.value }))}
+                    placeholder="Ej: 10"
+                  />
+                </Field>
+                <Field
+                  label="Validez (días)"
+                  description="A los cuántos días de la compra caduca el bono. Déjalo vacío si no caduca."
+                >
+                  <input
+                    className={inputCls}
+                    type="number"
+                    min={1}
+                    value={form.validezDias}
+                    onChange={e => setForm(f => ({ ...f, validezDias: e.target.value }))}
+                    placeholder="Ej: 60"
+                  />
+                </Field>
+              </div>
             )}
+            <Field
+              label="Límite semanal (opcional)"
+              description="Máximo de clases que puede reservar por semana con este plan. Déjalo vacío para no poner tope."
+            >
+              <input
+                className={inputCls}
+                type="number"
+                min={1}
+                value={form.limiteSemanal}
+                onChange={e => setForm(f => ({ ...f, limiteSemanal: e.target.value }))}
+                placeholder="Sin límite"
+              />
+            </Field>
             <div className="py-1">
               <div className="flex items-center justify-between">
                 <span className={cn(labelCls, 'mb-0')}>Plan activo</span>

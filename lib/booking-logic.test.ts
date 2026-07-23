@@ -54,7 +54,7 @@ function suscripcion(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'pl
   };
 }
 function plan(p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id' | 'tipo'>): PlanTarifa {
-  return { studioId: 'estudio-1', nombre: 'Plan', descripcion: null, precio: 50, sesiones: null, activo: true, ...p };
+  return { studioId: 'estudio-1', nombre: 'Plan', descripcion: null, precio: 50, sesiones: null, validezDias: null, limiteSemanal: null, activo: true, ...p };
 }
 
 // ── plazasOcupadas ───────────────────────────────────────────────────────────
