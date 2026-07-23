@@ -58,6 +58,7 @@ import type {
   Reserva,
   EstadoReserva,
   Recibo,
+  MetodoCobro,
   Factura,
   PlanTarifa,
   Sala,
@@ -272,7 +273,7 @@ interface StudioContextValue {
 
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => void;
-  marcarCobrado: (reciboId: string) => void;
+  marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => void;
   marcarDevuelto: (reciboId: string) => void;
   reintentar: (reciboId: string) => void;
   deleteRecibo: (id: string) => void;
@@ -1957,12 +1958,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return fac;
   }
 
-  function marcarCobrado(reciboId: string) {
+  function marcarCobrado(reciboId: string, metodo?: MetodoCobro) {
     const fechaCobro = new Date().toISOString();
+    // F2 (B2.6): cobro sin pasarela de primera clase. La dueña marca cómo cobró de
+    // verdad (Bizum/efectivo/transferencia…), no solo "cobrado". La suscripción vive
+    // por fechas: el cobro manual es tan válido como el de Stripe.
     setRecibos(prev => prev.map(r =>
-      r.id === reciboId ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
+      r.id === reciboId ? { ...r, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? r.metodoCobro ?? null } : r
     ));
-    dbUpdateRecibo(reciboId, { estado: 'COBRADO', fechaCobro });
+    dbUpdateRecibo(reciboId, { estado: 'COBRADO', fechaCobro, ...(metodo ? { metodoCobro: metodo } : {}) });
     setFacturas(prev => {
       const recibo = recibos.find(r => r.id === reciboId) ??
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
