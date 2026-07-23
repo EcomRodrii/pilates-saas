@@ -1144,6 +1144,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     citasServiciosRes,
     citasDisponibilidadRes,
     bloqueosMaquinaRes,
+    plazasFijasRes,
   ] = await Promise.all([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('usuarios').select('*').eq('studio_id', sid),
@@ -1202,6 +1203,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('citas_servicios').select('*').eq('studio_id', sid),
     db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
     db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
+    db.from('plazas_fijas').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -1250,6 +1252,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
     citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
     bloqueosMaquina: (bloqueosMaquinaRes.data ?? []).map(mapBloqueoMaquina),
+    plazasFijas: (plazasFijasRes.data ?? []).map(mapPlazaFija),
   };
 }
 
