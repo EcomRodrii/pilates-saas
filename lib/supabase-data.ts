@@ -2047,7 +2047,26 @@ export async function cancelarReservaPublica(params: {
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
   // tardia/bonoDevuelto → la UI puede confirmar a la socia si recuperó la sesión.
-  return ejecutarCancelacionReserva(admin, { studioId: params.studioId, reservaId: params.reservaId, socioId: params.socioId });
+  const r = await ejecutarCancelacionReserva(admin, { studioId: params.studioId, reservaId: params.reservaId, socioId: params.socioId });
+  if ('error' in r) return r;
+
+  // F2 (B2.5) vía socia mínima: si lo que cancela es su PLAZA FIJA (reserva
+  // materializada por el cron, id `res-pf-…`), se le guarda una recuperación en
+  // vez de perder la clase — la misma compensación que la vía dueña-first. El tope
+  // (4) lo aplica la RPC. Para reservas normales no aplica (rige la devolución de
+  // bono habitual).
+  let recuperacionCreada = false;
+  if (params.reservaId.startsWith('res-pf-')) {
+    const { data } = await admin.rpc('crear_recuperacion', {
+      p_id: `recup-${uid()}`,
+      p_studio_id: params.studioId,
+      p_socio_id: params.socioId,
+      p_origen_reserva_id: params.reservaId,
+      p_motivo: 'Plaza fija — no puede esta semana',
+    });
+    recuperacionCreada = data === 'CREADA';
+  }
+  return { ...r, recuperacionCreada };
 }
 
 // ─── Citas 1:1 auto-reservables (0046) — escrituras/lecturas públicas ─────────
