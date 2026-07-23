@@ -11,7 +11,8 @@ export function Nav() {
 
   return (
     <>
-      <div style={{ position: 'sticky', top: 0, zIndex: 90, padding: '14px clamp(14px,4vw,28px) 0', pointerEvents: 'none' }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 90, height: 0, pointerEvents: 'none' }}>
+        <div style={{ padding: '14px clamp(14px,4vw,28px) 0' }}>
         <nav
           style={{
             pointerEvents: 'auto',
@@ -52,6 +53,7 @@ export function Nav() {
             <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1={3} y1={6} x2={21} y2={6} /><line x1={3} y1={12} x2={21} y2={12} /><line x1={3} y1={18} x2={21} y2={18} /></svg>
           </button>
         </nav>
+        </div>
       </div>
 
       {menuOpen && (

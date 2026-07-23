@@ -46,7 +46,7 @@ export function Hero() {
   const { stageRef, tiltRef } = useHeroTilt();
 
   return (
-    <header id="top" style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) 56px', overflow: 'hidden', isolation: 'isolate' }}>
+    <header id="top" style={{ position: 'relative', padding: 'clamp(96px,11vw,132px) clamp(20px,4vw,44px) 56px', overflow: 'hidden', isolation: 'isolate' }}>
       <video
         autoPlay
         loop
