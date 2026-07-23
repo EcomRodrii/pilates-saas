@@ -142,6 +142,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     categoria: 'Control de acceso',
     campos: [
       { key: 'apiKey', label: 'Clave API', placeholder: 'kisi_xxxxxxxxxxxxxxxx', tipo: 'password' },
+      { key: 'lockId', label: 'ID de la cerradura (opcional si solo tienes una)', placeholder: '12345' },
     ],
     instrucciones: [
       'Inicia sesión en tu panel de Kisi (kisi.io).',
@@ -151,6 +152,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
       'Ponle de nombre "Tentare" y confirma con tu contraseña de Kisi.',
       'Copia la clave que te genera Kisi.',
       'Pégala aquí abajo y pulsa Guardar.',
+      'Con Kisi conectado, la puerta se abre sola con cada check-in. Si tu cuenta tiene varias cerraduras, indica también el ID de la puerta del estudio (Panel de Kisi → Cerraduras).',
     ],
     docsUrl: 'https://api.kisi.io/docs',
     probarUrl: '/api/integrations/kisi/probar',
