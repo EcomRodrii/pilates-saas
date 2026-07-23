@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { subirFotoPerfil, eliminarFotoPerfil } from '@/lib/portal-storage';
+import { subirFotoPerfil, eliminarFotoPerfil, validarFotoPerfil } from '@/lib/portal-storage';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { useModo } from '@/lib/portal-modo';
 import {
@@ -85,14 +85,8 @@ export default function PerfilPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !socio) return;
-    if (!file.type.startsWith('image/')) {
-      setError('Elige un archivo de imagen.');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('La imagen no puede superar 5 MB.');
-      return;
-    }
+    const invalido = validarFotoPerfil(file);
+    if (invalido) { setError(invalido); return; }
     setError('');
     setSubiendoFoto(true);
     const result = await subirFotoPerfil(socio.id, file);

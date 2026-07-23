@@ -245,6 +245,7 @@ function mapStudio(r: RowStudios): Studio {
     depVentanaDias: r.dep_ventana_dias ?? 90,
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
+    fotoUrl: r.foto_url ?? null,
     ownerAuthUserId: r.owner_auth_user_id ?? null,
     slug: r.slug ?? null,
     creadoEn: r.creado_en,
@@ -636,6 +637,7 @@ function mapInstructor(r: RowInstructores): Instructor {
     color: r.color,
     activo: r.activo,
     avatar: r.avatar ?? null,
+    fotoUrl: r.foto_url ?? null,
     rol: r.rol ?? 'INSTRUCTOR',
     authUserId: r.auth_user_id ?? null,
   } as Instructor;
@@ -4264,6 +4266,7 @@ export async function dbInsertInstructor(i: Instructor) {
         color: i.color,
         activo: i.activo,
         avatar: i.avatar ?? null,
+        fotoUrl: i.fotoUrl ?? null,
         rol: i.rol ?? 'INSTRUCTOR',
       }),
     });
@@ -4320,6 +4323,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('depUmbralMedio' in changes) db.dep_umbral_medio = changes.depUmbralMedio;
   if ('depVentanaDias' in changes) db.dep_ventana_dias = changes.depVentanaDias;
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
+  if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;

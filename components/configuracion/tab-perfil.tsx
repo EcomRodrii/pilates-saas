@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Check } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Camera, Check, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
+import { subirFotoAdmin, eliminarFotoAdmin, subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 const ROL_LABEL: Record<string, { label: string; bg: string; text: string }> = {
@@ -28,6 +29,42 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
     telefono: yo?.telefono ?? '',
   });
   const [guardado, setGuardado] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [errorFoto, setErrorFoto] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // El avatar/foto es de QUIEN ha iniciado sesión: si es instructora/recepción
+  // con ficha propia, se guarda en su propia fila (yo.avatar/yo.fotoUrl), no
+  // en la del estudio — si no, la foto de una instructora sobrescribiría la
+  // que ven la propietaria y el resto del equipo en el sidebar.
+  const avatarId = yo ? yo.avatar : studio?.avatarAdmin;
+  const fotoUrl = yo ? yo.fotoUrl : studio?.fotoUrl;
+
+  async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || (!yo && !studio)) return;
+    const invalido = validarFotoPerfil(file);
+    if (invalido) { setErrorFoto(invalido); return; }
+    setErrorFoto('');
+    setSubiendoFoto(true);
+    const result = yo ? await subirFotoInstructor(yo.id, file) : await subirFotoAdmin(studio!.id, file);
+    setSubiendoFoto(false);
+    if ('error' in result) { setErrorFoto(result.error); return; }
+    if (yo) updateInstructor(yo.id, { fotoUrl: result.url });
+    else updateStudio({ fotoUrl: result.url });
+    showToast('Foto actualizada');
+  }
+
+  async function handleEliminarFoto() {
+    if (!yo && !studio) return;
+    setSubiendoFoto(true);
+    const result = yo ? await eliminarFotoInstructor(yo.id) : await eliminarFotoAdmin(studio!.id);
+    setSubiendoFoto(false);
+    if ('error' in result) { setErrorFoto(result.error); return; }
+    if (yo) updateInstructor(yo.id, { fotoUrl: null });
+    else updateStudio({ fotoUrl: null });
+  }
 
   const now = new Date();
   const clasesImpartidas = yo ? sesiones.filter(s => s.instructorId === yo.id && new Date(s.inicio) < now) : [];
@@ -51,7 +88,22 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
     <div className="space-y-5 max-w-2xl">
       <div className={cn(cardCls, 'p-6')}>
         <div className="flex items-center gap-4 mb-1">
-          <ProfileAvatar avatarId={studio?.avatarAdmin} nombre={form.nombre || 'Admin'} size="xl" />
+          <div className="relative shrink-0">
+            <ProfileAvatar avatarId={avatarId} fotoUrl={fotoUrl} nombre={form.nombre || 'Admin'} size="xl" />
+            {subiendoFoto && (
+              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+                <Loader2 size={18} className="text-white animate-spin" />
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center hover:bg-background transition-colors"
+              aria-label="Subir foto"
+            >
+              <Camera size={13} className="text-foreground" />
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
+          </div>
           <div>
             <p className="text-[15px] font-bold text-foreground">{form.nombre || 'Sin nombre'}</p>
             <p className="text-[12px] text-muted-foreground">{form.email}</p>
@@ -60,10 +112,25 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
             </span>
           </div>
         </div>
+        <div className="flex items-center gap-3 mt-2">
+          {fotoUrl && (
+            <button onClick={handleEliminarFoto} className="text-[11px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <Trash2 size={11} />Quitar foto
+            </button>
+          )}
+        </div>
+        {yo && (
+          <p className="text-[11px] text-muted-foreground mt-1">Sube una foto de tu cara — es la que verán tus compañeras en el equipo.</p>
+        )}
+        {errorFoto && <p className="text-[11px] text-destructive mt-1">{errorFoto}</p>}
         <div className="mt-5">
           <AvatarPicker
-            value={studio?.avatarAdmin ?? null}
-            onChange={id => { updateAvatarAdmin(id); showToast('Avatar actualizado'); }}
+            value={avatarId ?? null}
+            onChange={id => {
+              if (yo) updateInstructor(yo.id, { avatar: id });
+              else updateAvatarAdmin(id);
+              showToast('Avatar actualizado');
+            }}
           />
         </div>
       </div>

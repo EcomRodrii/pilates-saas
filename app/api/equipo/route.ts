@@ -29,6 +29,7 @@ function saneaFieldsPropietario(src: Record<string, unknown>): Record<string, un
   if ('telefono' in src) out.telefono = src.telefono == null || src.telefono === '' ? null : String(src.telefono).trim();
   if ('color' in src) out.color = String(src.color ?? '');
   if ('avatar' in src) out.avatar = src.avatar == null ? null : String(src.avatar);
+  if ('fotoUrl' in src) out.foto_url = src.fotoUrl == null ? null : String(src.fotoUrl);
   if ('activo' in src) out.activo = Boolean(src.activo);
   if ('rol' in src && ROLES_VALIDOS.has(String(src.rol))) out.rol = String(src.rol);
   return out;
@@ -42,6 +43,7 @@ function saneaFieldsPropios(src: Record<string, unknown>): Record<string, unknow
   if ('telefono' in src) out.telefono = src.telefono == null || src.telefono === '' ? null : String(src.telefono).trim();
   if ('color' in src) out.color = String(src.color ?? '');
   if ('avatar' in src) out.avatar = src.avatar == null ? null : String(src.avatar);
+  if ('fotoUrl' in src) out.foto_url = src.fotoUrl == null ? null : String(src.fotoUrl);
   return out;
 }
 
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest) {
     color: String(body?.color ?? '#F7A6C4'),
     activo: body?.activo == null ? true : Boolean(body.activo),
     avatar: body?.avatar == null ? null : String(body.avatar),
+    foto_url: body?.fotoUrl == null ? null : String(body.fotoUrl),
     rol,
     auth_user_id: null, // el vínculo se hace vía self-claim (la persona reclama su ficha)
   };

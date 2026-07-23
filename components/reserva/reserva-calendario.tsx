@@ -49,11 +49,13 @@ export interface ReservaSlot {
   fin: string;                // ISO
   claseNombre: string;
   claseColor: string;
+  claseFotoUrl?: string | null;
   nivel: NivelClase;
   descripcion?: string | null;
   instructorNombre?: string | null;
   instructorColor?: string | null;
   instructorRol?: string | null;
+  instructorFotoUrl?: string | null;
   salaNombre?: string | null;
   aforoMaximo: number;
   ocupadas: number;
@@ -90,6 +92,30 @@ function fmtHora(iso: string): string {
 }
 function fmtDiaLargo(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+// Foto redonda — de la instructora o de la clase. Si no hay foto, cae a la
+// inicial del nombre sobre su color (mismo criterio que components/ui/profile-avatar).
+function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; color?: string | null; fotoUrl?: string | null; size: number; ring?: string }) {
+  const ringStyle: CSSProperties = ring ? { boxShadow: `0 0 0 3px ${ring}` } : {};
+  if (fotoUrl) {
+    return (
+      <img
+        src={fotoUrl}
+        alt={nombre}
+        style={{ width: size, height: size, borderRadius: 999, objectFit: 'cover', flexShrink: 0, ...ringStyle }}
+      />
+    );
+  }
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: size * 0.4, fontWeight: 800, color: '#fff', flexShrink: 0, background: color ?? 'var(--portal-brand)',
+      ...ringStyle,
+    }}>
+      {nombre.charAt(0).toUpperCase()}
+    </div>
+  );
 }
 
 export function ReservaCalendario({
@@ -311,44 +337,49 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
       onClick={onOpen}
       aria-label={`${slot.claseNombre} a las ${fmtHora(slot.inicio)}${slot.instructorNombre ? `, con ${slot.instructorNombre}` : ''}, ${lleno ? 'completa' : `${libres} plazas`}`}
       style={{
-        display: 'flex', alignItems: 'stretch', gap: 14, width: '100%', textAlign: 'left',
-        background: t.surface, border: `1px solid ${t.line}`, borderRadius: radius.card,
-        padding: 14, cursor: 'pointer',
+        display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+        background: t.hero, borderRadius: 22, padding: 5,
       }}
     >
-      {/* Franja de color de la clase + hora */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, minWidth: 62 }}>
-        <span style={{ fontSize: 20, fontWeight: 800, color: t.ink, lineHeight: 1, letterSpacing: '-0.01em' }}>
-          {fmtHora(slot.inicio)}
-        </span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: t.muted }}>{fmtHora(slot.fin)}</span>
-      </div>
+      <div style={{ background: t.surface, borderRadius: 18, padding: 16, boxShadow: '0 8px 20px rgba(0,0,0,0.05)' }}>
+        {/* Foto de la clase + nombre, hora, nivel */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <RoundPhoto nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} size={52} ring={t.surface2} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <p style={{ fontSize: 15.5, fontWeight: 800, color: t.ink, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
+                {slot.claseNombre}
+              </p>
+              {slot.miEstado && <EstadoIcono estado={slot.miEstado} />}
+            </div>
+            <p style={{ fontSize: 12, color: t.muted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {fmtHora(slot.inicio)} – {fmtHora(slot.fin)} · {NIVEL_LABEL[slot.nivel]}
+            </p>
+          </div>
+        </div>
 
-      <div style={{ width: 3, borderRadius: 999, background: slot.claseColor, alignSelf: 'stretch', flexShrink: 0 }} />
-
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <p style={{ fontSize: 15, fontWeight: 800, color: t.ink, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '-0.01em' }}>
-            {slot.claseNombre}
-          </p>
-          {slot.miEstado && <EstadoIcono estado={slot.miEstado} />}
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-          <span style={nivelBadge(slot.nivel)}>{NIVEL_LABEL[slot.nivel]}</span>
-          {slot.instructorNombre && (
-            <span style={{ fontSize: 12, fontWeight: 700, color: t.muted }}>{slot.instructorNombre}</span>
-          )}
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 800,
-            padding: '4px 10px', borderRadius: 999,
-            background: `color-mix(in srgb, ${capColor} 14%, transparent)`, color: capColor,
-          }}>
-            <Users size={12} />
-            {lleno ? 'Completa · lista de espera' : `${libres} ${libres === 1 ? 'plaza' : 'plazas'}`}
-          </span>
-        </div>
+        {/* Instructora + plazas */}
+        {slot.instructorNombre && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${t.line}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={38} ring={t.surface2} />
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 13.5, fontWeight: 700, color: t.ink, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {slot.instructorNombre}
+                </p>
+                <p style={{ fontSize: 11, color: t.muted, lineHeight: 1.2, marginTop: 1 }}>
+                  {slot.instructorRol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}
+                </p>
+              </div>
+            </div>
+            <span style={{
+              fontSize: 11.5, fontWeight: 700, color: capColor, flexShrink: 0, whiteSpace: 'nowrap',
+              background: `color-mix(in srgb, ${capColor} 14%, transparent)`, padding: '5px 11px', borderRadius: 999,
+            }}>
+              {lleno ? 'Completa' : `${libres} ${libres === 1 ? 'libre' : 'libres'}`}
+            </span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -438,14 +469,12 @@ function BookingSheet({
             t={t}
             icon={<Users size={14} />}
             label="Plazas"
-            valor={lleno ? 'Completa' : `${libres} ${libres === 1 ? 'libre' : 'libres'}`}
+            valor={lleno ? `Completa (${slot.aforoMaximo}/${slot.aforoMaximo})` : `${slot.ocupadas}/${slot.aforoMaximo} · ${libres} ${libres === 1 ? 'libre' : 'libres'}`}
             valorColor={lleno ? semantic.danger.text : (libres <= 2 ? semantic.warning.text : t.ink)}
           />
           {slot.instructorNombre && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', flexShrink: 0, background: slot.instructorColor ?? 'var(--portal-brand)' }}>
-                {slot.instructorNombre.charAt(0).toUpperCase()}
-              </div>
+              <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={34} ring={t.surface2} />
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: 13.5, fontWeight: 800, color: t.ink, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.instructorNombre}</p>
                 <p style={{ fontSize: 11.5, color: t.muted }}>{slot.instructorRol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}</p>
