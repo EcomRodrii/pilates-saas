@@ -14,6 +14,7 @@ import { ActivityList } from '@/components/decision/activity-list';
 import { QuickActions } from '@/components/decision/quick-actions';
 import { EmptyState } from '@/components/decision/empty-state';
 import { PilotoAutomatico } from '@/components/decision/piloto-automatico';
+import { BandejaHoy } from '@/components/decision/bandeja-hoy';
 import { CodigosDescuento } from '@/components/decision/codigos-descuento';
 import { RiesgoPlanton } from '@/components/decision/riesgo-planton';
 import { EspecialistaCartera } from '@/components/centro-de-control/especialista-cartera';
@@ -98,6 +99,8 @@ export default function CentroDeControlPage() {
       </div>
 
       <PilotoAutomatico />
+
+      <BandejaHoy />
 
       {modoAprendizaje ? (
         <EmptyState />
