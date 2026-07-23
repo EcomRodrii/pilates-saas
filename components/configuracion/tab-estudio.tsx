@@ -323,7 +323,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-1">Enlaces públicos</h3>
         <p className="text-[12px] text-muted-foreground mb-3">
-          Páginas de tu estudio para compartir con clientas o usar en tablet.
+          Páginas de tu estudio para compartir con tus clientas.
         </p>
         <div className="space-y-2">
           <a

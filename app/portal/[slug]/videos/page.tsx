@@ -51,6 +51,11 @@ export default function VideosPage() {
   const [avisoPendiente, setAvisoPendiente] = useState(false);
   const [reproduciendo, setReproduciendo] = useState(false);
 
+  // Zero-flash: mientras VOD esté congelado no pintamos la galería (el useEffect
+  // de arriba redirige al home). Espeja el guardia de /ondemand del panel para no
+  // mostrar contenido congelado "ni por un instante".
+  if (PORTAL_VIDEOS_CONGELADO) return null;
+
   const filtrados = cat === 'TODOS'
     ? videosOnDemand.filter(v => v.activo)
     : videosOnDemand.filter(v => v.activo && v.categoria === cat);
