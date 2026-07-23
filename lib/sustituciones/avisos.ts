@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { enviarEmailAlumnaClaseCubierta, enviarEmailAlumnaClaseCancelada } from './email';
+import { enviarEmailAlumnaClaseCubierta, enviarEmailAlumnaClaseCancelada, enviarEmailAlumnaClaseReprogramada } from './email';
 
 // Avisa a las alumnas apuntadas a una clase — SOLO si el estudio lo tiene
 // activado (studios.avisar_alumnas). Regla del producto: la propietaria SIEMPRE
@@ -16,7 +16,9 @@ function cuandoTexto(inicio: string): string {
 
 export async function avisarAlumnas(
   admin: SupabaseClient,
-  params: { sesionId: string; studioId: string; tipo: 'cubierta' | 'cancelada'; sustituta?: string },
+  // 'reprogramada': la clase se salva moviéndola — `cuandoAntes` es el horario
+  // ORIGINAL ya formateado (la sesión, en ese momento, ya tiene el nuevo).
+  params: { sesionId: string; studioId: string; tipo: 'cubierta' | 'cancelada' | 'reprogramada'; sustituta?: string; cuandoAntes?: string },
 ): Promise<{ avisadas: number; total: number; skipped: boolean; desactivado: boolean }> {
   const { data: estudio } = await admin
     .from('studios').select('nombre, avisar_alumnas, color_primario, logo_url').eq('id', params.studioId).maybeSingle();
@@ -39,7 +41,9 @@ export async function avisarAlumnas(
     const marca = { colorPrimario: estudio.color_primario, logoUrl: estudio.logo_url };
     const r = params.tipo === 'cubierta'
       ? await enviarEmailAlumnaClaseCubierta({ to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando, sustituta: params.sustituta ?? 'otra instructora' })
-      : await enviarEmailAlumnaClaseCancelada({ to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando });
+      : params.tipo === 'reprogramada'
+        ? await enviarEmailAlumnaClaseReprogramada({ to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando: params.cuandoAntes ?? cuando, cuandoNuevo: cuando })
+        : await enviarEmailAlumnaClaseCancelada({ to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando });
     if ('ok' in r && r.ok) avisadas++;
     if ('skipped' in r) skipped = true;
   }

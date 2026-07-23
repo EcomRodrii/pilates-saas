@@ -3,6 +3,7 @@ import { render } from '@react-email/render';
 import type { TipoAlertaPropietaria } from '@/lib/sustituciones/mensajes';
 import {
   ContactoSustitutaEmail, AlertaPropietariaEmail, AlumnaClaseCubiertaEmail, AlumnaClaseCanceladaEmail,
+  AlumnaClaseReprogramadaEmail,
 } from '@/lib/emails/sustitucion-template';
 
 // Emails del módulo de sustituciones, con la plantilla premium compartida
@@ -68,6 +69,14 @@ export async function enviarEmailAlumnaClaseCubierta(params: Marca & {
 }
 
 // No hay sustituta: la clase se cancela (que se entere por ti, no en la puerta).
+// La clase se salva moviéndola de horario: la plaza se mantiene.
+export async function enviarEmailAlumnaClaseReprogramada(params: Marca & {
+  to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; cuandoNuevo: string;
+}): Promise<EnvioResultado> {
+  const html = await render(AlumnaClaseReprogramadaEmail(params));
+  return enviar(params.to, `Cambio de horario — ${params.claseNombre}`, html);
+}
+
 export async function enviarEmailAlumnaClaseCancelada(params: Marca & {
   to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string;
 }): Promise<EnvioResultado> {

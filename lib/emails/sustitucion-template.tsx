@@ -102,6 +102,18 @@ export function AlumnaClaseCubiertaEmail({ toName, estudioNombre, logoUrl, color
   );
 }
 
+// No hay sustituta pero la clase se salva moviéndola: cambia de horario.
+export function AlumnaClaseReprogramadaEmail({ toName, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, cuandoNuevo }: AlumnaProps & { cuandoNuevo: string }) {
+  return (
+    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} titulo="Tu clase cambia de horario" preview={`${claseNombre} pasa al ${cuandoNuevo}`}>
+      <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 14px' }}>Hola <strong>{toName}</strong>,</Text>
+      <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.5, margin: 0 }}>
+        Tu clase <strong>{claseNombre}</strong> del {cuando} <strong>cambia de horario</strong>: pasa al <strong>{cuandoNuevo}</strong>. Tu plaza se mantiene — si el nuevo horario no te viene bien, puedes cancelarla desde tu portal como siempre.
+      </Text>
+    </EmailLayout>
+  );
+}
+
 // No hay sustituta: la clase se cancela (que se entere por ti, no en la puerta).
 export function AlumnaClaseCanceladaEmail({ toName, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando }: AlumnaProps) {
   return (

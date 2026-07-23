@@ -121,7 +121,7 @@ export async function PATCH(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   const body = (await req.json().catch(() => null)) as
-    { sustitucionId?: string; action?: string; instructorId?: string; avisar?: boolean } | null;
+    { sustitucionId?: string; action?: string; instructorId?: string; avisar?: boolean; inicio?: string } | null;
 
   // Toggle de "avisar a alumnas" (ajuste del estudio, no necesita sustitución).
   if (body?.action === 'config_avisar') {
@@ -167,6 +167,77 @@ export async function PATCH(req: NextRequest) {
       });
     }
     return NextResponse.json({ ...r, alumnas });
+  }
+
+  if (body?.action === 'reprogramar') {
+    // Tercera salida cuando no hay sustituta: mover la clase a un horario en el
+    // que la instructora original SÍ pueda — la clase se salva, la plaza de las
+    // alumnas se mantiene y se les avisa del cambio.
+    const inicioNuevo = typeof body?.inicio === 'string' ? new Date(body.inicio) : null;
+    if (!inicioNuevo || Number.isNaN(inicioNuevo.getTime())) {
+      return NextResponse.json({ error: 'Falta la nueva fecha y hora' }, { status: 400 });
+    }
+    if (inicioNuevo.getTime() < Date.now()) {
+      return NextResponse.json({ error: 'La nueva fecha debe ser futura' }, { status: 400 });
+    }
+
+    const { data: sust } = await admin
+      .from('sustituciones').select('id, estado, sesion_id')
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId).maybeSingle();
+    if (!sust) return NextResponse.json({ error: 'Sustitución no encontrada' }, { status: 404 });
+    if (!ESTADOS_EN_JUEGO.includes(sust.estado as string)) {
+      return NextResponse.json({ error: 'Esta sustitución ya está resuelta' }, { status: 409 });
+    }
+
+    const { data: ses } = await admin
+      .from('sesiones').select('inicio, fin')
+      .eq('id', sust.sesion_id).eq('studio_id', sesion.studioId).maybeSingle();
+    if (!ses) return NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 });
+
+    // El horario ORIGINAL, formateado ANTES de moverla (va en el email).
+    const cuandoAntes = new Date(ses.inicio).toLocaleDateString('es-ES', {
+      weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid',
+    }) + ' · ' + new Date(ses.inicio).toLocaleTimeString('es-ES', {
+      hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid',
+    });
+
+    // Misma duración, nuevo hueco. Las exclusion constraints (0048 instructora,
+    // 0071 sala) re-validan el hueco de forma atómica: si choca, 23P01.
+    const duracionMs = new Date(ses.fin).getTime() - new Date(ses.inicio).getTime();
+    const finNuevo = new Date(inicioNuevo.getTime() + duracionMs);
+    const upd = await admin.from('sesiones')
+      .update({ inicio: inicioNuevo.toISOString(), fin: finNuevo.toISOString() })
+      .eq('id', sust.sesion_id).eq('studio_id', sesion.studioId).select('id');
+    if (upd.error) {
+      if (upd.error.code === '23P01') {
+        return NextResponse.json(
+          { error: 'En ese horario la instructora o la sala ya tienen otra clase. Prueba con otro hueco.' },
+          { status: 409 },
+        );
+      }
+      return errorInterno('sustituciones:reprogramar:mover-sesion', upd.error,
+        'No se ha podido mover la clase. Vuelve a intentarlo.');
+    }
+    if (!upd.data || upd.data.length === 0) {
+      return NextResponse.json({ error: 'No se pudo mover la clase. Recarga la página.' }, { status: 409 });
+    }
+
+    // La clase movida ya no necesita sustituta en el hueco viejo: se cierra
+    // como resuelta fuera del motor. Si esto falla, la clase YA está movida —
+    // se avisa a las alumnas igualmente y se pide recargar.
+    const marc = await admin.from('sustituciones')
+      .update({ estado: 'resuelta_fuera', resuelto_en: new Date().toISOString() })
+      .eq('id', sustitucionId).eq('studio_id', sesion.studioId).select('id');
+
+    const alumnas = await avisarAlumnas(admin, {
+      sesionId: sust.sesion_id as string, studioId: sesion.studioId, tipo: 'reprogramada', cuandoAntes,
+    });
+
+    if (marc.error) {
+      return errorInterno('sustituciones:reprogramar:marcar-sustitucion', marc.error,
+        'La clase se movió y avisamos a las alumnas, pero no se ha podido cerrar la sustitución. Recarga la página.');
+    }
+    return NextResponse.json({ ok: true, alumnas });
   }
 
   if (body?.action === 'cancelar_clase') {
