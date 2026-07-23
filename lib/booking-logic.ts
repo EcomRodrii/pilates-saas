@@ -6,7 +6,9 @@
 // de modo que estas reglas de negocio se pueden verificar sin montar la app.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { Reserva, EstadoReserva, Socio, RewardAction } from '@/lib/types';
+import type { Reserva, EstadoReserva, Socio, RewardAction, Sesion, Suscripcion, PlanTarifa } from '@/lib/types';
+import { ratioOcupacion } from './ocupacion.ts';
+import { tieneEntitlementActivo } from './bono-logic.ts';
 
 // ─── Política de cancelación (C-2) y de reservas (C-4) ────────────────────────
 
@@ -56,6 +58,76 @@ export function plazasOcupadas(sesionId: string, reservas: Reserva[]): number {
   return reservas.filter(
     r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
   ).length;
+}
+
+// Radar de ocupación: sesiones futuras (no canceladas, con aforo > 0) por
+// debajo del umbral dentro de una ventana horaria — para avisar de huecos
+// antes de que empiece la clase. Ordenadas por ratio ascendente (las más
+// vacías primero) y luego por inicio.
+export function clasesConHuecoProximas(params: {
+  sesiones: Sesion[];
+  reservas: Reserva[];
+  ahora: Date;
+  ventanaHoras?: number;
+  umbral?: number;
+}): { sesion: Sesion; ocupadas: number; ratio: number; huecos: number }[] {
+  const { sesiones, reservas, ahora } = params;
+  const ventanaHoras = params.ventanaHoras ?? 48;
+  const umbral = params.umbral ?? 0.7;
+  const desde = ahora.getTime();
+  const hasta = desde + ventanaHoras * 3600_000;
+
+  return sesiones
+    .filter(s => !s.cancelada && s.aforoMaximo > 0)
+    .filter(s => {
+      const t = new Date(s.inicio).getTime();
+      return t > desde && t <= hasta;
+    })
+    .map(s => {
+      const ocupadas = plazasOcupadas(s.id, reservas);
+      return { sesion: s, ocupadas, ratio: ratioOcupacion(ocupadas, s.aforoMaximo), huecos: Math.max(0, s.aforoMaximo - ocupadas) };
+    })
+    .filter(c => c.ratio < umbral)
+    .sort((a, b) => a.ratio - b.ratio || a.sesion.inicio.localeCompare(b.sesion.inicio));
+}
+
+// Socias candidatas a avisar de un hueco en ESTA sesión: tienen derecho a
+// reservar hoy (tieneEntitlementActivo), ya han ASISTIDO antes a ese mismo
+// tipo de clase (más relevante, menos riesgo de sentirse invadida con un
+// aviso de algo que nunca han hecho), y no tienen ya una reserva activa
+// (CONFIRMADA/ASISTIDA/LISTA_ESPERA) en esta sesión concreta.
+export function candidatasParaHueco(params: {
+  sesion: Sesion;
+  sesiones: Sesion[];
+  socios: Socio[];
+  reservas: Reserva[];
+  suscripciones: Suscripcion[];
+  planesTarifa: PlanTarifa[];
+  hoyISO: string;
+}): Socio[] {
+  const { sesion, sesiones, socios, reservas, suscripciones, planesTarifa, hoyISO } = params;
+
+  const yaReservadas = new Set(
+    reservas
+      .filter(r => r.sesionId === sesion.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA' || r.estado === 'LISTA_ESPERA'))
+      .map(r => r.socioId),
+  );
+  // El historial de asistencia se indexa por sesión, no por tipo de clase
+  // directamente: hace falta el mapa sesionId→tipoClaseId de TODAS las
+  // sesiones para saber si una asistencia pasada fue de este mismo tipo.
+  const tipoClasePorSesion = new Map(sesiones.map(s => [s.id, s.tipoClaseId]));
+  const socioIdsConAsistenciaTipo = new Set(
+    reservas
+      .filter(r => r.estado === 'ASISTIDA' && r.sesionId !== sesion.id && tipoClasePorSesion.get(r.sesionId) === sesion.tipoClaseId)
+      .map(r => r.socioId),
+  );
+
+  return socios.filter(s => {
+    if (!s.activo) return false;
+    if (yaReservadas.has(s.id)) return false;
+    if (!tieneEntitlementActivo(s.id, suscripciones, planesTarifa, hoyISO)) return false;
+    return socioIdsConAsistenciaTipo.has(s.id);
+  });
 }
 
 // Decide el estado de una reserva nueva según el aforo y las reservas actuales.

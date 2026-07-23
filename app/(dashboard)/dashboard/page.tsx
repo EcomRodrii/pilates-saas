@@ -18,12 +18,14 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
-import { fetchLayout } from '@/lib/api-client';
+import { fetchLayout, authHeader } from '@/lib/api-client';
 import { aplicarLayout, DEFAULT_LAYOUT } from '@/lib/layout-runtime';
 import type { LayoutConfig } from '@/lib/layout-schema';
 import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
+import { Toast, useToast } from '@/components/ui/toast';
+import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -590,6 +592,40 @@ export default function Dashboard() {
 
   const pendientesTotal = useMemo(() => recibos.filter(r => r.estado === 'PENDIENTE').length, [recibos]);
 
+  // ── Radar de ocupación: clases con hueco en las próximas 48h ────────────────
+  const tipoClaseById = useMemo(() => new Map(tiposClase.map(t => [t.id, t])), [tiposClase]);
+  const huecosProximos = useMemo(
+    () => clasesConHuecoProximas({ sesiones, reservas, ahora: now }).slice(0, 5),
+    [sesiones, reservas, now]
+  );
+  const candidatasPorSesion = useMemo(() => {
+    const hoyISO = localDate(now);
+    const map = new Map<string, number>();
+    for (const h of huecosProximos) {
+      map.set(h.sesion.id, candidatasParaHueco({ sesion: h.sesion, sesiones, socios, reservas, suscripciones, planesTarifa, hoyISO }).length);
+    }
+    return map;
+  }, [huecosProximos, sesiones, socios, reservas, suscripciones, planesTarifa, now]);
+  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const [avisandoSesion, setAvisandoSesion] = useState<string | null>(null);
+  async function avisarCandidatas(sesionId: string, nCandidatas: number, nombreClase: string) {
+    if (nCandidatas === 0 || avisandoSesion) return;
+    if (!window.confirm(`Se avisará a ${nCandidatas} socia${nCandidatas === 1 ? '' : 's'} por WhatsApp de que hay hueco en ${nombreClase}. ¿Continuar?`)) return;
+    setAvisandoSesion(sesionId);
+    try {
+      const res = await fetch('/api/marketing/hueco/avisar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ sesionId }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(`Error: ${data.error ?? 'no se pudo avisar'}`); return; }
+      showToast(`Aviso enviado a ${data.enviados} socia${data.enviados === 1 ? '' : 's'}${data.sinTelefono ? ` (${data.sinTelefono} sin teléfono)` : ''}`);
+    } finally {
+      setAvisandoSesion(null);
+    }
+  }
+
   // ── "10 segundos": lo que el negocio necesita ver hoy sin navegar ───────────
   const resumenHoy = useMemo(() => {
     const alumnosHoyIds = new Set(
@@ -893,6 +929,54 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+
+            {/* Clases con hueco (radar de ocupación) */}
+            {huecosProximos.length > 0 && (
+              <div className="bg-card rounded-xl border border-border">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-muted">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare size={14} className="text-muted-foreground" />
+                    <h2 className="text-[13px] font-semibold text-foreground">
+                      Clases con hueco
+                    </h2>
+                    <span className="text-[10px] font-bold text-warning bg-warning/10 px-1.5 py-0.5 rounded-full">
+                      {huecosProximos.length}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">Próximas 48h</span>
+                </div>
+                <div className="divide-y divide-muted">
+                  {huecosProximos.map(h => {
+                    const tipo = tipoClaseById.get(h.sesion.tipoClaseId);
+                    const nCandidatas = candidatasPorSesion.get(h.sesion.id) ?? 0;
+                    return (
+                      <div key={h.sesion.id} className="flex items-center gap-3 px-5 py-3">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: tipo?.color ?? '#999' }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold text-foreground truncate">
+                            {tipo?.nombre ?? 'Clase'} · {formatHora(h.sesion.inicio)}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {h.huecos} hueco{h.huecos === 1 ? '' : 's'} libre{h.huecos === 1 ? '' : 's'} · {nCandidatas} candidata{nCandidatas === 1 ? '' : 's'} disponible{nCandidatas === 1 ? '' : 's'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => avisarCandidatas(h.sesion.id, nCandidatas, tipo?.nombre ?? 'la clase')}
+                          disabled={nCandidatas === 0 || avisandoSesion !== null}
+                          className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/20 transition-colors disabled:opacity-40 shrink-0"
+                        >
+                          <MessageSquare size={11} />
+                          {avisandoSesion === h.sesion.id ? 'Avisando…' : 'Avisar a candidatas'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* RIGHT: Quick actions + Renovaciones + Actividad */}
@@ -1042,6 +1126,7 @@ export default function Dashboard() {
         </div>
         </div>
       </div>
+      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   );
 }

@@ -292,7 +292,7 @@ function mapUsuario(r: RowUsuarios): Usuario {
   } as Usuario;
 }
 
-function mapSocio(r: RowSocios): Socio {
+export function mapSocio(r: RowSocios): Socio {
   const aceptacionContrato =
     r.aceptacion_fecha
       ? {
@@ -563,7 +563,7 @@ function mapBackupMeta(r: RowBackups): BackupMeta {
   } as BackupMeta;
 }
 
-function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
+export function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -576,7 +576,7 @@ function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
   } as PlanTarifa;
 }
 
-function mapSuscripcion(r: RowSuscripciones): Suscripcion {
+export function mapSuscripcion(r: RowSuscripciones): Suscripcion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -643,7 +643,7 @@ function mapInstructor(r: RowInstructores): Instructor {
   } as Instructor;
 }
 
-function mapSesion(r: RowSesiones): Sesion {
+export function mapSesion(r: RowSesiones): Sesion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -661,7 +661,7 @@ function mapSesion(r: RowSesiones): Sesion {
   } as Sesion;
 }
 
-function mapReserva(r: RowReservas): Reserva {
+export function mapReserva(r: RowReservas): Reserva {
   return {
     id: r.id,
     studioId: r.studio_id,

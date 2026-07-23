@@ -2,7 +2,7 @@
 // Runner nativo de Node (sin dependencias): `npm test` (Node >= 22.6).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Reserva, RewardAction, Socio } from '@/lib/types';
+import type { Reserva, RewardAction, Socio, Sesion, Suscripcion, PlanTarifa } from '@/lib/types';
 import {
   plazasOcupadas,
   decidirReservaNueva,
@@ -13,6 +13,8 @@ import {
   esCancelacionTardia,
   debeDevolverBono,
   contarReservasActivasFuturas,
+  clasesConHuecoProximas,
+  candidatasParaHueco,
 } from './booking-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -36,6 +38,23 @@ function socia(p: Partial<Socio> & Pick<Socio, 'id'>): Socio {
 }
 function action(referidorId: string, creadoEn: string): RewardAction {
   return { id: `rwa-${++n}`, studioId: 'estudio-1', socioId: referidorId, trigger: 'REFERIDO_AMIGO', refId: 'x', creadoEn };
+}
+function sesion(p: Partial<Sesion> & Pick<Sesion, 'id' | 'inicio'>): Sesion {
+  return {
+    studioId: 'estudio-1', tipoClaseId: 'tipo-1', salaId: 'sala-1', instructorId: 'inst-1',
+    fin: p.inicio, aforoMaximo: 10, cancelada: false, notas: null, precioPuntual: null,
+    ...p,
+  };
+}
+function suscripcion(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
+  return {
+    id: `sus-${++n}`, studioId: 'estudio-1', estado: 'ACTIVA',
+    fechaInicio: '2026-01-01', fechaFin: null, sesionesRestantes: null, stripeSubscriptionId: null,
+    ...p,
+  };
+}
+function plan(p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id' | 'tipo'>): PlanTarifa {
+  return { studioId: 'estudio-1', nombre: 'Plan', descripcion: null, precio: 50, sesiones: null, activo: true, ...p };
 }
 
 // ── plazasOcupadas ───────────────────────────────────────────────────────────
@@ -217,4 +236,113 @@ test('contarReservasActivasFuturas: 0 si no hay clases futuras activas', () => {
   const sesiones = [{ id: 'pas1', inicio: '2026-07-09T08:00:00.000Z' }];
   const rs: Reserva[] = [res({ sesionId: 'pas1', socioId: 'a', estado: 'CONFIRMADA' })];
   assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 0);
+});
+
+// ── clasesConHuecoProximas (radar de ocupación) ───────────────────────────────
+const AHORA_RADAR = new Date('2026-07-10T08:00:00.000Z');
+
+test('clasesConHuecoProximas: incluye una sesión futura por debajo del umbral, con huecos correctos', () => {
+  const sesiones = [sesion({ id: 's1', inicio: '2026-07-11T08:00:00.000Z', aforoMaximo: 10 })];
+  const rs = [res({ sesionId: 's1', socioId: 'a', estado: 'CONFIRMADA' })]; // 1/10 = 10%
+  const r = clasesConHuecoProximas({ sesiones, reservas: rs, ahora: AHORA_RADAR });
+  assert.equal(r.length, 1);
+  assert.equal(r[0].ocupadas, 1);
+  assert.equal(r[0].huecos, 9);
+  assert.ok(r[0].ratio < 0.7);
+});
+
+test('clasesConHuecoProximas: excluye sesiones por encima o igual al umbral', () => {
+  const sesiones = [sesion({ id: 's1', inicio: '2026-07-11T08:00:00.000Z', aforoMaximo: 10 })];
+  const rs = Array.from({ length: 7 }, (_, i) => res({ sesionId: 's1', socioId: `s${i}`, estado: 'CONFIRMADA' })); // 70%
+  assert.equal(clasesConHuecoProximas({ sesiones, reservas: rs, ahora: AHORA_RADAR }).length, 0);
+});
+
+test('clasesConHuecoProximas: excluye sesiones canceladas, pasadas, o fuera de la ventana horaria', () => {
+  const sesiones = [
+    sesion({ id: 'cancelada', inicio: '2026-07-11T08:00:00.000Z', cancelada: true }),
+    sesion({ id: 'pasada', inicio: '2026-07-10T00:00:00.000Z' }),
+    sesion({ id: 'lejana', inicio: '2026-07-20T08:00:00.000Z' }), // fuera de 48h
+  ];
+  const r = clasesConHuecoProximas({ sesiones, reservas: [], ahora: AHORA_RADAR, ventanaHoras: 48 });
+  assert.equal(r.length, 0);
+});
+
+test('clasesConHuecoProximas: LISTA_ESPERA no cuenta como ocupada (I-13)', () => {
+  const sesiones = [sesion({ id: 's1', inicio: '2026-07-11T08:00:00.000Z', aforoMaximo: 10 })];
+  const rs = [res({ sesionId: 's1', socioId: 'a', estado: 'LISTA_ESPERA', posicionEspera: 1 })];
+  const r = clasesConHuecoProximas({ sesiones, reservas: rs, ahora: AHORA_RADAR });
+  assert.equal(r[0].ocupadas, 0);
+  assert.equal(r[0].huecos, 10);
+});
+
+test('clasesConHuecoProximas: ordena por ratio ascendente (más vacía primero)', () => {
+  const sesiones = [
+    sesion({ id: 'media', inicio: '2026-07-11T08:00:00.000Z', aforoMaximo: 10 }),
+    sesion({ id: 'vacia', inicio: '2026-07-11T09:00:00.000Z', aforoMaximo: 10 }),
+  ];
+  const rs = [res({ sesionId: 'media', socioId: 'a', estado: 'CONFIRMADA' }), res({ sesionId: 'media', socioId: 'b', estado: 'CONFIRMADA' })];
+  const r = clasesConHuecoProximas({ sesiones, reservas: rs, ahora: AHORA_RADAR });
+  assert.deepEqual(r.map(x => x.sesion.id), ['vacia', 'media']);
+});
+
+// ── candidatasParaHueco (público objetivo del aviso) ──────────────────────────
+const HOY = '2026-07-10';
+
+test('candidatasParaHueco: incluye solo socias con entitlement activo Y asistencia previa al MISMO tipo de clase', () => {
+  const huecoSesion = sesion({ id: 'hueco', inicio: '2026-07-11T08:00:00.000Z', tipoClaseId: 'reformer' });
+  const sesiones = [
+    huecoSesion,
+    sesion({ id: 'pasada-reformer', inicio: '2026-06-01T08:00:00.000Z', tipoClaseId: 'reformer' }),
+    sesion({ id: 'pasada-mat', inicio: '2026-06-01T09:00:00.000Z', tipoClaseId: 'mat' }),
+  ];
+  const socios = [socia({ id: 'con-historial-reformer' }), socia({ id: 'con-historial-mat' }), socia({ id: 'sin-historial' })];
+  const rs = [
+    res({ sesionId: 'pasada-reformer', socioId: 'con-historial-reformer', estado: 'ASISTIDA' }),
+    res({ sesionId: 'pasada-mat', socioId: 'con-historial-mat', estado: 'ASISTIDA' }),
+  ];
+  const suscripciones = ['con-historial-reformer', 'con-historial-mat', 'sin-historial'].map(id =>
+    suscripcion({ socioId: id, planId: 'mensual' }));
+  const planes = [plan({ id: 'mensual', tipo: 'MENSUAL' })];
+
+  const r = candidatasParaHueco({ sesion: huecoSesion, sesiones, socios, reservas: rs, suscripciones, planesTarifa: planes, hoyISO: HOY });
+  assert.deepEqual(r.map(s => s.id), ['con-historial-reformer']);
+});
+
+test('candidatasParaHueco: excluye socias sin entitlement activo', () => {
+  const huecoSesion = sesion({ id: 'hueco', inicio: '2026-07-11T08:00:00.000Z', tipoClaseId: 'reformer' });
+  const sesiones = [huecoSesion, sesion({ id: 'pasada', inicio: '2026-06-01T08:00:00.000Z', tipoClaseId: 'reformer' })];
+  const socios = [socia({ id: 'sin-plan' })];
+  const rs = [res({ sesionId: 'pasada', socioId: 'sin-plan', estado: 'ASISTIDA' })];
+  const suscripciones: Suscripcion[] = []; // sin ninguna suscripción activa
+  const planes = [plan({ id: 'mensual', tipo: 'MENSUAL' })];
+
+  const r = candidatasParaHueco({ sesion: huecoSesion, sesiones, socios, reservas: rs, suscripciones, planesTarifa: planes, hoyISO: HOY });
+  assert.equal(r.length, 0);
+});
+
+test('candidatasParaHueco: excluye socias que ya tienen reserva activa en esa sesión', () => {
+  const huecoSesion = sesion({ id: 'hueco', inicio: '2026-07-11T08:00:00.000Z', tipoClaseId: 'reformer' });
+  const sesiones = [huecoSesion, sesion({ id: 'pasada', inicio: '2026-06-01T08:00:00.000Z', tipoClaseId: 'reformer' })];
+  const socios = [socia({ id: 'ya-apuntada' })];
+  const rs = [
+    res({ sesionId: 'pasada', socioId: 'ya-apuntada', estado: 'ASISTIDA' }),
+    res({ sesionId: 'hueco', socioId: 'ya-apuntada', estado: 'CONFIRMADA' }),
+  ];
+  const suscripciones = [suscripcion({ socioId: 'ya-apuntada', planId: 'mensual' })];
+  const planes = [plan({ id: 'mensual', tipo: 'MENSUAL' })];
+
+  const r = candidatasParaHueco({ sesion: huecoSesion, sesiones, socios, reservas: rs, suscripciones, planesTarifa: planes, hoyISO: HOY });
+  assert.equal(r.length, 0);
+});
+
+test('candidatasParaHueco: excluye socias inactivas', () => {
+  const huecoSesion = sesion({ id: 'hueco', inicio: '2026-07-11T08:00:00.000Z', tipoClaseId: 'reformer' });
+  const sesiones = [huecoSesion, sesion({ id: 'pasada', inicio: '2026-06-01T08:00:00.000Z', tipoClaseId: 'reformer' })];
+  const socios = [socia({ id: 'baja', activo: false })];
+  const rs = [res({ sesionId: 'pasada', socioId: 'baja', estado: 'ASISTIDA' })];
+  const suscripciones = [suscripcion({ socioId: 'baja', planId: 'mensual' })];
+  const planes = [plan({ id: 'mensual', tipo: 'MENSUAL' })];
+
+  const r = candidatasParaHueco({ sesion: huecoSesion, sesiones, socios, reservas: rs, suscripciones, planesTarifa: planes, hoyISO: HOY });
+  assert.equal(r.length, 0);
 });
