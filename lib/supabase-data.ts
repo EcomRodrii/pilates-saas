@@ -68,6 +68,7 @@ import type {
   RowInstructorDependencySnapshots,
   RowSpots,
   RowStudios,
+  RowMandatosSepa,
   RowSuscripciones,
   RowTiposClase,
   RowUsuarios,
@@ -132,6 +133,7 @@ import type {
   InstructorDependencySnapshot,
   Spot,
   Studio,
+  MandatoSEPA,
   Suscripcion,
   TipoClase,
   Usuario,
@@ -274,6 +276,9 @@ function mapStudio(r: RowStudios): Studio {
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
     onboardingDescartadoEn: r.onboarding_descartado_en ?? null,
+    sepaAcreedorId: r.sepa_acreedor_id ?? null,
+    sepaIban: r.sepa_iban ?? null,
+    sepaTitular: r.sepa_titular ?? null,
   } as Studio;
 }
 
@@ -1165,6 +1170,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     plazasFijasRes,
     recuperacionesRes,
     socioExcepcionesRes,
+    mandatosSepaRes,
   ] = await Promise.all([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('usuarios').select('*').eq('studio_id', sid),
@@ -1226,6 +1232,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('plazas_fijas').select('*').eq('studio_id', sid),
     db.from('recuperaciones').select('*').eq('studio_id', sid),
     db.from('socio_excepciones').select('*').eq('studio_id', sid),
+    db.from('mandatos_sepa').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -1277,6 +1284,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     plazasFijas: (plazasFijasRes.data ?? []).map(mapPlazaFija),
     recuperaciones: (recuperacionesRes.data ?? []).map(mapRecuperacion),
     socioExcepciones: (socioExcepcionesRes.data ?? []).map(mapSocioExcepcion),
+    mandatosSepa: (mandatosSepaRes.data ?? []).map(mapMandatoSepa),
   };
 }
 
@@ -3624,6 +3632,28 @@ export async function dbQuitarExcepcion(studioId: string, socioId: string, tipo:
   if (error) reportDbError('[dbQuitarExcepcion]', error);
 }
 
+// F2 (B2.10): mandatos SEPA (cuaderno 19.14). El toggle es upsert por (studio,socio).
+function mapMandatoSepa(r: RowMandatosSepa): MandatoSEPA {
+  return {
+    id: r.id, studioId: r.studio_id, socioId: r.socio_id,
+    iban: r.iban, refMandato: r.ref_mandato, fechaFirma: r.fecha_firma,
+    estado: (r.estado as MandatoSEPA['estado']) ?? 'VIGENTE', creadaEn: r.creada_en,
+  };
+}
+
+export async function dbUpsertMandatoSepa(m: MandatoSEPA) {
+  const { error } = await supabase.from('mandatos_sepa').upsert({
+    id: m.id, studio_id: m.studioId, socio_id: m.socioId, iban: m.iban,
+    ref_mandato: m.refMandato, fecha_firma: m.fechaFirma, estado: m.estado,
+  }, { onConflict: 'id' });
+  if (error) reportDbError('[dbUpsertMandatoSepa]', error);
+}
+
+export async function dbCancelarMandatoSepa(id: string) {
+  const { error } = await supabase.from('mandatos_sepa').update({ estado: 'CANCELADO' }).eq('id', id);
+  if (error) reportDbError('[dbCancelarMandatoSepa]', error);
+}
+
 export async function dbInsertSesion(ses: Sesion) {
   const { error } = await supabase.from('sesiones').insert(sesionToDb(ses));
   if (error) reportDbError('[dbInsertSesion]', error);
@@ -4625,6 +4655,9 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
   if ('stripeAccountId' in changes) db.stripe_account_id = changes.stripeAccountId;
   if ('onboardingDescartadoEn' in changes) db.onboarding_descartado_en = changes.onboardingDescartadoEn;
+  if ('sepaAcreedorId' in changes) db.sepa_acreedor_id = changes.sepaAcreedorId;
+  if ('sepaIban' in changes) db.sepa_iban = changes.sepaIban;
+  if ('sepaTitular' in changes) db.sepa_titular = changes.sepaTitular;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);
 }

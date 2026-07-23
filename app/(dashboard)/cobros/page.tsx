@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PanelPendientes } from '@/components/cobros/panel-pendientes';
 import { PanelFacturas } from '@/components/cobros/panel-facturas';
 import { PanelMovimientos } from '@/components/cobros/panel-movimientos';
+import { BotonRemesaSepa } from '@/components/cobros/boton-remesa-sepa';
 
 // "Cobrar" existe ahora como un solo sitio. Antes estaba repartido entre
 // Transacciones, Facturas, POS y una ruta /pagos que ni siquiera salía en el
@@ -70,7 +71,12 @@ export default function Cobros() {
         ))}
       </div>
 
-      {tab === 'pendientes' && <PanelPendientes />}
+      {tab === 'pendientes' && (
+        <>
+          <div className="flex justify-end"><BotonRemesaSepa /></div>
+          <PanelPendientes />
+        </>
+      )}
       {tab === 'facturas' && <PanelFacturas />}
       {tab === 'movimientos' && <PanelMovimientos />}
     </div>

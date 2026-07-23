@@ -16,6 +16,7 @@ import {
   dbInsertPlazaFija, dbUpdatePlazaFija,
   dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion,
   dbPonerExcepcion, dbQuitarExcepcion,
+  dbUpsertMandatoSepa, dbCancelarMandatoSepa,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
@@ -66,6 +67,7 @@ import type {
   PlazaFija,
   Recuperacion,
   SocioExcepcion,
+  MandatoSEPA,
   TipoClase,
   Instructor,
   Spot,
@@ -207,6 +209,11 @@ interface StudioContextValue {
   recuperaciones: Recuperacion[];
   // F2 (B2.9): excepciones "porque lo digo yo". Toggle: poner (upsert) / quitar (delete).
   socioExcepciones: SocioExcepcion[];
+  // F2 (B2.10) cuaderno 19.14: mandatos SEPA. ponerMandato reutiliza el vigente de
+  // la socia (uno por socia); quitarMandato = cancelar.
+  mandatosSepa: MandatoSEPA[];
+  ponerMandato: (socioId: string, iban: string, refMandato: string, fechaFirma: string) => void;
+  quitarMandato: (id: string) => void;
   ponerExcepcion: (socioId: string, tipo: string, motivo: string | null) => void;
   quitarExcepcion: (socioId: string, tipo: string) => void;
   // F2 (B2.3): dueña concede una recuperación. Devuelve TOPE si ya tiene 4 vivas.
@@ -514,6 +521,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [plazasFijas, setPlazasFijas] = useState<PlazaFija[]>([]);
   const [recuperaciones, setRecuperaciones] = useState<Recuperacion[]>([]);
   const [socioExcepciones, setSocioExcepciones] = useState<SocioExcepcion[]>([]);
+  const [mandatosSepa, setMandatosSepa] = useState<MandatoSEPA[]>([]);
 
   const [socios, setSocios] = useState<Socio[]>([]);
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
@@ -693,6 +701,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setPlazasFijas(data.plazasFijas);
       setRecuperaciones(data.recuperaciones);
       setSocioExcepciones(data.socioExcepciones);
+      setMandatosSepa(data.mandatosSepa);
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
@@ -924,6 +933,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   function quitarExcepcion(socioId: string, tipo: string) {
     setSocioExcepciones(prev => prev.filter(e => !(e.socioId === socioId && e.tipo === tipo)));
     dbQuitarExcepcion(getCurrentStudioId(), socioId, tipo);
+  }
+
+  // F2 (B2.10): mandato SEPA de una socia (uno vigente por socia). Reutiliza el id
+  // del vigente si ya lo tiene (así el índice único no salta al editar el IBAN).
+  function ponerMandato(socioId: string, iban: string, refMandato: string, fechaFirma: string) {
+    const existente = mandatosSepa.find(m => m.socioId === socioId && m.estado === 'VIGENTE');
+    const m: MandatoSEPA = {
+      id: existente?.id ?? `mnd-${uid()}`, studioId: getCurrentStudioId(), socioId,
+      iban: iban.replace(/\s+/g, '').toUpperCase(), refMandato, fechaFirma, estado: 'VIGENTE',
+      creadaEn: existente?.creadaEn ?? new Date().toISOString(),
+    };
+    setMandatosSepa(prev => [...prev.filter(x => x.id !== m.id), m]);
+    dbUpsertMandatoSepa(m);
+  }
+  function quitarMandato(id: string) {
+    setMandatosSepa(prev => prev.map(m => m.id === id ? { ...m, estado: 'CANCELADO' as const } : m));
+    dbCancelarMandatoSepa(id);
   }
 
   // F2 (B2.4) dueña-first: "no puede venir". Da de baja una reserva y le concede una
@@ -2826,6 +2852,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     socioExcepciones,
     ponerExcepcion,
     quitarExcepcion,
+    mandatosSepa,
+    ponerMandato,
+    quitarMandato,
     addPlan,
     updatePlan,
     deletePlan,
@@ -3045,6 +3074,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setPlazasFijas(data.plazasFijas);
       setRecuperaciones(data.recuperaciones);
       setSocioExcepciones(data.socioExcepciones);
+      setMandatosSepa(data.mandatosSepa);
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
