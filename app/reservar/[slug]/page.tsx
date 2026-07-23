@@ -326,6 +326,7 @@ export default function ReservarPage() {
           fin: s.fin,
           claseNombre: s.tipo?.nombre ?? 'Clase',
           claseColor: s.tipo?.color ?? 'var(--portal-brand)',
+          claseFotoUrl: s.tipo?.fotoUrl ?? null,
           nivel: s.tipo?.nivel ?? 'TODOS',
           descripcion: s.tipo?.descripcion ?? null,
           instructorNombre: s.instructor?.nombre ?? null,

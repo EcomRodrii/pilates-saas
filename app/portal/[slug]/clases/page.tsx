@@ -84,6 +84,7 @@ export default function ClasesPage() {
           fin: s.fin,
           claseNombre: tipo?.nombre ?? 'Clase',
           claseColor: tipo?.color ?? 'var(--portal-brand)',
+          claseFotoUrl: tipo?.fotoUrl ?? null,
           nivel: tipo?.nivel ?? 'TODOS',
           descripcion: tipo?.descripcion ?? null,
           instructorNombre: instr?.nombre ?? null,
