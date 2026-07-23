@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid } from '@/lib/utils';
 import type { FilaClase } from '@/lib/csv';
+import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -74,7 +75,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No tienes permiso para importar el horario' }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as Cuerpo | null;
+  const body = (await req.json().catch(() => null)) as (Cuerpo & { batchId?: string }) | null;
+  // Migración Mágica: registrar los ids creados para poder deshacer el lote.
+  const batchId = typeof body?.batchId === 'string' && RE_BATCH_ID.test(body.batchId) ? body.batchId : null;
   const filas = body?.rows;
   if (!Array.isArray(filas)) {
     return NextResponse.json({ error: 'Formato inválido: falta el array "rows"' }, { status: 400 });
@@ -126,6 +129,9 @@ export async function POST(req: NextRequest) {
     const { error } = await admin.from('tipos_clase').insert(nuevosTipos);
     if (error) return errorInterno('clases:import:tipos', error,
       'No se han podido crear los tipos de clase del archivo. Revisa que la columna de clase no tenga celdas vacías y vuelve a subirlo.');
+    if (batchId) {
+      await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'tipos_clase', ids: nuevosTipos.map(t => t.id as string) });
+    }
   }
 
   // ── Expansión de filas → sesiones concretas ────────────────────────────────
@@ -189,6 +195,7 @@ export async function POST(req: NextRequest) {
   const omitidas = pendientes.length - aInsertar.length;
 
   let creadas = 0;
+  const idsCreados: string[] = [];
   for (let i = 0; i < aInsertar.length; i += LOTE) {
     const lote = aInsertar.slice(i, i + LOTE).map(p => ({
       id: `ses-${uid()}`, studio_id: sesion.studioId, tipo_clase_id: p.tipoId,
@@ -197,15 +204,25 @@ export async function POST(req: NextRequest) {
       cancelada: false, notas: null, precio_puntual: null, serie_id: p.serieId,
     }));
     const { error } = await admin.from('sesiones').insert(lote);
-    if (error) return errorInterno('clases:import:sesiones', error,
-      `Se han creado ${creadas} clases y el proceso se ha detenido ahí. `
-      + 'Revisa que todas las filas tengan sala y hora, y vuelve a subir el archivo.',
-      500, { creadas });
+    if (error) {
+      if (batchId && idsCreados.length > 0) {
+        await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'sesiones', ids: idsCreados });
+      }
+      return errorInterno('clases:import:sesiones', error,
+        `Se han creado ${creadas} clases y el proceso se ha detenido ahí. `
+        + 'Revisa que todas las filas tengan sala y hora, y vuelve a subir el archivo.',
+        500, { creadas });
+    }
+    idsCreados.push(...lote.map(l => l.id));
     creadas += lote.length;
   }
+  const batchAviso = batchId && idsCreados.length > 0
+    ? (await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'sesiones', ids: idsCreados })) ? null : 'No se pudo registrar el lote para deshacer'
+    : null;
 
   return NextResponse.json({
     ok: true,
+    batchAviso,
     creadas,
     omitidas,            // ya existían (reimportación)
     tiposCreados: nuevosTipos.length,

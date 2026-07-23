@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid } from '@/lib/utils';
 import type { FilaReserva } from '@/lib/csv';
+import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -48,7 +49,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No tienes permiso para importar reservas' }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as { rows?: FilaReserva[] } | null;
+  const body = (await req.json().catch(() => null)) as { rows?: FilaReserva[]; batchId?: string } | null;
+  // Migración Mágica: registrar los ids creados para poder deshacer el lote.
+  const batchId = typeof body?.batchId === 'string' && RE_BATCH_ID.test(body.batchId) ? body.batchId : null;
   const filas = body?.rows;
   if (!Array.isArray(filas)) {
     return NextResponse.json({ error: 'Formato inválido: falta el array "rows"' }, { status: 400 });
@@ -147,6 +150,7 @@ export async function POST(req: NextRequest) {
 
   // ── Inserción por lotes ────────────────────────────────────────────────────
   let importadas = 0;
+  const idsCreados: string[] = [];
   for (let i = 0; i < pendientes.length; i += LOTE) {
     const lote = pendientes.slice(i, i + LOTE).map(p => ({
       id: `res-${uid()}`, studio_id: studioId, sesion_id: p.sesionId, socio_id: p.socioId,
@@ -156,13 +160,20 @@ export async function POST(req: NextRequest) {
     }));
     const { error } = await admin.from('reservas').insert(lote);
     if (error) {
+      if (batchId && idsCreados.length > 0) {
+        await registrarIdsBatch(admin, { studioId, batchId, entidad: 'reservas', ids: idsCreados });
+      }
       return errorInterno('reservas:import', error,
         `Se han importado ${importadas} reservas y el proceso se ha detenido ahí. `
         + 'Comprueba que las socias y las clases del archivo existan ya en tu cuenta, y vuelve a subirlo.',
         500, { importadas });
     }
+    idsCreados.push(...lote.map(l => l.id));
     importadas += lote.length;
   }
+  const batchAviso = batchId && idsCreados.length > 0
+    ? (await registrarIdsBatch(admin, { studioId, batchId, entidad: 'reservas', ids: idsCreados })) ? null : 'No se pudo registrar el lote para deshacer'
+    : null;
 
   // Aviso de sobreaforo: se importa igual, pero el estudio debe saberlo.
   for (const p of pendientes) {
@@ -176,6 +187,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    batchAviso,
     importadas,
     duplicadas,     // ya estaban: reimportar no duplica
     sinSocia,       // email que no existe en el estudio

@@ -5,6 +5,7 @@ import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid } from '@/lib/utils';
 import type { FilaCita } from '@/lib/csv';
 import { errorInterno } from '@/lib/errores-servidor';
+import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -48,7 +49,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No tienes permiso para importar citas' }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as { rows?: FilaCita[] } | null;
+  const body = (await req.json().catch(() => null)) as { rows?: FilaCita[]; batchId?: string } | null;
+  // Migración Mágica: registrar los ids creados para poder deshacer el lote.
+  const batchId = typeof body?.batchId === 'string' && RE_BATCH_ID.test(body.batchId) ? body.batchId : null;
   const filas = body?.rows;
   if (!Array.isArray(filas)) {
     return NextResponse.json({ error: 'Formato inválido: falta el array "rows"' }, { status: 400 });
@@ -145,6 +148,7 @@ export async function POST(req: NextRequest) {
   }
 
   let importadas = 0;
+  const idsCreados: string[] = [];
   for (let i = 0; i < pendientes.length; i += LOTE) {
     const lote = pendientes.slice(i, i + LOTE).map(p => ({
       id: `cita-${uid()}`, studio_id: studioId, socio_id: p.socioId, instructor_id: p.instructorId,
@@ -154,13 +158,21 @@ export async function POST(req: NextRequest) {
     }));
     const { error } = await admin.from('citas').insert(lote);
     if (error) {
+      if (batchId && idsCreados.length > 0) {
+        await registrarIdsBatch(admin, { studioId, batchId, entidad: 'citas', ids: idsCreados });
+      }
       return errorInterno('citas/import:POST', error, 'No se pudieron guardar las citas.', 500, { importadas });
     }
+    idsCreados.push(...lote.map(l => l.id));
     importadas += lote.length;
   }
+  const batchAviso = batchId && idsCreados.length > 0
+    ? (await registrarIdsBatch(admin, { studioId, batchId, entidad: 'citas', ids: idsCreados })) ? null : 'No se pudo registrar el lote para deshacer'
+    : null;
 
   return NextResponse.json({
     ok: true,
+    batchAviso,
     importadas,
     duplicadas,             // ya estaban: reimportar no duplica
     sinSocia,               // email que no existe en el estudio

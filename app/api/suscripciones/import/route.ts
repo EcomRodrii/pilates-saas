@@ -4,6 +4,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { emailValido, parsearFecha, normalizarEstadoMembresia } from '@/lib/csv';
 import { uid } from '@/lib/utils';
+import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -40,8 +41,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No tienes permiso para importar membresías' }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as { rows?: FilaEntrada[] } | null;
+  const body = (await req.json().catch(() => null)) as { rows?: FilaEntrada[]; batchId?: string } | null;
   const filas = body?.rows;
+  // Migración Mágica: registrar los ids creados para poder deshacer el lote.
+  const batchId = typeof body?.batchId === 'string' && RE_BATCH_ID.test(body.batchId) ? body.batchId : null;
   if (!Array.isArray(filas)) {
     return NextResponse.json({ error: 'Formato inválido: falta el array "rows"' }, { status: 400 });
   }
@@ -136,6 +139,9 @@ export async function POST(req: NextRequest) {
     const lote = paraInsertar.slice(i, i + LOTE);
     const { error } = await admin.from('suscripciones').insert(lote);
     if (error) {
+      if (batchId && importadas > 0) {
+        await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'suscripciones', ids: paraInsertar.slice(0, importadas).map(r => r.id as string) });
+      }
       return errorInterno('suscripciones:import', error,
         `Se han importado ${importadas} membresías y el proceso se ha detenido ahí. `
         + 'Comprueba que las socias y los planes del archivo existan ya en tu cuenta, y vuelve a subirlo.',
@@ -146,5 +152,9 @@ export async function POST(req: NextRequest) {
     importadas += lote.length;
   }
 
-  return NextResponse.json({ total: filas.length, importadas, duplicadas, errores });
+  const batchAviso = batchId && importadas > 0
+    ? (await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'suscripciones', ids: paraInsertar.map(r => r.id as string) })) ? null : 'No se pudo registrar el lote para deshacer'
+    : null;
+
+  return NextResponse.json({ batchAviso, total: filas.length, importadas, duplicadas, errores });
 }
