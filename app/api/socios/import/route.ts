@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing/billing-guard';
 import { emailValido, parsearFecha } from '@/lib/csv';
 import { uid } from '@/lib/utils';
+import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -40,8 +41,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No tienes permiso para importar miembros' }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as { rows?: FilaEntrada[] } | null;
+  const body = (await req.json().catch(() => null)) as { rows?: FilaEntrada[]; batchId?: string } | null;
   const filas = body?.rows;
+  // Migración Mágica: si viene batchId válido, los ids creados se registran en
+  // migracion_batches para poder deshacer esta ejecución exacta con un clic.
+  const batchId = typeof body?.batchId === 'string' && RE_BATCH_ID.test(body.batchId) ? body.batchId : null;
   if (!Array.isArray(filas)) {
     return NextResponse.json({ error: 'Formato inválido: falta el array "rows"' }, { status: 400 });
   }
@@ -130,6 +134,14 @@ export async function POST(req: NextRequest) {
     const lote = paraInsertar.slice(i, i + LOTE);
     const { error } = await admin.from('socios').insert(lote);
     if (error) {
+      // Lo YA insertado antes del fallo queda registrado igualmente: el
+      // deshacer debe cubrir también una ejecución que se detuvo a medias.
+      if (batchId && importadas > 0) {
+        await registrarIdsBatch(admin, {
+          studioId: sesion.studioId, batchId, entidad: 'socios',
+          ids: paraInsertar.slice(0, importadas).map(r => r.id as string),
+        });
+      }
       // Se dice CUÁNTAS entraron: si no, la usuaria no sabe si repetir la
       // importación le va a duplicar media cartera de clientas.
       return errorInterno('socios:import', error,
@@ -143,7 +155,17 @@ export async function POST(req: NextRequest) {
     importadas += lote.length;
   }
 
+  // batchAviso ≠ null: la importación es válida pero NO quedó cubierta por el
+  // deshacer — la UI debe decirlo, nunca prometer un undo que no existe.
+  const batchAviso = batchId && importadas > 0
+    ? (await registrarIdsBatch(admin, {
+        studioId: sesion.studioId, batchId, entidad: 'socios',
+        ids: paraInsertar.map(r => r.id as string),
+      })) ? null : 'No se pudo registrar el lote para deshacer'
+    : null;
+
   return NextResponse.json({
+    batchAviso,
     total: filas.length,
     importadas,
     duplicadas,
