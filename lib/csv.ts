@@ -122,14 +122,18 @@ export const CAMPOS_SOCIA: CampoMeta[] = [
   { campo: 'fecha_nacimiento', etiqueta: 'Fecha de nacimiento', obligatorio: false },
 ];
 
+// Sinónimos de cabecera. Incluye los nombres REALES de columna de los exports
+// de los competidores más usados (Eversports, Momence, Timp…): sus cabeceras
+// literales están aquí para que el mapeo determinista reconozca sus archivos
+// sin depender de la IA (verificado contra sus docs oficiales, jul-2026).
 const SINONIMOS: Record<CampoSocia, string[]> = {
-  nombre: ['nombre', 'name', 'first name', 'firstname', 'nombre completo', 'cliente', 'alumno', 'alumna', 'socia', 'socio'],
+  nombre: ['nombre', 'name', 'first name', 'firstname', 'nombre completo', 'nombre y apellidos', 'full name', 'cliente', 'alumno', 'alumna', 'socia', 'socio'],
   apellidos: ['apellidos', 'apellido', 'surname', 'last name', 'lastname'],
-  email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'e mail'],
-  telefono: ['telefono', 'phone', 'movil', 'tel', 'celular', 'whatsapp', 'mobile', 'numero'],
+  email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'e mail', 'email address'],
+  telefono: ['telefono', 'phone', 'phone number', 'telephone', 'movil', 'móvil', 'tel', 'celular', 'whatsapp', 'mobile', 'numero'],
   nif: ['nif', 'dni', 'documento', 'nie', 'cif', 'id'],
-  tags: ['tags', 'etiquetas', 'etiqueta', 'grupo', 'categoria'],
-  fecha_alta: ['fecha alta', 'fecha de alta', 'alta', 'fecha registro', 'fecha de registro', 'registro', 'miembro desde', 'socia desde', 'join date', 'created', 'created at', 'signup'],
+  tags: ['tags', 'etiquetas', 'etiqueta', 'grupo', 'group', 'categoria'],
+  fecha_alta: ['fecha alta', 'fecha de alta', 'alta', 'fecha registro', 'fecha de registro', 'registro', 'miembro desde', 'socia desde', 'member since', 'join date', 'created', 'created at', 'signup'],
   direccion: ['direccion', 'address', 'domicilio', 'calle', 'street'],
   fecha_nacimiento: ['fecha nacimiento', 'fecha de nacimiento', 'nacimiento', 'cumpleanos', 'cumpleaños', 'birthdate', 'birth date', 'dob', 'birthday'],
 };
@@ -151,16 +155,33 @@ function mapearColumnas<T extends string>(
   const H = headers.map(normaliza);
   const usados = new Set<number>();
   const out = {} as Record<T, number>;
-  for (const campo of orden) {
-    let idx = -1;
+
+  // DOS PASADAS por campo: primero un EXACTO contra cualquiera de sus sinónimos,
+  // y solo si ninguno casa exacto, un PARCIAL. Antes se hacía exacto-luego-
+  // parcial por-sinónimo, así que un sinónimo temprano que casaba PARCIAL ganaba
+  // a uno posterior que casaba EXACTO: p.ej. "name" (parcial) capturaba la
+  // columna "Surname" antes de que "first name" (exacto) capturara "First name".
+  const buscar = (campo: T, modo: 'exacto' | 'parcial'): number => {
     for (const syn of sinonimos[campo]) {
       const s = normaliza(syn);
-      idx = H.findIndex((h, i) => !usados.has(i) && h === s); // coincidencia exacta
-      if (idx === -1) idx = H.findIndex((h, i) => !usados.has(i) && h.includes(s)); // parcial
-      if (idx !== -1) break;
+      const idx = modo === 'exacto'
+        ? H.findIndex((h, i) => !usados.has(i) && h === s)
+        : H.findIndex((h, i) => !usados.has(i) && h.includes(s));
+      if (idx !== -1) return idx;
     }
-    if (idx !== -1) usados.add(idx);
+    return -1;
+  };
+
+  const pendientes = new Set(orden);
+  for (const campo of orden) {
+    const idx = buscar(campo, 'exacto');
+    if (idx !== -1) { usados.add(idx); out[campo] = idx; pendientes.delete(campo); }
+  }
+  for (const campo of orden) {
+    if (!pendientes.has(campo)) continue;
+    const idx = buscar(campo, 'parcial');
     out[campo] = idx;
+    if (idx !== -1) usados.add(idx);
   }
   return out;
 }
@@ -285,7 +306,7 @@ interface CampoMeta2 { campo: CampoMembresia; etiqueta: string; obligatorio: boo
 
 const SINONIMOS_MEMBRESIA: Record<CampoMembresia, string[]> = {
   email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'socia', 'socio', 'cliente'],
-  plan: ['plan', 'tarifa', 'membresia', 'membership', 'bono', 'producto', 'suscripcion', 'subscription', 'paquete'],
+  plan: ['plan', 'tarifa', 'membresia', 'membership', 'membership name', 'bono', 'abono', 'nombre del bono', 'nombre del abono', 'class pack', 'pack', 'producto', 'suscripcion', 'subscription', 'paquete'],
   sesiones: ['sesiones', 'sesiones restantes', 'clases restantes', 'saldo', 'creditos', 'sessions', 'restantes', 'bonos restantes'],
   fecha_inicio: ['fecha inicio', 'fecha de inicio', 'inicio', 'alta', 'start', 'start date', 'desde'],
   fecha_fin: ['fecha fin', 'fecha de fin', 'fin', 'vencimiento', 'caducidad', 'end', 'end date', 'hasta', 'expira'],

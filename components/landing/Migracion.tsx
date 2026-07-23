@@ -6,9 +6,11 @@
 // reales del producto (analizador IA + lotes reversibles + importación sin
 // tocar el software anterior), no promesas.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ACC, CARD_DARK, DARK, MUTED_DARK } from './theme';
 import { Reveal } from './Reveal';
+import { analizarDeterminista } from '@/lib/migracion/clasificador';
+import { EJEMPLOS } from '@/lib/migracion/ejemplos';
 
 const GARANTIAS = [
   {
@@ -27,6 +29,98 @@ const GARANTIAS = [
     color: '#7BD3A8',
   },
 ];
+
+// Demo en vivo: la propietaria elige su software actual y ve un archivo con SU
+// formato reconocerse solo, aquí mismo. Corre `analizarDeterminista` (el MISMO
+// clasificador de la migración real) EN EL NAVEGADOR sobre un export de ejemplo
+// — no se sube nada, no hace falta cuenta. Prueba sin pedir confianza.
+function DemoMigracion() {
+  const [sel, setSel] = useState<string | null>(null);
+  const plataforma = EJEMPLOS.find(e => e.id === sel) ?? null;
+  const plan = useMemo(() => (plataforma ? analizarDeterminista(plataforma.archivos) : null), [plataforma]);
+
+  const ETIQUETA_ENTIDAD: Record<string, string> = {
+    socias: 'Clientas', membresias: 'Bonos y membresías', clases: 'Clases', reservas: 'Reservas', citas: 'Citas',
+  };
+
+  return (
+    <div style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 20, padding: 'clamp(20px,3vw,28px)', marginBottom: 'clamp(28px,4vw,40px)' }}>
+      <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 10 }}>
+        ¿No te fías todavía? Míralo funcionar
+      </div>
+      <p style={{ fontSize: 15, color: '#E8E8E4', margin: '0 0 16px', lineHeight: 1.5 }}>
+        Elige el software que usas ahora. Verás un archivo con <strong>su formato exacto</strong> reconocerse aquí mismo —
+        sin subir nada tuyo, sin crear cuenta.
+      </p>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: plan ? 20 : 0 }}>
+        {EJEMPLOS.map(e => (
+          <button
+            key={e.id}
+            onClick={() => setSel(e.id === sel ? null : e.id)}
+            style={{
+              fontSize: 13.5, fontWeight: 700, padding: '9px 16px', borderRadius: 999, cursor: 'pointer',
+              border: `1px solid ${sel === e.id ? ACC : 'rgba(255,255,255,.18)'}`,
+              background: sel === e.id ? ACC : 'rgba(255,255,255,.06)',
+              color: '#fff',
+            }}
+          >
+            {e.label}
+          </button>
+        ))}
+      </div>
+
+      {plan && plataforma && (
+        <div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {plan.archivos.map(a => (
+              <div key={a.nombre} style={{ background: CARD_DARK, border: '1px solid rgba(255,255,255,.07)', borderRadius: 14, padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: a.muestra.length ? 12 : 0 }}>
+                  <span className="lp-mono" style={{ fontSize: 11.5, color: '#8E8E86' }}>{a.nombre}</span>
+                  {a.entidad ? (
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: '#7BD3A8' }}>
+                      ✓ reconocido: {ETIQUETA_ENTIDAD[a.entidad]} · {a.ok} filas listas
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 12.5, color: '#F0C98A' }}>necesita una mirada — se asigna a mano</span>
+                  )}
+                  {a.cuarentena.length > 0 && (
+                    <span style={{ fontSize: 12, color: '#C9C9C2' }}>· {a.cuarentena.length} a revisar (visible, no se pierde)</span>
+                  )}
+                </div>
+                {a.muestra.length > 0 && (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', fontSize: 12.5, borderCollapse: 'collapse', color: '#D8D8D2' }}>
+                      <thead>
+                        <tr style={{ textAlign: 'left', color: '#8E8E86' }}>
+                          {Object.keys(a.muestra[0]).filter(k => a.muestra.some(m => (m as Record<string, unknown>)[k])).slice(0, 5).map(k => (
+                            <th key={k} style={{ padding: '2px 14px 6px 0', fontWeight: 600 }}>{k}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {a.muestra.slice(0, 3).map((m, i) => (
+                          <tr key={i}>
+                            {Object.keys(a.muestra[0]).filter(k => a.muestra.some(mm => (mm as Record<string, unknown>)[k])).slice(0, 5).map(k => (
+                              <td key={k} style={{ padding: '3px 14px 3px 0', whiteSpace: 'nowrap' }}>{String((m as Record<string, unknown>)[k] ?? '')}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: '#8E8E86', margin: '12px 0 0', lineHeight: 1.5 }}>
+            {plataforma.nota} Esto es exactamente lo que hace la migración real, corriendo en tu navegador.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Migracion() {
   const [email, setEmail] = useState('');
@@ -80,6 +174,8 @@ export function Migracion() {
               </div>
             ))}
           </div>
+
+          <DemoMigracion />
 
           <div style={{ maxWidth: 560 }}>
             {status === 'ok' ? (
