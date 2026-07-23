@@ -13,6 +13,25 @@ export function GlobalStyles() {
       /* Discipline cards + integration chips: subtle hover feedback */
       .tnt-disc-card { transition: transform .3s cubic-bezier(.2,.7,0,1), box-shadow .3s; }
       .tnt-disc-card:hover { transform: translateY(-5px); box-shadow: 0 22px 40px -16px rgba(26,26,26,.34); }
+
+      /* Disciplinas: rejilla centrada en escritorio, marquesina en móvil */
+      .tnt-disc-strip { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
+      .tnt-disc-dup { display: none; }
+      @media (max-width: 960px) {
+        .tnt-disc-scroller {
+          overflow: hidden;
+          margin: 0 calc(-1 * clamp(20px, 4vw, 44px));
+          -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+        }
+        .tnt-disc-strip { flex-wrap: nowrap; justify-content: flex-start; gap: 0; width: max-content; animation: lp-marquee 40s linear infinite; }
+        .tnt-disc-strip > * { margin-right: 14px; width: 150px !important; }
+        .tnt-disc-dup { display: block; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        /* Sin animación la marquesina no avanza: se permite el scroll manual. */
+        .tnt-disc-scroller { overflow-x: auto; }
+      }
       .tnt-ichip { transition: border-color .18s, color .18s; }
       .tnt-ichip:hover { border-color: #6D28D9; color: #6D28D9; }
 
@@ -51,6 +70,7 @@ export function GlobalStyles() {
       @keyframes lp-msgIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
       @keyframes lp-cometpulse { 0%,100% { box-shadow: 0 0 14px 4px rgba(124,58,237,.7); } 50% { box-shadow: 0 0 22px 7px rgba(124,58,237,.95); } }
       @keyframes lp-fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes lp-marquee { to { transform: translateX(-50%); } }
 
       @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
     `}</style>
