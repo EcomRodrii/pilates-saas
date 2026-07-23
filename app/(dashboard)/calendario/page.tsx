@@ -1970,12 +1970,15 @@ export default function Calendario() {
               </div>
             )}
 
-            {/* Avisos de conflicto (I-1) y aforo (I-2) — no bloquean, informan */}
+            {/* Conflicto de sala/instructora (I-1): BLOQUEA el guardado — la BD lo
+                rechazaría igualmente (sesiones_sala_sin_solape, 0071, y
+                sesiones_instructor_sin_solape, 0048); con escrituras optimistas
+                dejarlo pasar significaría un fallo silencioso. Aforo (I-2) solo informa. */}
             {(conflictosForm || aforoSobrante > 0) && (
               <div className="px-6 pb-1 shrink-0 space-y-2">
                 {conflictosForm && (
-                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 flex gap-2">
-                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-red-50 border border-red-200 text-red-800 flex gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-red-600" />
                     <div className="space-y-0.5">
                       {conflictosForm.sala.length > 0 && (
                         <p><span className="font-bold">{nombreSala(form.salaId)}</span> ya está ocupada: {conflictosForm.sala.map(c => `${formatHora(c.inicio)}–${formatHora(c.fin)}`).join(', ')}</p>
@@ -1983,6 +1986,7 @@ export default function Calendario() {
                       {conflictosForm.instructor.length > 0 && (
                         <p><span className="font-bold">{nombreInstructor(form.instructorId)}</span> ya tiene clase: {conflictosForm.instructor.map(c => `${formatHora(c.inicio)}–${formatHora(c.fin)}`).join(', ')}</p>
                       )}
+                      <p>Cambia la hora, la sala o la instructora para poder guardar.</p>
                     </div>
                   </div>
                 )}
@@ -2000,14 +2004,14 @@ export default function Calendario() {
               <div className="px-6 py-5 border-t border-border flex flex-col gap-2 shrink-0">
                 <button
                   onClick={editarSesion}
-                  disabled={horaInvalida}
+                  disabled={horaInvalida || !!conflictosForm}
                   className="w-full py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Guardar solo esta clase
                 </button>
                 <button
                   onClick={editarSerie}
-                  disabled={horaInvalida}
+                  disabled={horaInvalida || !!conflictosForm}
                   className="w-full py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Guardar esta y las siguientes
@@ -2020,7 +2024,7 @@ export default function Calendario() {
                 </button>
                 <button
                   onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-                  disabled={horaInvalida}
+                  disabled={horaInvalida || !!conflictosForm}
                   className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
                 >
                   {showForm === 'nueva'
