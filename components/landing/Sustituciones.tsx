@@ -58,6 +58,7 @@ function SustitucionesFlow() {
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
+      {/* Horizontal line — desktop / multi-column layout only */}
       <div style={{ position: 'absolute', top: 30, left: '12.5%', right: '12.5%', height: 3, background: 'rgba(255,255,255,.1)', zIndex: 0 }} className="tnt-flowline" />
       <div
         className="tnt-flowline"
@@ -79,6 +80,12 @@ function SustitucionesFlow() {
           opacity: step >= 0 && !done ? 1 : 0,
           transition: 'left .6s ease, opacity .4s',
         }}
+      />
+      {/* Vertical rail — single-column mobile layout, mirrors UnDia's timeline rail */}
+      <div className="tnt-flow-vline-bg" style={{ position: 'absolute', top: 30, bottom: 64, left: '50%', width: 3, background: 'rgba(255,255,255,.1)', transform: 'translateX(-50%)', zIndex: 0 }} />
+      <div
+        className="tnt-flow-vline-fill"
+        style={{ position: 'absolute', top: 30, left: '50%', width: 3, height: `${progressPct}%`, background: ACC, transform: 'translateX(-50%)', zIndex: 1, transition: 'height .6s ease', boxShadow: '0 0 12px rgba(124,58,237,.6)' }}
       />
       <div className="tnt-steps4" style={{ position: 'relative', zIndex: 2 }}>
         {FLOW_STEPS.map((s, i) => {

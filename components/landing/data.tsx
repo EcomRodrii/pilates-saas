@@ -177,23 +177,18 @@ export const DAY_MOMENTS = [
 ];
 
 export const DISCIPLINAS = [
-  'Gimnasio boutique', 'Gyrotonic', 'EMS', 'Crioterapia', 'Pilates', 'Yoga',
-  'Spinning', 'Barre', 'Boxeo', 'HIIT', 'Baile',
+  { label: 'Gimnasio boutique', photo: '/disciplinas/boutique.jpg' },
+  { label: 'Gyrotonic', photo: '/disciplinas/gyrotonic.jpg' },
+  { label: 'EMS', photo: '/disciplinas/ems.jpg' },
+  { label: 'Crioterapia', photo: '/disciplinas/crioterapia.jpg' },
+  { label: 'Pilates', photo: '/disciplinas/pilates.jpg' },
+  { label: 'Yoga', photo: '/disciplinas/yoga.jpg' },
+  { label: 'Spinning', photo: '/disciplinas/spinning.jpg' },
+  { label: 'Barre', photo: '/disciplinas/barre.jpg' },
+  { label: 'Boxeo', photo: '/disciplinas/boxeo.jpg' },
+  { label: 'HIIT', photo: '/disciplinas/hiit.jpg' },
+  { label: 'Baile', photo: '/disciplinas/baile.jpg' },
 ];
-export const DISCIPLINA_GRADIENTS = [
-  'linear-gradient(150deg,#6D28D9,#4C1D95)',
-  'linear-gradient(150deg,#3E7C86,#1F4650)',
-  'linear-gradient(150deg,#C2503A,#7A2E20)',
-  'linear-gradient(150deg,#3E7C86,#0F2C33)',
-  'linear-gradient(150deg,#8B4F9E,#4C1D95)',
-  'linear-gradient(150deg,#4E9E7F,#1F4A3A)',
-  'linear-gradient(150deg,#B57A8E,#5A2E3E)',
-  'linear-gradient(150deg,#6D28D9,#2E1065)',
-  'linear-gradient(150deg,#1A1A1A,#3A3A34)',
-  'linear-gradient(150deg,#C2503A,#4C1D10)',
-  'linear-gradient(150deg,#8B4F9E,#2E1065)',
-];
-
 export const INTEGRACIONES = [
   { group: 'Pagos', items: ['Stripe'] },
   { group: 'Email y mensajería', items: ['Mailchimp', 'Brevo', 'Resend', 'Gmail', 'WhatsApp Business'] },
