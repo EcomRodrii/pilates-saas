@@ -233,6 +233,10 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
     a: 'Lo sustituye del todo: reservas, cobros, calendario, alumnas e instructoras están dentro. Importas tus datos con asistentes guiados por CSV —alumnas, bonos, reservas, clases y citas— con detección de duplicados, y te acompañamos en la puesta en marcha, sin cortar el servicio de tu estudio.',
   },
   {
+    q: '¿Es difícil de aprender a usar?',
+    a: 'No. Es lo primero que nos dicen las propietarias que lo prueban: si sabes usar WhatsApp, sabes usar Tentare. No hay formación que hacer ni manual que leer — el Centro de Control te dice cada mañana qué necesita tu atención. La mayoría de estudios ya están reservando y cobrando el primer día.',
+  },
+  {
     q: '¿Y si ninguna instructora acepta la sustitución?',
     a: 'Nunca te deja colgada. Si nadie puede, te avisa enseguida con las opciones sobre la mesa: reprogramar, cancelar avisando a las alumnas, o cubrir tú. Tú eliges; él ejecuta.',
   },
