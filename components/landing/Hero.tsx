@@ -42,22 +42,44 @@ function useHeroTilt() {
   return { stageRef, tiltRef };
 }
 
+// El vídeo de fondo se emite como HTML crudo: React no serializa `muted` como
+// atributo en el HTML del servidor (solo lo asigna como propiedad al hidratar),
+// y sin `muted` en el markup iOS/Android bloquean el autoplay — el vídeo se
+// quedaba parado con el control de play nativo encima. Además del markup, un
+// efecto re-fuerza muted+play() al montar y al primer toque (Low Power Mode de
+// iOS rechaza el primer play() automático pero permite el iniciado por gesto).
+function HeroVideo() {
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const video = wrapRef.current?.querySelector('video');
+    if (!video) return;
+    const nudge = () => {
+      video.muted = true;
+      if (video.paused) video.play().catch(() => {});
+    };
+    nudge();
+    window.addEventListener('touchstart', nudge, { once: true, passive: true });
+    return () => window.removeEventListener('touchstart', nudge);
+  }, []);
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{ position: 'absolute', inset: 0, zIndex: -2 }}
+      dangerouslySetInnerHTML={{
+        __html: `<video autoplay loop muted playsinline preload="auto" poster="/hero-video-poster.jpg" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><source src="/hero-video.webm" type="video/webm" /><source src="/hero-video.mp4" type="video/mp4" /></video>`,
+      }}
+    />
+  );
+}
+
 export function Hero() {
   const { stageRef, tiltRef } = useHeroTilt();
 
   return (
     <header id="top" style={{ position: 'relative', padding: 'clamp(96px,11vw,132px) clamp(20px,4vw,44px) 56px', overflow: 'hidden', isolation: 'isolate' }}>
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        poster="/hero-video-poster.jpg"
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: -2 }}
-      >
-        <source src="/hero-video.webm" type="video/webm" />
-        <source src="/hero-video.mp4" type="video/mp4" />
-      </video>
+      <HeroVideo />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(100deg, rgba(10,9,12,.88) 0%, rgba(10,9,12,.82) 34%, rgba(10,9,12,.42) 62%, rgba(10,9,12,.6) 100%)', zIndex: -1 }} />
       <div style={{ position: 'absolute', top: -140, right: -120, width: 560, height: 560, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(124,58,237,.28), transparent 62%)', pointerEvents: 'none' }} />
       <div className="tnt-wrap tnt-hero" style={{ maxWidth: 1280, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.02fr .98fr', gap: 52, alignItems: 'center' }}>

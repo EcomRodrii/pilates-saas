@@ -1,13 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ACC, BG, MUTED } from './theme';
+import { ACC, MUTED } from './theme';
 import { NAV_LINKS } from './data';
 
 export function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Con el menú a pantalla completa abierto, la página de detrás no debe
+  // desplazarse (en iOS el scroll "atraviesa" el overlay si no se bloquea).
+  useEffect(() => {
+    if (!menuOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [menuOpen]);
 
   return (
     <>
@@ -57,20 +66,62 @@ export function Nav() {
       </div>
 
       {menuOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(15,15,15,.5)', backdropFilter: 'blur(6px)' }} onClick={() => setMenuOpen(false)}>
-          <div
-            style={{ position: 'absolute', top: 0, right: 0, width: 'min(84vw,340px)', height: '100%', background: BG, padding: 24, display: 'flex', flexDirection: 'column', gap: 4, boxShadow: '-20px 0 60px rgba(15,15,15,.25)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <Image src="/logo-wordmark.png" alt="Tentare" width={150} height={48} style={{ height: 26, width: 'auto' }} />
-              <button onClick={() => setMenuOpen(false)} aria-label="Cerrar" style={{ border: 'none', background: '#fff', borderRadius: 10, width: 40, height: 40, cursor: 'pointer', fontSize: 20, color: '#1A1A1A' }}>×</button>
-            </div>
-            {NAV_LINKS.map((l) => (
-              <a key={l.href} href={l.href} onClick={() => setMenuOpen(false)} style={{ padding: '14px 8px', fontSize: 18, fontWeight: 600, color: '#1A1A1A', borderBottom: '1px solid #E1E1D8' }}>{l.label}</a>
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 120, display: 'flex', flexDirection: 'column',
+            background: '#0F0F0F', color: '#fff', padding: '18px 24px calc(28px + env(safe-area-inset-bottom, 0px))',
+            animation: 'lp-fadeIn .25s ease both', overflowY: 'auto',
+          }}
+        >
+          <div style={{ position: 'fixed', top: -160, right: -140, width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,.32), transparent 62%)', pointerEvents: 'none' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'clamp(28px,6vh,52px)', position: 'relative' }}>
+            <span className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)' }}>Menú</span>
+            <button
+              onClick={() => setMenuOpen(false)}
+              aria-label="Cerrar el menú"
+              style={{ border: '1px solid rgba(255,255,255,.18)', background: 'rgba(255,255,255,.06)', borderRadius: 999, width: 42, height: 42, cursor: 'pointer', fontSize: 20, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              ×
+            </button>
+          </div>
+
+          <nav style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            {NAV_LINKS.map((l, i) => (
+              <a
+                key={l.href}
+                href={l.href}
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  display: 'flex', alignItems: 'baseline', gap: 14, padding: '15px 0',
+                  fontSize: 'clamp(26px,7vw,32px)', fontWeight: 800, letterSpacing: '-.03em', color: '#fff',
+                  borderBottom: '1px solid rgba(255,255,255,.08)',
+                  animation: `lp-riseIn .55s cubic-bezier(.2,.7,0,1) ${0.08 + i * 0.06}s both`,
+                }}
+              >
+                <span className="lp-mono" style={{ fontSize: 11, color: '#C9A6F5', letterSpacing: '.08em' }}>{String(i + 1).padStart(2, '0')}</span>
+                {l.label}
+              </a>
             ))}
-            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ marginTop: 16, textAlign: 'center', padding: 15, fontSize: 16, fontWeight: 600, color: '#1A1A1A', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14 }}>Entrar</Link>
-            <Link href="#lista-espera" onClick={() => setMenuOpen(false)} style={{ textAlign: 'center', padding: 15, fontSize: 16, fontWeight: 700, color: '#fff', background: ACC, borderRadius: 14 }}>Lista de espera</Link>
+          </nav>
+
+          <div style={{ marginTop: 'auto', paddingTop: 32, display: 'flex', flexDirection: 'column', gap: 10, position: 'relative' }}>
+            <Link
+              href="/login"
+              onClick={() => setMenuOpen(false)}
+              style={{ textAlign: 'center', padding: 16, fontSize: 16, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.16)', borderRadius: 999, animation: 'lp-riseIn .55s cubic-bezier(.2,.7,0,1) .42s both' }}
+            >
+              Entrar
+            </Link>
+            <Link
+              href="#lista-espera"
+              onClick={() => setMenuOpen(false)}
+              style={{ textAlign: 'center', padding: 16, fontSize: 16, fontWeight: 700, color: '#fff', background: ACC, borderRadius: 999, boxShadow: '0 14px 30px rgba(109,40,217,.4)', animation: 'lp-riseIn .55s cubic-bezier(.2,.7,0,1) .48s both' }}
+            >
+              Unirme a la lista de espera →
+            </Link>
+            <p className="lp-mono" style={{ textAlign: 'center', fontSize: 10.5, letterSpacing: '.06em', color: 'rgba(255,255,255,.32)', margin: '10px 0 0', animation: 'lp-fadeIn .6s ease .55s both' }}>
+              Sin permanencia · Hecho en España
+            </p>
           </div>
         </div>
       )}

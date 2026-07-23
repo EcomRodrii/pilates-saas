@@ -1,6 +1,7 @@
 import { MUTED } from './theme';
 import { Eyebrow, Reveal } from './Reveal';
 import { INTEGRACIONES } from './data';
+import { IntegracionLogo } from './integracion-logos';
 
 export function Integraciones() {
   return (
@@ -17,7 +18,10 @@ export function Integraciones() {
               <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: '#A8A89F', marginBottom: 12 }}>{g.group}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
                 {g.items.map((it) => (
-                  <span key={it} className="tnt-ichip" style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', background: '#fff', border: it.startsWith('+') ? '1px dashed #E7E7E0' : '1px solid #E7E7E0', borderRadius: 999, padding: '10px 18px', whiteSpace: 'nowrap', opacity: it.startsWith('+') ? 0.7 : 1 }}>{it}</span>
+                  <span key={it} className="tnt-ichip" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: '#1A1A1A', background: '#fff', border: it.startsWith('+') ? '1px dashed #E7E7E0' : '1px solid #E7E7E0', borderRadius: 999, padding: '10px 18px', whiteSpace: 'nowrap', opacity: it.startsWith('+') ? 0.7 : 1 }}>
+                    <IntegracionLogo item={it} />
+                    {it}
+                  </span>
                 ))}
               </div>
             </div>
