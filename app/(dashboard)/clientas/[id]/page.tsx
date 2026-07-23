@@ -12,6 +12,7 @@ import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
 import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
+import { FichaMandatoSepa } from '@/components/socios/ficha-mandato-sepa';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
@@ -627,6 +628,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
                   {/* Excepciones (F2 · B2.9) */}
                   <FichaExcepciones socioId={id} />
+
+                  {/* Domiciliación SEPA (F2 · B2.10) */}
+                  <FichaMandatoSepa socioId={id} />
 
                   {/* Attendance sparkline */}
                   <div className="border border-border rounded-xl p-5">

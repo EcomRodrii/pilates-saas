@@ -63,6 +63,24 @@ export interface Studio {
   // relevante). Vive en el estudio, no en localStorage, para que lo vea igual
   // toda persona que trabaje ahí, en cualquier dispositivo.
   onboardingDescartadoEn: string | null;
+  // F2 (B2.10) cuaderno 19.14: datos de acreedor SEPA para la remesa al banco.
+  sepaAcreedorId: string | null;   // identificador de acreedor SEPA
+  sepaIban: string | null;          // IBAN de la cuenta acreedora del estudio
+  sepaTitular: string | null;       // titular de la cuenta acreedora
+}
+
+// F2 (B2.10): mandato SEPA de domiciliación de una socia (independiente de Stripe;
+// el sepa_mandate_id de socios es de Stripe). Una socia con mandato VIGENTE entra
+// en la remesa del cuaderno 19.14.
+export interface MandatoSEPA {
+  id: string;
+  studioId: string;
+  socioId: string;
+  iban: string;
+  refMandato: string;
+  fechaFirma: string;   // YYYY-MM-DD
+  estado: 'VIGENTE' | 'CANCELADO';
+  creadaEn: string;
 }
 
 // ─── Integraciones por negocio ───────────────────────────────────────────────

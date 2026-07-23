@@ -652,6 +652,20 @@ export interface RowStudios {
   umbral_score_autonomo: number | null;
   avisar_alumnas: boolean | null;
   onboarding_descartado_en: string | null;
+  sepa_acreedor_id: string | null;
+  sepa_iban: string | null;
+  sepa_titular: string | null;
+}
+
+export interface RowMandatosSepa {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  iban: string;
+  ref_mandato: string;
+  fecha_firma: string;
+  estado: string;
+  creada_en: string;
 }
 
 export interface RowSuscripciones {
