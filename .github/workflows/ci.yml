@@ -20,6 +20,9 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
       SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key-for-ci
       NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # B0.3: siembra el estudio en la resolución server-side para que la E2E
+      # (registro · reserva · pago) corra de verdad y bloquee el deploy.
+      E2E_TEST: '1'
     steps:
       - uses: actions/checkout@v4
 

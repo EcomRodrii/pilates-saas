@@ -14,6 +14,15 @@ export interface StudioSeo {
 }
 
 export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null> => {
+  // Semilla E2E (B0.3): esta resolución ocurre en el SERVIDOR, así que el mock de
+  // red de Playwright (nivel navegador) no la intercepta; con el env dummy de CI
+  // devolvería null y la página pública mostraría "estudio no encontrado", lo que
+  // mantenía la suite E2E en cuarentena (describe.skip). Con E2E_TEST=1 se siembra
+  // el estudio de prueba en el servidor. NUNCA se activa en producción (la env no
+  // existe allí); coincide con el fixture de e2e/booking.spec.ts.
+  if (process.env.E2E_TEST === '1') {
+    return { id: 'studio-test', nombre: 'Tentare', ciudad: 'Málaga', direccion: 'Calle Test 1', colorPrimario: '#1A1A1A', slug };
+  }
   const admin = getSupabaseAdmin();
   if (!admin) return null;
   const { data } = await admin
