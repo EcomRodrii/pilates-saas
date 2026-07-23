@@ -15,6 +15,7 @@ import {
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
   dbInsertPlazaFija, dbUpdatePlazaFija,
   dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion,
+  dbPonerExcepcion, dbQuitarExcepcion,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
@@ -63,6 +64,7 @@ import type {
   BloqueoMaquina,
   PlazaFija,
   Recuperacion,
+  SocioExcepcion,
   TipoClase,
   Instructor,
   Spot,
@@ -202,6 +204,10 @@ interface StudioContextValue {
   asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true } | { error: string }>;
   quitarPlazaFija: (id: string) => void;
   recuperaciones: Recuperacion[];
+  // F2 (B2.9): excepciones "porque lo digo yo". Toggle: poner (upsert) / quitar (delete).
+  socioExcepciones: SocioExcepcion[];
+  ponerExcepcion: (socioId: string, tipo: string, motivo: string | null) => void;
+  quitarExcepcion: (socioId: string, tipo: string) => void;
   // F2 (B2.3): dueña concede una recuperación. Devuelve TOPE si ya tiene 4 vivas.
   darRecuperacion: (socioId: string, motivo: string | null) => Promise<'CREADA' | 'TOPE' | 'ERROR'>;
   anularRecuperacion: (id: string) => void;
@@ -506,6 +512,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [bloqueosMaquina, setBloqueosMaquina] = useState<BloqueoMaquina[]>([]);
   const [plazasFijas, setPlazasFijas] = useState<PlazaFija[]>([]);
   const [recuperaciones, setRecuperaciones] = useState<Recuperacion[]>([]);
+  const [socioExcepciones, setSocioExcepciones] = useState<SocioExcepcion[]>([]);
 
   const [socios, setSocios] = useState<Socio[]>([]);
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
@@ -684,6 +691,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setBloqueosMaquina(data.bloqueosMaquina);
       setPlazasFijas(data.plazasFijas);
       setRecuperaciones(data.recuperaciones);
+      setSocioExcepciones(data.socioExcepciones);
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
@@ -902,6 +910,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   function anularRecuperacion(id: string) {
     setRecuperaciones(prev => prev.map(r => r.id === id ? { ...r, estado: 'ANULADA' as const } : r));
     dbAnularRecuperacion(id);
+  }
+
+  // F2 (B2.9): poner/quitar una excepción de una socia (toggle "porque lo digo yo").
+  function ponerExcepcion(socioId: string, tipo: string, motivo: string | null) {
+    const nueva: SocioExcepcion = {
+      id: `exc-${uid()}`, studioId: getCurrentStudioId(), socioId, tipo, motivo, creadaEn: new Date().toISOString(),
+    };
+    setSocioExcepciones(prev => prev.some(e => e.socioId === socioId && e.tipo === tipo) ? prev : [...prev, nueva]);
+    dbPonerExcepcion(getCurrentStudioId(), socioId, tipo, motivo);
+  }
+  function quitarExcepcion(socioId: string, tipo: string) {
+    setSocioExcepciones(prev => prev.filter(e => !(e.socioId === socioId && e.tipo === tipo)));
+    dbQuitarExcepcion(getCurrentStudioId(), socioId, tipo);
   }
 
   // F2 (B2.4) dueña-first: "no puede venir". Da de baja una reserva y le concede una
@@ -2798,6 +2819,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bloqueosMaquina,
     plazasFijas,
     recuperaciones,
+    socioExcepciones,
+    ponerExcepcion,
+    quitarExcepcion,
     addPlan,
     updatePlan,
     deletePlan,
@@ -3016,6 +3040,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setBloqueosMaquina(data.bloqueosMaquina);
       setPlazasFijas(data.plazasFijas);
       setRecuperaciones(data.recuperaciones);
+      setSocioExcepciones(data.socioExcepciones);
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
