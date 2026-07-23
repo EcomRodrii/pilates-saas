@@ -20,6 +20,7 @@ import { UnDia } from '@/components/landing/UnDia';
 import { Disciplinas } from '@/components/landing/Disciplinas';
 import { Integraciones } from '@/components/landing/Integraciones';
 import { SinFormacion } from '@/components/landing/SinFormacion';
+import { Migracion } from '@/components/landing/Migracion';
 import { Precio } from '@/components/landing/Precio';
 import { Faq } from '@/components/landing/Faq';
 import { CtaFinal } from '@/components/landing/CtaFinal';
@@ -57,6 +58,7 @@ export default function LandingPage() {
       <Disciplinas />
       <Integraciones />
       <SinFormacion />
+      <Migracion />
       <Precio />
       <Faq />
       <CtaFinal />

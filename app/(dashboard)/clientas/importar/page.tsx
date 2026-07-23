@@ -123,6 +123,19 @@ export default function ImportarSociasPage() {
         description="Migra tu lista de clientas desde un CSV (Excel, Bsport, Mindbody u otro)."
       />
 
+      {/* Migración Mágica: el camino nuevo — todo de golpe, cualquier formato */}
+      <a
+        href="/migracion"
+        className="flex items-center gap-3 rounded-2xl border border-brand/25 bg-brand/5 px-4 py-3 hover:bg-brand/10 transition-colors"
+      >
+        <span className="text-[18px]">✨</span>
+        <span className="flex-1 text-[13px] text-foreground">
+          <strong>¿Vienes de otro software?</strong> Prueba la migración automática: arrastra tus exports tal cual
+          (clientas, bonos, horario, reservas — CSV o Excel) y los reconocemos solos. Con acta y deshacer.
+        </span>
+        <span className="text-[13px] font-bold text-brand-secondary shrink-0">Ir a Migración →</span>
+      </a>
+
       {/* Stepper */}
       <div className="flex items-center gap-2 text-[12px] font-medium">
         {(['Subir archivo', 'Revisar y mapear', 'Importar'] as const).map((label, i) => {

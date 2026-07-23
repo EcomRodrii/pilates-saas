@@ -223,7 +223,7 @@ export const PLANS = [
 export const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: '¿Sustituye a mi software actual o convive con él?',
-    a: 'Lo sustituye del todo: reservas, cobros, calendario, alumnas e instructoras están dentro. Importas tus datos con asistentes guiados por CSV —alumnas, bonos, reservas, clases y citas— con detección de duplicados, y te acompañamos en la puesta en marcha, sin cortar el servicio de tu estudio.',
+    a: 'Lo sustituye del todo: reservas, cobros, calendario, alumnas e instructoras están dentro. Y la migración te la hacemos nosotros en 48h: nos mandas lo que puedas exportar (da igual el formato) y te entregamos el estudio montado, con un acta para comprobar que todo cuadra. Tu software actual sigue funcionando mientras tanto.',
   },
   {
     q: '¿Es difícil de aprender a usar?',
@@ -263,7 +263,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Pierdo datos o me quedo sin servicio al migrar?',
-    a: 'No. Tu estudio sigue funcionando en tu sistema actual hasta que tú decidas arrancar. Importas por CSV con detección de duplicados y revisas los datos antes de empezar. Las tarjetas guardadas de tus alumnas no se transfieren solas entre plataformas: te ayudamos a gestionar ese paso para que nadie se quede sin cobrar.',
+    a: 'No. Tu estudio sigue funcionando en tu sistema actual hasta que tú decidas arrancar, y cada migración deja un acta con los números para comprobar que no falta nada — si algo no cuadra, se deshace entera con un clic. Las tarjetas guardadas de tus alumnas no se transfieren solas entre plataformas: te ayudamos a gestionar ese paso para que nadie se quede sin cobrar.',
   },
   {
     q: '¿Me vais a subir el precio dentro de un año?',
