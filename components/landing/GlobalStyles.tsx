@@ -49,6 +49,7 @@ export function GlobalStyles() {
 
       @keyframes lp-riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
       @keyframes lp-dash { to { stroke-dashoffset: 0; } }
+      @keyframes lp-kenburns { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
       @keyframes lp-floatA { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-13px); } }
       @keyframes lp-floatB { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-18px); } }
       @keyframes lp-floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
