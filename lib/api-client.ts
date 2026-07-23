@@ -499,6 +499,8 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita } from '@/lib/csv';
 
 export interface ResultadoImport {
+  // Migración Mágica: aviso si el lote no quedó registrado para deshacer.
+  batchAviso?: string | null;
   total: number;
   importadas: number;
   duplicadas: number;
@@ -508,12 +510,12 @@ export interface ResultadoImport {
 
 // Envía las filas ya validadas al servidor, que re-valida, deduplica contra la
 // BD del estudio e inserta en lote. El studio_id lo pone el servidor (JWT).
-export async function importarSocias(rows: FilaSocia[]): Promise<ResultadoImport> {
+export async function importarSocias(rows: FilaSocia[], batchId?: string): Promise<ResultadoImport> {
   try {
     const res = await fetch('/api/socios/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ rows, batchId }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -533,12 +535,12 @@ export async function importarSocias(rows: FilaSocia[]): Promise<ResultadoImport
 
 // Importa membresías/bonos (suscripciones). Empareja por email de socia y nombre
 // de plan en el servidor; el studio_id sale del JWT. Misma forma de resultado.
-export async function importarMembresias(rows: FilaMembresia[]): Promise<ResultadoImport> {
+export async function importarMembresias(rows: FilaMembresia[], batchId?: string): Promise<ResultadoImport> {
   try {
     const res = await fetch('/api/suscripciones/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ rows, batchId }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -553,6 +555,44 @@ export async function importarMembresias(rows: FilaMembresia[]): Promise<Resulta
     return data as ResultadoImport;
   } catch {
     return { total: 0, importadas: 0, duplicadas: 0, errores: [], error: 'No se pudo conectar con el servidor' };
+  }
+}
+
+// ── Migración Mágica ─────────────────────────────────────────────────────────
+// Analiza archivos arbitrarios del software anterior y devuelve el plan
+// revisable (sin tocar la BD). Tipos del servidor importados solo como tipos.
+export async function analizarMigracion(
+  archivos: { nombre: string; contenido: string }[],
+): Promise<import('@/lib/migracion/analizador').PlanMigracion | { error: string }> {
+  try {
+    const res = await fetch('/api/migracion/analizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ archivos }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data;
+  } catch {
+    return { error: 'No se pudo conectar con el servidor' };
+  }
+}
+
+// Deshace un lote de migración: borra exactamente lo que creó ese lote.
+export async function deshacerMigracion(
+  batchId: string,
+): Promise<{ ok: true; borrados: Record<string, number> } | { error: string; borrados?: Record<string, number> }> {
+  try {
+    const res = await fetch('/api/migracion/deshacer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ batchId }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)), borrados: data.borrados };
+    return data;
+  } catch {
+    return { error: 'No se pudo conectar con el servidor' };
   }
 }
 
@@ -946,6 +986,7 @@ export async function listarValoraciones(instructorId: string): Promise<Valoraci
 
 // Resultado de importar el horario (clases y sesiones).
 export interface ResultadoImportClases {
+  batchAviso?: string | null;
   creadas: number;
   omitidas: number;       // ya existían: reimportar no duplica
   tiposCreados: number;
@@ -958,14 +999,14 @@ export interface ResultadoImportClases {
 // Importa el horario. Las filas recurrentes (por día de la semana) se expanden a
 // `semanas` semanas desde `desde`; el studio_id sale del JWT, nunca del body.
 export async function importarClases(
-  rows: FilaClase[], opciones: { semanas: number; desde: string },
+  rows: FilaClase[], opciones: { semanas: number; desde: string }, batchId?: string,
 ): Promise<ResultadoImportClases> {
   const vacio = { creadas: 0, omitidas: 0, tiposCreados: 0, sinInstructor: 0, sinSala: 0, errores: [] };
   try {
     const res = await fetch('/api/clases/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ rows, semanas: opciones.semanas, desde: opciones.desde }),
+      body: JSON.stringify({ rows, semanas: opciones.semanas, desde: opciones.desde, batchId }),
     });
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
@@ -977,6 +1018,7 @@ export async function importarClases(
 
 // Resultado de importar reservas.
 export interface ResultadoImportReservas {
+  batchAviso?: string | null;
   importadas: number;
   duplicadas: number;   // ya estaban: reimportar no duplica
   sinSocia: number;     // email que no existe en el estudio
@@ -989,13 +1031,13 @@ export interface ResultadoImportReservas {
 // Importa reservas. Empareja socia por email y sesión por clase+fecha+hora en el
 // servidor; el studio_id sale del JWT. No consume bonos (los saldos ya vienen
 // importados del programa anterior).
-export async function importarReservas(rows: FilaReserva[]): Promise<ResultadoImportReservas> {
+export async function importarReservas(rows: FilaReserva[], batchId?: string): Promise<ResultadoImportReservas> {
   const vacio = { importadas: 0, duplicadas: 0, sinSocia: 0, sinSesion: 0, sobreAforo: 0, errores: [] };
   try {
     const res = await fetch('/api/reservas/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ rows, batchId }),
     });
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
@@ -1007,6 +1049,7 @@ export async function importarReservas(rows: FilaReserva[]): Promise<ResultadoIm
 
 // Resultado de importar citas 1:1.
 export interface ResultadoImportCitas {
+  batchAviso?: string | null;
   importadas: number;
   duplicadas: number;
   sinSocia: number;
@@ -1018,13 +1061,13 @@ export interface ResultadoImportCitas {
 
 // Importa citas 1:1. Empareja socia por email y servicio por nombre; el
 // studio_id sale del JWT.
-export async function importarCitas(rows: FilaCita[]): Promise<ResultadoImportCitas> {
+export async function importarCitas(rows: FilaCita[], batchId?: string): Promise<ResultadoImportCitas> {
   const vacio = { importadas: 0, duplicadas: 0, sinSocia: 0, sinInstructor: 0, sinServicioCatalogo: 0, errores: [] };
   try {
     const res = await fetch('/api/citas/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ rows, batchId }),
     });
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
