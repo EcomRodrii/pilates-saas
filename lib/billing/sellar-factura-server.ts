@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { calcularHuellaAlta, type RegistroAltaVerifactu } from '@/lib/verifactu';
 import { fechaExpedicionDesdeISO, fechaHoraHusoMadrid, urlQrVerifactu } from '@/lib/verifactu-qr';
+import { fiskalyConfigurado, asegurarEmisor, firmarFactura } from '@/lib/billing/fiskaly';
 
 // Núcleo del sellado Veri*Factu, extraído de app/api/facturas/sellar para que lo
 // puedan invocar TANTO la ruta (staff autenticado) COMO el webhook de Stripe
@@ -58,7 +60,7 @@ export async function sellarFacturaDeRecibo(
 
   const { data: studio } = await admin
     .from('studios')
-    .select('nif, iva_por_defecto')
+    .select('nif, iva_por_defecto, razon_social, nombre, direccion, ciudad, codigo_postal, email, fiskaly_signer_id, fiskaly_client_id')
     .eq('id', studioId)
     .maybeSingle();
   const nifEmisor = studio?.nif?.trim() || '';
@@ -153,6 +155,58 @@ export async function sellarFacturaDeRecibo(
       verifactuHash: huella, verifactuPrevHash: huellaAnterior, verifactuTs: ts, verifactuSeq: seq,
       qrUrl, entorno: produccion ? 'produccion' : 'pruebas',
     };
+
+    // Firma + transmisión a la AEAT vía Fiskaly, SOLO si está configurado (creds
+    // en entorno). Si algo falla, la factura mantiene la huella propia de arriba:
+    // no se pierde ninguna factura por un fallo de Fiskaly.
+    if (fiskalyConfigurado()) {
+      try {
+        let signerId = studio?.fiskaly_signer_id as string | null;
+        let clientId = studio?.fiskaly_client_id as string | null;
+        if (!signerId || !clientId) {
+          const nuevos = await asegurarEmisor(
+            {
+              legalName: (studio?.razon_social as string | null) || (studio?.nombre as string | null) || 'Estudio',
+              nif: nifEmisor,
+              direccion: (studio?.direccion as string | null) || undefined,
+              ciudad: (studio?.ciudad as string | null) || undefined,
+              codigoPostal: (studio?.codigo_postal as string | null) || undefined,
+              email: (studio?.email as string | null) || undefined,
+            },
+            signerId || randomUUID(),
+            clientId || randomUUID(),
+          );
+          signerId = nuevos.signerId;
+          clientId = nuevos.clientId;
+          await admin.from('studios')
+            .update({ fiskaly_signer_id: signerId, fiskaly_client_id: clientId })
+            .eq('id', studioId);
+        }
+
+        const fiskalyInvoiceId = randomUUID();
+        const res = await firmarFactura({
+          clientId,
+          invoiceId: fiskalyInvoiceId,
+          numero: numeroCompleto,
+          simplificada: !receptorNIF,
+          concepto: `Servicios de ${(studio?.nombre as string | null) || 'estudio'}`,
+          totalConIva: total,
+          lineas: [{ texto: 'Servicios prestados', base: baseImponible, total, tipoIva: tipoIVA }],
+          receptor: receptorNIF
+            ? { nombre: receptorNombre, nif: receptorNIF, direccion: 'España', codigoPostal: '00000' }
+            : undefined,
+        });
+        fila.fiskaly_invoice_id = res.id;
+        fila.verifactu_qr_url = res.qrUrl;
+        fila.verifactu_qr_imagen = res.qrImagen;
+        fila.verifactu_estado = res.transmision;
+        fila.verifactu_csv = res.csv;
+        salida = { ...salida, fiskaly: { estado: res.estado, transmision: res.transmision, csv: res.csv, qrUrl: res.qrUrl } };
+      } catch (e) {
+        console.error('[sellarFacturaDeRecibo] Fiskaly:', e instanceof Error ? e.message : e);
+        // Se sigue con la huella propia; queda registro en logs para revisar.
+      }
+    }
   }
 
   const { error } = await admin.from('facturas').insert(fila);
