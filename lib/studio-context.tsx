@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
+import { CoreProvider } from '@/lib/core-context';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
@@ -2918,6 +2919,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   return (
+    <CoreProvider
+      studio={studio}
+      instructores={instructores}
+      notificaciones={notificaciones}
+      dataLoaded={dataLoaded}
+      updateStudio={updateStudio}
+      updateAvatarAdmin={updateAvatarAdmin}
+      addInstructor={addInstructor}
+      updateInstructor={updateInstructor}
+      deleteInstructor={deleteInstructor}
+      claimInstructorAccount={claimInstructorAccount}
+      marcarNotificacionLeida={marcarNotificacionLeida}
+      marcarTodasLeidas={marcarTodasLeidas}
+    >
     <StudioContext.Provider value={value}>
       {children}
       {dbError && (
@@ -2940,5 +2955,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         </div>
       )}
     </StudioContext.Provider>
+    </CoreProvider>
   );
 }

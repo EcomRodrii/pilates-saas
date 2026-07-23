@@ -9,7 +9,7 @@ import {
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
@@ -173,7 +173,7 @@ export function Sidebar() {
   const [size, setSize] = useState<SidebarSize>('normal');
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
-  const { studio, instructores } = useStudio();
+  const { studio, instructores } = useCore();
   const studioSlug = studio?.slug ?? 'tentare';
   // El avatar de cabecera es el de QUIEN ha iniciado sesión, no siempre el de
   // la propietaria: si es una instructora/recepción con ficha propia, se usa

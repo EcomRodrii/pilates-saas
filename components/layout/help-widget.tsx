@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, ChevronDown, Search, Send, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import type { TipoSoporte } from '@/lib/types';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
@@ -36,7 +36,7 @@ const FAQS: FaqItem[] = [
 const CATEGORIAS = [...new Set(FAQS.map(f => f.categoria))];
 
 export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { studio } = useStudio();
+  const { studio } = useCore();
   const [query, setQuery] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [tipo, setTipo] = useState<TipoSoporte>('DUDA');

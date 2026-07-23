@@ -6,11 +6,11 @@ import { Inbox, Bell, Zap, Search, Eye, EyeOff } from 'lucide-react';
 import { GlobalSearch } from '@/components/search/global-search';
 import { ProfileMenu } from '@/components/layout/profile-menu';
 import { IconButton } from '@/components/ui/icon-button';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
 
 export function Topbar() {
-  const { notificaciones } = useStudio();
+  const { notificaciones } = useCore();
   const sinLeer = notificaciones.filter(n => !n.leida).length;
   const { oculto, setOculto } = usePanelPrivacy();
   // Un solo disparador para las dos cosas (antes había dos pills contiguos que
