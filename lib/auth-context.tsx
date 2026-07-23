@@ -2,8 +2,16 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/nextjs';
 import { supabase } from './db/supabase';
 import { setCurrentStudioId } from './supabase-data';
+
+// B0.6: identifica al usuario en Sentry para poder medir el impacto real de cada
+// error (antes los issues llegaban sin usuario). Solo el id (un UUID), nunca
+// email ni nombre — respeta sendDefaultPii:false de la config de Sentry.
+function identificarEnSentry(session: Session | null) {
+  Sentry.setUser(session?.user ? { id: session.user.id } : null);
+}
 
 type AuthContextType = {
   session: Session | null;
@@ -27,11 +35,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      identificarEnSentry(data.session);
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      identificarEnSentry(session);
     });
 
     return () => subscription.unsubscribe();
