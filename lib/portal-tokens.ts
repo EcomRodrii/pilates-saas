@@ -34,6 +34,9 @@ export const semantic = {
   danger: { text: '#C0362D', soft: 'rgba(192,54,45,0.1)' },
 } as const;
 
-// Padding inferior de cualquier bottom sheet: nunca un número fijo — tiene
-// que ceder ante el home indicator cuando hay uno.
-export const sheetBottomPadding = 'max(24px, calc(env(safe-area-inset-bottom) + 16px))';
+// Padding inferior de cualquier bottom sheet. Además del home indicator
+// (safe-area), tiene que dejar hueco para la TAB BAR FLOTANTE del portal, que
+// va anclada abajo (bottom 18px + safe, alto 60 → su borde superior queda a
+// ~78px + safe del fondo). Sin esta holgura, el botón de acción de la hoja
+// (p. ej. "Reservar") quedaba TAPADO por el menú.
+export const sheetBottomPadding = 'max(100px, calc(env(safe-area-inset-bottom) + 92px))';
