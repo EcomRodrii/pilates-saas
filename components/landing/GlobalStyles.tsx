@@ -27,6 +27,7 @@ export function GlobalStyles() {
       /* Sustituciones flow comet */
       .tnt-flow-comet { box-shadow: 0 0 16px 5px rgba(124,58,237,.85); animation: lp-cometpulse 1.4s ease-in-out infinite; }
       .tnt-flow-vline-bg, .tnt-flow-vline-fill { display: none; }
+      .tnt-steps4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 20px; }
 
       .tnt-bento-4 { grid-column: span 4; }
       .tnt-bento-2 { grid-column: span 2; }
