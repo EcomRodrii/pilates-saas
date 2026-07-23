@@ -5,16 +5,26 @@ import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { ThemeStyle } from '@/components/theme-style';
 import { getStudioSeo } from '@/lib/studio-seo';
 
-export const metadata = {
-  title: 'Mi Estudio · Portal',
-  description: 'Tu espacio de miembro',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Mi Estudio',
-  },
-};
+// Metadata dinámica: el portal es la "app de marca" del estudio, así que el
+// título, el nombre de la app instalada (appleWebApp.title) y el manifest son
+// los del estudio, no genéricos. getStudioSeo está cacheada por request, así
+// que esta consulta se comparte con la del layout. (Antes además se apuntaba a
+// /manifest.json, que no existe — Next sirve /manifest.webmanifest.)
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const studio = await getStudioSeo(slug);
+  const nombre = studio?.nombre ?? 'Mi Estudio';
+  return {
+    title: `${nombre} · Portal`,
+    description: 'Tu espacio de miembro',
+    manifest: `/portal/${slug}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default' as const,
+      title: nombre,
+    },
+  };
+}
 
 // `viewportFit: 'cover'` es lo que hace que `env(safe-area-inset-*)` (usado en
 // portal-shell.tsx y en los bottom sheets) devuelva algo distinto de 0 en un
