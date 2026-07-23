@@ -44,31 +44,49 @@ function useHeroTilt() {
 
 // El vídeo de fondo se emite como HTML crudo: React no serializa `muted` como
 // atributo en el HTML del servidor (solo lo asigna como propiedad al hidratar),
-// y sin `muted` en el markup iOS/Android bloquean el autoplay — el vídeo se
-// quedaba parado con el control de play nativo encima. Además del markup, un
-// efecto re-fuerza muted+play() al montar y al primer toque (Low Power Mode de
-// iOS rechaza el primer play() automático pero permite el iniciado por gesto).
+// y sin `muted` en el markup iOS/Android bloquean el autoplay.
+//
+// Además, cuando el autoplay se bloquea igualmente (Low Power Mode de iOS,
+// ahorro de datos de Android), Safari pinta SU botón de play encima del vídeo y
+// no hay forma de quitarlo. Así que el vídeo arranca invisible (opacity 0, sin
+// pointer-events) sobre la foto del primer frame como fondo del contenedor, y
+// solo se funde a visible cuando el navegador confirma que está reproduciendo
+// ('playing'). Si el autoplay queda bloqueado, se ve la foto limpia — nunca un
+// botón de play. Los reintentos de play() se enganchan a pointerdown/touchend/
+// click/keydown (touchstart NO cuenta como activación de usuario para la
+// política de autoplay, por eso el reintento anterior no funcionaba).
 function HeroVideo() {
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const video = wrapRef.current?.querySelector('video');
-    if (!video) return;
+    // El <video> se busca DENTRO de cada handler, no una vez aquí: si React
+    // descarta el HTML del servidor y recrea el subárbol (fallback de
+    // hidratación), el nodo capturado en el cierre sería el viejo y los
+    // reintentos no harían nada. (El revelado de opacidad ni siquiera pasa por
+    // aquí: va como handlers inline en el propio markup del vídeo, que
+    // sobreviven a cualquier recreación del elemento.)
     const nudge = () => {
+      const video = wrapRef.current?.querySelector('video');
+      if (!video) return;
       video.muted = true;
       if (video.paused) video.play().catch(() => {});
     };
     nudge();
-    window.addEventListener('touchstart', nudge, { once: true, passive: true });
-    return () => window.removeEventListener('touchstart', nudge);
+    const GESTOS = ['pointerdown', 'touchend', 'click', 'keydown'] as const;
+    GESTOS.forEach(ev => window.addEventListener(ev, nudge, { passive: true }));
+    document.addEventListener('visibilitychange', nudge);
+    return () => {
+      GESTOS.forEach(ev => window.removeEventListener(ev, nudge));
+      document.removeEventListener('visibilitychange', nudge);
+    };
   }, []);
 
   return (
     <div
       ref={wrapRef}
-      style={{ position: 'absolute', inset: 0, zIndex: -2 }}
+      style={{ position: 'absolute', inset: 0, zIndex: -2, backgroundImage: 'url(/hero-video-poster.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
       dangerouslySetInnerHTML={{
-        __html: `<video autoplay loop muted playsinline preload="auto" poster="/hero-video-poster.jpg" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><source src="/hero-video.webm" type="video/webm" /><source src="/hero-video.mp4" type="video/mp4" /></video>`,
+        __html: `<video autoplay loop muted playsinline preload="auto" onplaying="this.style.opacity=1" ontimeupdate="if(!this.paused)this.style.opacity=1" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .6s ease;pointer-events:none"><source src="/hero-video.webm" type="video/webm" /><source src="/hero-video.mp4" type="video/mp4" /></video>`,
       }}
     />
   );
