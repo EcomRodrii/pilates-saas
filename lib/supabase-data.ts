@@ -60,6 +60,7 @@ import type {
   RowBloqueosMaquina,
   RowPlazasFijas,
   RowRecuperaciones,
+  RowSocioExcepciones,
   RowSesiones,
   RowSocios,
   RowCamposPersonalizados,
@@ -123,6 +124,7 @@ import type {
   BloqueoMaquina,
   PlazaFija,
   Recuperacion,
+  SocioExcepcion,
   Sesion,
   Socio,
   CampoPersonalizado,
@@ -1162,6 +1164,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     bloqueosMaquinaRes,
     plazasFijasRes,
     recuperacionesRes,
+    socioExcepcionesRes,
   ] = await Promise.all([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('usuarios').select('*').eq('studio_id', sid),
@@ -1222,6 +1225,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
     db.from('plazas_fijas').select('*').eq('studio_id', sid),
     db.from('recuperaciones').select('*').eq('studio_id', sid),
+    db.from('socio_excepciones').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -1272,6 +1276,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     bloqueosMaquina: (bloqueosMaquinaRes.data ?? []).map(mapBloqueoMaquina),
     plazasFijas: (plazasFijasRes.data ?? []).map(mapPlazaFija),
     recuperaciones: (recuperacionesRes.data ?? []).map(mapRecuperacion),
+    socioExcepciones: (socioExcepcionesRes.data ?? []).map(mapSocioExcepcion),
   };
 }
 
@@ -1764,14 +1769,17 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
 
   // 3) Socias implicadas (1 query) y mapas de lookup.
   const socioIds = uniq(reservas.map(r => r.socio_id as string));
-  const [{ data: sociosR }, { data: prefsR }] = socioIds.length
+  const [{ data: sociosR }, { data: prefsR }, { data: excR }] = socioIds.length
     ? await Promise.all([
         admin.from('socios').select('id, nombre, email, telefono').in('id', socioIds),
         admin.from('preferencias_socio').select('socio_id, notif_email, notif_whatsapp').in('socio_id', socioIds),
+        // F2 (B2.9): la dueña puede eximir a una socia de los recordatorios.
+        admin.from('socio_excepciones').select('socio_id').eq('tipo', 'SIN_RECORDATORIO').in('socio_id', socioIds),
       ])
-    : [{ data: [] as { id: string; nombre: string | null; email: string | null; telefono: string | null }[] }, { data: [] as { socio_id: string; notif_email: boolean | null; notif_whatsapp: boolean | null }[] }];
+    : [{ data: [] as { id: string; nombre: string | null; email: string | null; telefono: string | null }[] }, { data: [] as { socio_id: string; notif_email: boolean | null; notif_whatsapp: boolean | null }[] }, { data: [] as { socio_id: string }[] }];
   // Sin fila de preferencias = valores por defecto (true), igual que mapPreferenciasSocio.
   const prefsPorSocio = new Map((prefsR ?? []).map(p => [p.socio_id, p]));
+  const exentosRecordatorio = new Set((excR ?? []).map(e => e.socio_id as string));
 
   const nombrePorId = (rows: { id: string; nombre: string | null }[] | null) =>
     new Map((rows ?? []).map(x => [x.id, x.nombre]));
@@ -1809,6 +1817,7 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
     for (const r of rs) {
       const socia = sociaPorId.get(r.socio_id);
       if (!socia) continue;
+      if (exentosRecordatorio.has(r.socio_id)) continue; // "a esta jamás" (B2.9)
       // Preferencias del portal (app/portal/[slug]/perfil): sin fila = valores
       // por defecto (true), igual que mapPreferenciasSocio en el resto de la app.
       const prefs = prefsPorSocio.get(r.socio_id);
@@ -3587,6 +3596,32 @@ export async function dbListRecuperaciones(studioId: string): Promise<Recuperaci
 export async function dbAnularRecuperacion(id: string) {
   const { error } = await supabase.from('recuperaciones').update({ estado: 'ANULADA' }).eq('id', id);
   if (error) reportDbError('[dbAnularRecuperacion]', error);
+}
+
+// F2 (B2.9): excepciones por socia. El toggle = poner (upsert) / quitar (delete).
+function mapSocioExcepcion(r: RowSocioExcepciones): SocioExcepcion {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    tipo: r.tipo,
+    motivo: r.motivo ?? null,
+    creadaEn: r.creada_en,
+  };
+}
+
+export async function dbPonerExcepcion(studioId: string, socioId: string, tipo: string, motivo: string | null) {
+  const { error } = await supabase.from('socio_excepciones').upsert(
+    { id: `exc-${uid()}`, studio_id: studioId, socio_id: socioId, tipo, motivo },
+    { onConflict: 'studio_id,socio_id,tipo' },
+  );
+  if (error) reportDbError('[dbPonerExcepcion]', error);
+}
+
+export async function dbQuitarExcepcion(studioId: string, socioId: string, tipo: string) {
+  const { error } = await supabase.from('socio_excepciones')
+    .delete().eq('studio_id', studioId).eq('socio_id', socioId).eq('tipo', tipo);
+  if (error) reportDbError('[dbQuitarExcepcion]', error);
 }
 
 export async function dbInsertSesion(ses: Sesion) {

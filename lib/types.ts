@@ -331,6 +331,17 @@ export interface Recuperacion {
   creadaEn: string;
 }
 
+// F2 (B2.9): excepción por socia ("porque lo digo yo"). Una fila = una socia exenta
+// de una automatización concreta (tipo). La leen todas las automatizaciones.
+export interface SocioExcepcion {
+  id: string;
+  studioId: string;
+  socioId: string;
+  tipo: string;
+  motivo: string | null;
+  creadaEn: string;
+}
+
 export interface Sala {
   id: string;
   studioId: string;

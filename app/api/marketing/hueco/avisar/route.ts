@@ -82,6 +82,13 @@ export async function POST(req: NextRequest) {
     const avisadasSet = new Set((yaAvisadas ?? []).map(r => r.socio_id as string));
     candidatas = candidatas.filter(s => !avisadasSet.has(s.id));
 
+    // F2 (B2.9): "a esta jamás le avises de huecos" — la dueña lo manda por encima.
+    const { data: exentasRows } = await admin
+      .from('socio_excepciones').select('socio_id')
+      .eq('studio_id', sesion.studioId).eq('tipo', 'SIN_AVISO_HUECO');
+    const exentasSet = new Set((exentasRows ?? []).map(r => r.socio_id as string));
+    candidatas = candidatas.filter(s => !exentasSet.has(s.id));
+
     const nombreClase = tipoRow?.nombre ?? 'pilates';
     const hora = new Date(sesionObj.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
     const fecha = new Date(sesionObj.inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });

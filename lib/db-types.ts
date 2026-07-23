@@ -531,6 +531,15 @@ export interface RowRecuperaciones {
   creada_en: string;
 }
 
+export interface RowSocioExcepciones {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  tipo: string;
+  motivo: string | null;
+  creada_en: string;
+}
+
 export interface RowSesiones {
   id: string;
   studio_id: string;
