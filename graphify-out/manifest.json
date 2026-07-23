@@ -300,9 +300,9 @@
     "semantic_hash": "f0cea999040636334802f704c55f68e2"
   },
   "app/portal/[slug]/videos/page.tsx": {
-    "mtime": 1784764780.6538486,
-    "ast_hash": "88381eddacc9b8ccbad0d65f18df83b3",
-    "semantic_hash": "88381eddacc9b8ccbad0d65f18df83b3"
+    "mtime": 1784767721.6409476,
+    "ast_hash": "0987fbdcaa31a1a2e35d29d54f21e054",
+    "semantic_hash": "0987fbdcaa31a1a2e35d29d54f21e054"
   },
   "app/portal/page.tsx": {
     "mtime": 1784763324.2722433,
@@ -1720,9 +1720,9 @@
     "semantic_hash": "17288050df3b40c479432ad15df96084"
   },
   "components/configuracion/tab-estudio.tsx": {
-    "mtime": 1784764529.6772647,
-    "ast_hash": "1e433c1b9c085abe7bafb8c6376b4b10",
-    "semantic_hash": "1e433c1b9c085abe7bafb8c6376b4b10"
+    "mtime": 1784767727.4785423,
+    "ast_hash": "7ad1c596944476e84e6005a9762ad7a0",
+    "semantic_hash": "7ad1c596944476e84e6005a9762ad7a0"
   },
   "components/configuracion/tab-gamificacion.tsx": {
     "mtime": 1784763324.283962,
@@ -3203,5 +3203,10 @@
     "mtime": 1784763324.5641031,
     "ast_hash": "3dc33c623abd1f36a5b34962bc5ac0a8",
     "semantic_hash": "3dc33c623abd1f36a5b34962bc5ac0a8"
+  },
+  ".claude/launch.json": {
+    "mtime": 1784766243.2209978,
+    "ast_hash": "64f537f85d563f28b9c8624e78157f5c",
+    "semantic_hash": "64f537f85d563f28b9c8624e78157f5c"
   }
 }
