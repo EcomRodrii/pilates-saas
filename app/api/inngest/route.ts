@@ -16,6 +16,10 @@ import {
   dunningDispatcher,
   procesarDunningEstudio,
 } from '@/lib/inngest/dunning';
+import {
+  renovacionesDispatcher,
+  procesarRenovacionesEstudio,
+} from '@/lib/inngest/renovaciones';
 import { escalarSustitucion } from '@/lib/inngest/sustituciones';
 import {
   valoracionesDispatcher,
@@ -44,6 +48,8 @@ export const { GET, POST, PUT } = serve({
     medirOutcomeFn,
     dunningDispatcher,
     procesarDunningEstudio,
+    renovacionesDispatcher,
+    procesarRenovacionesEstudio,
     escalarSustitucion,
     valoracionesDispatcher,
     procesarValoracionesEstudio,

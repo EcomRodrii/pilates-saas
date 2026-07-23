@@ -13,6 +13,10 @@ export const EVENTS = {
   AUTOMATIZACIONES_ESTUDIO: 'automatizaciones/studio.process',
   // Dunning (0041) — barrido diario de reintentos de cobro, un evento por estudio.
   DUNNING_ESTUDIO: 'dunning/studio.sweep',
+  // Renovaciones de planes mensuales — genera en servidor el recibo de
+  // renovación de las cuotas caducadas (antes lo hacía el navegador al abrir
+  // el panel, sin proximo_reintento → nunca entraba al dunning).
+  RENOVACIONES_ESTUDIO: 'renovaciones/studio.sweep',
   // Decision OS (DECISION-OS-ARQUITECTURA.md §6) — additivo, no toca los de arriba.
   DECISION_ANALYZE: 'decision/studio.analyze',
   DECISION_APPROVED: 'decision/recommendation.approved',

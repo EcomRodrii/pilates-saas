@@ -3,6 +3,8 @@ import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
+import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
+import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -167,6 +169,20 @@ export async function cobrarReciboOffSession(params: {
           aviso: 'COBRADO_SIN_PERSISTIR',
           error: 'El cobro se completó en Stripe pero no se pudo marcar el recibo como COBRADO. Revísalo manualmente.',
         };
+      }
+      // Post-cobro, en el servidor (antes solo pasaba al "marcar cobrado" a
+      // mano en el panel): renovar la suscripción del recibo (refill de bono /
+      // extensión del mensual) y sellar su factura. Ambos son best-effort e
+      // idempotentes — el cobro ya está hecho y persistido.
+      await aplicarRenovacionServidor(admin, { studioId: params.studioId, reciboId: params.reciboId });
+      const sellado = await sellarFacturaDeRecibo(admin, {
+        studioId: params.studioId, reciboId: params.reciboId, facturaId: `fac-off-${params.reciboId}`,
+      });
+      if (!sellado.ok) {
+        Sentry.captureMessage('[cobrarReciboOffSession] cobro OK pero factura sin sellar', {
+          level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
+          extra: { reciboId: params.reciboId, error: sellado.error },
+        });
       }
       return { ok: true, status: paymentIntent.status, importe: recibo.importe };
     }
