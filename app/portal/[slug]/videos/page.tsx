@@ -6,7 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import { CategoriaVideo, NivelClase, VideoOnDemand } from '@/lib/types';
 import { urlIframeStream } from '@/lib/stream-playback';
 import { useModo } from '@/lib/portal-modo';
-import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
+import { PORTAL_VIDEOS_CONGELADO } from '@/lib/frozen-features';
 import { X, Play, Clock, Eye } from 'lucide-react';
 import { Pill, EmptyState } from '@/components/portal/ui';
 
@@ -41,10 +41,10 @@ export default function VideosPage() {
   const { t } = useModo();
   const router = useRouter();
   const params = useParams<{ slug: string }>();
-  // Oferta digital oculta temporalmente (ver lib/feature-flags.ts): redirige al
-  // inicio del portal.
+  // VOD congelado (feature-freeze PMF, independiente del flag de marketing):
+  // redirige al inicio del portal. Reactivar = PORTAL_VIDEOS_CONGELADO=false.
   useEffect(() => {
-    if (!MARKETING_MODULE_ENABLED) router.replace(`/portal/${params.slug}/home`);
+    if (PORTAL_VIDEOS_CONGELADO) router.replace(`/portal/${params.slug}/home`);
   }, [router, params.slug]);
   const [cat, setCat] = useState<CategoriaVideo | 'TODOS'>('TODOS');
   const [selected, setSelected] = useState<VideoOnDemand | null>(null);

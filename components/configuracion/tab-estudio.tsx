@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { RotateCcw, AlertTriangle, Monitor, ExternalLink, Calendar as CalendarLinkIcon, Building2 } from 'lucide-react';
+import { RotateCcw, AlertTriangle, ExternalLink, Calendar as CalendarLinkIcon, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { subirLogoEstudio, eliminarLogoEstudio } from '@/lib/portal-storage';
@@ -338,18 +338,8 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
             </div>
             <ExternalLink size={13} className="text-muted-foreground shrink-0" />
           </a>
-          <a
-            href={`/kiosk/${studio?.slug ?? ''}`}
-            target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-border hover:bg-muted transition-colors"
-          >
-            <Monitor size={15} className="text-muted-foreground shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-foreground">Modo quiosco</p>
-              <p className="text-[11px] text-muted-foreground">Pantalla de check-in para dejar en una tablet en recepción</p>
-            </div>
-            <ExternalLink size={13} className="text-muted-foreground shrink-0" />
-          </a>
+          {/* CONGELADO (feature-freeze PMF): se quitó el enlace "Modo quiosco" →
+              /kiosk/[slug]. Ver lib/frozen-features.ts. */}
         </div>
       </div>
 

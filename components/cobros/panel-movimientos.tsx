@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import { ArrowLeftRight, TrendingUp, CreditCard, ShoppingCart, FileText, Download, Search } from 'lucide-react';
+import { ArrowLeftRight, TrendingUp, CreditCard, FileText, Download, Search } from 'lucide-react';
 import Link from 'next/link';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 
-type FiltroTipo = 'todas' | 'cobro' | 'pos' | 'devolucion';
+// CONGELADO (feature-freeze PMF): POS oculto. Se retiró el tipo 'pos', su KPI,
+// su filtro, su badge y la fusión de ventasPOS. Reactivar = ver lib/frozen-features.ts.
+type FiltroTipo = 'todas' | 'cobro' | 'devolucion';
 
 function fmt(n: number) {
   return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -16,17 +18,16 @@ function fechaCorta(iso: string) {
 }
 
 export function PanelMovimientos() {
-  const { recibos, ventasPOS, socios, facturas } = useStudio();
+  const { recibos, socios, facturas } = useStudio();
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<FiltroTipo>('todas');
 
-  // Unifica recibos cobrados + ventas POS en una sola lista de movimientos
+  // Lista de movimientos: recibos cobrados/devueltos.
   const movimientos = useMemo(() => {
-    // C-10: toda venta POS genera un recibo `rec-pos-*` COBRADO (studio-context
-    // addVentaPOS) Y aparece en `ventasPOS`. Contar ambos duplicaba el POS en
-    // totalCobros/totalNeto y en la lista. Se excluyen los recibos POS de la
-    // fuente de cobros; el POS se cuenta una sola vez vía `ventas` (abajo), que
-    // además conserva el método de pago.
+    // CONGELADO (feature-freeze PMF): POS oculto. Se mantiene la exclusión de los
+    // recibos `rec-pos-*` (así las ventas POS históricas tampoco asoman como
+    // cobros) y ya NO se fusionan las `ventasPOS`. Reactivar = restaurar el bloque
+    // `ventas`, volver a incluir ventasPOS en el useMemo/deps y en los totales.
     const cobros = recibos
       .filter(r => (r.estado === 'COBRADO' || r.estado === 'DEVUELTO') && !r.id.startsWith('rec-pos-'))
       .map(r => {
@@ -44,23 +45,8 @@ export function PanelMovimientos() {
         };
       });
 
-    const ventas = ventasPOS.map(v => {
-      const socio = v.socioId ? socios.find(s => s.id === v.socioId) : null;
-      return {
-        id: v.id,
-        tipo: 'pos' as const,
-        fecha: v.realizadaEn,
-        concepto: v.items.length > 0 ? v.items.map(i => i.nombre).join(', ') : 'Venta POS',
-        importe: v.total,
-        miembro: socio ? `${socio.nombre} ${socio.apellidos}` : 'Cliente anónimo',
-        miembroId: socio?.id ?? null,
-        metodo: v.metodoPago,
-        facturaId: null,
-      };
-    });
-
-    return [...cobros, ...ventas].sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [recibos, ventasPOS, socios, facturas]);
+    return [...cobros].sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }, [recibos, socios, facturas]);
 
   const filtrados = useMemo(() => {
     return movimientos.filter(m => {
@@ -74,15 +60,14 @@ export function PanelMovimientos() {
   }, [movimientos, filtro, busqueda]);
 
   const totalCobros = movimientos.filter(m => m.tipo === 'cobro').reduce((s, m) => s + m.importe, 0);
-  const totalPOS = movimientos.filter(m => m.tipo === 'pos').reduce((s, m) => s + m.importe, 0);
   const totalDev = movimientos.filter(m => m.tipo === 'devolucion').reduce((s, m) => s + Math.abs(m.importe), 0);
-  const totalNeto = totalCobros + totalPOS - totalDev;
+  const totalNeto = totalCobros - totalDev;
 
   function exportarCSV() {
     const headers = ['Fecha', 'Tipo', 'Concepto', 'Cliente', 'Método', 'Importe'];
     const rows = filtrados.map(m => [
       fechaCorta(m.fecha),
-      m.tipo === 'cobro' ? 'Cobro suscripción' : m.tipo === 'pos' ? 'Venta POS' : 'Devolución',
+      m.tipo === 'cobro' ? 'Cobro suscripción' : 'Devolución',
       m.concepto,
       m.miembro,
       m.metodo ?? '—',
@@ -99,13 +84,11 @@ export function PanelMovimientos() {
   const FILTROS: { value: FiltroTipo; label: string }[] = [
     { value: 'todas', label: 'Todas' },
     { value: 'cobro', label: 'Cobros' },
-    { value: 'pos', label: 'POS' },
     { value: 'devolucion', label: 'Devoluciones' },
   ];
 
   const TIPO_BADGE: Record<string, { label: string; color: string; bg: string }> = {
     cobro: { label: 'Cobro', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
-    pos: { label: 'POS', color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))' },
     devolucion: { label: 'Devolución', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
   };
 
@@ -122,11 +105,10 @@ export function PanelMovimientos() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {[
           { label: 'Total neto', value: fmt(totalNeto) + ' €', icon: TrendingUp, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))' },
           { label: 'Cobros suscripción', value: fmt(totalCobros) + ' €', icon: CreditCard, color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
-          { label: 'Ventas POS', value: fmt(totalPOS) + ' €', icon: ShoppingCart, color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))' },
           { label: 'Devoluciones', value: fmt(totalDev) + ' €', icon: ArrowLeftRight, color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
         ].map(k => (
           <div key={k.label} className="bg-card rounded-2xl border border-border p-5">

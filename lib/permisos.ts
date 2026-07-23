@@ -2,12 +2,15 @@
 
 import { useAuth } from './auth-context';
 import { useStudio } from './studio-context';
+import { esRutaCongelada } from './frozen-features';
 import type { Rol } from './types';
 
 // Instructoras: su agenda, sus alumnas y las herramientas de contenido/equipo
 // — nada de cobros, informes, marketing ni ajustes del negocio.
+// CONGELADO (feature-freeze PMF): se quitaron '/ondemand' y '/comunidad' de esta
+// lista blanca — ya no son visibles para nadie. Reactivar = volver a añadirlos.
 const PERMITIDO_INSTRUCTOR = [
-  '/dashboard', '/calendario', '/citas', '/clientas', '/ondemand', '/comunidad', '/mensajeria', '/chat',
+  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/chat',
 ];
 
 // Recepción: todo lo operativo, nada de configuración del negocio,
@@ -29,6 +32,10 @@ export function puedeVerFichaClinica(rol: Rol): boolean {
 }
 
 export function puedeVer(rol: Rol, path: string): boolean {
+  // Feature-freeze PMF: los módulos congelados no son visibles para NINGÚN rol.
+  // Esto los saca a la vez del menú, del buscador ⌘K y hace que el guardia del
+  // layout redirija a /dashboard. Reactivar = quitar la ruta de RUTAS_CONGELADAS.
+  if (esRutaCongelada(path)) return false;
   if (rol === 'PROPIETARIO') return true;
   if (rol === 'INSTRUCTOR') return PERMITIDO_INSTRUCTOR.some(p => coincide(path, p));
   return !BLOQUEADO_RECEPCION.some(p => coincide(path, p));

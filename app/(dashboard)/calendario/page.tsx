@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   Search, CalendarDays, CheckCircle2, TrendingUp, ChevronDown,
-  Clock, MapPin, Users, UserPlus, UserCheck, Pencil, Trash2, ArrowUpRight,
+  Clock, MapPin, Users, UserPlus, UserCheck, Pencil, Trash2,
   Bot, Loader2, Upload,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -839,16 +839,8 @@ function SessionSidebar({
         )}
       </div>
 
-      {/* Footer: kiosk link */}
-      <div className="px-5 py-3 border-t border-border">
-        <a
-          href={studio?.slug ? `/kiosk/${studio.slug}` : '#'}
-          aria-disabled={!studio?.slug}
-          className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowUpRight size={13} />Ver en modo kiosk
-        </a>
-      </div>
+      {/* CONGELADO (feature-freeze PMF): se quitó el enlace de pie "Ver en modo
+          kiosk" → /kiosk/[slug]. Ver lib/frozen-features.ts. */}
       </>
     </DashboardDrawer>
   );

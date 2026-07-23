@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import {
   TrendingUp, TrendingDown, Minus,
-  UserPlus, ShoppingCart, CreditCard, Bell,
+  UserPlus, CreditCard, Bell,
   CheckCircle2, ChevronDown, ChevronUp,
   CalendarPlus, Zap, ArrowUpRight, RefreshCw,
   Users, BarChart3, Calendar, AlertTriangle,
@@ -647,9 +647,7 @@ export default function Dashboard() {
               <Link href="/clientas?nuevo=1" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
                 <UserPlus /> Nuevo cliente
               </Link>
-              <Link href="/pos" className={cn(buttonVariants({ size: 'lg' }))}>
-                <ShoppingCart /> Abrir caja
-              </Link>
+              {/* CONGELADO (feature-freeze PMF): se quitó el botón "Abrir caja" → /pos. */}
             </>
           }
         />
@@ -924,12 +922,7 @@ export default function Dashboard() {
                 >
                   <CreditCard size={14} /> Cobrar
                 </Link>
-                <Link
-                  href="/pos"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
-                >
-                  <ShoppingCart size={14} /> Punto de venta
-                </Link>
+                {/* CONGELADO (feature-freeze PMF): se quitó el acceso "Punto de venta" → /pos. */}
               </div>
             </div>
 
