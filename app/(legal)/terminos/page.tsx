@@ -19,7 +19,7 @@ export default function Terminos() {
       <p>
         {LEGAL.marca} es un software como servicio (SaaS) que permite a estudios de Pilates y actividades
         afines gestionar su operativa (reservas, clientas, cobros, calendario, equipo y funciones
-        relacionadas). El titular del servicio es <span className="todo">{LEGAL.titular}</span>.
+        relacionadas). El titular del servicio es {LEGAL.titular} (empresario individual / autónomo).
       </p>
 
       <h2>2. Cuenta y registro</h2>
@@ -96,8 +96,7 @@ export default function Terminos() {
       </p>
 
       <p style={{ marginTop: 24, fontSize: 13, color: '#767d85' }}>
-        Documento con contenido de plantilla, pendiente de completar los datos del titular y de revisión por
-        asesoría jurídica.
+        El texto de este documento es de plantilla y está pendiente de revisión por asesoría jurídica.
       </p>
     </>
   );

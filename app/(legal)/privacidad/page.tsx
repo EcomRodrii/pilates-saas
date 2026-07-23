@@ -17,8 +17,8 @@ export default function Privacidad() {
 
       <h2>1. Responsable del tratamiento</h2>
       <ul>
-        <li><strong>Responsable:</strong> <span className="todo">{LEGAL.titular}</span> (NIF <span className="todo">{LEGAL.nif}</span>)</li>
-        <li><strong>Domicilio:</strong> <span className="todo">{LEGAL.domicilio}</span></li>
+        <li><strong>Responsable:</strong> {LEGAL.titular} (NIF {LEGAL.nif})</li>
+        <li><strong>Domicilio:</strong> {LEGAL.domicilio}</li>
         <li><strong>Contacto en materia de privacidad:</strong> <a href={`mailto:${LEGAL.emailPrivacidad}`}>{LEGAL.emailPrivacidad}</a></li>
       </ul>
 
@@ -109,8 +109,7 @@ export default function Privacidad() {
       </p>
 
       <p style={{ marginTop: 24, fontSize: 13, color: '#767d85' }}>
-        Documento con contenido de plantilla, pendiente de completar los datos del responsable y de revisión por
-        asesoría jurídica.
+        El texto de este documento es de plantilla y está pendiente de revisión por asesoría jurídica.
       </p>
     </>
   );

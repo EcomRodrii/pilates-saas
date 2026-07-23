@@ -66,7 +66,6 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         .legal-doc table { width: 100%; border-collapse: collapse; margin: 8px 0 18px; font-size: 13.5px; }
         .legal-doc th, .legal-doc td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e4e7ea; vertical-align: top; }
         .legal-doc th { color: #767d85; font-weight: 650; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-        .legal-doc .todo { background: #fff8e1; border: 1px solid #f0e2b0; border-radius: 6px; padding: 1px 6px; font-size: 13px; color: #8a6d00; }
       `}</style>
     </div>
   );

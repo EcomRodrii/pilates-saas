@@ -21,10 +21,9 @@ export default function AvisoLegal() {
         <strong>{LEGAL.dominio}</strong> y el servicio <strong>{LEGAL.marca}</strong> son titularidad de:
       </p>
       <ul>
-        <li><strong>Titular:</strong> <span className="todo">{LEGAL.titular}</span></li>
-        <li><strong>NIF/CIF:</strong> <span className="todo">{LEGAL.nif}</span></li>
-        <li><strong>Domicilio:</strong> <span className="todo">{LEGAL.domicilio}</span></li>
-        <li><strong>Datos registrales:</strong> <span className="todo">{LEGAL.registro}</span></li>
+        <li><strong>Titular:</strong> {LEGAL.titular} (empresario individual / autónomo)</li>
+        <li><strong>NIF:</strong> {LEGAL.nif}</li>
+        <li><strong>Domicilio:</strong> {LEGAL.domicilio}</li>
         <li><strong>Correo de contacto:</strong> <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></li>
       </ul>
 
@@ -84,8 +83,7 @@ export default function AvisoLegal() {
       </p>
 
       <p style={{ marginTop: 24, fontSize: 13, color: '#767d85' }}>
-        Documento con contenido de plantilla; los datos identificativos marcados en amarillo se completarán y
-        el conjunto será revisado por asesoría jurídica antes de su versión definitiva.
+        El texto de este documento es de plantilla y está pendiente de revisión por asesoría jurídica.
       </p>
     </>
   );
