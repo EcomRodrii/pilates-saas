@@ -214,6 +214,23 @@ export async function listarSustituciones(): Promise<{
 }
 
 // Cancela la clase (no hay sustituta) y avisa a las alumnas apuntadas.
+// Mueve la clase sin sustituta a un horario nuevo (misma duración) y avisa a
+// las alumnas del cambio. `inicio` en ISO; el solape lo re-valida el servidor.
+export async function reprogramarClase(sustitucionId: string, inicio: string): Promise<{ ok: true; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sustitucionId, action: 'reprogramar', inicio }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, alumnas: data.alumnas };
+  } catch {
+    return { error: 'No se pudo reprogramar' };
+  }
+}
+
 export async function cancelarClase(sustitucionId: string): Promise<{ ok: true; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } } | { error: string }> {
   try {
     const res = await fetch('/api/sustituciones', {

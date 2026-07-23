@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
-  cancelarClase, setAvisarAlumnas, resumenValoraciones, generarEnlaceDisponibilidad, recalcularCandidatas,
+  cancelarClase, reprogramarClase, setAvisarAlumnas, resumenValoraciones, generarEnlaceDisponibilidad, recalcularCandidatas,
   type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
@@ -55,6 +55,7 @@ export default function SustitucionesPage() {
   // Cancelar una clase puede disparar un email a todas las alumnas: se
   // confirma en un diálogo accesible, no con el confirm() nativo.
   const [aCancelar, setACancelar] = useState<SustitucionPanel | null>(null);
+  const [aReprogramar, setAReprogramar] = useState<SustitucionPanel | null>(null);
   // Quién es invisible para el ranking por no tener disponibilidad cargada.
   const [equipo, setEquipo] = useState<DiagnosticoEquipo>({ total: 0, sinDisponibilidad: [] });
   const [pidiendo, setPidiendo] = useState(false); // diálogo "pedir disponibilidad"
@@ -88,6 +89,19 @@ export default function SustitucionesPage() {
     if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     const a = r.alumnas;
     setAviso(a && !a.desactivado ? `Clase cancelada. ${a.avisadas} de ${a.total} alumnas avisadas por email.` : 'Clase cancelada.');
+    await recargar();
+    setAccion(null);
+    setTimeout(() => setAviso(null), 6000);
+  }
+
+  async function reprogramar(s: SustitucionPanel, inicioISO: string) {
+    setErrorAccion(null);
+    setAccion(s.id);
+    const r = await reprogramarClase(s.id, inicioISO);
+    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
+    setAReprogramar(null);
+    const a = r.alumnas;
+    setAviso(a && !a.desactivado ? `Clase movida. ${a.avisadas} de ${a.total} alumnas avisadas del cambio por email.` : 'Clase movida de horario.');
     await recargar();
     setAccion(null);
     setTimeout(() => setAviso(null), 6000);
@@ -244,7 +258,7 @@ export default function SustitucionesPage() {
                   key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor} equipo={equipo}
                   instructores={instructores} valoraciones={valoraciones} enProceso={accion === s.id}
                   onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={(s: SustitucionPanel) => setACancelar(s)}
-                  onVolverABuscar={volverABuscar}
+                  onVolverABuscar={volverABuscar} onReprogramar={(s: SustitucionPanel) => setAReprogramar(s)}
                 />
               ))}
             </div>
@@ -278,7 +292,77 @@ export default function SustitucionesPage() {
         destructivo
         onConfirm={() => { const s = aCancelar; setACancelar(null); if (s) void cancelar(s); }}
       />
+
+      <ReprogramarDialog
+        s={aReprogramar}
+        avisarActivo={avisar}
+        enProceso={aReprogramar !== null && accion === aReprogramar.id}
+        onClose={() => setAReprogramar(null)}
+        onConfirm={(inicioISO) => { if (aReprogramar) void reprogramar(aReprogramar, inicioISO); }}
+      />
     </div>
+  );
+}
+
+// ─── Reprogramar la clase sin sustituta ──────────────────────────────────────
+// Tercera salida del estado "agotada" (junto a volver a buscar y cancelar):
+// mover la clase a un hueco en el que la instructora original sí pueda. La
+// plaza de las alumnas se mantiene y se les avisa del cambio por email.
+function ReprogramarDialog({ s, avisarActivo, enProceso, onClose, onConfirm }: {
+  s: SustitucionPanel | null; avisarActivo: boolean; enProceso: boolean;
+  onClose: () => void; onConfirm: (inicioISO: string) => void;
+}) {
+  const uid = useId();
+  const [fecha, setFecha] = useState('');
+  const [hora, setHora] = useState('');
+
+  // Prefill con el horario actual de la clase al abrir.
+  useEffect(() => {
+    if (!s?.sesiones?.inicio) return;
+    const d = new Date(s.sesiones.inicio);
+    setFecha(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    setHora(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+  }, [s?.sesiones?.inicio, s?.id]);
+
+  const inicioISO = fecha && hora ? new Date(`${fecha}T${hora}:00`).toISOString() : null;
+  const enPasado = !!inicioISO && new Date(inicioISO).getTime() < Date.now();
+  const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all';
+
+  return (
+    <Dialog open={s !== null} onOpenChange={abierto => { if (!abierto) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Reprogramar la clase</DialogTitle>
+        </DialogHeader>
+        <p className="text-[13px] text-muted-foreground -mt-1">
+          La clase se mueve al hueco nuevo con la misma duración y su instructora original.{' '}
+          {avisarActivo
+            ? 'Las alumnas apuntadas recibirán un email con el cambio y mantienen su plaza.'
+            : 'El aviso a alumnas está desactivado: no se les enviará ningún email.'}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor={`${uid}-f`} className="text-[12px] font-semibold text-foreground block mb-1.5">Nueva fecha</label>
+            <input id={`${uid}-f`} type="date" className={inputCls} value={fecha} onChange={e => setFecha(e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor={`${uid}-h`} className="text-[12px] font-semibold text-foreground block mb-1.5">Hora</label>
+            <input id={`${uid}-h`} type="time" className={inputCls} value={hora} onChange={e => setHora(e.target.value)} />
+          </div>
+        </div>
+        {enPasado && <p className="text-[12px] text-red-600">La nueva fecha debe ser futura.</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
+          <button
+            onClick={() => { if (inicioISO && !enPasado) onConfirm(inicioISO); }}
+            disabled={!inicioISO || enPasado || enProceso}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:brightness-95 disabled:opacity-50"
+          >
+            <CalendarClock size={14} /> {enProceso ? 'Moviendo…' : 'Mover la clase'}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -403,7 +487,7 @@ function HorarioActualizadoCard({ sub, sesiones, tiposClase, nombreInstructor, o
 }
 
 function SustitucionCard({
-  s, tipo, nombreInstructor, instructores, valoraciones, equipo, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar, onVolverABuscar,
+  s, tipo, nombreInstructor, instructores, valoraciones, equipo, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar, onVolverABuscar, onReprogramar,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
@@ -416,6 +500,7 @@ function SustitucionCard({
   onDescartar: (s: SustitucionPanel) => void;
   onAvisar: (s: SustitucionPanel, instructorId: string) => void;
   onCancelar: (s: SustitucionPanel) => void;
+  onReprogramar: (s: SustitucionPanel) => void;
   onVolverABuscar: (s: SustitucionPanel) => void;
 }) {
   const meta = ESTADO[s.estado] ?? ESTADO.buscando;
@@ -462,14 +547,23 @@ function SustitucionCard({
           <div className="min-w-0">
             <p className="text-[13px] text-red-700">
               Avisamos a todas las candidatas disponibles y ninguna confirmó. Avisa a alguien por tu cuenta,
-              vuelve a intentarlo con una candidata de abajo, o cancela la clase (avisamos a las alumnas).
+              vuelve a intentarlo con una candidata de abajo, reprograma la clase a otro horario, o cancélala
+              (avisamos a las alumnas).
             </p>
-            <button
-              onClick={() => onVolverABuscar(s)} disabled={enProceso}
-              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-700 text-[12px] font-bold hover:bg-red-100 disabled:opacity-50 transition"
-            >
-              <RefreshCw size={13} /> {enProceso ? 'Buscando…' : 'Volver a buscar'}
-            </button>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                onClick={() => onVolverABuscar(s)} disabled={enProceso}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-700 text-[12px] font-bold hover:bg-red-100 disabled:opacity-50 transition"
+              >
+                <RefreshCw size={13} /> {enProceso ? 'Buscando…' : 'Volver a buscar'}
+              </button>
+              <button
+                onClick={() => onReprogramar(s)} disabled={enProceso}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-700 text-[12px] font-bold hover:bg-red-100 disabled:opacity-50 transition"
+              >
+                <CalendarClock size={13} /> Reprogramar clase
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -488,6 +582,14 @@ function SustitucionCard({
             className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
           >
             <RefreshCw size={13} /> {enProceso ? 'Buscando…' : 'Volver a buscar'}
+          </button>
+          {/* Reprogramar salva la clase (plaza intacta, alumnas avisadas del
+              cambio): va antes que cancelar, que es lo irreversible. */}
+          <button
+            onClick={() => onReprogramar(s)} disabled={enProceso}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-card border border-border text-foreground text-[12px] font-bold hover:bg-muted disabled:opacity-50 transition"
+          >
+            <CalendarClock size={13} /> Reprogramar a otro horario
           </button>
           <button
             onClick={() => onCancelar(s)} disabled={enProceso}
