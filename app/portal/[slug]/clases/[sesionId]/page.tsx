@@ -147,8 +147,11 @@ export default function ClaseDetallePage() {
           )}
         </div>
 
-        {/* Acción */}
-        <div style={{ marginTop: 20 }}>
+        {/* Acción — con holgura inferior para la tab bar flotante del portal
+            (position:absolute, ~96px desde abajo). Sin ella, en clases con
+            descripción media la página no llega a hacer scroll (el root es
+            minHeight:100%) y el botón "Reservar" quedaba tapado por el menú. */}
+        <div style={{ marginTop: 20, paddingBottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
           {miReserva ? (
             <Button variant="danger" onClick={() => cancelarReserva(miReserva.id)} style={{ width: '100%' }}>
               Cancelar reserva
