@@ -10,6 +10,7 @@ import { authHeader, enviarEmailCampana } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
+import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -618,6 +619,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
                   {/* Plaza fija (F2 · B2.2) */}
                   <FichaPlazaFija socioId={id} />
+
+                  {/* Recuperaciones (F2 · B2.3) */}
+                  <FichaRecuperaciones socioId={id} />
 
                   {/* Attendance sparkline */}
                   <div className="border border-border rounded-xl p-5">

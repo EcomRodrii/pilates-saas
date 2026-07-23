@@ -14,6 +14,7 @@ import {
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
   dbInsertPlazaFija, dbUpdatePlazaFija,
+  dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
@@ -61,6 +62,7 @@ import type {
   Sala,
   BloqueoMaquina,
   PlazaFija,
+  Recuperacion,
   TipoClase,
   Instructor,
   Spot,
@@ -199,6 +201,10 @@ interface StudioContextValue {
   // sitio (violación de la exclusión GiST). quitar = baja lógica (estado BAJA).
   asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true } | { error: string }>;
   quitarPlazaFija: (id: string) => void;
+  recuperaciones: Recuperacion[];
+  // F2 (B2.3): dueña concede una recuperación. Devuelve TOPE si ya tiene 4 vivas.
+  darRecuperacion: (socioId: string, motivo: string | null) => Promise<'CREADA' | 'TOPE' | 'ERROR'>;
+  anularRecuperacion: (id: string) => void;
 
   // Mutable state
   socios: Socio[];
@@ -496,6 +502,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [spots, setSpots] = useState<Spot[]>([]);
   const [bloqueosMaquina, setBloqueosMaquina] = useState<BloqueoMaquina[]>([]);
   const [plazasFijas, setPlazasFijas] = useState<PlazaFija[]>([]);
+  const [recuperaciones, setRecuperaciones] = useState<Recuperacion[]>([]);
 
   const [socios, setSocios] = useState<Socio[]>([]);
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
@@ -673,6 +680,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setSpots(data.spots);
       setBloqueosMaquina(data.bloqueosMaquina);
       setPlazasFijas(data.plazasFijas);
+      setRecuperaciones(data.recuperaciones);
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
@@ -878,6 +886,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   function quitarPlazaFija(id: string) {
     setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, estado: 'BAJA' as const } : p));
     dbUpdatePlazaFija(id, { estado: 'BAJA' });
+  }
+
+  // F2 (B2.3): concede una recuperación (dueña-first). La caducidad y el tope (4)
+  // los resuelve la RPC; al crearla, recargamos la lista para reflejar caduca_el.
+  async function darRecuperacion(socioId: string, motivo: string | null): Promise<'CREADA' | 'TOPE' | 'ERROR'> {
+    const r = await dbCrearRecuperacion(getCurrentStudioId(), socioId, null, motivo);
+    if (r === 'CREADA') setRecuperaciones(await dbListRecuperaciones(getCurrentStudioId()));
+    return r;
+  }
+
+  function anularRecuperacion(id: string) {
+    setRecuperaciones(prev => prev.map(r => r.id === id ? { ...r, estado: 'ANULADA' as const } : r));
+    dbAnularRecuperacion(id);
   }
 
   // ── Citas: servicios y horario fino (0046) ─────────────────────────────────────
@@ -2738,6 +2759,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     spots,
     bloqueosMaquina,
     plazasFijas,
+    recuperaciones,
     addPlan,
     updatePlan,
     deletePlan,
@@ -2748,6 +2770,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     quitarAveria,
     asignarPlazaFija,
     quitarPlazaFija,
+    darRecuperacion,
+    anularRecuperacion,
     addTipoClase,
     updateTipoClase,
     deleteTipoClase,
@@ -2952,6 +2976,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setSpots(data.spots);
       setBloqueosMaquina(data.bloqueosMaquina);
       setPlazasFijas(data.plazasFijas);
+      setRecuperaciones(data.recuperaciones);
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);

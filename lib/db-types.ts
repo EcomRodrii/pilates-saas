@@ -519,6 +519,18 @@ export interface RowPlazasFijas {
   creada_en: string;
 }
 
+export interface RowRecuperaciones {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  origen_reserva_id: string | null;
+  motivo: string | null;
+  caduca_el: string;
+  estado: string;
+  usada_en_reserva_id: string | null;
+  creada_en: string;
+}
+
 export interface RowSesiones {
   id: string;
   studio_id: string;

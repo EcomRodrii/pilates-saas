@@ -317,6 +317,20 @@ export interface PlazaFija {
   creadaEn: string;
 }
 
+// F2 (B2.3): recuperación caducable. Crédito de "clase a recuperar" que la dueña
+// concede; viva si estado='DISPONIBLE' y caducaEl >= hoy.
+export interface Recuperacion {
+  id: string;
+  studioId: string;
+  socioId: string;
+  origenReservaId: string | null;   // reserva de plaza fija que la generó (null = concesión manual)
+  motivo: string | null;
+  caducaEl: string;                 // YYYY-MM-DD
+  estado: 'DISPONIBLE' | 'USADA' | 'CADUCADA' | 'ANULADA';
+  usadaEnReservaId: string | null;
+  creadaEn: string;
+}
+
 export interface Sala {
   id: string;
   studioId: string;

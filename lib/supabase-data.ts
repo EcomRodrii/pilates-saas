@@ -59,6 +59,7 @@ import type {
   RowSalas,
   RowBloqueosMaquina,
   RowPlazasFijas,
+  RowRecuperaciones,
   RowSesiones,
   RowSocios,
   RowCamposPersonalizados,
@@ -121,6 +122,7 @@ import type {
   Sala,
   BloqueoMaquina,
   PlazaFija,
+  Recuperacion,
   Sesion,
   Socio,
   CampoPersonalizado,
@@ -664,6 +666,20 @@ function plazaFijaToDb(p: PlazaFija) {
   };
 }
 
+function mapRecuperacion(r: RowRecuperaciones): Recuperacion {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    origenReservaId: r.origen_reserva_id ?? null,
+    motivo: r.motivo ?? null,
+    caducaEl: r.caduca_el,
+    estado: (r.estado as Recuperacion['estado']) ?? 'DISPONIBLE',
+    usadaEnReservaId: r.usada_en_reserva_id ?? null,
+    creadaEn: r.creada_en,
+  };
+}
+
 function mapSpot(r: RowSpots): Spot {
   return {
     id: r.id,
@@ -1145,6 +1161,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     citasDisponibilidadRes,
     bloqueosMaquinaRes,
     plazasFijasRes,
+    recuperacionesRes,
   ] = await Promise.all([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('usuarios').select('*').eq('studio_id', sid),
@@ -1204,6 +1221,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
     db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
     db.from('plazas_fijas').select('*').eq('studio_id', sid),
+    db.from('recuperaciones').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -1253,6 +1271,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
     bloqueosMaquina: (bloqueosMaquinaRes.data ?? []).map(mapBloqueoMaquina),
     plazasFijas: (plazasFijasRes.data ?? []).map(mapPlazaFija),
+    recuperaciones: (recuperacionesRes.data ?? []).map(mapRecuperacion),
   };
 }
 
@@ -3521,6 +3540,34 @@ export async function dbUpdatePlazaFija(id: string, changes: Partial<PlazaFija>)
   if ('estado' in changes) db.estado = changes.estado;
   const { error } = await supabase.from('plazas_fijas').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdatePlazaFija]', error);
+}
+
+// F2 (B2.3): recuperaciones. La caducidad + el tope (4) los resuelve la RPC.
+export async function dbCrearRecuperacion(
+  studioId: string, socioId: string, origenReservaId: string | null, motivo: string | null,
+): Promise<'CREADA' | 'TOPE' | 'ERROR'> {
+  const { data, error } = await supabase.rpc('crear_recuperacion', {
+    p_id: `recup-${uid()}`,
+    p_studio_id: studioId,
+    p_socio_id: socioId,
+    p_origen_reserva_id: origenReservaId,
+    p_motivo: motivo,
+  });
+  if (error) { reportDbError('[dbCrearRecuperacion]', error); return 'ERROR'; }
+  return (data as 'CREADA' | 'TOPE') ?? 'ERROR';
+}
+
+export async function dbListRecuperaciones(studioId: string): Promise<Recuperacion[]> {
+  const { data, error } = await supabase
+    .from('recuperaciones').select('*').eq('studio_id', studioId)
+    .order('creada_en', { ascending: false });
+  if (error) { reportDbError('[dbListRecuperaciones]', error); return []; }
+  return (data ?? []).map(mapRecuperacion);
+}
+
+export async function dbAnularRecuperacion(id: string) {
+  const { error } = await supabase.from('recuperaciones').update({ estado: 'ANULADA' }).eq('id', id);
+  if (error) reportDbError('[dbAnularRecuperacion]', error);
 }
 
 export async function dbInsertSesion(ses: Sesion) {
