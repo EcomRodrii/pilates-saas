@@ -40,7 +40,9 @@ export function calcularDevolucionBono(sesionesRestantes: number, planSesiones: 
 
 // C-4: ¿la socia tiene derecho a reservar? Cierto si tiene una suscripción
 // ACTIVA que sea o bien un plan MENSUAL vigente (sin fecha fin, o fin >= hoy),
-// o bien un BONO/PUNTUAL con al menos una sesión restante. hoyISO = 'YYYY-MM-DD'.
+// o bien un BONO/PUNTUAL con al menos una sesión restante Y no caducado (F2 B2.1:
+// respeta fecha_fin también en bonos; fecha_fin null = sin caducidad). Una
+// suscripción PAUSADA (congelada) nunca da derecho. hoyISO = 'YYYY-MM-DD'.
 export function tieneEntitlementActivo(
   socioId: string,
   suscripciones: Suscripcion[],
@@ -51,7 +53,39 @@ export function tieneEntitlementActivo(
     if (sus.socioId !== socioId || sus.estado !== 'ACTIVA') return false;
     const plan = planesTarifa.find(p => p.id === sus.planId);
     if (!plan) return false;
-    if (plan.tipo === 'MENSUAL') return !sus.fechaFin || sus.fechaFin >= hoyISO;
-    return (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && (sus.sesionesRestantes ?? 0) > 0;
+    const vigente = !sus.fechaFin || sus.fechaFin >= hoyISO;
+    if (plan.tipo === 'MENSUAL') return vigente;
+    return (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && (sus.sesionesRestantes ?? 0) > 0 && vigente;
   });
+}
+
+// ── F2 · Bonos con validez / límite / congelación (puras, testeables) ─────────
+
+// Fecha de caducidad de un bono al comprarlo: fecha_inicio + validez_dias, en
+// 'YYYY-MM-DD'. null si el plan no caduca (validezDias null). Acepta fechaInicio
+// como fecha o timestamp ISO — usa solo la parte de fecha (UTC).
+export function calcularFechaFinBono(fechaInicioISO: string, validezDias: number | null): string | null {
+  if (validezDias === null || validezDias <= 0) return null;
+  const base = new Date(`${fechaInicioISO.slice(0, 10)}T00:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + validezDias);
+  return base.toISOString().slice(0, 10);
+}
+
+// ¿La socia ya alcanzó el tope semanal del bono? reservasEnSemana = reservas
+// CONFIRMADA/ASISTIDA suyas en la misma semana ISO (lo cuenta quien llama, con
+// contexto de reservas+sesiones). Sin tope (null) nunca supera.
+export function superaLimiteSemanal(reservasEnSemana: number, limiteSemanal: number | null): boolean {
+  return limiteSemanal !== null && reservasEnSemana >= limiteSemanal;
+}
+
+// Nueva fecha_fin tras una congelación: se empuja por los días congelados
+// [desde, hasta] para que no consuman la validez. null si no había caducidad.
+export function nuevaFechaFinTrasCongelar(fechaFin: string | null, desdeISO: string, hastaISO: string): string | null {
+  if (!fechaFin) return null;
+  const dias = Math.max(0, Math.round(
+    (Date.parse(`${hastaISO.slice(0, 10)}T00:00:00Z`) - Date.parse(`${desdeISO.slice(0, 10)}T00:00:00Z`)) / 86_400_000,
+  ));
+  const fin = new Date(`${fechaFin.slice(0, 10)}T00:00:00Z`);
+  fin.setUTCDate(fin.getUTCDate() + dias);
+  return fin.toISOString().slice(0, 10);
 }

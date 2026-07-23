@@ -253,6 +253,11 @@ export interface PlanTarifa {
   precio: number;
   tipo: TipoPlan;
   sesiones: number | null;
+  // F2 (B2.1): política de bono. La suscripción materializa las fechas al comprar.
+  // Opcionales (como Instructor.avatar) para no romper literales sin la política;
+  // las filas cargadas de BD siempre las traen vía mapPlanTarifa.
+  validezDias?: number | null;   // BONO/PUNTUAL: caduca a los N días de la compra (null = sin caducidad)
+  limiteSemanal?: number | null; // máx. sesiones/semana ISO (null = sin tope); se aplica en el canje
   activo: boolean;
 }
 
@@ -266,6 +271,20 @@ export interface Suscripcion {
   fechaFin: string | null;
   sesionesRestantes: number | null;
   stripeSubscriptionId: string | null;
+}
+
+// F2 (B2.8): ventana de congelación de una suscripción. La pausa reutiliza
+// estado='PAUSADA'; esto guarda la ventana y, al descongelar, los días que se
+// empujaron a fecha_fin para que no consuman la validez del bono.
+export interface Congelacion {
+  id: string;
+  studioId: string;
+  suscripcionId: string;
+  desde: string;               // YYYY-MM-DD
+  hasta: string | null;        // null = congelación abierta (aún activa)
+  diasAplicados: number | null;
+  motivo: string | null;
+  creadaEn: string;
 }
 
 export interface Sala {

@@ -2,7 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Suscripcion, PlanTarifa } from '@/lib/types';
-import { bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo } from './bono-logic.ts';
+import {
+  bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo,
+  calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar,
+} from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
@@ -12,7 +15,7 @@ function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>):
   };
 }
 function plan(p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id' | 'tipo'>): PlanTarifa {
-  return { studioId: 'e1', nombre: 'Bono 10', descripcion: null, precio: 100, sesiones: 10, activo: true, ...p };
+  return { studioId: 'e1', nombre: 'Bono 10', descripcion: null, precio: 100, sesiones: 10, validezDias: null, limiteSemanal: null, activo: true, ...p };
 }
 
 // ── bonoConsumible ───────────────────────────────────────────────────────────
@@ -110,4 +113,56 @@ test('tieneEntitlementActivo: sin suscripción → false', () => {
 test('tieneEntitlementActivo: cuenta solo la suscripción de la socia indicada', () => {
   const s = [sus({ socioId: 'otra', planId: 'p1', sesionesRestantes: 5 })];
   assert.equal(tieneEntitlementActivo('a', s, [plan({ id: 'p1', tipo: 'BONO' })], HOY), false);
+});
+
+// ── F2: caducidad del bono (fecha_fin) ────────────────────────────────────────
+test('tieneEntitlementActivo: bono con saldo pero CADUCADO (fecha_fin pasada) → false', () => {
+  const s = [sus({ socioId: 'a', planId: 'p1', sesionesRestantes: 5, fechaFin: '2026-07-01' })];
+  assert.equal(tieneEntitlementActivo('a', s, [plan({ id: 'p1', tipo: 'BONO' })], HOY), false);
+});
+
+test('tieneEntitlementActivo: bono con saldo y fecha_fin futura → true', () => {
+  const s = [sus({ socioId: 'a', planId: 'p1', sesionesRestantes: 5, fechaFin: '2026-08-01' })];
+  assert.equal(tieneEntitlementActivo('a', s, [plan({ id: 'p1', tipo: 'BONO' })], HOY), true);
+});
+
+test('tieneEntitlementActivo: bono sin fecha_fin (legado, null) sigue valiendo → true', () => {
+  const s = [sus({ socioId: 'a', planId: 'p1', sesionesRestantes: 5, fechaFin: null })];
+  assert.equal(tieneEntitlementActivo('a', s, [plan({ id: 'p1', tipo: 'BONO' })], HOY), true);
+});
+
+// ── calcularFechaFinBono ──────────────────────────────────────────────────────
+test('calcularFechaFinBono: validez null → null (sin caducidad)', () => {
+  assert.equal(calcularFechaFinBono('2026-07-01', null), null);
+});
+
+test('calcularFechaFinBono: suma los días de validez a la fecha de compra', () => {
+  assert.equal(calcularFechaFinBono('2026-07-01', 60), '2026-08-30');
+});
+
+test('calcularFechaFinBono: acepta timestamp ISO y usa solo la fecha', () => {
+  assert.equal(calcularFechaFinBono('2026-07-01T18:30:00.000Z', 30), '2026-07-31');
+});
+
+// ── superaLimiteSemanal ───────────────────────────────────────────────────────
+test('superaLimiteSemanal: sin tope (null) nunca supera', () => {
+  assert.equal(superaLimiteSemanal(10, null), false);
+});
+
+test('superaLimiteSemanal: por debajo del tope → false', () => {
+  assert.equal(superaLimiteSemanal(1, 2), false);
+});
+
+test('superaLimiteSemanal: en el tope o por encima → true', () => {
+  assert.equal(superaLimiteSemanal(2, 2), true);
+  assert.equal(superaLimiteSemanal(3, 2), true);
+});
+
+// ── nuevaFechaFinTrasCongelar ─────────────────────────────────────────────────
+test('nuevaFechaFinTrasCongelar: sin caducidad (null) sigue null', () => {
+  assert.equal(nuevaFechaFinTrasCongelar(null, '2026-07-01', '2026-07-15'), null);
+});
+
+test('nuevaFechaFinTrasCongelar: empuja fecha_fin por los días congelados', () => {
+  assert.equal(nuevaFechaFinTrasCongelar('2026-08-30', '2026-07-01', '2026-07-15'), '2026-09-13');
 });

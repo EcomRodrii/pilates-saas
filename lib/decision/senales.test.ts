@@ -22,7 +22,7 @@ function suscripcion(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'pl
   return { id: `sus-${++n}`, studioId: 'e1', estado: 'ACTIVA', fechaInicio: '2025-01-01', fechaFin: null, sesionesRestantes: null, stripeSubscriptionId: null, ...p };
 }
 function plan(p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id'>): PlanTarifa {
-  return { studioId: 'e1', nombre: 'Plan', descripcion: null, precio: 89, tipo: 'MENSUAL', sesiones: null, activo: true, ...p };
+  return { studioId: 'e1', nombre: 'Plan', descripcion: null, precio: 89, tipo: 'MENSUAL', sesiones: null, validezDias: null, limiteSemanal: null, activo: true, ...p };
 }
 function recibo(p: Partial<Recibo> & Pick<Recibo, 'estado'>): Recibo {
   return { id: `rec-${++n}`, studioId: 'e1', socioId: null, suscripcionId: null, concepto: 'Cuota', importe: 50, fechaVencimiento: diasAntes(5), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0, ...p };
