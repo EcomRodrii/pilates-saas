@@ -1,0 +1,11 @@
+-- B1.1 (F1 seguridad) — Fija el search_path de current_studio_id().
+--
+-- `current_studio_id()` es SECURITY DEFINER pero no tenía search_path fijado
+-- (advisor `function_search_path_mutable`), un vector de inyección por
+-- search_path. Su cuerpo ya referencia todos los objetos con esquema
+-- (public.sesion_activa, public.studios, public.instructores, auth.uid()), así
+-- que un search_path vacío NO cambia su comportamiento ni su valor de retorno:
+-- solo cierra el vector. Su función hermana current_rol() ya lo hace.
+--
+-- Idempotente: reaplicar este ALTER tiene el mismo efecto.
+alter function public.current_studio_id() set search_path = '';
