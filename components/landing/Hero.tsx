@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import { ACC, ACC_SOFT, BG, DARK, MUTED, btnCta } from './theme';
-import { IconAlert, IconCheck } from './icons';
+import { ACC, BG, MUTED, btnCta } from './theme';
+import { IconCheck } from './icons';
 
 // Restores the source design's hero parallax tilt: the mockup rotates in 3D
 // as the cursor moves over it. Disabled for touch pointers and
@@ -91,41 +92,10 @@ export function Hero() {
                       <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
                       <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
                     </div>
-                    <div className="lp-mono" style={{ flex: 1, textAlign: 'center', fontSize: 10, color: '#A8A89F' }}>estudio.tentare.app</div>
+                    <div className="lp-mono" style={{ flex: 1, textAlign: 'center', fontSize: 10, color: '#A8A89F' }}>tentare.app</div>
                   </div>
-                  <div style={{ padding: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
-                      <div>
-                        <div className="lp-mono" style={{ fontSize: 9, letterSpacing: '.06em', textTransform: 'uppercase', color: '#A8A89F' }}>Jueves, 9 de julio</div>
-                        <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-.02em' }}>Buenas tardes 👋</div>
-                      </div>
-                      <div style={{ background: ACC, color: '#fff', fontSize: 10, fontWeight: 700, padding: '7px 12px', borderRadius: 999 }}>Abrir caja</div>
-                    </div>
-                    <div style={{ background: DARK, color: '#E8E8E4', borderRadius: 12, padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                      <div style={{ width: 26, height: 26, borderRadius: 7, background: ACC_SOFT, color: ACC, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{IconAlert(14)}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 11.5, fontWeight: 700 }}>Baja de Marta · 19:00</div>
-                        <div className="lp-mono" style={{ fontSize: 9.5, color: '#8E8E86' }}>Buscando sustituta…</div>
-                      </div>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: ACC, boxShadow: '0 0 0 4px rgba(124,58,237,.25)' }} />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 10 }}>
-                      <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 12, padding: '9px 10px' }}>
-                        <div className="lp-mono" style={{ fontSize: 8.5, textTransform: 'uppercase', color: '#A8A89F' }}>Ingresos mes</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>8.940€</div>
-                        <div style={{ fontSize: 9, color: '#4E9E7F', fontWeight: 700 }}>▲ 12%</div>
-                      </div>
-                      <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 12, padding: '9px 10px' }}>
-                        <div className="lp-mono" style={{ fontSize: 8.5, textTransform: 'uppercase', color: '#A8A89F' }}>Ocupación</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>87%</div>
-                        <div style={{ height: 4, borderRadius: 99, background: '#EDEDE6', marginTop: 6, overflow: 'hidden' }}><div style={{ height: '100%', width: '87%', background: ACC, borderRadius: 99 }} /></div>
-                      </div>
-                      <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 12, padding: '9px 10px' }}>
-                        <div className="lp-mono" style={{ fontSize: 8.5, textTransform: 'uppercase', color: '#A8A89F' }}>Reservas hoy</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>64</div>
-                        <div style={{ fontSize: 9, color: '#8E8E86' }}>8 clases</div>
-                      </div>
-                    </div>
+                  <div style={{ position: 'relative', width: '100%', aspectRatio: '2862 / 1360' }}>
+                    <Image src="/hero-panel.png" alt="Panel de Tentare" fill sizes="(max-width: 960px) 90vw, 460px" style={{ objectFit: 'cover', objectPosition: 'top' }} priority />
                   </div>
                 </div>
               </div>
@@ -133,16 +103,8 @@ export function Hero() {
             <div style={{ position: 'absolute', right: 0, bottom: 0, width: '30%', animation: 'lp-floatB 6.6s ease-in-out infinite', zIndex: 4 }}>
               <div style={{ background: 'linear-gradient(150deg,#46464b,#1e1e21 42%,#33333a)', borderRadius: 28, padding: 5, boxShadow: '-22px 34px 60px -18px rgba(26,26,26,.5)' }}>
                 <div style={{ background: '#000', borderRadius: 24, padding: 3 }}>
-                  <div style={{ borderRadius: 21, overflow: 'hidden', background: BG, padding: '18px 10px 10px' }}>
-                    <div className="lp-mono" style={{ fontSize: 8, textTransform: 'uppercase', color: '#A8A89F', marginBottom: 6, textAlign: 'center' }}>Hoy</div>
-                    <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 10, padding: 8, marginBottom: 6 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700 }}>Reformer 19:00</div>
-                      <div className="lp-mono" style={{ fontSize: 8, color: ACC }}>Sustituta: Lucía</div>
-                    </div>
-                    <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 10, padding: 8 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700 }}>Mat 09:00</div>
-                      <div className="lp-mono" style={{ fontSize: 8, color: '#8E8E86' }}>7/12 plazas</div>
-                    </div>
+                  <div style={{ position: 'relative', width: '100%', aspectRatio: '1206 / 2622', borderRadius: 21, overflow: 'hidden' }}>
+                    <Image src="/hero-app.png" alt="App de Tentare en el móvil" fill sizes="(max-width: 960px) 30vw, 168px" style={{ objectFit: 'cover' }} priority />
                   </div>
                 </div>
               </div>

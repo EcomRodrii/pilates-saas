@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { ACC, ACC_SOFT, BG, DARK, MUTED } from './theme';
 import { Avatar, Chip, Eyebrow, LiftCard, Reveal } from './Reveal';
 import { IconCalendar, IconCheck, IconInvoice } from './icons';
@@ -171,7 +172,7 @@ function RecorridoVisual({ index }: { index: number }) {
       </LiftCard>
     );
   }
-  // index === 5 — panel
+  // index === 5 — panel (captura real del producto)
   return (
     <LiftCard style={{ background: BG, border: '1px solid #E1E1D9', borderRadius: 18, overflow: 'hidden', boxShadow: '0 34px 70px -34px rgba(26,26,26,.3)', maxWidth: 460, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#E9E9E2', borderBottom: '1px solid #E1E1D9' }}>
@@ -180,31 +181,8 @@ function RecorridoVisual({ index }: { index: number }) {
         <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
         <span className="lp-mono" style={{ flex: 1, textAlign: 'center', fontSize: 10.5, color: '#A8A89F' }}>tentare.app</span>
       </div>
-      <div style={{ padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 }}>
-          <div>
-            <div className="lp-mono" style={{ fontSize: 10, textTransform: 'uppercase', color: '#A8A89F' }}>Lunes, 6 de julio</div>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-.02em' }}>Buenas tardes 👋</div>
-          </div>
-          <div style={{ background: ACC, color: '#fff', fontSize: 11, fontWeight: 700, padding: '8px 13px', borderRadius: 999 }}>Abrir caja</div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>
-          <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14, padding: '11px 12px' }}>
-            <div className="lp-mono" style={{ fontSize: 9, textTransform: 'uppercase', color: '#A8A89F' }}>Ingresos mes</div>
-            <div style={{ fontSize: 22, fontWeight: 800, marginTop: 2 }}>8.940€</div>
-            <div style={{ fontSize: 10, color: '#4E9E7F', fontWeight: 700 }}>▲ 12%</div>
-          </div>
-          <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14, padding: '11px 12px' }}>
-            <div className="lp-mono" style={{ fontSize: 9, textTransform: 'uppercase', color: '#A8A89F' }}>Ocupación</div>
-            <div style={{ fontSize: 22, fontWeight: 800, marginTop: 2 }}>87%</div>
-            <div style={{ height: 4, borderRadius: 99, background: '#EDEDE6', marginTop: 7, overflow: 'hidden' }}><div style={{ height: '100%', width: '87%', background: ACC, borderRadius: 99 }} /></div>
-          </div>
-          <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14, padding: '11px 12px' }}>
-            <div className="lp-mono" style={{ fontSize: 9, textTransform: 'uppercase', color: '#A8A89F' }}>Reservas hoy</div>
-            <div style={{ fontSize: 22, fontWeight: 800, marginTop: 2 }}>64</div>
-            <div style={{ fontSize: 10, color: '#8E8E86' }}>8 clases</div>
-          </div>
-        </div>
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '2862 / 1360', overflow: 'hidden' }}>
+        <Image src="/hero-panel.png" alt="Panel de Tentare" fill sizes="(max-width: 960px) 90vw, 440px" style={{ objectFit: 'cover', objectPosition: 'top', animation: 'lp-kenburns 16s ease-in-out infinite' }} />
       </div>
     </LiftCard>
   );
