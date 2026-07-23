@@ -179,10 +179,14 @@ export const DISCIPLINAS = [
   { label: 'HIIT', photo: '/disciplinas/hiit.jpg' },
   { label: 'Baile', photo: '/disciplinas/baile.jpg' },
 ];
+// Solo integraciones CONECTABLES por el estudio hoy (auditoría 2026-07-23):
+// Mailchimp/Brevo eran "próximamente" en el producto y "Google" a secas y
+// Resend no eran conexiones del estudio — se anuncian como en camino o fuera.
 export const INTEGRACIONES = [
   { group: 'Pagos', items: ['Stripe'] },
-  { group: 'Email y mensajería', items: ['Mailchimp', 'Brevo', 'Resend', 'Gmail', 'WhatsApp Business'] },
-  { group: 'Calendario y acceso', items: ['Google Calendar', 'Google', 'Kisi'] },
+  { group: 'Email y mensajería', items: ['Gmail', 'WhatsApp Business', '+ Mailchimp y Brevo en camino'] },
+  { group: 'Calendario y acceso', items: ['Google Calendar', 'Kisi'] },
+  { group: 'Clases online', items: ['Zoom'] },
   { group: 'Datos', items: ['Excel · importar y exportar', '+ más en camino'] },
 ];
 
