@@ -13,6 +13,7 @@ import {
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
+  dbInsertPlazaFija, dbUpdatePlazaFija,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
@@ -59,6 +60,7 @@ import type {
   PlanTarifa,
   Sala,
   BloqueoMaquina,
+  PlazaFija,
   TipoClase,
   Instructor,
   Spot,
@@ -192,6 +194,11 @@ interface StudioContextValue {
   instructores: Instructor[];
   spots: Spot[];
   bloqueosMaquina: BloqueoMaquina[];
+  plazasFijas: PlazaFija[];
+  // F2 (B2.2): asignar devuelve el resultado para que la UI muestre el choque de
+  // sitio (violación de la exclusión GiST). quitar = baja lógica (estado BAJA).
+  asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true } | { error: string }>;
+  quitarPlazaFija: (id: string) => void;
 
   // Mutable state
   socios: Socio[];
@@ -488,6 +495,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [instructores, setInstructores] = useState<Instructor[]>([]);
   const [spots, setSpots] = useState<Spot[]>([]);
   const [bloqueosMaquina, setBloqueosMaquina] = useState<BloqueoMaquina[]>([]);
+  const [plazasFijas, setPlazasFijas] = useState<PlazaFija[]>([]);
 
   const [socios, setSocios] = useState<Socio[]>([]);
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
@@ -664,6 +672,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setInstructores(data.instructores);
       setSpots(data.spots);
       setBloqueosMaquina(data.bloqueosMaquina);
+      setPlazasFijas(data.plazasFijas);
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
@@ -850,6 +859,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const ahora = new Date().toISOString();
     setBloqueosMaquina(prev => prev.map(b => b.id === id ? { ...b, hasta: ahora } : b));
     dbCerrarBloqueoMaquina(id, ahora);
+  }
+
+  // F2 (B2.2): asignar plaza fija. NO optimista: puede fallar por la exclusión
+  // GiST (sitio ya pillado en ese slot); sólo se añade al estado si la BD acepta.
+  async function asignarPlazaFija(
+    fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>,
+  ): Promise<{ ok: true } | { error: string }> {
+    const nueva: PlazaFija = {
+      ...fields, id: `pf-${uid()}`, studioId: getCurrentStudioId(), creadaEn: new Date().toISOString(),
+    };
+    const res = await dbInsertPlazaFija(nueva);
+    if ('ok' in res) setPlazasFijas(prev => [...prev, nueva]);
+    return res;
+  }
+
+  // Baja lógica (estado BAJA): deja de materializar; conserva el histórico.
+  function quitarPlazaFija(id: string) {
+    setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, estado: 'BAJA' as const } : p));
+    dbUpdatePlazaFija(id, { estado: 'BAJA' });
   }
 
   // ── Citas: servicios y horario fino (0046) ─────────────────────────────────────
@@ -2709,6 +2737,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     instructores,
     spots,
     bloqueosMaquina,
+    plazasFijas,
     addPlan,
     updatePlan,
     deletePlan,
@@ -2717,6 +2746,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     deleteSala,
     marcarAveria,
     quitarAveria,
+    asignarPlazaFija,
+    quitarPlazaFija,
     addTipoClase,
     updateTipoClase,
     deleteTipoClase,
@@ -2920,6 +2951,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setInstructores(data.instructores);
       setSpots(data.spots);
       setBloqueosMaquina(data.bloqueosMaquina);
+      setPlazasFijas(data.plazasFijas);
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
