@@ -10,6 +10,7 @@ export interface StudioSeo {
   ciudad: string;
   direccion: string;
   colorPrimario: string;
+  logoUrl: string | null;
   slug: string;
 }
 
@@ -21,13 +22,13 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
   // el estudio de prueba en el servidor. NUNCA se activa en producción (la env no
   // existe allí); coincide con el fixture de e2e/booking.spec.ts.
   if (process.env.E2E_TEST === '1') {
-    return { id: 'studio-test', nombre: 'Tentare', ciudad: 'Málaga', direccion: 'Calle Test 1', colorPrimario: '#1A1A1A', slug };
+    return { id: 'studio-test', nombre: 'Tentare', ciudad: 'Málaga', direccion: 'Calle Test 1', colorPrimario: '#1A1A1A', logoUrl: null, slug };
   }
   const admin = getSupabaseAdmin();
   if (!admin) return null;
   const { data } = await admin
     .from('studios')
-    .select('id, nombre, ciudad, direccion, color_primario, slug')
+    .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug')
     .eq('slug', slug)
     .maybeSingle();
   if (!data) return null;
@@ -37,6 +38,7 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
     ciudad: data.ciudad ?? '',
     direccion: data.direccion ?? '',
     colorPrimario: data.color_primario ?? '#1A1A1A',
+    logoUrl: data.logo_url ?? null,
     slug: data.slug ?? slug,
   };
 });
