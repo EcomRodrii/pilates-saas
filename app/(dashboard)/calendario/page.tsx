@@ -1163,9 +1163,15 @@ function WeekGrid({
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const rawMinutes = (y / HOUR_HEIGHT) * 60 + startHour * 60;
-    const rounded = Math.round(rawMinutes / 30) * 30;
-    const h = Math.floor(rounded / 60);
-    const m = rounded % 60;
+    // Cada franja de 30 min pertenece a la línea que la abre (igual que Google
+    // Calendar): un clic en cualquier punto entre la línea de las 09:00 y la de
+    // las 09:30 crea una clase a las 09:00 en punto. Con Math.round, la zona
+    // para acertar la hora exacta eran solo ±15px alrededor de la línea (sin
+    // ninguna marca visual de la mitad de hora) — por eso un clic "sobre la
+    // línea" acababa redondeando a la media hora siguiente.
+    const floored = Math.floor(rawMinutes / 30) * 30;
+    const h = Math.floor(floored / 60);
+    const m = floored % 60;
     onSlotClick(str, `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
   }
 
@@ -1191,7 +1197,7 @@ function WeekGrid({
     <div className="flex flex-col h-full bg-card">
       {/* Day header row */}
       <div className="flex border-b border-border shrink-0">
-        <div className="w-12 shrink-0 lg:w-14" />
+        <div className="w-14 shrink-0" />
         {dias.map(d => {
           const str = localDate(d);
           const isToday = str === todayStr;
@@ -1220,16 +1226,25 @@ function WeekGrid({
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="flex" style={{ height: `${totalHeight}px` }}>
           {/* Time axis */}
-          <div className="w-12 lg:w-14 shrink-0 relative">
-            {hours.map(h => (
-              <div
-                key={h}
-                className="absolute right-1.5 -translate-y-1/2 text-[10px] font-medium text-muted-foreground"
-                style={{ top: `${(h - startHour) * HOUR_HEIGHT}px` }}
-              >
-                {h}:00
-              </div>
-            ))}
+          <div className="w-14 shrink-0 relative">
+            {hours.map(h => {
+              // Las etiquetas se centran sobre su línea con -translate-y-1/2 —
+              // salvo la primera y la última, que si se centran igual quedan
+              // parcialmente fuera de los 0..totalHeight px del contenedor con
+              // overflow-y-auto y se recortan (ej. el "08:00" cortado por arriba).
+              // Ancladas al borde en vez de centradas, siguen tocando su línea
+              // sin salirse nunca del área visible.
+              const anchorCls = h === startHour ? '' : h === endHour - 1 ? '-translate-y-full' : '-translate-y-1/2';
+              return (
+                <div
+                  key={h}
+                  className={cn('absolute right-1.5 text-[10px] font-medium text-muted-foreground', anchorCls)}
+                  style={{ top: `${(h - startHour) * HOUR_HEIGHT}px` }}
+                >
+                  {h}:00
+                </div>
+              );
+            })}
           </div>
 
           {/* Day columns */}
@@ -1252,6 +1267,15 @@ function WeekGrid({
                     key={h}
                     className="absolute left-0 right-0 border-t border-muted"
                     style={{ top: `${(h - startHour) * HOUR_HEIGHT}px` }}
+                  />
+                ))}
+                {/* Marca de media hora: hace visible dónde cae el límite entre
+                    la franja de "en punto" y la de "y media" al hacer clic. */}
+                {hours.map(h => (
+                  <div
+                    key={`${h}-30`}
+                    className="absolute left-0 right-0 border-t border-dashed border-muted/50"
+                    style={{ top: `${(h - startHour) * HOUR_HEIGHT + HOUR_HEIGHT / 2}px` }}
                   />
                 ))}
                 {isToday && <CurrentTimeLine startHour={startHour} endHour={endHour} />}
