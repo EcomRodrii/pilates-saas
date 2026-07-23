@@ -1650,6 +1650,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     );
     setReservas(reservasActualizadas);
     dbUpdateReserva(reservaId, { estado: 'ASISTIDA', checkInEn });
+    // Control de acceso: con Kisi conectado, el check-in abre la puerta del
+    // estudio. Fire-and-forget — un fallo de la cerradura no debe bloquear el
+    // check-in (la recepcionista está delante y puede abrir a mano).
+    if (integrationsStore.integraciones.some(i => i.tipo === 'KISI' && i.activo)) {
+      authHeader()
+        .then(h => fetch('/api/integrations/kisi/abrir', { method: 'POST', headers: h }))
+        .catch(() => {});
+    }
     const reserva = reservas.find(r => r.id === reservaId);
     if (!reserva) return;
     otorgarCreditos(reserva.socioId, 'ASISTENCIA_CLASE', reservaId);

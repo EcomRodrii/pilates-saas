@@ -30,6 +30,24 @@ export async function abrirPuertaKisi(creds: KisiCredenciales, lockId: string): 
   }
 }
 
+export interface KisiCerradura {
+  id: number;
+  name: string;
+}
+
+/** Lista las cerraduras de la cuenta del estudio (para resolver cuál abrir si no configuró una). */
+export async function listarCerradurasKisi(creds: KisiCredenciales): Promise<{ ok: true; locks: KisiCerradura[] } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${BASE}/locks?limit=25`, { headers: headers(creds) });
+    if (!res.ok) return { ok: false, error: `Kisi API ${res.status}` };
+    const data = (await res.json().catch(() => null)) as { id: number; name?: string }[] | null;
+    if (!Array.isArray(data)) return { ok: false, error: 'Respuesta inesperada de Kisi' };
+    return { ok: true, locks: data.map(l => ({ id: l.id, name: l.name ?? `Cerradura ${l.id}` })) };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 export async function probarKisi(creds: KisiCredenciales): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const res = await fetch(`${BASE}/locks?limit=1`, { headers: headers(creds) });
