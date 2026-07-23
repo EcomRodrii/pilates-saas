@@ -1856,6 +1856,7 @@ export async function crearReservaPublica(params: {
   if (error) {
     if (error.message.includes('YA_RESERVADA')) return { error: 'Ya tienes una reserva en esta clase' as const };
     if (error.message.includes('SESION_NO_ENCONTRADA')) return { error: 'Sesión no encontrada' as const };
+    if (error.message.includes('LIMITE_SEMANAL')) return { error: 'Has alcanzado el máximo de clases por semana de tu plan' as const };
     return { error: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;
@@ -3503,7 +3504,11 @@ export async function dbReservarPlaza(
   const { data, error } = await supabase.rpc('reservar_plaza', {
     p_studio_id: studioId, p_sesion_id: sesionId, p_socio_id: socioId, p_reserva_id: reservaId,
   });
-  if (error) { reportDbError('[dbReservarPlaza]', error); return { error: error.message }; }
+  if (error) {
+    reportDbError('[dbReservarPlaza]', error);
+    if (error.message.includes('LIMITE_SEMANAL')) return { error: 'Ha alcanzado el máximo de clases por semana de su plan' };
+    return { error: error.message };
+  }
   const row = Array.isArray(data) ? data[0] : data;
   return { estado: row?.estado ?? 'CONFIRMADA', posicionEspera: row?.posicion_espera ?? null };
 }
