@@ -496,7 +496,7 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
-import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita } from '@/lib/csv';
+import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita, FilaPlazaFija } from '@/lib/csv';
 
 export interface ResultadoImport {
   // Migración Mágica: aviso si el lote no quedó registrado para deshacer.
@@ -535,6 +535,24 @@ export async function importarSocias(rows: FilaSocia[], batchId?: string): Promi
 
 // Importa membresías/bonos (suscripciones). Empareja por email de socia y nombre
 // de plan en el servidor; el studio_id sale del JWT. Misma forma de resultado.
+// F2 (B2.11) rescate: importa las plazas fijas del estudio desde CSV.
+export async function importarPlazasFijas(rows: FilaPlazaFija[], batchId?: string): Promise<ResultadoImport> {
+  try {
+    const res = await fetch('/api/plazas-fijas/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rows, batchId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return { total: 0, importadas: data.importadas ?? 0, duplicadas: data.duplicadas ?? 0, errores: data.errores ?? [], error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    }
+    return data as ResultadoImport;
+  } catch {
+    return { total: 0, importadas: 0, duplicadas: 0, errores: [], error: 'No se pudo conectar con el servidor' };
+  }
+}
+
 export async function importarMembresias(rows: FilaMembresia[], batchId?: string): Promise<ResultadoImport> {
   try {
     const res = await fetch('/api/suscripciones/import', {

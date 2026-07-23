@@ -474,6 +474,79 @@ export function validarFilasMembresia(
   });
 }
 
+// ─── Importación de PLAZAS FIJAS (rescate desde Excel · F2 B2.11) ─────────────
+// Trae las plazas fijas (el hueco semanal de cada socia) de la hoja/software
+// anterior. Se empareja por EMAIL de la socia + NOMBRE de la sala (ambos ya deben
+// existir). El día y la hora se normalizan (acepta "Lunes"/"Mon"/"L" y "9:00"/"09h").
+
+export type CampoPlazaFija = 'email' | 'dia_semana' | 'hora_inicio' | 'sala' | 'vigencia_desde';
+
+interface CampoMetaPlaza { campo: CampoPlazaFija; etiqueta: string; obligatorio: boolean }
+
+export const CAMPOS_PLAZA_FIJA: CampoMetaPlaza[] = [
+  { campo: 'email', etiqueta: 'Email de la socia', obligatorio: true },
+  { campo: 'dia_semana', etiqueta: 'Día de la semana', obligatorio: true },
+  { campo: 'hora_inicio', etiqueta: 'Hora', obligatorio: true },
+  { campo: 'sala', etiqueta: 'Sala', obligatorio: true },
+  { campo: 'vigencia_desde', etiqueta: 'Vigente desde (opcional)', obligatorio: false },
+];
+
+const SINONIMOS_PLAZA_FIJA: Record<CampoPlazaFija, string[]> = {
+  email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'socia', 'socio', 'cliente'],
+  dia_semana: ['dia', 'dia semana', 'dia de la semana', 'weekday', 'day of week', 'dow', 'day'],
+  hora_inicio: ['hora', 'hora inicio', 'hora de inicio', 'time', 'start', 'start time'],
+  sala: ['sala', 'room', 'espacio', 'estudio', 'reformer'],
+  vigencia_desde: ['desde', 'vigente desde', 'alta', 'inicio', 'fecha', 'fecha inicio'],
+};
+
+export function autoMapearPlazaFija(headers: string[]): Record<CampoPlazaFija, number> {
+  return mapearColumnas(headers, CAMPOS_PLAZA_FIJA.map((c) => c.campo), SINONIMOS_PLAZA_FIJA);
+}
+
+export interface FilaPlazaFija {
+  email: string;
+  diaSemana: number | null;   // 0=domingo..6=sábado
+  horaInicio: string | null;  // HH:MM
+  sala: string;
+  vigenciaDesde: string | null;
+}
+export interface FilaPlazaFijaValidada { fila: number; datos: FilaPlazaFija; estado: 'ok' | 'error'; motivo?: string }
+
+/** Normaliza una hora del CSV a HH:MM (acepta "9:00", "09.00", "9h", "9"). */
+export function normalizarHora(celda: string): string | null {
+  const m = celda.trim().match(/^(\d{1,2})(?:[:.hH]?(\d{2}))?/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = m[2] ? Number(m[2]) : 0;
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+/** Aplica el mapeo y valida las filas de plazas fijas (email, día, hora y sala obligatorios). */
+export function validarFilasPlazaFija(
+  rows: string[][],
+  mapeo: Record<CampoPlazaFija, number>,
+): FilaPlazaFijaValidada[] {
+  const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+  return rows.map((fila, i) => {
+    const emailRaw = val(fila, mapeo.email);
+    const email = emailRaw.toLowerCase();
+    const diaSemana = mapeo.dia_semana >= 0 ? parsearDiaSemana(val(fila, mapeo.dia_semana)) : null;
+    const horaInicio = mapeo.hora_inicio >= 0 ? normalizarHora(val(fila, mapeo.hora_inicio)) : null;
+    const sala = val(fila, mapeo.sala);
+    const vigenciaDesde = mapeo.vigencia_desde >= 0 ? parsearFecha(val(fila, mapeo.vigencia_desde)) : null;
+
+    const datos: FilaPlazaFija = { email, diaSemana, horaInicio, sala, vigenciaDesde };
+    const base = { fila: i + 1, datos };
+    if (!emailRaw) return { ...base, estado: 'error' as const, motivo: 'Falta el email de la socia' };
+    if (!emailValido(emailRaw)) return { ...base, estado: 'error' as const, motivo: 'Email no válido' };
+    if (diaSemana === null) return { ...base, estado: 'error' as const, motivo: 'Día de la semana no reconocido' };
+    if (!horaInicio) return { ...base, estado: 'error' as const, motivo: 'Hora no válida' };
+    if (!sala) return { ...base, estado: 'error' as const, motivo: 'Falta la sala' };
+    return { ...base, estado: 'ok' as const };
+  });
+}
+
 // ─── Importación de CLASES y HORARIOS ────────────────────────────────────────
 // Tercera pieza de la migración asistida (tras socias y membresías). Trae el
 // horario del software anterior — sin esto el calendario llega vacío y no puede
