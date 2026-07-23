@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useStudio } from '@/lib/studio-context';
 import {
   analizarMigracion, deshacerMigracion,
   importarSocias, importarMembresias, importarClases, importarReservas, importarCitas,
@@ -60,6 +61,10 @@ async function xlsxACsv(file: File): Promise<ArchivoLocal[]> {
 export default function MigracionPage() {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  // Tras importar (o deshacer) hay que refrescar el estado global del panel:
+  // si no, las clientas/reservas recién creadas NO aparecen en sus listados
+  // hasta recargar la página a mano. resetDatosPilates re-lee todo del servidor.
+  const { resetDatosPilates } = useStudio();
   const [paso, setPaso] = useState<Paso>('subir');
   const [arrastrando, setArrastrando] = useState(false);
   const [archivos, setArchivos] = useState<ArchivoLocal[]>([]);
@@ -158,6 +163,9 @@ export default function MigracionPage() {
     }
     setResultados(out);
     setPaso('acta');
+    // Refresca el panel para que lo importado aparezca ya en Clientas, Calendario,
+    // etc., sin que la propietaria tenga que recargar la página.
+    resetDatosPilates();
   }
 
   async function deshacer() {
@@ -170,6 +178,8 @@ export default function MigracionPage() {
       return;
     }
     setDeshecho(r.borrados);
+    // Lo deshecho también debe desaparecer de los listados sin recargar a mano.
+    resetDatosPilates();
   }
 
   const listos = plan?.archivos.filter(a => a.entidad !== null) ?? [];

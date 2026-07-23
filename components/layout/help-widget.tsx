@@ -60,7 +60,20 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
       contacto: contacto.trim() || null,
       creadoEn: new Date().toISOString(),
     };
+    // 1) Registro durable en BD (historial). 2) Aviso por correo a soporte para
+    //    que NOS LLEGUE — antes solo se guardaba y nadie lo veía. El correo es
+    //    best-effort: si falla, el registro ya está guardado.
     await dbInsertSoporteSolicitud(solicitud);
+    try {
+      await fetch('/api/soporte', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo, mensaje: solicitud.mensaje, contacto: solicitud.contacto,
+          studioNombre: studio?.nombre ?? null,
+        }),
+      });
+    } catch { /* el registro en BD ya persiste; el correo es best-effort */ }
     setEnviando(false);
     setEnviado(true);
     setMensaje('');
