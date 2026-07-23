@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
 import { webhookYaProcesado, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { registrarFalloCobro } from '@/lib/billing/dunning-server';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
@@ -186,6 +187,11 @@ export async function POST(req: NextRequest) {
           console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
           return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
         }
+        // Renovación en servidor (refill de bono / extensión del mensual):
+        // antes solo la aplicaba el panel al "marcar cobrado" a mano, así que
+        // un pago por enlace dejaba la suscripción sin renovar hasta que
+        // alguien abría el panel. Best-effort e idempotente.
+        await aplicarRenovacionServidor(admin, { studioId, reciboId });
       }
 
       // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la
@@ -312,6 +318,10 @@ export async function POST(req: NextRequest) {
         });
         return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
       }
+      // Renovación en servidor (refill de bono / extensión del mensual) — igual
+      // que en checkout.session.completed: sin esto, el adeudo SEPA liquidado
+      // cobraba la renovación sin renovar la suscripción. Best-effort.
+      await aplicarRenovacionServidor(admin, { studioId, reciboId });
       try {
         const sell = await sellarFacturaDeRecibo(admin, { studioId, reciboId, facturaId: `fac-sepa-${reciboId}` });
         if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
