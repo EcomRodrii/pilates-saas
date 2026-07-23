@@ -19,6 +19,10 @@
     {
       "path": "/api/cron/dependency-risk",
       "schedule": "0 4 * * 1"
+    },
+    {
+      "path": "/api/cron/materializar-plazas",
+      "schedule": "0 2 * * *"
     }
   ]
 }

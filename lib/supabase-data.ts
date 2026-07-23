@@ -1655,6 +1655,17 @@ export async function generarRecordatoriosRevision(nowISO: string, umbralDias = 
 // check-in se quedan CONFIRMADA para siempre y las métricas de ausencias mienten.
 // Lo dispara un cron (ver /api/cron/no-shows). No toca bonos: la sesión ya se
 // consumió al reservar; un no-show no se reembolsa (esa es la penalización).
+// F2 (B2.2): materializa las plazas fijas → reservas CONFIRMADA de las próximas
+// semanas. Lo dispara el cron nocturno. Todo el trabajo (emparejamiento por hora
+// local, aforo, idempotencia) es set-based en la RPC. Devuelve cuántas creó.
+export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ creadas: number }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const { data, error } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: horizonteDias });
+  if (error) throw new Error(error.message);
+  return { creadas: (data as number) ?? 0 };
+}
+
 export async function barrerNoShows(nowISO: string) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
