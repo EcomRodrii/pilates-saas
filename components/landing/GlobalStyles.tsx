@@ -26,6 +26,7 @@ export function GlobalStyles() {
 
       /* Sustituciones flow comet */
       .tnt-flow-comet { box-shadow: 0 0 16px 5px rgba(124,58,237,.85); animation: lp-cometpulse 1.4s ease-in-out infinite; }
+      .tnt-flow-vline-bg, .tnt-flow-vline-fill { display: none; }
 
       .tnt-bento-4 { grid-column: span 4; }
       .tnt-bento-2 { grid-column: span 2; }
@@ -43,8 +44,9 @@ export function GlobalStyles() {
       }
       @media (max-width: 600px) {
         .tnt-footer { grid-template-columns: 1fr 1fr !important; }
-        .tnt-steps4 { grid-template-columns: 1fr !important; }
+        .tnt-steps4 { grid-template-columns: 1fr !important; gap: 36px !important; }
         .tnt-herobadge { display: none; }
+        .tnt-flow-vline-bg, .tnt-flow-vline-fill { display: block; }
       }
 
       @keyframes lp-riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
