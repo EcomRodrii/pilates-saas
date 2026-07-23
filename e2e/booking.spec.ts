@@ -101,18 +101,6 @@ async function mockBackend(page: Page, opts: {
   });
 }
 
-async function firmarEnCanvas(page: Page) {
-  const canvas = page.locator('canvas').first();
-  await canvas.waitFor({ state: 'visible' });
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('No se encontró el canvas de firma');
-  await page.mouse.move(box.x + 20, box.y + 20);
-  await page.mouse.down();
-  await page.mouse.move(box.x + 90, box.y + 45);
-  await page.mouse.move(box.x + 140, box.y + 25);
-  await page.mouse.up();
-}
-
 // B0.3: la resolución server-side del estudio (app/reservar/[slug]/layout.tsx →
 // getStudioSeo()) se siembra con E2E_TEST=1 (ver lib/studio-seo.ts y el env del
 // webServer en playwright.config.ts), así que estos tests ya SÍ corren: cargan la
@@ -132,51 +120,53 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await expect(page.getByText('Reformer').first()).toBeVisible();
   });
 
-  // TODO(e2e): estos 3 tests interactivos siguen escritos contra el flujo antiguo
-  // (botón "Reservar plaza" directo). La reserva es ahora calendario → clic en el
-  // slot → hoja inferior con selector de sitio → acción (ver
-  // components/reserva/reserva-calendario.tsx). Quedan en .skip hasta realinear los
-  // selectores a ese flujo. Los 2 tests que SÍ corren (carga de página con el
-  // estudio sembrado + checkout de Stripe) ya bloquean el deploy en CI.
-  test.skip('reserva (socia autenticada con contrato): elegir clase → confirmar', async ({ page }) => {
+  // Nueva UI de reserva: calendario → día → slot (SlotRow) → hoja inferior
+  // (BookingSheet, role=dialog) → acción "Reservar". Ver
+  // components/reserva/reserva-calendario.tsx.
+  async function abrirYReservar(page: Page) {
+    await page.getByRole('tab', { name: /9 de julio/i }).click();
+    await page.getByRole('button', { name: /Reformer a las/i }).click();
+    await page.getByRole('dialog').getByRole('button', { name: /^reservar/i }).click();
+  }
+
+  test('reserva (socia autenticada con contrato): slot → reservar → confirmada', async ({ page }) => {
     const socia = { socioId: 'soc-e2e', nombre: 'Socia E2E', email: 'socia-e2e@test.com' };
     await seedSession(page, socia.email);
     await mockBackend(page, { socia });
 
     await page.goto(`/reservar/${SLUG}`);
-    await page.getByRole('button', { name: /reservar plaza/i }).first().click();
-    // Socia con contrato → salta directo a confirmar (sin nombre ni firma).
-    await page.getByRole('button', { name: /confirmar reserva/i }).click();
+    await abrirYReservar(page);
+    // Socia con contrato → la reserva se confirma in situ (sin nombre ni firma).
     await expect(page.getByText(/reserva confirmada|lista de espera/i)).toBeVisible();
   });
 
-  test.skip('registro (walk-in autenticado): nombre → firma → confirmar', async ({ page }) => {
+  test('registro (walk-in autenticado): reservar → nombre → firma → confirmar', async ({ page }) => {
     await seedSession(page, `walkin+${Date.now()}@test.com`);
     await mockBackend(page, { socia: null }); // autenticada pero aún no socia → walk-in
 
     await page.goto(`/reservar/${SLUG}`);
-    await page.getByRole('button', { name: /reservar plaza/i }).first().click();
+    await abrirYReservar(page);
 
-    // Paso registro: nombre.
+    // Paso registro: nombre → Continuar.
     await page.getByPlaceholder(/tu nombre completo/i).fill('Walk In E2E');
-    await page.getByRole('button', { name: /continuar/i }).click();
+    await page.getByRole('button', { name: /^continuar/i }).click();
 
-    // Firma del contrato.
-    await firmarEnCanvas(page);
-    await page.getByRole('button', { name: /firmar y continuar/i }).click();
+    // Contrato (clickwrap, ya no hay firma en canvas): aceptar términos → continuar.
+    await page.getByRole('checkbox').check();
+    await page.getByRole('button', { name: /aceptar y continuar/i }).click();
 
-    // Confirmar.
+    // Confirmar reserva.
     await page.getByRole('button', { name: /confirmar reserva/i }).click();
     await expect(page.getByText(/reserva confirmada|lista de espera/i)).toBeVisible();
   });
 
-  test.skip('login: sin sesión, reservar pide magic link (no deja pasar sin email)', async ({ page }) => {
+  test('login: sin sesión, reservar pide magic link (no deja pasar sin email)', async ({ page }) => {
     await mockBackend(page); // sin seedSession → no autenticada
     await page.goto(`/reservar/${SLUG}`);
-    await page.getByRole('button', { name: /reservar plaza/i }).first().click();
+    await abrirYReservar(page);
     // Paso de login por magic link (email), NO el flujo antiguo de nombre+email.
-    await expect(page.getByRole('button', { name: /enviar enlace de acceso/i })).toBeVisible();
     await expect(page.getByPlaceholder(/tu email/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /enlace de acceso/i })).toBeVisible();
   });
 
   test('pago: "Contratar" plan llama al checkout con planId + studioId (sin importe)', async ({ page }) => {
