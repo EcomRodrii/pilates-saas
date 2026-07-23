@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { ACC, BG, btnCta } from './theme';
+import { ACC, BG } from './theme';
 import { IconCheck } from './icons';
+import { Waitlist } from './Waitlist';
 
 // Restores the source design's hero parallax tilt: the mockup rotates in 3D
 // as the cursor moves over it. Disabled for touch pointers and
@@ -79,9 +79,20 @@ export function Hero() {
             Cuando una instructora avisa de que no puede, Tentare busca sustituta, la contacta y avisa a las alumnas antes de que cuelgues el teléfono. Tú solo apruebas.
           </p>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginBottom: 22, animation: 'lp-riseIn .85s cubic-bezier(.2,.7,0,1) .42s both' }}>
-            <Link href="/crear-estudio" className={btnCta} style={{ fontSize: 16, fontWeight: 700, padding: '16px 28px', boxShadow: '0 16px 34px rgba(109,40,217,.34)' }}>
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              title="Aún no disponible — muy pronto"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 16, fontWeight: 700, padding: '16px 28px', borderRadius: 999, border: '1px solid rgba(255,255,255,.16)', background: 'rgba(255,255,255,.06)', color: 'rgba(255,255,255,.5)', cursor: 'not-allowed' }}
+            >
               Crear mi estudio →
-            </Link>
+              <span className="lp-mono" style={{ fontSize: 10, letterSpacing: '.06em', textTransform: 'uppercase', color: '#C9A6F5', background: 'rgba(124,58,237,.18)', padding: '3px 8px', borderRadius: 999 }}>Muy pronto</span>
+            </button>
+          </div>
+          <div style={{ marginBottom: 22, animation: 'lp-riseIn .85s cubic-bezier(.2,.7,0,1) .48s both', maxWidth: 420 }}>
+            <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 10 }}>Abrimos pronto — deja tu email y te avisamos</div>
+            <Waitlist />
           </div>
           <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.03em', color: '#B8B8B0', animation: 'lp-riseIn .85s cubic-bezier(.2,.7,0,1) .5s both' }}>
             Sin permanencia · Fácil de usar desde el día 1 · Hecho en España

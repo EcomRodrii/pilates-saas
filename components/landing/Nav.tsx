@@ -40,8 +40,8 @@ export function Nav() {
           </div>
           <div className="tnt-navcta" style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
             <Link href="/login" style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', padding: '9px 6px' }}>Entrar</Link>
-            <Link href="/crear-estudio" className="hover:brightness-110" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: ACC, padding: '11px 20px', borderRadius: 999, boxShadow: '0 10px 22px rgba(109,40,217,.28)' }}>
-              Crear estudio
+            <Link href="#lista-espera" className="hover:brightness-110" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: ACC, padding: '11px 20px', borderRadius: 999, boxShadow: '0 10px 22px rgba(109,40,217,.28)' }}>
+              Lista de espera
             </Link>
           </div>
           <button
@@ -70,7 +70,7 @@ export function Nav() {
               <a key={l.href} href={l.href} onClick={() => setMenuOpen(false)} style={{ padding: '14px 8px', fontSize: 18, fontWeight: 600, color: '#1A1A1A', borderBottom: '1px solid #E1E1D8' }}>{l.label}</a>
             ))}
             <Link href="/login" onClick={() => setMenuOpen(false)} style={{ marginTop: 16, textAlign: 'center', padding: 15, fontSize: 16, fontWeight: 600, color: '#1A1A1A', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14 }}>Entrar</Link>
-            <Link href="/crear-estudio" onClick={() => setMenuOpen(false)} style={{ textAlign: 'center', padding: 15, fontSize: 16, fontWeight: 700, color: '#fff', background: ACC, borderRadius: 14 }}>Crear estudio</Link>
+            <Link href="#lista-espera" onClick={() => setMenuOpen(false)} style={{ textAlign: 'center', padding: 15, fontSize: 16, fontWeight: 700, color: '#fff', background: ACC, borderRadius: 14 }}>Lista de espera</Link>
           </div>
         </div>
       )}

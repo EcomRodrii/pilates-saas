@@ -75,7 +75,7 @@ export function BeforeAfterCols({ beforeLabel, beforeItems, afterLabel, afterIte
   );
 }
 
-export function CtaBlock({ title, body, href = '/crear-estudio', cta = 'Crear mi estudio →' }: { title: string; body?: string; href?: string; cta?: string }) {
+export function CtaBlock({ title, body, href = '/#lista-espera', cta = 'Unirme a la lista de espera →' }: { title: string; body?: string; href?: string; cta?: string }) {
   return (
     <div style={{ background: 'linear-gradient(135deg,#6D28D9,#4C1D95)', color: '#fff', borderRadius: 22, padding: 'clamp(28px,4vw,40px)', margin: '44px 0 0', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: '-40%', left: '50%', transform: 'translateX(-50%)', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,.16), transparent 62%)', pointerEvents: 'none' }} />
