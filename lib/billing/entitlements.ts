@@ -23,21 +23,24 @@ export interface Entitlements {
     decisiones: boolean;   // Decision OS / Centro de Control — gate de plan; el
                             // encendido operativo real por estudio vive en
                             // decision_feature_flags (DECISION-OS-MODELO-DATOS.md §2.11)
+    marca: boolean;        // app de marca: tema white-label del portal (editor + publicar)
+    sustitucionesAutonomas: boolean; // modos autónomo/vacaciones del motor de
+                                     // sustituciones (Base se queda en manual/asistido)
   };
 }
 
 export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
   BASE: {
     maxSocios: 150,
-    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false },
+    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false, marca: false, sustitucionesAutonomas: false },
   },
   ESTUDIO: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true },
   },
   CADENA: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: true, decisiones: true },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: true, decisiones: true, marca: true, sustitucionesAutonomas: true },
   },
 };
 

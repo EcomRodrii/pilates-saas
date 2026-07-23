@@ -24,6 +24,7 @@ import {
   escalacionVigente,
 } from '@/lib/sustituciones/contacto';
 import { calcularVentanas } from '@/lib/sustituciones/ventanas';
+import { tieneFeature } from '@/lib/billing/entitlements';
 
 // Modos que dejan al motor avanzar solo por el ranking.
 const MODOS_AUTONOMOS = ['autonomo', 'vacaciones'];
@@ -46,9 +47,16 @@ export const escalarSustitucion = inngest.createFunction(
       if (!admin) throw new Error('Service role no configurada');
       const v = await escalacionVigente(admin, sustitucionId, instructorId);
       if (!v.vigente) return { correr: false as const, motivo: 'no_vigente' as const };
+      // Degradado por plan (igual que en crearBaja): autónomo/vacaciones son
+      // del plan Estudio+; sin la feature, el escalado se comporta como asistido
+      // (recuerda y alerta, pero no auto-avanza por el ranking).
       const { data: estudio } = await admin
-        .from('studios').select('modo_autonomia').eq('id', studioId).maybeSingle();
-      const modo = (estudio?.modo_autonomia as string) ?? 'asistido';
+        .from('studios').select('modo_autonomia, plan, subscription_status').eq('id', studioId).maybeSingle();
+      let modo = (estudio?.modo_autonomia as string) ?? 'asistido';
+      if (MODOS_AUTONOMOS.includes(modo) &&
+          !tieneFeature({ plan: estudio?.plan, subscriptionStatus: estudio?.subscription_status }, 'sustitucionesAutonomas')) {
+        modo = 'asistido';
+      }
       const msHastaClase = v.sesionInicio ? new Date(v.sesionInicio).getTime() - Date.now() : -1;
       const ventanas = calcularVentanas(msHastaClase);
       return {

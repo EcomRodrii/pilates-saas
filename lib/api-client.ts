@@ -192,24 +192,26 @@ export async function crearBaja(sesionId: string, motivo?: string): Promise<{ ok
 }
 
 export async function listarSustituciones(): Promise<{
-  items: SustitucionPanel[]; avisarAlumnas: boolean; equipo: DiagnosticoEquipo;
+  items: SustitucionPanel[]; avisarAlumnas: boolean; modoAutonomia: string; autonomiaDisponible: boolean; equipo: DiagnosticoEquipo;
 }> {
   // Equipo vacío como valor por defecto: ante un fallo NO inventamos un aviso de
   // "te falta configurar el equipo" que podría ser mentira.
   const vacio: DiagnosticoEquipo = { total: 0, sinDisponibilidad: [] };
   try {
     const res = await fetch('/api/sustituciones', { headers: await authHeader() });
-    if (!res.ok) return { items: [], avisarAlumnas: false, equipo: vacio };
+    if (!res.ok) return { items: [], avisarAlumnas: false, modoAutonomia: 'asistido', autonomiaDisponible: false, equipo: vacio };
     const data = (await res.json()) as {
-      sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean; equipo?: DiagnosticoEquipo;
+      sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean; modoAutonomia?: string; autonomiaDisponible?: boolean; equipo?: DiagnosticoEquipo;
     };
     return {
       items: data.sustituciones ?? [],
       avisarAlumnas: !!data.avisarAlumnas,
+      modoAutonomia: data.modoAutonomia ?? 'asistido',
+      autonomiaDisponible: !!data.autonomiaDisponible,
       equipo: data.equipo ?? vacio,
     };
   } catch {
-    return { items: [], avisarAlumnas: false, equipo: vacio };
+    return { items: [], avisarAlumnas: false, modoAutonomia: 'asistido', autonomiaDisponible: false, equipo: vacio };
   }
 }
 
@@ -247,6 +249,23 @@ export async function cancelarClase(sustitucionId: string): Promise<{ ok: true; 
 }
 
 // Activa/desactiva el aviso automático a las alumnas (solo propietaria).
+// Cambia el modo de autonomía del motor (manual/asistido/autonomo/vacaciones).
+// El servidor aplica el gate de plan (autónomo/vacaciones = Estudio+).
+export async function setModoAutonomia(modo: string): Promise<{ ok: true } | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ action: 'config_modo', modo }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true };
+  } catch {
+    return { error: 'No se pudo cambiar el modo' };
+  }
+}
+
 export async function setAvisarAlumnas(avisar: boolean): Promise<{ ok: true } | { error: string }> {
   try {
     const res = await fetch('/api/sustituciones', {
