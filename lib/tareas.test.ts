@@ -21,8 +21,6 @@ test('encuentra por el término de la competencia, no solo por el nuestro', () =
   // Quien viene de otra plataforma busca "bono" o "membresía", no "plan".
   assert.ok(ids('bono').includes('nuevo-plan'));
   assert.ok(ids('membresia').includes('nuevo-plan'));
-  // "TPV" es como se llama la caja en el sector; el menú dice "POS".
-  assert.ok(ids('tpv').includes('cobrar-caja'));
   assert.ok(ids('mindbody').includes('importar-clientas'));
 });
 
@@ -36,10 +34,11 @@ test('encuentra aunque las palabras vayan en otro orden', () => {
   assert.ok(ids('alta clienta').includes('nueva-clienta'));
 });
 
-test('"cobrar" ofrece las dos formas de cobrar, no una sola', () => {
+test('"cobrar" lleva a cobrar la mensualidad (la caja/POS está congelada)', () => {
   const r = ids('cobrar');
-  assert.ok(r.includes('cobrar-caja'), 'falta la caja');
+  // Feature-freeze PMF: se retiró la tarea 'cobrar-caja' (POS). Ver lib/frozen-features.ts.
   assert.ok(r.includes('nuevo-cobro'), 'falta la mensualidad');
+  assert.ok(!r.includes('cobrar-caja'), 'la caja/POS debe estar congelada');
 });
 
 test('lo que no existe no devuelve nada, en vez de inventar', () => {

@@ -12,8 +12,11 @@
 //   · Módulo Contenido            → /contenido/* (panel, calendario, biblioteca,
 //                                    ideas, métricas, guiones IA, carruseles IA)
 //   · Módulo Marketing del estudio → /marketing (incl. mejoras de Fase 7)
-//   · Oferta digital (on-demand)   → /ondemand (staff) y "Vídeos" del portal
-//                                    (/portal/[slug]/videos)
+//
+// NOTA: la Oferta digital (on-demand) YA NO depende de este flag. Se congeló
+// aparte en el feature-freeze PMF (lib/frozen-features.ts): /ondemand (staff) y
+// el "Vídeos" del portal se gobiernan allí (RUTAS_CONGELADAS y
+// PORTAL_VIDEOS_CONGELADO), para que sigan ocultos aunque este flag se reactive.
 //
 // Reactivar = poner `true` (y SOLO si Marcos lo pide). El código permanece intacto.
 export const MARKETING_MODULE_ENABLED = false;

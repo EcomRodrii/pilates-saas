@@ -3,14 +3,15 @@
 
 import {
   LayoutDashboard, Calendar, Users, CreditCard,
-  FileText, Settings, BarChart2,
+  Settings, BarChart2,
   Clock, MessageCircle, Megaphone, Play,
-  Bot, ArrowLeftRight, Package, Store, Inbox,
+  Bot, Package, Store, Inbox,
   UserCog, Users2, Compass, Replace,
   Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
   Calculator,
 } from 'lucide-react';
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
+import { esRutaCongelada } from '@/lib/frozen-features';
 
 export interface NavItemDef {
   href: string;
@@ -85,11 +86,19 @@ const allSections: NavSection[] = [
 // Marketing del estudio (/marketing) del menú. El código sigue en el repo; para
 // reactivar, poner MARKETING_MODULE_ENABLED a true en lib/feature-flags.ts.
 const OCULTOS_MARKETING = ['/marketing', '/ondemand'];
-export const navSections: NavSection[] = MARKETING_MODULE_ENABLED
+const conMarketing: NavSection[] = MARKETING_MODULE_ENABLED
   ? allSections
   : allSections
       .filter((s) => s.label !== 'Contenido')
       .map((s) => ({ ...s, items: s.items.filter((i) => !OCULTOS_MARKETING.includes(i.href)) }));
+
+// Feature-freeze PMF: saca los módulos congelados (/pos, /comunidad, /ondemand)
+// del menú y de TODO lo que deriva de él —editor de menú, buscador ⌘K, MODULOS—,
+// con independencia del flag de marketing, y elimina las secciones que quedan
+// vacías. Reactivar = quitar la ruta de RUTAS_CONGELADAS en lib/frozen-features.ts.
+export const navSections: NavSection[] = conMarketing
+  .map((s) => ({ ...s, items: s.items.filter((i) => !esRutaCongelada(i.href)) }))
+  .filter((s) => s.items.length > 0);
 
 // Lista plana de todos los módulos, en orden natural.
 export const MODULOS: NavItemDef[] = navSections.flatMap((s) => s.items);

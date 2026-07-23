@@ -59,12 +59,9 @@ export const TAREAS: Tarea[] = [
     href: '/citas?nueva=1',
     claves: ['cita', 'privada', 'individual', 'valoracion', 'fisioterapia', 'uno a uno'],
   },
-  {
-    id: 'cobrar-caja',
-    label: 'Cobrar en caja',
-    href: '/pos',
-    claves: ['tpv', 'punto de venta', 'datafono', 'vender', 'mostrador', 'efectivo', 'tarjeta'],
-  },
+  // CONGELADO (feature-freeze PMF): se quitó la tarea 'cobrar-caja' → /pos. Aunque
+  // el buscador ya la filtra por permiso (puedeVer('/pos') es false), se elimina
+  // también aquí para que ni "tpv", "datáfono" ni "vender" devuelvan nada de POS.
   {
     id: 'nuevo-cobro',
     label: 'Cobrar una mensualidad',

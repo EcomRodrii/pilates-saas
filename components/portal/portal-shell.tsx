@@ -12,7 +12,7 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { portalThemeStyle } from '@/lib/portal-theme';
 import { useModo } from '@/lib/portal-modo';
-import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
+import { PORTAL_VIDEOS_CONGELADO } from '@/lib/frozen-features';
 
 const ALL_NAV = [
   { seg: 'clases', icon: Calendar, label: 'Clases' },
@@ -22,8 +22,9 @@ const ALL_NAV = [
   { seg: 'progreso', icon: TrendingUp, label: 'Progreso' },
 ];
 
-// Oferta digital oculta temporalmente (ver lib/feature-flags.ts): sin "Vídeos".
-const NAV = MARKETING_MODULE_ENABLED ? ALL_NAV : ALL_NAV.filter((n) => n.seg !== 'videos');
+// VOD congelado (feature-freeze PMF, independiente del flag de marketing): sin
+// "Vídeos" en el portal de socias. Reactivar = PORTAL_VIDEOS_CONGELADO=false.
+const NAV = PORTAL_VIDEOS_CONGELADO ? ALL_NAV.filter((n) => n.seg !== 'videos') : ALL_NAV;
 
 const SLOT = 100 / NAV.length;
 

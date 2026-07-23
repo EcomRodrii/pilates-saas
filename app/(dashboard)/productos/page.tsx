@@ -2,6 +2,7 @@
 
 import { useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
+import { esRutaCongelada } from '@/lib/frozen-features';
 import { Package, Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Check } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS } from '@/lib/types';
 import { PageHeader } from '@/components/ui/page-header';
@@ -217,6 +218,14 @@ export default function Productos() {
   const [planModal, setPlanModal] = useState<PlanTarifa | null | 'new'>(null);
   const [posModal, setPosModal] = useState<ProductoPOS | null | 'new'>(null);
 
+  // CONGELADO (feature-freeze PMF): oculta la pestaña "Productos POS" mientras POS
+  // esté congelado. La pestaña "Planes de suscripción" es core de facturación y se
+  // mantiene. El bloque de contenido POS sigue en el archivo, solo deja de ser
+  // alcanzable. Reactivar = quitar '/pos' de RUTAS_CONGELADAS en lib/frozen-features.ts.
+  const posCongelado = esRutaCongelada('/pos');
+  const TABS = ([['planes', 'Planes de suscripción'], ['pos', 'Productos POS']] as const)
+    .filter(([v]) => v !== 'pos' || !posCongelado);
+
   // Count active suscripciones per plan
   const susCount = (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length;
 
@@ -258,7 +267,7 @@ export default function Productos() {
     <div className="space-y-6">
       <PageHeader
         title="Productos"
-        description="Planes de suscripción y catálogo de productos POS"
+        description={posCongelado ? 'Planes de suscripción y bonos' : 'Planes de suscripción y catálogo de productos POS'}
         actions={
           <button
             onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
@@ -271,16 +280,19 @@ export default function Productos() {
         }
       />
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
-        {([['planes', 'Planes de suscripción'], ['pos', 'Productos POS']] as const).map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)}
-            className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-            style={tab === v ? { backgroundColor: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { color: 'var(--muted-foreground)' }}>
-            {l}
-          </button>
-        ))}
-      </div>
+      {/* Tabs — la pestaña "Productos POS" queda oculta con POS congelado (solo
+          se muestra la barra si hay más de una pestaña). */}
+      {TABS.length > 1 && (
+        <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
+          {TABS.map(([v, l]) => (
+            <button key={v} onClick={() => setTab(v)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+              style={tab === v ? { backgroundColor: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { color: 'var(--muted-foreground)' }}>
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── PLANES ── */}
       {tab === 'planes' && (

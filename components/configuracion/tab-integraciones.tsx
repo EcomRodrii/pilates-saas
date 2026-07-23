@@ -271,22 +271,9 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const scope = encodeURIComponent('https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email');
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${redirect}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
   }
-  // C-2: token de dispositivo del kiosko. Se genera aquí (PROPIETARIO) y se
-  // pega en el dispositivo de recepción; /api/public/checkin lo exige.
-  const [kioskToken, setKioskToken] = useState<string | null>(null);
-  const [generandoKiosk, setGenerandoKiosk] = useState(false);
-  async function generarKioskToken() {
-    setGenerandoKiosk(true);
-    try {
-      const res = await fetch('/api/kiosk/token', { method: 'POST', headers: await authHeader() });
-      if (!res.ok) { showToast('No se pudo generar el token de kiosko'); return; }
-      const { token } = await res.json() as { token: string };
-      setKioskToken(token);
-      showToast('Token de kiosko generado — cópialo al dispositivo');
-    } finally {
-      setGenerandoKiosk(false);
-    }
-  }
+  // CONGELADO (feature-freeze PMF): se quitó la generación del token de kiosko
+  // (estado + fetch a /api/kiosk/token). La API sigue viva pero sin llamadas.
+  // Reactivar = ver lib/frozen-features.ts.
 
   const [sincronizando, setSincronizando] = useState(false);
 
@@ -650,22 +637,9 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
           );
         })}
 
-        {/* C-2: token de dispositivo del kiosko de check-in */}
-        <div className={cn(cardCls, 'p-4 flex flex-col')}>
-          <p className="text-sm font-bold mb-1">Kiosko de check-in</p>
-          <p className="text-[12px] text-muted-foreground mb-3 flex-1">
-            Token del dispositivo de recepción. Genéralo y pégalo en el kiosko (<code className="font-mono bg-muted px-1 rounded">/kiosk/tu-slug</code>) la primera vez. El check-in solo funciona desde un dispositivo con este token.
-          </p>
-          {kioskToken && (
-            <div className="rounded-lg bg-muted p-2.5 mb-2">
-              <p className="text-[10px] text-muted-foreground mb-1">Cópialo ahora — no se vuelve a mostrar:</p>
-              <code className="text-[12px] font-mono break-all select-all">{kioskToken}</code>
-            </div>
-          )}
-          <button onClick={generarKioskToken} disabled={generandoKiosk} className={cn(btnPrimary, generandoKiosk && 'opacity-50')}>
-            {generandoKiosk ? 'Generando…' : kioskToken ? 'Regenerar token' : 'Generar token de kiosko'}
-          </button>
-        </div>
+        {/* CONGELADO (feature-freeze PMF): se quitó la tarjeta "Kiosko de check-in"
+            (generación del token del dispositivo). La ruta /api/kiosk/token sigue
+            existiendo pero ya no se llama desde el frontend. Ver lib/frozen-features.ts. */}
       </div>
 
       {/* Config modal */}
