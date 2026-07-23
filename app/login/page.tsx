@@ -77,7 +77,7 @@ export default function LoginPage() {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#EEEEE8' }}>
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
@@ -86,7 +86,7 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-border p-6">
+        <div className="bg-white rounded-2xl p-6" style={{ border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}>
           <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-5">
             {modo === 'entrar' ? 'Iniciar sesión' : 'Crear cuenta de equipo'}
           </h2>
@@ -108,7 +108,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="tu@email.com"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-border text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/20 focus:border-[#1A1A1A] transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#6D28D9]/20 focus:border-[#6D28D9] transition-all"
               />
             </div>
 
@@ -123,7 +123,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-border text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A]/20 focus:border-[#1A1A1A] transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#6D28D9]/20 focus:border-[#6D28D9] transition-all"
               />
             </div>
 
@@ -131,14 +131,14 @@ export default function LoginPage() {
               <p className="text-[13px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
             )}
             {info && (
-              <p className="text-[13px] text-accent-foreground bg-accent rounded-lg px-3 py-2">{info}</p>
+              <p className="text-[13px] rounded-lg px-3 py-2" style={{ color: '#5B21B6', background: '#F1ECFB' }}>{info}</p>
             )}
 
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3 rounded-full text-[14px] font-bold text-[#171717] transition-all hover:brightness-95 disabled:opacity-60"
-              style={{ backgroundColor: '#FFC8E2' }}
+              className="w-full py-3 rounded-full text-[14px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+              style={{ background: '#6D28D9', boxShadow: '0 10px 22px rgba(109,40,217,.28)' }}
             >
               {submitting ? 'Un momento…' : modo === 'entrar' ? 'Entrar' : 'Crear cuenta'}
             </button>

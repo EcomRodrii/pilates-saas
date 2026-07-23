@@ -8,7 +8,6 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { BG } from '@/components/landing/theme';
-import { SpineNav } from '@/components/landing/SpineNav';
 import { Nav } from '@/components/landing/Nav';
 import { Hero } from '@/components/landing/Hero';
 import { Problema } from '@/components/landing/Problema';
@@ -46,7 +45,6 @@ export default function LandingPage() {
 
   return (
     <div className={plexMono.variable} style={{ background: BG, color: '#1A1A1A', overflowX: 'clip', position: 'relative' }}>
-      <SpineNav />
       <Nav />
       <Hero />
       <Problema />
