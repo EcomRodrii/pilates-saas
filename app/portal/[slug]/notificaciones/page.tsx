@@ -1,36 +1,51 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { usePortalAuth } from '@/lib/portal-auth';
-import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { ChevronLeft, CheckCircle2, CreditCard, Bell } from 'lucide-react';
-import { buildPortalNotifications, markPortalNotifsRead } from '@/lib/portal-notifications';
+import { ChevronLeft, CheckCircle2, CreditCard, Bell, CalendarClock, AlertTriangle } from 'lucide-react';
+import { portalAuthHeader } from '@/lib/api-client';
+import { fetchNotificaciones, accionNotificacion, type NotifItem } from '@/lib/notifications/client';
 import { Card, EmptyState } from '@/components/portal/ui';
 
+// Centro de notificaciones de la socia — lee la tabla `notification` (motor de
+// notificaciones) vía /api/notifications, acotada por su JWT. Sustituye al feed
+// que se derivaba en el navegador de reservas/recibos + estado en localStorage.
 export default function NotificacionesPage() {
   const router = useRouter();
   const { slug } = useParams<{ slug: string }>();
-  const { session } = usePortalAuth();
-  const { reservas, recibos, sesiones, tiposClase, instructores } = useStudio();
   const { t } = useModo();
+  const [items, setItems] = useState<NotifItem[]>([]);
+  const [cargando, setCargando] = useState(true);
 
-  const items = useMemo(() => {
-    if (!session?.socioId) return [];
-    return buildPortalNotifications({ socioId: session.socioId, reservas, recibos, sesiones, tiposClase, instructores });
-  }, [session?.socioId, reservas, recibos, sesiones, tiposClase, instructores]);
+  const cargar = useCallback(async () => {
+    const { items } = await fetchNotificaciones(portalAuthHeader);
+    setItems(items);
+    setCargando(false);
+  }, []);
 
+  // setState tras el await (asíncrono), no en cascada — falso positivo del lint.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  // Al abrir la bandeja se marcan todas como leídas (limpia el punto de la campana).
   useEffect(() => {
-    if (session?.socioId && items.length > 0) markPortalNotifsRead(session.socioId, items);
-  }, [session?.socioId, items]);
+    if (!cargando && items.some(i => i.readAt == null)) {
+      void accionNotificacion(portalAuthHeader, 'read-all');
+    }
+  }, [cargando, items]);
+
+  async function abrir(n: NotifItem) {
+    if (n.readAt == null) await accionNotificacion(portalAuthHeader, 'read', n.id);
+    if (n.deepLink) router.push(n.deepLink);
+  }
 
   const grouped = useMemo(() => {
     const now = new Date();
     const todayKey = now.toISOString().slice(0, 10);
-    const groups: { label: string; items: typeof items }[] = [];
+    const groups: { label: string; items: NotifItem[] }[] = [];
     for (const it of items) {
-      const d = new Date(it.fecha);
+      const d = new Date(it.createdAt);
       const dayKey = d.toISOString().slice(0, 10);
       const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
       const label = dayKey === todayKey ? 'Hoy' : diffDays <= 7 ? 'Esta semana' : 'Anteriores';
@@ -56,24 +71,24 @@ export default function NotificacionesPage() {
       </div>
 
       <div style={{ padding: '16px 16px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {grouped.length === 0 ? (
-          <EmptyState icon={<Bell size={18} />} title="Sin novedades por ahora" body="Aquí verás tus reservas y pagos." />
+        {cargando ? (
+          <p style={{ fontSize: 13, color: t.muted, textAlign: 'center', padding: '24px 0' }}>Cargando…</p>
+        ) : grouped.length === 0 ? (
+          <EmptyState icon={<Bell size={18} />} title="Sin novedades por ahora" body="Aquí verás tus reservas, cambios y pagos." />
         ) : (
           grouped.map(group => (
             <div key={group.label}>
               <p style={{ ...microLabel, marginBottom: 8, paddingLeft: 4 }}>{group.label}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {group.items.map(it => (
-                  <Card key={it.id} style={{ padding: 16, display: 'flex', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: it.tipo === 'RESERVA' ? 'rgba(62,155,108,0.14)' : t.surface2 }}>
-                      {it.tipo === 'RESERVA'
-                        ? <CheckCircle2 size={18} style={{ color: '#3E9B6C' }} />
-                        : <CreditCard size={18} style={{ color: t.heroAccent }} />}
+                  <Card key={it.id} onClick={() => abrir(it)} style={{ padding: 16, display: 'flex', gap: 12, cursor: it.deepLink ? 'pointer' : 'default', opacity: it.readAt == null ? 1 : 0.72 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: iconoBg(it, t) }}>
+                      {icono(it)}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, lineHeight: 1.2 }}>{it.titulo}</p>
-                      <p style={{ fontSize: 13, color: t.muted2, marginTop: 2, lineHeight: 1.4 }}>{it.texto}</p>
-                      <p style={{ fontSize: 11, color: t.muted, marginTop: 6 }}>{formatRelative(it.fecha)}</p>
+                      <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, lineHeight: 1.2 }}>{it.title}</p>
+                      <p style={{ fontSize: 13, color: t.muted2, marginTop: 2, lineHeight: 1.4 }}>{it.body}</p>
+                      <p style={{ fontSize: 11, color: t.muted, marginTop: 6 }}>{formatRelative(it.createdAt)}</p>
                     </div>
                   </Card>
                 ))}
@@ -84,6 +99,18 @@ export default function NotificacionesPage() {
       </div>
     </div>
   );
+}
+
+function icono(it: NotifItem) {
+  if (it.category === 'pagos') return <CreditCard size={18} style={{ color: '#C0362D' }} />;
+  if (it.category === 'clases' || it.priority === 'ALTA' || it.priority === 'CRITICA') return <AlertTriangle size={18} style={{ color: '#A65A0A' }} />;
+  if (it.eventType.startsWith('reserva.lista_espera')) return <CalendarClock size={18} style={{ color: '#A65A0A' }} />;
+  return <CheckCircle2 size={18} style={{ color: '#3E9B6C' }} />;
+}
+function iconoBg(it: NotifItem, t: { surface2: string }) {
+  if (it.category === 'pagos') return 'rgba(192,54,45,0.12)';
+  if (it.category === 'clases' || it.priority === 'ALTA' || it.priority === 'CRITICA') return 'rgba(166,90,10,0.12)';
+  return it.eventType.startsWith('reserva.confirmada') ? 'rgba(62,155,108,0.14)' : t.surface2;
 }
 
 function formatRelative(iso: string): string {

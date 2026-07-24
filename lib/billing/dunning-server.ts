@@ -51,6 +51,9 @@ export async function registrarFalloCobro(params: {
     // Best-effort: un fallo notificando no debe tirar el registro del fallo de cobro.
     try {
       await notificarFalloCobro({ admin, rec, plan, ahoraISO });
+      // Notification Engine: in-app a la propietaria (gestión) y a la socia.
+      const { emitirPagoFallido } = await import('@/lib/notifications/emit');
+      await emitirPagoFallido(admin, { studioId, reciboId });
     } catch (e) {
       Sentry.captureException(e instanceof Error ? e : new Error('Fallo al notificar impago'), {
         level: 'warning', tags: { area: 'cobros', tipo: 'dunning' }, extra: { reciboId },

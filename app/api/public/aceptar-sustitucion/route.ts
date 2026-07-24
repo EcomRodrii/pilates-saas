@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
     if (r.sesion_id) {
       const { data: cand } = await admin.from('instructores').select('nombre').eq('id', claim.instructorId).maybeSingle();
       await avisarAlumnas(admin, { sesionId: r.sesion_id, studioId: claim.studioId, tipo: 'cubierta', sustituta: cand?.nombre });
+      // Notification Engine: in-app a la instructora que cubre ("nueva clase asignada").
+      const { emitirSustitucionAceptada } = await import('@/lib/notifications/emit');
+      await emitirSustitucionAceptada(admin, { studioId: claim.studioId, sesionId: r.sesion_id, instructorId: claim.instructorId });
     }
     return NextResponse.json({ ok: true });
   }

@@ -2,16 +2,14 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Inbox, Bell, Zap, Search, Eye, EyeOff } from 'lucide-react';
+import { Inbox, Zap, Search, Eye, EyeOff } from 'lucide-react';
 import { GlobalSearch } from '@/components/search/global-search';
 import { ProfileMenu } from '@/components/layout/profile-menu';
 import { IconButton } from '@/components/ui/icon-button';
-import { useCore } from '@/lib/core-context';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
 
 export function Topbar() {
-  const { notificaciones } = useCore();
-  const sinLeer = notificaciones.filter(n => !n.leida).length;
   const { oculto, setOculto } = usePanelPrivacy();
   // Un solo disparador para las dos cosas (antes había dos pills contiguos que
   // abrían el mismo modal: éste y el propio botón "Buscar" de GlobalSearch).
@@ -53,16 +51,7 @@ export function Topbar() {
         >
           <Inbox size={16} />
         </Link>
-        <Link
-          href="/notificaciones"
-          title="Notificaciones"
-          className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-background text-muted-foreground transition-colors"
-        >
-          <Bell size={16} />
-          {sinLeer > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#C4695A]" />
-          )}
-        </Link>
+        <NotificationBell />
         <ProfileMenu />
       </div>
     </div>
