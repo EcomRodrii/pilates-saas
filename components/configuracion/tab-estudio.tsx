@@ -362,8 +362,10 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           Páginas de tu estudio para compartir con tus clientas.
         </p>
         <div className="space-y-2">
+          {/* F4·E5: enlace derivado de la sede activa; sin slug no se pinta (nunca un /reservar/ roto). */}
+          {studio?.slug && (
           <a
-            href={`/reservar/${studio?.slug ?? ''}`}
+            href={`/reservar/${studio.slug}`}
             target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-border hover:bg-muted transition-colors"
           >
@@ -374,6 +376,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
             </div>
             <ExternalLink size={13} className="text-muted-foreground shrink-0" />
           </a>
+          )}
           {/* CONGELADO (feature-freeze PMF): se quitó el enlace "Modo quiosco" →
               /kiosk/[slug]. Ver lib/frozen-features.ts. */}
         </div>
