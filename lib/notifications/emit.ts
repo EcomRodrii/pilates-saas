@@ -107,6 +107,33 @@ export async function emitirPagoFallido(
   }
 }
 
+// Clase casi llena (≥90% del aforo): a la propietaria. Dirigido por evento (al
+// crear una reserva), no por cron. Dedup por sesión → un aviso por clase.
+export async function emitirClaseCasiLlena(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string },
+): Promise<void> {
+  try {
+    const { data: ses } = await admin.from('sesiones').select('aforo_maximo').eq('id', p.sesionId).maybeSingle();
+    const aforo = Number(ses?.aforo_maximo ?? 0);
+    if (aforo <= 0) return;
+    const { count } = await admin.from('reservas')
+      .select('id', { count: 'exact', head: true })
+      .eq('sesion_id', p.sesionId).eq('estado', 'CONFIRMADA');
+    const ocupadas = count ?? 0;
+    const pct = Math.round((ocupadas / aforo) * 100);
+    if (pct < 90) return;
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    await publish({
+      type: EVENTOS.CLASE_CASI_LLENA, studioId: p.studioId,
+      data: { ...ctx, ocupadas, aforo, porcentaje: pct },
+      resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `casi-llena:${p.sesionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirClaseCasiLlena:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Sustitución aceptada: a la instructora que cubre (nueva clase asignada).
 export async function emitirSustitucionAceptada(
   admin: SupabaseClient, p: { studioId: string; sesionId: string; instructorId: string },

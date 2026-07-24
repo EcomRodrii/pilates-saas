@@ -1964,8 +1964,10 @@ export async function crearReservaPublica(params: {
   // espera y la propietaria "nueva reserva". Import dinámico para no arrastrar el
   // motor (node:crypto, Inngest) al bundle de cliente de este módulo.
   if (estado === 'CONFIRMADA' || estado === 'LISTA_ESPERA') {
-    const { emitirReserva } = await import('@/lib/notifications/emit');
+    const { emitirReserva, emitirClaseCasiLlena } = await import('@/lib/notifications/emit');
     await emitirReserva(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, estado: estado as 'CONFIRMADA' | 'LISTA_ESPERA' });
+    // Aviso a la dueña si la clase se acerca al lleno (≥90%).
+    if (estado === 'CONFIRMADA') await emitirClaseCasiLlena(admin, { studioId: params.studioId, sesionId: params.sesionId });
   }
   return { ok: true as const, estado, reservaId, spotAsignado };
 }

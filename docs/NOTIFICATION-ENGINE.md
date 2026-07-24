@@ -36,8 +36,12 @@ Acción de negocio
   `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`/`TWILIO_WHATSAPP_FROM`/`TWILIO_SMS_FROM`
   (WhatsApp/SMS). Sin ellas → SKIPPED (no rompe). ⚠️ WhatsApp iniciado por el
   negocio fuera de la ventana de 24 h necesita **plantilla aprobada** en Twilio.
-- **Siguiente:** más eventos del catálogo + automatizaciones (recordatorios 24 h/1 h,
-  bono a punto de caducar, aforo al 90 %, socia 30 días sin asistir).
+- **Automatizaciones (EN PROD):** `lib/inngest/notif-automations.ts` — 3 crons
+  (dispatcher→fan-out por estudio→worker) que detectan condiciones y publican
+  eventos: **recordatorio 24 h y 1 h** antes de la clase (cada 15 min),
+  **bono a punto de caducar** (≤7 días, cada mañana) y **clienta inactiva**
+  (30 días sin venir → aviso a la dueña, lunes). La **clase al 90 %** es
+  event-driven (al reservar). Idempotentes por `dedup_key`.
 
 ## Tablas y relaciones (migración 0087)
 

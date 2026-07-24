@@ -32,6 +32,12 @@ import {
   procesarConfirmacionCorteEstudio,
 } from '@/lib/inngest/confirmacion-riesgo';
 import { procesarNotificacion } from '@/lib/inngest/notifications';
+import {
+  notifRecordatoriosDispatcher,
+  notifBonosDispatcher,
+  notifInactivasDispatcher,
+  procesarAutomacionEstudio,
+} from '@/lib/inngest/notif-automations';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -59,5 +65,9 @@ export const { GET, POST, PUT } = serve({
     confirmacionRiesgoCorteDispatcher,
     procesarConfirmacionCorteEstudio,
     procesarNotificacion,
+    notifRecordatoriosDispatcher,
+    notifBonosDispatcher,
+    notifInactivasDispatcher,
+    procesarAutomacionEstudio,
   ],
 });
