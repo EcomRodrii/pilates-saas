@@ -38,6 +38,10 @@ import {
   notifInactivasDispatcher,
   procesarAutomacionEstudio,
 } from '@/lib/inngest/notif-automations';
+import {
+  backupsDispatcher,
+  procesarBackupsEstudio,
+} from '@/lib/inngest/backups';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -69,5 +73,7 @@ export const { GET, POST, PUT } = serve({
     notifBonosDispatcher,
     notifInactivasDispatcher,
     procesarAutomacionEstudio,
+    backupsDispatcher,
+    procesarBackupsEstudio,
   ],
 });
