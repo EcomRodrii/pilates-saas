@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode, useId } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol, Sesion, TipoClase } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, CalendarOff, Copy, Star, Search, LayoutGrid, List, MoreVertical, Camera, Loader2, Clock, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, CalendarOff, Copy, Star, Search, LayoutGrid, List, MoreVertical, Camera, Loader2, Clock, Download, ChevronLeft, ChevronRight, Plane, Stethoscope, AlertTriangle } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora, uid as generarId } from '@/lib/utils';
 import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
-import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, type EquipoStats, type ValoracionDetalle } from '@/lib/api-client';
+import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia, type EquipoStats, type ValoracionDetalle, type AusenciaInstructora } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
 
 type FiltroEstado = 'activas' | 'inactivas' | 'todas';
@@ -81,6 +81,7 @@ export default function EquipoPage() {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [verValor, setVerValor] = useState<Instructor | null>(null);
   const [verHoras, setVerHoras] = useState<Instructor | null>(null);
+  const [verAusencias, setVerAusencias] = useState<Instructor | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -305,6 +306,7 @@ export default function EquipoPage() {
               onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
               onValoraciones={() => { setMenuId(null); setVerValor(i); }}
               onHoras={() => { setMenuId(null); setVerHoras(i); }}
+              onAusencias={() => { setMenuId(null); setVerAusencias(i); }}
             />
           ))}
         </div>
@@ -318,6 +320,7 @@ export default function EquipoPage() {
               onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
               onValoraciones={() => { setMenuId(null); setVerValor(i); }}
               onHoras={() => { setMenuId(null); setVerHoras(i); }}
+              onAusencias={() => { setMenuId(null); setVerAusencias(i); }}
             />
           ))}
         </div>
@@ -477,6 +480,9 @@ export default function EquipoPage() {
       {/* Horas del mes de una instructora (desglose clase a clase + CSV) */}
       <HorasDialog instructor={verHoras} sesiones={sesiones} tiposClase={tiposClase} onClose={() => setVerHoras(null)} />
 
+      {/* Ausencias: vacaciones / baja médica (bloquean el ranking de sustituciones) */}
+      <AusenciasDialog instructor={verAusencias} onClose={() => setVerAusencias(null)} />
+
       {/* Delete confirm */}
       <Dialog open={confirmDel !== null} onOpenChange={open => !open && setConfirmDel(null)}>
         <DialogContent>
@@ -502,7 +508,7 @@ export default function EquipoPage() {
 
 type Val = { media: number; total: number } | undefined;
 type Asis = { pct: number; base: number } | undefined;
-type AccProps = { menuAbierto: boolean; onMenu: () => void; onEnlace: (scope: EnlaceScope) => void; onEdit: () => void; onDelete: () => void; onValoraciones: () => void; onHoras: () => void };
+type AccProps = { menuAbierto: boolean; onMenu: () => void; onEnlace: (scope: EnlaceScope) => void; onEdit: () => void; onDelete: () => void; onValoraciones: () => void; onHoras: () => void; onAusencias: () => void };
 
 function PillSelect({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options: [string, string][];
@@ -561,7 +567,7 @@ function StatCol({ valor, sub, star, borde, onClick }: { valor: ReactNode; sub: 
   return <div className={cls}>{inner}</div>;
 }
 
-function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoraciones, onHoras, tieneValoraciones }: AccProps & { tieneValoraciones: boolean }) {
+function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoraciones, onHoras, onAusencias, tieneValoraciones }: AccProps & { tieneValoraciones: boolean }) {
   return (
     <div className="flex items-center gap-1 shrink-0 relative">
       <button onClick={onEdit} title="Editar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
@@ -581,6 +587,9 @@ function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoracio
             )}
             <button onClick={onHoras} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
               <Clock size={14} className="text-muted-foreground" /> Horas del mes
+            </button>
+            <button onClick={onAusencias} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+              <Plane size={14} className="text-muted-foreground" /> Vacaciones y bajas
             </button>
             <button onClick={() => onEnlace('disponibilidad')} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
               <CalendarClock size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.disponibilidad.menu}
@@ -903,6 +912,139 @@ function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-40">
             <Download size={14} /> Exportar CSV
           </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Vacaciones y bajas de una instructora ───────────────────────────────────
+// Registrar una ausencia bloquea esas fechas en el motor de sustituciones: la
+// instructora deja de aparecer como candidata mientras dure (ver migración 0096,
+// que materializa un bloqueo por día en instructora_disponibilidad_excepciones).
+const TIPO_AUSENCIA_LABEL: Record<AusenciaInstructora['tipo'], string> = {
+  VACACIONES: 'Vacaciones', BAJA_MEDICA: 'Baja médica', OTRO: 'Otra ausencia',
+};
+
+function AusenciasDialog({ instructor, onClose }: { instructor: Instructor | null; onClose: () => void }) {
+  const [items, setItems] = useState<AusenciaInstructora[]>([]);
+  const [cargando, setCargando] = useState(false);
+  const [tipo, setTipo] = useState<AusenciaInstructora['tipo']>('VACACIONES');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+  const [aviso, setAviso] = useState('');
+
+  // Reinicia el formulario y carga las ausencias al abrir para otra instructora.
+  const instructorId = instructor?.id;
+  const cargar = useCallback(async (id: string) => {
+    setCargando(true); setError(''); setAviso('');
+    setTipo('VACACIONES'); setDesde(''); setHasta(''); setMotivo('');
+    setItems(await listarAusencias(id));
+    setCargando(false);
+  }, []);
+  // Falso positivo del compilador: los setState de cargar() son asíncronos
+  // (sincronización con la API), no una cascada de renders.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (instructorId) void cargar(instructorId); }, [instructorId, cargar]);
+
+  async function guardar() {
+    if (!instructor || !desde || !hasta || guardando) return;
+    if (hasta < desde) { setError('La fecha de fin es anterior a la de inicio.'); return; }
+    setGuardando(true); setError(''); setAviso('');
+    const r = await crearAusencia({ instructorId: instructor.id, tipo, desde, hasta, motivo });
+    setGuardando(false);
+    if ('error' in r) { setError(r.error); return; }
+    setAviso(r.clasesAfectadas > 0
+      ? `Guardada. Ojo: ${r.clasesAfectadas} ${r.clasesAfectadas === 1 ? 'clase suya cae' : 'clases suyas caen'} en esas fechas — hay que cubrirlas.`
+      : 'Guardada. No tiene clases en esas fechas.');
+    setDesde(''); setHasta(''); setMotivo('');
+    setItems(await listarAusencias(instructor.id));
+  }
+
+  async function borrar(id: string) {
+    if (!instructor) return;
+    setItems(prev => prev.filter(a => a.id !== id));
+    await borrarAusencia(id);
+    setItems(await listarAusencias(instructor.id));
+  }
+
+  const fmt = (iso: string) =>
+    new Date(`${iso}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return (
+    <Dialog open={instructor !== null} onOpenChange={open => !open && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Vacaciones y bajas · {instructor?.nombre}</DialogTitle>
+        </DialogHeader>
+
+        <p className="text-[12.5px] text-muted-foreground -mt-1 mb-3">
+          Mientras dure la ausencia no se le ofrecerán sustituciones ni saldrá como candidata.
+        </p>
+
+        {/* Alta */}
+        <div className="rounded-2xl border border-border bg-muted/30 p-3.5 space-y-2.5">
+          <div className="flex gap-1.5">
+            {(Object.keys(TIPO_AUSENCIA_LABEL) as AusenciaInstructora['tipo'][]).map(t => (
+              <button key={t} onClick={() => setTipo(t)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors ${tipo === t ? 'bg-brand text-brand-foreground' : 'bg-card border border-border text-muted-foreground hover:text-foreground'}`}>
+                {t === 'VACACIONES' ? <Plane size={12} /> : t === 'BAJA_MEDICA' ? <Stethoscope size={12} /> : <CalendarOff size={12} />}
+                {TIPO_AUSENCIA_LABEL[t]}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className={labelCls}>Desde</span>
+              <input type="date" value={desde} onChange={e => setDesde(e.target.value)} className={inputCls} />
+            </label>
+            <label className="block">
+              <span className={labelCls}>Hasta</span>
+              <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} min={desde || undefined} className={inputCls} />
+            </label>
+          </div>
+          <input value={motivo} onChange={e => setMotivo(e.target.value)}
+            placeholder="Nota (opcional, solo la ves tú)" className={inputCls} />
+          {error && <p className="text-[12.5px] text-destructive">{error}</p>}
+          {aviso && (
+            <p className="flex items-start gap-1.5 text-[12.5px] text-amber-700">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" />{aviso}
+            </p>
+          )}
+          <button onClick={guardar} disabled={!desde || !hasta || guardando}
+            className="w-full py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
+            {guardando ? 'Guardando…' : 'Registrar ausencia'}
+          </button>
+        </div>
+
+        {/* Lista */}
+        <div className="mt-3 max-h-[38vh] overflow-y-auto">
+          {cargando ? (
+            <p className="text-[13px] text-muted-foreground py-4 text-center">Cargando…</p>
+          ) : items.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground py-4 text-center">Sin ausencias registradas.</p>
+          ) : items.map(a => (
+            <div key={a.id} className="flex items-center gap-3 py-2.5 border-b border-border/60 last:border-0">
+              <span className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                {a.tipo === 'VACACIONES' ? <Plane size={14} className="text-muted-foreground" />
+                  : a.tipo === 'BAJA_MEDICA' ? <Stethoscope size={14} className="text-muted-foreground" />
+                  : <CalendarOff size={14} className="text-muted-foreground" />}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold text-foreground">{TIPO_AUSENCIA_LABEL[a.tipo]}</p>
+                <p className="text-[12px] text-muted-foreground">
+                  {fmt(a.desde)} → {fmt(a.hasta)}{a.motivo ? ` · ${a.motivo}` : ''}
+                </p>
+              </div>
+              <button onClick={() => borrar(a.id)} aria-label="Quitar ausencia"
+                className="shrink-0 text-muted-foreground/60 hover:text-destructive">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
         </div>
       </DialogContent>
     </Dialog>

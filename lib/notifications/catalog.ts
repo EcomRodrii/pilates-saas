@@ -60,6 +60,8 @@ export const EVENTOS = {
   RIESGO_DEPENDENCIA: 'riesgo.dependencia',
   // Equipo: la instructora avisa de que no puede dar una clase.
   INSTRUCTORA_BAJA: 'instructora.baja',
+  // Equipo: ausencia programada (vacaciones / baja médica / otro).
+  INSTRUCTORA_AUSENCIA: 'instructora.ausencia',
   // Sistema: cosas que rompen el negocio y exigen acción de la dueña.
   SISTEMA_STRIPE_DESCONECTADO: 'sistema.stripe_desconectado',
   SISTEMA_EMAIL_FALLIDO: 'sistema.email_fallido',
@@ -90,6 +92,9 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.RIESGO_DEPENDENCIA]:    { category: 'sistema',  priority: 'MEDIA', canales: [],       audiencia: 'propietaria' },
   // Equipo: hay una clase sin quien la dé → la dueña tiene que actuar YA.
   [EVENTOS.INSTRUCTORA_BAJA]:      { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'propietaria' },
+  // Ausencia programada: no es urgente (se registra con antelación), pero si deja
+  // clases sin cubrir la dueña tiene que verlo.
+  [EVENTOS.INSTRUCTORA_AUSENCIA]:  { category: 'sustituciones', priority: 'MEDIA', canales: [], audiencia: 'propietaria' },
   // Stripe desconectado = se deja de cobrar. CRÍTICA: ignora preferencias y usa
   // todos los canales configurados (nunca se pierde).
   [EVENTOS.SISTEMA_STRIPE_DESCONECTADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH'], audiencia: 'propietaria' },
@@ -236,6 +241,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Una instructora no puede dar su clase',
     body: '{instructora} no puede dar {clase} del {cuando}{motivo}. Buscando sustituta.',
     deepLink: () => `/sustituciones`,
+  },
+  [`${EVENTOS.INSTRUCTORA_AUSENCIA}#PROPIETARIO`]: {
+    title: 'Ausencia registrada: {tipoTexto}',
+    body: '{instructora} no estará del {desde} al {hasta}{clases}.',
+    deepLink: () => `/equipo`,
   },
   // ── Sistema ──
   [`${EVENTOS.SISTEMA_STRIPE_DESCONECTADO}#PROPIETARIO`]: {

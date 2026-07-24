@@ -931,6 +931,43 @@ export async function enviarEmailPromocion(params: DatosClaseEmailCliente & {
 }
 
 // Aviso a una socia de que su clase reservada ha sido cancelada por el estudio.
+// ── Ausencias de instructoras (vacaciones / baja médica) ─────────────────────
+export interface AusenciaInstructora {
+  id: string; instructorId: string;
+  tipo: 'VACACIONES' | 'BAJA_MEDICA' | 'OTRO';
+  desde: string; hasta: string; motivo: string | null;
+}
+
+export async function listarAusencias(instructorId?: string): Promise<AusenciaInstructora[]> {
+  const q = instructorId ? `?instructorId=${encodeURIComponent(instructorId)}` : '';
+  const res = await fetch(`/api/equipo/ausencias${q}`, { headers: await authHeader(), cache: 'no-store' });
+  if (!res.ok) return [];
+  const { items } = await res.json();
+  return items ?? [];
+}
+
+export async function crearAusencia(a: {
+  instructorId: string; tipo: string; desde: string; hasta: string; motivo?: string;
+}): Promise<{ ok: true; clasesAfectadas: number } | { error: string }> {
+  const res = await fetch('/api/equipo/ausencias', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify(a),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return { error: data.error ?? 'No se ha podido guardar' };
+  return { ok: true, clasesAfectadas: data.clasesAfectadas ?? 0 };
+}
+
+export async function borrarAusencia(id: string): Promise<boolean> {
+  const res = await fetch('/api/equipo/ausencias', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ id }),
+  });
+  return res.ok;
+}
+
 // Avisa (in-app/push) a las socias apuntadas de que su clase se ha cancelado.
 // El email lo manda aparte el panel; esto dispara el Notification Engine.
 export async function avisarClaseCancelada(sesionId: string): Promise<void> {
