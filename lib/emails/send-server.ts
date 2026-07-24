@@ -95,11 +95,28 @@ export async function enviarEmailTransaccional(params: {
     );
     if (error) {
       console.error('[send-server]', error);
+      await avisarFalloEmail(params.studioId, error.message);
       return { ok: false, error: error.message };
     }
     return { ok: true, id: data?.id };
   } catch (err) {
     console.error('[send-server]', err);
-    return { ok: false, error: err instanceof Error ? err.message : 'Error al enviar el email' };
+    const msg = err instanceof Error ? err.message : 'Error al enviar el email';
+    await avisarFalloEmail(params.studioId, msg);
+    return { ok: false, error: msg };
   }
+}
+
+// Notification Engine: avisa a la dueña de que los correos a sus clientas están
+// fallando (UNO al día por estudio, ver dedupKey del emisor). Sin studioId no se
+// sabe a quién avisar. Best-effort: nunca rompe el envío que ya falló.
+async function avisarFalloEmail(studioId: string | undefined, mensaje: string): Promise<void> {
+  if (!studioId) return;
+  try {
+    const { getSupabaseAdmin } = await import('@/lib/db/supabase-admin');
+    const admin = getSupabaseAdmin();
+    if (!admin) return;
+    const { emitirEmailFallido } = await import('@/lib/notifications/emit');
+    await emitirEmailFallido(admin, { studioId, error: mensaje });
+  } catch { /* best-effort */ }
 }

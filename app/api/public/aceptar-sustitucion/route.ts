@@ -61,6 +61,16 @@ export async function POST(req: NextRequest) {
     await admin.from('sustituciones')
       .update({ estado: 'pendiente_aprobacion' })
       .eq('id', sustitucionId).eq('studio_id', claim.studioId).eq('estado', 'contactando');
+    // Notification Engine: la dueña debe elegir a otra candidata.
+    const { data: sus } = await admin.from('sustituciones')
+      .select('sesion_id').eq('id', sustitucionId).eq('studio_id', claim.studioId).maybeSingle();
+    if (sus?.sesion_id) {
+      const { emitirSustitucionRechazada } = await import('@/lib/notifications/emit');
+      await emitirSustitucionRechazada(admin, {
+        studioId: claim.studioId, sesionId: sus.sesion_id as string,
+        instructorId: claim.instructorId, sustitucionId,
+      });
+    }
     return NextResponse.json({ ok: true, rechazado: true });
   }
 

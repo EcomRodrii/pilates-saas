@@ -25,6 +25,10 @@ export interface ReglaEvento {
   // 'PUSH' se intentará cuando el usuario tenga suscripción (PR2).
   canales: NotificationChannel[];
   audiencia: Audiencia;
+  // Canales PROHIBIDOS para este evento, pase lo que pase: ni por preferencia del
+  // usuario ni por ser CRÍTICA. Existe para casos con realimentación (avisar por
+  // email de que el email falla) o inadecuados por naturaleza.
+  excluye?: NotificationChannel[];
 }
 
 // Catálogo de eventos. Las claves son los `type` que publican los módulos.
@@ -51,6 +55,11 @@ export const EVENTOS = {
   // Operativos de la dueña (antes escribían a la tabla legacy `notificaciones`)
   SALUD_REVISION: 'salud.revision_pendiente',
   RIESGO_DEPENDENCIA: 'riesgo.dependencia',
+  // Equipo: la instructora avisa de que no puede dar una clase.
+  INSTRUCTORA_BAJA: 'instructora.baja',
+  // Sistema: cosas que rompen el negocio y exigen acción de la dueña.
+  SISTEMA_STRIPE_DESCONECTADO: 'sistema.stripe_desconectado',
+  SISTEMA_EMAIL_FALLIDO: 'sistema.email_fallido',
 } as const;
 
 // Reglas por evento. La 1ª tanda cableada de la Fase 1 cubre los 3 roles.
@@ -76,6 +85,14 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.SOCIA_INACTIVA]:        { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
   [EVENTOS.SALUD_REVISION]:        { category: 'sistema',  priority: 'MEDIA', canales: [],       audiencia: 'propietaria' },
   [EVENTOS.RIESGO_DEPENDENCIA]:    { category: 'sistema',  priority: 'MEDIA', canales: [],       audiencia: 'propietaria' },
+  // Equipo: hay una clase sin quien la dé → la dueña tiene que actuar YA.
+  [EVENTOS.INSTRUCTORA_BAJA]:      { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'propietaria' },
+  // Stripe desconectado = se deja de cobrar. CRÍTICA: ignora preferencias y usa
+  // todos los canales configurados (nunca se pierde).
+  [EVENTOS.SISTEMA_STRIPE_DESCONECTADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH'], audiencia: 'propietaria' },
+  // Email fallido: ALTA (no CRÍTICA) y SIN canal email a propósito — avisar por
+  // correo de que el correo falla sería absurdo y podría realimentarse.
+  [EVENTOS.SISTEMA_EMAIL_FALLIDO]: { category: 'sistema', priority: 'ALTA', canales: [], audiencia: 'propietaria', excluye: ['EMAIL'] },
 };
 
 // ── Plantillas ────────────────────────────────────────────────────────────────
@@ -200,6 +217,23 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Riesgo de concentración alto',
     body: '{instructora} concentra el {porcentaje}% de tu facturación en alumnas cautivas. Si se va, ese ingreso está en riesgo.',
     deepLink: () => `/dashboard`,
+  },
+  // ── Equipo ──
+  [`${EVENTOS.INSTRUCTORA_BAJA}#PROPIETARIO`]: {
+    title: 'Una instructora no puede dar su clase',
+    body: '{instructora} no puede dar {clase} del {cuando}{motivo}. Buscando sustituta.',
+    deepLink: () => `/sustituciones`,
+  },
+  // ── Sistema ──
+  [`${EVENTOS.SISTEMA_STRIPE_DESCONECTADO}#PROPIETARIO`]: {
+    title: 'Stripe desconectado — no puedes cobrar',
+    body: 'Se ha desconectado tu cuenta de Stripe: los cobros automáticos están parados. Vuelve a conectarla para seguir cobrando.',
+    deepLink: () => `/configuracion?tab=integraciones`,
+  },
+  [`${EVENTOS.SISTEMA_EMAIL_FALLIDO}#PROPIETARIO`]: {
+    title: 'Fallan los envíos de email',
+    body: 'Hoy no se han podido entregar algunos correos a tus clientas (último error: {error}). Revisa la configuración de email.',
+    deepLink: () => `/configuracion?tab=integraciones`,
   },
 };
 

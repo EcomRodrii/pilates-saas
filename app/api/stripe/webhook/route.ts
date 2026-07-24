@@ -424,10 +424,17 @@ export async function POST(req: NextRequest) {
         console.error('[stripe webhook] service role no configurada (deauthorized)');
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
+      // Qué estudios pierden el cobro (antes de limpiar el binding).
+      const { data: afectados } = await admin.from('studios').select('id').eq('stripe_account_id', accountId);
       const { error } = await admin.from('studios').update({ stripe_account_id: null }).eq('stripe_account_id', accountId);
       if (error) {
         console.error('[stripe webhook] no se pudo desvincular la cuenta desconectada', accountId, error);
         return NextResponse.json({ error: 'Fallo al desvincular la cuenta' }, { status: 500 });
+      }
+      // Notification Engine: aviso CRÍTICO a la dueña — se han parado los cobros.
+      const { emitirStripeDesconectado } = await import('@/lib/notifications/emit');
+      for (const s of afectados ?? []) {
+        await emitirStripeDesconectado(admin, { studioId: s.id as string });
       }
     }
   }
