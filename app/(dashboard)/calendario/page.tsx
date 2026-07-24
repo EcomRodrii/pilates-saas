@@ -22,6 +22,8 @@ import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSe
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
+import { AvisoSinBono } from '@/components/calendario/aviso-sin-bono';
+import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import type { Socio, Spot } from '@/lib/types';
 import { PageHeader } from '@/components/ui/page-header';
@@ -1296,10 +1298,11 @@ function WeekGrid({
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
+    suscripciones, planesTarifa,
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
-    addActividadReciente,
+    addActividadReciente, addRecibo,
   } = useStudio();
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
@@ -1336,6 +1339,8 @@ export default function Calendario() {
 
   // ── Toast ───────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<string | null>(null);
+  // F0 · E1 — socia sin bono válido añadida desde el panel: para y pide decisión.
+  const [avisoSinBono, setAvisoSinBono] = useState<{ sesionId: string; socioId: string } | null>(null);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3500);
@@ -1649,7 +1654,19 @@ export default function Calendario() {
   // Añade una socia a la clase informando del resultado (I-6): si la clase está
   // llena, va a lista de espera y se avisa con su posición — antes el estado se
   // descartaba y recepción le decía "ya estás dentro" a alguien en espera.
+  // F0 · E1: si la socia NO tiene entitlement válido (bono agotado/caducado o sin
+  // plan de sesiones; MENSUAL sí lo tiene), se PARA y se pide una decisión en vez
+  // de colarla gratis y en silencio.
   function handleAddReserva(sesionId: string, socioId: string) {
+    const hoyISO = new Date().toISOString().slice(0, 10);
+    if (!tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyISO)) {
+      setAvisoSinBono({ sesionId, socioId });
+      return;
+    }
+    confirmarAddReserva(sesionId, socioId);
+  }
+
+  function confirmarAddReserva(sesionId: string, socioId: string) {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
@@ -1658,6 +1675,35 @@ export default function Calendario() {
     setToast(estado === 'LISTA_ESPERA'
       ? `Clase llena — ${nombre} va a lista de espera (nº ${posicionEspera})`
       : `${nombre} añadida a la clase`);
+  }
+
+  // Precio de clase suelta: el de la sesión (precioPuntual) o, si no, el de un plan
+  // de tipo PUNTUAL del estudio. null/0 → no hay precio configurado.
+  const precioSueltaDe = (sesionId: string): number | null => {
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    return sesion?.precioPuntual ?? planesTarifa.find(p => p.tipo === 'PUNTUAL')?.precio ?? null;
+  };
+
+  function handleCobrarSuelta() {
+    if (!avisoSinBono) return;
+    const { sesionId, socioId } = avisoSinBono;
+    const precio = precioSueltaDe(sesionId);
+    if (precio != null && precio > 0) {
+      addRecibo({ socioId, suscripcionId: null, concepto: 'Clase suelta', importe: precio, fechaVencimiento: new Date().toISOString().slice(0, 10) });
+    }
+    confirmarAddReserva(sesionId, socioId);
+    setAvisoSinBono(null);
+    setToast(precio ? 'Clase suelta cobrada (recibo pendiente) y socia añadida' : 'Socia añadida');
+  }
+
+  function handleCortesiaSinBono() {
+    if (!avisoSinBono) return;
+    const { sesionId, socioId } = avisoSinBono;
+    const socio = socios.find(s => s.id === socioId);
+    const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'La clienta';
+    confirmarAddReserva(sesionId, socioId);
+    addActividadReciente('NUEVA_RESERVA', `Cortesía · ${nombre} añadida sin bono (sin cargo)`, socioId);
+    setAvisoSinBono(null);
   }
 
   // ── Label ────────────────────────────────────────────────────────────────────
@@ -2049,6 +2095,20 @@ export default function Calendario() {
           inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
         }))}
       />
+
+      {/* ── F0·E1: decisión al añadir a una socia sin bono válido ─────────────────── */}
+      {avisoSinBono && (
+        <AvisoSinBono
+          open
+          socioNombre={(() => { const s = socios.find(x => x.id === avisoSinBono.socioId); return s ? `${s.nombre} ${s.apellidos}` : 'La clienta'; })()}
+          socioId={avisoSinBono.socioId}
+          claseLabel={(() => { const ses = sesionesEnriquecidas.find(x => x.id === avisoSinBono.sesionId); const tc = ses ? tiposClase.find(t => t.id === ses.tipoClaseId) : null; return tc?.nombre ?? ''; })()}
+          precioSuelta={precioSueltaDe(avisoSinBono.sesionId)}
+          onCobrarSuelta={handleCobrarSuelta}
+          onCortesia={handleCortesiaSinBono}
+          onClose={() => setAvisoSinBono(null)}
+        />
+      )}
 
       {/* ── Toast ──────────────────────────────────────────────────────────────── */}
       {toast && (
