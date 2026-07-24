@@ -225,17 +225,27 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     // persona para la socia — reusarlos aquí tal cual sería el mismo tipo de
     // mezcla interno/cliente que el bug de OFRECER_DESCUENTO, solo que al
     // revés). Se genera un texto propio, siempre inequívocamente interno.
-    const admin = requireSupabaseAdmin();
-    const { error } = await admin.from('notificaciones').insert({
-      id: `noti-${base.id}`,
-      studio_id: studioId,
-      titulo: `Automatización: ${c.automatizacion.nombre}`,
-      texto: `Se ha disparado para ${c.socio.nombre} ${c.socio.apellidos}.`,
-      leida: false,
-      tipo: 'INFO',
-      enlace: `/socios/${c.socio.id}`,
-      creada_en: nowISO,
-    });
+    // Migrado al Notification Engine: escribía en la tabla legacy
+    // `notificaciones`, que ya no lee ninguna superficie (la campana y la bandeja
+    // usan el motor) → estos avisos se perdían sin que nadie los viera.
+    let error: { message: string } | null = null;
+    try {
+      const { publish } = await import('@/lib/notifications/engine');
+      const { EVENTOS } = await import('@/lib/notifications/catalog');
+      await publish({
+        type: EVENTOS.AUTOMATIZACION_DISPARADA,
+        studioId,
+        data: {
+          automatizacion: c.automatizacion.nombre,
+          socia: `${c.socio.nombre} ${c.socio.apellidos}`.trim(),
+          socioId: c.socio.id,
+        },
+        resource: { type: 'socio', id: c.socio.id },
+        dedupKey: `automatizacion:${base.id}`,
+      });
+    } catch (e) {
+      error = { message: e instanceof Error ? e.message : 'error al publicar el aviso' };
+    }
     log = error
       ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message }
       : { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Aviso interno creado para el equipo sobre ${c.socio.nombre}.` };
