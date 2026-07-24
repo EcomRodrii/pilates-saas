@@ -1,0 +1,52 @@
+-- 0094 · F2 (C1) — índices de cobertura para las 48 FK sin índice. Evitan seq
+-- scans en joins y cascadas de borrado a escala. CREATE INDEX normal (tablas
+-- pequeñas en prod → lock trivial; va en migración transaccional). Idempotente.
+
+create index if not exists idx_achievement_history_achievement_id on public.achievement_history (achievement_id);
+create index if not exists idx_achievement_progress_achievement_id on public.achievement_progress (achievement_id);
+create index if not exists idx_automation_logs_rule_id on public.automation_logs (rule_id);
+create index if not exists idx_avisos_hueco_studio_id on public.avisos_hueco (studio_id);
+create index if not exists idx_bloqueos_maquina_spot_id on public.bloqueos_maquina (spot_id);
+create index if not exists idx_bloqueos_maquina_studio_id on public.bloqueos_maquina (studio_id);
+create index if not exists idx_cadenas_owner_auth_user_id on public.cadenas (owner_auth_user_id);
+create index if not exists idx_challenge_history_challenge_id on public.challenge_history (challenge_id);
+create index if not exists idx_challenge_progress_challenge_id on public.challenge_progress (challenge_id);
+create index if not exists idx_citas_servicio_id on public.citas (servicio_id);
+create index if not exists idx_citas_disponibilidad_studio_id on public.citas_disponibilidad (studio_id);
+create index if not exists idx_comentarios_comunidad_post_id on public.comentarios_comunidad (post_id);
+create index if not exists idx_congelaciones_studio_id on public.congelaciones (studio_id);
+create index if not exists idx_instructor_dependency_snapshots_instructor_id on public.instructor_dependency_snapshots (instructor_id);
+create index if not exists idx_instructor_enlaces_vigentes_studio_id on public.instructor_enlaces_vigentes (studio_id);
+create index if not exists idx_instructora_disponibilidad_studio_id on public.instructora_disponibilidad (studio_id);
+create index if not exists idx_instructora_disponibilidad_excepciones_studio_id on public.instructora_disponibilidad_excepciones (studio_id);
+create index if not exists idx_mandatos_sepa_socio_id on public.mandatos_sepa (socio_id);
+create index if not exists idx_memoria_socio_socio_id on public.memoria_socio (socio_id);
+create index if not exists idx_notas_progreso_socio_id on public.notas_progreso (socio_id);
+create index if not exists idx_notification_preference_studio_id on public.notification_preference (studio_id);
+create index if not exists idx_plazas_fijas_sala_id on public.plazas_fijas (sala_id);
+create index if not exists idx_plazas_fijas_socio_id on public.plazas_fijas (socio_id);
+create index if not exists idx_plazas_fijas_tipo_clase_id on public.plazas_fijas (tipo_clase_id);
+create index if not exists idx_post_likes_studio_id on public.post_likes (studio_id);
+create index if not exists idx_push_subscription_studio_id on public.push_subscription (studio_id);
+create index if not exists idx_recibos_socio_id on public.recibos (socio_id);
+create index if not exists idx_recibos_suscripcion_id on public.recibos (suscripcion_id);
+create index if not exists idx_recomendacion_outcomes_recomendacion_id on public.recomendacion_outcomes (recomendacion_id);
+create index if not exists idx_recomendaciones_decision_session_id on public.recomendaciones (decision_session_id);
+create index if not exists idx_recomendaciones_socio_id on public.recomendaciones (socio_id);
+create index if not exists idx_recuperaciones_studio_id on public.recuperaciones (studio_id);
+create index if not exists idx_reservas_socio_id on public.reservas (socio_id);
+create index if not exists idx_respuestas_sesion_sesion_id on public.respuestas_sesion (sesion_id);
+create index if not exists idx_respuestas_sesion_studio_id on public.respuestas_sesion (studio_id);
+create index if not exists idx_reward_history_action_id on public.reward_history (action_id);
+create index if not exists idx_reward_history_rule_id on public.reward_history (rule_id);
+create index if not exists idx_reward_redemptions_catalog_item_id on public.reward_redemptions (catalog_item_id);
+create index if not exists idx_socio_excepciones_socio_id on public.socio_excepciones (socio_id);
+create index if not exists idx_spots_sala_id on public.spots (sala_id);
+create index if not exists idx_studios_cadena_id on public.studios (cadena_id);
+create index if not exists idx_suscripciones_socio_id on public.suscripciones (socio_id);
+create index if not exists idx_sustitucion_contactos_instructor_id on public.sustitucion_contactos (instructor_id);
+create index if not exists idx_sustitucion_contactos_studio_id on public.sustitucion_contactos (studio_id);
+create index if not exists idx_sustituciones_instructor_original_id on public.sustituciones (instructor_original_id);
+create index if not exists idx_sustituciones_sustituta_final_id on public.sustituciones (sustituta_final_id);
+create index if not exists idx_usuarios_studio_id on public.usuarios (studio_id);
+create index if not exists idx_valoraciones_sesion_id on public.valoraciones (sesion_id);
