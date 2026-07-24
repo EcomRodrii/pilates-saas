@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { DIAS_SEMANA, FRANJAS, NIVELES, DURACIONES, disponibilidadVacia } from '@/lib/portal-preferencias';
@@ -8,10 +8,14 @@ import type { Disponibilidad, NivelSocio } from '@/lib/types';
 import { useModo } from '@/lib/portal-modo';
 import { Check } from 'lucide-react';
 import { Card, Pill } from '@/components/portal/ui';
+import { portalAuthHeader } from '@/lib/api-client';
+import { fetchPreferencias, guardarPreferencia } from '@/lib/notifications/client';
+import { CATEGORIAS_POR_ROL, CATEGORIA_ETIQUETA } from '@/lib/notifications/catalog';
+import type { ModoTokens } from '@/lib/portal-modo';
 
 export default function PreferenciasPage() {
   const { session } = usePortalAuth();
-  const { instructores, tiposClase, preferenciasSocio, upsertPreferenciasSocio } = useStudio();
+  const { instructores, tiposClase, preferenciasSocio, upsertPreferenciasSocio, studio } = useStudio();
   const { t } = useModo();
   const socioId = session?.socioId;
   const prefs = preferenciasSocio.find(p => p.socioId === socioId);
@@ -95,6 +99,9 @@ export default function PreferenciasPage() {
           </div>
         </Card>
 
+        {/* Notificaciones: qué avisos quiere recibir la socia */}
+        {studio?.id && <AvisosSocia t={t} studioId={studio.id} microLabel={microLabel} />}
+
         {/* Instructor favorito */}
         <Card style={{ padding: 20 }}>
           <p style={{ ...microLabel, marginBottom: 12 }}>Instructor favorito</p>
@@ -167,5 +174,52 @@ export default function PreferenciasPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// ── Avisos de la socia: qué notificaciones quiere recibir (por categoría/canal).
+// Estilo del portal (tokens de tema); guarda al vuelo vía /api/notifications/preferences.
+function AvisosSocia({ t, studioId, microLabel }: { t: ModoTokens; studioId: string; microLabel: React.CSSProperties }) {
+  const cats = CATEGORIAS_POR_ROL.SOCIA;
+  const [prefs, setPrefs] = useState<Record<string, { inapp: boolean; push: boolean }>>({});
+
+  const cargar = useCallback(async () => {
+    setPrefs(await fetchPreferencias(portalAuthHeader) as Record<string, { inapp: boolean; push: boolean }>);
+  }, []);
+  // setState tras await (asíncrono) — falso positivo del lint del compilador.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  async function toggle(cat: string, canal: 'inapp' | 'push') {
+    const actual = prefs[cat] ?? { inapp: true, push: true };
+    const siguiente = { ...actual, [canal]: !actual[canal] };
+    setPrefs(p => ({ ...p, [cat]: siguiente }));
+    await guardarPreferencia(portalAuthHeader, studioId, cat, siguiente);
+  }
+
+  const chip = (on: boolean): React.CSSProperties => ({
+    fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer',
+    background: on ? 'var(--portal-brand)' : t.surface2, color: on ? 'var(--portal-brand-foreground)' : t.muted,
+  });
+
+  return (
+    <Card style={{ padding: 20 }}>
+      <p style={{ ...microLabel, marginBottom: 4 }}>Avisos</p>
+      <p style={{ fontSize: 12, color: t.muted, marginBottom: 14 }}>Elige qué quieres recibir y por dónde. Los avisos importantes de pago se envían siempre.</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {cats.map(cat => {
+          const p = prefs[cat] ?? { inapp: true, push: true };
+          return (
+            <div key={cat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: t.ink }}>{CATEGORIA_ETIQUETA[cat]}</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button type="button" onClick={() => toggle(cat, 'inapp')} style={chip(p.inapp)} aria-pressed={p.inapp}>App</button>
+                <button type="button" onClick={() => toggle(cat, 'push')} style={chip(p.push)} aria-pressed={p.push}>Push</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
