@@ -2048,6 +2048,19 @@ export async function ejecutarCancelacionReserva(
       await emitirPlazaLiberada(admin, { studioId: params.studioId, sesionId: cancelada.sesion_id as string, socioId: promSocioId });
     }
   }
+  // Notification Engine: confirmación a la socia de que su plaza ya no está.
+  // Clave cuando lo dispara el SISTEMA (corte por riesgo de plantón): si no, se
+  // queda sin plaza sin enterarse.
+  if (cancelada?.socio_id && cancelada?.sesion_id) {
+    const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
+    await emitirReservaCancelada(admin, {
+      studioId: params.studioId,
+      sesionId: cancelada.sesion_id as string,
+      socioId: cancelada.socio_id as string,
+      reservaId: params.reservaId,
+    });
+  }
+
   // S-1: cancelar baja RESERVAS_TOTALES, así que se re-evalúa para que el
   // progreso mostrado (logros y retos) siga siendo cierto. Un logro YA conseguido
   // no se revoca (el bucle salta los completados), igual que hacía la evaluación
