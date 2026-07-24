@@ -227,15 +227,13 @@ function AvisosSocia({ t, studioId, microLabel }: { t: ModoTokens; studioId: str
 
       {permiso !== 'unsupported' && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 14, background: t.surface2, marginBottom: 14 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: t.ink }}>
-            {permiso === 'granted' ? 'Notificaciones activadas en este dispositivo' : 'Recibir avisos en este dispositivo'}
-          </span>
-          {permiso !== 'granted' && (
-            <button type="button" onClick={habilitarPush} disabled={activando || permiso === 'denied'}
-              style={{ fontSize: 12, fontWeight: 800, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer', background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', opacity: (activando || permiso === 'denied') ? 0.5 : 1 }}>
-              {activando ? '…' : permiso === 'denied' ? 'Bloqueado' : 'Activar'}
-            </button>
-          )}
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: t.ink }}>Avisos en este dispositivo</span>
+          {/* Botón SIEMPRE presente: aunque el permiso ya esté concedido puede no
+              haber suscripción (falló antes) → hay que poder (re)activar. */}
+          <button type="button" onClick={habilitarPush} disabled={activando || permiso === 'denied'}
+            style={{ fontSize: 12, fontWeight: 800, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer', background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', opacity: (activando || permiso === 'denied') ? 0.5 : 1 }}>
+            {activando ? '…' : permiso === 'denied' ? 'Bloqueado' : permiso === 'granted' ? 'Reactivar' : 'Activar'}
+          </button>
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
