@@ -9,11 +9,13 @@ import type { NotificationEvent, Recipient } from './types.ts';
 
 async function propietaria(admin: SupabaseClient, studioId: string): Promise<Recipient[]> {
   const { data } = await admin.from('studios')
-    .select('nombre, owner_auth_user_id, email').eq('id', studioId).maybeSingle();
+    .select('nombre, owner_auth_user_id, email, telefono').eq('id', studioId).maybeSingle();
   if (!data?.owner_auth_user_id) return [];
   return [{
     role: 'PROPIETARIO', userId: data.owner_auth_user_id as string,
-    nombre: (data.nombre as string | null) ?? 'Propietaria', email: (data.email as string | null) ?? null,
+    nombre: (data.nombre as string | null) ?? 'Propietaria',
+    email: (data.email as string | null) ?? null,
+    telefono: (data.telefono as string | null) ?? null,
   }];
 }
 

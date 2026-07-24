@@ -1,8 +1,31 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { procesarEvento } from './process.ts';
-import { EVENTOS } from './catalog.ts';
+import { procesarEvento, canalesExtraDe, type Preferencia } from './process.ts';
+import { EVENTOS, REGLAS } from './catalog.ts';
 import type { NotificationEvent } from './types.ts';
+
+const PREF = (p: Partial<Preferencia> = {}): Preferencia =>
+  ({ inapp: true, push: true, email: false, whatsapp: false, sms: false, ...p });
+
+test('canales: por defecto solo PUSH cuando la regla lo trae (opt-in email/wa/sms)', () => {
+  const r = REGLAS[EVENTOS.RESERVA_CONFIRMADA]; // canales: [PUSH]
+  assert.deepEqual(canalesExtraDe(r, PREF(), false), ['PUSH']);
+});
+
+test('canales: email/WhatsApp/SMS solo si el usuario los activa', () => {
+  const r = REGLAS[EVENTOS.PAGO_FALLIDO];
+  assert.deepEqual(canalesExtraDe(r, PREF({ email: true, whatsapp: true }), false).sort(), ['EMAIL', 'PUSH', 'WHATSAPP']);
+});
+
+test('canales: un evento sin PUSH por defecto no hace push aunque la pref esté ON', () => {
+  const r = REGLAS[EVENTOS.RESERVA_CREADA]; // canales: []
+  assert.deepEqual(canalesExtraDe(r, PREF({ push: true }), false), []);
+});
+
+test('canales: una CRÍTICA fuerza todos los canales', () => {
+  const r = REGLAS[EVENTOS.SISTEMA_ERROR]; // priority CRITICA
+  assert.deepEqual(canalesExtraDe(r, PREF({ email: false }), true).sort(), ['EMAIL', 'PUSH', 'SMS', 'WHATSAPP']);
+});
 
 // Fake del cliente Supabase admin: registra inserts en memoria y simula el choque
 // de dedup (23505). Sin preferencias (→ valores por defecto). Suficiente para
