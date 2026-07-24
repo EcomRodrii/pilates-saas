@@ -4053,6 +4053,25 @@ export async function dbConsumirSesionBono(
   return { ok: true, saldo: data as number };
 }
 
+// F1 (B1-B4): agregación de ingresos SERVER-SIDE (migr 0091). Sustituye al sum()
+// sobre el array de recibos del cliente (capado a 1000 → mentía a escala). Un sum()
+// en SQL agrega todas las filas; la RLS acota por estudio. `desde` = 'YYYY-MM-DD' o
+// null (todo el histórico).
+export async function dbInformeIngresos(
+  desde: string | null,
+): Promise<{ total: number; nCobrados: number; nSocias: number }> {
+  const { data, error } = await supabase.rpc('informe_ingresos', { p_desde: desde });
+  if (error) { reportDbError('[dbInformeIngresos]', error); return { total: 0, nCobrados: 0, nSocias: 0 }; }
+  const row = (Array.isArray(data) ? data[0] : data) as { total_ingresos: number; n_cobrados: number; n_socias_unicas: number } | undefined;
+  return { total: Number(row?.total_ingresos ?? 0), nCobrados: Number(row?.n_cobrados ?? 0), nSocias: Number(row?.n_socias_unicas ?? 0) };
+}
+
+export async function dbIngresosPorDia(desde: string | null): Promise<{ dia: string; total: number }[]> {
+  const { data, error } = await supabase.rpc('ingresos_por_dia', { p_desde: desde });
+  if (error) { reportDbError('[dbIngresosPorDia]', error); return []; }
+  return ((data ?? []) as { dia: string; total: number }[]).map((r) => ({ dia: r.dia, total: Number(r.total) }));
+}
+
 export async function dbInsertRewardCatalogItem(c: RewardCatalogItem) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
