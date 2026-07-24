@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
+import { dbInformeIngresos, dbIngresosPorDia } from '@/lib/supabase-data';
 import { TrendingUp, Users, CreditCard, Activity, Download, FileText } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
@@ -141,6 +142,8 @@ export default function Informes() {
   const [csvState, setCsvState] = useState<ExportState>('idle');
   const [pdfState, setPdfState] = useState<ExportState>('idle');
   const [mounted, setMounted] = useState(false);
+  // F1 (B1-B4): agregados de dinero calculados en el SERVIDOR (RPC, sin cap 1000).
+  const [agg, setAgg] = useState<{ total: number; nSocias: number; mrr: number; porDia: { dia: string; total: number }[] } | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -149,46 +152,42 @@ export default function Informes() {
   // ─── Period bounds ──────────────────────────────────────────────────────────
   const periodStart = useMemo(() => getPeriodStart(period, now), [period, mounted]);
 
+  // F1: trae los ingresos agregados del servidor al montar y al cambiar de período.
+  useEffect(() => {
+    if (!mounted) return;
+    const desde = localDate(periodStart);
+    const mesInicio = localDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    let cancel = false;
+    void Promise.all([dbInformeIngresos(desde), dbInformeIngresos(mesInicio), dbIngresosPorDia(desde)])
+      .then(([per, mes, dias]) => { if (!cancel) setAgg({ total: per.total, nSocias: per.nSocias, mrr: mes.total, porDia: dias }); });
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, mounted]);
+
   // ─── Revenue chart buckets ──────────────────────────────────────────────────
   const revenueChart = useMemo((): Bucket[] => {
     const buckets = getChartBuckets(period, now);
     const map: Record<string, number> = {};
     buckets.forEach(b => { map[b.key] = 0; });
 
-    recibos
-      .filter(r => r.estado === 'COBRADO' && r.fechaCobro && new Date(r.fechaCobro) >= periodStart)
-      .forEach(r => {
-        const k = getBucketKey(period, new Date(r.fechaCobro!));
-        if (k in map) map[k] = (map[k] ?? 0) + r.importe;
-      });
+    // F1: sobre los ingresos diarios del SERVIDOR (sin capar), no sobre el array de
+    // recibos del cliente. 'YYYY-MM-DD' → mediodía local para no cruzar de día.
+    (agg?.porDia ?? []).forEach(d => {
+      const k = getBucketKey(period, new Date(`${d.dia}T12:00:00`));
+      if (k in map) map[k] = (map[k] ?? 0) + d.total;
+    });
 
     return buckets.map(b => ({ ...b, value: map[b.key] ?? 0 }));
-  }, [recibos, period, mounted]);
+  }, [agg, period, mounted]);
 
-  // ─── KPI: Total ingresos del período ───────────────────────────────────────
-  const totalIngresos = useMemo(
-    () => recibos
-      .filter(r => r.estado === 'COBRADO' && r.fechaCobro && new Date(r.fechaCobro) >= periodStart)
-      .reduce((s, r) => s + r.importe, 0),
-    [recibos, periodStart]
-  );
+  // ─── KPI: Total ingresos del período (server-side, F1) ──────────────────────
+  const totalIngresos = agg?.total ?? 0;
 
-  // ─── KPI: MRR ──────────────────────────────────────────────────────────────
-  const mrr = useMemo(() => {
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    return recibos
-      .filter(r => r.estado === 'COBRADO' && r.fechaCobro && getBucketKey('quarter', new Date(r.fechaCobro)) === currentMonthKey)
-      .reduce((s, r) => s + r.importe, 0);
-  }, [recibos, mounted]);
+  // ─── KPI: MRR — ingresos del mes en curso (server-side, F1) ─────────────────
+  const mrr = agg?.mrr ?? 0;
 
-  // ─── KPI: Ticket medio ──────────────────────────────────────────────────────
-  const ticketMedio = useMemo(() => {
-    const cobrados = recibos.filter(r => r.estado === 'COBRADO' && r.fechaCobro && new Date(r.fechaCobro) >= periodStart);
-    const uniqueSocias = new Set(cobrados.map(r => r.socioId)).size;
-    const total = cobrados.reduce((s, r) => s + r.importe, 0);
-    return uniqueSocias > 0 ? total / uniqueSocias : 0;
-  }, [recibos, periodStart]);
+  // ─── KPI: Ticket medio (server-side, F1) ────────────────────────────────────
+  const ticketMedio = agg && agg.nSocias > 0 ? agg.total / agg.nSocias : 0;
 
   // ─── KPI: Tasa retención ────────────────────────────────────────────────────
   const tasaRetencion = useMemo(() => {
