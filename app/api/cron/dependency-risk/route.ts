@@ -29,32 +29,27 @@ export async function GET(req: NextRequest) {
 
   try {
     const resultados = await calcularDependenciaTodosLosEstudios(admin);
-    const ahora = new Date().toISOString();
+    const mes = new Date().toISOString().slice(0, 7);
 
-    // Una notificación por instructor que ACABA de pasar a ALTO.
-    const notificaciones = resultados.flatMap(({ studioId, transiciones }) =>
-      transiciones.map(t => ({
-        id: `noti-dep-${studioId}-${t.instructorId}-${Date.now()}`,
-        studio_id: studioId,
-        titulo: 'Riesgo de concentración alto',
-        texto: `${t.nombre || 'Un instructor'} concentra el ${t.porcentaje}% de tu facturación en alumnas cautivas. Si se va, ese ingreso está en riesgo.`,
-        leida: false,
-        tipo: 'AVISO',
-        enlace: '/dashboard',
-        creada_en: ahora,
-      })),
-    );
-
-    if (notificaciones.length > 0) {
-      const { error } = await admin.from('notificaciones').insert(notificaciones);
-      if (error) throw new Error(error.message);
+    // Migrado al Notification Engine: se publica un evento por instructor que
+    // ACABA de pasar a ALTO → la dueña lo recibe en su centro. Idempotente por
+    // dedupKey (instructor + mes) para no repetir el mismo aviso.
+    const { publish } = await import('@/lib/notifications/engine');
+    const { EVENTOS } = await import('@/lib/notifications/catalog');
+    let alertas = 0;
+    for (const { studioId, transiciones } of resultados) {
+      for (const t of transiciones) {
+        await publish({
+          type: EVENTOS.RIESGO_DEPENDENCIA, studioId,
+          data: { instructora: t.nombre || 'Un instructor', porcentaje: t.porcentaje, instructorId: t.instructorId },
+          resource: { type: 'instructor', id: t.instructorId },
+          dedupKey: `riesgo-dep:${t.instructorId}:${mes}`,
+        });
+        alertas++;
+      }
     }
 
-    return NextResponse.json({
-      ok: true,
-      estudios: resultados.length,
-      alertasCreadas: notificaciones.length,
-    });
+    return NextResponse.json({ ok: true, estudios: resultados.length, alertasCreadas: alertas });
   } catch (e) {
     Sentry.captureException(e);
     return errorInterno('cron:dependency-risk', e,

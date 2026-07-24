@@ -1645,12 +1645,6 @@ export async function generarRecordatoriosRevision(nowISO: string, umbralDias = 
     return { condicionesActivas: condiciones.length, recordatorios: 0, notificacionesCreadas: 0 };
   }
 
-  // Dedup: enlaces de avisos de revisión creados en los últimos 30 días.
-  const cutoff = new Date(hoy.getTime() - 30 * 86_400_000).toISOString();
-  const { data: notis } = await admin
-    .from('notificaciones').select('enlace').gt('creada_en', cutoff).like('enlace', '%?rev=%');
-  const yaAvisado = new Set((notis ?? []).map(n => n.enlace as string));
-
   // Nombres de las socias implicadas (en lotes para no exceder el filtro `in`).
   const socioIds = [...new Set(recordatorios.map(r => r.condicion.socioId))];
   const nombrePorSocio = new Map<string, string>();
@@ -1660,29 +1654,22 @@ export async function generarRecordatoriosRevision(nowISO: string, umbralDias = 
     for (const s of socias ?? []) nombrePorSocio.set(s.id as string, `${s.nombre} ${s.apellidos}`.trim());
   }
 
-  const nuevas = recordatorios
-    .map(r => {
-      const enlace = `/socios/${r.condicion.socioId}?rev=${r.condicion.id}`;
-      if (yaAvisado.has(enlace)) return null;
-      const nombre = nombrePorSocio.get(r.condicion.socioId) ?? 'Una socia';
-      return {
-        id: `noti-${uid()}`,
-        studio_id: r.condicion.studioId,
-        titulo: 'Revisión de ficha de salud',
-        texto: textoRecordatorioRevision(nombre, r),
-        leida: false,
-        tipo: 'AVISO',
-        enlace,
-        creada_en: nowISO,
-      };
-    })
-    .filter((n): n is NonNullable<typeof n> => n !== null);
-
-  if (nuevas.length > 0) {
-    const { error: insErr } = await admin.from('notificaciones').insert(nuevas);
-    if (insErr) throw new Error(insErr.message);
+  // Migrado al Notification Engine: se PUBLICA un evento por revisión pendiente
+  // (la dueña lo recibe en su centro). La idempotencia la garantiza el dedupKey
+  // (por condición y mes) — sustituye al viejo dedup por enlace de 30 días.
+  const { publish } = await import('@/lib/notifications/engine');
+  const { EVENTOS } = await import('@/lib/notifications/catalog');
+  const mes = nowISO.slice(0, 7);
+  for (const r of recordatorios) {
+    const nombre = nombrePorSocio.get(r.condicion.socioId) ?? 'Una socia';
+    await publish({
+      type: EVENTOS.SALUD_REVISION, studioId: r.condicion.studioId,
+      data: { mensaje: textoRecordatorioRevision(nombre, r), socia: nombre, socioId: r.condicion.socioId, condId: r.condicion.id },
+      resource: { type: 'socio', id: r.condicion.socioId },
+      dedupKey: `salud-rev:${r.condicion.id}:${mes}`,
+    });
   }
-  return { condicionesActivas: condiciones.length, recordatorios: recordatorios.length, notificacionesCreadas: nuevas.length };
+  return { condicionesActivas: condiciones.length, recordatorios: recordatorios.length, notificacionesCreadas: recordatorios.length };
 }
 
 // Barrido de no-shows: marca NO_ASISTIO toda reserva que siga CONFIRMADA en una
