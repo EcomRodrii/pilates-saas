@@ -213,18 +213,42 @@ export function setDbErrorListener(fn: DbErrorListener | null) {
   dbErrorListener = fn;
 }
 
+// Fallos de RED del cliente (fetch abortado al cambiar de app en el móvil, red
+// intermitente, offline, DNS): el runtime de fetch lanza un TypeError genérico
+// ("Load failed" en Safari, "Failed to fetch" en Chrome) o un AbortError, SIN
+// código de Postgres. No son bugs de la app ni errores de BD accionables; si se
+// mandan a Sentry ensucian `area: db` con falsos "usuarios afectados" (Sentry
+// NEXTJS-K). Se detectan por el mensaje/nombre del runtime, que un error real de
+// Postgres (con `code` 23xxx/42xxx/PGRST…) nunca trae.
+function esErrorDeRedCliente(error: unknown): boolean {
+  const e = error as { message?: unknown; name?: unknown } | null;
+  if (e?.name === 'AbortError') return true;
+  const msg = error instanceof Error
+    ? error.message
+    : typeof error === 'string'
+      ? error
+      : typeof e?.message === 'string'
+        ? e.message
+        : '';
+  return /load failed|failed to fetch|networkerror|network request failed|the operation was aborted/i.test(msg);
+}
+
 function reportDbError(tag: string, error: unknown) {
   console.error(tag, error);
   // A-6: los fallos de escritura de DB llegan a Sentry (antes solo console.error
   // + un toast → invisibles en producción). Tag por estudio para agrupar por
   // tenant. No-op si Sentry no está inicializado (DSN sin definir).
-  try {
-    Sentry.captureException(
-      error instanceof Error ? error : new Error(`${tag}: ${typeof error === 'string' ? error : JSON.stringify(error)}`),
-      { tags: { area: 'db', studioId: STUDIO_ID || 'desconocido' }, extra: { op: tag } },
-    );
-  } catch {
-    /* nunca dejar que el reporte rompa una escritura */
+  // Los fallos de RED del cliente se registran en consola y alimentan el toast,
+  // pero NO se envían a Sentry (ruido no accionable, no un error de BD).
+  if (!esErrorDeRedCliente(error)) {
+    try {
+      Sentry.captureException(
+        error instanceof Error ? error : new Error(`${tag}: ${typeof error === 'string' ? error : JSON.stringify(error)}`),
+        { tags: { area: 'db', studioId: STUDIO_ID || 'desconocido' }, extra: { op: tag } },
+      );
+    } catch {
+      /* nunca dejar que el reporte rompa una escritura */
+    }
   }
   try {
     dbErrorListener?.(tag, error);
