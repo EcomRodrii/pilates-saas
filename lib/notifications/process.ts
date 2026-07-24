@@ -10,15 +10,29 @@
 import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
-import { REGLAS, plantillaDe, render } from './catalog.ts';
+import { REGLAS, plantillaDe, render, type ReglaEvento } from './catalog.ts';
 import { resolverDestinatarios } from './recipients.ts';
 import { CANALES } from './channels.ts';
 import type {
   NotificationCategory, NotificationChannel, NotificationEvent, NotificationRow, Recipient,
 } from './types.ts';
 
-interface Preferencia { inapp: boolean; push: boolean; email: boolean; whatsapp: boolean; sms: boolean; }
+export interface Preferencia { inapp: boolean; push: boolean; email: boolean; whatsapp: boolean; sms: boolean; }
 const PREF_DEFECTO: Preferencia = { inapp: true, push: true, email: false, whatsapp: false, sms: false };
+
+// Canales EXTRA (además del in-app) para un destinatario. Reglas:
+//  · PUSH: solo en eventos que lo traen por defecto (regla.canales) y si no lo apagó.
+//  · EMAIL/WhatsApp/SMS: dirigidos por PREFERENCIA (opt-in; off por defecto) — si
+//    el usuario los activa para esa categoría, se envían. Las CRÍTICAS fuerzan
+//    todos los canales (los no configurados devuelven SKIPPED, no se pierde nada).
+export function canalesExtraDe(regla: ReglaEvento, pref: Preferencia, critica: boolean): NotificationChannel[] {
+  const out: NotificationChannel[] = [];
+  if (regla.canales.includes('PUSH') && (critica || pref.push)) out.push('PUSH');
+  if (critica || pref.email) out.push('EMAIL');
+  if (critica || pref.whatsapp) out.push('WHATSAPP');
+  if (critica || pref.sms) out.push('SMS');
+  return out;
+}
 
 async function preferenciaDe(admin: SupabaseClient, userId: string, category: NotificationCategory): Promise<Preferencia> {
   const { data } = await admin.from('notification_preference')
@@ -48,7 +62,7 @@ export async function procesarEvento(admin: SupabaseClient, event: NotificationE
     const critica = regla.priority === 'CRITICA';
     const pref = dest.userId ? await preferenciaDe(admin, dest.userId, regla.category) : PREF_DEFECTO;
     const quiereInapp = critica || pref.inapp;
-    const canalesExtra = regla.canales.filter(c => critica || pref[c.toLowerCase() as keyof Preferencia]);
+    const canalesExtra = canalesExtraDe(regla, pref, critica);
 
     if (!quiereInapp && canalesExtra.length === 0) { omitidas++; continue; }
 

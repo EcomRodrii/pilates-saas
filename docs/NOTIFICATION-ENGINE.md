@@ -28,8 +28,16 @@ Acción de negocio
 - **Fase 1b:** centros de notificación visibles (campana + bandeja) para los 3
   roles, API de lectura/marcado, preferencias y Notification Center (vista admin).
 - **PR2:** Web Push real (Service Worker + VAPID + `push_subscription` + web-push).
-- **PR3:** canales EMAIL / WhatsApp / SMS (adaptadores sobre `lib/emails/*` y
-  `lib/twilio.ts`) y más eventos + automatizaciones.
+- **PR3 (EN PROD):** canales EMAIL / WhatsApp / SMS implementados en
+  `channels.ts` (email = Resend con marca del estudio; WhatsApp/SMS = `lib/twilio.ts`).
+  Son **opt-in**: off por defecto en preferencias; se envían solo si el usuario
+  los activa para esa categoría (las CRÍTICAS fuerzan todos los canales). Requieren
+  env vars: `RESEND_API_KEY`/`RESEND_FROM` (email, ya en uso) y
+  `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`/`TWILIO_WHATSAPP_FROM`/`TWILIO_SMS_FROM`
+  (WhatsApp/SMS). Sin ellas → SKIPPED (no rompe). ⚠️ WhatsApp iniciado por el
+  negocio fuera de la ventana de 24 h necesita **plantilla aprobada** en Twilio.
+- **Siguiente:** más eventos del catálogo + automatizaciones (recordatorios 24 h/1 h,
+  bono a punto de caducar, aforo al 90 %, socia 30 días sin asistir).
 
 ## Tablas y relaciones (migración 0087)
 
