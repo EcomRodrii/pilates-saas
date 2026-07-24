@@ -94,10 +94,12 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
             : 'Recibe avisos en el móvil/ordenador aunque no tengas Tentare abierto.'}
         </p>
       </div>
-      {permiso !== 'granted' && permiso !== 'unsupported' && (
+      {/* Botón SIEMPRE presente (salvo no soportado): aunque el permiso ya esté
+          concedido puede no haber suscripción (falló antes) → poder reactivar. */}
+      {permiso !== 'unsupported' && (
         <button onClick={habilitarPush} disabled={activando || permiso === 'denied'}
           className="shrink-0 px-3.5 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-50">
-          {activando ? 'Activando…' : 'Activar'}
+          {activando ? 'Activando…' : permiso === 'granted' ? 'Reactivar' : 'Activar'}
         </button>
       )}
     </div>
