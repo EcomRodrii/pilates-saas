@@ -16,7 +16,10 @@ export type Audiencia =
   | 'propietaria'
   | 'instructora-del-evento'
   | 'socias-de-la-sesion'
-  | 'propietaria-y-socia';
+  // Staff de mostrador: la dueña + las recepcionistas activas. Si el estudio no
+  // tiene recepción, resuelve solo a la dueña (comportamiento previo intacto).
+  | 'mostrador'
+  | 'mostrador-y-socia';
 
 export interface ReglaEvento {
   category: NotificationCategory;
@@ -55,7 +58,7 @@ export const EVENTOS = {
 
 // Reglas por evento. La 1ª tanda cableada de la Fase 1 cubre los 3 roles.
 export const REGLAS: Record<string, ReglaEvento> = {
-  [EVENTOS.RESERVA_CREADA]:        { category: 'reservas', priority: 'BAJA',   canales: [],       audiencia: 'propietaria' },
+  [EVENTOS.RESERVA_CREADA]:        { category: 'reservas', priority: 'BAJA',   canales: [],       audiencia: 'mostrador' },
   [EVENTOS.RESERVA_CONFIRMADA]:    { category: 'reservas', priority: 'MEDIA',  canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_LISTA_ESPERA]:  { category: 'reservas', priority: 'MEDIA',  canales: [],       audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_PLAZA_LIBERADA]:{ category: 'reservas', priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
@@ -64,7 +67,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.CLASE_MODIFICADA]:      { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
   [EVENTOS.SUSTITUCION_ACEPTADA]:  { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
   [EVENTOS.SUSTITUCION_RECHAZADA]: { category: 'sustituciones', priority: 'ALTA', canales: [],     audiencia: 'propietaria' },
-  [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'propietaria-y-socia' },
+  [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'mostrador-y-socia' },
   [EVENTOS.PAGO_REALIZADO]:        { category: 'pagos',    priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
   [EVENTOS.SISTEMA_ERROR]:         { category: 'sistema',  priority: 'CRITICA', canales: ['PUSH'], audiencia: 'propietaria' },
   // Automatizaciones
@@ -91,8 +94,13 @@ type Datos = Record<string, unknown>;
 const s = (v: unknown, def = '') => (v == null ? def : String(v));
 
 export const PLANTILLAS: Record<string, Plantilla> = {
-  // Reserva creada → la dueña (nueva inscripción)
+  // Reserva creada → la dueña y el mostrador (nueva inscripción)
   [`${EVENTOS.RESERVA_CREADA}#PROPIETARIO`]: {
+    title: 'Nueva reserva',
+    body: '{socia} ha reservado {clase} el {cuando}.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.RESERVA_CREADA}#RECEPCION`]: {
     title: 'Nueva reserva',
     body: '{socia} ha reservado {clase} el {cuando}.',
     deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
@@ -140,8 +148,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: '{instructora} no puede cubrir {clase} del {cuando}. Busca otra opción.',
     deepLink: () => `/sustituciones`,
   },
-  // Pago fallido → dueña y socia (mismo evento, textos por rol)
+  // Pago fallido → dueña, mostrador y socia (mismo evento, textos por rol)
   [`${EVENTOS.PAGO_FALLIDO}#PROPIETARIO`]: {
+    title: 'Pago fallido',
+    body: 'No se ha podido cobrar {concepto} ({importe} €) a {socia}.',
+    deepLink: () => `/cobros?tab=pendientes`,
+  },
+  [`${EVENTOS.PAGO_FALLIDO}#RECEPCION`]: {
     title: 'Pago fallido',
     body: 'No se ha podido cobrar {concepto} ({importe} €) a {socia}.',
     deepLink: () => `/cobros?tab=pendientes`,
@@ -226,5 +239,8 @@ export const CATEGORIA_ETIQUETA: Record<NotificationCategory, string> = {
 export const CATEGORIAS_POR_ROL: Record<NotificationRole, NotificationCategory[]> = {
   PROPIETARIO: ['reservas', 'clases', 'sustituciones', 'pagos', 'sistema'],
   INSTRUCTOR: ['clases', 'sustituciones'],
+  // Recepción = mostrador: lo operativo que gestiona (reservas nuevas, cobros
+  // fallidos). No configura marketing/informes/sistema (fuera de su rol).
+  RECEPCION: ['reservas', 'pagos'],
   SOCIA: ['reservas', 'clases', 'pagos', 'marketing'],
 };
