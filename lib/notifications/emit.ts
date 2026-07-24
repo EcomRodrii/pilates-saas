@@ -64,6 +64,25 @@ export async function emitirReserva(
   }
 }
 
+// Reserva cancelada: confirmación a la socia. Importa sobre todo cuando la
+// cancela el SISTEMA (corte por no confirmar riesgo de plantón): si no, se
+// encuentra sin plaza sin saber por qué. Prioridad BAJA y solo in-app.
+export async function emitirReservaCancelada(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string; reservaId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    await publish({
+      type: EVENTOS.RESERVA_CANCELADA, studioId: p.studioId,
+      data: { ...ctx, socioId: p.socioId },
+      resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `reserva-cancelada:${p.reservaId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirReservaCancelada:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Plaza liberada: a la socia promovida de la lista de espera.
 export async function emitirPlazaLiberada(
   admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string },
