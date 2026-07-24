@@ -19,6 +19,21 @@ async function propietaria(admin: SupabaseClient, studioId: string): Promise<Rec
   }];
 }
 
+// Recepcionistas activas del estudio (staff de mostrador). Sin auth_user_id no
+// hay in-app/push, así que se descartan (una recepción sin cuenta no recibe).
+async function recepcionistas(admin: SupabaseClient, studioId: string): Promise<Recipient[]> {
+  const { data } = await admin.from('instructores')
+    .select('id, nombre, email, auth_user_id')
+    .eq('studio_id', studioId).eq('rol', 'RECEPCION').eq('activo', true);
+  return (data ?? [])
+    .filter(r => r.auth_user_id)
+    .map(r => ({
+      role: 'RECEPCION' as const, userId: r.auth_user_id as string,
+      nombre: (r.nombre as string | null) ?? 'Recepción',
+      email: (r.email as string | null) ?? null,
+    }));
+}
+
 async function sociaPorId(admin: SupabaseClient, studioId: string, socioId: string): Promise<Recipient | null> {
   const { data } = await admin.from('socios')
     .select('id, nombre, apellidos, email, telefono, auth_user_id')
@@ -72,10 +87,20 @@ export async function resolverDestinatarios(
       return instructorId ? [await instructoraPorId(admin, event.studioId, instructorId)].filter(Boolean) as Recipient[] : [];
     case 'socias-de-la-sesion':
       return sesionId ? sociasDeSesion(admin, event.studioId, sesionId) : [];
-    case 'propietaria-y-socia': {
-      const p = await propietaria(admin, event.studioId);
+    case 'mostrador': {
+      const [p, r] = await Promise.all([
+        propietaria(admin, event.studioId),
+        recepcionistas(admin, event.studioId),
+      ]);
+      return [...p, ...r];
+    }
+    case 'mostrador-y-socia': {
+      const [p, r] = await Promise.all([
+        propietaria(admin, event.studioId),
+        recepcionistas(admin, event.studioId),
+      ]);
       const soc = socioId ? await sociaPorId(admin, event.studioId, socioId) : null;
-      return soc ? [...p, soc] : p;
+      return soc ? [...p, ...r, soc] : [...p, ...r];
     }
     default:
       return [];

@@ -3,7 +3,7 @@
 // Sin dependencias de Node ni de Supabase: seguro de importar en cualquier lado.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type NotificationRole = 'PROPIETARIO' | 'INSTRUCTOR' | 'SOCIA';
+export type NotificationRole = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION' | 'SOCIA';
 
 export type NotificationCategory =
   | 'reservas' | 'clases' | 'sustituciones' | 'pagos' | 'marketing' | 'sistema';
