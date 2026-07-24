@@ -1959,6 +1959,14 @@ export async function crearReservaPublica(params: {
   // S-1: la reserva mueve RESERVAS_TOTALES (y la racha, si la sesión ya pasó),
   // tanto para logros como para retos vigentes.
   await evaluarGamificacionServidor(admin, params.studioId, params.socioId);
+
+  // Notification Engine (server-only): la socia recibe confirmación / lista de
+  // espera y la propietaria "nueva reserva". Import dinámico para no arrastrar el
+  // motor (node:crypto, Inngest) al bundle de cliente de este módulo.
+  if (estado === 'CONFIRMADA' || estado === 'LISTA_ESPERA') {
+    const { emitirReserva } = await import('@/lib/notifications/emit');
+    await emitirReserva(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, estado: estado as 'CONFIRMADA' | 'LISTA_ESPERA' });
+  }
   return { ok: true as const, estado, reservaId, spotAsignado };
 }
 

@@ -1,0 +1,124 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Notification Engine — emisores de dominio (server-only).
+//
+// Azúcar para que los módulos de negocio publiquen eventos en UNA línea sin
+// preocuparse de reunir las variables de plantilla. Cada emisor reúne los datos
+// de display (clase, cuándo, socia, importe…) y llama a NotificationEngine.publish.
+// TODO best-effort: envuelto en try/catch; una notificación jamás rompe el negocio.
+//
+// (Optimización futura: mover la reunión de variables al worker de Inngest para
+// aligerar aún más el hilo del request. Para miles/día esto ya es suficiente.)
+// ─────────────────────────────────────────────────────────────────────────────
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { publish } from './engine.ts';
+import { EVENTOS } from './catalog.ts';
+
+function cuandoLargo(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const dia = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+    const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+    return `${dia} a las ${hora}`;
+  } catch { return ''; }
+}
+
+// Reúne los datos comunes de una sesión (clase, cuándo, sala, slug del estudio).
+async function ctxSesion(admin: SupabaseClient, studioId: string, sesionId: string) {
+  const { data: ses } = await admin.from('sesiones')
+    .select('inicio, tipo_clase_id, sala_id').eq('id', sesionId).maybeSingle();
+  const [{ data: tipo }, { data: studio }, { data: sala }] = await Promise.all([
+    ses?.tipo_clase_id ? admin.from('tipos_clase').select('nombre').eq('id', ses.tipo_clase_id).maybeSingle() : Promise.resolve({ data: null }),
+    admin.from('studios').select('slug').eq('id', studioId).maybeSingle(),
+    ses?.sala_id ? admin.from('salas').select('nombre').eq('id', ses.sala_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  return {
+    clase: (tipo?.nombre as string | null) ?? 'tu clase',
+    cuando: ses?.inicio ? cuandoLargo(ses.inicio as string) : '',
+    slug: (studio?.slug as string | null) ?? '',
+    sala: sala?.nombre ? ` en ${sala.nombre}` : '',
+    sesionId,
+  };
+}
+
+// Reserva creada: avisa a la socia (confirmada / lista de espera) y, si queda
+// confirmada, a la propietaria (nueva inscripción).
+export async function emitirReserva(
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; socioId: string; estado: 'CONFIRMADA' | 'LISTA_ESPERA' },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle();
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    const base = { ...ctx, socioId: p.socioId, socia };
+    const dedup = `reserva:${p.sesionId}:${p.socioId}:${p.estado}`;
+
+    if (p.estado === 'CONFIRMADA') {
+      await publish({ type: EVENTOS.RESERVA_CONFIRMADA, studioId: p.studioId, data: base, resource: { type: 'sesion', id: p.sesionId }, dedupKey: dedup });
+      await publish({ type: EVENTOS.RESERVA_CREADA, studioId: p.studioId, data: base, resource: { type: 'sesion', id: p.sesionId }, dedupKey: `${dedup}:owner` });
+    } else {
+      await publish({ type: EVENTOS.RESERVA_LISTA_ESPERA, studioId: p.studioId, data: base, resource: { type: 'sesion', id: p.sesionId }, dedupKey: dedup });
+    }
+  } catch (e) {
+    console.error('[notifications] emitirReserva:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Plaza liberada: a la socia promovida de la lista de espera.
+export async function emitirPlazaLiberada(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    await publish({
+      type: EVENTOS.RESERVA_PLAZA_LIBERADA, studioId: p.studioId,
+      data: { ...ctx, socioId: p.socioId }, resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `plaza-liberada:${p.sesionId}:${p.socioId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPlazaLiberada:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Pago fallido: a la propietaria y a la socia afectada.
+export async function emitirPagoFallido(
+  admin: SupabaseClient, p: { studioId: string; reciboId: string },
+): Promise<void> {
+  try {
+    const { data: recibo } = await admin.from('recibos')
+      .select('concepto, importe, socio_id').eq('id', p.reciboId).maybeSingle();
+    if (!recibo) return;
+    const { data: socio } = recibo.socio_id
+      ? await admin.from('socios').select('nombre, apellidos').eq('id', recibo.socio_id).maybeSingle()
+      : { data: null };
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.PAGO_FALLIDO, studioId: p.studioId,
+      data: {
+        concepto: recibo.concepto ?? 'una cuota', importe: recibo.importe,
+        socia: `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'una clienta',
+        socioId: recibo.socio_id, slug: (studio?.slug as string | null) ?? '',
+      },
+      resource: { type: 'recibo', id: p.reciboId },
+      dedupKey: `pago-fallido:${p.reciboId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPagoFallido:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Sustitución aceptada: a la instructora que cubre (nueva clase asignada).
+export async function emitirSustitucionAceptada(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; instructorId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    await publish({
+      type: EVENTOS.SUSTITUCION_ACEPTADA, studioId: p.studioId,
+      data: { ...ctx, instructorId: p.instructorId }, resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `sustitucion-aceptada:${p.sesionId}:${p.instructorId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirSustitucionAceptada:', e instanceof Error ? e.message : e);
+  }
+}
