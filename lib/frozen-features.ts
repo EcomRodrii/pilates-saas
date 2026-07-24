@@ -11,6 +11,7 @@
 //   · POS/Caja  → /pos                (punto de venta / TPV / datáfono)
 //   · VOD       → /ondemand  +  el "Vídeos" del portal de socias
 //   · Comunidad → /comunidad          (posts, likes, comentarios)
+//   · Chat      → /chat               (chat de equipo — RLS roto D2 + no es la cuña)
 //
 // Fuente única de verdad del freeze. Un solo interruptor gobierna: menú lateral,
 // barra inferior, cajón "Más", editor de menú, buscador/paleta ⌘K y el guardia
@@ -38,6 +39,7 @@ export const RUTAS_CONGELADAS = [
   '/pos',
   '/ondemand',
   '/comunidad',
+  '/chat',
 ] as const;
 
 /**

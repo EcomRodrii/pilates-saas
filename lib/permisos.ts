@@ -10,7 +10,7 @@ import type { Rol } from './types';
 // CONGELADO (feature-freeze PMF): se quitaron '/ondemand' y '/comunidad' de esta
 // lista blanca — ya no son visibles para nadie. Reactivar = volver a añadirlos.
 const PERMITIDO_INSTRUCTOR = [
-  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/chat',
+  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria',
 ];
 
 // Recepción: todo lo operativo, nada de configuración del negocio,
