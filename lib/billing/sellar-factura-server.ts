@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { calcularHuellaAlta, type RegistroAltaVerifactu } from '@/lib/verifactu';
 import { fechaExpedicionDesdeISO, fechaHoraHusoMadrid, urlQrVerifactu } from '@/lib/verifactu-qr';
+import { nifEmisorValido } from '@/lib/nif';
 import { fiskalyConfigurado, asegurarEmisor, firmarFactura } from '@/lib/billing/fiskaly';
 
 // Núcleo del sellado Veri*Factu, extraído de app/api/facturas/sellar para que lo
@@ -64,6 +65,12 @@ export async function sellarFacturaDeRecibo(
     .eq('id', studioId)
     .maybeSingle();
   const nifEmisor = studio?.nif?.trim() || '';
+  // F0 · CFG-1: no sellar con un NIF vacío o de relleno (p. ej. el 'B12345678' del
+  // demo) — crearía una cadena Veri*Factu con identidad fiscal falsa. Se bloquea la
+  // emisión hasta que el estudio configure un NIF válido.
+  if (!nifEmisorValido(nifEmisor)) {
+    return { ok: false, error: 'Configura un NIF fiscal válido en Configuración → Mi estudio antes de emitir facturas (el actual está vacío o es de relleno).' };
+  }
 
   const { data: recibo } = await admin
     .from('recibos').select('importe, socio_id')

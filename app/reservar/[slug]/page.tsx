@@ -816,7 +816,10 @@ export default function ReservarPage() {
                 </div>
               )}
               <div className="space-y-3">
-                {planesTarifa.filter(p => p.activo).map(p => (
+                {/* F0 · POR-1: no ofrecer planes a 0€ como contratables en público
+                    (cualquiera obtendría clases gratis). El precio > 0 es requisito
+                    para el checkout de Stripe igualmente. */}
+                {planesTarifa.filter(p => p.activo && p.precio > 0).map(p => (
                   <div key={p.id} className="bg-white rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm"
                     style={{ border: '1px solid #F1F3F5' }}>
                     <div className="min-w-0">
