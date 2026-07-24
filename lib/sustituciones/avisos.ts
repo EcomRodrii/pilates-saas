@@ -21,7 +21,7 @@ export async function avisarAlumnas(
   params: { sesionId: string; studioId: string; tipo: 'cubierta' | 'cancelada' | 'reprogramada'; sustituta?: string; cuandoAntes?: string },
 ): Promise<{ avisadas: number; total: number; skipped: boolean; desactivado: boolean }> {
   const { data: estudio } = await admin
-    .from('studios').select('nombre, avisar_alumnas, color_primario, logo_url').eq('id', params.studioId).maybeSingle();
+    .from('studios').select('nombre, slug, avisar_alumnas, color_primario, logo_url').eq('id', params.studioId).maybeSingle();
   if (!estudio?.avisar_alumnas) return { avisadas: 0, total: 0, skipped: false, desactivado: true };
 
   const { data: ses } = await admin
@@ -31,6 +31,20 @@ export async function avisarAlumnas(
   const claseNombre = tc?.nombre ?? 'Clase';
   const cuando = ses?.inicio ? cuandoTexto(ses.inicio) : '';
   const estudioNombre = estudio.nombre ?? 'Tu estudio';
+
+  // Notification Engine: la clase cancelada también llega al centro de la socia
+  // (in-app/push), además del email. Respeta el toggle avisar_alumnas (ya filtrado
+  // arriba). El motor resuelve las socias apuntadas de la sesión.
+  if (params.tipo === 'cancelada') {
+    const { publish } = await import('@/lib/notifications/engine');
+    const { EVENTOS } = await import('@/lib/notifications/catalog');
+    await publish({
+      type: EVENTOS.CLASE_CANCELADA, studioId: params.studioId,
+      data: { clase: claseNombre, cuando, slug: (estudio.slug as string | null) ?? '' },
+      resource: { type: 'sesion', id: params.sesionId },
+      dedupKey: `clase-cancelada:${params.sesionId}`,
+    });
+  }
 
   const { data: alumnas } = await admin.rpc('alumnas_apuntadas', { p_sesion_id: params.sesionId });
   const lista = (alumnas ?? []) as { nombre: string; email: string | null }[];

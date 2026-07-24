@@ -1560,6 +1560,9 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
       fecha_vencimiento: hoy, fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0,
       proximo_reintento: primerReintento,
     });
+    // Notification Engine: avisa a la socia de que ha gastado la última sesión.
+    const { emitirBonoAgotado } = await import('@/lib/notifications/emit');
+    await emitirBonoAgotado(admin, { studioId, socioId, plan: plan.nombre, suscripcionId: sus.id });
   }
   return true;
 }

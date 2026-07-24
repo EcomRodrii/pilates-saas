@@ -134,6 +134,43 @@ export async function emitirClaseCasiLlena(
   }
 }
 
+// Pago realizado: a la socia (confirmación de cobro).
+export async function emitirPagoRealizado(
+  admin: SupabaseClient, p: { studioId: string; reciboId: string },
+): Promise<void> {
+  try {
+    const { data: recibo } = await admin.from('recibos')
+      .select('concepto, importe, socio_id').eq('id', p.reciboId).maybeSingle();
+    if (!recibo?.socio_id) return;
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.PAGO_REALIZADO, studioId: p.studioId,
+      data: { concepto: recibo.concepto ?? 'tu cuota', importe: recibo.importe, socioId: recibo.socio_id, slug: (studio?.slug as string | null) ?? '' },
+      resource: { type: 'recibo', id: p.reciboId },
+      dedupKey: `pago-ok:${p.reciboId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPagoRealizado:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Bono agotado: a la socia (ha usado la última sesión → renovar).
+export async function emitirBonoAgotado(
+  admin: SupabaseClient, p: { studioId: string; socioId: string; plan: string; suscripcionId: string },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.BONO_AGOTADO, studioId: p.studioId,
+      data: { plan: p.plan, socioId: p.socioId, slug: (studio?.slug as string | null) ?? '' },
+      resource: { type: 'suscripcion', id: p.suscripcionId },
+      dedupKey: `bono-agotado:${p.suscripcionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirBonoAgotado:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Sustitución aceptada: a la instructora que cubre (nueva clase asignada).
 export async function emitirSustitucionAceptada(
   admin: SupabaseClient, p: { studioId: string; sesionId: string; instructorId: string },

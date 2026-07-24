@@ -44,6 +44,7 @@ export const EVENTOS = {
   RECORDATORIO_24H: 'reserva.recordatorio_24h',
   RECORDATORIO_1H: 'reserva.recordatorio_1h',
   BONO_POR_CADUCAR: 'bono.por_caducar',
+  BONO_AGOTADO: 'bono.agotado',
   CLASE_CASI_LLENA: 'clase.casi_llena',
   SOCIA_INACTIVA: 'socia.inactiva',
   // Operativos de la dueña (antes escribían a la tabla legacy `notificaciones`)
@@ -68,6 +69,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.RECORDATORIO_24H]:      { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.RECORDATORIO_1H]:       { category: 'reservas', priority: 'ALTA',  canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.BONO_POR_CADUCAR]:      { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  [EVENTOS.BONO_AGOTADO]:          { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.CLASE_CASI_LLENA]:      { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
   [EVENTOS.SOCIA_INACTIVA]:        { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
   [EVENTOS.SALUD_REVISION]:        { category: 'sistema',  priority: 'MEDIA', canales: [],       audiencia: 'propietaria' },
@@ -163,6 +165,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.BONO_POR_CADUCAR}#SOCIA`]: {
     title: 'Tu bono está por caducar',
     body: 'Te quedan {sesiones} sesiones y tu bono caduca el {fecha}. Renueva para no perderlas.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/mi-plan`,
+  },
+  [`${EVENTOS.BONO_AGOTADO}#SOCIA`]: {
+    title: 'Se te ha agotado el bono',
+    body: 'Has usado la última sesión de tu bono de {plan}. Renueva para seguir reservando.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/mi-plan`,
   },
   [`${EVENTOS.CLASE_CASI_LLENA}#PROPIETARIO`]: {
