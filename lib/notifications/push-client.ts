@@ -30,7 +30,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 
 export type ResultadoActivar =
   | { ok: true }
-  | { ok: false; motivo: 'unsupported' | 'denied' | 'sin-clave' | 'error' };
+  | { ok: false; motivo: 'unsupported' | 'denied' | 'sin-clave' | 'error'; detalle?: string };
 
 // Activa las notificaciones push en ESTE dispositivo.
 export async function activarPush(studioId: string, getHeaders: Headers): Promise<ResultadoActivar> {
@@ -44,6 +44,11 @@ export async function activarPush(studioId: string, getHeaders: Headers): Promis
   try {
     const reg = await navigator.serviceWorker.register('/sw.js');
     await navigator.serviceWorker.ready;
+    // Si ya había una suscripción (posiblemente con OTRA clave VAPID de un intento
+    // anterior), se cancela antes: subscribe() con distinta applicationServerKey
+    // lanza InvalidStateError y el registro nunca llegaba al servidor.
+    const previa = await reg.pushManager.getSubscription();
+    if (previa) { try { await previa.unsubscribe(); } catch { /* da igual */ } }
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(clave) as BufferSource,
@@ -53,9 +58,10 @@ export async function activarPush(studioId: string, getHeaders: Headers): Promis
       headers: { 'Content-Type': 'application/json', ...(await getHeaders()) },
       body: JSON.stringify({ studioId, subscription: sub.toJSON(), userAgent: navigator.userAgent }),
     });
-    return res.ok ? { ok: true } : { ok: false, motivo: 'error' };
-  } catch {
-    return { ok: false, motivo: 'error' };
+    if (!res.ok) return { ok: false, motivo: 'error', detalle: `el servidor respondió ${res.status}` };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, motivo: 'error', detalle: e instanceof Error ? `${e.name}: ${e.message}` : String(e) };
   }
 }
 

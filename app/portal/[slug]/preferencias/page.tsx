@@ -205,7 +205,7 @@ function AvisosSocia({ t, studioId, microLabel }: { t: ModoTokens; studioId: str
       'sin-clave': 'Las notificaciones aún no están listas. Espera unos minutos e inténtalo de nuevo.',
       error: 'No se ha podido activar. Asegúrate de haber abierto la app desde la pantalla de inicio e inténtalo otra vez.',
     };
-    alert(msg[r.motivo] ?? 'No se ha podido activar.');
+    alert((msg[r.motivo] ?? 'No se ha podido activar.') + (r.detalle ? `\n\n(${r.detalle})` : ''));
   }
 
   async function toggle(cat: string, canal: 'inapp' | 'push') {
