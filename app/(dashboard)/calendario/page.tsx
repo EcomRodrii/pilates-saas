@@ -1602,6 +1602,22 @@ export default function Calendario() {
       horaInicio: form.horaInicio,
       horaFin: form.horaFin,
     });
+    // Avisa (in-app/push) a las apuntadas de CADA sesión futura de la serie que
+    // cambie de horario o sala. Cada una conserva su fecha, con la hora nueva.
+    const base = sesionesEnriquecidas.find(x => x.id === sesionId);
+    if (base?.serieId) {
+      const clase = tiposClase.find(t => t.id === form.tipoClaseId)?.nombre ?? base.tipoClase.nombre;
+      const salaNombre = salas.find(s => s.id === form.salaId)?.nombre ?? '';
+      for (const s of sesionesEnriquecidas) {
+        if (s.serieId !== base.serieId || s.inicio < base.inicio) continue;
+        const nuevoInicioS = toISO(localDate(new Date(s.inicio)), form.horaInicio);
+        if (s.inicio === nuevoInicioS && s.salaId === form.salaId) continue;
+        if (!reservas.some(r => r.sesionId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))) continue;
+        const d = new Date(nuevoInicioS);
+        const cuando = `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+        void avisarClaseModificada(s.id, { clase, cuando, sala: salaNombre });
+      }
+    }
     setShowForm(null);
     setToast(`Serie actualizada · ${n} clases`);
   }
