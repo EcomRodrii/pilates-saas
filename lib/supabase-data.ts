@@ -4896,8 +4896,12 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
   //  · 23503 owner FK: al confirmar el email, el alta puede adelantar al commit
   //    de auth.users y la FK owner_auth_user_id no encuentra la fila todavía
   //    (Sentry NEXTJS-G, culprit /login). La fila aparece en unos ms → backoff.
+  //    D1: NO se resuelve con una RPC "atómica" — el insert (cliente o RPC) golpea
+  //    la misma auth.users en el primario; si el commit de auth.users va en vuelo,
+  //    la FK falla igual. Es consistencia eventual → la cura es ensanchar la
+  //    ventana de reintento hasta que la fila es visible (8 intentos, ~6 s).
   let ultimoError: { code: string; message: string } | null = null;
-  for (let intento = 0; intento < 4; intento++) {
+  for (let intento = 0; intento < 8; intento++) {
     const id = `studio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const slug = await generateUniqueSlug(fields.nombre);
     const { error } = await supabase.from('studios').insert({
@@ -4915,7 +4919,7 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
       continue; // choque de slug: reintenta con uno recién generado, sin esperar.
     }
     if (error.code === '23503' && error.message.includes('studios_owner_auth_user_id_fkey')) {
-      await new Promise((r) => setTimeout(r, 200 * (intento + 1))); // 200/400/600ms
+      await new Promise((r) => setTimeout(r, Math.min(1000, 250 * 2 ** intento))); // 250→1000ms, ~6 s en total
       continue;
     }
     break; // cualquier otro error: no reintentar.
