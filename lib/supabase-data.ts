@@ -2051,6 +2051,9 @@ export async function ejecutarCancelacionReserva(
     // Cierra la mentira "te avisaremos si se libera una plaza". No bloquea.
     if (cancelada?.sesion_id) {
       await notificarPromocionEspera(admin, params.studioId, promSocioId, cancelada.sesion_id as string, bonoConsumido);
+      // Notification Engine: in-app (+ push cuando aplique) a la socia ascendida.
+      const { emitirPlazaLiberada } = await import('@/lib/notifications/emit');
+      await emitirPlazaLiberada(admin, { studioId: params.studioId, sesionId: cancelada.sesion_id as string, socioId: promSocioId });
     }
   }
   // S-1: cancelar baja RESERVAS_TOTALES, así que se re-evalúa para que el
