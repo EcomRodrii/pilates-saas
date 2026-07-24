@@ -54,9 +54,9 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
       denied: 'Has bloqueado las notificaciones. Actívalas desde los ajustes del navegador para este sitio.',
       unsupported: 'Este navegador no admite push. En iPhone: instala la app en la pantalla de inicio (Compartir → Añadir a inicio) y ábrela desde ahí.',
       'sin-clave': 'Las notificaciones push aún no están listas en el servidor. Espera unos minutos e inténtalo de nuevo.',
-      error: 'No se ha podido activar. Cierra y vuelve a abrir la app (en iPhone debe estar instalada en la pantalla de inicio) e inténtalo de nuevo.',
+      error: 'No se ha podido activar. Cierra y vuelve a abrir la app e inténtalo de nuevo.',
     };
-    alert(msg[r.motivo] ?? 'No se ha podido activar.');
+    alert((msg[r.motivo] ?? 'No se ha podido activar.') + (r.detalle ? `\n\n(${r.detalle})` : ''));
   }
 
   const cargar = useCallback(async () => {
