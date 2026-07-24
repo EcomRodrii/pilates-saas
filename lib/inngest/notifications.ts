@@ -13,8 +13,12 @@ import { procesarEvento } from '@/lib/notifications/engine';
 import type { NotificationEvent } from '@/lib/notifications/types';
 
 export const procesarNotificacion = inngest.createFunction(
-  { id: 'notification-procesar', concurrency: { limit: 20 }, retries: 3 },
-  { event: EVENTS.NOTIFICATION_EMIT },
+  {
+    id: 'notification-procesar',
+    triggers: [{ event: EVENTS.NOTIFICATION_EMIT }],
+    concurrency: { limit: 20 },
+    retries: 3,
+  },
   async ({ event, step }) => {
     const payload = event.data as unknown as NotificationEvent;
     return step.run('procesar', async () => {
