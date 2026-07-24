@@ -48,7 +48,7 @@ export default function Libreta() {
       <div className="no-print flex items-center justify-between mb-4">
         <div>
           <h1 className="text-lg font-bold text-foreground">Libreta del estudio</h1>
-          <p className="text-sm text-muted-foreground">Tu garantía de salida: imprímela o guárdala como PDF cuando quieras.</p>
+          <p className="text-sm text-muted-foreground">Copia de tus socias siempre al día: imprímela o guárdala como PDF cuando quieras.</p>
         </div>
         <button
           onClick={() => window.print()}
@@ -99,7 +99,7 @@ export default function Libreta() {
         {filas.length === 0 && <p className="text-sm text-muted-foreground py-6 text-center">No hay socias activas todavía.</p>}
 
         <p className="text-[11px] text-muted-foreground mt-6 leading-relaxed">
-          Esta es tu libreta: si algún día cierras Tentare, aquí tienes cada socia con su plan, sus sesiones, sus recuperaciones vivas y su plaza fija.
+          Esta es tu libreta: cada socia con su plan, sus sesiones, sus recuperaciones vivas y su plaza fija. Son tus datos, siempre contigo.
           Generada el {fechaCorta(hoyISO)} desde {studio?.nombre ?? 'tu estudio'}.
         </p>
       </div>
