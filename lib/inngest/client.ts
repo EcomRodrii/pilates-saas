@@ -33,4 +33,9 @@ export const EVENTS = {
   // a tiempo (corte).
   CONFIRMACION_RIESGO_ASK_ESTUDIO: 'confirmacion-riesgo/studio.ask',
   CONFIRMACION_RIESGO_CORTE_ESTUDIO: 'confirmacion-riesgo/studio.corte',
+  // Notification Engine — un ÚNICO evento por el que pasan todas las
+  // notificaciones del producto. Los módulos publican aquí (vía
+  // NotificationEngine.publish); el worker resuelve destinatarios, preferencias,
+  // plantillas y canales. Nadie envía notificaciones directamente.
+  NOTIFICATION_EMIT: 'notification/emit',
 } as const;

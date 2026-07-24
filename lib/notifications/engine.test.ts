@@ -1,0 +1,99 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { procesarEvento } from './engine.ts';
+import { EVENTOS } from './catalog.ts';
+import type { NotificationEvent } from './types.ts';
+
+// Fake del cliente Supabase admin: registra inserts en memoria y simula el choque
+// de dedup (23505). Sin preferencias (→ valores por defecto). Suficiente para
+// verificar el enrutado + plantillas + deliveries + idempotencia del motor.
+function fakeAdmin() {
+  const notifs: Record<string, unknown>[] = [];
+  const deliveries: Record<string, unknown>[] = [];
+  const dedup = new Set<string>();
+  const chain = {
+    select() { return chain; }, eq() { return chain; }, is() { return chain; }, limit() { return chain; },
+    maybeSingle: async () => ({ data: null }),
+    async insert(row: Record<string, unknown>) {
+      // Detecta la tabla por una columna característica de la fila.
+      if ('recipient_role' in row) {
+        const k = row.dedup_key as string | null;
+        if (k && dedup.has(k)) return { error: { code: '23505' } };
+        if (k) dedup.add(k);
+        notifs.push(row); return { error: null };
+      }
+      if ('channel' in row) { deliveries.push(row); return { error: null }; }
+      return { error: null };
+    },
+  };
+  const admin = { from: () => chain } as unknown as Parameters<typeof procesarEvento>[0];
+  return { admin, notifs, deliveries };
+}
+
+test('reserva confirmada: crea in-app para la socia con la plantilla renderizada', async () => {
+  const { admin, notifs, deliveries } = fakeAdmin();
+  const event: NotificationEvent = {
+    type: EVENTOS.RESERVA_CONFIRMADA, studioId: 'st1',
+    data: { clase: 'Reformer', cuando: 'sábado 25 de julio a las 15:00', slug: 'mar', sesionId: 'ses1' },
+    recipients: [{ role: 'SOCIA', userId: 'u-socia', socioId: 's1' }],
+    dedupKey: 'reserva:ses1:s1:CONFIRMADA',
+  };
+  const r = await procesarEvento(admin, event);
+  assert.equal(r.creadas, 1);
+  assert.equal(notifs[0].title, 'Reserva confirmada');
+  assert.match(notifs[0].body as string, /Reformer/);
+  assert.match(notifs[0].body as string, /sábado 25 de julio/);
+  assert.equal(notifs[0].deep_link, '/portal/mar/clases/ses1');
+  assert.equal(notifs[0].priority, 'MEDIA');
+  assert.equal(notifs[0].category, 'reservas');
+  // Deliveries: INAPP enviado + PUSH omitido (sin VAPID en test).
+  const canales = deliveries.map(d => `${d.channel}:${d.status}`);
+  assert.deepEqual(canales.sort(), ['INAPP:SENT', 'PUSH:SKIPPED']);
+});
+
+test('idempotencia: reprocesar el mismo hecho (dedupKey) no duplica', async () => {
+  const { admin, notifs } = fakeAdmin();
+  const event: NotificationEvent = {
+    type: EVENTOS.RESERVA_CONFIRMADA, studioId: 'st1',
+    data: { clase: 'Reformer', cuando: 'hoy', slug: 'mar', sesionId: 'ses1' },
+    recipients: [{ role: 'SOCIA', userId: 'u-socia', socioId: 's1' }],
+    dedupKey: 'reserva:ses1:s1:CONFIRMADA',
+  };
+  await procesarEvento(admin, event);
+  const segunda = await procesarEvento(admin, event);
+  assert.equal(segunda.creadas, 0);
+  assert.equal(notifs.length, 1);
+});
+
+test('un evento → varios roles con plantilla distinta (pago fallido)', async () => {
+  const { admin, notifs } = fakeAdmin();
+  const event: NotificationEvent = {
+    type: EVENTOS.PAGO_FALLIDO, studioId: 'st1',
+    data: { concepto: 'Cuota mensual', importe: 45, socia: 'María Soler', slug: 'mar' },
+    recipients: [
+      { role: 'PROPIETARIO', userId: 'u-owner' },
+      { role: 'SOCIA', userId: 'u-socia', socioId: 's1' },
+    ],
+    dedupKey: 'pago-fallido:rec1',
+  };
+  const r = await procesarEvento(admin, event);
+  assert.equal(r.creadas, 2);
+  const owner = notifs.find(n => n.recipient_role === 'PROPIETARIO')!;
+  const socia = notifs.find(n => n.recipient_role === 'SOCIA')!;
+  assert.equal(owner.title, 'Pago fallido');
+  assert.match(owner.body as string, /María Soler/);
+  assert.equal(socia.title, 'Problema con tu pago');
+  assert.equal(owner.priority, 'ALTA');
+});
+
+test('destinatario sin cuenta: in-app se omite (no puede iniciar sesión)', async () => {
+  const { admin, deliveries } = fakeAdmin();
+  const event: NotificationEvent = {
+    type: EVENTOS.RESERVA_CONFIRMADA, studioId: 'st1',
+    data: { clase: 'Mat', cuando: 'hoy', slug: 'mar', sesionId: 'ses9' },
+    recipients: [{ role: 'SOCIA', userId: null, socioId: 's-unclaimed' }],
+  };
+  await procesarEvento(admin, event);
+  const inapp = deliveries.find(d => d.channel === 'INAPP')!;
+  assert.equal(inapp.status, 'SKIPPED');
+});
