@@ -133,6 +133,17 @@ export async function crearBaja(
 
   const sesionMin = { inicio: clase.inicio as string, tipo_clase_id: clase.tipo_clase_id as string | null };
 
+  // Notification Engine: si la baja la da LA INSTRUCTORA (desde su enlace), la
+  // dueña se entera al instante. Si la da ella misma desde el panel, no: ya lo sabe.
+  if (origen === 'instructora') {
+    const { emitirInstructoraBaja } = await import('@/lib/notifications/emit');
+    await emitirInstructoraBaja(admin, {
+      studioId, sesionId, motivo,
+      instructorId: (clase.instructor_id as string | null) ?? null,
+      sustitucionId: insertada.id as string,
+    });
+  }
+
   // Modo autónomo/vacaciones: la dueña ha "desaparecido" → el motor contacta solo
   // a la primera candidata contactable y arranca el escalado. En asistido no se
   // contacta a nadie aquí (espera el visto bueno de la propietaria en el panel).

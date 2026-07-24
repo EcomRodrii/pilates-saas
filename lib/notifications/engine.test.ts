@@ -4,6 +4,33 @@ import { procesarEvento, canalesExtraDe, type Preferencia } from './process.ts';
 import { EVENTOS, REGLAS, plantillaDe, render } from './catalog.ts';
 import type { NotificationEvent } from './types.ts';
 
+test('equipo y sistema: reglas + plantillas que renderizan', () => {
+  const casos: [string, Record<string, unknown>, RegExp][] = [
+    [EVENTOS.INSTRUCTORA_BAJA, { instructora: 'Marta', clase: 'Reformer', cuando: 'martes 9:00', motivo: ' (gripe)' }, /Marta.*Reformer.*gripe/],
+    [EVENTOS.SISTEMA_STRIPE_DESCONECTADO, {}, /Stripe/],
+    [EVENTOS.SISTEMA_EMAIL_FALLIDO, { error: 'domain not verified' }, /domain not verified/],
+    [EVENTOS.SUSTITUCION_RECHAZADA, { instructora: 'Lucía', clase: 'Mat', cuando: 'hoy' }, /Lucía.*Mat/],
+  ];
+  for (const [evento, data, re] of casos) {
+    assert.ok(REGLAS[evento], `falta regla para ${evento}`);
+    const pl = plantillaDe(evento, 'PROPIETARIO');
+    assert.ok(pl, `falta plantilla ${evento}#PROPIETARIO`);
+    assert.match(render(pl.body, data), re);
+  }
+});
+
+test('email fallido NO usa el canal email (evitar realimentación)', () => {
+  const r = REGLAS[EVENTOS.SISTEMA_EMAIL_FALLIDO];
+  assert.equal(r.priority !== 'CRITICA', true, 'CRITICA forzaría todos los canales, incluido email');
+  assert.deepEqual(canalesExtraDe(r, PREF({ email: true }), false), []);
+});
+
+test('stripe desconectado es CRÍTICA: llega por todos los canales', () => {
+  const r = REGLAS[EVENTOS.SISTEMA_STRIPE_DESCONECTADO];
+  assert.equal(r.priority, 'CRITICA');
+  assert.deepEqual(canalesExtraDe(r, PREF({ push: false, email: false }), true).sort(), ['EMAIL', 'PUSH', 'SMS', 'WHATSAPP']);
+});
+
 test('automatizaciones: cada evento nuevo tiene regla + plantilla que renderiza', () => {
   const casos: [string, 'SOCIA' | 'PROPIETARIO', Record<string, unknown>, RegExp][] = [
     [EVENTOS.RECORDATORIO_24H, 'SOCIA', { clase: 'Reformer', hora: '09:00' }, /Reformer.*09:00/],

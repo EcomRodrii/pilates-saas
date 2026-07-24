@@ -208,6 +208,86 @@ export async function emitirBonoAgotado(
   }
 }
 
+// La instructora avisa de que no puede dar una clase (baja desde su enlace):
+// la dueña se entera al instante, no al abrir el panel.
+export async function emitirInstructoraBaja(
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; instructorId: string | null; motivo?: string | null; sustitucionId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const { data: instr } = p.instructorId
+      ? await admin.from('instructores').select('nombre').eq('id', p.instructorId).maybeSingle()
+      : { data: null };
+    await publish({
+      type: EVENTOS.INSTRUCTORA_BAJA, studioId: p.studioId,
+      data: {
+        ...ctx,
+        instructora: (instr?.nombre as string | null) ?? 'Una instructora',
+        motivo: p.motivo ? ` (${p.motivo})` : '',
+      },
+      resource: { type: 'sustitucion', id: p.sustitucionId },
+      dedupKey: `instructora-baja:${p.sustitucionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirInstructoraBaja:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Sustitución rechazada: la candidata dice que no → la dueña debe elegir a otra.
+export async function emitirSustitucionRechazada(
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; instructorId: string; sustitucionId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const { data: instr } = await admin.from('instructores').select('nombre').eq('id', p.instructorId).maybeSingle();
+    await publish({
+      type: EVENTOS.SUSTITUCION_RECHAZADA, studioId: p.studioId,
+      data: { ...ctx, instructora: (instr?.nombre as string | null) ?? 'Una instructora' },
+      resource: { type: 'sustitucion', id: p.sustitucionId },
+      dedupKey: `sustitucion-rechazada:${p.sustitucionId}:${p.instructorId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirSustitucionRechazada:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Stripe desconectado: se han parado los cobros → CRÍTICA para la dueña.
+export async function emitirStripeDesconectado(
+  admin: SupabaseClient, p: { studioId: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.SISTEMA_STRIPE_DESCONECTADO, studioId: p.studioId,
+      data: {},
+      resource: { type: 'studio', id: p.studioId },
+      // Sin fecha en la clave: si se desconecta y reconecta varias veces, cada
+      // desconexión debe volver a avisar → se usa el instante del evento.
+      dedupKey: `stripe-off:${p.studioId}:${new Date().toISOString().slice(0, 13)}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirStripeDesconectado:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Los emails a clientas están fallando. Un aviso AL DÍA por estudio (dedupKey por
+// fecha): el dato accionable es "hoy falla el correo", no 50 copias.
+export async function emitirEmailFallido(
+  admin: SupabaseClient, p: { studioId: string; error: string },
+): Promise<void> {
+  try {
+    const hoy = new Date().toISOString().slice(0, 10);
+    await publish({
+      type: EVENTOS.SISTEMA_EMAIL_FALLIDO, studioId: p.studioId,
+      data: { error: p.error.slice(0, 200) },
+      dedupKey: `email-fallido:${p.studioId}:${hoy}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirEmailFallido:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Sustitución aceptada: a la instructora que cubre (nueva clase asignada).
 export async function emitirSustitucionAceptada(
   admin: SupabaseClient, p: { studioId: string; sesionId: string; instructorId: string },

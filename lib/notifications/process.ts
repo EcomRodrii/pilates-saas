@@ -31,7 +31,10 @@ export function canalesExtraDe(regla: ReglaEvento, pref: Preferencia, critica: b
   if (critica || pref.email) out.push('EMAIL');
   if (critica || pref.whatsapp) out.push('WHATSAPP');
   if (critica || pref.sms) out.push('SMS');
-  return out;
+  // `excluye` manda sobre todo: ni la preferencia del usuario ni la prioridad
+  // CRÍTICA pueden meter un canal vetado para ese evento (p. ej. avisar por
+  // email de que los emails están fallando).
+  return regla.excluye?.length ? out.filter(c => !regla.excluye!.includes(c)) : out;
 }
 
 async function preferenciaDe(admin: SupabaseClient, userId: string, category: NotificationCategory): Promise<Preferencia> {
