@@ -35,6 +35,7 @@ export const EVENTOS = {
   RESERVA_PLAZA_LIBERADA: 'reserva.plaza_liberada',
   RESERVA_CANCELADA: 'reserva.cancelada',
   CLASE_CANCELADA: 'clase.cancelada',
+  CLASE_MODIFICADA: 'clase.modificada',
   SUSTITUCION_ACEPTADA: 'sustitucion.aceptada',
   SUSTITUCION_RECHAZADA: 'sustitucion.rechazada',
   PAGO_FALLIDO: 'pago.fallido',
@@ -60,6 +61,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.RESERVA_PLAZA_LIBERADA]:{ category: 'reservas', priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_CANCELADA]:     { category: 'reservas', priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
   [EVENTOS.CLASE_CANCELADA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
+  [EVENTOS.CLASE_MODIFICADA]:      { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
   [EVENTOS.SUSTITUCION_ACEPTADA]:  { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
   [EVENTOS.SUSTITUCION_RECHAZADA]: { category: 'sustituciones', priority: 'ALTA', canales: [],     audiencia: 'propietaria' },
   [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'propietaria-y-socia' },
@@ -120,6 +122,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Clase cancelada',
     body: 'La clase de {clase} del {cuando} ha sido cancelada. Disculpa las molestias.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases`,
+  },
+  // Clase modificada (cambio de horario/sala) → cada socia apuntada
+  [`${EVENTOS.CLASE_MODIFICADA}#SOCIA`]: {
+    title: 'Tu clase ha cambiado',
+    body: 'Tu clase de {clase} pasa a: {cuando} · {sala}. Revisa tu reserva.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
   },
   // Sustitución aceptada → la instructora que cubre
   [`${EVENTOS.SUSTITUCION_ACEPTADA}#INSTRUCTOR`]: {

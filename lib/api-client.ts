@@ -943,6 +943,20 @@ export async function avisarClaseCancelada(sesionId: string): Promise<void> {
   } catch { /* best-effort: no bloquea la cancelación */ }
 }
 
+// Avisa (in-app/push) a las apuntadas de que su clase cambió de horario/sala.
+// Se le pasan los datos NUEVOS ya formateados desde el cliente.
+export async function avisarClaseModificada(
+  sesionId: string, datos: { clase: string; cuando: string; sala: string },
+): Promise<void> {
+  try {
+    await fetch('/api/clases/avisar-modificada', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sesionId, ...datos }),
+    });
+  } catch { /* best-effort: no bloquea la edición */ }
+}
+
 export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente & {
   to: string; toName: string;
 }) {

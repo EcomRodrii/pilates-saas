@@ -152,6 +152,25 @@ export async function emitirClaseCancelada(
   }
 }
 
+// Clase modificada (cambio de horario/sala) → socias apuntadas. Recibe los datos
+// de display YA formateados desde el cliente (con los valores NUEVOS), para no
+// depender de que la escritura optimista haya llegado a la BD al leer la sesión.
+export async function emitirClaseModificada(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; clase: string; cuando: string; sala: string },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.CLASE_MODIFICADA, studioId: p.studioId,
+      data: { clase: p.clase, cuando: p.cuando, sala: p.sala, sesionId: p.sesionId, slug: (studio?.slug as string | null) ?? '' },
+      resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `clase-modificada:${p.sesionId}:${p.cuando}:${p.sala}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirClaseModificada:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Pago realizado: a la socia (confirmación de cobro).
 export async function emitirPagoRealizado(
   admin: SupabaseClient, p: { studioId: string; reciboId: string },

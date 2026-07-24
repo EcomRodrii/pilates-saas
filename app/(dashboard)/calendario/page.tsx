@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { enviarEmailCancelacionClase, avisarClaseCancelada } from '@/lib/api-client';
+import { enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseModificada } from '@/lib/api-client';
 import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
@@ -1542,15 +1542,28 @@ export default function Calendario() {
 
   function editarSesion() {
     if (!sesionId || horaInvalida) return;
+    const nuevoInicio = toISO(form.fecha, form.horaInicio);
+    const cambioHora = !!sesionActual && sesionActual.inicio !== nuevoInicio;
+    const cambioSala = !!sesionActual && sesionActual.salaId !== form.salaId;
     updateSesion(sesionId, {
       tipoClaseId: form.tipoClaseId,
       salaId: form.salaId,
       instructorId: form.instructorId,
-      inicio: toISO(form.fecha, form.horaInicio),
+      inicio: nuevoInicio,
       fin: toISO(form.fecha, form.horaFin),
       aforoMaximo: form.aforoMaximo,
       notas: form.notas || null,
     });
+    // Si cambió el horario o la sala y hay apuntadas, avísales (in-app/push) con
+    // los valores NUEVOS ya formateados (el servidor no re-lee la sesión).
+    if (sesionActual && (cambioHora || cambioSala) &&
+        reservas.some(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))) {
+      const d = new Date(nuevoInicio);
+      const cuando = `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+      const clase = tiposClase.find(t => t.id === form.tipoClaseId)?.nombre ?? sesionActual.tipoClase.nombre;
+      const sala = salas.find(s => s.id === form.salaId)?.nombre ?? '';
+      void avisarClaseModificada(sesionId, { clase, cuando, sala });
+    }
     setShowForm(null);
     setToast('Clase actualizada');
   }
