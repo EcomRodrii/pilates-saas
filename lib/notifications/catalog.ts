@@ -46,6 +46,9 @@ export const EVENTOS = {
   BONO_POR_CADUCAR: 'bono.por_caducar',
   CLASE_CASI_LLENA: 'clase.casi_llena',
   SOCIA_INACTIVA: 'socia.inactiva',
+  // Operativos de la dueña (antes escribían a la tabla legacy `notificaciones`)
+  SALUD_REVISION: 'salud.revision_pendiente',
+  RIESGO_DEPENDENCIA: 'riesgo.dependencia',
 } as const;
 
 // Reglas por evento. La 1ª tanda cableada de la Fase 1 cubre los 3 roles.
@@ -67,6 +70,8 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.BONO_POR_CADUCAR]:      { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.CLASE_CASI_LLENA]:      { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
   [EVENTOS.SOCIA_INACTIVA]:        { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
+  [EVENTOS.SALUD_REVISION]:        { category: 'sistema',  priority: 'MEDIA', canales: [],       audiencia: 'propietaria' },
+  [EVENTOS.RIESGO_DEPENDENCIA]:    { category: 'sistema',  priority: 'MEDIA', canales: [],       audiencia: 'propietaria' },
 };
 
 // ── Plantillas ────────────────────────────────────────────────────────────────
@@ -169,6 +174,17 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Clienta inactiva',
     body: '{socia} lleva {dias} días sin venir. Quizá un mensaje la recupere.',
     deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
+  },
+  // Operativos de la dueña (migrados de la tabla legacy)
+  [`${EVENTOS.SALUD_REVISION}#PROPIETARIO`]: {
+    title: 'Revisión de ficha de salud',
+    body: '{mensaje}',
+    deepLink: (d: Datos) => `/clientas/${s(d.socioId)}?rev=${s(d.condId)}`,
+  },
+  [`${EVENTOS.RIESGO_DEPENDENCIA}#PROPIETARIO`]: {
+    title: 'Riesgo de concentración alto',
+    body: '{instructora} concentra el {porcentaje}% de tu facturación en alumnas cautivas. Si se va, ese ingreso está en riesgo.',
+    deepLink: () => `/dashboard`,
   },
 };
 

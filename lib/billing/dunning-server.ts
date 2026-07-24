@@ -23,7 +23,7 @@ export async function registrarFalloCobro(params: {
   esSepa: boolean;
   ahoraISO: string;
 }): Promise<{ estado: 'PENDIENTE' | 'FALLIDO'; intentos: number } | null> {
-  const { admin, reciboId, studioId, esSepa, ahoraISO } = params;
+  const { admin, reciboId, studioId, esSepa } = params;
 
   const { data: rec } = await admin
     .from('recibos')
@@ -50,10 +50,14 @@ export async function registrarFalloCobro(params: {
   if (plan.esPrimerFallo || plan.esDefinitivo) {
     // Best-effort: un fallo notificando no debe tirar el registro del fallo de cobro.
     try {
-      await notificarFalloCobro({ admin, rec, plan, ahoraISO });
-      // Notification Engine: in-app a la propietaria (gestión) y a la socia.
-      const { emitirPagoFallido } = await import('@/lib/notifications/emit');
-      await emitirPagoFallido(admin, { studioId, reciboId });
+      await notificarFalloCobro({ admin, rec, plan });
+      // Notification Engine: solo al quedar FALLIDO (requiere acción manual) se
+      // avisa a la propietaria + socia in-app/push. El email a la socia (1.er
+      // fallo informativo o definitivo) lo sigue enviando notificarFalloCobro.
+      if (plan.esDefinitivo) {
+        const { emitirPagoFallido } = await import('@/lib/notifications/emit');
+        await emitirPagoFallido(admin, { studioId, reciboId });
+      }
     } catch (e) {
       Sentry.captureException(e instanceof Error ? e : new Error('Fallo al notificar impago'), {
         level: 'warning', tags: { area: 'cobros', tipo: 'dunning' }, extra: { reciboId },
@@ -68,9 +72,8 @@ async function notificarFalloCobro(params: {
   admin: SupabaseClient;
   rec: { id: string; studio_id: string; socio_id: string | null; concepto: string; importe: number };
   plan: PlanReintento;
-  ahoraISO: string;
 }) {
-  const { admin, rec, plan, ahoraISO } = params;
+  const { admin, rec, plan } = params;
 
   const socio = rec.socio_id
     ? (await admin.from('socios').select('nombre, email').eq('id', rec.socio_id).maybeSingle()).data as { nombre: string | null; email: string | null } | null
@@ -91,26 +94,7 @@ async function notificarFalloCobro(params: {
     });
   }
 
-  // Aviso al ESTUDIO (in-app) SOLO cuando el recibo queda FALLIDO: requiere acción
-  // manual. Id determinista por recibo → idempotente (un recibo solo cae a FALLIDO
-  // una vez); ignora conflicto para no romper en reintentos del webhook.
-  if (plan.esDefinitivo) {
-    const nombreSocia = socio?.nombre ?? 'Una socia';
-    const { error: notiErr } = await admin
-      .from('notificaciones')
-      .upsert(
-        {
-          id: `noti-impago-${rec.id}`,
-          studio_id: rec.studio_id,
-          titulo: 'Pago fallido — acción requerida',
-          texto: `No se pudo cobrar «${rec.concepto}» de ${nombreSocia} (${rec.importe.toFixed(2)} €) tras 3 reintentos. Contáctala o gestiona el cobro a mano.`,
-          leida: false,
-          tipo: 'AVISO',
-          enlace: '/cobros?tab=pendientes',
-          creada_en: ahoraISO,
-        },
-        { onConflict: 'id', ignoreDuplicates: true },
-      );
-    if (notiErr) console.error('[dunning] no se pudo crear la notificación de impago', rec.id, notiErr);
-  }
+  // El aviso in-app a la dueña al quedar FALLIDO lo emite ahora el Notification
+  // Engine (evento pago.fallido, ver registrarFalloCobro) — ya no se escribe a la
+  // tabla legacy `notificaciones`.
 }
