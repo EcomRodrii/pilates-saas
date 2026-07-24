@@ -62,6 +62,8 @@ export const EVENTOS = {
   INSTRUCTORA_BAJA: 'instructora.baja',
   // Equipo: ausencia programada (vacaciones / baja médica / otro).
   INSTRUCTORA_AUSENCIA: 'instructora.ausencia',
+  // Una automatización con canal "aviso interno" se ha disparado.
+  AUTOMATIZACION_DISPARADA: 'automatizacion.disparada',
   // Sistema: cosas que rompen el negocio y exigen acción de la dueña.
   SISTEMA_STRIPE_DESCONECTADO: 'sistema.stripe_desconectado',
   SISTEMA_EMAIL_FALLIDO: 'sistema.email_fallido',
@@ -95,6 +97,8 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Ausencia programada: no es urgente (se registra con antelación), pero si deja
   // clases sin cubrir la dueña tiene que verlo.
   [EVENTOS.INSTRUCTORA_AUSENCIA]:  { category: 'sustituciones', priority: 'MEDIA', canales: [], audiencia: 'propietaria' },
+  // Aviso interno de una automatización → al mostrador (dueña + recepción).
+  [EVENTOS.AUTOMATIZACION_DISPARADA]: { category: 'sistema', priority: 'BAJA', canales: [], audiencia: 'mostrador' },
   // Stripe desconectado = se deja de cobrar. CRÍTICA: ignora preferencias y usa
   // todos los canales configurados (nunca se pierde).
   [EVENTOS.SISTEMA_STRIPE_DESCONECTADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH'], audiencia: 'propietaria' },
@@ -257,6 +261,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Fallan los envíos de email',
     body: 'Hoy no se han podido entregar algunos correos a tus clientas (último error: {error}). Revisa la configuración de email.',
     deepLink: () => `/configuracion?tab=integraciones`,
+  },
+  [`${EVENTOS.AUTOMATIZACION_DISPARADA}#PROPIETARIO`]: {
+    title: 'Automatización: {automatizacion}',
+    body: 'Se ha disparado para {socia}.',
+    deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
   },
 };
 
