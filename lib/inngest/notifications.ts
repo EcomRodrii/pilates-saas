@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { inngest, EVENTS } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { procesarEvento } from '@/lib/notifications/engine';
+import { procesarEvento } from '@/lib/notifications/process';
 import type { NotificationEvent } from '@/lib/notifications/types';
 
 export const procesarNotificacion = inngest.createFunction(

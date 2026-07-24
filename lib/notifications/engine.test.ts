@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { procesarEvento } from './engine.ts';
+import { procesarEvento } from './process.ts';
 import { EVENTOS } from './catalog.ts';
 import type { NotificationEvent } from './types.ts';
 
