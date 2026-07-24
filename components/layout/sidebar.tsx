@@ -174,7 +174,10 @@ export function Sidebar() {
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { studio, instructores } = useCore();
-  const studioSlug = studio?.slug ?? 'tentare';
+  // F4·E5: el enlace al Portal debe derivar SIEMPRE de la sede activa (studio.slug).
+  // El antiguo fallback a 'tentare' apuntaba a un estudio AJENO mientras el estudio
+  // cargaba o en una cadena multi-sede → enlace cross-tenant. Sin slug aún: no se pinta.
+  const studioSlug = studio?.slug ?? null;
   // El avatar de cabecera es el de QUIEN ha iniciado sesión, no siempre el de
   // la propietaria: si es una instructora/recepción con ficha propia, se usa
   // la suya (avatar y foto reales), igual que en Configuración > Mi perfil.
@@ -331,8 +334,8 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* External links */}
-        {collapsed ? (
+        {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
+        {studioSlug && (collapsed ? (
           <div className="px-2 pb-2 flex flex-col items-center gap-0.5">
             <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-brand">
               <ExternalLink size={15} />
@@ -349,7 +352,7 @@ export function Sidebar() {
               <span>Portal clientes</span>
             </Link>
           </div>
-        )}
+        ))}
 
         {/* User */}
         <div className="px-3 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
