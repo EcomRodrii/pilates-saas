@@ -42,4 +42,8 @@ export const EVENTS = {
   // por estudio; el worker detecta la condición (recordatorios, bono a punto de
   // caducar, clienta inactiva) y publica los eventos de notificación.
   NOTIF_AUTOMACION_ESTUDIO: 'notification/automacion.estudio',
+  // Backups (P0-36) — barrido diario de copias de seguridad, un evento por
+  // estudio (fan-out del dispatcher cron). Reemplaza el route de Vercel Cron que
+  // iteraba todos los estudios en serie dentro de una sola invocación acotada.
+  BACKUPS_ESTUDIO: 'backups/studio.sweep',
 } as const;
