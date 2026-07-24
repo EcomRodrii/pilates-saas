@@ -931,6 +931,18 @@ export async function enviarEmailPromocion(params: DatosClaseEmailCliente & {
 }
 
 // Aviso a una socia de que su clase reservada ha sido cancelada por el estudio.
+// Avisa (in-app/push) a las socias apuntadas de que su clase se ha cancelado.
+// El email lo manda aparte el panel; esto dispara el Notification Engine.
+export async function avisarClaseCancelada(sesionId: string): Promise<void> {
+  try {
+    await fetch('/api/clases/avisar-cancelada', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sesionId }),
+    });
+  } catch { /* best-effort: no bloquea la cancelación */ }
+}
+
 export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente & {
   to: string; toName: string;
 }) {

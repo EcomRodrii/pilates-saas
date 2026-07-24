@@ -134,6 +134,24 @@ export async function emitirClaseCasiLlena(
   }
 }
 
+// Clase cancelada: a cada socia apuntada. Lo usa la cancelación desde el
+// calendario (vía ruta), además del flujo de sustituciones (avisarAlumnas).
+export async function emitirClaseCancelada(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    await publish({
+      type: EVENTOS.CLASE_CANCELADA, studioId: p.studioId,
+      data: { clase: ctx.clase, cuando: ctx.cuando, slug: ctx.slug },
+      resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `clase-cancelada:${p.sesionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirClaseCancelada:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Pago realizado: a la socia (confirmación de cobro).
 export async function emitirPagoRealizado(
   admin: SupabaseClient, p: { studioId: string; reciboId: string },
