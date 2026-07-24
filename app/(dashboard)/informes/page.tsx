@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClientas } from '@/lib/supabase-data';
+import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClientas, dbRecibosCobradosParaExport } from '@/lib/supabase-data';
 import { TrendingUp, Users, CreditCard, Activity, Download, FileText } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
@@ -313,16 +313,14 @@ export default function Informes() {
   }, [tiposClase, sesiones, reservas, periodStart]);
 
   // ─── CSV Export ─────────────────────────────────────────────────────────────
-  const exportCSV = useCallback(() => {
+  const exportCSV = useCallback(async () => {
     setCsvState('loading');
-    const cobrados = recibos.filter(r => r.estado === 'COBRADO' && r.fechaCobro && new Date(r.fechaCobro) >= periodStart);
+    // F1: TODOS los recibos cobrados por keyset (sin cap 1000), no el array del cliente.
+    const cobrados = await dbRecibosCobradosParaExport(localDate(periodStart));
+    cobrados.sort((a, b) => (a.fechaCobro < b.fechaCobro ? -1 : a.fechaCobro > b.fechaCobro ? 1 : 0));
     const rows = [
       ['Fecha', 'Clienta', 'Concepto', 'Importe (€)', 'Estado'],
-      ...cobrados.map(r => {
-        const socia = socios.find(s => s.id === r.socioId);
-        const nombre = socia ? `${socia.nombre} ${socia.apellidos}` : r.socioId;
-        return [localDate(r.fechaCobro!), nombre, r.concepto, r.importe.toFixed(2), r.estado];
-      }),
+      ...cobrados.map(r => [r.fechaCobro, r.nombre, r.concepto, r.importe.toFixed(2), r.estado]),
     ];
     const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -333,7 +331,7 @@ export default function Informes() {
     a.click();
     URL.revokeObjectURL(url);
     setTimeout(() => { setCsvState('done'); setTimeout(() => setCsvState('idle'), 2500); }, 600);
-  }, [recibos, socios, periodStart, mounted]);
+  }, [periodStart, mounted]);
 
   // Export real: abre el diálogo de impresión del navegador, desde el que se
   // puede "Guardar como PDF". Sin dependencias externas y funciona en todos los

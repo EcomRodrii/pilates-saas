@@ -4096,6 +4096,34 @@ export async function dbOcupacionPorTipo(
     .map((r) => ({ tipoClaseId: r.tipo_clase_id, nSesiones: Number(r.n_sesiones), aforo: Number(r.aforo), ocupadas: Number(r.ocupadas) }));
 }
 
+// F1 (B4): export CSV COMPLETO — trae TODOS los recibos cobrados por keyset (páginas
+// de 1000 por id, hasta agotar) en vez del array del cliente capado a 1000. El nombre
+// va embebido (join socios) para no depender del array de socios (también capado).
+export async function dbRecibosCobradosParaExport(
+  desde: string,
+): Promise<{ fechaCobro: string; nombre: string; concepto: string; importe: number; estado: string }[]> {
+  const out: { fechaCobro: string; nombre: string; concepto: string; importe: number; estado: string }[] = [];
+  let lastId = '';
+  for (let i = 0; i < 200; i++) { // tope de seguridad: 200×1000 = 200k filas
+    let q = supabase
+      .from('recibos')
+      .select('id, fecha_cobro, concepto, importe, estado, socios(nombre, apellidos)')
+      .eq('estado', 'COBRADO').gte('fecha_cobro', desde)
+      .order('id', { ascending: true }).limit(1000);
+    if (lastId) q = q.gt('id', lastId);
+    const { data, error } = await q;
+    if (error) { reportDbError('[dbRecibosCobradosParaExport]', error); break; }
+    if (!data || data.length === 0) break;
+    for (const r of data as unknown as { id: string; fecha_cobro: string; concepto: string; importe: number; estado: string; socios: { nombre: string; apellidos: string } | null }[]) {
+      const s = r.socios;
+      out.push({ fechaCobro: r.fecha_cobro, nombre: s ? `${s.nombre} ${s.apellidos}` : '—', concepto: r.concepto, importe: Number(r.importe), estado: r.estado });
+    }
+    lastId = (data[data.length - 1] as unknown as { id: string }).id;
+    if (data.length < 1000) break;
+  }
+  return out;
+}
+
 export async function dbInsertRewardCatalogItem(c: RewardCatalogItem) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
