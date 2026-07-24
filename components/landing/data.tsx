@@ -52,6 +52,13 @@ export const RECORRIDO_ITEMS = [
     body: 'Ingresos, ocupación, reservas y renovaciones al día. El panel que ves en el móvil y en el ordenador — el mismo que abre tu estudio cada mañana.',
     chips: ['KPIs en vivo', 'Informes'],
   },
+  {
+    n: '07',
+    eyebrow: 'Radar de ocupación',
+    title: 'Detecta el hueco. Avisa. Se llena.',
+    body: 'Tentare vigila las próximas 48h y te enseña qué clases están por debajo del 70% de aforo. Un toque y avisamos por WhatsApp solo a las socias con bono activo que ya han hecho esa clase antes — nada de spam a cualquiera.',
+    chips: ['Radar 48h', 'Aviso por WhatsApp'],
+  },
 ];
 
 export const AUTONOMY_MODES = [

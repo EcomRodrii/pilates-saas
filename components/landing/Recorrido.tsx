@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { ACC, ACC_SOFT, BG, DARK, MUTED } from './theme';
 import { Avatar, Chip, Eyebrow, LiftCard, Reveal } from './Reveal';
-import { IconCalendar, IconCheck, IconInvoice } from './icons';
+import { IconCalendar, IconCheck, IconInvoice, IconMessage } from './icons';
 import { RECORRIDO_ITEMS } from './data';
 
 export function Recorrido() {
@@ -172,18 +172,48 @@ function RecorridoVisual({ index }: { index: number }) {
       </LiftCard>
     );
   }
-  // index === 5 — panel (captura real del producto)
+  if (index === 5) {
+    // captura real del producto
+    return (
+      <LiftCard style={{ background: BG, border: '1px solid #E1E1D9', borderRadius: 18, overflow: 'hidden', boxShadow: '0 34px 70px -34px rgba(26,26,26,.3)', maxWidth: 460, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#E9E9E2', borderBottom: '1px solid #E1E1D9' }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#D8C3E0' }} />
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
+          <span className="lp-mono" style={{ flex: 1, textAlign: 'center', fontSize: 10.5, color: '#A8A89F' }}>tentare.app</span>
+        </div>
+        <div style={{ position: 'relative', width: '100%', aspectRatio: '2862 / 1360', overflow: 'hidden' }}>
+          <Image src="/hero-panel.png" alt="Panel de Tentare" fill sizes="(max-width: 960px) 90vw, 440px" style={{ objectFit: 'cover', objectPosition: 'top', animation: 'lp-kenburns 16s ease-in-out infinite' }} />
+        </div>
+      </LiftCard>
+    );
+  }
+  // index === 6 — radar de ocupación (mismo layout que la tarjeta real del dashboard)
+  const huecos = [
+    { dot: '#8B4F9E', clase: 'Reformer · 18:00', sub: '3 huecos libres · 5 candidatas' },
+    { dot: '#3E7C86', clase: 'Mat Pilates · 09:00', sub: '1 hueco libre · 2 candidatas' },
+  ];
   return (
-    <LiftCard style={{ background: BG, border: '1px solid #E1E1D9', borderRadius: 18, overflow: 'hidden', boxShadow: '0 34px 70px -34px rgba(26,26,26,.3)', maxWidth: 460, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#E9E9E2', borderBottom: '1px solid #E1E1D9' }}>
-        <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#D8C3E0' }} />
-        <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
-        <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
-        <span className="lp-mono" style={{ flex: 1, textAlign: 'center', fontSize: 10.5, color: '#A8A89F' }}>tentare.app</span>
+    <LiftCard style={base}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 15, fontWeight: 800 }}>Clases con hueco</span>
+          <span className="lp-mono" style={{ fontSize: 10.5, fontWeight: 700, color: '#B5872A', background: '#FBF1DD', padding: '3px 8px', borderRadius: 999 }}>{huecos.length}</span>
+        </div>
+        <span className="lp-mono" style={{ fontSize: 11, color: '#8E8E86' }}>Próximas 48h</span>
       </div>
-      <div style={{ position: 'relative', width: '100%', aspectRatio: '2862 / 1360', overflow: 'hidden' }}>
-        <Image src="/hero-panel.png" alt="Panel de Tentare" fill sizes="(max-width: 960px) 90vw, 440px" style={{ objectFit: 'cover', objectPosition: 'top', animation: 'lp-kenburns 16s ease-in-out infinite' }} />
-      </div>
+      {huecos.map((h, i) => (
+        <div key={h.clase} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: i < huecos.length - 1 ? '1px solid #EDEDE6' : undefined }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: h.dot, flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{h.clase}</div>
+            <div className="lp-mono" style={{ fontSize: 11, color: '#8E8E86' }}>{h.sub}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700, color: '#4E9E7F', background: '#E7F3EC', padding: '7px 12px', borderRadius: 10, whiteSpace: 'nowrap' }}>
+            {IconMessage(12)} Avisar
+          </div>
+        </div>
+      ))}
     </LiftCard>
   );
 }
