@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { enviarEmailCancelacionClase } from '@/lib/api-client';
+import { enviarEmailCancelacionClase, avisarClaseCancelada } from '@/lib/api-client';
 import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
@@ -1619,6 +1619,8 @@ export default function Calendario() {
         });
     }
     updateSesion(sesionId, { cancelada: true });
+    // In-app/push a las apuntadas vía Notification Engine (el email ya salió arriba).
+    void avisarClaseCancelada(sesionId);
     setSesionId(null);
     setToast('Clase cancelada · clientas avisadas');
   }
