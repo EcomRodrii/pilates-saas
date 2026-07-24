@@ -40,6 +40,12 @@ export const EVENTOS = {
   PAGO_FALLIDO: 'pago.fallido',
   PAGO_REALIZADO: 'pago.realizado',
   SISTEMA_ERROR: 'sistema.error',
+  // Automatizaciones (cron → publish)
+  RECORDATORIO_24H: 'reserva.recordatorio_24h',
+  RECORDATORIO_1H: 'reserva.recordatorio_1h',
+  BONO_POR_CADUCAR: 'bono.por_caducar',
+  CLASE_CASI_LLENA: 'clase.casi_llena',
+  SOCIA_INACTIVA: 'socia.inactiva',
 } as const;
 
 // Reglas por evento. La 1ª tanda cableada de la Fase 1 cubre los 3 roles.
@@ -55,6 +61,12 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'propietaria-y-socia' },
   [EVENTOS.PAGO_REALIZADO]:        { category: 'pagos',    priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
   [EVENTOS.SISTEMA_ERROR]:         { category: 'sistema',  priority: 'CRITICA', canales: ['PUSH'], audiencia: 'propietaria' },
+  // Automatizaciones
+  [EVENTOS.RECORDATORIO_24H]:      { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  [EVENTOS.RECORDATORIO_1H]:       { category: 'reservas', priority: 'ALTA',  canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  [EVENTOS.BONO_POR_CADUCAR]:      { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  [EVENTOS.CLASE_CASI_LLENA]:      { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
+  [EVENTOS.SOCIA_INACTIVA]:        { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
 };
 
 // ── Plantillas ────────────────────────────────────────────────────────────────
@@ -131,6 +143,32 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.SISTEMA_ERROR}#PROPIETARIO`]: {
     title: 'Aviso del sistema',
     body: '{mensaje}',
+  },
+  // ── Automatizaciones ──
+  [`${EVENTOS.RECORDATORIO_24H}#SOCIA`]: {
+    title: 'Mañana tienes clase',
+    body: 'Recuerda: {clase} mañana a las {hora}. ¡Te esperamos!',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.RECORDATORIO_1H}#SOCIA`]: {
+    title: 'Tu clase es en 1 hora',
+    body: '{clase} a las {hora}. ¡Nos vemos en un rato!',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.BONO_POR_CADUCAR}#SOCIA`]: {
+    title: 'Tu bono está por caducar',
+    body: 'Te quedan {sesiones} sesiones y tu bono caduca el {fecha}. Renueva para no perderlas.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/mi-plan`,
+  },
+  [`${EVENTOS.CLASE_CASI_LLENA}#PROPIETARIO`]: {
+    title: 'Clase casi llena',
+    body: '{clase} del {cuando} va al {porcentaje}% ({ocupadas}/{aforo} plazas).',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.SOCIA_INACTIVA}#PROPIETARIO`]: {
+    title: 'Clienta inactiva',
+    body: '{socia} lleva {dias} días sin venir. Quizá un mensaje la recupere.',
+    deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
   },
 };
 

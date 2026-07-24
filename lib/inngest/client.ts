@@ -38,4 +38,8 @@ export const EVENTS = {
   // NotificationEngine.publish); el worker resuelve destinatarios, preferencias,
   // plantillas y canales. Nadie envía notificaciones directamente.
   NOTIFICATION_EMIT: 'notification/emit',
+  // Automatizaciones del motor: los dispatchers cron hacen fan-out de un evento
+  // por estudio; el worker detecta la condición (recordatorios, bono a punto de
+  // caducar, clienta inactiva) y publica los eventos de notificación.
+  NOTIF_AUTOMACION_ESTUDIO: 'notification/automacion.estudio',
 } as const;

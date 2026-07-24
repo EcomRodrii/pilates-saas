@@ -1,8 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { procesarEvento, canalesExtraDe, type Preferencia } from './process.ts';
-import { EVENTOS, REGLAS } from './catalog.ts';
+import { EVENTOS, REGLAS, plantillaDe, render } from './catalog.ts';
 import type { NotificationEvent } from './types.ts';
+
+test('automatizaciones: cada evento nuevo tiene regla + plantilla que renderiza', () => {
+  const casos: [string, 'SOCIA' | 'PROPIETARIO', Record<string, unknown>, RegExp][] = [
+    [EVENTOS.RECORDATORIO_24H, 'SOCIA', { clase: 'Reformer', hora: '09:00' }, /Reformer.*09:00/],
+    [EVENTOS.RECORDATORIO_1H, 'SOCIA', { clase: 'Mat', hora: '18:00' }, /Mat.*18:00/],
+    [EVENTOS.BONO_POR_CADUCAR, 'SOCIA', { sesiones: 3, fecha: '30 de julio' }, /3 sesiones.*30 de julio/],
+    [EVENTOS.CLASE_CASI_LLENA, 'PROPIETARIO', { clase: 'Barre', cuando: 'hoy', porcentaje: 90, ocupadas: 9, aforo: 10 }, /Barre.*90%.*9\/10/],
+    [EVENTOS.SOCIA_INACTIVA, 'PROPIETARIO', { socia: 'María', dias: 45 }, /María.*45 días/],
+  ];
+  for (const [evento, rol, data, re] of casos) {
+    assert.ok(REGLAS[evento], `falta regla para ${evento}`);
+    const pl = plantillaDe(evento, rol);
+    assert.ok(pl, `falta plantilla ${evento}#${rol}`);
+    assert.match(render(pl.body, data), re);
+  }
+});
 
 const PREF = (p: Partial<Preferencia> = {}): Preferencia =>
   ({ inapp: true, push: true, email: false, whatsapp: false, sms: false, ...p });
