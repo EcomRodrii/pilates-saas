@@ -195,9 +195,17 @@ function AvisosSocia({ t, studioId, microLabel }: { t: ModoTokens; studioId: str
 
   async function habilitarPush() {
     setActivando(true);
-    await activarPush(studioId, portalAuthHeader);
+    const r = await activarPush(studioId, portalAuthHeader);
     setActivando(false);
     setPermiso(estadoPermiso());
+    if (r.ok) { alert('¡Listo! Recibirás avisos en este dispositivo.'); return; }
+    const msg: Record<string, string> = {
+      denied: 'Has bloqueado las notificaciones. Actívalas desde los ajustes del navegador.',
+      unsupported: 'En iPhone: instala la app en la pantalla de inicio (Compartir → Añadir a inicio) y ábrela desde ahí para poder recibir avisos.',
+      'sin-clave': 'Las notificaciones aún no están listas. Espera unos minutos e inténtalo de nuevo.',
+      error: 'No se ha podido activar. Asegúrate de haber abierto la app desde la pantalla de inicio e inténtalo otra vez.',
+    };
+    alert(msg[r.motivo] ?? 'No se ha podido activar.');
   }
 
   async function toggle(cat: string, canal: 'inapp' | 'push') {
