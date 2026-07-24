@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
+import { dbStatsClientas } from '@/lib/supabase-data';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
@@ -285,15 +286,14 @@ export default function Socios() {
     );
   }
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-  const stats = useMemo(() => {
-    const total = socios.length;
-    const activas = socios.filter((s) => s.activo).length;
-    const conBono = socios.filter((s) => !!getActiveSus(s.id)).length;
-    const inactivas30d = socios.filter((s) => isInactiva30d(s.id)).length;
-    return { total, activas, conBono, inactivas30d };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socios, suscripciones, reservas, sesiones]);
+  // ── Stats (F1 · B1: contadores del SERVIDOR, count() SQL sin cap 1000) ───────
+  const [stats, setStats] = useState({ total: 0, activas: 0, conBono: 0, inactivas30d: 0 });
+  useEffect(() => {
+    let cancel = false;
+    void dbStatsClientas().then((r) => { if (!cancel) setStats(r); });
+    return () => { cancel = true; };
+    // re-fetch cuando cambian los datos locales (alta/edición/reserva)
+  }, [socios, suscripciones, reservas]);
 
   // ── Filtered + sorted list ─────────────────────────────────────────────────
   const lista = useMemo(() => {

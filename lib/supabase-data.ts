@@ -4072,6 +4072,19 @@ export async function dbIngresosPorDia(desde: string | null): Promise<{ dia: str
   return ((data ?? []) as { dia: string; total: number }[]).map((r) => ({ dia: r.dia, total: Number(r.total) }));
 }
 
+// F1 (B1): contadores de clientas SERVER-SIDE (migr 0092). Sustituye a los 4 filter/
+// length sobre el array de socios del cliente (capado a 1000). count() en SQL no se
+// capa; la RLS acota por estudio.
+export async function dbStatsClientas(): Promise<{ total: number; activas: number; conBono: number; inactivas30d: number }> {
+  const { data, error } = await supabase.rpc('stats_clientas');
+  if (error) { reportDbError('[dbStatsClientas]', error); return { total: 0, activas: 0, conBono: 0, inactivas30d: 0 }; }
+  const row = (Array.isArray(data) ? data[0] : data) as { total: number; activas: number; con_bono: number; inactivas_30d: number } | undefined;
+  return {
+    total: Number(row?.total ?? 0), activas: Number(row?.activas ?? 0),
+    conBono: Number(row?.con_bono ?? 0), inactivas30d: Number(row?.inactivas_30d ?? 0),
+  };
+}
+
 export async function dbInsertRewardCatalogItem(c: RewardCatalogItem) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
