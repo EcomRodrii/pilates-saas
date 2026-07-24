@@ -292,8 +292,11 @@ export default function CitasPage() {
   }, [form.instructorId, form.fecha, form.hora, form.duracion, citas, sesiones]);
 
   // Derived counts
+  // F4·E3: "próxima" = pendiente/confirmada Y que aún no ha pasado. Antes solo se
+  // miraba el estado → una cita de un mes anterior seguía saliendo en Próximas.
+  const inicioHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const upcoming = citas.filter(
-    (c) => c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA'
+    (c) => (c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA') && new Date(c.inicio) >= inicioHoy
   );
   const thisMonth = citas.filter((c) => isSameMonth(c.inicio, now));
   const completadasMes = thisMonth.filter((c) => c.estado === 'COMPLETADA');
@@ -323,8 +326,10 @@ export default function CitasPage() {
 
   // Tab filter
   const byTab = citas.filter((c) => {
-    if (tab === 'proximas') return c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA';
-    return ['COMPLETADA', 'CANCELADA', 'NO_ASISTIO'].includes(c.estado);
+    // F4·E3: próxima = pendiente/confirmada y futura; historial = el resto
+    // (resueltas, o pendientes/confirmadas que ya pasaron sin resolverse).
+    const esProxima = (c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA') && new Date(c.inicio) >= inicioHoy;
+    return tab === 'proximas' ? esProxima : !esProxima;
   });
 
   // Instructor filter
