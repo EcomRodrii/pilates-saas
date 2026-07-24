@@ -1,234 +1,115 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  AlertTriangle,
-  AlertCircle,
-  CheckCircle,
-  Info,
-  ExternalLink,
-  UserPlus,
-  Calendar,
-  CalendarX,
-  Clock,
-  RefreshCw,
-  ShoppingCart,
-  Mail,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useStudio } from '@/lib/studio-context';
-import type { Notificacion, ActividadReciente } from '@/lib/types';
+// Notification Center — vista admin del estudio: TODAS las notificaciones con su
+// estado de entrega por canal (fecha, destinatario, tipo, prioridad, título,
+// canales + resultado + errores). Lee /api/notifications/admin (solo staff).
+
+import { useCallback, useEffect, useState } from 'react';
 import { PageHeader } from '@/components/ui/page-header';
+import { authHeader } from '@/lib/api-client';
+import { CATEGORIA_ETIQUETA } from '@/lib/notifications/catalog';
+import type { NotificationCategory } from '@/lib/notifications/types';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 60) return `hace ${mins} minuto${mins !== 1 ? 's' : ''}`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `hace ${hours} hora${hours !== 1 ? 's' : ''}`;
-  const days = Math.floor(hours / 24);
-  return `hace ${days} día${days !== 1 ? 's' : ''}`;
+interface AdminItem {
+  id: string;
+  recipientRole: string;
+  eventType: string;
+  category: NotificationCategory;
+  priority: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+  deliveries: { channel: string; status: string; error: string | null }[];
 }
 
-// ─── Notification icon ────────────────────────────────────────────────────────
+const ROL_ETIQUETA: Record<string, string> = { PROPIETARIO: 'Propietaria', INSTRUCTOR: 'Instructora', SOCIA: 'Socia' };
+const PRIO_COLOR: Record<string, string> = {
+  CRITICA: 'text-red-600 bg-red-500/10', ALTA: 'text-amber-600 bg-amber-500/10',
+  MEDIA: 'text-brand bg-brand/10', BAJA: 'text-muted-foreground bg-muted', SILENCIOSA: 'text-muted-foreground bg-muted',
+};
+const ESTADO_COLOR: Record<string, string> = {
+  SENT: 'text-emerald-600', DELIVERED: 'text-emerald-600', PENDING: 'text-muted-foreground',
+  SKIPPED: 'text-muted-foreground/70', FAILED: 'text-red-600',
+};
 
-function NotiIcon({ tipo, size = 16 }: { tipo: Notificacion['tipo']; size?: number }) {
-  if (tipo === 'AVISO') return <AlertTriangle size={size} className="text-warning" />;
-  if (tipo === 'ERROR') return <AlertCircle size={size} className="text-destructive" />;
-  if (tipo === 'EXITO') return <CheckCircle size={size} className="text-success" />;
-  return <Info size={size} className="text-brand" />;
+function fecha(iso: string) {
+  return new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-function NotiIconBg({ tipo }: { tipo: Notificacion['tipo'] }) {
-  const base = 'w-9 h-9 rounded-full flex items-center justify-center shrink-0';
-  if (tipo === 'AVISO') return <div className={cn(base, 'bg-amber-50')}><AlertTriangle size={16} className="text-warning" /></div>;
-  if (tipo === 'ERROR') return <div className={cn(base, 'bg-red-50')}><AlertCircle size={16} className="text-destructive" /></div>;
-  if (tipo === 'EXITO') return <div className={cn(base, 'bg-emerald-50')}><CheckCircle size={16} className="text-success" /></div>;
-  return <div className={cn(base, 'bg-blue-50')}><Info size={16} className="text-brand" /></div>;
-}
+export default function NotificationCenterPage() {
+  const [items, setItems] = useState<AdminItem[]>([]);
+  const [cargando, setCargando] = useState(true);
 
-// ─── Activity icon ────────────────────────────────────────────────────────────
+  const cargar = useCallback(async () => {
+    const res = await fetch('/api/notifications/admin', { headers: await authHeader(), cache: 'no-store' });
+    const data = res.ok ? await res.json() : { items: [] };
+    setItems(data.items ?? []);
+    setCargando(false);
+  }, []);
 
-function ActividadIcon({ tipo }: { tipo: ActividadReciente['tipo'] }) {
-  const base = 'w-8 h-8 rounded-full flex items-center justify-center shrink-0';
-  switch (tipo) {
-    case 'NUEVA_SOCIA':
-      return <div className={cn(base, 'bg-emerald-50')}><UserPlus size={14} className="text-success" /></div>;
-    case 'NUEVA_RESERVA':
-      return <div className={cn(base, 'bg-blue-50')}><Calendar size={14} className="text-brand" /></div>;
-    case 'CANCELACION':
-      return <div className={cn(base, 'bg-red-50')}><CalendarX size={14} className="text-destructive" /></div>;
-    case 'PAGO_COBRADO':
-      return <div className={cn(base, 'bg-emerald-50')}><CheckCircle size={14} className="text-success" /></div>;
-    case 'PAGO_PENDIENTE':
-      return <div className={cn(base, 'bg-amber-50')}><Clock size={14} className="text-warning" /></div>;
-    case 'NUEVA_SUSCRIPCION':
-      return <div className={cn(base, 'bg-blue-50')}><RefreshCw size={14} className="text-brand" /></div>;
-    case 'CITA_CREADA':
-      return <div className={cn(base, 'bg-purple-50')}><Clock size={14} className="text-purple-600" /></div>;
-    case 'VENTA_POS':
-      return <div className={cn(base, 'bg-emerald-50')}><ShoppingCart size={14} className="text-success" /></div>;
-    case 'MENSAJE_ENVIADO':
-      return <div className={cn(base, 'bg-blue-50')}><Mail size={14} className="text-brand" /></div>;
-    default:
-      return <div className={cn(base, 'bg-muted')}><Info size={14} className="text-muted-foreground" /></div>;
-  }
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default function NotificacionesPage() {
-  const { notificaciones, marcarNotificacionLeida, marcarTodasLeidas, actividadReciente } = useStudio();
-  const [selected, setSelected] = useState<Notificacion | null>(null);
-
-  const unreadCount = notificaciones.filter(n => !n.leida).length;
-
-  function handleSelect(n: Notificacion) {
-    setSelected(n);
-    marcarNotificacionLeida(n.id);
-  }
+  // setState tras await (asíncrono) — falso positivo del lint del compilador.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void cargar(); }, [cargar]);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-5xl">
+      <PageHeader
+        title="Notificaciones"
+        description="Todo lo que el sistema ha enviado: a quién, por qué canal y con qué resultado."
+      />
 
-        <PageHeader
-          title="Bandeja de entrada"
-          badge={unreadCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[12px] font-semibold bg-brand text-white">
-              <span className="sr-only">Sin leer: </span>{unreadCount}
-            </span>
-          )}
-          actions={unreadCount > 0 && (
-            <button
-              onClick={marcarTodasLeidas}
-              className="px-4 py-2 rounded-lg bg-card border border-border text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
-            >
-              Marcar todas leídas
-            </button>
-          )}
-        />
-
-        {/* Two-column layout */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-6">
-
-          {/* Left: notification list (40%) */}
-          <div className="lg:w-[40%] space-y-1">
-            {notificaciones.map(n => (
-              <button
-                key={n.id}
-                onClick={() => handleSelect(n)}
-                className={cn(
-                  'w-full text-left rounded-xl border transition-all p-3 flex items-start gap-3',
-                  selected?.id === n.id
-                    ? 'border-foreground bg-card shadow-sm'
-                    : n.leida
-                    ? 'border-border bg-card hover:border-muted-foreground'
-                    : 'border-border bg-blue-50/40 hover:border-muted-foreground'
-                )}
-              >
-                {/* Unread dot */}
-                <div className="mt-1 shrink-0 w-2 h-2 rounded-full transition-colors" style={{ background: n.leida ? 'transparent' : 'var(--brand)' }} />
-
-                <NotiIconBg tipo={n.tipo} />
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className={cn(
-                      'text-[13px] leading-snug truncate',
-                      n.leida ? 'font-medium text-foreground' : 'font-semibold text-foreground'
-                    )}>
-                      {n.titulo}
-                    </p>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">{timeAgo(n.creadaEn)}</span>
-                  </div>
-                  <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
-                    {n.texto}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Right: detail view (60%) */}
-          <div className="lg:w-[60%]">
-            {selected ? (
-              <div className="bg-card border border-border rounded-xl p-6">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className={cn(
-                    'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
-                    selected.tipo === 'AVISO' && 'bg-amber-50',
-                    selected.tipo === 'ERROR' && 'bg-red-50',
-                    selected.tipo === 'EXITO' && 'bg-emerald-50',
-                    selected.tipo === 'INFO' && 'bg-blue-50',
-                  )}>
-                    <NotiIcon tipo={selected.tipo} size={22} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-[16px] font-semibold text-foreground leading-snug">
-                      {selected.titulo}
-                    </h2>
-                    <p className="text-[12px] text-muted-foreground mt-1">{timeAgo(selected.creadaEn)}</p>
-                  </div>
-                </div>
-
-                <p className="text-[14px] text-foreground leading-relaxed mb-5">
-                  {selected.texto}
-                </p>
-
-                {selected.enlace && (
-                  <a
-                    href={selected.enlace}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[13px] font-medium hover:brightness-95 transition-colors"
-                  >
-                    Ver
-                    <ExternalLink size={13} />
-                  </a>
-                )}
-              </div>
-            ) : (
-              <div className="bg-card border border-border rounded-xl h-64 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-                <Mail size={32} strokeWidth={1.5} />
-                <p className="text-[14px]">Selecciona una notificación</p>
-              </div>
-            )}
+      {cargando ? (
+        <p className="text-[13px] text-muted-foreground">Cargando…</p>
+      ) : items.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-card px-4 py-12 text-center text-[13px] text-muted-foreground">
+          Aún no se ha enviado ninguna notificación.
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground border-b border-border">
+                  <th className="px-4 py-2.5 font-bold">Fecha</th>
+                  <th className="px-4 py-2.5 font-bold">Destinatario</th>
+                  <th className="px-4 py-2.5 font-bold">Notificación</th>
+                  <th className="px-4 py-2.5 font-bold">Tipo</th>
+                  <th className="px-4 py-2.5 font-bold">Prioridad</th>
+                  <th className="px-4 py-2.5 font-bold">Entrega</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map(n => (
+                  <tr key={n.id} className="border-b border-border/50 align-top">
+                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground tabular-nums">{fecha(n.createdAt)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold text-foreground">{ROL_ETIQUETA[n.recipientRole] ?? n.recipientRole}</td>
+                    <td className="px-4 py-3 max-w-[260px]">
+                      <p className="font-semibold text-foreground truncate">{n.title}</p>
+                      <p className="text-muted-foreground text-[12px] truncate">{n.body}</p>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{CATEGORIA_ETIQUETA[n.category] ?? n.category}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${PRIO_COLOR[n.priority] ?? ''}`}>{n.priority}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-0.5">
+                        {n.deliveries.length === 0 ? <span className="text-muted-foreground/60">—</span> : n.deliveries.map((d, i) => (
+                          <span key={i} className="whitespace-nowrap text-[12px]">
+                            <span className="text-muted-foreground">{d.channel}</span>{' '}
+                            <span className={`font-semibold ${ESTADO_COLOR[d.status] ?? ''}`}>{d.status}</span>
+                            {d.error && <span className="text-red-500/70 text-[11px]"> · {d.error}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-
-        {/* Activity feed */}
-        <div>
-          <h2 className="text-[16px] font-semibold text-foreground mb-4">Actividad reciente</h2>
-          <div className="bg-card border border-border rounded-xl divide-y divide-border">
-            {actividadReciente.map((act, i) => (
-              <div key={act.id} className="flex items-start gap-3 px-4 py-3">
-                {/* Timeline line */}
-                <div className="relative flex flex-col items-center">
-                  <ActividadIcon tipo={act.tipo} />
-                  {i < actividadReciente.length - 1 && (
-                    <div className="w-px flex-1 bg-border mt-1" style={{ minHeight: 12 }} />
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0 pt-1">
-                  <p className="text-[13px] text-foreground">{act.texto}</p>
-                  <p className="text-[12px] text-muted-foreground mt-0.5">{timeAgo(act.creadoEn)}</p>
-                </div>
-
-                {act.enlace && (
-                  <a
-                    href={act.enlace}
-                    className="shrink-0 mt-1 text-muted-foreground hover:text-brand transition-colors"
-                    title="Ver"
-                  >
-                    <ExternalLink size={14} />
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
+      )}
     </div>
   );
 }
