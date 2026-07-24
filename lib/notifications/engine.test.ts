@@ -10,6 +10,7 @@ test('equipo y sistema: reglas + plantillas que renderizan', () => {
     [EVENTOS.SISTEMA_STRIPE_DESCONECTADO, {}, /Stripe/],
     [EVENTOS.SISTEMA_EMAIL_FALLIDO, { error: 'domain not verified' }, /domain not verified/],
     [EVENTOS.SUSTITUCION_RECHAZADA, { instructora: 'Lucía', clase: 'Mat', cuando: 'hoy' }, /Lucía.*Mat/],
+    [EVENTOS.INSTRUCTORA_AUSENCIA, { instructora: 'Ana', desde: '1 de agosto', hasta: '15 de agosto', clases: ' · 6 clases suyas en esas fechas por cubrir' }, /Ana.*1 de agosto.*15 de agosto.*6 clases/],
   ];
   for (const [evento, data, re] of casos) {
     assert.ok(REGLAS[evento], `falta regla para ${evento}`);

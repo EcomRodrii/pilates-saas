@@ -234,6 +234,41 @@ export async function emitirInstructoraBaja(
   }
 }
 
+// Ausencia programada de una instructora (vacaciones / baja médica / otro).
+// Lo accionable no es la ausencia en sí, sino cuántas clases suyas quedan dentro
+// del periodo: eso es lo que la dueña tiene que cubrir.
+const TIPO_AUSENCIA: Record<string, string> = {
+  VACACIONES: 'vacaciones', BAJA_MEDICA: 'baja médica', OTRO: 'ausencia',
+};
+
+export async function emitirInstructoraAusencia(
+  admin: SupabaseClient,
+  p: {
+    studioId: string; ausenciaId: string; instructora: string;
+    tipo: string; desde: string; hasta: string; clasesAfectadas: number;
+  },
+): Promise<void> {
+  try {
+    const fecha = (iso: string) =>
+      new Date(`${iso}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+    await publish({
+      type: EVENTOS.INSTRUCTORA_AUSENCIA, studioId: p.studioId,
+      data: {
+        instructora: p.instructora,
+        tipoTexto: TIPO_AUSENCIA[p.tipo] ?? 'ausencia',
+        desde: fecha(p.desde), hasta: fecha(p.hasta),
+        clases: p.clasesAfectadas > 0
+          ? ` · ${p.clasesAfectadas} ${p.clasesAfectadas === 1 ? 'clase suya' : 'clases suyas'} en esas fechas por cubrir`
+          : '',
+      },
+      resource: { type: 'ausencia', id: p.ausenciaId },
+      dedupKey: `ausencia:${p.ausenciaId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirInstructoraAusencia:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Sustitución rechazada: la candidata dice que no → la dueña debe elegir a otra.
 export async function emitirSustitucionRechazada(
   admin: SupabaseClient,
