@@ -48,3 +48,6 @@ export const IconCalendar = (s?: number) => (
 export const IconInvoice = (s?: number) => (
   <Icon size={s} path={<><rect width={20} height={14} x={2} y={5} rx={2} /><line x1={2} x2={22} y1={10} y2={10} /></>} />
 );
+export const IconMessage = (s?: number) => (
+  <Icon size={s} path={<path d="M4 4h16v12H8l-4 4z" />} />
+);
