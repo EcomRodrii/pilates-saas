@@ -11,6 +11,7 @@ import { Card, Pill } from '@/components/portal/ui';
 import { portalAuthHeader } from '@/lib/api-client';
 import { fetchPreferencias, guardarPreferencia } from '@/lib/notifications/client';
 import { CATEGORIAS_POR_ROL, CATEGORIA_ETIQUETA } from '@/lib/notifications/catalog';
+import { activarPush, estadoPermiso } from '@/lib/notifications/push-client';
 import type { ModoTokens } from '@/lib/portal-modo';
 
 export default function PreferenciasPage() {
@@ -182,13 +183,22 @@ export default function PreferenciasPage() {
 function AvisosSocia({ t, studioId, microLabel }: { t: ModoTokens; studioId: string; microLabel: React.CSSProperties }) {
   const cats = CATEGORIAS_POR_ROL.SOCIA;
   const [prefs, setPrefs] = useState<Record<string, { inapp: boolean; push: boolean }>>({});
+  const [permiso, setPermiso] = useState<NotificationPermission | 'unsupported'>('default');
+  const [activando, setActivando] = useState(false);
 
   const cargar = useCallback(async () => {
     setPrefs(await fetchPreferencias(portalAuthHeader) as Record<string, { inapp: boolean; push: boolean }>);
   }, []);
   // setState tras await (asíncrono) — falso positivo del lint del compilador.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void cargar(); }, [cargar]);
+  useEffect(() => { void cargar(); setPermiso(estadoPermiso()); }, [cargar]);
+
+  async function habilitarPush() {
+    setActivando(true);
+    await activarPush(studioId, portalAuthHeader);
+    setActivando(false);
+    setPermiso(estadoPermiso());
+  }
 
   async function toggle(cat: string, canal: 'inapp' | 'push') {
     const actual = prefs[cat] ?? { inapp: true, push: true };
@@ -206,6 +216,20 @@ function AvisosSocia({ t, studioId, microLabel }: { t: ModoTokens; studioId: str
     <Card style={{ padding: 20 }}>
       <p style={{ ...microLabel, marginBottom: 4 }}>Avisos</p>
       <p style={{ fontSize: 12, color: t.muted, marginBottom: 14 }}>Elige qué quieres recibir y por dónde. Los avisos importantes de pago se envían siempre.</p>
+
+      {permiso !== 'unsupported' && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 14, background: t.surface2, marginBottom: 14 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: t.ink }}>
+            {permiso === 'granted' ? 'Notificaciones activadas en este dispositivo' : 'Recibir avisos en este dispositivo'}
+          </span>
+          {permiso !== 'granted' && (
+            <button type="button" onClick={habilitarPush} disabled={activando || permiso === 'denied'}
+              style={{ fontSize: 12, fontWeight: 800, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer', background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', opacity: (activando || permiso === 'denied') ? 0.5 : 1 }}>
+              {activando ? '…' : permiso === 'denied' ? 'Bloqueado' : 'Activar'}
+            </button>
+          )}
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {cats.map(cat => {
           const p = prefs[cat] ?? { inapp: true, push: true };

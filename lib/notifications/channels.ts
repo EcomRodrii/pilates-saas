@@ -37,21 +37,47 @@ const inapp: Canal = {
   },
 };
 
-// PUSH: stub de Fase 1. Busca suscripción del usuario; sin VAPID configurado o
-// sin suscripción → SKIPPED (no es un error, es que aún no aplica). El envío real
-// (web-push + VAPID + service worker) llega en el PR2.
+// PUSH (Web Push): envía a cada endpoint del usuario con web-push + VAPID. Sin
+// VAPID o sin suscripción → SKIPPED (no es error, es que aún no aplica). Los
+// endpoints caducados (404/410) se borran solos. web-push se importa perezoso
+// para no cargarlo salvo cuando de verdad hay que enviar.
 const push: Canal = {
   nombre: 'PUSH',
-  async enviar({ admin, destinatario }) {
+  async enviar({ admin, notificacion, destinatario }) {
     if (!destinatario.userId) return { status: 'SKIPPED', error: 'destinatario sin cuenta' };
-    if (!process.env.VAPID_PRIVATE_KEY || !process.env.VAPID_PUBLIC_KEY) {
-      return { status: 'SKIPPED', error: 'push no configurado (VAPID pendiente)' };
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    const privateKey = process.env.VAPID_PRIVATE_KEY;
+    if (!publicKey || !privateKey) return { status: 'SKIPPED', error: 'push no configurado (VAPID pendiente)' };
+
+    const { data: subs } = await admin.from('push_subscription')
+      .select('id, endpoint, p256dh, auth').eq('user_id', destinatario.userId);
+    if (!subs || subs.length === 0) return { status: 'SKIPPED', error: 'sin suscripción push' };
+
+    const webpush = (await import('web-push')).default;
+    webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:soporte@tentare.app', publicKey, privateKey);
+    const payload = JSON.stringify({
+      title: notificacion.title, body: notificacion.body,
+      url: notificacion.deepLink || '/', tag: notificacion.eventType,
+    });
+
+    let enviados = 0;
+    let ultimoError: string | undefined;
+    for (const s of subs) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint as string, keys: { p256dh: s.p256dh as string, auth: s.auth as string } },
+          payload,
+        );
+        enviados++;
+      } catch (e) {
+        const code = (e as { statusCode?: number }).statusCode;
+        // 404/410 = endpoint muerto (desinstaló la PWA / revocó) → limpiar.
+        if (code === 404 || code === 410) await admin.from('push_subscription').delete().eq('id', s.id);
+        else ultimoError = e instanceof Error ? e.message : 'error push';
+      }
     }
-    const { data } = await admin.from('push_subscription')
-      .select('id').eq('user_id', destinatario.userId).limit(1);
-    if (!data || data.length === 0) return { status: 'SKIPPED', error: 'sin suscripción push' };
-    // PR2: enviar con web-push a cada endpoint. De momento no bloquea nada.
-    return { status: 'SKIPPED', error: 'envío push pendiente (PR2)' };
+    if (enviados > 0) return { status: 'SENT', providerId: `${enviados} endpoint(s)` };
+    return { status: ultimoError ? 'FAILED' : 'SKIPPED', error: ultimoError ?? 'sin endpoints válidos' };
   },
 };
 

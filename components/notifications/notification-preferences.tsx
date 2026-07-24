@@ -6,9 +6,11 @@
 // la función que aporta la cabecera Authorization (panel vs portal).
 
 import { useCallback, useEffect, useState } from 'react';
+import { Bell, BellOff, BellRing } from 'lucide-react';
 import { CATEGORIAS_POR_ROL, CATEGORIA_ETIQUETA } from '@/lib/notifications/catalog';
 import type { NotificationRole } from '@/lib/notifications/types';
 import { fetchPreferencias, guardarPreferencia } from '@/lib/notifications/client';
+import { activarPush, estadoPermiso } from '@/lib/notifications/push-client';
 
 type Headers = () => Promise<Record<string, string>>;
 interface Pref { inapp: boolean; push: boolean }
@@ -35,6 +37,21 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
   const categorias = CATEGORIAS_POR_ROL[role];
   const [prefs, setPrefs] = useState<Record<string, Pref>>({});
   const [cargando, setCargando] = useState(true);
+  const [permiso, setPermiso] = useState<NotificationPermission | 'unsupported'>('default');
+  const [activando, setActivando] = useState(false);
+
+  // Notification.permission solo existe en cliente → se lee tras montar.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setPermiso(estadoPermiso()); }, []);
+
+  async function habilitarPush() {
+    setActivando(true);
+    const r = await activarPush(studioId, getHeaders);
+    setActivando(false);
+    setPermiso(estadoPermiso());
+    if (!r.ok && r.motivo === 'denied') alert('Has bloqueado las notificaciones en el navegador. Actívalas desde los ajustes del navegador para este sitio.');
+    if (!r.ok && r.motivo === 'unsupported') alert('Este navegador no admite notificaciones push. En iPhone, instala la app en la pantalla de inicio primero.');
+  }
 
   const cargar = useCallback(async () => {
     const p = await fetchPreferencias(getHeaders);
@@ -56,6 +73,29 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
   if (cargando) return <p className="text-[13px] text-muted-foreground">Cargando preferencias…</p>;
 
   return (
+   <div className="flex flex-col gap-4">
+    {/* Activar push en este dispositivo */}
+    <div className="rounded-2xl border border-border bg-card px-4 py-3.5 flex items-center gap-3">
+      <span className={`w-9 h-9 rounded-full flex items-center justify-center ${permiso === 'granted' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-brand/10 text-brand'}`}>
+        {permiso === 'granted' ? <BellRing size={17} /> : permiso === 'denied' ? <BellOff size={17} /> : <Bell size={17} />}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13.5px] font-bold text-foreground">Avisos en este dispositivo</p>
+        <p className="text-[12px] text-muted-foreground">
+          {permiso === 'granted' ? 'Activados — recibirás avisos aunque no tengas Tentare abierto.'
+            : permiso === 'denied' ? 'Bloqueados en el navegador. Actívalos desde sus ajustes para este sitio.'
+            : permiso === 'unsupported' ? 'Este navegador no admite push (en iPhone, instala la app en la pantalla de inicio).'
+            : 'Recibe avisos en el móvil/ordenador aunque no tengas Tentare abierto.'}
+        </p>
+      </div>
+      {permiso !== 'granted' && permiso !== 'unsupported' && (
+        <button onClick={habilitarPush} disabled={activando || permiso === 'denied'}
+          className="shrink-0 px-3.5 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-50">
+          {activando ? 'Activando…' : 'Activar'}
+        </button>
+      )}
+    </div>
+
     <div className="rounded-2xl border border-border bg-card overflow-hidden">
       <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 px-4 py-2.5 border-b border-border text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
         <span>Tipo</span><span className="text-center">En la app</span><span className="text-center">Push</span>
@@ -72,5 +112,6 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
       })}
       <p className="px-4 py-2.5 text-[11.5px] text-muted-foreground bg-muted/30">Los avisos críticos (p. ej. un problema de cobro) se envían siempre.</p>
     </div>
+   </div>
   );
 }
