@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import { dbInformeIngresos, dbIngresosPorDia } from '@/lib/supabase-data';
+import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClientas } from '@/lib/supabase-data';
 import { TrendingUp, Users, CreditCard, Activity, Download, FileText } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
@@ -144,6 +144,9 @@ export default function Informes() {
   const [mounted, setMounted] = useState(false);
   // F1 (B1-B4): agregados de dinero calculados en el SERVIDOR (RPC, sin cap 1000).
   const [agg, setAgg] = useState<{ total: number; nSocias: number; mrr: number; porDia: { dia: string; total: number }[] } | null>(null);
+  // F1 (B4/B1): ocupación por tipo y retención también del servidor.
+  const [ocupData, setOcupData] = useState<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]>([]);
+  const [retencion, setRetencion] = useState(0);
 
   useEffect(() => setMounted(true), []);
 
@@ -158,8 +161,13 @@ export default function Informes() {
     const desde = localDate(periodStart);
     const mesInicio = localDate(new Date(now.getFullYear(), now.getMonth(), 1));
     let cancel = false;
-    void Promise.all([dbInformeIngresos(desde), dbInformeIngresos(mesInicio), dbIngresosPorDia(desde)])
-      .then(([per, mes, dias]) => { if (!cancel) setAgg({ total: per.total, nSocias: per.nSocias, mrr: mes.total, porDia: dias }); });
+    void Promise.all([dbInformeIngresos(desde), dbInformeIngresos(mesInicio), dbIngresosPorDia(desde), dbOcupacionPorTipo(desde), dbStatsClientas()])
+      .then(([per, mes, dias, ocup, stc]) => {
+        if (cancel) return;
+        setAgg({ total: per.total, nSocias: per.nSocias, mrr: mes.total, porDia: dias });
+        setOcupData(ocup);
+        setRetencion(stc.total > 0 ? Math.round((stc.activas / stc.total) * 100) : 0);
+      });
     return () => { cancel = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, mounted]);
@@ -189,40 +197,31 @@ export default function Informes() {
   // ─── KPI: Ticket medio (server-side, F1) ────────────────────────────────────
   const ticketMedio = agg && agg.nSocias > 0 ? agg.total / agg.nSocias : 0;
 
-  // ─── KPI: Tasa retención ────────────────────────────────────────────────────
-  const tasaRetencion = useMemo(() => {
-    const total = socios.length;
-    const activas = socios.filter(s => s.activo).length;
-    return total > 0 ? Math.round((activas / total) * 100) : 0;
-  }, [socios]);
+  // ─── KPI: Tasa retención (server-side, F1) ──────────────────────────────────
+  const tasaRetencion = retencion;
 
   // ─── Ocupación por tipo de clase ────────────────────────────────────────────
   const ocupacionPorTipo = useMemo(() => {
     // P0-28: ocupadas por sesión en UNA pasada, en vez de reservas.filter() por
     // cada sesión de cada tipo (O(tipos × sesiones × reservas)).
-    const ocupadasPorSesion = new Map<string, number>();
-    for (const r of reservas) {
-      if (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA') {
-        ocupadasPorSesion.set(r.sesionId, (ocupadasPorSesion.get(r.sesionId) ?? 0) + 1);
-      }
-    }
+    // F1: sobre la ocupación agregada en el SERVIDOR (sin capar), no sobre el array
+    // de reservas/sesiones del cliente.
+    const byTipo = new Map(ocupData.map(o => [o.tipoClaseId, o]));
     return tiposClase.map(tc => {
-      const sesionesTipo = sesiones.filter(
-        s => s.tipoClaseId === tc.id && !s.cancelada && new Date(s.inicio) >= periodStart
-      );
-      const totalAforo = sesionesTipo.reduce((s, ses) => s + ses.aforoMaximo, 0);
-      const totalOcupadas = sesionesTipo.reduce((sum, ses) => sum + (ocupadasPorSesion.get(ses.id) ?? 0), 0);
+      const o = byTipo.get(tc.id);
+      const aforo = o?.aforo ?? 0;
+      const ocupadas = o?.ocupadas ?? 0;
       return {
         id: tc.id,
         nombre: tc.nombre,
         color: tc.color,
-        pct: totalAforo > 0 ? Math.round((totalOcupadas / totalAforo) * 100) : 0,
-        sesiones: sesionesTipo.length,
-        ocupadas: totalOcupadas,
-        aforo: totalAforo,
+        pct: aforo > 0 ? Math.round((ocupadas / aforo) * 100) : 0,
+        sesiones: o?.nSesiones ?? 0,
+        ocupadas,
+        aforo,
       };
     }).filter(t => t.sesiones > 0).sort((a, b) => b.pct - a.pct);
-  }, [tiposClase, sesiones, reservas, periodStart]);
+  }, [ocupData, tiposClase]);
 
   // ─── Cohort retention table ─────────────────────────────────────────────────
   const cohortRows = useMemo((): CohortRow[] => {

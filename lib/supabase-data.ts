@@ -4085,6 +4085,17 @@ export async function dbStatsClientas(): Promise<{ total: number; activas: numbe
   };
 }
 
+// F1 (B4/C2): ocupación por tipo de clase SERVER-SIDE (migr 0093). Sustituye la
+// iteración del array reservas+sesiones del cliente (capado a 1000).
+export async function dbOcupacionPorTipo(
+  desde: string | null,
+): Promise<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]> {
+  const { data, error } = await supabase.rpc('ocupacion_por_tipo', { p_desde: desde });
+  if (error) { reportDbError('[dbOcupacionPorTipo]', error); return []; }
+  return ((data ?? []) as { tipo_clase_id: string | null; n_sesiones: number; aforo: number; ocupadas: number }[])
+    .map((r) => ({ tipoClaseId: r.tipo_clase_id, nSesiones: Number(r.n_sesiones), aforo: Number(r.aforo), ocupadas: Number(r.ocupadas) }));
+}
+
 export async function dbInsertRewardCatalogItem(c: RewardCatalogItem) {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
