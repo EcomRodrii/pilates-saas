@@ -192,6 +192,9 @@ export async function POST(req: NextRequest) {
         // un pago por enlace dejaba la suscripción sin renovar hasta que
         // alguien abría el panel. Best-effort e idempotente.
         await aplicarRenovacionServidor(admin, { studioId, reciboId });
+        // Notification Engine: confirmación de pago a la socia.
+        const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
+        await emitirPagoRealizado(admin, { studioId, reciboId });
       }
 
       // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la
@@ -322,6 +325,9 @@ export async function POST(req: NextRequest) {
       // que en checkout.session.completed: sin esto, el adeudo SEPA liquidado
       // cobraba la renovación sin renovar la suscripción. Best-effort.
       await aplicarRenovacionServidor(admin, { studioId, reciboId });
+      // Notification Engine: confirmación de pago a la socia (adeudo SEPA liquidado).
+      const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
+      await emitirPagoRealizado(admin, { studioId, reciboId });
       try {
         const sell = await sellarFacturaDeRecibo(admin, { studioId, reciboId, facturaId: `fac-sepa-${reciboId}` });
         if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
