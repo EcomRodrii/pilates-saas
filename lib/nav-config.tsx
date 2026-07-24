@@ -76,7 +76,7 @@ const allSections: NavSection[] = [
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
       { href: '/cierre', label: 'Cierre de año', icon: Calculator },
-      { href: '/libreta', label: 'Libreta (garantía de salida)', icon: Notebook },
+      { href: '/libreta', label: 'Libreta de socias', icon: Notebook },
       { href: '/configuracion', label: 'Mi estudio', icon: Settings },
       { href: '/suscripcion', label: 'Suscripción', icon: CreditCard },
     ],
