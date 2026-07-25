@@ -49,8 +49,8 @@ export function Nav() {
           </div>
           <div className="tnt-navcta" style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
             <Link href="/login" style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', padding: '9px 6px' }}>Entrar</Link>
-            <Link href="#lista-espera" className="hover:brightness-110" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: ACC, padding: '11px 20px', borderRadius: 999, boxShadow: '0 10px 22px rgba(109,40,217,.28)' }}>
-              Lista de espera
+            <Link href="/crear-estudio" className="hover:brightness-110" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: ACC, padding: '11px 20px', borderRadius: 999, boxShadow: '0 10px 22px rgba(109,40,217,.28)' }}>
+              Crear estudio
             </Link>
           </div>
           <button
@@ -113,11 +113,11 @@ export function Nav() {
               Entrar
             </Link>
             <Link
-              href="#lista-espera"
+              href="/crear-estudio"
               onClick={() => setMenuOpen(false)}
               style={{ textAlign: 'center', padding: 16, fontSize: 16, fontWeight: 700, color: '#fff', background: ACC, borderRadius: 999, boxShadow: '0 14px 30px rgba(109,40,217,.4)', animation: 'lp-riseIn .55s cubic-bezier(.2,.7,0,1) .48s both' }}
             >
-              Unirme a la lista de espera →
+              Crear estudio
             </Link>
             <p className="lp-mono" style={{ textAlign: 'center', fontSize: 10.5, letterSpacing: '.06em', color: 'rgba(255,255,255,.32)', margin: '10px 0 0', animation: 'lp-fadeIn .6s ease .55s both' }}>
               Sin permanencia · Hecho en España
