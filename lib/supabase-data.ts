@@ -4716,7 +4716,9 @@ export async function dbDeleteTipoClase(id: string) {
 // recargar no estaba. Peor: como `sesiones.sala_id` tiene una FK contra
 // `salas`, esa sala fantasma se ofrecía en el selector del calendario y hacía
 // fallar también la creación de clases con un 23503 — un fallo silencioso
-// arrastraba al siguiente.
+// arrastraba al siguiente. Escritura directa bajo la RLS `admin_salas`
+// (studio_id = current_studio_id()); devuelve ResultadoEscritura para que la
+// dueña sepa si guardó antes de que la UI le enseñe la sala.
 
 function salaToDb(s: Sala) {
   return {

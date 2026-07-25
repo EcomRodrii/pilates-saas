@@ -892,9 +892,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  // F2 (B2.7): marcar/quitar avería de máquina. Persiste en BD (a diferencia de
-  // las salas): el aforo real lo calcula reservar_plaza server-side sobre estas
-  // filas, así que tienen que estar guardadas para que el bloqueo sea efectivo.
+  // F2 (B2.7): marcar/quitar avería de máquina. El aforo real lo calcula
+  // reservar_plaza server-side sobre estas filas, así que tienen que estar
+  // guardadas para que el bloqueo sea efectivo.
   function marcarAveria(salaId: string, spotId: string | null, motivo: string | null, hasta: string | null) {
     const ahora = new Date().toISOString();
     const b: BloqueoMaquina = {
