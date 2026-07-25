@@ -69,6 +69,8 @@ async function mockBackend(page: Page, opts: { fallaInsert?: { status: number; b
   await page.route('**/api/layout**', route =>
     json(route, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
   await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));
+  await page.route('**/api/theme**', route =>
+    json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
   // Cualquier otra tabla del arranque del contexto: vacía y sin ruido.
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route => json(route, STUDIO_ROW));

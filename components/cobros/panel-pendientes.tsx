@@ -116,10 +116,10 @@ function monthLabel(ym: string) {
 
 const BADGE: Record<string, { bg: string; text: string; label: string }> = {
   COBRADO:   { bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)', label: 'Cobrado' },
-  PENDIENTE: { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)', label: 'Pendiente' },
-  DEVUELTO:  { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)', label: 'Devuelto' },
-  EN_CURSO:  { bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', text: 'var(--brand)', label: 'En curso' },
-  FALLIDO:   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#991B1B', label: 'Fallido' },
+  PENDIENTE: { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)', label: 'Sin cobrar' },
+  DEVUELTO:  { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)', label: 'Devuelto por el banco' },
+  EN_CURSO:  { bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', text: 'var(--brand)', label: 'Enviado al banco' },
+  FALLIDO:   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#991B1B', label: 'No se pudo cobrar' },
 };
 
 type SortKey = 'reciente' | 'antiguo' | 'mayor' | 'menor';
@@ -132,9 +132,26 @@ const SORT_OPTIONS: { label: string; value: SortKey }[] = [
 
 type MainTab = 'cobros' | 'suscripciones' | 'historial';
 
+// Un recibo que no está cobrado sigue siendo dinero que le deben, esté donde
+// esté del camino: sin enviar, en el banco, o rebotado.
+const ESTADOS_SIN_COBRAR: EstadoRecibo[] = ['PENDIENTE', 'EN_CURSO', 'FALLIDO'];
+
+// Las palabras de la máquina no son las suyas. "En curso" y "Pendientes" le
+// sonaban igual; "Devuelto" y "Fallido" también. Cada estado se nombra por lo
+// que significa para el negocio, no por cómo se llama el enum.
+const ETIQUETA_ESTADO: Record<EstadoRecibo | 'TODOS' | 'SIN_COBRAR', string> = {
+  SIN_COBRAR: 'Todo lo que me deben',
+  TODOS:      'Todos los recibos',
+  PENDIENTE:  'Sin cobrar todavía',
+  EN_CURSO:   'Enviado al banco',
+  FALLIDO:    'No se pudo cobrar',
+  COBRADO:    'Cobrado',
+  DEVUELTO:   'Devuelto por el banco',
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function PanelPendientes() {
+export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobrado' }) {
   const uid = useId();
   // ── Context ─────────────────────────────────────────────────────────────────
   const {
@@ -185,11 +202,21 @@ export function PanelPendientes() {
     }
   }, [stripeToast]);
 
-  // ── Main tab ────────────────────────────────────────────────────────────────
-  const [mainTab, setMainTab] = useState<MainTab>('cobros');
+  // ── Vista ───────────────────────────────────────────────────────────────────
+  // La fila de pestañas la lleva ahora la página (Quién me debe · Lo que he
+  // cobrado · Facturas). Aquí solo queda un desvío: "Suscripciones activas",
+  // que era una pestaña de pleno derecho y pasa a ser un enlace dentro de
+  // "Quién me debe" — se consulta de vez en cuando, no es una de las dos cosas
+  // que la dueña mira cada día.
+  const [verSuscripciones, setVerSuscripciones] = useState(false);
+  const mainTab: MainTab =
+    vista === 'cobrado' ? 'historial' : verSuscripciones ? 'suscripciones' : 'cobros';
 
   // ── Cobros tab state ────────────────────────────────────────────────────────
-  const [statusTab, setStatusTab]   = useState<EstadoRecibo | 'TODOS'>('TODOS');
+  // 'SIN_COBRAR' = todo lo que sigue debiéndose (pendiente, en el banco o
+  // fallido). Es la pregunta real de la pantalla, y antes había que componerla
+  // a mano saltando entre tres pestañas de estado.
+  const [statusTab, setStatusTab]   = useState<EstadoRecibo | 'TODOS' | 'SIN_COBRAR'>('SIN_COBRAR');
   const [search, setSearch]         = useState('');
   const [desde, setDesde]           = useState('');
   const [hasta, setHasta]           = useState('');
@@ -201,7 +228,7 @@ export function PanelPendientes() {
   // ── Cobro masivo modal ──────────────────────────────────────────────────────
   const [showMasivo, setShowMasivo]               = useState(false);
   const [masivoSelected, setMasivoSelected]       = useState<Set<string>>(new Set());
-  const [masivoProgress, setMasivoProgress]       = useState<'idle' | 'running' | 'done'>('idle');
+  const [masivoProgress, setMasivoProgress]       = useState<'idle' | 'confirmar' | 'running' | 'done'>('idle');
   const [masivoCobrando, setMasivoCobrando]       = useState(0);
   const [masivoTotal, setMasivoTotal]             = useState(0);
 
@@ -275,7 +302,9 @@ export function PanelPendientes() {
   const filtradosCobros = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = recibos.filter(r => {
-      if (statusTab !== 'TODOS' && r.estado !== statusTab) return false;
+      if (statusTab === 'SIN_COBRAR') {
+        if (!ESTADOS_SIN_COBRAR.includes(r.estado)) return false;
+      } else if (statusTab !== 'TODOS' && r.estado !== statusTab) return false;
       if (q) {
         const name = socioName(r.socioId).toLowerCase();
         if (!r.concepto.toLowerCase().includes(q) && !name.includes(q)) return false;
@@ -361,19 +390,36 @@ export function PanelPendientes() {
       .filter(d => d.socio != null);
   }, [suscripciones, socios, planesTarifa, recibos]);
 
+  // Abre SIN nada marcado. Antes preseleccionaba todos los recibos pendientes
+  // de todas las suscripciones activas: dos clics seguidos —abrir y confirmar—
+  // cobraban el mes entero, y cada cobro emite una factura sellada y renueva la
+  // suscripción. Quien decide a quién se le cobra es la dueña.
   function openMasivo() {
-    // Auto-select socias with pending recibos
-    const autoSelected = new Set<string>(
-      masivoData
-        .filter(d => d.pendientesRecibos.length > 0)
-        .flatMap(d => d.pendientesRecibos.map(r => r.id))
-    );
-    setMasivoSelected(autoSelected);
+    setMasivoSelected(new Set());
     setMasivoProgress('idle');
     setMasivoCobrando(0);
     setMasivoTotal(0);
     setShowMasivo(true);
   }
+
+  const idsCobrables = useMemo(
+    () => masivoData.flatMap(d => d.pendientesRecibos.map(r => r.id)),
+    [masivoData],
+  );
+
+  function alternarTodas() {
+    setMasivoSelected(prev => (prev.size === idsCobrables.length ? new Set() : new Set(idsCobrables)));
+  }
+
+  // Cuántas suscripciones se van a renovar con esta tanda: cada recibo cobrado
+  // recarga el bono o extiende el mensual, así que no es solo "marcar cobrado".
+  const masivoSuscripcionesAfectadas = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of recibos) {
+      if (masivoSelected.has(r.id) && r.suscripcionId) ids.add(r.suscripcionId);
+    }
+    return ids.size;
+  }, [recibos, masivoSelected]);
 
   async function ejecutarMasivo() {
     const ids = Array.from(masivoSelected);
@@ -483,8 +529,9 @@ export function PanelPendientes() {
 
   // ── Tab counts ────────────────────────────────────────────────────────────
 
-  function tabCount(value: EstadoRecibo | 'TODOS') {
+  function tabCount(value: EstadoRecibo | 'TODOS' | 'SIN_COBRAR') {
     if (value === 'TODOS') return recibos.length;
+    if (value === 'SIN_COBRAR') return recibos.filter(r => ESTADOS_SIN_COBRAR.includes(r.estado)).length;
     return recibos.filter(r => r.estado === value).length;
   }
 
@@ -605,33 +652,6 @@ export function PanelPendientes() {
         </div>
       </div>
 
-      {/* ── Main tabs ────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 border-b border-border overflow-x-auto">
-        {([
-          { value: 'cobros',        label: 'Cobros' },
-          { value: 'suscripciones', label: 'Suscripciones activas' },
-          { value: 'historial',     label: 'Historial' },
-        ] as { value: MainTab; label: string }[]).map(t => (
-          <button
-            key={t.value}
-            onClick={() => setMainTab(t.value)}
-            className={cn(
-              'px-5 py-3 text-sm font-semibold border-b-2 transition-all',
-              mainTab === t.value
-                ? 'border-foreground text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-            )}
-          >
-            {t.label}
-            {t.value === 'cobros' && pendientesCount > 0 && (
-              <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-warning/10 text-warning font-bold">
-                {pendientesCount}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {/* TAB: COBROS                                                            */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
@@ -639,55 +659,47 @@ export function PanelPendientes() {
         <div className="space-y-4">
           {/* Toolbar */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            {/* Status tabs */}
-            <div className="flex items-center gap-1 flex-wrap">
-              {([
-                { label: 'Todos',      value: 'TODOS'     },
-                { label: 'Pendientes', value: 'PENDIENTE' },
-                { label: 'Cobrado',    value: 'COBRADO'   },
-                { label: 'Devuelto',   value: 'DEVUELTO'  },
-                { label: 'En curso',   value: 'EN_CURSO'  },
-                { label: 'Fallido',    value: 'FALLIDO'   },
-              ] as { label: string; value: EstadoRecibo | 'TODOS' }[]).map(({ label, value }) => {
-                const count = tabCount(value);
-                const active = statusTab === value;
-                return (
-                  <button
-                    key={value}
-                    onClick={() => setStatusTab(value)}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all',
-                      active
-                        ? 'bg-brand text-brand-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-card',
-                    )}
-                  >
-                    {label}
-                    <span className={cn(
-                      'text-xs px-1.5 py-0.5 rounded-full font-bold',
-                      active ? 'bg-card/20 text-white' : 'bg-background text-muted-foreground',
-                    )}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
+            {/* Un desplegable en vez de seis pestañas: es un filtro, no un
+                sitio donde se pueda estar perdida. Abre en "todo lo que me
+                deben", que es a lo que se viene a esta pantalla. */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <label htmlFor={`${uid}-estado`} className="text-xs font-semibold text-muted-foreground">
+                Ver
+              </label>
+              <select
+                id={`${uid}-estado`}
+                value={statusTab}
+                onChange={e => setStatusTab(e.target.value as EstadoRecibo | 'TODOS' | 'SIN_COBRAR')}
+                className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:border-brand transition-colors cursor-pointer"
+              >
+                {(['SIN_COBRAR', 'PENDIENTE', 'EN_CURSO', 'FALLIDO', 'COBRADO', 'DEVUELTO', 'TODOS'] as const).map(v => (
+                  <option key={v} value={v}>
+                    {ETIQUETA_ESTADO[v]} ({tabCount(v)})
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Cobro masivo */}
+            {/* "Cobro masivo", en verde y sin más, se leía como un botón de
+                pánico: no decía a quién le cobra ni si tiene vuelta atrás.
+                Ahora dice lo que hace, y quien decide a quién es ella. */}
             <button
               onClick={openMasivo}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-success text-white hover:bg-[#047857] transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border border-border bg-card text-foreground hover:bg-background transition-colors"
             >
               <Zap size={14} />
-              Cobro masivo
-              {pendientesCount > 0 && (
-                <span className="bg-card/25 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
-                  {pendientesCount}
-                </span>
-              )}
+              Cobrar varias a la vez
             </button>
           </div>
+
+          <p className="text-[13px] text-muted-foreground">
+            <button
+              onClick={() => setVerSuscripciones(true)}
+              className="underline underline-offset-2 hover:text-foreground transition-colors"
+            >
+              Ver las {suscripciones.filter(s => s.estado === 'ACTIVA').length} suscripciones activas
+            </button>
+          </p>
 
           {/* Filters */}
           <div className="bg-card border border-border rounded-xl p-4">
@@ -944,6 +956,13 @@ export function PanelPendientes() {
       {/* TAB: SUSCRIPCIONES ACTIVAS                                             */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {mainTab === 'suscripciones' && (
+        <div className="space-y-3">
+          <button
+            onClick={() => setVerSuscripciones(false)}
+            className="text-[13px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Volver a quién me debe
+          </button>
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <p className="text-sm font-semibold text-foreground">
@@ -1041,6 +1060,7 @@ export function PanelPendientes() {
             </div>
           )}
         </div>
+        </div>
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════════ */}
@@ -1072,12 +1092,12 @@ export function PanelPendientes() {
                 onChange={e => setHistEstado(e.target.value as EstadoRecibo | 'TODOS')}
                 className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:border-brand transition-colors appearance-none cursor-pointer"
               >
-                <option value="TODOS">Todos los estados</option>
-                <option value="COBRADO">Cobrado</option>
-                <option value="PENDIENTE">Pendiente</option>
-                <option value="DEVUELTO">Devuelto</option>
-                <option value="EN_CURSO">En curso</option>
-                <option value="FALLIDO">Fallido</option>
+                <option value="TODOS">{ETIQUETA_ESTADO.TODOS}</option>
+                <option value="COBRADO">{ETIQUETA_ESTADO.COBRADO}</option>
+                <option value="PENDIENTE">{ETIQUETA_ESTADO.PENDIENTE}</option>
+                <option value="DEVUELTO">{ETIQUETA_ESTADO.DEVUELTO}</option>
+                <option value="EN_CURSO">{ETIQUETA_ESTADO.EN_CURSO}</option>
+                <option value="FALLIDO">{ETIQUETA_ESTADO.FALLIDO}</option>
               </select>
               <button
                 onClick={exportCSV}
@@ -1163,7 +1183,7 @@ export function PanelPendientes() {
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Zap size={18} className="text-success" />
-              Cobro masivo
+              Cobrar varias a la vez
             </DialogTitle>
           </DialogHeader>
 
@@ -1188,6 +1208,51 @@ export function PanelPendientes() {
                 Cerrar
               </button>
             </div>
+          ) : masivoProgress === 'confirmar' ? (
+            /* Confirmación: qué va a pasar exactamente, y que no hay vuelta atrás.
+               Antes el botón de la lista ejecutaba directamente — sin decir que
+               cada cobro emite una factura con numeración fiscal, renueva la
+               suscripción, y que marcarlo devuelto después NO deshace nada de
+               eso. La dueña que lo probó escribió: "¿le cobro a todas de golpe?
+               ¿se puede deshacer?". Las dos respuestas estaban ocultas. */
+            <div className="space-y-4 py-2">
+              <div className="rounded-xl border border-warning bg-warning/10 p-4 space-y-2">
+                <p className="text-sm font-bold text-foreground">
+                  Vas a cobrar {masivoSelected.size} recibo{masivoSelected.size !== 1 ? 's' : ''} por{' '}
+                  <CifraPrivada inline>
+                    {masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                  </CifraPrivada>
+                </p>
+                <p className="text-[13px] text-muted-foreground">Al confirmar, para cada recibo:</p>
+                <ul className="text-[13px] text-muted-foreground list-disc pl-5 space-y-1">
+                  <li>se emite una <strong className="text-foreground">factura con número fiscal</strong>, que ya no se puede borrar;</li>
+                  {masivoSuscripcionesAfectadas > 0 && (
+                    <li>
+                      se renuevan <strong className="text-foreground">{masivoSuscripcionesAfectadas} suscripcion{masivoSuscripcionesAfectadas !== 1 ? 'es' : ''}</strong>
+                      {' '}(se recarga el bono o se alarga el mes).
+                    </li>
+                  )}
+                </ul>
+                <p className="text-[13px] font-semibold text-foreground pt-1">
+                  Esto no se puede deshacer. Marcar un recibo como devuelto después no anula
+                  su factura ni la renovación.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setMasivoProgress('idle')}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-foreground hover:bg-background transition-colors"
+                >
+                  Volver a la lista
+                </button>
+                <button
+                  onClick={ejecutarMasivo}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-success hover:bg-[#047857] transition-colors"
+                >
+                  Sí, cobrar {masivoSelected.size}
+                </button>
+              </div>
+            </div>
           ) : masivoProgress === 'running' ? (
             /* Progress state */
             <div className="flex flex-col items-center text-center gap-4 py-8">
@@ -1209,6 +1274,19 @@ export function PanelPendientes() {
           ) : (
             /* Selection state */
             <>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <p className="text-[13px] text-muted-foreground">
+                  Marca a quién quieres cobrar.
+                </p>
+                {idsCobrables.length > 0 && (
+                  <button
+                    onClick={alternarTodas}
+                    className="text-[13px] font-semibold text-brand hover:underline underline-offset-2"
+                  >
+                    {masivoSelected.size === idsCobrables.length ? 'Quitar todas' : `Marcar todas (${idsCobrables.length})`}
+                  </button>
+                )}
+              </div>
               <div className="flex-1 overflow-y-auto space-y-2 my-2 pr-1">
                 {masivoData.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">No hay suscripciones activas</p>
@@ -1307,12 +1385,12 @@ export function PanelPendientes() {
                     Cancelar
                   </button>
                   <button
-                    onClick={ejecutarMasivo}
+                    onClick={() => setMasivoProgress('confirmar')}
                     disabled={masivoSelected.size === 0}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-success hover:bg-[#047857] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
                     <Zap size={14} />
-                    Cobrar seleccionadas ({masivoSelected.size}) · {masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                    Continuar ({masivoSelected.size})
                   </button>
                 </div>
               </div>

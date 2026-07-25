@@ -194,11 +194,16 @@ const DIA_PILLS: { label: string; day: number }[] = [
 // Semántica única de ocupación (I-13): ver lib/ocupacion.ts.
 const ocupColorFor = colorOcupacion;
 
-function StatsBar({ sesiones, todayStr }: {
+// Los cuatro números de arriba miraban SIEMPRE el día de hoy, aunque estuvieras
+// viendo la semana que viene: te ibas a mirar cómo va la semana siguiente y los
+// números seguían contándote lo de hoy, sin decir que lo hacían. Ahora hablan
+// de lo que hay en pantalla, y lo dicen en la etiqueta.
+function StatsBar({ sesiones, esSemanaActual }: {
   sesiones: SesionEnr[];
-  todayStr: string;
+  esSemanaActual: boolean;
 }) {
-  const hoy = sesiones.filter(s => !s.cancelada && localDate(s.inicio) === todayStr);
+  const hoy = sesiones.filter(s => !s.cancelada);
+  const cuando = esSemanaActual ? 'esta semana' : 'esa semana';
   const aforo = hoy.reduce((acc, s) => acc + s.aforoMaximo, 0);
   const reservas = hoy.reduce((acc, s) => acc + s.confirmadas, 0);
   const libres = Math.max(0, aforo - reservas);
@@ -209,7 +214,7 @@ function StatsBar({ sesiones, todayStr }: {
   return (
     <div className="flex gap-3 flex-wrap sm:flex-nowrap">
       <div className="flex-1 min-w-[130px] bg-muted/60 border border-border rounded-2xl px-4 py-3.5">
-        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Clases hoy</div>
+        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Clases {cuando}</div>
         <div className="text-[26px] font-extrabold text-foreground leading-none tabular-nums mt-1.5">{hoy.length}</div>
       </div>
       <div className="flex-1 min-w-[130px] bg-muted/60 border border-border rounded-2xl px-4 py-3.5">
@@ -220,7 +225,7 @@ function StatsBar({ sesiones, todayStr }: {
         </div>
       </div>
       <div className="flex-1 min-w-[130px] bg-muted/60 border border-border rounded-2xl px-4 py-3.5">
-        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reservas hoy</div>
+        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reservas {cuando}</div>
         <div className="flex items-baseline gap-1.5 mt-1.5">
           <span className="text-[26px] font-extrabold text-foreground leading-none tabular-nums">{reservas}</span>
           <span className="text-sm font-bold text-muted-foreground">/ {aforo}</span>
@@ -1349,6 +1354,10 @@ export default function Calendario() {
   // Crear una clase deja de ser instantáneo: esperamos la confirmación de la
   // base de datos con el botón en "Guardando…" antes de cerrar el panel.
   const [guardandoSesion, setGuardandoSesion] = useState(false);
+  // Cambio de instructora ya guardado, pendiente de decidir si se avisa.
+  const [avisoInstructora, setAvisoInstructora] = useState<
+    { sesionId: string; apuntadas: number; instructora: string; datos: { clase: string; cuando: string; sala: string; instructora: string } } | null
+  >(null);
   const [errorSesion, setErrorSesion] = useState<string | null>(null);
   // F0 · E1 — socia sin bono válido añadida desde el panel: para y pide decisión.
   const [avisoSinBono, setAvisoSinBono] = useState<{ sesionId: string; socioId: string } | null>(null);
@@ -1359,13 +1368,30 @@ export default function Calendario() {
   }, [toast]);
 
   // ── Form ─────────────────────────────────────────────────────────────────────
+
+  // La duración configurada en cada tipo de clase no se usaba en ningún sitio
+  // del calendario: al pinchar un hueco se proponía "09:00 a 09:00" (fin =
+  // inicio) y al cambiar de tipo la hora de fin no se movía. Quien configura
+  // "55 minutos" espera que el programa los sepa.
+  const finSegunDuracion = useCallback((horaInicio: string, tipoClaseId: string): string => {
+    const dur = tiposClase.find(t => t.id === tipoClaseId)?.duracionMinutos;
+    const [h, m] = horaInicio.split(':').map(Number);
+    if (!dur || Number.isNaN(h) || Number.isNaN(m)) return horaInicio;
+    const total = h * 60 + m + dur;
+    // Si se pasa de medianoche se queda al filo: una clase no cruza de día.
+    if (total >= 24 * 60) return '23:59';
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  }, [tiposClase]);
+
   const emptyForm = useCallback((): FormData => ({
     tipoClaseId: tiposClase[0]?.id ?? '',
     salaId: salas[0]?.id ?? '',
     instructorId: instructores[0]?.id ?? '',
     fecha: localDate(now),
     horaInicio: '09:00',
-    horaFin: '10:00',
+    horaFin: tiposClase[0]?.duracionMinutos
+      ? `${String(9 + Math.floor(tiposClase[0].duracionMinutos / 60)).padStart(2, '0')}:${String(tiposClase[0].duracionMinutos % 60).padStart(2, '0')}`
+      : '10:00',
     aforoMaximo: 8,
     notas: '',
     repetir: false,
@@ -1586,7 +1612,13 @@ export default function Calendario() {
   function editarSesion() {
     if (!sesionId || horaInvalida) return;
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
-    const cambioHora = !!sesionActual && sesionActual.inicio !== nuevoInicio;
+    // Comparar INSTANTES, no cadenas. Postgres devuelve la marca de tiempo como
+    // "2026-08-08T13:00:00+00:00" y `toISO` produce "2026-08-08T13:00:00.000Z":
+    // el mismo momento escrito de dos formas. Comparándolas como texto, la hora
+    // parecía haber cambiado SIEMPRE — así que tocar una nota o el aforo mandaba
+    // a todas las apuntadas un aviso de que su clase se había movido.
+    const mismoInstante = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
+    const cambioHora = !!sesionActual && !mismoInstante(sesionActual.inicio, nuevoInicio);
     const cambioSala = !!sesionActual && sesionActual.salaId !== form.salaId;
     // Cambiar de instructora también importa a quien está apuntada (va a clase
     // POR la profesora), así que también se avisa.
@@ -1600,16 +1632,30 @@ export default function Calendario() {
       aforoMaximo: form.aforoMaximo,
       notas: form.notas || null,
     });
-    // Si cambió el horario o la sala y hay apuntadas, avísales (in-app/push) con
-    // los valores NUEVOS ya formateados (el servidor no re-lee la sesión).
-    if (sesionActual && (cambioHora || cambioSala || cambioInstructora) &&
-        reservas.some(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))) {
+    const apuntadas = reservas.filter(
+      r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
+    ).length;
+
+    if (sesionActual && apuntadas > 0 && (cambioHora || cambioSala || cambioInstructora)) {
       const d = new Date(nuevoInicio);
       const cuando = `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
       const clase = tiposClase.find(t => t.id === form.tipoClaseId)?.nombre ?? sesionActual.tipoClase.nombre;
       const sala = salas.find(s => s.id === form.salaId)?.nombre ?? '';
       const instructora = cambioInstructora ? (instructores.find(x => x.id === form.instructorId)?.nombre ?? '') : '';
-      void avisarClaseModificada(sesionId, { clase, cuando, sala, instructora });
+      const datos = { clase, cuando, sala, instructora };
+
+      // Cambiar la HORA o la SALA se avisa siempre: la alumna no puede venir a
+      // una clase que se ha movido sin que se lo digan.
+      //
+      // Cambiar solo la INSTRUCTORA es distinto: es la dueña quien sabe si eso
+      // merece un mensaje ("hoy da Laura") o no. Antes se mandaba en silencio,
+      // sin decírselo siquiera. Y era el momento que ella pedía: "que al
+      // cambiar la instructora me preguntes, ¿aviso a las 8 alumnas?".
+      if (cambioInstructora && !cambioHora && !cambioSala) {
+        setAvisoInstructora({ sesionId, apuntadas, instructora, datos });
+      } else {
+        void avisarClaseModificada(sesionId, datos);
+      }
     }
     setShowForm(null);
     setToast('Clase actualizada');
@@ -1902,7 +1948,7 @@ export default function Calendario() {
 
       {/* ── Stats bar ──────────────────────────────────────────────────────────── */}
       <div className="px-6 pb-4 shrink-0">
-        <StatsBar sesiones={sesionesEnriquecidas} todayStr={todayStr} />
+        <StatsBar sesiones={sesionesSemana} esSemanaActual={dias.some(d => localDate(d) === todayStr)} />
       </div>
 
       {/* ── Filter bar ─────────────────────────────────────────────────────────── */}
@@ -1958,7 +2004,12 @@ export default function Calendario() {
             todayStr={todayStr}
             selectedId={sesionId}
             onSesionClick={id => setSesionId(prev => prev === id ? null : id)}
-            onSlotClick={(fecha, hora) => { setForm(f => ({ ...emptyForm(), fecha, horaInicio: hora, horaFin: hora })); setShowForm('nueva'); }}
+            onSlotClick={(fecha, hora) => {
+              const base = emptyForm();
+              setForm({ ...base, fecha, horaInicio: hora, horaFin: finSegunDuracion(hora, base.tipoClaseId) });
+              setErrorSesion(null);
+              setShowForm('nueva');
+            }}
             mobileDia={mobileDia}
           />
         </div>
@@ -2013,7 +2064,15 @@ export default function Calendario() {
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="Tipo de clase">
-                  <select className={selectCls} value={form.tipoClaseId} onChange={e => setForm(f => ({ ...f, tipoClaseId: e.target.value }))}>
+                  <select
+                    className={selectCls}
+                    value={form.tipoClaseId}
+                    onChange={e => setForm(f => ({
+                      ...f,
+                      tipoClaseId: e.target.value,
+                      horaFin: finSegunDuracion(f.horaInicio, e.target.value),
+                    }))}
+                  >
                     {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                   </select>
                 </FormField>
@@ -2033,7 +2092,16 @@ export default function Calendario() {
               </FormField>
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="Hora inicio">
-                  <input type="time" className={inputCls} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
+                  <input
+                    type="time"
+                    className={inputCls}
+                    value={form.horaInicio}
+                    onChange={e => setForm(f => ({
+                      ...f,
+                      horaInicio: e.target.value,
+                      horaFin: finSegunDuracion(e.target.value, f.tipoClaseId),
+                    }))}
+                  />
                 </FormField>
                 <FormField label="Hora fin">
                   <input type="time" className={inputCls} value={form.horaFin} onChange={e => setForm(f => ({ ...f, horaFin: e.target.value }))} />
@@ -2211,6 +2279,41 @@ export default function Calendario() {
           {toast}
         </div>
       )}
+
+      {/* La clase ya está guardada; lo único que se decide aquí es si se avisa. */}
+      <Dialog open={avisoInstructora !== null} onOpenChange={open => !open && setAvisoInstructora(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
+              ¿Aviso a {avisoInstructora?.apuntadas === 1 ? 'la alumna' : `las ${avisoInstructora?.apuntadas} alumnas`}?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-muted-foreground mt-2">
+            Has cambiado quién da la clase{avisoInstructora?.instructora ? <> — ahora la da <strong className="text-foreground">{avisoInstructora.instructora}</strong></> : null}.
+            {' '}Puedo avisar por la app a quien esté apuntada. El horario y la sala no cambian.
+          </p>
+          <div className="flex gap-2 mt-4">
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
+              onClick={() => setAvisoInstructora(null)}
+            >
+              No hace falta
+            </button>
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
+              onClick={() => {
+                if (avisoInstructora) {
+                  void avisarClaseModificada(avisoInstructora.sesionId, avisoInstructora.datos);
+                  setToast(`Avisadas ${avisoInstructora.apuntadas} alumna${avisoInstructora.apuntadas !== 1 ? 's' : ''}`);
+                }
+                setAvisoInstructora(null);
+              }}
+            >
+              Sí, avisar
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

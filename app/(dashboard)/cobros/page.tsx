@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
 import { PanelPendientes } from '@/components/cobros/panel-pendientes';
 import { PanelFacturas } from '@/components/cobros/panel-facturas';
-import { PanelMovimientos } from '@/components/cobros/panel-movimientos';
 import { BotonRemesaSepa } from '@/components/cobros/boton-remesa-sepa';
 
 // "Cobrar" existe ahora como un solo sitio. Antes estaba repartido entre
@@ -18,10 +17,21 @@ import { BotonRemesaSepa } from '@/components/cobros/boton-remesa-sepa';
 // completa, táctil, de pie en el mostrador— y meterla aquí dentro obligaría a
 // entrar en una sección de escritorio para atender a alguien.
 
+// Esta pantalla tenía TRES filas de pestañas apiladas: la de la página
+// (Pendientes de cobro · Facturas · Movimientos), la del panel (Cobros ·
+// Suscripciones activas · Historial) y la de estados (Todos · Pendientes ·
+// Cobrado · Devuelto · En curso · Fallido). Una dueña de estudio que la probó
+// un mes no sabía nunca en qué pestaña estaba, y lo resumió así: "yo necesito
+// dos cosas, quién me debe y cuánto he cobrado".
+//
+// Eso son estas dos pestañas. Facturas se queda porque es una obligación
+// fiscal, no una vista más. Movimientos e Historial contaban lo mismo —el
+// dinero que ha entrado— así que se unifican en "Lo que he cobrado", y
+// "Suscripciones activas" pasa a ser un enlace dentro de "Quién me debe".
 const TABS = [
-  { id: 'pendientes', label: 'Pendientes de cobro' },
+  { id: 'deudas', label: 'Quién me debe' },
+  { id: 'cobrado', label: 'Lo que he cobrado' },
   { id: 'facturas', label: 'Facturas' },
-  { id: 'movimientos', label: 'Movimientos' },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -31,7 +41,7 @@ function esTab(v: string | null): v is TabId {
 }
 
 export default function Cobros() {
-  const [tab, setTab] = useState<TabId>('pendientes');
+  const [tab, setTab] = useState<TabId>('deudas');
 
   // Se lee de window.location y no con useSearchParams para no suspender el
   // árbol (mismo motivo que en el resto de pantallas del panel).
@@ -71,14 +81,14 @@ export default function Cobros() {
         ))}
       </div>
 
-      {tab === 'pendientes' && (
+      {tab === 'deudas' && (
         <>
           <div className="flex justify-end"><BotonRemesaSepa /></div>
-          <PanelPendientes />
+          <PanelPendientes vista="deudas" />
         </>
       )}
+      {tab === 'cobrado' && <PanelPendientes vista="cobrado" />}
       {tab === 'facturas' && <PanelFacturas />}
-      {tab === 'movimientos' && <PanelMovimientos />}
     </div>
   );
 }
