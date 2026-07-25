@@ -983,7 +983,7 @@ export async function avisarClaseCancelada(sesionId: string): Promise<void> {
 // Avisa (in-app/push) a las apuntadas de que su clase cambió de horario/sala.
 // Se le pasan los datos NUEVOS ya formateados desde el cliente.
 export async function avisarClaseModificada(
-  sesionId: string, datos: { clase: string; cuando: string; sala: string },
+  sesionId: string, datos: { clase: string; cuando: string; sala: string; instructora?: string },
 ): Promise<void> {
   try {
     await fetch('/api/clases/avisar-modificada', {

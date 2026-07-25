@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ ok: true, skipped: true });
 
   const b = (await req.json().catch(() => null)) as
-    | { sesionId?: string; clase?: string; cuando?: string; sala?: string }
+    | { sesionId?: string; clase?: string; cuando?: string; sala?: string; instructora?: string }
     | null;
   if (!b?.sesionId) return NextResponse.json({ error: 'Falta sesionId' }, { status: 400 });
 

@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseModificada } from '@/lib/api-client';
+import { enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
+import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
@@ -851,12 +852,14 @@ function SessionSidebar({
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
 
 function ModalClasesRecurrentes({
-  open, onClose, tiposClase, instructores, salas, onCrear, sesionesExistentes,
+  open, onClose, tiposClase, instructores, salas, onCrear, sesionesExistentes, ausencias = [],
 }: {
   open: boolean;
   onClose: () => void;
   tiposClase: { id: string; nombre: string }[];
   instructores: { id: string; nombre: string }[];
+  // Para avisar en el selector de quién está de vacaciones/baja esos días.
+  ausencias?: AusenciaInstructora[];
   salas: { id: string; nombre: string }[];
   onCrear: (sesiones: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]) => void;
   sesionesExistentes: SlotSesion[];
@@ -959,7 +962,7 @@ function ModalClasesRecurrentes({
           </FormField>
           <FormField label="Instructora">
             <select className={s2} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
-              {instructores.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+              {instructores.map(i => { const au = ausenciaEnFecha(ausencias, i.id, form.fechaInicio || new Date()); return <option key={i.id} value={i.id}>{i.nombre}{sufijoAusencia(au)}</option>; })}
             </select>
           </FormField>
           <FormField label="Sala">
@@ -1331,6 +1334,10 @@ export default function Calendario() {
   const [showRecurrentes, setShowRecurrentes] = useState(false);
   const [showNuevaMenu, setShowNuevaMenu] = useState(false);
   const [showCobertura, setShowCobertura] = useState(false);
+  // Ausencias del equipo: para avisar en el selector de que alguien está de
+  // vacaciones/baja ese día (el motor de sustituciones ya las respeta aparte).
+  const [ausencias, setAusencias] = useState<AusenciaInstructora[]>([]);
+  useEffect(() => { let vivo = true; listarAusencias().then(r => { if (vivo) setAusencias(r); }); return () => { vivo = false; }; }, []);
 
   // ── Filters ─────────────────────────────────────────────────────────────────
   const [filtroInstructor, setFiltroInstructor] = useState('');
@@ -1545,6 +1552,9 @@ export default function Calendario() {
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
     const cambioHora = !!sesionActual && sesionActual.inicio !== nuevoInicio;
     const cambioSala = !!sesionActual && sesionActual.salaId !== form.salaId;
+    // Cambiar de instructora también importa a quien está apuntada (va a clase
+    // POR la profesora), así que también se avisa.
+    const cambioInstructora = !!sesionActual && sesionActual.instructorId !== form.instructorId;
     updateSesion(sesionId, {
       tipoClaseId: form.tipoClaseId,
       salaId: form.salaId,
@@ -1556,13 +1566,14 @@ export default function Calendario() {
     });
     // Si cambió el horario o la sala y hay apuntadas, avísales (in-app/push) con
     // los valores NUEVOS ya formateados (el servidor no re-lee la sesión).
-    if (sesionActual && (cambioHora || cambioSala) &&
+    if (sesionActual && (cambioHora || cambioSala || cambioInstructora) &&
         reservas.some(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))) {
       const d = new Date(nuevoInicio);
       const cuando = `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
       const clase = tiposClase.find(t => t.id === form.tipoClaseId)?.nombre ?? sesionActual.tipoClase.nombre;
       const sala = salas.find(s => s.id === form.salaId)?.nombre ?? '';
-      void avisarClaseModificada(sesionId, { clase, cuando, sala });
+      const instructora = cambioInstructora ? (instructores.find(x => x.id === form.instructorId)?.nombre ?? '') : '';
+      void avisarClaseModificada(sesionId, { clase, cuando, sala, instructora });
     }
     setShowForm(null);
     setToast('Clase actualizada');
@@ -1972,7 +1983,7 @@ export default function Calendario() {
               </div>
               <FormField label="Instructora">
                 <select className={selectCls} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
-                  {instructores.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+                  {instructores.map(i => { const au = ausenciaEnFecha(ausencias, i.id, form.fecha || new Date()); return <option key={i.id} value={i.id}>{i.nombre}{sufijoAusencia(au)}</option>; })}
                 </select>
               </FormField>
               <FormField label="Fecha">
@@ -2115,6 +2126,7 @@ export default function Calendario() {
 
       {/* ── Modal clases recurrentes ────────────────────────────────────────────── */}
       <ModalClasesRecurrentes
+        ausencias={ausencias}
         open={showRecurrentes}
         onClose={() => setShowRecurrentes(false)}
         tiposClase={tiposClase}

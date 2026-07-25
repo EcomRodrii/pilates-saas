@@ -175,7 +175,7 @@ export async function emitirClaseCancelada(
 // de display YA formateados desde el cliente (con los valores NUEVOS), para no
 // depender de que la escritura optimista haya llegado a la BD al leer la sesión.
 export async function emitirClaseModificada(
-  admin: SupabaseClient, p: { studioId: string; sesionId: string; clase: string; cuando: string; sala: string },
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; clase: string; cuando: string; sala: string; instructora?: string },
 ): Promise<void> {
   try {
     const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
@@ -183,7 +183,9 @@ export async function emitirClaseModificada(
       type: EVENTOS.CLASE_MODIFICADA, studioId: p.studioId,
       data: { clase: p.clase, cuando: p.cuando, sala: p.sala, sesionId: p.sesionId, slug: (studio?.slug as string | null) ?? '' },
       resource: { type: 'sesion', id: p.sesionId },
-      dedupKey: `clase-modificada:${p.sesionId}:${p.cuando}:${p.sala}`,
+      // La instructora entra en la clave: si solo cambia ella (misma hora y sala),
+      // sin esto el aviso se descartaría como duplicado del cambio anterior.
+      dedupKey: `clase-modificada:${p.sesionId}:${p.cuando}:${p.sala}:${p.instructora ?? ''}`,
     });
   } catch (e) {
     console.error('[notifications] emitirClaseModificada:', e instanceof Error ? e.message : e);
