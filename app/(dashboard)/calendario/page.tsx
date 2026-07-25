@@ -16,7 +16,7 @@ import {
   Bot, Loader2, Upload,
 } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
@@ -1638,7 +1638,7 @@ export default function Calendario() {
 
     if (sesionActual && apuntadas > 0 && (cambioHora || cambioSala || cambioInstructora)) {
       const d = new Date(nuevoInicio);
-      const cuando = `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+      const cuando = cuandoEstudio(d);
       const clase = tiposClase.find(t => t.id === form.tipoClaseId)?.nombre ?? sesionActual.tipoClase.nombre;
       const sala = salas.find(s => s.id === form.salaId)?.nombre ?? '';
       const instructora = cambioInstructora ? (instructores.find(x => x.id === form.instructorId)?.nombre ?? '') : '';
@@ -1710,7 +1710,7 @@ export default function Calendario() {
         // Anclar Europe/Madrid como el resto del sistema (emit.ts, contacto.ts): es
         // código de cliente, así que sin la timeZone la hora que ven las socias sale
         // en la del navegador de quien edita (p.ej. la dueña de viaje) — desplazada.
-        const cuando = `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}`;
+        const cuando = cuandoEstudio(d);
         void avisarClaseModificada(s.id, { clase, cuando, sala: salaNombre });
       }
     }
@@ -1726,8 +1726,8 @@ export default function Calendario() {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     if (sesion) {
       const inicio = new Date(sesion.inicio);
-      const fecha = inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-      const hora = inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const fecha = fechaLargaEstudio(inicio);
+      const hora = horaEstudio(inicio);
       reservas
         .filter(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
         .forEach(r => {

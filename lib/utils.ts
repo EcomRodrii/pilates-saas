@@ -39,3 +39,35 @@ export function formatHoraCorta(iso: string): string {
 export function formatFechaHora(iso: string): string {
   return new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
+
+// ─── Fecha y hora DEL ESTUDIO ────────────────────────────────────────────────
+// Los tres de arriba formatean en la zona horaria del NAVEGADOR, que es lo que
+// se quiere cuando el dato solo se pinta en pantalla. Pero cuando la cadena se
+// mete en un mensaje que se le manda a una alumna —"tu clase es el sábado a las
+// 09:00"— la zona correcta es la del estudio, no la de quien está editando: si
+// la dueña abre el panel desde otro país, la alumna recibe una hora que no es.
+//
+// Esto estaba copiado a mano en cinco sitios (calendario y contexto) y solo UNA
+// de las copias llevaba `timeZone`, así que editar una serie mandaba la hora
+// buena y editar esa misma clase suelta mandaba la del navegador: mismo aviso,
+// dos horas distintas. Un único sitio, y que no vuelva a pasar.
+export const TZ_ESTUDIO = 'Europe/Madrid';
+
+/** "sábado, 25 de julio" en hora del estudio. */
+export function fechaLargaEstudio(fecha: Date | string): string {
+  return new Date(fecha).toLocaleDateString('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ_ESTUDIO,
+  });
+}
+
+/** "09:00" en hora del estudio. */
+export function horaEstudio(fecha: Date | string): string {
+  return new Date(fecha).toLocaleTimeString('es-ES', {
+    hour: '2-digit', minute: '2-digit', timeZone: TZ_ESTUDIO,
+  });
+}
+
+/** "sábado, 25 de julio a las 09:00" en hora del estudio. */
+export function cuandoEstudio(fecha: Date | string): string {
+  return `${fechaLargaEstudio(fecha)} a las ${horaEstudio(fecha)}`;
+}
