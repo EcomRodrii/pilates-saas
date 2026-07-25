@@ -31,7 +31,6 @@ import {
   confirmacionRiesgoCorteDispatcher,
   procesarConfirmacionCorteEstudio,
 } from '@/lib/inngest/confirmacion-riesgo';
-import { procesarNotificacion } from '@/lib/inngest/notifications';
 import {
   notifRecordatoriosDispatcher,
   notifBonosDispatcher,
@@ -68,7 +67,6 @@ export const { GET, POST, PUT } = serve({
     procesarConfirmacionAskEstudio,
     confirmacionRiesgoCorteDispatcher,
     procesarConfirmacionCorteEstudio,
-    procesarNotificacion,
     notifRecordatoriosDispatcher,
     notifBonosDispatcher,
     notifInactivasDispatcher,

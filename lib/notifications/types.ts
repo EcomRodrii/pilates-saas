@@ -36,8 +36,6 @@ export interface NotificationEvent {
   dedupKey?: string | null;      // idempotencia: mismo hecho → una sola notificación
   // Destinatarios explícitos (raro); normalmente los resuelve la regla del evento.
   recipients?: Recipient[];
-  // Programación opcional: enviar en el futuro (lo maneja NotificationEngine.schedule).
-  scheduledFor?: string | null;  // ISO
 }
 
 // La notificación persistida (fila de `notification`), en camelCase.
