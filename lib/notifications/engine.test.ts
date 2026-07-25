@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { procesarEvento, canalesExtraDe, type Preferencia } from './process.ts';
 import { crearInApp } from './inapp.ts';
-import { EVENTOS, REGLAS, plantillaDe, render, canalesDisponibles } from './catalog.ts';
+import { EVENTOS, REGLAS, plantillaDe, render, canalesDisponibles, ROLES_POR_AUDIENCIA } from './catalog.ts';
 import type { NotificationEvent } from './types.ts';
 
 test('equipo y sistema: reglas + plantillas que renderizan', () => {
@@ -88,8 +88,23 @@ test('canalesDisponibles: refleja lo que cada rol puede recibir por categoría',
   // La socia recibe push de sus reservas; la recepción solo ve reservas in-app.
   assert.equal(canalesDisponibles('SOCIA', 'reservas').includes('PUSH'), true);
   assert.equal(canalesDisponibles('RECEPCION', 'reservas').includes('PUSH'), false);
+  // La instructora sí recibe push de "clases" (su clase cancelada/movida).
+  assert.equal(canalesDisponibles('INSTRUCTOR', 'clases').includes('PUSH'), true);
   // Y nadie recibe canales que ninguna regla de su categoría declare.
-  assert.deepEqual(canalesDisponibles('INSTRUCTOR', 'clases'), []);
+  assert.deepEqual(canalesDisponibles('SOCIA', 'marketing'), []);
+});
+
+test('cambios de clase: avisan a las alumnas Y a quien la imparte', () => {
+  for (const evento of [EVENTOS.CLASE_CANCELADA, EVENTOS.CLASE_MODIFICADA]) {
+    assert.equal(REGLAS[evento].audiencia, 'socias-e-instructora-de-la-sesion');
+    // Sin plantilla para el rol, el motor lo descarta EN SILENCIO: los dos roles
+    // que devuelve la audiencia tienen que tener la suya.
+    for (const rol of ROLES_POR_AUDIENCIA[REGLAS[evento].audiencia]) {
+      assert.ok(plantillaDe(evento, rol), `falta plantilla ${evento}#${rol}`);
+    }
+  }
+  const pl = plantillaDe(EVENTOS.CLASE_CANCELADA, 'INSTRUCTOR')!;
+  assert.match(render(pl.body, { clase: 'Reformer', cuando: 'lunes a las 9:00' }), /Reformer.*lunes a las 9:00/);
 });
 
 // Fake del cliente Supabase admin: registra inserts en memoria y simula el choque

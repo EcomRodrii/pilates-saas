@@ -16,6 +16,10 @@ export type Audiencia =
   | 'propietaria'
   | 'instructora-del-evento'
   | 'socias-de-la-sesion'
+  // Todo el mundo afectado por un cambio en una clase: las alumnas apuntadas Y
+  // quien la imparte. Que la instructora se entere de que su clase se cancela o
+  // cambia de hora importa tanto como que se enteren las alumnas.
+  | 'socias-e-instructora-de-la-sesion'
   // Staff de mostrador: la dueña + las recepcionistas activas. Si el estudio no
   // tiene recepción, resuelve solo a la dueña (comportamiento previo intacto).
   | 'mostrador'
@@ -81,8 +85,8 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // clase.*: SIN EMAIL a propósito. El panel ya manda su propio correo a cada
   // alumna con plaza (enviarEmailCancelacionClase / avisarAlumnas) → declararlo
   // aquí les llegaría el mismo aviso dos veces.
-  [EVENTOS.CLASE_CANCELADA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
-  [EVENTOS.CLASE_MODIFICADA]:      { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
+  [EVENTOS.CLASE_CANCELADA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-e-instructora-de-la-sesion' },
+  [EVENTOS.CLASE_MODIFICADA]:      { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-e-instructora-de-la-sesion' },
   [EVENTOS.SUSTITUCION_ACEPTADA]:  { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
   [EVENTOS.SUSTITUCION_RECHAZADA]: { category: 'sustituciones', priority: 'ALTA', canales: [],     audiencia: 'propietaria' },
   // Sin EMAIL: el dunning ya manda su propio correo a la socia (1.er aviso).
@@ -122,6 +126,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
 export const ROLES_POR_AUDIENCIA: Record<Audiencia, NotificationRole[]> = {
   'socia-del-evento': ['SOCIA'],
   'socias-de-la-sesion': ['SOCIA'],
+  'socias-e-instructora-de-la-sesion': ['SOCIA', 'INSTRUCTOR'],
   'propietaria': ['PROPIETARIO'],
   'instructora-del-evento': ['INSTRUCTOR'],
   'mostrador': ['PROPIETARIO', 'RECEPCION'],
@@ -197,6 +202,18 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Tu clase ha cambiado',
     body: 'Tu clase de {clase} pasa a: {cuando} · {sala}{instructora}. Revisa tu reserva.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+  },
+  // Los mismos dos eventos, contados desde el lado de quien imparte la clase:
+  // no es "tu reserva", es tu turno de trabajo el que se cae o se mueve.
+  [`${EVENTOS.CLASE_CANCELADA}#INSTRUCTOR`]: {
+    title: 'Se ha cancelado tu clase',
+    body: 'Tu clase de {clase} del {cuando} se ha cancelado. No hace falta que vayas.',
+    deepLink: () => `/calendario`,
+  },
+  [`${EVENTOS.CLASE_MODIFICADA}#INSTRUCTOR`]: {
+    title: 'Tu clase ha cambiado',
+    body: 'Tu clase de {clase} pasa a: {cuando} · {sala}. Revisa tu horario.',
+    deepLink: () => `/calendario`,
   },
   // Sustitución aceptada → la instructora que cubre
   [`${EVENTOS.SUSTITUCION_ACEPTADA}#INSTRUCTOR`]: {

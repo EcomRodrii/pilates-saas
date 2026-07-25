@@ -69,6 +69,15 @@ async function sociasDeSesion(admin: SupabaseClient, studioId: string, sesionId:
   return out;
 }
 
+// Quien imparte la sesión (si la tiene asignada y tiene cuenta).
+async function instructoraDeSesion(admin: SupabaseClient, studioId: string, sesionId: string): Promise<Recipient[]> {
+  const { data: ses } = await admin.from('sesiones')
+    .select('instructor_id').eq('id', sesionId).eq('studio_id', studioId).maybeSingle();
+  if (!ses?.instructor_id) return [];
+  const r = await instructoraPorId(admin, studioId, ses.instructor_id as string);
+  return r ? [r] : [];
+}
+
 // Dispatcher: audiencia → destinatarios reales. Ampliar = añadir un case.
 export async function resolverDestinatarios(
   admin: SupabaseClient, audiencia: Audiencia, event: NotificationEvent,
@@ -94,6 +103,14 @@ export async function resolverDestinatarios(
       return instructorId ? [await instructoraPorId(admin, event.studioId, instructorId)].filter(Boolean) as Recipient[] : falta('instructorId');
     case 'socias-de-la-sesion':
       return sesionId ? sociasDeSesion(admin, event.studioId, sesionId) : falta('sesionId');
+    case 'socias-e-instructora-de-la-sesion': {
+      if (!sesionId) return falta('sesionId');
+      const [socias, instructora] = await Promise.all([
+        sociasDeSesion(admin, event.studioId, sesionId),
+        instructoraDeSesion(admin, event.studioId, sesionId),
+      ]);
+      return [...socias, ...instructora];
+    }
     case 'mostrador': {
       const [p, r] = await Promise.all([
         propietaria(admin, event.studioId),
