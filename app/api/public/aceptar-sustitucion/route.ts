@@ -4,6 +4,8 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
+import { escalacionVigente, contactarDesde, alertarPropietaria, modoAutonomiaEfectivo } from '@/lib/sustituciones/contacto';
+import { inngest, EVENTS } from '@/lib/inngest/client';
 
 // Endpoint PÚBLICO (sin login): la candidata responde al deep link del email.
 // 'aceptar' → confirmación atómica (RPC confirmar_sustitucion) + reasigna la clase.
@@ -57,7 +59,40 @@ export async function POST(req: NextRequest) {
     await admin.from('sustitucion_contactos')
       .update({ estado: 'rechazado', respondido_en: new Date().toISOString() })
       .eq('token', body?.token ?? '');
-    // Devuelve la sustitución al panel para que la dueña elija a otra.
+
+    // En modo AUTÓNOMO, un rechazo explícito debe AVANZAR al siguiente del ranking,
+    // igual que el auto-avance por no responder. Antes se ponía SIEMPRE
+    // pendiente_aprobacion: en autónomo el escalado se apagaba (exige 'contactando') y
+    // nadie re-barría las pendiente_aprobacion → la clase se quedaba sin cubrir.
+    // Paradoja: ignorar el email avanzaba; decir "no" explícito estancaba.
+    const modo = await modoAutonomiaEfectivo(admin, claim.studioId);
+    if (modo === 'autonomo' || modo === 'vacaciones') {
+      const v = await escalacionVigente(admin, sustitucionId, claim.instructorId);
+      // Solo si quien rechaza sigue siendo la candidata vigente (si el escalado ya
+      // avanzó por su cuenta, no interferir).
+      if (v.vigente) {
+        const avance = await contactarDesde(admin, {
+          sustitucionId, studioId: claim.studioId, sesion: v.sesion, ranking: v.ranking, desde: v.candidataIdx + 1,
+        });
+        if (avance.contactada) {
+          // Nueva instancia de escalado para la siguiente candidata (igual que el worker).
+          await inngest.send({
+            name: EVENTS.SUSTITUCION_CONTACTADA,
+            data: { sustitucionId, studioId: claim.studioId, instructorId: avance.instructorId, idx: avance.idx },
+          });
+          return NextResponse.json({ ok: true, rechazado: true, avanzada: true });
+        }
+        // Ranking agotado: marca 'agotada' (compare-and-set) y alerta a la dueña.
+        await admin.from('sustituciones')
+          .update({ estado: 'agotada' })
+          .eq('id', sustitucionId).eq('studio_id', claim.studioId).eq('estado', 'contactando');
+        await alertarPropietaria(admin, { studioId: claim.studioId, sesion: v.sesion, tipo: 'agotada' });
+        return NextResponse.json({ ok: true, rechazado: true, agotada: true });
+      }
+      return NextResponse.json({ ok: true, rechazado: true });
+    }
+
+    // Asistido: devuelve la sustitución al panel para que la dueña elija a otra.
     await admin.from('sustituciones')
       .update({ estado: 'pendiente_aprobacion' })
       .eq('id', sustitucionId).eq('studio_id', claim.studioId).eq('estado', 'contactando');
