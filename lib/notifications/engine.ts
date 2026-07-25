@@ -1,27 +1,60 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Notification Engine — API pública (server, pero SIN canales).
 //
-// Los módulos de negocio SOLO llaman a NotificationEngine.publish(evento): encola
-// en Inngest y jamás rompe el flujo. El PROCESAMIENTO (que toca los canales, y
-// con ellos web-push / módulos de Node) vive en process.ts, que solo importa el
-// worker de Inngest — así este módulo, alcanzable por import dinámico desde
-// código que también corre en el navegador, no arrastra web-push al cliente.
+// Los módulos de negocio SOLO llaman a NotificationEngine.publish(evento).
+//
+// publish() hace DOS cosas, en este orden y con esta garantía:
+//   1. Escribe la notificación IN-APP en el acto (INSERT síncrono). NO depende de
+//      la cola: si Inngest está caído o mal configurado, la campana igual se
+//      entera. Esto es a propósito — una cola invisible que falla en silencio nos
+//      dejó sin ninguna notificación en producción.
+//   2. Encola los canales EXTERNOS (push/email/WhatsApp/SMS) en Inngest, que sí
+//      son lentos y necesitan reintentos. Best-effort: si falla, la in-app ya está.
+//
+// El PROCESAMIENTO de canales vive en process.ts (importa web-push → módulos de
+// Node) y solo lo carga el worker; este módulo es alcanzable desde el bundle de
+// cliente vía import dinámico, así que aquí NO se tocan los canales.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { inngest, EVENTS } from '../inngest/client.ts';
+import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { REGLAS } from './catalog.ts';
+import { crearInApp } from './inapp.ts';
 import type { NotificationEvent } from './types.ts';
 
-// Publica un evento. No espera al envío ni propaga errores.
+// Publica un evento. Nunca propaga errores: una notificación no puede tumbar una
+// reserva ni un cobro.
 export async function publish(event: NotificationEvent): Promise<void> {
+  if (!REGLAS[event.type]) {
+    console.warn('[notifications] evento sin regla, ignorado:', event.type);
+    return;
+  }
+
+  // 1) In-app SÍNCRONO (garantizado).
+  let paraEntregar: string[] = [];
   try {
-    if (!REGLAS[event.type]) {
-      console.warn('[notifications] evento sin regla, ignorado:', event.type);
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      console.error('[notifications] sin service-role: no se puede crear la notificación');
       return;
     }
-    await inngest.send({ name: EVENTS.NOTIFICATION_EMIT, data: event as unknown as Record<string, unknown> });
+    const { creadas } = await crearInApp(admin, event);
+    paraEntregar = creadas.filter(c => c.canalesExtra.length > 0).map(c => c.id);
   } catch (e) {
-    console.error('[notifications] publish falló:', e instanceof Error ? e.message : e);
+    console.error('[notifications] crear in-app falló:', e instanceof Error ? e.message : e);
+    return;
+  }
+
+  // 2) Canales externos por la cola (best-effort). Sin nada que entregar, ni se
+  //    encola: la mayoría de eventos son solo in-app.
+  if (paraEntregar.length === 0) return;
+  try {
+    await inngest.send({
+      name: EVENTS.NOTIFICATION_DELIVER,
+      data: { notificationIds: paraEntregar },
+    });
+  } catch (e) {
+    console.error('[notifications] no se pudo encolar la entrega externa:', e instanceof Error ? e.message : e);
   }
 }
 

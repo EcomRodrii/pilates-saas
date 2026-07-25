@@ -38,6 +38,9 @@ export const EVENTS = {
   // NotificationEngine.publish); el worker resuelve destinatarios, preferencias,
   // plantillas y canales. Nadie envía notificaciones directamente.
   NOTIFICATION_EMIT: 'notification/emit',
+  // Entrega de canales EXTERNOS (push/email/WA/SMS) de notificaciones que YA
+  // existen en BD: la in-app se escribe síncrona en publish(), esto es el extra.
+  NOTIFICATION_DELIVER: 'notification/deliver',
   // Automatizaciones del motor: los dispatchers cron hacen fan-out de un evento
   // por estudio; el worker detecta la condición (recordatorios, bono a punto de
   // caducar, clienta inactiva) y publica los eventos de notificación.
