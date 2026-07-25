@@ -6,8 +6,8 @@
 // de display (clase, cuándo, socia, importe…) y llama a NotificationEngine.publish.
 // TODO best-effort: envuelto en try/catch; una notificación jamás rompe el negocio.
 //
-// (Optimización futura: mover la reunión de variables al worker de Inngest para
-// aligerar aún más el hilo del request. Para miles/día esto ya es suficiente.)
+// (Optimización futura: sacar la reunión de variables del hilo del request. Para
+// miles/día esto ya es suficiente.)
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publish } from './engine.ts';
