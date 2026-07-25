@@ -1,14 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Notification Engine — creación de la notificación IN-APP (síncrona).
 //
-// Esto es lo que hace que el sistema NO dependa de la cola: escribir la fila de
-// `notification` es un INSERT, y se hace en el acto, dentro de la misma petición
-// que provocó el evento. Si Inngest está caído, mal configurado o no tiene el
-// worker registrado, la campana SIGUE funcionando.
+// Esto es lo que hace que el sistema NO dependa de nada externo: escribir la
+// fila de `notification` es un INSERT, y se hace en el acto, dentro de la misma
+// petición que provocó el evento. Pase lo que pase después, la campana SIGUE
+// funcionando. (El motor llegó a depender de una cola de Inngest y un fallo
+// silencioso nos dejó sin ninguna notificación en producción; de ahí esto.)
 //
-// Los canales EXTERNOS (push/email/WhatsApp/SMS) sí son lentos y con reintentos:
-// esos se delegan a la cola (best-effort) usando los ids que devuelve esta
-// función. Por eso aquí NO se importa `channels.ts` — arrastra `web-push`
+// Los canales EXTERNOS (push/email/WhatsApp/SMS) sí son lentos: se entregan
+// aparte, con un salto HTTP a /api/notifications/deliver (best-effort, con
+// timeout) usando los ids que devuelve esta función. Por eso aquí NO se importa `channels.ts` — arrastra `web-push`
 // (módulos de Node) y este módulo es alcanzable desde el bundle de cliente.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';

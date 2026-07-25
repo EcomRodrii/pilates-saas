@@ -5,7 +5,7 @@
 // web-push → módulos de Node como `net`). engine.ts (publish) es alcanzable
 // desde módulos que también corren en el navegador (supabase-data vía import
 // dinámico), así que NO debe arrastrar los canales al bundle de cliente. Este
-// módulo solo lo importa el worker de Inngest (server).
+// módulo solo lo importa la ruta /api/notifications/deliver (server).
 // ─────────────────────────────────────────────────────────────────────────────
 import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -25,9 +25,11 @@ export type { Preferencia };
 export interface ResultadoProceso { creadas: number; deliveries: number; omitidas: number; }
 
 // Camino COMPLETO (in-app + canales) en una sola llamada. Ya no es el camino de
-// producción —publish() crea la in-app en el acto y encola solo los externos—
-// pero se conserva porque es la unidad natural para tests y para reprocesar un
-// evento suelto a mano.
+// producción —publish() crea la in-app en el acto y entrega los externos por la
+// ruta interna— pero se conserva a propósito: es la unidad natural para tests
+// (recibe `admin`, así que se inyecta sin mockear nada global) y para reprocesar
+// un evento suelto a mano. La lógica que compone —crearInApp y entregarCanales—
+// sí está en el camino vivo.
 export async function procesarEvento(admin: SupabaseClient, event: NotificationEvent): Promise<ResultadoProceso> {
   const { creadas, omitidas } = await crearInApp(admin, event);
   let deliveries = creadas.length; // el delivery INAPP ya lo escribió crearInApp
@@ -64,7 +66,7 @@ async function entregarCanales(
   return n;
 }
 
-// Lo que ejecuta el worker de Inngest: entregar los canales externos de
+// Lo que ejecuta /api/notifications/deliver: entregar los canales externos de
 // notificaciones que YA existen (las creó publish() de forma síncrona).
 // Recalcula los canales desde la regla + las preferencias del destinatario, así
 // que no hace falta transportarlos en el evento.
@@ -78,8 +80,9 @@ export async function entregarExternos(
     const regla = REGLAS[noti.event_type as string];
     if (!regla) continue;
 
-    // Si ya hay deliveries externos de esta notificación, no repetir (el worker
-    // puede reintentarse: Inngest reintenta la función entera).
+    // Si ya hay deliveries externos de esta notificación, no repetir. La ruta
+    // es pública para el propio servidor y `publish()` podría llamarla dos veces
+    // por el mismo hecho; esta guarda es lo que evita el push duplicado.
     const { data: previos } = await admin.from('notification_delivery')
       .select('channel').eq('notification_id', id).neq('channel', 'INAPP');
     if (previos && previos.length > 0) continue;
