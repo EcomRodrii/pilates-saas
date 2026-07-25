@@ -12,7 +12,7 @@
 // que un formateo que ignorase la zona fallaría en al menos uno de los dos.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO } from './utils.ts';
+import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro } from './utils.ts';
 
 test('la zona del estudio es la peninsular', () => {
   assert.equal(TZ_ESTUDIO, 'Europe/Madrid');
@@ -48,4 +48,34 @@ test('acepta Date además de cadena (los llamadores usan las dos)', () => {
     cuandoEstudio(new Date('2026-08-08T07:00:00+00:00')),
     cuandoEstudio('2026-08-08T07:00:00+00:00'),
   );
+});
+
+// ── formatEuro ───────────────────────────────────────────────────────────────
+// Por qué existen: el panel de Cobros y el email de justificante de pago
+// formateaban el dinero a mano con `toLocaleString('es-ES', {
+// minimumFractionDigits: 2 })`. Sin `maximumFractionDigits`, Intl usa 3 por
+// defecto, así que "Media por cliente" salía como "249,235 €" — un importe con
+// tres decimales, que además se lee como doscientos cuarenta y nueve mil. Estos
+// tests fijan el contrato para que reutilizar el helper siga siendo lo correcto.
+
+test('formatEuro redondea siempre a dos decimales', () => {
+  // El caso real que se vio en producción.
+  assert.equal(formatEuro(249.235), '249,24 €');
+  assert.equal(formatEuro(10.999), '11,00 €');
+  assert.equal(formatEuro(1 / 3), '0,33 €');
+});
+
+test('formatEuro completa siempre los dos decimales', () => {
+  assert.equal(formatEuro(22), '22,00 €');
+  assert.equal(formatEuro(85.5), '85,50 €');
+  assert.equal(formatEuro(0), '0,00 €');
+});
+
+test('formatEuro usa coma decimal y punto de millar (formato español)', () => {
+  assert.equal(formatEuro(3240.05), '3240,05 €');
+  assert.equal(formatEuro(1234567.891), '1.234.567,89 €');
+});
+
+test('formatEuro respeta los importes negativos (devoluciones)', () => {
+  assert.equal(formatEuro(-64), '-64,00 €');
 });

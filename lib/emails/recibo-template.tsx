@@ -1,5 +1,8 @@
 import { Text, Section, Hr, Row, Column } from '@react-email/components';
 import { EmailLayout } from '@/lib/emails/layout';
+// Sin maximumFractionDigits, toLocaleString usa 3 por defecto: el Total de un
+// justificante de pago salía como "249,235 €". formatEuro ya fija los 2.
+import { formatEuro } from '@/lib/utils';
 
 interface Props {
   socioNombre: string;
@@ -47,7 +50,7 @@ export function ReciboEmail({
               Total
             </Text>
             <Text style={{ color: '#059669', fontSize: 24, fontWeight: 800, margin: 0 }}>
-              {importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+              {formatEuro(importe)}
             </Text>
           </Column>
         </Row>

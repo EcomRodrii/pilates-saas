@@ -602,7 +602,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
             </div>
           </div>
           <CifraPrivada className="text-2xl font-extrabold text-success">
-            {kpis.cobradoMes.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+            {formatEuro(kpis.cobradoMes)}
           </CifraPrivada>
           <p className="text-xs text-muted-foreground mt-1">{monthLabel(thisMonth)}</p>
         </div>
@@ -618,7 +618,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
             </div>
           </div>
           <CifraPrivada className="text-2xl font-extrabold text-warning">
-            {kpis.pendienteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+            {formatEuro(kpis.pendienteTotal)}
           </CifraPrivada>
           <p className="text-xs text-muted-foreground mt-1">{pendientesCount} recibo{pendientesCount !== 1 ? 's' : ''} pendiente{pendientesCount !== 1 ? 's' : ''}</p>
         </div>
@@ -650,7 +650,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
             </div>
           </div>
           <CifraPrivada className="text-2xl font-extrabold text-foreground">
-            {kpis.mediaXSocia.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+            {formatEuro(kpis.mediaXSocia)}
           </CifraPrivada>
           <p className="text-xs text-muted-foreground mt-1">sobre clientes activos este mes</p>
         </div>
@@ -809,7 +809,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                         {/* Amount + badge */}
                         <div className="text-right shrink-0 mr-2">
                           <CifraPrivada className="text-sm font-extrabold text-foreground">
-                            {r.importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                            {formatEuro(r.importe)}
                           </CifraPrivada>
                           <span
                             className="text-xs font-semibold px-2 py-0.5 rounded-full"
@@ -1026,7 +1026,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
 
                         {/* Precio */}
                         <CifraPrivada className="text-sm font-bold text-foreground">
-                          {plan ? `${plan.precio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €` : '—'}
+                          {plan ? formatEuro(plan.precio) : '—'}
                         </CifraPrivada>
 
                         {/* Próximo cobro */}
@@ -1140,7 +1140,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                     </span>
                   </div>
                   <CifraPrivada className="text-sm font-extrabold text-success">
-                    {group.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € cobrado
+                    {formatEuro(group.total)} cobrado
                   </CifraPrivada>
                 </div>
 
@@ -1158,7 +1158,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                           <p className="text-xs text-muted-foreground truncate">{socioName(r.socioId)}</p>
                         </div>
                         <CifraPrivada className="text-sm font-bold text-foreground shrink-0">
-                          {r.importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                          {formatEuro(r.importe)}
                         </CifraPrivada>
                         <span
                           className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
@@ -1202,7 +1202,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                   {masivoTotal} cobro{masivoTotal !== 1 ? 's' : ''} procesado{masivoTotal !== 1 ? 's' : ''}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  <CifraPrivada inline>{masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</CifraPrivada> marcados como cobrados
+                  <CifraPrivada inline>{formatEuro(masivoImporteTotal)}</CifraPrivada> marcados como cobrados
                 </p>
               </div>
               <button
@@ -1224,7 +1224,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                 <p className="text-sm font-bold text-foreground">
                   Vas a cobrar {masivoSelected.size} recibo{masivoSelected.size !== 1 ? 's' : ''} por{' '}
                   <CifraPrivada inline>
-                    {masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                    {formatEuro(masivoImporteTotal)}
                   </CifraPrivada>
                 </p>
                 <p className="text-[13px] text-muted-foreground">Al confirmar, para cada recibo:</p>
@@ -1352,8 +1352,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                           {hasPending ? (
                             <>
                               <CifraPrivada className="text-sm font-extrabold text-warning">
-                                {pendientesRecibos.reduce((s, r) => s + r.importe, 0)
-                                  .toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                                {formatEuro(pendientesRecibos.reduce((s, r) => s + r.importe, 0))}
                               </CifraPrivada>
                               <p className="text-xs text-warning">
                                 {pendientesRecibos.length} pendiente{pendientesRecibos.length !== 1 ? 's' : ''}
@@ -1378,7 +1377,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                     {masivoSelected.size} recibo{masivoSelected.size !== 1 ? 's' : ''} seleccionado{masivoSelected.size !== 1 ? 's' : ''}
                   </p>
                   <p className="font-extrabold text-foreground">
-                    Total: <CifraPrivada inline>{masivoImporteTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</CifraPrivada>
+                    Total: <CifraPrivada inline>{formatEuro(masivoImporteTotal)}</CifraPrivada>
                   </p>
                 </div>
                 <div className="flex gap-3">
