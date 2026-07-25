@@ -1346,6 +1346,10 @@ export default function Calendario() {
 
   // ── Toast ───────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<string | null>(null);
+  // Crear una clase deja de ser instantáneo: esperamos la confirmación de la
+  // base de datos con el botón en "Guardando…" antes de cerrar el panel.
+  const [guardandoSesion, setGuardandoSesion] = useState(false);
+  const [errorSesion, setErrorSesion] = useState<string | null>(null);
   // F0 · E1 — socia sin bono válido añadida desde el panel: para y pide decisión.
   const [avisoSinBono, setAvisoSinBono] = useState<{ sesionId: string; socioId: string } | null>(null);
   useEffect(() => {
@@ -1503,6 +1507,7 @@ export default function Calendario() {
 
   function openNueva(prefillFecha?: string) {
     setForm({ ...emptyForm(), fecha: prefillFecha ?? localDate(now) });
+    setErrorSesion(null);
     setShowForm('nueva');
   }
 
@@ -1525,13 +1530,20 @@ export default function Calendario() {
     setShowForm('editar');
   }
 
-  function crearSesion() {
-    if (horaInvalida) return;
+  // Espera a que la base de datos confirme cada clase antes de decir que está
+  // creada. Antes se pintaban al instante y el insert iba sin await: si fallaba
+  // (p. ej. una sala que nunca llegó a guardarse), la clase seguía en el
+  // calendario hasta la siguiente recarga y desaparecía sin avisar.
+  async function crearSesion() {
+    if (horaInvalida || guardandoSesion) return;
     const semanas = form.repetir ? form.repetirSemanas : 1;
+    setGuardandoSesion(true);
+    setErrorSesion(null);
+    let creadas = 0;
     for (let i = 0; i < semanas; i++) {
       const base = new Date(`${form.fecha}T${form.horaInicio}:00`);
       base.setDate(base.getDate() + i * 7);
-      addSesion({
+      const res = await addSesion({
         tipoClaseId: form.tipoClaseId,
         salaId: form.salaId,
         instructorId: form.instructorId,
@@ -1542,8 +1554,19 @@ export default function Calendario() {
         notas: form.notas || null,
         precioPuntual: null,
       });
+      if (!res.ok) {
+        setGuardandoSesion(false);
+        // Decimos exactamente cuántas quedaron puestas: media tanda creada en
+        // silencio es peor que el fallo.
+        setErrorSesion(creadas === 0
+          ? res.error
+          : `${res.error} Se habían creado ${creadas} de ${semanas} clases.`);
+        return;
+      }
+      creadas++;
     }
-    setToast(form.repetir ? `Se han creado ${form.repetirSemanas} clases` : 'Clase creada');
+    setGuardandoSesion(false);
+    setToast(form.repetir ? `Se han creado ${creadas} clases` : 'Clase creada');
     setShowForm(null);
   }
 
@@ -1688,10 +1711,12 @@ export default function Calendario() {
     setToast('Clase eliminada');
   }
 
-  function crearClasesRecurrentes(sesionesFields: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]) {
+  async function crearClasesRecurrentes(sesionesFields: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]) {
     // Serie recurrente (I-3): un solo serie_id compartido + inserción en batch,
     // en vez de N inserts sueltos. Permite luego editar/cancelar "esta y futuras".
-    addSesionesSerie(sesionesFields);
+    // Al ser un único insert, o entran las N clases o no entra ninguna.
+    const res = await addSesionesSerie(sesionesFields);
+    if (!res.ok) { setToast(`No se ha creado la serie. ${res.error}`); return; }
     setToast(`Serie creada · ${sesionesFields.length} clases`);
     setShowRecurrentes(false);
   }
@@ -2110,19 +2135,28 @@ export default function Calendario() {
                 </button>
               </div>
             ) : (
-              <div className="px-6 py-5 border-t border-border flex gap-3 shrink-0">
-                <button onClick={() => setShowForm(null)} className="flex-1 py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors">
-                  Cancelar
-                </button>
-                <button
-                  onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-                  disabled={horaInvalida || !!conflictosForm}
-                  className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
-                >
-                  {showForm === 'nueva'
-                    ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'
-                    : 'Guardar cambios'}
-                </button>
+              <div className="px-6 py-5 border-t border-border shrink-0">
+                {errorSesion && (
+                  <p role="alert" className="mb-3 text-[13px] text-destructive">
+                    No se ha creado. {errorSesion}
+                  </p>
+                )}
+                <div className="flex gap-3">
+                  <button onClick={() => setShowForm(null)} disabled={guardandoSesion} className="flex-1 py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={showForm === 'nueva' ? crearSesion : editarSesion}
+                    disabled={horaInvalida || !!conflictosForm || guardandoSesion}
+                    className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {guardandoSesion
+                      ? 'Guardando…'
+                      : showForm === 'nueva'
+                        ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'
+                        : 'Guardar cambios'}
+                  </button>
+                </div>
               </div>
             )}
         </>
