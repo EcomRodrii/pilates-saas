@@ -1374,6 +1374,19 @@ export default function Calendario() {
 
   const [form, setForm] = useState<FormData>(() => emptyForm());
 
+  // Solo las de baja no: asignar una clase a alguien que ya no está en el equipo
+  // es un error silencioso (pasó con las instructoras de demo, que se quedaron a
+  // cargo de clases reales por salir las primeras del desplegable).
+  const instructoresActivos = useMemo(() => instructores.filter(i => i.activo), [instructores]);
+
+  // Para el formulario de crear/editar: las activas MÁS la que ya tenga la clase
+  // aunque esté de baja. Si no, al editar una clase suya el desplegable no la
+  // contendría y guardar la reasignaría a otra persona sin avisar.
+  const instructoresForm = useMemo(() => {
+    const actual = instructores.find(i => i.id === form.instructorId);
+    return actual && !actual.activo ? [actual, ...instructoresActivos] : instructoresActivos;
+  }, [instructores, instructoresActivos, form.instructorId]);
+
   // ── Derived data ─────────────────────────────────────────────────────────────
   const todayStr = localDate(now);
   const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(semana, i)), [semana]);
@@ -1895,7 +1908,7 @@ export default function Calendario() {
       {/* ── Filter bar ─────────────────────────────────────────────────────────── */}
       <div className="px-6 pb-3 shrink-0">
         <FilterBar
-          instructores={instructores}
+          instructores={instructoresActivos}
           salas={salas}
           filtroInstructor={filtroInstructor}
           filtroSala={filtroSala}
@@ -1981,7 +1994,7 @@ export default function Calendario() {
         onOpenChange={setShowCobertura}
         sesion={sesionActual}
         sesiones={sesiones}
-        instructores={instructores}
+        instructores={instructoresActivos}
         ausencias={ausencias}
         onAsignar={asignarSustituta}
       />
@@ -2012,7 +2025,7 @@ export default function Calendario() {
               </div>
               <FormField label="Instructora">
                 <select className={selectCls} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
-                  {instructores.map(i => { const au = ausenciaEnFecha(ausencias, i.id, form.fecha || new Date()); return <option key={i.id} value={i.id}>{i.nombre}{sufijoAusencia(au)}</option>; })}
+                  {instructoresForm.map(i => { const au = ausenciaEnFecha(ausencias, i.id, form.fecha || new Date()); return <option key={i.id} value={i.id}>{i.nombre}{i.activo ? '' : ' · ya no está en el equipo'}{sufijoAusencia(au)}</option>; })}
                 </select>
               </FormField>
               <FormField label="Fecha">
@@ -2168,7 +2181,7 @@ export default function Calendario() {
         open={showRecurrentes}
         onClose={() => setShowRecurrentes(false)}
         tiposClase={tiposClase}
-        instructores={instructores}
+        instructores={instructoresActivos}
         salas={salas}
         onCrear={crearClasesRecurrentes}
         sesionesExistentes={sesiones.map(s => ({
