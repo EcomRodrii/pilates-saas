@@ -8,15 +8,16 @@
 //      la cola: si Inngest está caído o mal configurado, la campana igual se
 //      entera. Esto es a propósito — una cola invisible que falla en silencio nos
 //      dejó sin ninguna notificación en producción.
-//   2. Encola los canales EXTERNOS (push/email/WhatsApp/SMS) en Inngest, que sí
-//      son lentos y necesitan reintentos. Best-effort: si falla, la in-app ya está.
+//   2. Entrega los canales EXTERNOS (push/email/WhatsApp/SMS) llamando a la ruta
+//      interna /api/notifications/deliver. Tampoco pasa por la cola. Best-effort
+//      y con timeout: si tarda o falla, la in-app ya está escrita.
 //
 // El PROCESAMIENTO de canales vive en process.ts (importa web-push → módulos de
-// Node) y solo lo carga el worker; este módulo es alcanzable desde el bundle de
-// cliente vía import dinámico, así que aquí NO se tocan los canales.
+// Node) y solo lo carga esa ruta; este módulo es alcanzable desde el bundle de
+// cliente vía import dinámico, así que aquí NO se tocan los canales: el salto es
+// un fetch a una URL, sin ningún import que arrastre Node al bundle.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { inngest, EVENTS } from '../inngest/client.ts';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { REGLAS } from './catalog.ts';
 import { crearInApp } from './inapp.ts';
@@ -45,16 +46,31 @@ export async function publish(event: NotificationEvent): Promise<void> {
     return;
   }
 
-  // 2) Canales externos por la cola (best-effort). Sin nada que entregar, ni se
-  //    encola: la mayoría de eventos son solo in-app.
+  // 2) Canales externos (best-effort). Sin nada que entregar no se llama: la
+  //    mayoría de eventos son solo in-app.
   if (paraEntregar.length === 0) return;
+  await entregarExternos(paraEntregar);
+}
+
+// Salto HTTP interno a la ruta que sí puede cargar web-push. Con timeout, para
+// que un push lento jamás alargue una reserva o un cobro.
+async function entregarExternos(notificationIds: string[]): Promise<void> {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    console.error('[notifications] CRON_SECRET ausente: no se entregan canales externos');
+    return;
+  }
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://tentare.app';
   try {
-    await inngest.send({
-      name: EVENTS.NOTIFICATION_DELIVER,
-      data: { notificationIds: paraEntregar },
+    const res = await fetch(`${base}/api/notifications/deliver`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-notif-secret': secret },
+      body: JSON.stringify({ notificationIds }),
+      signal: AbortSignal.timeout(10_000),
     });
+    if (!res.ok) console.error('[notifications] entrega externa devolvió', res.status);
   } catch (e) {
-    console.error('[notifications] no se pudo encolar la entrega externa:', e instanceof Error ? e.message : e);
+    console.error('[notifications] entrega externa falló:', e instanceof Error ? e.message : e);
   }
 }
 

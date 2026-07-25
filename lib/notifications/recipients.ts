@@ -78,15 +78,22 @@ export async function resolverDestinatarios(
   const instructorId = d.instructorId as string | undefined;
   const sesionId = d.sesionId as string | undefined;
 
+  // Estas audiencias no pueden resolverse sin su id en `data`. Si falta, el aviso
+  // se perdía sin rastro (le pasó a clase.cancelada en producción): grítalo.
+  const falta = (clave: string): Recipient[] => {
+    console.error(`[notifications] ${event.type}: audiencia '${audiencia}' necesita data.${clave} y no viene. Sin destinatarios.`);
+    return [];
+  };
+
   switch (audiencia) {
     case 'propietaria':
       return propietaria(admin, event.studioId);
     case 'socia-del-evento':
-      return socioId ? [await sociaPorId(admin, event.studioId, socioId)].filter(Boolean) as Recipient[] : [];
+      return socioId ? [await sociaPorId(admin, event.studioId, socioId)].filter(Boolean) as Recipient[] : falta('socioId');
     case 'instructora-del-evento':
-      return instructorId ? [await instructoraPorId(admin, event.studioId, instructorId)].filter(Boolean) as Recipient[] : [];
+      return instructorId ? [await instructoraPorId(admin, event.studioId, instructorId)].filter(Boolean) as Recipient[] : falta('instructorId');
     case 'socias-de-la-sesion':
-      return sesionId ? sociasDeSesion(admin, event.studioId, sesionId) : [];
+      return sesionId ? sociasDeSesion(admin, event.studioId, sesionId) : falta('sesionId');
     case 'mostrador': {
       const [p, r] = await Promise.all([
         propietaria(admin, event.studioId),

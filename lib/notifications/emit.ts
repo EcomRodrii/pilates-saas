@@ -161,8 +161,10 @@ export async function emitirClaseCancelada(
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
     await publish({
+      // ctx entero (incluye sesionId): la audiencia 'socias-de-la-sesion' lo lee
+      // de data. Sin él no resolvía a nadie y el aviso se perdía en silencio.
       type: EVENTOS.CLASE_CANCELADA, studioId: p.studioId,
-      data: { clase: ctx.clase, cuando: ctx.cuando, slug: ctx.slug },
+      data: { ...ctx },
       resource: { type: 'sesion', id: p.sesionId },
       dedupKey: `clase-cancelada:${p.sesionId}`,
     });
