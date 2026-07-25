@@ -127,16 +127,23 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-muted-foreground">{tiposClase.length} tipos de clase configurados</p>
+        {/* "Nuevo tipo de clase", no "Nueva clase": el botón del calendario se
+            llamaba igual y hace otra cosa (programar una sesión un día y a una
+            hora). Con los dos nombres idénticos, quien buscaba dónde dar de alta
+            "Reformer Iniciación" acababa en la agenda con tres desplegables
+            vacíos, sin entender por qué. */}
+        <p className="text-[13px] text-muted-foreground">
+          {tiposClase.length === 1 ? '1 tipo de clase configurado' : `${tiposClase.length} tipos de clase configurados`}
+        </p>
         <button className={btnPrimary} onClick={openNueva}>
           <Plus size={13} />
-          Nueva clase
+          Nuevo tipo de clase
         </button>
       </div>
 
       {tiposClase.length === 0 && (
         <div className={cn(cardCls, 'p-10 text-center text-[13px] text-muted-foreground')}>
-          No hay tipos de clase creados. Haz clic en &quot;Nueva clase&quot; para empezar.
+          Aún no tienes tipos de clase. Créalos aquí (Reformer, Suelo, Embarazadas…) y luego los programarás en la agenda.
         </div>
       )}
 
@@ -185,7 +192,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">
-              {modal === 'nueva' ? 'Nueva clase' : 'Editar clase'}
+              {modal === 'nueva' ? 'Nuevo tipo de clase' : 'Editar tipo de clase'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
@@ -299,7 +306,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
               onClick={guardar}
               disabled={!canGuardar || guardando}
             >
-              {guardando ? 'Guardando…' : modal === 'nueva' ? 'Crear clase' : 'Guardar cambios'}
+              {guardando ? 'Guardando…' : modal === 'nueva' ? 'Crear tipo de clase' : 'Guardar cambios'}
             </button>
           </div>
         </DialogContent>

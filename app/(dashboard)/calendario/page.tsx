@@ -1491,6 +1491,32 @@ export default function Calendario() {
   // genérico (Sentry JAVASCRIPT-NEXTJS-E). Se bloquea aquí, antes de guardar.
   const horaInvalida = !!(showForm && form.horaInicio && form.horaFin && form.horaFin <= form.horaInicio);
 
+  // Repetir menos de 2 semanas no es una repetición. Se bloquea en vez de
+  // corregirlo por debajo: si el campo dice 1 y el botón dijera "Crear 2
+  // clases", estaríamos enseñando dos números distintos a la vez.
+  const repetirInvalido = !!(showForm === 'nueva' && form.repetir && (!form.repetirSemanas || form.repetirSemanas < 2));
+
+  // Tipo de clase / sala / instructora son FK obligatorias en `sesiones`. Si el
+  // estudio aún no ha creado ninguna, emptyForm() deja '' y los <select> salen
+  // en blanco (no tienen <option value="">), pero el botón "Crear clase" seguía
+  // habilitado: se pulsaba, Postgres rechazaba por FK y la propietaria recibía un
+  // error de conexión que no tenía nada que ver. Se nombra lo que falta y se
+  // enlaza a donde se crea, en vez de dejarla delante de tres huecos mudos.
+  const faltaConfigurar = useMemo(() => {
+    if (!showForm) return null;
+    const faltan: string[] = [];
+    if (!form.tipoClaseId) faltan.push(tiposClase.length === 0 ? 'un tipo de clase' : 'elegir el tipo de clase');
+    if (!form.salaId) faltan.push(salas.length === 0 ? 'una sala' : 'elegir la sala');
+    if (!form.instructorId) faltan.push(instructores.length === 0 ? 'una instructora' : 'elegir la instructora');
+    if (faltan.length === 0) return null;
+    // Si el estudio no tiene NADA creado, el problema no es que no haya elegido:
+    // es que no hay de dónde elegir, y eso se arregla en otra pantalla.
+    const sinCrear = (!form.tipoClaseId && tiposClase.length === 0)
+      || (!form.salaId && salas.length === 0)
+      || (!form.instructorId && instructores.length === 0);
+    return { faltan, sinCrear };
+  }, [showForm, form.tipoClaseId, form.salaId, form.instructorId, tiposClase.length, salas.length, instructores.length]);
+
   // ── Conflictos de sala/instructora (I-1) y aforo (I-2) del formulario abierto ──
   // Se recalcula en vivo con los valores del form para avisar antes de guardar.
   const conflictosForm = useMemo(() => {
@@ -1574,7 +1600,11 @@ export default function Calendario() {
   // (p. ej. una sala que nunca llegó a guardarse), la clase seguía en el
   // calendario hasta la siguiente recarga y desaparecía sin avisar.
   async function crearSesion() {
-    if (horaInvalida || guardandoSesion) return;
+    // faltaConfigurar además del disabled: el botón se puede pulsar por teclado
+    // en el frame anterior al re-render, y estos '' viajaban intactos al insert.
+    // Estas tres además del disabled: el botón se puede activar por teclado en
+    // el frame anterior al re-render, y los '' viajaban intactos al insert.
+    if (horaInvalida || faltaConfigurar || repetirInvalido || guardandoSesion) return;
     const semanas = form.repetir ? form.repetirSemanas : 1;
     setGuardandoSesion(true);
     setErrorSesion(null);
@@ -2073,17 +2103,30 @@ export default function Calendario() {
                       horaFin: finSegunDuracion(f.horaInicio, e.target.value),
                     }))}
                   >
+                    {/* Sin este <option value=""> el select se quedaba en blanco
+                        (selectedIndex -1) cuando no hay nada creado o los datos
+                        aún no han cargado: un hueco mudo del que no se deducía
+                        ni que faltaba algo ni de qué. */}
+                    {!form.tipoClaseId && (
+                      <option value="">{tiposClase.length ? 'Elige un tipo de clase' : 'Todavía no tienes tipos de clase'}</option>
+                    )}
                     {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                   </select>
                 </FormField>
                 <FormField label="Sala">
                   <select className={selectCls} value={form.salaId} onChange={e => setForm(f => ({ ...f, salaId: e.target.value }))}>
+                    {!form.salaId && (
+                      <option value="">{salas.length ? 'Elige una sala' : 'Todavía no tienes salas'}</option>
+                    )}
                     {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                   </select>
                 </FormField>
               </div>
               <FormField label="Instructora">
                 <select className={selectCls} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
+                  {!form.instructorId && (
+                    <option value="">{instructoresForm.length ? 'Elige una instructora' : 'Todavía no tienes instructoras'}</option>
+                  )}
                   {instructoresForm.map(i => { const au = ausenciaEnFecha(ausencias, i.id, form.fecha || new Date()); return <option key={i.id} value={i.id}>{i.nombre}{i.activo ? '' : ' · ya no está en el equipo'}{sufijoAusencia(au)}</option>; })}
                 </select>
               </FormField>
@@ -2139,13 +2182,31 @@ export default function Calendario() {
               {showForm === 'nueva' && form.repetir && (
                 <div className="flex items-center gap-3 pl-1">
                   <span className="text-sm text-muted-foreground">durante</span>
+                  {/* El clamp era `Math.max(2, ...)` en el onChange: al teclear
+                      "12", el "1" intermedio se reescribía a 2 y React repintaba
+                      el value, así que el segundo dígito reemplazaba al primero
+                      en vez de sumarse. Era imposible escribir dos cifras: no se
+                      podía programar ni un trimestre.
+
+                      Ahora el onChange sólo limita POR ARRIBA (escribir "1" no
+                      supera 52, así que el tecleo fluye) y el mínimo se trata
+                      como estado inválido que bloquea el botón, en vez de
+                      corregir el número por debajo de la usuaria. Así el campo
+                      nunca muestra un valor distinto del que se va a crear. */}
                   <input
                     type="number" min={2} max={52}
+                    aria-invalid={repetirInvalido}
                     className="w-20 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground text-center"
                     value={form.repetirSemanas}
-                    onChange={e => setForm(f => ({ ...f, repetirSemanas: Math.max(2, Number(e.target.value)) }))}
+                    onChange={e => {
+                      const n = Number(e.target.value);
+                      setForm(f => ({ ...f, repetirSemanas: Number.isNaN(n) ? f.repetirSemanas : Math.min(52, n) }));
+                    }}
                   />
                   <span className="text-sm text-muted-foreground">semanas</span>
+                  {repetirInvalido && (
+                    <span className="text-xs text-amber-700">Mínimo 2 semanas.</span>
+                  )}
                 </div>
               )}
               <FormField label="Notas (opcional)">
@@ -2158,8 +2219,32 @@ export default function Calendario() {
               </FormField>
             </div>
 
+            {/* Falta un dato obligatorio: se dice cuál y dónde se crea. Va antes
+                que el aviso de horas porque cuando no hay tipo de clase la hora
+                de fin tampoco se puede calcular — regañar por la hora sería
+                culpar a la usuaria de una consecuencia, no de la causa. */}
+            {faltaConfigurar && (
+              <div className="px-6 pb-1 shrink-0">
+                <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 border border-amber-200 text-amber-900 flex gap-2">
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                  <div>
+                    <p>Para crear la clase falta {faltaConfigurar.faltan.join(', ')}.</p>
+                    {faltaConfigurar.sinCrear && (
+                      <p className="mt-1">
+                        Todavía no lo tienes creado.{' '}
+                        <Link href="/configuracion?tab=clases" className="underline font-semibold">
+                          Créalo en Mi estudio
+                        </Link>{' '}
+                        y vuelve aquí.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Hora fin <= hora inicio: bloquea guardar (no es un aviso, es inválido) */}
-            {horaInvalida && (
+            {horaInvalida && !faltaConfigurar && (
               <div className="px-6 pb-1 shrink-0">
                 <div className="rounded-xl px-3.5 py-2.5 text-xs bg-red-50 border border-red-200 text-red-800 flex gap-2">
                   <AlertTriangle size={14} className="shrink-0 mt-0.5 text-red-600" />
@@ -2202,14 +2287,14 @@ export default function Calendario() {
               <div className="px-6 py-5 border-t border-border flex flex-col gap-2 shrink-0">
                 <button
                   onClick={editarSesion}
-                  disabled={horaInvalida || !!conflictosForm}
+                  disabled={horaInvalida || !!faltaConfigurar || !!conflictosForm}
                   className="w-full py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Guardar solo esta clase
                 </button>
                 <button
                   onClick={editarSerie}
-                  disabled={horaInvalida || !!conflictosForm}
+                  disabled={horaInvalida || !!faltaConfigurar || !!conflictosForm}
                   className="w-full py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Guardar esta y las siguientes
@@ -2228,13 +2313,17 @@ export default function Calendario() {
                   </button>
                   <button
                     onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-                    disabled={horaInvalida || !!conflictosForm || guardandoSesion}
+                    disabled={horaInvalida || !!faltaConfigurar || repetirInvalido || !!conflictosForm || guardandoSesion}
                     className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {guardandoSesion
                       ? 'Guardando…'
                       : showForm === 'nueva'
-                        ? form.repetir ? `Crear ${form.repetirSemanas} clases` : 'Crear clase'
+                        // Sin saneado: el nº que se lee aquí es exactamente el
+                        // del campo, y si no es válido el botón está bloqueado.
+                        ? form.repetir
+                          ? `Crear ${form.repetirSemanas} ${form.repetirSemanas === 1 ? 'clase' : 'clases'}`
+                          : 'Crear clase'
                         : 'Guardar cambios'}
                   </button>
                 </div>
