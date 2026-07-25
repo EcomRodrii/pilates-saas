@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
+import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 
 // Fase 1 · PR-5 — Bizum presencial en el POS.
 //
@@ -20,6 +21,11 @@ export async function POST(req: NextRequest) {
   if (!sesion) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
+  // Mismo gate de suscripción del SaaS que el datáfono (terminal/cobrar) y el cobro
+  // off-session: un estudio con la suscripción a Tentare no activa no debe poder
+  // generar cobros. Antes pos-bizum se lo saltaba → enforcement inconsistente.
+  const bloqueo = await bloqueoPorSuscripcion(sesion.studioId);
+  if (bloqueo) return bloqueo;
 
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
