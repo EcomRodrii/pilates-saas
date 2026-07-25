@@ -2047,7 +2047,13 @@ export async function ejecutarCancelacionReserva(
     .from('reservas').select('sesion_id, socio_id').eq('id', params.reservaId).maybeSingle();
   let bonoDevuelto = false;
   let tardia = false;
-  if (row?.era_confirmada && cancelada?.sesion_id && cancelada?.socio_id) {
+  // Las plazas fijas materializadas (res-pf-) las inserta el cron CONFIRMADAS sin
+  // consumir bono (materializar_plazas_fijas no toca el bono). Por tanto cancelarlas
+  // NO debe devolver una sesión que nunca se descontó: su compensación es la
+  // recuperación (ver cancelarReservaPublica). Sin este guard, cancelar una plaza
+  // fija regalaba una sesión de bono + una recuperación (doble compensación).
+  const esPlazaFija = params.reservaId.startsWith('res-pf-');
+  if (row?.era_confirmada && cancelada?.sesion_id && cancelada?.socio_id && !esPlazaFija) {
     const pol = await cargarPoliticaEstudio(admin, params.studioId);
     const { data: ses } = await admin
       .from('sesiones').select('inicio').eq('id', cancelada.sesion_id).maybeSingle();
