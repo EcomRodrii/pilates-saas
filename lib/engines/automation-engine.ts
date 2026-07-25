@@ -234,7 +234,12 @@ export function computeAutomationCandidatos(
         }
 
         if (dias >= diasEscalada) {
-          const yaEscalado = logsRecibo.some(l => l.accion === 'NOTIFICAR_ADMIN');
+          // `&& resultado !== 'FALLIDO'` como en COBRAR_RECIBO (:223),
+          // OFRECER_DESCUENTO (:153) y PROPONER_PLAN (:403). Sin él, un log
+          // fallido contaba como "ya escalado" y mataba el aviso para siempre:
+          // el bug de procesarCandidato que guardaba estos NOTIFICAR_ADMIN como
+          // FALLIDO se auto-blindaba, y arreglarlo no habría regenerado ni uno.
+          const yaEscalado = logsRecibo.some(l => l.accion === 'NOTIFICAR_ADMIN' && l.resultado !== 'FALLIDO');
           if (yaEscalado) return;
           candidatos.push({
             rule, socio,
@@ -427,7 +432,9 @@ export function computeAutomationCandidatos(
 
         const tieneAsistencia = ultimaAsistidaCreado.has(socio.id);
         if (!tieneAsistencia && diasDesdeAlta >= diasSinAsistir) {
-          const yaAvisado = logsDe(rule.id, socio.id).some(l => l.accion === 'NOTIFICAR_ADMIN');
+          // Mismo `resultado !== 'FALLIDO'` que el ENVIAR_EMAIL de esta misma
+          // regla justo debajo: un aviso que falló debe poder reintentarse.
+          const yaAvisado = logsDe(rule.id, socio.id).some(l => l.accion === 'NOTIFICAR_ADMIN' && l.resultado !== 'FALLIDO');
           if (yaAvisado) return;
           candidatos.push({
             rule, socio,
