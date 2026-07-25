@@ -30,8 +30,8 @@ Acción de negocio
 - **PR2:** Web Push real (Service Worker + VAPID + `push_subscription` + web-push).
 - **PR3 (EN PROD):** canales EMAIL / WhatsApp / SMS implementados en
   `channels.ts` (email = Resend con marca del estudio; WhatsApp/SMS = `lib/twilio.ts`).
-  Son **opt-in**: off por defecto en preferencias; se envían solo si el usuario
-  los activa para esa categoría (las CRÍTICAS fuerzan todos los canales). Requieren
+  Se envían **solo si la regla del evento los declara** (ver "Canales" abajo) y el
+  usuario no los ha apagado para esa categoría. Requieren
   env vars: `RESEND_API_KEY`/`RESEND_FROM` (email, ya en uso) y
   `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`/`TWILIO_WHATSAPP_FROM`/`TWILIO_SMS_FROM`
   (WhatsApp/SMS). Sin ellas → SKIPPED (no rompe). ⚠️ WhatsApp iniciado por el
@@ -61,8 +61,30 @@ las gobierna el propio usuario (`user_id = auth.uid()`).
 ## Prioridades
 
 `CRITICA` · `ALTA` · `MEDIA` · `BAJA` · `SILENCIOSA`. Las **críticas ignoran las
-preferencias** (siempre in-app + push): nunca se pierden. Las silenciosas se
-registran pero no alertan.
+preferencias**: se envían por todos los canales que declara su regla, aunque el
+usuario los tenga apagados. Las silenciosas se registran pero no alertan.
+
+## Canales: la regla del evento es la autoridad
+
+`REGLAS[evento].canales` es la **lista completa** de canales externos por los que
+ese evento puede salir. A partir de ahí:
+
+- La **preferencia del usuario solo puede quitar**, nunca añadir. Activar "email"
+  en una categoría no hace que empiecen a llegar por correo eventos que no lo
+  declaran.
+- Una **CRÍTICA** salta la preferencia, pero tampoco se inventa canales: usa los
+  declarados. Por eso las críticas declaran los suyos explícitamente.
+- **No declarar = nunca.** No hace falta una lista de exclusiones: `sistema.email_fallido`
+  simplemente no declara `EMAIL` (avisar por correo de que el correo falla se
+  realimentaría).
+- `canalesDisponibles(rol, categoría)` deriva de aquí qué interruptores tienen
+  efecto para ese rol; la UI de preferencias lo usa para no ofrecer un canal que
+  no haría nada.
+
+⚠️ **Antes de añadir `EMAIL` a una regla, comprueba que el flujo no manda ya su
+propio correo.** Varios lo hacen y duplicarlo es el error fácil: `clase.cancelada`
+y `clase.modificada` (el panel escribe a cada alumna con plaza) y `pago.fallido`
+(el dunning manda su primer aviso).
 
 ## Cómo… (extender sin tocar la lógica de negocio)
 

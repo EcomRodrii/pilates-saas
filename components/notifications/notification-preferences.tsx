@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, BellOff, BellRing } from 'lucide-react';
-import { CATEGORIAS_POR_ROL, CATEGORIA_ETIQUETA } from '@/lib/notifications/catalog';
+import { CATEGORIAS_POR_ROL, CATEGORIA_ETIQUETA, canalesDisponibles } from '@/lib/notifications/catalog';
 import type { NotificationRole } from '@/lib/notifications/types';
 import { fetchPreferencias, guardarPreferencia } from '@/lib/notifications/client';
 import { activarPush, estadoPermiso } from '@/lib/notifications/push-client';
@@ -110,11 +110,18 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
       </div>
       {categorias.map(cat => {
         const p = prefs[cat] ?? DEFECTO;
+        // Si ningún evento de esta categoría declara PUSH para este rol, el
+        // interruptor no haría nada: mejor decirlo que fingir que sí.
+        const hayPush = canalesDisponibles(role, cat).includes('PUSH');
         return (
           <div key={cat} className="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center px-4 py-3 border-b border-border/60 last:border-0">
             <span className="text-[13.5px] font-semibold text-foreground">{CATEGORIA_ETIQUETA[cat]}</span>
             <span className="flex justify-center"><Toggle on={p.inapp} onChange={() => toggle(cat, 'inapp')} label={`${CATEGORIA_ETIQUETA[cat]} en la app`} /></span>
-            <span className="flex justify-center"><Toggle on={p.push} onChange={() => toggle(cat, 'push')} label={`${CATEGORIA_ETIQUETA[cat]} push`} /></span>
+            <span className="flex justify-center">
+              {hayPush
+                ? <Toggle on={p.push} onChange={() => toggle(cat, 'push')} label={`${CATEGORIA_ETIQUETA[cat]} push`} />
+                : <span className="text-[12px] text-muted-foreground" title="Estos avisos solo llegan dentro de la app">—</span>}
+            </span>
           </div>
         );
       })}

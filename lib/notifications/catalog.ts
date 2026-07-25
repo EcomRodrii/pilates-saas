@@ -25,13 +25,15 @@ export interface ReglaEvento {
   category: NotificationCategory;
   priority: NotificationPriority;
   // Canales ADEMÁS del in-app (que va siempre, salvo SILENCIOSA o preferencia OFF).
-  // 'PUSH' se intentará cuando el usuario tenga suscripción (PR2).
+  //
+  // **Esta lista es la AUTORIDAD del evento**: es la lista COMPLETA de canales por
+  // los que puede salir. La preferencia del usuario solo puede quitar de aquí, y
+  // ni siquiera una CRÍTICA añade un canal no declarado. Lista vacía = solo in-app.
+  // Corolario: para no mandar algo por un canal, basta con no declararlo (no hay
+  // lista de exclusiones). Antes de añadir EMAIL, comprueba que el flujo no manda
+  // ya su propio correo — duplicarlo es el error fácil aquí.
   canales: NotificationChannel[];
   audiencia: Audiencia;
-  // Canales PROHIBIDOS para este evento, pase lo que pase: ni por preferencia del
-  // usuario ni por ser CRÍTICA. Existe para casos con realimentación (avisar por
-  // email de que el email falla) o inadecuados por naturaleza.
-  excluye?: NotificationChannel[];
 }
 
 // Catálogo de eventos. Las claves son los `type` que publican los módulos.
@@ -76,13 +78,20 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.RESERVA_LISTA_ESPERA]:  { category: 'reservas', priority: 'MEDIA',  canales: [],       audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_PLAZA_LIBERADA]:{ category: 'reservas', priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_CANCELADA]:     { category: 'reservas', priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
+  // clase.*: SIN EMAIL a propósito. El panel ya manda su propio correo a cada
+  // alumna con plaza (enviarEmailCancelacionClase / avisarAlumnas) → declararlo
+  // aquí les llegaría el mismo aviso dos veces.
   [EVENTOS.CLASE_CANCELADA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
   [EVENTOS.CLASE_MODIFICADA]:      { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
   [EVENTOS.SUSTITUCION_ACEPTADA]:  { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
   [EVENTOS.SUSTITUCION_RECHAZADA]: { category: 'sustituciones', priority: 'ALTA', canales: [],     audiencia: 'propietaria' },
+  // Sin EMAIL: el dunning ya manda su propio correo a la socia (1.er aviso).
   [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'mostrador-y-socia' },
   [EVENTOS.PAGO_REALIZADO]:        { category: 'pagos',    priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
-  [EVENTOS.SISTEMA_ERROR]:         { category: 'sistema',  priority: 'CRITICA', canales: ['PUSH'], audiencia: 'propietaria' },
+  // CRÍTICAS: declaran TODOS sus canales explícitamente. Antes bastaba con ser
+  // CRÍTICA para que el motor forzara email/WA/SMS aunque la regla solo pusiera
+  // PUSH; ahora que la regla manda, lo que no se declara no sale.
+  [EVENTOS.SISTEMA_ERROR]:         { category: 'sistema',  priority: 'CRITICA', canales: ['PUSH', 'EMAIL', 'WHATSAPP', 'SMS'], audiencia: 'propietaria' },
   // Automatizaciones
   [EVENTOS.RECORDATORIO_24H]:      { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.RECORDATORIO_1H]:       { category: 'reservas', priority: 'ALTA',  canales: ['PUSH'], audiencia: 'socia-del-evento' },
@@ -100,12 +109,38 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Aviso interno de una automatización → al mostrador (dueña + recepción).
   [EVENTOS.AUTOMATIZACION_DISPARADA]: { category: 'sistema', priority: 'BAJA', canales: [], audiencia: 'mostrador' },
   // Stripe desconectado = se deja de cobrar. CRÍTICA: ignora preferencias y usa
-  // todos los canales configurados (nunca se pierde).
-  [EVENTOS.SISTEMA_STRIPE_DESCONECTADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH'], audiencia: 'propietaria' },
-  // Email fallido: ALTA (no CRÍTICA) y SIN canal email a propósito — avisar por
-  // correo de que el correo falla sería absurdo y podría realimentarse.
-  [EVENTOS.SISTEMA_EMAIL_FALLIDO]: { category: 'sistema', priority: 'ALTA', canales: [], audiencia: 'propietaria', excluye: ['EMAIL'] },
+  // todos los canales que declara (los no configurados → SKIPPED).
+  [EVENTOS.SISTEMA_STRIPE_DESCONECTADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL', 'WHATSAPP', 'SMS'], audiencia: 'propietaria' },
+  // Email fallido: ALTA (no CRÍTICA) y sin EMAIL declarado a propósito — avisar
+  // por correo de que el correo falla sería absurdo y podría realimentarse.
+  [EVENTOS.SISTEMA_EMAIL_FALLIDO]: { category: 'sistema', priority: 'ALTA', canales: [], audiencia: 'propietaria' },
 };
+
+// Qué roles recibe cada audiencia. Se deriva de recipients.ts, pero declarado
+// aquí (client-safe) para poder responder "¿este canal hace algo para mí?" sin
+// tocar la BD.
+export const ROLES_POR_AUDIENCIA: Record<Audiencia, NotificationRole[]> = {
+  'socia-del-evento': ['SOCIA'],
+  'socias-de-la-sesion': ['SOCIA'],
+  'propietaria': ['PROPIETARIO'],
+  'instructora-del-evento': ['INSTRUCTOR'],
+  'mostrador': ['PROPIETARIO', 'RECEPCION'],
+  'mostrador-y-socia': ['PROPIETARIO', 'RECEPCION', 'SOCIA'],
+};
+
+// Canales que este rol puede llegar a recibir en esta categoría, según lo que
+// declaran las reglas. Ahora que `canales` es la autoridad, un interruptor de un
+// canal que ningún evento declara no haría NADA: la UI lo usa para no ofrecerlo
+// en vez de mentirle al usuario.
+export function canalesDisponibles(role: NotificationRole, category: NotificationCategory): NotificationChannel[] {
+  const out = new Set<NotificationChannel>();
+  for (const regla of Object.values(REGLAS)) {
+    if (regla.category !== category) continue;
+    if (!ROLES_POR_AUDIENCIA[regla.audiencia].includes(role)) continue;
+    for (const canal of regla.canales) out.add(canal);
+  }
+  return [...out];
+}
 
 // ── Plantillas ────────────────────────────────────────────────────────────────
 // Clave: `${eventType}#${role}` con fallback a `${eventType}`. Variables `{x}` se
