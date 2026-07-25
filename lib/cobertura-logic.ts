@@ -16,6 +16,11 @@ export function candidatosCobertura(
   sesion: { instructorId: string; tipoClaseId: string },
   sesiones: readonly { instructorId: string; tipoClaseId: string; cancelada: boolean }[],
   instructores: readonly { id: string; nombre: string; telefono: string | null; activo: boolean }[],
+  // Instructoras que NO pueden cubrir esta franja: ausentes ese día (vacaciones/
+  // baja) o ya ocupadas con otra clase que solapa. Se calcula en la superficie (que
+  // tiene ausencias + horarios) y se pasa aquí para no proponerlas — asignar a una
+  // ocupada viola `sesiones_instructor_sin_solape` (0048) y el error se tragaba.
+  noDisponibles?: ReadonlySet<string>,
 ): CandidatoCobertura[] {
   const vecesPorInstructor = new Map<string, number>();
   for (const s of sesiones) {
@@ -24,7 +29,7 @@ export function candidatosCobertura(
   }
 
   return instructores
-    .filter(i => i.activo && i.id !== sesion.instructorId)
+    .filter(i => i.activo && i.id !== sesion.instructorId && !noDisponibles?.has(i.id))
     .map(i => ({
       instructorId: i.id,
       nombre: i.nombre,
