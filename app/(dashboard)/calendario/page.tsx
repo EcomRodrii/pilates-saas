@@ -1386,7 +1386,11 @@ export default function Calendario() {
   const emptyForm = useCallback((): FormData => ({
     tipoClaseId: tiposClase[0]?.id ?? '',
     salaId: salas[0]?.id ?? '',
-    instructorId: instructores[0]?.id ?? '',
+    // La primera ACTIVA, no instructores[0]: las de baja salen las primeras de la
+    // lista y quedaban preseleccionadas → crear clase sin tocar el desplegable la
+    // asignaba a alguien que ya no está en el equipo (el error que #366 arreglaba
+    // en las opciones pero no en el valor por defecto).
+    instructorId: instructores.find(i => i.activo)?.id ?? '',
     fecha: localDate(now),
     horaInicio: '09:00',
     horaFin: tiposClase[0]?.duracionMinutos
