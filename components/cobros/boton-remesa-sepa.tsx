@@ -54,18 +54,18 @@ export function BotonRemesaSepa() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    setAviso(`Remesa generada: ${nAdeudos} adeudo(s), cargo el ${cobro.toLocaleDateString('es-ES')}.${sinMandato > 0 ? ` (${sinMandato} recibo(s) sin mandato quedaron fuera.)` : ''} Súbela a tu banco.`);
+    setAviso(`Fichero listo: ${nAdeudos} recibo(s), cargo el ${cobro.toLocaleDateString('es-ES')}.${sinMandato > 0 ? ` (${sinMandato} recibo(s) sin mandato quedaron fuera.)` : ''} Súbelo a tu banco.`);
   }
 
   return (
     <div className="flex flex-col items-end gap-1">
       <button
         onClick={generar}
-        title="Genera el fichero SEPA (cuaderno 19.14) de los recibos pendientes domiciliados"
+        title="Genera el fichero de domiciliaciones (SEPA, cuaderno 19.14) con los recibos pendientes de quien tenga la domiciliación firmada. Se sube al banco desde su web."
         className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border border-border bg-card text-foreground hover:bg-background transition-colors"
       >
         <Landmark size={15} />
-        Generar remesa SEPA (19.14)
+        Preparar recibos para el banco
       </button>
       {aviso && <span className="text-[11px] text-muted-foreground max-w-xs text-right">{aviso}</span>}
     </div>
