@@ -2027,7 +2027,7 @@ async function asignarSpotReserva(
 export async function ejecutarCancelacionReserva(
   admin: SupabaseClient,
   params: { studioId: string; reservaId: string; socioId: string | null },
-): Promise<{ ok: true; tardia: boolean; bonoDevuelto: boolean } | { error: string }> {
+): Promise<{ ok: true; tardia: boolean; bonoDevuelto: boolean; eraConfirmada: boolean } | { error: string }> {
   const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
   });
@@ -2092,7 +2092,7 @@ export async function ejecutarCancelacionReserva(
   if (cancelada?.socio_id) {
     await evaluarGamificacionServidor(admin, params.studioId, cancelada.socio_id as string);
   }
-  return { ok: true as const, tardia, bonoDevuelto };
+  return { ok: true as const, tardia, bonoDevuelto, eraConfirmada: row?.era_confirmada === true };
 }
 
 // Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.
@@ -2112,8 +2112,13 @@ export async function cancelarReservaPublica(params: {
   // vez de perder la clase — la misma compensación que la vía dueña-first. El tope
   // (4) lo aplica la RPC. Para reservas normales no aplica (rige la devolución de
   // bono habitual).
+  // Solo si la cancelación REALMENTE ocurrió ahora (la reserva estaba CONFIRMADA
+  // y se ha cancelado). `cancelar_reserva_plaza` devuelve sin error también cuando
+  // la reserva YA estaba CANCELADA (era_confirmada=false); sin este gate, re-llamar
+  // a cancelar la misma plaza fija minaba una recuperación nueva cada vez (hasta el
+  // tope de 4) → clases gratis self-service. La RPC además dedup por origen (0098).
   let recuperacionCreada = false;
-  if (params.reservaId.startsWith('res-pf-')) {
+  if (params.reservaId.startsWith('res-pf-') && r.eraConfirmada) {
     const { data } = await admin.rpc('crear_recuperacion', {
       p_id: `recup-${uid()}`,
       p_studio_id: params.studioId,
@@ -2781,6 +2786,13 @@ export async function checkinPublico(params: { studioId: string; reservaId: stri
   if (!resRow) return { error: 'Reserva no encontrada' as const };
   const reserva = mapReserva(resRow as RowReservas);
   if (reserva.estado === 'ASISTIDA') return { ok: true as const }; // idempotente
+  // Solo se hace check-in de una reserva CONFIRMADA. Antes cualquier otro estado
+  // (LISTA_ESPERA, CANCELADA, NO_ASISTIO) se sobrescribía a ASISTIDA: como los IDs
+  // de reserva son públicos (fetchPublicStudioData los expone), con el kiosk-token
+  // se podía resucitar una reserva CANCELADA o colar una de LISTA_ESPERA —saltándose
+  // el aforo (plazasOcupadas cuenta ASISTIDA como ocupada) y otorgando créditos de
+  // asistencia indebidos.
+  if (reserva.estado !== 'CONFIRMADA') return { error: 'La reserva no está confirmada' as const };
 
   await admin.from('reservas').update({ estado: 'ASISTIDA', check_in_en: new Date().toISOString() }).eq('id', params.reservaId);
 
