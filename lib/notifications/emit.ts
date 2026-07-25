@@ -181,9 +181,12 @@ export async function emitirClaseModificada(
 ): Promise<void> {
   try {
     const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    // La socia ve la nueva instructora en el cuerpo ({sala}{instructora}); vacío
+    // si no cambió. Con separador para no pegarla a la sala.
+    const instructoraTxt = p.instructora ? ` · con ${p.instructora}` : '';
     await publish({
       type: EVENTOS.CLASE_MODIFICADA, studioId: p.studioId,
-      data: { clase: p.clase, cuando: p.cuando, sala: p.sala, sesionId: p.sesionId, slug: (studio?.slug as string | null) ?? '' },
+      data: { clase: p.clase, cuando: p.cuando, sala: p.sala, sesionId: p.sesionId, instructora: instructoraTxt, slug: (studio?.slug as string | null) ?? '' },
       resource: { type: 'sesion', id: p.sesionId },
       // La instructora entra en la clave: si solo cambia ella (misma hora y sala),
       // sin esto el aviso se descartaría como duplicado del cambio anterior.
