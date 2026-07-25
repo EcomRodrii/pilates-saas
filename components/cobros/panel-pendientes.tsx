@@ -188,10 +188,10 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     if (success && reciboId) {
       marcarCobrado(reciboId);
       setStripeToast({ tipo: 'ok', msg: 'Pago completado correctamente.' });
-      window.history.replaceState({}, '', '/cobros?tab=pendientes');
+      window.history.replaceState({}, '', '/cobros?tab=deudas');
     } else if (cancel) {
       setStripeToast({ tipo: 'error', msg: 'Pago cancelado.' });
-      window.history.replaceState({}, '', '/cobros?tab=pendientes');
+      window.history.replaceState({}, '', '/cobros?tab=deudas');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -402,8 +402,12 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     setShowMasivo(true);
   }
 
+  // Set: una socia con ≥2 suscripciones ACTIVA comparte los mismos recibos
+  // pendientes (masivoData agrupa por socia), así que sin deduplicar los ids
+  // salían repetidos y `alternarTodas` nunca detectaba "todo seleccionado"
+  // (masivoSelected es un Set único, su size < length con duplicados).
   const idsCobrables = useMemo(
-    () => masivoData.flatMap(d => d.pendientesRecibos.map(r => r.id)),
+    () => [...new Set(masivoData.flatMap(d => d.pendientesRecibos.map(r => r.id)))],
     [masivoData],
   );
 
