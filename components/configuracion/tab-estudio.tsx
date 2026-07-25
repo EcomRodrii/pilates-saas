@@ -395,7 +395,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           onChange={(e) => setPolitica(e.target.value)}
         />
         <button
-          onClick={() => { updateStudioConfig({ politicaPrivacidad: politica }); showToast('Política de privacidad guardada'); }}
+          onClick={async () => { const r = await updateStudioConfig({ politicaPrivacidad: politica }); showToast(r.ok ? 'Política de privacidad guardada' : r.error); }}
           className="mt-3 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors"
         >
           Guardar política
@@ -415,7 +415,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           onChange={(e) => setTerminos(e.target.value)}
         />
         <button
-          onClick={() => { updateStudioConfig({ terminosServicio: terminos }); showToast('Términos y condiciones guardados'); }}
+          onClick={async () => { const r = await updateStudioConfig({ terminosServicio: terminos }); showToast(r.ok ? 'Términos y condiciones guardados' : r.error); }}
           className="mt-3 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors"
         >
           Guardar términos

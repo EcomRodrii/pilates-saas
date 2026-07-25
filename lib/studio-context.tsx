@@ -45,7 +45,7 @@ import {
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbInsertSala, dbUpdateSala, dbDeleteSala,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
-  dbUpdateStudio, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
+  dbUpdateStudio, dbUpdateStudioConfig, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
@@ -436,7 +436,7 @@ interface StudioContextValue {
 
   // Studio config (policy, terms)
   studioConfig: StudioConfig;
-  updateStudioConfig: (changes: Partial<StudioConfig>) => void;
+  updateStudioConfig: (changes: Partial<StudioConfig>) => Promise<ResultadoEscritura>;
 
   // Motor de automatización avanzado
   automationRules: AutomationRule[];
@@ -617,6 +617,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     cargarDatosPublicos(publicSlug).then(pub => {
       if (!pub || pub.error) { setDataLoaded(true); return; }
       setStudio(pub.studio ?? null);
+      // El portal muestra a la clienta la política/términos del estudio y quedan con
+      // su aceptación: hay que hidratarlos aquí (antes usaba siempre el texto por defecto).
+      setStudioConfig({
+        politicaPrivacidad: (pub.studio as { politicaPrivacidad?: string | null } | null)?.politicaPrivacidad ?? defaultStudioConfig.politicaPrivacidad,
+        terminosServicio: (pub.studio as { terminosServicio?: string | null } | null)?.terminosServicio ?? defaultStudioConfig.terminosServicio,
+      });
       setSesiones(pub.sesiones ?? []);
       setTiposClase(pub.tiposClase ?? []);
       setSalas(pub.salas ?? []);
@@ -745,6 +751,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setStudio(data.studio);
+      setStudioConfig({
+        politicaPrivacidad: data.studioConfig?.politicaPrivacidad ?? defaultStudioConfig.politicaPrivacidad,
+        terminosServicio: data.studioConfig?.terminosServicio ?? defaultStudioConfig.terminosServicio,
+      });
       setDataLoaded(true);
 
       // Campos personalizados y plantillas de email: no son ruta crítica (solo
@@ -1305,8 +1315,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // falsa o que nunca aparece no genera recompensa.
   }
 
-  function updateStudioConfig(changes: Partial<StudioConfig>) {
+  async function updateStudioConfig(changes: Partial<StudioConfig>): Promise<ResultadoEscritura> {
+    // Escribir PRIMERO y solo aplicar si la BD lo acepta (patrón salas): antes solo
+    // mutaba el estado y NUNCA persistía, así que el portal de reservas y el registro
+    // de aceptación de la clienta seguían con el texto por defecto (exposición legal).
+    const res = await dbUpdateStudioConfig(changes);
+    if (!res.ok) return res;
     setStudioConfig(prev => ({ ...prev, ...changes }));
+    return res;
   }
 
   function updateSocio(id: string, changes: Partial<Socio>) {
@@ -1343,19 +1359,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function addTagSocio(socioId: string, tag: string) {
-    setSocios(prev => prev.map(s =>
-      s.id === socioId
-        ? { ...s, tags: [...new Set([...(s.tags ?? []), tag])] }
-        : s
-    ));
+    // Antes solo mutaba el estado: la etiqueta aparecía y se perdía al recargar, y
+    // el targeting de campañas por segmento (p. ej. VIP) nunca la veía. dbUpdateSocio
+    // ya serializa `tags`; solo faltaba llamarlo.
+    const nuevos = [...new Set([...(socios.find(s => s.id === socioId)?.tags ?? []), tag])];
+    setSocios(prev => prev.map(s => s.id === socioId ? { ...s, tags: nuevos } : s));
+    dbUpdateSocio(socioId, { tags: nuevos });
   }
 
   function removeTagSocio(socioId: string, tag: string) {
-    setSocios(prev => prev.map(s =>
-      s.id === socioId
-        ? { ...s, tags: (s.tags ?? []).filter(t => t !== tag) }
-        : s
-    ));
+    const nuevos = (socios.find(s => s.id === socioId)?.tags ?? []).filter(t => t !== tag);
+    setSocios(prev => prev.map(s => s.id === socioId ? { ...s, tags: nuevos } : s));
+    dbUpdateSocio(socioId, { tags: nuevos });
   }
 
   // ── Notas internas ───────────────────────────────────────────────────────────
@@ -3158,6 +3173,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setAutomationLogs(data.automationLogs);
       progressNotesStore.setNotasProgreso(data.notasProgreso);
       setStudio(data.studio);
+      setStudioConfig({
+        politicaPrivacidad: data.studioConfig?.politicaPrivacidad ?? defaultStudioConfig.politicaPrivacidad,
+        terminosServicio: data.studioConfig?.terminosServicio ?? defaultStudioConfig.terminosServicio,
+      });
     }).catch(console.error);
   }
 

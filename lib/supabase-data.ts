@@ -1274,6 +1274,12 @@ export async function fetchCriticalStudioData(studioId?: string) {
 
   return {
     studio: studioRes.data ? mapStudio(studioRes.data) : null,
+    // Política/términos persistidos (0102); null = el cliente aplica el texto por
+    // defecto. Antes StudioConfig no se hidrataba nunca y perdía lo que la dueña editó.
+    studioConfig: {
+      politicaPrivacidad: (studioRes.data as { politica_privacidad?: string | null } | null)?.politica_privacidad ?? null,
+      terminosServicio: (studioRes.data as { terminos_servicio?: string | null } | null)?.terminos_servicio ?? null,
+    },
     usuarios: (usuariosRes.data ?? []).map(mapUsuario),
     socios: (sociosRes.data ?? []).map(mapSocio),
     planesTarifa: (planesTarifaRes.data ?? []).map(mapPlanTarifa),
@@ -1393,6 +1399,10 @@ function studioPublico(r: RowStudios) {
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     slug: r.slug ?? null,
+    // Política/términos del estudio: el portal se los muestra a la clienta y quedan
+    // registrados con su aceptación. null = el cliente usa el texto por defecto.
+    politicaPrivacidad: (r as { politica_privacidad?: string | null }).politica_privacidad ?? null,
+    terminosServicio: (r as { terminos_servicio?: string | null }).terminos_servicio ?? null,
     // Política pública que la página de reservas necesita para avisar a la socia
     // (ventana de cancelación) y hacer el pre-check de derechos/límite.
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
@@ -4815,6 +4825,20 @@ export async function dbClaimInstructorAccount(email: string, authUserId: string
     .maybeSingle();
   if (error) { reportDbError('[dbClaimInstructorAccount]', error); return null; }
   return data ? mapInstructor(data) : null;
+}
+
+// Política de privacidad y términos del estudio (StudioConfig). Antes NO se
+// persistían: la dueña los editaba, veía "guardado", y el portal de reservas y el
+// registro de aceptación de la clienta seguían usando el texto por defecto
+// (exposición legal). Devuelve ResultadoEscritura porque la UI debe confirmar que
+// quedó guardado antes de decir "guardado" (0102 añadió las columnas).
+export async function dbUpdateStudioConfig(changes: { politicaPrivacidad?: string; terminosServicio?: string }): Promise<ResultadoEscritura> {
+  const db: Record<string, unknown> = {};
+  if ('politicaPrivacidad' in changes) db.politica_privacidad = changes.politicaPrivacidad;
+  if ('terminosServicio' in changes) db.terminos_servicio = changes.terminosServicio;
+  if (Object.keys(db).length === 0) return ESCRITURA_OK;
+  const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
+  return error ? falloEscritura('[dbUpdateStudioConfig]', error) : ESCRITURA_OK;
 }
 
 export async function dbUpdateStudio(changes: Partial<Studio>) {
