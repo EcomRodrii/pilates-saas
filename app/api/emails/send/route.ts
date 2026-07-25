@@ -11,6 +11,7 @@ import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { resolverPlantilla, interpolar, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+import { validarDatosEmail } from '@/lib/emails/validar-datos';
 
 export async function POST(req: NextRequest) {
   // SEGURIDAD: solo staff autenticado. Evita que cualquiera use la cuenta de
@@ -30,6 +31,14 @@ export async function POST(req: NextRequest) {
     toName: string;
     data: Record<string, unknown>;
   };
+
+  // `body.data` llega con un `as` que TypeScript no comprueba en runtime. Se
+  // valida ANTES de renderizar: los campos que van en template literals (asunto,
+  // `preview`) sacan "undefined" a la vista de la clienta, y los que reciben un
+  // método (importe.toFixed, new Date(fechaCobro)) revientan sin try/catch en un
+  // 500 opaco. Sólo lo que rompe el email de verdad — ver lib/emails/validar-datos.
+  const errorDatos = validarDatosEmail(body.tipo, body.data);
+  if (errorDatos) return NextResponse.json({ error: errorDatos }, { status: 400 });
 
   let html: string;
   let subject: string;
@@ -66,17 +75,6 @@ export async function POST(req: NextRequest) {
     subject = asuntoCustom ?? `Reserva confirmada — ${d.claseNombre}`;
   } else if (body.tipo === 'automatizacion') {
     const d = body.data as { titulo: string; mensaje: string; estudioNombre?: string };
-    // `body.data` entra con un `as` sin validar, así que hasta ahora lo único
-    // que impedía mandarle un email en blanco a una clienta era el `disabled`
-    // del botón en el cliente. Un bundle cacheado, un reintento o un POST
-    // autenticado a mano se lo saltaban. El cuerpo del mensaje es el email
-    // entero en este tipo: sin él no hay nada que enviar.
-    if (!d.mensaje?.trim()) {
-      return NextResponse.json(
-        { error: 'Falta el mensaje de la automatización: no se envía un email vacío.' },
-        { status: 400 },
-      );
-    }
     html = await render(AutomatizacionEmail({ socioNombre: body.toName, ...marca, ...d }));
     subject = d.titulo;
   } else if (body.tipo === 'promocion') {

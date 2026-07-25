@@ -1459,7 +1459,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             </button>
             <button
               onClick={handleAddRecibo}
-              disabled={!reciboForm.concepto || !reciboForm.importe}
+              // Con trim, como el mismo guard en panel-pendientes: sin él un
+              // concepto de solo espacios habilitaba el botón, handleAddRecibo lo
+              // guardaba ya trimeado (vacío) y el email del cobro salía luego
+              // como "Pago confirmado — undefined".
+              disabled={!reciboForm.concepto.trim() || !reciboForm.importe}
               className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 transition-colors"
             >
               Crear cobro

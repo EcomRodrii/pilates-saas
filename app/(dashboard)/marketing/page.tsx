@@ -541,6 +541,14 @@ export default function MarketingPage() {
 
   async function handleEnviarCampana(c: Campana) {
     if (enviandoId) return
+    // Una campaña de EMAIL sin asunto ni contenido salía con el asunto en blanco
+    // y el cuerpo vacío a todas las destinatarias, y la UI lo daba por bueno
+    // ("enviada a 42 de 42"). El endpoint ya lo rechaza; avisamos aquí para no
+    // dejarlo en un mudo "enviada a 0 de 42".
+    if (c.tipo === 'EMAIL' && (!c.asunto?.trim() || !c.contenido?.trim())) {
+      setResultadoEnvio(`"${c.nombre}" no tiene ${!c.asunto?.trim() ? 'asunto' : 'contenido'}. Edítala antes de enviarla.`)
+      return
+    }
     setEnviandoId(c.id)
     setResultadoEnvio(null)
     try {
@@ -633,9 +641,11 @@ export default function MarketingPage() {
     const campos = {
       nombre: newCampana.nombre,
       tipo: newCampana.tipo,
-      asunto: newCampana.asunto,
+      // Con trim, como el resto: sin él se guardaba "   " y el email salía con
+      // el asunto vacío (el guard de envío de abajo ya no lo dejaría pasar).
+      asunto: newCampana.asunto.trim(),
       destinatarios: newCampana.destinatarios as any,
-      contenido: newCampana.contenido,
+      contenido: newCampana.contenido.trim(),
       objetivo: newCampana.objetivo.trim() || null,
       presupuesto: newCampana.presupuesto ? parseFloat(newCampana.presupuesto) : null,
       publicaciones: newCampana.publicaciones.length ? newCampana.publicaciones : null,
