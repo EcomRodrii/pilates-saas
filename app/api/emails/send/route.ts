@@ -66,6 +66,17 @@ export async function POST(req: NextRequest) {
     subject = asuntoCustom ?? `Reserva confirmada — ${d.claseNombre}`;
   } else if (body.tipo === 'automatizacion') {
     const d = body.data as { titulo: string; mensaje: string; estudioNombre?: string };
+    // `body.data` entra con un `as` sin validar, así que hasta ahora lo único
+    // que impedía mandarle un email en blanco a una clienta era el `disabled`
+    // del botón en el cliente. Un bundle cacheado, un reintento o un POST
+    // autenticado a mano se lo saltaban. El cuerpo del mensaje es el email
+    // entero en este tipo: sin él no hay nada que enviar.
+    if (!d.mensaje?.trim()) {
+      return NextResponse.json(
+        { error: 'Falta el mensaje de la automatización: no se envía un email vacío.' },
+        { status: 400 },
+      );
+    }
     html = await render(AutomatizacionEmail({ socioNombre: body.toName, ...marca, ...d }));
     subject = d.titulo;
   } else if (body.tipo === 'promocion') {

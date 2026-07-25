@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import type {
   AutomationRule,
   AutomationLog,
@@ -9,12 +10,25 @@ import type {
   AccionAutomatica,
   Suscripcion,
   PlanTarifa,
+  TriggerRule,
 } from '@/lib/types';
 
 // Detección de candidatos a notificar, compartida entre el botón "Ejecutar
-// ahora" del dashboard (lib/studio-context.tsx) y el cron de servidor
-// (app/api/cron/automatizaciones/route.ts). Vivir en un solo sitio evita que
+// ahora" del dashboard (app/api/automatizaciones/run/route.ts) y el cron de
+// servidor (lib/inngest/automatizaciones.ts). Vivir en un solo sitio evita que
 // las dos vías de ejecución diverjan silenciosamente.
+
+// Los triggers que este motor sabe atender. Si añades una rama abajo, añádelo
+// aquí: lo que no esté en este set se reporta como regla muerta.
+const TRIGGERS_IMPLEMENTADOS: ReadonlySet<TriggerRule> = new Set<TriggerRule>([
+  'AUSENCIA_DIAS',
+  'PAGO_PENDIENTE_DIAS',
+  'CLASE_MANANA',
+  'CLASE_LLENA_RECURRENTE',
+  'BONO_SESIONES_BAJAS',
+  'NUEVA_SOCIA',
+  'RENOVACION_COBRADA',
+]);
 
 export interface AutomationCandidato {
   rule: AutomationRule;
@@ -470,6 +484,20 @@ export function computeAutomationCandidatos(
             reciboId: recibo.id,
           });
         });
+    }
+
+    // La cadena de arriba son `if` independientes sin `else`, y la columna
+    // automation_rules.trigger es `text` libre (0000_base.sql:364) que el mapper
+    // deja pasar con un `as AutomationRule` sin validar. Un trigger que no
+    // coincida con ninguno produce una regla que la UI muestra encendida y que
+    // no hace absolutamente nada, sin error ni aviso — así vivió años
+    // SUSCRIPCION_EXPIRA_DIAS. Que al menos se entere alguien.
+    if (!TRIGGERS_IMPLEMENTADOS.has(rule.trigger)) {
+      Sentry.captureMessage(`[automation-engine] trigger sin implementar: ${rule.trigger}`, {
+        level: 'warning',
+        tags: { trigger: rule.trigger, studioId: rule.studioId },
+        extra: { ruleId: rule.id, nombre: rule.nombre },
+      });
     }
   });
 

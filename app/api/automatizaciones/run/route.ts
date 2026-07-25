@@ -27,9 +27,20 @@ export const maxDuration = 60;
 // dbUpsert deduplica y Resend no reenvía (misma idempotency-key) → ejecutar a
 // mano tras el cron es seguro. Solo el subconjunto de reglas (no las
 // automatizaciones de marketing), igual que hacía el botón antes.
+// Acepta `{ dry: true }` para una pasada en seco: calcula los mismos candidatos
+// y devuelve los mismos logs, pero procesarCandidato no envía nada (ni email ni
+// WhatsApp) y no persiste ningún log — el `if (!dry)` del final. Sirve para dos
+// cosas: poder verificar un cambio del motor contra datos reales sin escribirle
+// a nadie, y para que la UI pueda responder a "¿qué va a hacer si le doy?" antes
+// de que la propietaria pulse un botón que manda mensajes en su nombre.
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  const dry = await req
+    .json()
+    .then((b: unknown) => (b as { dry?: boolean } | null)?.dry === true)
+    .catch(() => false); // sin body / body inválido → ejecución real, como antes
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
@@ -69,18 +80,21 @@ export async function POST(req: NextRequest) {
     const logs: AutomationLog[] = await mapLimit(
       candidatos,
       6,
-      (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry: false, resend }),
+      (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend }),
     );
 
-    // Contador de disparos por regla (determinista, como el cron).
-    const firedPorRegla = new Map<string, number>();
-    for (const c of candidatos) firedPorRegla.set(c.rule.id, (firedPorRegla.get(c.rule.id) ?? 0) + 1);
-    for (const [ruleId, count] of firedPorRegla) {
-      const base = data.automationRules.find((r) => r.id === ruleId)?.ejecutadaVeces ?? 0;
-      await dbUpdateAutomationRule(ruleId, sesion.studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
+    // En seco no se toca el contador: no ha disparado nada.
+    if (!dry) {
+      // Contador de disparos por regla (determinista, como el cron).
+      const firedPorRegla = new Map<string, number>();
+      for (const c of candidatos) firedPorRegla.set(c.rule.id, (firedPorRegla.get(c.rule.id) ?? 0) + 1);
+      for (const [ruleId, count] of firedPorRegla) {
+        const base = data.automationRules.find((r) => r.id === ruleId)?.ejecutadaVeces ?? 0;
+        await dbUpdateAutomationRule(ruleId, sesion.studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
+      }
     }
 
-    return NextResponse.json({ logs });
+    return NextResponse.json({ dry, logs });
   } catch (err) {
     return errorInterno('automatizaciones/run:POST', err, 'No se han podido ejecutar las automatizaciones. Inténtalo de nuevo.');
   }

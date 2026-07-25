@@ -9,8 +9,10 @@ import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import { conReintentoResend } from '@/lib/emails/resend-reintentos';
+import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
+import * as Sentry from '@sentry/nextjs';
 
 const anthropic = new Anthropic();
 
@@ -23,6 +25,17 @@ const anthropic = new Anthropic();
 // como fallback de un tipo que pueda acabar en un email a una clienta — eso
 // fue exactamente el bug que mandaba la nota interna tal cual a la socia.
 async function redactarConIA(input: RecomendacionInput, fallback: string): Promise<string> {
+  // Sin clave no hay llamada que hacer: el SDK no lanza al construirse (deja
+  // apiKey a null) y reventaba en cada `create` con "Could not resolve
+  // authentication method", indistinguible de un rate limit por culpa del
+  // `catch {}` de abajo. Un fallo de configuración merece su propio aviso.
+  if (!process.env.ANTHROPIC_API_KEY) {
+    Sentry.captureMessage('[redactarConIA] falta ANTHROPIC_API_KEY — se usa el texto por defecto', {
+      level: 'error',
+      tags: { fn: 'redactarConIA', tipo: input.tipo },
+    });
+    return fallback;
+  }
   try {
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
@@ -33,7 +46,11 @@ async function redactarConIA(input: RecomendacionInput, fallback: string): Promi
     const raw = message.content[0].type === 'text' ? message.content[0].text : '';
     const parsed = JSON.parse(raw);
     return parsed.mensaje || fallback;
-  } catch {
+  } catch (e) {
+    // Antes era un `catch {}` que ni ligaba el error: la degradación al texto
+    // genérico era invisible en Sentry y en los logs de Inngest, que reportan
+    // la run como correcta porque el fallback la deja terminar bien.
+    Sentry.captureException(e, { tags: { fn: 'redactarConIA', tipo: input.tipo } });
     return fallback;
   }
 }
@@ -118,14 +135,23 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       fallbackCrossSell(nombre, planSugerido, precioSugerido, studioNombre)
     );
     log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.notaInterna ?? '', mensajeCliente };
-  } else if (c.accion === 'NOTIFICAR_ADMIN' && c.contextoIA) {
-    // Seguro usar c.notaInterna como fallback aquí: NOTIFICAR_ADMIN no tiene
-    // ningún camino de envío a cliente (sin botón de "enviar" en la UI) — el
-    // resultado de este redactarConIA es, por diseño, solo para la propietaria.
-    const detalle = await redactarConIA(
-      { tipo: 'CLASE_LLENA', tipoClase: String(c.contextoIA.tipoClase), diaSemana: String(c.contextoIA.diaSemana), hora: String(c.contextoIA.hora), semanas: Number(c.contextoIA.semanas) },
-      c.notaInterna ?? ''
-    );
+  } else if (c.accion === 'NOTIFICAR_ADMIN') {
+    // La condición era `NOTIFICAR_ADMIN && c.contextoIA`, y sólo un candidato de
+    // los tres que emite el motor lleva contextoIA (CLASE_LLENA_RECURRENTE). Los
+    // otros dos — "Pago pendiente sin resolver" (automation-engine.ts:225) y
+    // "Socia nueva sin actividad" (:420) — caían por toda la cascada hasta el
+    // guard de email y morían con FALLIDO "Falta el mensaje para la clienta":
+    // un aviso dirigido a la propietaria rechazado por no traer texto para la
+    // clienta. Nunca llegaban, y son justo los dos avisos de "llámala tú".
+    // NOTIFICAR_ADMIN no tiene camino de envío a la clienta (mensajeCliente
+    // siempre null, sin botón de enviar en la UI), así que su notaInterna basta:
+    // la IA sólo aporta redacción cuando hay contexto para ella.
+    const detalle = c.contextoIA
+      ? await redactarConIA(
+          { tipo: 'CLASE_LLENA', tipoClase: String(c.contextoIA.tipoClase), diaSemana: String(c.contextoIA.diaSemana), hora: String(c.contextoIA.hora), semanas: Number(c.contextoIA.semanas) },
+          c.notaInterna ?? c.titulo
+        )
+      : (c.notaInterna ?? c.titulo);
     log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle, mensajeCliente: null };
   } else if (!c.socio) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Acción sin socia asociada', mensajeCliente: null };
@@ -149,6 +175,13 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     }
   } else if (!c.socio.email) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado', mensajeCliente: null };
+  } else if (esDominioReservado(c.socio.email)) {
+    // Los dominios de ejemplo (RFC 2606) los rechaza Resend con "Invalid `to`
+    // field. Please use our testing email address instead of domains like
+    // example.com" — un error suyo, en inglés, que a la propietaria no le dice
+    // nada. Cortamos antes: nos ahorramos la llamada y le decimos qué arreglar.
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, mensajeCliente: c.mensajeCliente ?? null,
+      detalle: `${c.socio.nombre} tiene un email de ejemplo (${c.socio.email}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.` };
   } else if (!c.mensajeCliente) {
     // ENVIAR_EMAIL sin mensajeCliente sería exactamente el patrón del bug si
     // se intentara enviar otra cosa por defecto — mejor fallar explícito.
