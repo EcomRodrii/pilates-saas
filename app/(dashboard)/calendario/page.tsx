@@ -1957,6 +1957,7 @@ export default function Calendario() {
         sesion={sesionActual}
         sesiones={sesiones}
         instructores={instructores}
+        ausencias={ausencias}
         onAsignar={asignarSustituta}
       />
 

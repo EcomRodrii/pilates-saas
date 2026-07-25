@@ -44,3 +44,10 @@ test('excluye instructoras inactivas de la lista de candidatas', () => {
   const r = candidatosCobertura({ instructorId: 'orig', tipoClaseId: 'mat' }, [], instructores);
   assert.ok(!r.some(c => c.instructorId === 'c'));
 });
+
+test('excluye a las marcadas como no disponibles (ausentes ese día u ocupadas en la franja)', () => {
+  const noDisp = new Set(['a']); // Ana está de vacaciones o ya tiene otra clase que solapa
+  const r = candidatosCobertura({ instructorId: 'orig', tipoClaseId: 'mat' }, [], instructores, noDisp);
+  assert.ok(!r.some(c => c.instructorId === 'a'), 'no debe proponer a una no disponible');
+  assert.ok(r.some(c => c.instructorId === 'b'), 'las demás siguen disponibles');
+});

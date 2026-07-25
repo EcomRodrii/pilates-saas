@@ -3,22 +3,37 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MessageCircle, UserCheck } from 'lucide-react';
 import { candidatosCobertura } from '@/lib/cobertura-logic';
+import { ausenciaEnFecha } from '@/lib/ausencias';
+import type { AusenciaInstructora } from '@/lib/api-client';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { cn } from '@/lib/utils';
 
 interface CoberturaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  sesion: { instructorId: string; tipoClaseId: string; inicio: string; tipoClase: { nombre: string } } | null;
-  sesiones: readonly { instructorId: string; tipoClaseId: string; cancelada: boolean }[];
+  sesion: { id: string; instructorId: string; tipoClaseId: string; inicio: string; fin: string; tipoClase: { nombre: string } } | null;
+  sesiones: readonly { id: string; instructorId: string; tipoClaseId: string; cancelada: boolean; inicio: string; fin: string }[];
   instructores: readonly { id: string; nombre: string; telefono: string | null; activo: boolean }[];
+  ausencias?: AusenciaInstructora[];
   onAsignar: (instructorId: string) => void;
 }
 
-export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instructores, onAsignar }: CoberturaDialogProps) {
+export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instructores, ausencias = [], onAsignar }: CoberturaDialogProps) {
   if (!sesion) return null;
 
-  const candidatos = candidatosCobertura(sesion, sesiones, instructores);
+  // No proponer a quien no puede cubrir esta franja: ausentes ese día (vacaciones/
+  // baja) o ya ocupadas con otra clase que solapa. Asignar a una ocupada violaría
+  // `sesiones_instructor_sin_solape` (0048) y el error se tragaba en silencio.
+  const noDisponibles = new Set<string>();
+  for (const i of instructores) {
+    if (ausenciaEnFecha(ausencias, i.id, sesion.inicio)) noDisponibles.add(i.id);
+  }
+  for (const s of sesiones) {
+    if (s.cancelada || s.id === sesion.id) continue;
+    if (s.inicio < sesion.fin && sesion.inicio < s.fin) noDisponibles.add(s.instructorId); // solape de franja
+  }
+
+  const candidatos = candidatosCobertura(sesion, sesiones, instructores, noDisponibles);
   const fechaHora = new Date(sesion.inicio).toLocaleString('es-ES', {
     weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
   });
