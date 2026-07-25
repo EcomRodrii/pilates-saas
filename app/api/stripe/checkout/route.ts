@@ -147,6 +147,11 @@ export async function POST(req: NextRequest) {
       payment_intent_data: {
         ...(conBizum ? {} : { setup_future_usage: 'off_session' as const }),
         ...(fee !== undefined ? { application_fee_amount: fee } : {}),
+        // El handler `charge.refunded` lee la metadata del PAYMENT INTENT, no de la
+        // session (Stripe no la copia). Sin el reciboId aquí, una devolución o
+        // contracargo de un pago por enlace/Bizum NO marcaba el recibo DEVUELTO y se
+        // quedaba COBRADO para siempre (ingresos inflados). Solo para recibos reales.
+        ...(body.reciboId ? { metadata: { reciboId: body.reciboId, origen: 'tarjeta_recibo', studioId: body.studioId } } : {}),
       },
       metadata,
       success_url: `${appUrl}/cobros?tab=pendientes&stripe_success=1${body.reciboId ? `&recibo=${body.reciboId}` : ''}`,

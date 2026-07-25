@@ -382,7 +382,13 @@ export async function POST(req: NextRequest) {
       const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
       const reciboId = pi.metadata?.reciboId;
       const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
-      if (reciboId && esRecibo) {
+      // Solo un reembolso TOTAL anula el recibo. `charge.refunded` es true únicamente
+      // cuando el cargo se devolvió entero; un reembolso PARCIAL (amount_refunded <
+      // amount) marcaba el recibo DEVUELTO por error → ingresos infravalorados y estado
+      // incoherente (recibo "devuelto" pero renovación/bono ya aplicados). Los parciales
+      // se dejan COBRADO (requieren ajuste manual del estudio).
+      const reembolsoTotal = charge.refunded === true || (charge.amount_refunded ?? 0) >= (charge.amount ?? 0);
+      if (reciboId && esRecibo && reembolsoTotal) {
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (refund)');
