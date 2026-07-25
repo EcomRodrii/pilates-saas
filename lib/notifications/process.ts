@@ -10,120 +10,108 @@
 import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
-import { REGLAS, plantillaDe, render, type ReglaEvento } from './catalog.ts';
-import { resolverDestinatarios } from './recipients.ts';
+import { REGLAS } from './catalog.ts';
 import { CANALES } from './channels.ts';
+import { crearInApp, canalesExtraDe, preferenciaDe, PREF_DEFECTO, type Preferencia } from './inapp.ts';
 import type {
   NotificationCategory, NotificationChannel, NotificationEvent, NotificationRow, Recipient,
 } from './types.ts';
 
-export interface Preferencia { inapp: boolean; push: boolean; email: boolean; whatsapp: boolean; sms: boolean; }
-const PREF_DEFECTO: Preferencia = { inapp: true, push: true, email: false, whatsapp: false, sms: false };
-
-// Canales EXTRA (además del in-app) para un destinatario. Reglas:
-//  · PUSH: solo en eventos que lo traen por defecto (regla.canales) y si no lo apagó.
-//  · EMAIL/WhatsApp/SMS: dirigidos por PREFERENCIA (opt-in; off por defecto) — si
-//    el usuario los activa para esa categoría, se envían. Las CRÍTICAS fuerzan
-//    todos los canales (los no configurados devuelven SKIPPED, no se pierde nada).
-export function canalesExtraDe(regla: ReglaEvento, pref: Preferencia, critica: boolean): NotificationChannel[] {
-  const out: NotificationChannel[] = [];
-  if (regla.canales.includes('PUSH') && (critica || pref.push)) out.push('PUSH');
-  if (critica || pref.email) out.push('EMAIL');
-  if (critica || pref.whatsapp) out.push('WHATSAPP');
-  if (critica || pref.sms) out.push('SMS');
-  // `excluye` manda sobre todo: ni la preferencia del usuario ni la prioridad
-  // CRÍTICA pueden meter un canal vetado para ese evento (p. ej. avisar por
-  // email de que los emails están fallando).
-  return regla.excluye?.length ? out.filter(c => !regla.excluye!.includes(c)) : out;
-}
-
-async function preferenciaDe(admin: SupabaseClient, userId: string, category: NotificationCategory): Promise<Preferencia> {
-  const { data } = await admin.from('notification_preference')
-    .select('inapp, push, email, whatsapp, sms').eq('user_id', userId).eq('category', category).maybeSingle();
-  if (!data) return PREF_DEFECTO;
-  return {
-    inapp: data.inapp as boolean, push: data.push as boolean, email: data.email as boolean,
-    whatsapp: data.whatsapp as boolean, sms: data.sms as boolean,
-  };
-}
+// Preferencia/PREF_DEFECTO/canalesExtraDe/preferenciaDe viven en inapp.ts (que
+// no importa canales) y se re-exportan aquí por compatibilidad.
+export { canalesExtraDe, preferenciaDe, PREF_DEFECTO };
+export type { Preferencia };
 
 export interface ResultadoProceso { creadas: number; deliveries: number; omitidas: number; }
 
-// Núcleo: de un evento a filas de notificación + deliveries. Idempotente.
+// Camino COMPLETO (in-app + canales) en una sola llamada. Ya no es el camino de
+// producción —publish() crea la in-app en el acto y encola solo los externos—
+// pero se conserva porque es la unidad natural para tests y para reprocesar un
+// evento suelto a mano.
 export async function procesarEvento(admin: SupabaseClient, event: NotificationEvent): Promise<ResultadoProceso> {
-  const regla = REGLAS[event.type];
-  if (!regla) return { creadas: 0, deliveries: 0, omitidas: 0 };
+  const { creadas, omitidas } = await crearInApp(admin, event);
+  let deliveries = creadas.length; // el delivery INAPP ya lo escribió crearInApp
+  for (const c of creadas) {
+    deliveries += await entregarCanales(admin, c.fila, c.destinatario, c.canalesExtra);
+  }
+  return { creadas: creadas.length, deliveries, omitidas };
+}
 
-  const destinatarios = event.recipients ?? await resolverDestinatarios(admin, regla.audiencia, event);
-  const data = event.data ?? {};
-  let creadas = 0, deliveries = 0, omitidas = 0;
+// Envía los canales EXTERNOS de una notificación ya creada y registra su delivery.
+async function entregarCanales(
+  admin: SupabaseClient, fila: NotificationRow, dest: Recipient, canales: NotificationChannel[],
+): Promise<number> {
+  if (canales.length === 0) return 0;
+  let n = 0;
+  for (const ch of canales) {
+    const canal = CANALES[ch];
+    const res = canal
+      ? await canal.enviar({ admin, notificacion: fila, destinatario: dest })
+      : { status: 'SKIPPED' as const, error: `canal ${ch} no implementado` };
+    await admin.from('notification_delivery').insert({
+      id: `del-${randomUUID()}`,
+      notification_id: fila.id,
+      studio_id: fila.studioId,
+      channel: ch,
+      status: res.status,
+      attempts: res.status === 'SENT' || res.status === 'DELIVERED' ? 1 : res.status === 'FAILED' ? 1 : 0,
+      error: res.error ?? null,
+      provider_id: res.providerId ?? null,
+      sent_at: res.status === 'SENT' || res.status === 'DELIVERED' ? new Date().toISOString() : null,
+    });
+    n++;
+  }
+  return n;
+}
 
-  for (const dest of destinatarios) {
-    const pl = plantillaDe(event.type, dest.role);
-    if (!pl) { omitidas++; continue; }
+// Lo que ejecuta el worker de Inngest: entregar los canales externos de
+// notificaciones que YA existen (las creó publish() de forma síncrona).
+// Recalcula los canales desde la regla + las preferencias del destinatario, así
+// que no hace falta transportarlos en el evento.
+export async function entregarExternos(
+  admin: SupabaseClient, notificationIds: string[],
+): Promise<{ entregadas: number; deliveries: number }> {
+  let entregadas = 0, deliveries = 0;
+  for (const id of notificationIds) {
+    const { data: noti } = await admin.from('notification').select('*').eq('id', id).maybeSingle();
+    if (!noti) continue;
+    const regla = REGLAS[noti.event_type as string];
+    if (!regla) continue;
+
+    // Si ya hay deliveries externos de esta notificación, no repetir (el worker
+    // puede reintentarse: Inngest reintenta la función entera).
+    const { data: previos } = await admin.from('notification_delivery')
+      .select('channel').eq('notification_id', id).neq('channel', 'INAPP');
+    if (previos && previos.length > 0) continue;
+
+    const dest: Recipient = {
+      role: noti.recipient_role,
+      userId: noti.recipient_user_id,
+      socioId: noti.recipient_socio_id,
+      instructorId: noti.recipient_instructor_id,
+    };
+    // Email/teléfono para los canales externos (la fila no los guarda).
+    if (dest.socioId) {
+      const { data: soc } = await admin.from('socios').select('email, telefono').eq('id', dest.socioId).maybeSingle();
+      dest.email = (soc?.email as string | null) ?? null;
+      dest.telefono = (soc?.telefono as string | null) ?? null;
+    } else if (dest.instructorId) {
+      const { data: ins } = await admin.from('instructores').select('email').eq('id', dest.instructorId).maybeSingle();
+      dest.email = (ins?.email as string | null) ?? null;
+    } else {
+      const { data: st } = await admin.from('studios').select('email, telefono').eq('id', noti.studio_id).maybeSingle();
+      dest.email = (st?.email as string | null) ?? null;
+      dest.telefono = (st?.telefono as string | null) ?? null;
+    }
 
     const critica = regla.priority === 'CRITICA';
     const pref = dest.userId ? await preferenciaDe(admin, dest.userId, regla.category) : PREF_DEFECTO;
-    const quiereInapp = critica || pref.inapp;
-    const canalesExtra = canalesExtraDe(regla, pref, critica);
-
-    if (!quiereInapp && canalesExtra.length === 0) { omitidas++; continue; }
-
-    const dedupKey = event.dedupKey
-      ? `${event.dedupKey}:${dest.userId ?? dest.socioId ?? dest.instructorId ?? 'anon'}`
-      : null;
-
-    const row = {
-      id: `not-${randomUUID()}`,
-      studio_id: event.studioId,
-      recipient_role: dest.role,
-      recipient_user_id: dest.userId,
-      recipient_socio_id: dest.socioId ?? null,
-      recipient_instructor_id: dest.instructorId ?? null,
-      event_type: event.type,
-      category: regla.category,
-      priority: regla.priority,
-      title: render(pl.title, data),
-      body: render(pl.body, data),
-      resource_type: event.resource?.type ?? null,
-      resource_id: event.resource?.id ?? null,
-      deep_link: pl.deepLink?.(data) ?? null,
-      data,
-      dedup_key: dedupKey,
-      archived_at: quiereInapp ? null : new Date().toISOString(),
-    };
-
-    const { error } = await admin.from('notification').insert(row);
-    if (error) {
-      if ((error as { code?: string }).code === '23505') { omitidas++; continue; }
-      console.error('[notifications] insert falló:', error.message);
-      omitidas++; continue;
-    }
-    creadas++;
-
-    const notiRow = mapRow(row);
-    const canales: NotificationChannel[] = [...(quiereInapp ? ['INAPP' as const] : []), ...canalesExtra];
-    for (const ch of canales) {
-      const canal = CANALES[ch];
-      const res = canal
-        ? await canal.enviar({ admin, notificacion: notiRow, destinatario: dest })
-        : { status: 'SKIPPED' as const, error: `canal ${ch} no implementado` };
-      await admin.from('notification_delivery').insert({
-        id: `del-${randomUUID()}`,
-        notification_id: row.id,
-        studio_id: event.studioId,
-        channel: ch,
-        status: res.status,
-        attempts: res.status === 'SENT' || res.status === 'DELIVERED' ? 1 : res.status === 'FAILED' ? 1 : 0,
-        error: res.error ?? null,
-        provider_id: res.providerId ?? null,
-        sent_at: res.status === 'SENT' || res.status === 'DELIVERED' ? new Date().toISOString() : null,
-      });
-      deliveries++;
-    }
+    const canales = canalesExtraDe(regla, pref, critica);
+    const n = await entregarCanales(admin, mapRow(noti), dest, canales);
+    if (n > 0) entregadas++;
+    deliveries += n;
   }
-
-  return { creadas, deliveries, omitidas };
+  return { entregadas, deliveries };
 }
 
 function mapRow(row: Record<string, unknown>): NotificationRow {

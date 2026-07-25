@@ -160,7 +160,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // Clase modificada (cambio de horario/sala) → cada socia apuntada
   [`${EVENTOS.CLASE_MODIFICADA}#SOCIA`]: {
     title: 'Tu clase ha cambiado',
-    body: 'Tu clase de {clase} pasa a: {cuando} · {sala}. Revisa tu reserva.',
+    body: 'Tu clase de {clase} pasa a: {cuando} · {sala}{instructora}. Revisa tu reserva.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
   },
   // Sustitución aceptada → la instructora que cubre

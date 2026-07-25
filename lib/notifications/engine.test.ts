@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { procesarEvento, canalesExtraDe, type Preferencia } from './process.ts';
+import { crearInApp } from './inapp.ts';
 import { EVENTOS, REGLAS, plantillaDe, render } from './catalog.ts';
 import type { NotificationEvent } from './types.ts';
 
@@ -163,4 +164,36 @@ test('destinatario sin cuenta: in-app se omite (no puede iniciar sesión)', asyn
   await procesarEvento(admin, event);
   const inapp = deliveries.find(d => d.channel === 'INAPP')!;
   assert.equal(inapp.status, 'SKIPPED');
+});
+
+// ── La in-app NO depende de la cola ──────────────────────────────────────────
+// crearInApp es lo que publish() ejecuta de forma SÍNCRONA: escribe la fila y su
+// entrega in-app sin tocar canales externos ni Inngest. Si esto funciona, la
+// campana funciona aunque la cola esté caída.
+test('crearInApp escribe la notificación y su entrega in-app, sin canales externos', async () => {
+  const { admin, notifs, deliveries } = fakeAdmin();
+  const r = await crearInApp(admin, {
+    type: EVENTOS.RESERVA_CONFIRMADA, studioId: 'st1',
+    data: { clase: 'Reformer', cuando: 'hoy', slug: 'mar', sesionId: 'ses1' },
+    recipients: [{ role: 'SOCIA', userId: 'u-socia', socioId: 's1' }],
+    dedupKey: 'reserva:ses1:s1:CONFIRMADA',
+  });
+  assert.equal(r.creadas.length, 1);
+  assert.equal(notifs.length, 1);
+  assert.equal(notifs[0].title, 'Reserva confirmada');
+  // Solo la entrega in-app; el push queda pendiente para la cola.
+  assert.deepEqual(deliveries.map(d => `${d.channel}:${d.status}`), ['INAPP:SENT']);
+  assert.deepEqual(r.creadas[0].canalesExtra, ['PUSH']);
+  // Devuelve la fila lista para entregar, sin volver a leer de BD.
+  assert.equal(r.creadas[0].fila.id, r.creadas[0].id);
+});
+
+test('crearInApp: sin cuenta reclamada la entrega in-app queda SKIPPED', async () => {
+  const { admin, deliveries } = fakeAdmin();
+  await crearInApp(admin, {
+    type: EVENTOS.RESERVA_CONFIRMADA, studioId: 'st1',
+    data: { clase: 'Mat', cuando: 'hoy', slug: 'mar', sesionId: 'ses9' },
+    recipients: [{ role: 'SOCIA', userId: null, socioId: 's-sin-cuenta' }],
+  });
+  assert.equal(deliveries.find(d => d.channel === 'INAPP')!.status, 'SKIPPED');
 });

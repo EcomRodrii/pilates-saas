@@ -10,6 +10,7 @@ import { formatFechaHora, uid as generarId } from '@/lib/utils';
 import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia, type EquipoStats, type ValoracionDetalle, type AusenciaInstructora } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
+import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 
 type FiltroEstado = 'activas' | 'inactivas' | 'todas';
 type FiltroRol = 'todos' | Rol;
@@ -82,10 +83,13 @@ export default function EquipoPage() {
   const [verValor, setVerValor] = useState<Instructor | null>(null);
   const [verHoras, setVerHoras] = useState<Instructor | null>(null);
   const [verAusencias, setVerAusencias] = useState<Instructor | null>(null);
+  // Ausencias vigentes del estudio → distintivo "De vacaciones/De baja" en la lista.
+  const [ausencias, setAusencias] = useState<AusenciaInstructora[]>([]);
 
   useEffect(() => {
     let vivo = true;
     equipoStats().then(r => { if (vivo) setStats(r); });
+    listarAusencias().then(r => { if (vivo) setAusencias(r); });
     return () => { vivo = false; };
   }, []);
 
@@ -307,6 +311,7 @@ export default function EquipoPage() {
               onValoraciones={() => { setMenuId(null); setVerValor(i); }}
               onHoras={() => { setMenuId(null); setVerHoras(i); }}
               onAusencias={() => { setMenuId(null); setVerAusencias(i); }}
+              ausente={ausenciaHoy(ausencias, i.id)}
             />
           ))}
         </div>
@@ -321,6 +326,7 @@ export default function EquipoPage() {
               onValoraciones={() => { setMenuId(null); setVerValor(i); }}
               onHoras={() => { setMenuId(null); setVerHoras(i); }}
               onAusencias={() => { setMenuId(null); setVerAusencias(i); }}
+              ausente={ausenciaHoy(ausencias, i.id)}
             />
           ))}
         </div>
@@ -528,7 +534,7 @@ function fmtProx(prox: Date | null): string {
   return prox ? prox.toLocaleDateString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 }
 
-function Badges({ i }: { i: Instructor }) {
+function Badges({ i, ausente }: { i: Instructor; ausente?: AusenciaInstructora | null }) {
   return (
     <div className="flex items-center gap-1.5 flex-wrap mt-1">
       <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${i.activo ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
@@ -536,6 +542,11 @@ function Badges({ i }: { i: Instructor }) {
         {i.activo ? 'Activa' : 'Inactiva'}
       </span>
       <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ROL_LABEL[i.rol]}</span>
+      {ausente && (
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+          <Plane size={10} />{AUSENCIA_ETIQUETA[ausente.tipo]}
+        </span>
+      )}
       {i.authUserId ? (
         <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand/10 text-brand-secondary">
           <ShieldCheck size={10} />Con acceso
@@ -607,8 +618,8 @@ function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoracio
   );
 }
 
-function InstructorCard({ i, carga, prox, val, asis, ...acc }: {
-  i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis;
+function InstructorCard({ i, carga, prox, val, asis, ausente, ...acc }: {
+  i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
 } & AccProps) {
   return (
     <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
@@ -617,7 +628,7 @@ function InstructorCard({ i, carga, prox, val, asis, ...acc }: {
           <ProfileAvatar avatarId={i.avatar} fotoUrl={i.fotoUrl} nombre={i.nombre} color={i.color} size="md" />
           <div className="min-w-0">
             <p className="font-bold text-foreground text-[15px] leading-tight truncate">{i.nombre}</p>
-            <Badges i={i} />
+            <Badges i={i} ausente={ausente} />
           </div>
         </div>
         <Acciones {...acc} tieneValoraciones={!!(val && val.total > 0)} />
@@ -644,15 +655,15 @@ function InstructorCard({ i, carga, prox, val, asis, ...acc }: {
   );
 }
 
-function InstructorRow({ i, carga, prox, val, asis, ...acc }: {
-  i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis;
+function InstructorRow({ i, carga, prox, val, asis, ausente, ...acc }: {
+  i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
 } & AccProps) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <ProfileAvatar avatarId={i.avatar} fotoUrl={i.fotoUrl} nombre={i.nombre} color={i.color} size="sm" />
       <div className="min-w-0 flex-1">
         <p className="font-bold text-foreground text-[14px] leading-tight truncate">{i.nombre}</p>
-        <Badges i={i} />
+        <Badges i={i} ausente={ausente} />
       </div>
       <div className="hidden md:flex items-center gap-6 text-right">
         <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{carga}</p><p className="text-[10px] text-muted-foreground mt-0.5">7 días</p></div>
