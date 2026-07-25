@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useStudio } from '@/lib/studio-context';
 import type { Sala } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Pencil, Plus, Trash2, Wrench } from 'lucide-react';
+import { AlertTriangle, Pencil, Plus, Trash2, Wrench } from 'lucide-react';
 
 type SalaForm = {
   nombre: string;
@@ -29,12 +29,16 @@ function salaToForm(s: Sala): SalaForm {
 }
 
 export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
-  const { salas, addSala, updateSala, deleteSala, bloqueosMaquina, marcarAveria, quitarAveria } = useStudio();
+  const { salas, sesiones, addSala, updateSala, deleteSala, bloqueosMaquina, marcarAveria, quitarAveria } = useStudio();
 
   const [modal, setModal] = useState<'nueva' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<SalaForm>(emptySalaForm());
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  // Sala que la dueña intentó borrar pero tiene clases: no se puede borrar hasta
+  // reasignarlas o eliminarlas (FK `sesiones.sala_id`, NO ACTION). Se lo decimos
+  // antes de mostrar el diálogo destructivo, no después de que falle en la BD.
+  const [bloqueada, setBloqueada] = useState<{ nombre: string; n: number } | null>(null);
   // Guardar deja de ser instantáneo: esperamos a la base de datos antes de
   // cerrar el modal. Si falla, el modal sigue abierto con lo que había escrito
   // y el motivo real — nada de dar por buena una sala que no se ha guardado.
@@ -75,6 +79,21 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
     showToast(modal === 'nueva' ? `"${fields.nombre}" ya está guardada` : 'Sala actualizada');
     setModal(null);
   }, [modal, editId, form, addSala, updateSala, showToast]);
+
+  // Nº de clases que usan la sala. Cuenta TODAS las sesiones que la referencian
+  // (también canceladas o pasadas: la fila sigue en la tabla y la FK igual la
+  // bloquea), para que el aviso coincida con lo que hará la base de datos.
+  const clasesDeSala = useCallback(
+    (id: string) => sesiones.filter(s => s.salaId === id).length,
+    [sesiones],
+  );
+
+  // Puerta previa al borrado: si la sala tiene clases, avisamos y no seguimos.
+  const intentarBorrar = useCallback((sala: Sala) => {
+    const n = clasesDeSala(sala.id);
+    if (n > 0) { setBloqueada({ nombre: sala.nombre, n }); return; }
+    setConfirmDel(sala.id);
+  }, [clasesDeSala]);
 
   const handleDelete = useCallback(async () => {
     if (!confirmDel) return;
@@ -161,7 +180,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                           <Pencil size={13} />
                         </button>
                         <button
-                          onClick={() => setConfirmDel(sala.id)}
+                          onClick={() => intentarBorrar(sala)}
                           className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                           aria-label="Eliminar sala"
                         >
@@ -189,7 +208,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                     <button onClick={() => openEditar(sala)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground" aria-label="Editar sala">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => setConfirmDel(sala.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" aria-label="Eliminar sala">
+                    <button onClick={() => intentarBorrar(sala)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" aria-label="Eliminar sala">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -356,9 +375,34 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
         open={!!confirmDel}
         onOpenChange={open => !open && setConfirmDel(null)}
         title="¿Eliminar sala?"
-        description="Se eliminará esta sala. Las sesiones futuras en esta sala no se verán afectadas automáticamente."
+        description="Se eliminará esta sala de forma permanente. Esta acción no se puede deshacer."
         onConfirm={handleDelete}
       />
+
+      {/* Sala con clases: no se puede borrar (FK sesiones.sala_id). En vez del
+          diálogo destructivo, explicamos qué hacer. */}
+      <Dialog open={!!bloqueada} onOpenChange={open => !open && setBloqueada(null)}>
+        <DialogContent className="max-w-sm">
+          <div className="flex flex-col items-center text-center gap-4 py-2">
+            <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
+              <AlertTriangle size={20} className="text-destructive" />
+            </div>
+            <div>
+              <h3 className="text-[14px] font-semibold text-foreground mb-1">No se puede borrar la sala</h3>
+              <p className="text-[13px] text-muted-foreground">
+                {bloqueada?.n === 1 ? 'Hay 1 clase asociada' : `Hay ${bloqueada?.n} clases asociadas`} a «{bloqueada?.nombre}».
+                Reasígnalas a otra sala o elimínalas primero; después podrás borrar la sala.
+              </p>
+            </div>
+            <button
+              className={cn(btnPrimary, 'w-full justify-center')}
+              onClick={() => setBloqueada(null)}
+            >
+              Entendido
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

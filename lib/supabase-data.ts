@@ -4756,7 +4756,20 @@ export async function dbUpdateSala(id: string, changes: Partial<Sala>): Promise<
 
 export async function dbDeleteSala(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('salas').delete().eq('id', id);
-  return error ? falloEscritura('[dbDeleteSala]', error) : ESCRITURA_OK;
+  if (!error) return ESCRITURA_OK;
+  // 23503 en un DELETE no es "falta un dato" (el genérico lo lee como un INSERT
+  // y dice "vuelve a crearlo"): la sala SÍ existe, pero `sesiones.sala_id` la
+  // referencia con FK NO ACTION y Postgres bloquea el borrado. Es una condición
+  // ESPERADA (la dueña intentó borrar una sala en uso), no un fallo del sistema:
+  // no pasa por reportDbError —para no mandarlo a Sentry ni disparar además el
+  // banner global con el mensaje genérico—; devuelve su propio mensaje del borrado.
+  if ((error as { code?: string }).code === '23503') {
+    return {
+      ok: false,
+      error: 'No puedes borrar una sala con clases asignadas. Reasigna esas clases a otra sala o elimínalas primero, y vuelve a intentarlo.',
+    };
+  }
+  return falloEscritura('[dbDeleteSala]', error);
 }
 
 // A-2: las mutaciones de equipo (alta/edición/baja) pasan por /api/equipo, que
