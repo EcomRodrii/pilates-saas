@@ -37,16 +37,25 @@ export function primerReintentoISO(fechaVencimiento: string): string {
  * Decide el siguiente paso tras un intento de cobro FALLIDO.
  * `intentosPrevios` = recibos.intentos_reintento ANTES de contar este fallo.
  */
-export function planificarTrasFallo(intentosPrevios: number, fechaVencimiento: string): PlanReintento {
+export function planificarTrasFallo(intentosPrevios: number, fechaVencimiento: string, ahoraISO?: string): PlanReintento {
   const intentos = Math.max(0, intentosPrevios) + 1;
   const esPrimerFallo = intentos === 1;
   if (intentos >= MAX_REINTENTOS) {
     return { intentos, estado: 'FALLIDO', proximoReintento: null, esPrimerFallo, esDefinitivo: true };
   }
+  // Anclar la cadencia al MÁS TARDÍO entre el vencimiento y ahora. Si el recibo se
+  // creó con un vencimiento ya pasado (p.ej. renovación de una suscripción caducada:
+  // el cron pone fecha_vencimiento = fecha_fin antigua), venc+{3,7} caería en el
+  // pasado y el barrido diario dispararía los 3 reintentos casi seguidos en 1-2 días
+  // —quemando la ventana de recuperación del cobro y enviando el "primer fallo" y el
+  // "impago definitivo" a la vez—. Con `now` como suelo, la cadencia se reparte de
+  // verdad. Para vencimientos futuros/hoy nada cambia (base = vencimiento).
+  const ahora = ahoraISO ?? new Date().toISOString();
+  const base = new Date(fechaVencimiento).getTime() > new Date(ahora).getTime() ? fechaVencimiento : ahora;
   return {
     intentos,
     estado: 'PENDIENTE',
-    proximoReintento: sumarDiasISO(fechaVencimiento, OFFSETS_REINTENTO_DIAS[intentos]),
+    proximoReintento: sumarDiasISO(base, OFFSETS_REINTENTO_DIAS[intentos]),
     esPrimerFallo,
     esDefinitivo: false,
   };
