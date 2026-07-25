@@ -47,6 +47,20 @@ test('bonoConsumible acepta plan PUNTUAL', () => {
   assert.ok(bonoConsumible('a', suscripciones, [plan({ id: 'p1', tipo: 'PUNTUAL' })]));
 });
 
+test('bonoConsumible ignora un bono ACTIVA pero caducado (fechaFin < hoy)', () => {
+  const suscripciones = [sus({ socioId: 'a', planId: 'p1', fechaFin: '2026-07-01' })];
+  assert.equal(bonoConsumible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO' })], '2026-07-25'), null);
+});
+
+test('bonoConsumible con varias activas elige la que caduca antes (determinista)', () => {
+  const suscripciones = [
+    sus({ id: 'sus-Y', socioId: 'a', planId: 'p1', fechaFin: '2026-12-31' }),
+    sus({ id: 'sus-X', socioId: 'a', planId: 'p1', fechaFin: '2026-08-01' }),
+  ];
+  const r = bonoConsumible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO' })], '2026-07-25');
+  assert.equal(r?.suscripcion.id, 'sus-X'); // la que caduca antes, no el orden de la lista
+});
+
 // ── calcularConsumoBono ──────────────────────────────────────────────────────
 test('calcularConsumoBono descuenta una sesión', () => {
   assert.deepEqual(calcularConsumoBono(3), { nuevasRestantes: 2, agotado: false });

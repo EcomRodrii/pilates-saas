@@ -15,13 +15,29 @@ export function bonoConsumible(
   socioId: string,
   suscripciones: Suscripcion[],
   planesTarifa: PlanTarifa[],
+  hoyISO: string = new Date().toISOString().slice(0, 10),
 ): { suscripcion: Suscripcion; plan: PlanTarifa; sesionesRestantes: number } | null {
-  const sus = suscripciones.find(s => s.socioId === socioId && s.estado === 'ACTIVA');
-  if (!sus) return null;
-  const plan = planesTarifa.find(p => p.id === sus.planId);
-  if (!plan) return null;
-  if ((plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL') || sus.sesionesRestantes === null) return null;
-  return { suscripcion: sus, plan, sesionesRestantes: sus.sesionesRestantes };
+  const candidatas = suscripciones.filter(s => {
+    if (s.socioId !== socioId || s.estado !== 'ACTIVA' || s.sesionesRestantes === null) return false;
+    const plan = planesTarifa.find(p => p.id === s.planId);
+    if (!plan || (plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL')) return false;
+    // Vigente: mismo criterio que tieneEntitlementActivo. Un bono ACTIVA pero
+    // CADUCADO (fechaFin < hoy) NO se consume ni se devuelve — antes se descontaba
+    // igual cuando la política del estudio no exigía plan (se saltaba esa puerta).
+    return !s.fechaFin || s.fechaFin >= hoyISO;
+  });
+  if (candidatas.length === 0) return null;
+  // Con varias activas, elección DETERMINISTA (antes cogía la primera que devolvía
+  // la BD): la que caduca antes primero (consumir la más urgente); las sin
+  // caducidad al final; desempate por id para estabilidad.
+  candidatas.sort((a, b) => {
+    const fa = a.fechaFin ?? '9999-12-31';
+    const fb = b.fechaFin ?? '9999-12-31';
+    return fa !== fb ? (fa < fb ? -1 : 1) : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  });
+  const sus = candidatas[0];
+  const plan = planesTarifa.find(p => p.id === sus.planId)!;
+  return { suscripcion: sus, plan, sesionesRestantes: sus.sesionesRestantes! };
 }
 
 // Nuevo saldo tras consumir una sesión (nunca baja de 0) y si el bono queda
