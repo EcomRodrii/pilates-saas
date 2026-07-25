@@ -6,6 +6,7 @@ import {
   enviarEmailAlertaPropietaria,
 } from '@/lib/sustituciones/email';
 import { enviarMensajeTwilio } from '@/lib/twilio';
+import { tieneFeature } from '@/lib/billing/entitlements';
 import {
   cuerpoNudgeCandidata,
   cuerpoAlertaPropietaria,
@@ -339,4 +340,18 @@ export async function escalacionVigente(
     candidataIdx,
     ranking,
   };
+}
+
+// Modo de autonomía EFECTIVO del estudio: el configurado (modo_autonomia, 0039)
+// degradado a 'asistido' si el plan ya no incluye `sustitucionesAutonomas`. Fuente
+// única para no reimplementar la degradación en cada llamador (baja/escalado/endpoint).
+export async function modoAutonomiaEfectivo(admin: SupabaseClient, studioId: string): Promise<string> {
+  const { data: estudio } = await admin
+    .from('studios').select('modo_autonomia, plan, subscription_status').eq('id', studioId).maybeSingle();
+  let modo = (estudio?.modo_autonomia as string) ?? 'asistido';
+  if ((modo === 'autonomo' || modo === 'vacaciones') &&
+      !tieneFeature({ plan: estudio?.plan, subscriptionStatus: estudio?.subscription_status }, 'sustitucionesAutonomas')) {
+    modo = 'asistido';
+  }
+  return modo;
 }
