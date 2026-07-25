@@ -75,7 +75,11 @@ async function instructoraDeSesion(admin: SupabaseClient, studioId: string, sesi
     .select('instructor_id').eq('id', sesionId).eq('studio_id', studioId).maybeSingle();
   if (!ses?.instructor_id) return [];
   const r = await instructoraPorId(admin, studioId, ses.instructor_id as string);
-  return r ? [r] : [];
+  // Sin cuenta no hay in-app ni push (y estos eventos no declaran email), así que
+  // la fila nacería muerta: invisible para ella y ruido en el Notification Center.
+  // Mismo criterio que `recepcionistas`. Ojo: NO aplica a las socias, que sí se
+  // resuelven sin cuenta porque su fila ancla los canales externos.
+  return r?.userId ? [r] : [];
 }
 
 // Dispatcher: audiencia → destinatarios reales. Ampliar = añadir un case.
