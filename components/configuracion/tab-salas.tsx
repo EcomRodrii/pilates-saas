@@ -35,44 +35,51 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<SalaForm>(emptySalaForm());
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  // Guardar deja de ser instantáneo: esperamos a la base de datos antes de
+  // cerrar el modal. Si falla, el modal sigue abierto con lo que había escrito
+  // y el motivo real — nada de dar por buena una sala que no se ha guardado.
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
   const [averiaModal, setAveriaModal] = useState(false);
   const [averiaForm, setAveriaForm] = useState<{ salaId: string; motivo: string; hasta: string }>({ salaId: '', motivo: '', hasta: '' });
 
   const openNueva = useCallback(() => {
     setForm(emptySalaForm());
     setEditId(null);
+    setErrorGuardar(null);
     setModal('nueva');
   }, []);
 
   const openEditar = useCallback((s: Sala) => {
     setForm(salaToForm(s));
     setEditId(s.id);
+    setErrorGuardar(null);
     setModal('editar');
   }, []);
 
-  const closeModal = useCallback(() => setModal(null), []);
+  const closeModal = useCallback(() => { setModal(null); setErrorGuardar(null); }, []);
 
-  const guardar = useCallback(() => {
+  const guardar = useCallback(async () => {
     const fields = {
       nombre: form.nombre.trim(),
       capacidad: parseInt(form.capacidad, 10) || 1,
       color: form.color,
     };
-    if (modal === 'nueva') {
-      addSala(fields);
-      showToast('Sala creada correctamente');
-    } else if (editId) {
-      updateSala(editId, fields);
-      showToast('Sala actualizada');
-    }
+    setGuardando(true);
+    setErrorGuardar(null);
+    const res = modal === 'nueva'
+      ? await addSala(fields)
+      : editId ? await updateSala(editId, fields) : { ok: true as const };
+    setGuardando(false);
+    if (!res.ok) { setErrorGuardar(res.error); return; }
+    showToast(modal === 'nueva' ? `"${fields.nombre}" ya está guardada` : 'Sala actualizada');
     setModal(null);
   }, [modal, editId, form, addSala, updateSala, showToast]);
 
-  const handleDelete = useCallback(() => {
-    if (confirmDel) {
-      deleteSala(confirmDel);
-      showToast('Sala eliminada');
-    }
+  const handleDelete = useCallback(async () => {
+    if (!confirmDel) return;
+    const res = await deleteSala(confirmDel);
+    showToast(res.ok ? 'Sala eliminada' : res.error);
   }, [confirmDel, deleteSala, showToast]);
 
   const canGuardar = form.nombre.trim() && form.capacidad;
@@ -100,7 +107,9 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-muted-foreground">{salas.length} salas configuradas</p>
+        <p className="text-[13px] text-muted-foreground">
+          {salas.length === 1 ? '1 sala configurada' : `${salas.length} salas configuradas`}
+        </p>
         <button className={btnPrimary} onClick={openNueva}>
           <Plus size={13} />
           Nueva sala
@@ -275,16 +284,21 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
               <ColorInput value={form.color} onChange={v => setForm(f => ({ ...f, color: v }))} />
             </Field>
           </div>
+          {errorGuardar && (
+            <p role="alert" className="mt-3 text-[13px] text-destructive">
+              No se ha guardado. {errorGuardar}
+            </p>
+          )}
           <div className="flex gap-2 mt-4">
-            <button className={cn(btnSecondary, 'flex-1 justify-center')} onClick={closeModal}>
+            <button className={cn(btnSecondary, 'flex-1 justify-center')} onClick={closeModal} disabled={guardando}>
               Cancelar
             </button>
             <button
               className={cn(btnPrimary, 'flex-1 justify-center')}
               onClick={guardar}
-              disabled={!canGuardar}
+              disabled={!canGuardar || guardando}
             >
-              {modal === 'nueva' ? 'Crear sala' : 'Guardar cambios'}
+              {guardando ? 'Guardando…' : modal === 'nueva' ? 'Crear sala' : 'Guardar cambios'}
             </button>
           </div>
         </DialogContent>

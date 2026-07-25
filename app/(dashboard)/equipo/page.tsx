@@ -10,6 +10,7 @@ import { formatFechaHora, uid as generarId } from '@/lib/utils';
 import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia, type EquipoStats, type ValoracionDetalle, type AusenciaInstructora } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
+import { Toast, useToast } from '@/components/ui/toast';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 
 type FiltroEstado = 'activas' | 'inactivas' | 'todas';
@@ -68,6 +69,11 @@ export default function EquipoPage() {
   const [form, setForm] = useState<Form>(emptyForm());
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [errorFoto, setErrorFoto] = useState('');
+  // El alta esperaba a nada y no confirmaba nada: el modal se cerraba igual
+  // hubiera guardado o no. Ahora espera a la respuesta, y al terminar lo dice.
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState('');
+  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmDel, setConfirmDel] = useState<Instructor | null>(null);
   const [enlace, setEnlace] = useState<
@@ -153,13 +159,13 @@ export default function EquipoPage() {
     return out;
   }, [instructores, q, fEstado, fRol, orden, stats, cargaPorInstructor]);
 
-  function openNuevo() { setForm(emptyForm()); setEditId(null); setModal('nuevo'); }
+  function openNuevo() { setForm(emptyForm()); setEditId(null); setErrorGuardar(''); setModal('nuevo'); }
   function openEditar(i: Instructor) {
     setForm({ tempId: i.id, nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, fotoUrl: i.fotoUrl ?? null, activo: i.activo, rol: i.rol });
     setEditId(i.id);
     setModal('editar');
   }
-  function guardar() {
+  async function guardar() {
     if (!form.nombre.trim()) return;
     const fields = {
       nombre: form.nombre.trim(),
@@ -171,8 +177,21 @@ export default function EquipoPage() {
       activo: form.activo,
       rol: form.rol,
     };
-    if (modal === 'nuevo') addInstructor({ ...fields, authUserId: null }, form.tempId);
-    else if (editId) updateInstructor(editId, fields);
+    if (modal === 'nuevo') {
+      setGuardando(true);
+      setErrorGuardar('');
+      const res = await addInstructor({ ...fields, authUserId: null }, form.tempId);
+      setGuardando(false);
+      if (!res.ok) { setErrorGuardar(res.error); return; }
+      // Le decimos también lo del email: si no, la dueña no sabe si tiene que
+      // pasarle el enlace de acceso a mano.
+      showToast(fields.email
+        ? `${fields.nombre} ya está en tu equipo — le hemos enviado un email para que cree su acceso`
+        : `${fields.nombre} ya está en tu equipo`);
+    } else if (editId) {
+      updateInstructor(editId, fields);
+      showToast('Cambios guardados');
+    }
     setModal(null);
   }
 
@@ -430,10 +449,16 @@ export default function EquipoPage() {
             </label>
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
-              <button onClick={guardar} disabled={!form.nombre.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
-                <Check size={14} /> Guardar
+              <button onClick={guardar} disabled={!form.nombre.trim() || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
+                {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                {guardando ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
+            {errorGuardar && (
+              <p role="alert" className="mt-3 text-[13px] text-destructive">
+                No se ha guardado. {errorGuardar}
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -506,6 +531,8 @@ export default function EquipoPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   );
 }
