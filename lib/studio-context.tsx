@@ -120,7 +120,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
+import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
@@ -1542,6 +1542,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbUpdateSesionesBatch(ids, { cancelada: true });
     // Aviso a las socias con plaza en cualquiera de las sesiones canceladas.
     notificarCancelacionSesiones(objetivo);
+    // Notification Engine: además del email, in-app/push por cada sesión cancelada
+    // (igual que cancelar una clase suelta, que sí lo hacía). Sin esto, cancelar
+    // "esta y las siguientes" de una serie solo mandaba email y las socias no
+    // recibían ningún aviso in-app/push.
+    ids.forEach(id => { void avisarClaseCancelada(id); });
   }
 
   // Email de cancelación a cada socia con plaza (confirmada/asistida) en las

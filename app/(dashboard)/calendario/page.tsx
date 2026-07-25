@@ -1625,7 +1625,10 @@ export default function Calendario() {
         if (s.inicio === nuevoInicioS && s.salaId === form.salaId) continue;
         if (!reservas.some(r => r.sesionId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))) continue;
         const d = new Date(nuevoInicioS);
-        const cuando = `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+        // Anclar Europe/Madrid como el resto del sistema (emit.ts, contacto.ts): es
+        // código de cliente, así que sin la timeZone la hora que ven las socias sale
+        // en la del navegador de quien edita (p.ej. la dueña de viaje) — desplazada.
+        const cuando = `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}`;
         void avisarClaseModificada(s.id, { clase, cuando, sala: salaNombre });
       }
     }
