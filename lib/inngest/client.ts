@@ -33,14 +33,15 @@ export const EVENTS = {
   // a tiempo (corte).
   CONFIRMACION_RIESGO_ASK_ESTUDIO: 'confirmacion-riesgo/studio.ask',
   CONFIRMACION_RIESGO_CORTE_ESTUDIO: 'confirmacion-riesgo/studio.corte',
-  // Notification Engine — un ÚNICO evento por el que pasan todas las
-  // notificaciones del producto. Los módulos publican aquí (vía
-  // NotificationEngine.publish); el worker resuelve destinatarios, preferencias,
-  // plantillas y canales. Nadie envía notificaciones directamente.
-  NOTIFICATION_EMIT: 'notification/emit',
-  // Entrega de canales EXTERNOS (push/email/WA/SMS) de notificaciones que YA
-  // existen en BD: la in-app se escribe síncrona en publish(), esto es el extra.
-  NOTIFICATION_DELIVER: 'notification/deliver',
+  // Aquí vivían NOTIFICATION_EMIT y NOTIFICATION_DELIVER. El Notification
+  // Engine YA NO pasa por la cola: `publish()` escribe la in-app de forma
+  // síncrona y entrega los canales externos con un salto HTTP a
+  // /api/notifications/deliver (ver lib/notifications/engine.ts). Fue una
+  // decisión deliberada — "una cola invisible que falla en silencio nos dejó
+  // sin ninguna notificación en producción"— pero el worker se quedó vivo y
+  // registrado sin que nadie publicara sus eventos: quien abría el código veía
+  // primero la ruta de Inngest, con reintentos y concurrencia, y creía que era
+  // la que corre.
   // Automatizaciones del motor: los dispatchers cron hacen fan-out de un evento
   // por estudio; el worker detecta la condición (recordatorios, bono a punto de
   // caducar, clienta inactiva) y publica los eventos de notificación.

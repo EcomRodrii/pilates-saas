@@ -74,11 +74,6 @@ async function entregarExternos(notificationIds: string[]): Promise<void> {
   }
 }
 
-// Programa un evento para el futuro (delega en Inngest).
-export async function schedule(event: NotificationEvent, whenISO: string): Promise<void> {
-  await publish({ ...event, scheduledFor: whenISO });
-}
-
 // ── Acciones sobre notificaciones ya creadas (las llaman las rutas API) ──────────
 // Usan el cliente de sesión del usuario → RLS garantiza que solo toca lo suyo.
 
@@ -100,5 +95,5 @@ export async function archivar(supa: SupabaseClient, notificationId: string): Pr
 }
 
 export const NotificationEngine = {
-  publish, schedule, marcarLeida, marcarNoLeida, marcarTodasLeidas, archivar,
+  publish, marcarLeida, marcarNoLeida, marcarTodasLeidas, archivar,
 };
