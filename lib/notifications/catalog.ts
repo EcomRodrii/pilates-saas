@@ -267,6 +267,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: 'Se ha disparado para {socia}.',
     deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
   },
+  [`${EVENTOS.AUTOMATIZACION_DISPARADA}#RECEPCION`]: {
+    title: 'Automatización: {automatizacion}',
+    body: 'Se ha disparado para {socia}.',
+    deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
+  },
 };
 
 // Interpola {clave} desde los datos del evento.
