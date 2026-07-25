@@ -37,12 +37,23 @@ const RECIBOS = [
   { id: 'rec-2', studio_id: STUDIO_ID, socio_id: 's2', suscripcion_id: 'sus-2', concepto: 'Renovación Mensual', importe: 60, estado: 'PENDIENTE', fecha_vencimiento: '2026-07-20', fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0, metodo_cobro: null, sepa_estado: null },
 ];
 
+// Caso que se nos escapó: una socia con DOS suscripciones activas. `masivoData`
+// agrupa por SUSCRIPCIÓN, así que sus recibos pendientes —que son los mismos—
+// aparecen una vez por suscripción. Si la lista de ids cobrables no se
+// deduplica, su `length` supera al `size` del Set de seleccionados y "Marcar
+// todas" no llega nunca a "Quitar todas". Pasó de verdad (lo arregló #370) y el
+// test original no lo cazó porque montaba una suscripción por socia.
+const SUSCRIPCIONES_DOBLES = [
+  ...SUSCRIPCIONES,
+  { id: 'sus-1b', studio_id: STUDIO_ID, socio_id: 's1', plan_id: 'plan-1', estado: 'ACTIVA', fecha_inicio: '2026-07-01', fecha_fin: '2026-08-01', sesiones_restantes: null, stripe_subscription_id: null },
+];
+
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
 /** Devuelve los PATCH que llegaron a `recibos`: si está vacío, no se ha cobrado nada. */
-async function montarCobros(page: Page) {
+async function montarCobros(page: Page, suscripciones: unknown[] = SUSCRIPCIONES) {
   const escrituras: { metodo: string; body: string }[] = [];
 
   await page.addInitScript(([key, uid]) => {
@@ -70,7 +81,7 @@ async function montarCobros(page: Page) {
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/socios**', route => json(route, SOCIAS));
   await page.route('**/rest/v1/planes_tarifa**', route => json(route, PLANES));
-  await page.route('**/rest/v1/suscripciones**', route => json(route, SUSCRIPCIONES));
+  await page.route('**/rest/v1/suscripciones**', route => json(route, suscripciones));
   await page.route('**/rest/v1/recibos**', route => {
     const req = route.request();
     if (req.method() !== 'GET') {
@@ -139,5 +150,26 @@ test.describe('Cobrar varias a la vez', () => {
     await dialogo.getByRole('button', { name: 'Volver a la lista' }).click();
     await expect(dialogo).toContainText('2 recibos seleccionados');
     expect(escrituras).toHaveLength(0);
+  });
+
+  test('con una socia de dos suscripciones, "Marcar todas" sigue funcionando', async ({ page }) => {
+    await montarCobros(page, SUSCRIPCIONES_DOBLES);
+
+    await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
+    const dialogo = page.getByRole('dialog');
+
+    // Los recibos son 2, no 3: los de Ana no se cuentan dos veces por tener dos
+    // suscripciones.
+    await expect(dialogo.getByRole('button', { name: 'Marcar todas (2)' })).toBeVisible();
+
+    await dialogo.getByRole('button', { name: /^Marcar todas/ }).click();
+    await expect(dialogo).toContainText('2 recibos seleccionados');
+
+    // Aquí es donde fallaba: con ids duplicados el botón se quedaba clavado en
+    // "Marcar todas" y no había forma de deseleccionar de golpe.
+    await expect(dialogo.getByRole('button', { name: 'Quitar todas' })).toBeVisible();
+
+    await dialogo.getByRole('button', { name: 'Quitar todas' }).click();
+    await expect(dialogo).toContainText('0 recibos seleccionados');
   });
 });
