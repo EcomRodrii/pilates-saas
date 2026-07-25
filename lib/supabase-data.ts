@@ -13,6 +13,7 @@ import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { evaluarFeature } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
+import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -255,6 +256,18 @@ function reportDbError(tag: string, error: unknown) {
   } catch {
     /* never let the listener break a write */
   }
+}
+
+// ─── Escrituras que la usuaria está esperando ────────────────────────────────
+// `reportDbError` es para escrituras fire-and-forget: avisa, pero quien llamó ya
+// siguió adelante. Cuando la dueña está mirando la pantalla esperando un "hecho"
+// eso no basta — necesita saber si guardó ANTES de que le enseñemos el dato. Las
+// escrituras de ese tipo devuelven `ResultadoEscritura` y quien llama decide.
+const ESCRITURA_OK: ResultadoEscritura = { ok: true };
+
+function falloEscritura(tag: string, error: unknown): ResultadoEscritura {
+  reportDbError(tag, error);
+  return { ok: false, error: mensajeDeFalloAlGuardar(error) };
 }
 
 // ─── Mappers: DB (snake_case) → TS (camelCase) ───────────────────────────────
@@ -3712,17 +3725,18 @@ export async function dbCancelarMandatoSepa(id: string) {
   if (error) reportDbError('[dbCancelarMandatoSepa]', error);
 }
 
-export async function dbInsertSesion(ses: Sesion) {
+export async function dbInsertSesion(ses: Sesion): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('sesiones').insert(sesionToDb(ses));
-  if (error) reportDbError('[dbInsertSesion]', error);
+  return error ? falloEscritura('[dbInsertSesion]', error) : ESCRITURA_OK;
 }
 
 // Inserta muchas sesiones en UNA sola llamada (creación de serie recurrente,
-// I-3): sustituye a los N inserts secuenciales sin rollback ni aviso.
-export async function dbInsertSesionesBatch(sesiones: Sesion[]) {
-  if (sesiones.length === 0) return;
+// I-3): sustituye a los N inserts secuenciales sin rollback ni aviso. Al ser un
+// solo insert, Postgres lo aplica entero o nada: si falla, no queda media serie.
+export async function dbInsertSesionesBatch(sesiones: Sesion[]): Promise<ResultadoEscritura> {
+  if (sesiones.length === 0) return ESCRITURA_OK;
   const { error } = await supabase.from('sesiones').insert(sesiones.map(sesionToDb));
-  if (error) reportDbError('[dbInsertSesionesBatch]', error);
+  return error ? falloEscritura('[dbInsertSesionesBatch]', error) : ESCRITURA_OK;
 }
 
 // Aplica los mismos cambios a varias sesiones (editar/cancelar "esta y futuras"
@@ -4668,14 +4682,14 @@ export async function dbUpsertIntegracion(intg: Integracion) {
   if (error) reportDbError('[dbUpsertIntegracion]', error);
 }
 
-export async function dbInsertTipoClase(t: TipoClase) {
+export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritura> {
   const row = {
     id: t.id, studio_id: t.studioId ?? STUDIO_ID, nombre: t.nombre, color: t.color,
     duracion_minutos: t.duracionMinutos, descripcion: t.descripcion ?? null, nivel: t.nivel,
     foto_url: t.fotoUrl ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
-  if (error) reportDbError('[dbInsertTipoClase]', error);
+  return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
 }
 
 export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>) {
@@ -4700,28 +4714,32 @@ export async function dbDeleteTipoClase(id: string) {
 // crear cualquier clase reventaba con un 409 que la UI traducía a "revisa tu
 // conexión". Mismo patrón que tipos_clase: escritura directa bajo la RLS
 // `admin_salas` (studio_id = current_studio_id()).
-export async function dbInsertSala(s: Sala) {
+//
+// Devuelven `ResultadoEscritura` porque la dueña está mirando la pantalla
+// esperando el "hecho": el contexto no pinta la sala hasta que la BD la acepta.
+export async function dbInsertSala(s: Sala): Promise<ResultadoEscritura> {
   const row = {
     id: s.id, studio_id: s.studioId ?? STUDIO_ID, nombre: s.nombre,
     capacidad: s.capacidad, color: s.color,
   };
   const { error } = await supabase.from('salas').insert(row);
-  if (error) reportDbError('[dbInsertSala]', error);
+  return error ? falloEscritura('[dbInsertSala]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateSala(id: string, changes: Partial<Sala>) {
+export async function dbUpdateSala(id: string, changes: Partial<Sala>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('capacidad' in changes) db.capacidad = changes.capacidad;
   if ('color' in changes) db.color = changes.color;
   const { error } = await supabase.from('salas').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateSala]', error);
+  return error ? falloEscritura('[dbUpdateSala]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteSala(id: string) {
+export async function dbDeleteSala(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('salas').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteSala]', error);
+  return error ? falloEscritura('[dbDeleteSala]', error) : ESCRITURA_OK;
 }
+
 
 // A-2: las mutaciones de equipo (alta/edición/baja) pasan por /api/equipo, que
 // exige verificarSesionStaff con rol PROPIETARIO (o autoedición de la propia
@@ -4732,7 +4750,7 @@ async function staffAuthHeader(): Promise<Record<string, string>> {
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
-export async function dbInsertInstructor(i: Instructor) {
+export async function dbInsertInstructor(i: Instructor): Promise<ResultadoEscritura> {
   try {
     const res = await fetch('/api/equipo', {
       method: 'POST',
@@ -4749,9 +4767,16 @@ export async function dbInsertInstructor(i: Instructor) {
         rol: i.rol ?? 'INSTRUCTOR',
       }),
     });
-    if (!res.ok) reportDbError('[dbInsertInstructor]', await res.json().catch(() => ({ status: res.status })));
+    if (!res.ok) {
+      // El status importa: un 403 ("solo la propietaria gestiona el equipo") y
+      // un 401 (sesión aún sin resolver) piden acciones distintas, y ninguna es
+      // "revisa tu conexión". Va junto al cuerpo para que el traductor lo vea.
+      const cuerpo = await res.json().catch(() => ({}));
+      return falloEscritura('[dbInsertInstructor]', { ...cuerpo, status: res.status });
+    }
+    return ESCRITURA_OK;
   } catch (e) {
-    reportDbError('[dbInsertInstructor]', e);
+    return falloEscritura('[dbInsertInstructor]', e);
   }
 }
 

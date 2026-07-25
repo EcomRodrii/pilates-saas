@@ -70,6 +70,58 @@ export const ERROR_GENERICO =
 export const ERROR_RED =
   'No hay conexión con el servidor. Comprueba tu conexión a internet e inténtalo de nuevo.';
 
+/** Resultado de una escritura que la usuaria está esperando en pantalla. */
+export type ResultadoEscritura = { ok: true } | { ok: false; error: string };
+
+/**
+ * Traduce un fallo de escritura a una frase que la dueña pueda entender Y
+ * accionar.
+ *
+ * Antes TODO fallo —permisos, clave ajena, validación, sesión caducada— se
+ * enseñaba con el mismo texto: "revisa tu conexión". Mentía sobre la causa
+ * (casi nunca era la red) y la dejaba sin salida: reintentar no arreglaba nada
+ * porque el problema no estaba en su wifi. Distinguir la causa es la diferencia
+ * entre un aviso útil y un aviso que solo genera desconfianza.
+ */
+export function mensajeDeFalloAlGuardar(error: unknown): string {
+  const e = (error ?? {}) as {
+    code?: unknown; message?: unknown; error?: unknown; status?: unknown; name?: unknown;
+  };
+  const code = typeof e.code === 'string' ? e.code : '';
+  const status = typeof e.status === 'number' ? e.status : 0;
+  const msg =
+    typeof e.message === 'string' ? e.message
+    : typeof e.error === 'string' ? e.error
+    : error instanceof Error ? error.message
+    : typeof error === 'string' ? error
+    : '';
+
+  // El ÚNICO caso en el que "revisa tu conexión" es verdad.
+  if (e.name === 'AbortError' || /load failed|failed to fetch|networkerror|network request failed|the operation was aborted/i.test(msg)) {
+    return ERROR_RED;
+  }
+  if (status === 401 || status === 403 || code === '42501' || /row-level security|permission denied/i.test(msg)) {
+    return 'No tienes permiso para hacer este cambio. Vuelve a entrar e inténtalo otra vez.';
+  }
+  if (code === '23505' || /duplicate key value/i.test(msg)) {
+    return 'Ya existe algo con esos mismos datos. Cámbialos y vuelve a intentarlo.';
+  }
+  // 23503: la fila apunta a algo que no está guardado — el caso de la sala que
+  // se veía en el selector pero nunca llegó a la base de datos.
+  if (code === '23503' || /violates foreign key/i.test(msg)) {
+    return 'Falta un dato relacionado: la sala o el tipo de clase que has elegido no está guardado. Vuelve a crearlo y repite.';
+  }
+  if (code === '23502' || /null value in column/i.test(msg)) {
+    return 'Falta algún campo obligatorio.';
+  }
+  if (code === '23514' || /violates check constraint/i.test(msg)) {
+    return 'Alguno de los datos no es válido. Revísalo y vuelve a intentarlo.';
+  }
+  if (status >= 400) return mensajeHttp(status);
+  // Si el servidor mandó una frase apta para una persona, es mejor que la nuestra.
+  return mensajeSeguro(msg, ERROR_GENERICO);
+}
+
 /**
  * Respaldo a partir del código HTTP. Sustituye a los "Error HTTP 500" que se
  * usaban de reserva: un número de estado no le dice nada a nadie, y encima

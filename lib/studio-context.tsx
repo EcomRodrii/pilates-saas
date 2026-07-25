@@ -48,6 +48,7 @@ import {
   dbUpdateStudio, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
+import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
 import type {
   Studio,
   Socio,
@@ -258,11 +259,11 @@ interface StudioContextValue {
   registrarRespuestaSesion: (params: { socioId: string; sesionId: string | null; respuesta: RespuestaSesion; nota?: string | null }) => void;
 
   // Sesiones
-  addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => void;
+  addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateSesion: (id: string, changes: Partial<Sesion>) => void;
   deleteSesion: (id: string) => void;
   // Series de clases recurrentes (I-3)
-  addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => void;
+  addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => void;
   cancelarSerieDesde: (sesionId: string) => void;
 
@@ -401,15 +402,15 @@ interface StudioContextValue {
   deletePlan: (id: string) => void;
 
   // Salas (mutable)
-  addSala: (fields: Omit<Sala, 'id' | 'studioId'>) => void;
-  updateSala: (id: string, changes: Partial<Omit<Sala, 'id' | 'studioId'>>) => void;
-  deleteSala: (id: string) => void;
+  addSala: (fields: Omit<Sala, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  updateSala: (id: string, changes: Partial<Omit<Sala, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteSala: (id: string) => Promise<ResultadoEscritura>;
   // F2 (B2.7): averías de máquina. hasta=null → avería abierta.
   marcarAveria: (salaId: string, spotId: string | null, motivo: string | null, hasta: string | null) => void;
   quitarAveria: (id: string) => void;
 
   // Tipos de clase (mutable)
-  addTipoClase: (fields: Omit<TipoClase, 'id' | 'studioId'>) => void;
+  addTipoClase: (fields: Omit<TipoClase, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateTipoClase: (id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>) => void;
   deleteTipoClase: (id: string) => void;
 
@@ -428,7 +429,7 @@ interface StudioContextValue {
   recalcularDependencia: () => Promise<boolean>;
 
   // Instructores (mutable)
-  addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) => void;
+  addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) => Promise<ResultadoEscritura>;
   updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => void;
   deleteInstructor: (id: string) => void;
   claimInstructorAccount: (email: string, authUserId: string) => Promise<Instructor | null>;
@@ -497,8 +498,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Surface fire-and-forget DB write failures to the user instead of losing them.
   useEffect(() => {
-    setDbErrorListener(() => {
-      setDbError({ msg: 'No se pudo guardar el último cambio. Revisa tu conexión e inténtalo de nuevo.', key: Date.now() });
+    // El listener recibe (tag, error) y antes los IGNORABA los dos: un fallo de
+    // permisos, una clave ajena rota o una sesión caducada se anunciaban todos
+    // como "revisa tu conexión". Ahora se traduce la causa real.
+    setDbErrorListener((_tag, error) => {
+      setDbError({ msg: mensajeDeFalloAlGuardar(error), key: Date.now() });
     });
     return () => setDbErrorListener(null);
   }, []);
@@ -863,18 +867,29 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Salas ─────────────────────────────────────────────────────────────────────
 
-  function addSala(fields: Omit<Sala, 'id' | 'studioId'>) {
+  // La escritura ya existe, pero seguía siendo optimista: se pintaba la sala y
+  // el insert iba sin `await`, así que un fallo (permisos, RLS, red) dejaba en
+  // pantalla una sala inexistente hasta la siguiente recarga — el "creé una
+  // sala y al recargar no estaba" seguía pasando, solo que menos veces. Se
+  // escribe primero y solo se pinta si la base de datos acepta.
+  async function addSala(fields: Omit<Sala, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
     const nueva: Sala = { ...fields, id: `sala-${uid()}`, studioId: getCurrentStudioId() };
+    const res = await dbInsertSala(nueva);
+    if (!res.ok) return res;
     setSalas(prev => [...prev, nueva]);
-    dbInsertSala(nueva);
+    return res;
   }
-  function updateSala(id: string, changes: Partial<Omit<Sala, 'id' | 'studioId'>>) {
+  async function updateSala(id: string, changes: Partial<Omit<Sala, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateSala(id, changes);
+    if (!res.ok) return res;
     setSalas(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
-    dbUpdateSala(id, changes);
+    return res;
   }
-  function deleteSala(id: string) {
+  async function deleteSala(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteSala(id);
+    if (!res.ok) return res;
     setSalas(prev => prev.filter(s => s.id !== id));
-    dbDeleteSala(id);
+    return res;
   }
 
   // F2 (B2.7): marcar/quitar avería de máquina. El aforo real lo calcula
@@ -1028,10 +1043,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Tipos de clase ────────────────────────────────────────────────────────────
 
-  function addTipoClase(fields: Omit<TipoClase, 'id' | 'studioId'>) {
+  async function addTipoClase(fields: Omit<TipoClase, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
     const nuevo: TipoClase = { ...fields, id: `tc-${uid()}`, studioId: getCurrentStudioId() };
+    const res = await dbInsertTipoClase(nuevo);
+    if (!res.ok) return res;
     setTiposClase(prev => [...prev, nuevo]);
-    dbInsertTipoClase(nuevo);
+    return res;
   }
   function updateTipoClase(id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>) {
     setTiposClase(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
@@ -1094,11 +1111,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `id` opcional: el modal de alta lo pre-genera cuando necesita subir una
   // foto ANTES de guardar (el storage necesita una clave estable ya en el
   // primer upload). Si no se pasa, se genera aquí como siempre.
-  function addInstructor(fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) {
+  async function addInstructor(fields: Omit<Instructor, 'id' | 'studioId'>, id?: string): Promise<ResultadoEscritura> {
     const nuevo: Instructor = { ...fields, id: id ?? `ins-${uid()}`, studioId: getCurrentStudioId() };
+    const res = await dbInsertInstructor(nuevo);
+    // Si el alta falla no la pintamos ni la registramos en actividad: antes se
+    // anotaba "Fulanita añadió a Marta al equipo" aunque Marta no se guardara.
+    if (!res.ok) return res;
     setInstructores(prev => [...prev, nuevo]);
-    dbInsertInstructor(nuevo);
     addActividadReciente('EQUIPO_ALTA', `${actorNombre ?? 'Alguien'} añadió a ${nuevo.nombre} al equipo (${nuevo.rol})`);
+    return res;
   }
   function updateInstructor(id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) {
     const anterior = instructores.find(i => i.id === id);
@@ -1466,10 +1487,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Sesiones ─────────────────────────────────────────────────────────────────
 
-  function addSesion(fields: Omit<Sesion, 'id' | 'studioId'>) {
+  // Escribe PRIMERO y solo entonces la pinta. Antes era al revés: la clase
+  // aparecía en el calendario al instante y el insert iba sin await, así que un
+  // fallo (p. ej. FK contra una sala que no existía) dejaba en pantalla una
+  // clase que no existía en ninguna parte hasta la siguiente recarga.
+  async function addSesion(fields: Omit<Sesion, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
     const nueva: Sesion = { id: `ses-${uid()}`, studioId: getCurrentStudioId(), ...fields };
+    const res = await dbInsertSesion(nueva);
+    if (!res.ok) return res;
     setSesiones(prev => [...prev, nueva]);
-    dbInsertSesion(nueva);
+    return res;
   }
 
   function updateSesion(id: string, changes: Partial<Sesion>) {
@@ -1487,13 +1514,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Crea una serie: todas las sesiones comparten un serie_id y se insertan en UNA
   // sola llamada (batch), en vez de N inserts secuenciales sin rollback.
-  function addSesionesSerie(fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) {
-    if (fields.length === 0) return;
+  async function addSesionesSerie(fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]): Promise<ResultadoEscritura> {
+    if (fields.length === 0) return { ok: true };
     const serieId = `serie-${uid()}`;
     const studioId = getCurrentStudioId();
     const nuevas: Sesion[] = fields.map(f => ({ id: `ses-${uid()}`, studioId, serieId, ...f }));
+    const res = await dbInsertSesionesBatch(nuevas);
+    if (!res.ok) return res;
     setSesiones(prev => [...prev, ...nuevas]);
-    dbInsertSesionesBatch(nuevas);
+    return res;
   }
 
   // Sesiones de la misma serie que una dada, desde su inicio en adelante ("esta y

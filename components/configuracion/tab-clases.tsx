@@ -49,6 +49,8 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<ClaseForm>(emptyClaseForm());
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const fotoInputRef = useRef<HTMLInputElement>(null);
   const editando = editId ? tiposClase.find(t => t.id === editId) ?? null : null;
@@ -78,6 +80,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
   const openNueva = useCallback(() => {
     setForm(emptyClaseForm());
     setEditId(null);
+    setErrorGuardar(null);
     setModal('nueva');
   }, []);
 
@@ -87,9 +90,9 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     setModal('editar');
   }, []);
 
-  const closeModal = useCallback(() => setModal(null), []);
+  const closeModal = useCallback(() => { setModal(null); setErrorGuardar(null); }, []);
 
-  const guardar = useCallback(() => {
+  const guardar = useCallback(async () => {
     const fields = {
       nombre: form.nombre.trim(),
       color: form.color,
@@ -98,8 +101,13 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       descripcion: form.descripcion.trim() || null,
     };
     if (modal === 'nueva') {
-      addTipoClase({ ...fields, fotoUrl: null });
-      showToast('Tipo de clase creado');
+      // Esperamos a la base de datos antes de decir que está creado.
+      setGuardando(true);
+      setErrorGuardar(null);
+      const res = await addTipoClase({ ...fields, fotoUrl: null });
+      setGuardando(false);
+      if (!res.ok) { setErrorGuardar(res.error); return; }
+      showToast(`"${fields.nombre}" ya está guardado`);
     } else if (editId) {
       updateTipoClase(editId, fields);
       showToast('Tipo de clase actualizado');
@@ -277,16 +285,21 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
               />
             </Field>
           </div>
+          {errorGuardar && (
+            <p role="alert" className="mt-3 text-[13px] text-destructive">
+              No se ha guardado. {errorGuardar}
+            </p>
+          )}
           <div className="flex gap-2 mt-4">
-            <button className={cn(btnSecondary, 'flex-1 justify-center')} onClick={closeModal}>
+            <button className={cn(btnSecondary, 'flex-1 justify-center')} onClick={closeModal} disabled={guardando}>
               Cancelar
             </button>
             <button
               className={cn(btnPrimary, 'flex-1 justify-center')}
               onClick={guardar}
-              disabled={!canGuardar}
+              disabled={!canGuardar || guardando}
             >
-              {modal === 'nueva' ? 'Crear clase' : 'Guardar cambios'}
+              {guardando ? 'Guardando…' : modal === 'nueva' ? 'Crear clase' : 'Guardar cambios'}
             </button>
           </div>
         </DialogContent>
