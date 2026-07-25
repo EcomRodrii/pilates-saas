@@ -21,18 +21,26 @@ import type {
 export interface Preferencia { inapp: boolean; push: boolean; email: boolean; whatsapp: boolean; sms: boolean; }
 export const PREF_DEFECTO: Preferencia = { inapp: true, push: true, email: false, whatsapp: false, sms: false };
 
-// Canales EXTRA (además del in-app) para un destinatario. Reglas:
-//  · PUSH: solo en eventos que lo traen por defecto (regla.canales) y si no lo apagó.
-//  · EMAIL/WhatsApp/SMS: dirigidos por PREFERENCIA (opt-in; off por defecto).
-//  · Las CRÍTICAS fuerzan todos los canales (los no configurados → SKIPPED).
-//  · `excluye` manda sobre todo (p. ej. no avisar por email de que el email falla).
+// Canales EXTRA (además del in-app) para un destinatario.
+//
+// **`regla.canales` es la AUTORIDAD**: un evento solo sale por los canales que
+// declara. La preferencia del usuario solo puede QUITAR (opt-out), nunca añadir
+// —antes EMAIL/WhatsApp/SMS se colaban en CUALQUIER evento de la categoría con
+// solo activar la preferencia, así que la regla no mandaba en su propio evento—.
+// Las CRÍTICAS ignoran la preferencia, pero siguen sin inventarse canales: usan
+// los declarados (los no configurados acaban en SKIPPED). Por eso no hace falta
+// una lista de exclusiones: "no declarado" ya significa "nunca".
+const PREF_DE_CANAL: Record<NotificationChannel, keyof Preferencia | null> = {
+  INAPP: 'inapp', PUSH: 'push', EMAIL: 'email', WHATSAPP: 'whatsapp', SMS: 'sms',
+};
+
 export function canalesExtraDe(regla: ReglaEvento, pref: Preferencia, critica: boolean): NotificationChannel[] {
-  const out: NotificationChannel[] = [];
-  if (regla.canales.includes('PUSH') && (critica || pref.push)) out.push('PUSH');
-  if (critica || pref.email) out.push('EMAIL');
-  if (critica || pref.whatsapp) out.push('WHATSAPP');
-  if (critica || pref.sms) out.push('SMS');
-  return regla.excluye?.length ? out.filter(c => !regla.excluye!.includes(c)) : out;
+  return regla.canales.filter(canal => {
+    if (canal === 'INAPP') return false;          // el in-app no es un canal "extra"
+    if (critica) return true;
+    const clave = PREF_DE_CANAL[canal];
+    return clave ? pref[clave] : false;
+  });
 }
 
 export async function preferenciaDe(

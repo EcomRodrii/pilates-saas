@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { procesarEvento, canalesExtraDe, type Preferencia } from './process.ts';
 import { crearInApp } from './inapp.ts';
-import { EVENTOS, REGLAS, plantillaDe, render } from './catalog.ts';
+import { EVENTOS, REGLAS, plantillaDe, render, canalesDisponibles } from './catalog.ts';
 import type { NotificationEvent } from './types.ts';
 
 test('equipo y sistema: reglas + plantillas que renderizan', () => {
@@ -23,11 +23,13 @@ test('equipo y sistema: reglas + plantillas que renderizan', () => {
 
 test('email fallido NO usa el canal email (evitar realimentación)', () => {
   const r = REGLAS[EVENTOS.SISTEMA_EMAIL_FALLIDO];
-  assert.equal(r.priority !== 'CRITICA', true, 'CRITICA forzaría todos los canales, incluido email');
+  assert.equal(r.canales.includes('EMAIL'), false, 'no debe declarar EMAIL');
+  // Ni activándolo a mano, ni siquiera si algún día pasara a CRÍTICA.
   assert.deepEqual(canalesExtraDe(r, PREF({ email: true }), false), []);
+  assert.deepEqual(canalesExtraDe(r, PREF({ email: true }), true), []);
 });
 
-test('stripe desconectado es CRÍTICA: llega por todos los canales', () => {
+test('stripe desconectado es CRÍTICA: llega por todos los canales que declara', () => {
   const r = REGLAS[EVENTOS.SISTEMA_STRIPE_DESCONECTADO];
   assert.equal(r.priority, 'CRITICA');
   assert.deepEqual(canalesExtraDe(r, PREF({ push: false, email: false }), true).sort(), ['EMAIL', 'PUSH', 'SMS', 'WHATSAPP']);
@@ -52,24 +54,42 @@ test('automatizaciones: cada evento nuevo tiene regla + plantilla que renderiza'
 const PREF = (p: Partial<Preferencia> = {}): Preferencia =>
   ({ inapp: true, push: true, email: false, whatsapp: false, sms: false, ...p });
 
-test('canales: por defecto solo PUSH cuando la regla lo trae (opt-in email/wa/sms)', () => {
+test('canales: se usan los que declara la regla y el usuario no ha apagado', () => {
   const r = REGLAS[EVENTOS.RESERVA_CONFIRMADA]; // canales: [PUSH]
   assert.deepEqual(canalesExtraDe(r, PREF(), false), ['PUSH']);
+  assert.deepEqual(canalesExtraDe(r, PREF({ push: false }), false), []);
 });
 
-test('canales: email/WhatsApp/SMS solo si el usuario los activa', () => {
-  const r = REGLAS[EVENTOS.PAGO_FALLIDO];
-  assert.deepEqual(canalesExtraDe(r, PREF({ email: true, whatsapp: true }), false).sort(), ['EMAIL', 'PUSH', 'WHATSAPP']);
+test('canales: la preferencia NO puede añadir un canal que la regla no declara', () => {
+  const r = REGLAS[EVENTOS.PAGO_FALLIDO]; // canales: [PUSH] — el dunning ya manda su email
+  assert.deepEqual(canalesExtraDe(r, PREF({ email: true, whatsapp: true, sms: true }), false), ['PUSH']);
 });
 
-test('canales: un evento sin PUSH por defecto no hace push aunque la pref esté ON', () => {
+test('canales: un evento sin PUSH declarado no hace push aunque la pref esté ON', () => {
   const r = REGLAS[EVENTOS.RESERVA_CREADA]; // canales: []
   assert.deepEqual(canalesExtraDe(r, PREF({ push: true }), false), []);
 });
 
-test('canales: una CRÍTICA fuerza todos los canales', () => {
-  const r = REGLAS[EVENTOS.SISTEMA_ERROR]; // priority CRITICA
-  assert.deepEqual(canalesExtraDe(r, PREF({ email: false }), true).sort(), ['EMAIL', 'PUSH', 'SMS', 'WHATSAPP']);
+test('canales: una CRÍTICA ignora la preferencia pero NO se inventa canales', () => {
+  const r = REGLAS[EVENTOS.SISTEMA_ERROR];
+  assert.equal(r.priority, 'CRITICA');
+  assert.deepEqual(canalesExtraDe(r, PREF({ push: false, email: false }), true).sort(), ['EMAIL', 'PUSH', 'SMS', 'WHATSAPP']);
+  // Una CRÍTICA hipotética que solo declarase PUSH no mandaría email.
+  assert.deepEqual(canalesExtraDe({ ...r, canales: ['PUSH'] }, PREF({ push: false }), true), ['PUSH']);
+});
+
+test('clase.* no declara EMAIL: el panel ya manda su propio correo a las alumnas', () => {
+  for (const evento of [EVENTOS.CLASE_CANCELADA, EVENTOS.CLASE_MODIFICADA]) {
+    assert.equal(REGLAS[evento].canales.includes('EMAIL'), false, `${evento} duplicaría el email`);
+  }
+});
+
+test('canalesDisponibles: refleja lo que cada rol puede recibir por categoría', () => {
+  // La socia recibe push de sus reservas; la recepción solo ve reservas in-app.
+  assert.equal(canalesDisponibles('SOCIA', 'reservas').includes('PUSH'), true);
+  assert.equal(canalesDisponibles('RECEPCION', 'reservas').includes('PUSH'), false);
+  // Y nadie recibe canales que ninguna regla de su categoría declare.
+  assert.deepEqual(canalesDisponibles('INSTRUCTOR', 'clases'), []);
 });
 
 // Fake del cliente Supabase admin: registra inserts en memoria y simula el choque
