@@ -43,6 +43,7 @@ import {
   dbInsertAutomatizacion, dbUpdateAutomatizacion, dbDeleteAutomatizacion,
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
+  dbInsertSala, dbUpdateSala, dbDeleteSala,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
   dbUpdateStudio, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener, dbMisLikesComunidad,
@@ -863,18 +864,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // ── Salas ─────────────────────────────────────────────────────────────────────
 
   function addSala(fields: Omit<Sala, 'id' | 'studioId'>) {
-    setSalas(prev => [...prev, { ...fields, id: `sala-${uid()}`, studioId: getCurrentStudioId() }]);
+    const nueva: Sala = { ...fields, id: `sala-${uid()}`, studioId: getCurrentStudioId() };
+    setSalas(prev => [...prev, nueva]);
+    dbInsertSala(nueva);
   }
   function updateSala(id: string, changes: Partial<Omit<Sala, 'id' | 'studioId'>>) {
     setSalas(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
+    dbUpdateSala(id, changes);
   }
   function deleteSala(id: string) {
     setSalas(prev => prev.filter(s => s.id !== id));
+    dbDeleteSala(id);
   }
 
-  // F2 (B2.7): marcar/quitar avería de máquina. Persiste en BD (a diferencia de
-  // las salas): el aforo real lo calcula reservar_plaza server-side sobre estas
-  // filas, así que tienen que estar guardadas para que el bloqueo sea efectivo.
+  // F2 (B2.7): marcar/quitar avería de máquina. El aforo real lo calcula
+  // reservar_plaza server-side sobre estas filas, así que tienen que estar
+  // guardadas para que el bloqueo sea efectivo.
   function marcarAveria(salaId: string, spotId: string | null, motivo: string | null, hasta: string | null) {
     const ahora = new Date().toISOString();
     const b: BloqueoMaquina = {

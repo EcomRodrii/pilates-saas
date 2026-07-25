@@ -4695,6 +4695,34 @@ export async function dbDeleteTipoClase(id: string) {
   if (error) reportDbError('[dbDeleteTipoClase]', error);
 }
 
+// Las salas vivían sólo en el estado del provider: al recargar desaparecían, y
+// `sesiones.sala_id` (FK a `salas`) apuntaba a una fila inexistente, así que
+// crear cualquier clase reventaba con un 409 que la UI traducía a "revisa tu
+// conexión". Mismo patrón que tipos_clase: escritura directa bajo la RLS
+// `admin_salas` (studio_id = current_studio_id()).
+export async function dbInsertSala(s: Sala) {
+  const row = {
+    id: s.id, studio_id: s.studioId ?? STUDIO_ID, nombre: s.nombre,
+    capacidad: s.capacidad, color: s.color,
+  };
+  const { error } = await supabase.from('salas').insert(row);
+  if (error) reportDbError('[dbInsertSala]', error);
+}
+
+export async function dbUpdateSala(id: string, changes: Partial<Sala>) {
+  const db: Record<string, unknown> = {};
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('capacidad' in changes) db.capacidad = changes.capacidad;
+  if ('color' in changes) db.color = changes.color;
+  const { error } = await supabase.from('salas').update(db).eq('id', id);
+  if (error) reportDbError('[dbUpdateSala]', error);
+}
+
+export async function dbDeleteSala(id: string) {
+  const { error } = await supabase.from('salas').delete().eq('id', id);
+  if (error) reportDbError('[dbDeleteSala]', error);
+}
+
 // A-2: las mutaciones de equipo (alta/edición/baja) pasan por /api/equipo, que
 // exige verificarSesionStaff con rol PROPIETARIO (o autoedición de la propia
 // ficha) — antes escribían directamente a `instructores` con el cliente anónimo,

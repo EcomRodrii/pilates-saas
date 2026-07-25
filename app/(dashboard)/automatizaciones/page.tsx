@@ -5,7 +5,7 @@ import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import {
   Bot, Zap, CheckCircle2, Clock, AlertTriangle, XCircle,
-  Play, ToggleLeft, ToggleRight, ChevronRight, Loader2,
+  Play, ChevronRight, Loader2,
   MessageSquare, Mail, CreditCard, Bell, Gift, TrendingUp,
   Send, X, Eye,
 } from 'lucide-react';
@@ -53,38 +53,41 @@ const triggerLabels: Record<string, string> = {
   CLASE_LLENA_RECURRENTE: 'Clase con demanda sostenida',
 };
 
-// Punto de partida opcional (botón "Cargar reglas sugeridas") — no se
-// insertan solas, el estudio decide si las quiere y puede editarlas o
-// desactivarlas después. Los umbrales (días, % de descuento...) son solo un
-// punto de partida razonable, no están grabados a fuego en ningún sitio.
+// Punto de partida opcional (botón "Cargar reglas sugeridas"). Nacen todas con
+// `activa: false` a propósito: estas reglas escriben a clientas reales (emails,
+// WhatsApp) y hasta cobran recibos, así que un clic exploratorio en "Cargar
+// reglas sugeridas" no puede acabar mandando nada. El estudio las lee, expande
+// los pasos y enciende una a una lo que quiera. Los umbrales (días, % de
+// descuento...) son solo un punto de partida razonable, no están grabados a
+// fuego en ningún sitio.
 const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>[] = [
   {
     nombre: 'Clienta ausente', descripcion: 'Recuerda a las clientas que llevan días sin venir, pregunta cómo están a las 2 semanas, y ofrece una vuelta con descuento si la ausencia se alarga',
-    icono: '👤', trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCheckin: 14, diasCritico: 25, descuentoPct: 15 }, pasos: [], activa: true,
+    icono: '👤', trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCheckin: 14, diasCritico: 25, descuentoPct: 15 }, pasos: [], activa: false,
   },
   {
     nombre: 'Pago pendiente', descripcion: 'Persigue pagos vencidos con dos avisos escalados — cobra directo si hay tarjeta guardada (con tu aprobación) o te avisa a ti si tras dos avisos sigue sin resolverse',
-    icono: '💳', trigger: 'PAGO_PENDIENTE_DIAS', condicion: { dias: 3, diasSegundo: 8, diasEscalada: 15 }, pasos: [], activa: true,
+    icono: '💳', trigger: 'PAGO_PENDIENTE_DIAS', condicion: { dias: 3, diasSegundo: 8, diasEscalada: 15 }, pasos: [], activa: false,
   },
   {
     nombre: 'Recordatorio de clase', descripcion: 'Avisa a las clientas con reserva confirmada el día antes de su clase — por WhatsApp si tienen teléfono, por email si no',
-    icono: '📅', trigger: 'CLASE_MANANA', condicion: {}, pasos: [], activa: true,
+    icono: '📅', trigger: 'CLASE_MANANA', condicion: {}, pasos: [], activa: false,
   },
   {
     nombre: 'Clase con demanda sostenida', descripcion: 'Detecta franjas horarias que llevan varias semanas casi llenas y te recomienda abrir otra sesión',
-    icono: '📈', trigger: 'CLASE_LLENA_RECURRENTE', condicion: { semanasConsecutivas: 3, ocupacionMinima: 0.95 }, pasos: [], activa: true,
+    icono: '📈', trigger: 'CLASE_LLENA_RECURRENTE', condicion: { semanasConsecutivas: 3, ocupacionMinima: 0.95 }, pasos: [], activa: false,
   },
   {
     nombre: 'Bono casi agotado', descripcion: 'Si una clienta compra el mismo bono varias veces seguidas, te propone ofrecerle pasarse a un plan ilimitado (con tu aprobación)',
-    icono: '🔁', trigger: 'BONO_SESIONES_BAJAS', condicion: { comprasSeguidas: 3 }, pasos: [], activa: true,
+    icono: '🔁', trigger: 'BONO_SESIONES_BAJAS', condicion: { comprasSeguidas: 3 }, pasos: [], activa: false,
   },
   {
     nombre: 'Seguimiento de clienta nueva', descripcion: 'Si no ha reservado en 2 días le anima a hacerlo; si a los 10 días sigue sin venir a ninguna clase, te avisa a ti para que la llames',
-    icono: '🌱', trigger: 'NUEVA_SOCIA', condicion: { diasSinReservar: 2, diasSinAsistir: 10 }, pasos: [], activa: true,
+    icono: '🌱', trigger: 'NUEVA_SOCIA', condicion: { diasSinReservar: 2, diasSinAsistir: 10 }, pasos: [], activa: false,
   },
   {
     nombre: 'Renovación confirmada', descripcion: 'Confirma automáticamente cada renovación cobrada, con un detalle extra en los hitos de antigüedad',
-    icono: '✅', trigger: 'RENOVACION_COBRADA', condicion: { hitoMeses: 6 }, pasos: [], activa: true,
+    icono: '✅', trigger: 'RENOVACION_COBRADA', condicion: { hitoMeses: 6 }, pasos: [], activa: false,
   },
 ];
 
@@ -149,6 +152,66 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   );
 }
 
+// ─── Pasos visibles de una regla ──────────────────────────────────────────────
+
+// `automation_rules.pasos` es un campo muerto para las reglas que crea la app:
+// se guarda vacío y lib/engines/automation-engine.ts no lo lee nunca — decide
+// las acciones con ifs encadenados sobre `trigger` + `condicion`. Resultado: al
+// expandir una regla salía la cabecera "Pasos del flujo" sobre un hueco en
+// blanco, justo cuando la propietaria quiere saber qué se va a enviar en su
+// nombre.
+//
+// Se derivan del trigger, leyendo los MISMOS umbrales de `rule.condicion` que
+// usa el motor, para que lo que se lee aquí sea lo que se ejecuta allí. Si
+// alguien toca las ramas del motor, hay que tocar este mapa: no rellenamos
+// `pasos` en la semilla precisamente para no tener dos fuentes de verdad que
+// divergen en silencio.
+type PasoVisible = { accion: AccionAutomatica; cuando: string };
+
+function pasosDeRegla(rule: AutomationRule): PasoVisible[] {
+  const n = (clave: string, porDefecto: number) => (rule.condicion[clave] as number) ?? porDefecto;
+
+  switch (rule.trigger) {
+    case 'AUSENCIA_DIAS':
+      return [
+        { accion: 'ENVIAR_EMAIL', cuando: `A los ${n('dias', 7)} días sin venir — "te echamos de menos"` },
+        { accion: 'ENVIAR_EMAIL', cuando: `A los ${n('diasCheckin', 14)} días — pregunta qué tal, sin ofrecerle nada` },
+        { accion: 'OFRECER_DESCUENTO', cuando: `A los ${n('diasCritico', 25)} días — te propone una oferta del ${n('descuentoPct', 15)}%. No se envía sin que tú lo apruebes` },
+      ];
+    case 'PAGO_PENDIENTE_DIAS':
+      return [
+        { accion: 'COBRAR_RECIBO', cuando: 'Si tiene tarjeta guardada, te propone cobrarlo. Nunca cobra sin tu aprobación' },
+        { accion: 'ENVIAR_EMAIL', cuando: `Sin tarjeta: primer aviso a los ${n('dias', 3)} días del vencimiento` },
+        { accion: 'ENVIAR_EMAIL', cuando: `Segundo aviso a los ${n('diasSegundo', 8)} días` },
+        { accion: 'NOTIFICAR_ADMIN', cuando: `A los ${n('diasEscalada', 15)} días deja de insistir y te avisa para que la llames tú` },
+      ];
+    case 'CLASE_MANANA':
+      return [
+        { accion: 'ENVIAR_WHATSAPP', cuando: 'El día antes de la clase, si tiene teléfono guardado' },
+        { accion: 'ENVIAR_EMAIL', cuando: 'El día antes, si no tiene teléfono' },
+      ];
+    case 'CLASE_LLENA_RECURRENTE':
+      return [
+        { accion: 'NOTIFICAR_ADMIN', cuando: `Cuando una franja lleva ${n('semanasConsecutivas', 3)} semanas al ${Math.round(n('ocupacionMinima', 0.95) * 100)}% o más, te sugiere abrir otra sesión` },
+      ];
+    case 'BONO_SESIONES_BAJAS':
+      return [
+        { accion: 'PROPONER_PLAN', cuando: `Tras ${n('comprasSeguidas', 3)} bonos iguales seguidos, te propone ofrecerle un plan ilimitado. Lo apruebas tú` },
+      ];
+    case 'NUEVA_SOCIA':
+      return [
+        { accion: 'ENVIAR_EMAIL', cuando: `Si a los ${n('diasSinReservar', 2)} días no ha reservado, le anima a hacerlo` },
+        { accion: 'NOTIFICAR_ADMIN', cuando: `Si a los ${n('diasSinAsistir', 10)} días sigue sin venir, te avisa para que la llames tú` },
+      ];
+    case 'RENOVACION_COBRADA':
+      return [
+        { accion: 'ENVIAR_EMAIL', cuando: `Confirma cada renovación cobrada, con un detalle extra cada ${n('hitoMeses', 6)} meses de antigüedad` },
+      ];
+    default:
+      return [];
+  }
+}
+
 // ─── Rule Card ────────────────────────────────────────────────────────────────
 
 function RuleCard({
@@ -159,14 +222,17 @@ function RuleCard({
   onToggle: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const pasos = useMemo(() => pasosDeRegla(rule), [rule]);
 
   return (
     <div className={cn(
       'rounded-xl border bg-card transition-all',
-      rule.activa ? 'border-border' : 'border-muted opacity-60'
+      // Sin opacity en la tarjeta inactiva: atenuaba también el interruptor, que
+      // es justo lo que tiene que quedar legible de un vistazo.
+      rule.activa ? 'border-border' : 'border-muted'
     )}>
       <div className="flex items-center gap-3 p-4">
-        <div className="text-2xl">{rule.icono}</div>
+        <div className={cn('text-2xl transition-opacity', !rule.activa && 'opacity-50')}>{rule.icono}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-foreground text-sm truncate">{rule.nombre}</span>
@@ -176,8 +242,18 @@ function RuleCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">{rule.descripcion}</p>
-          <div className="flex items-center gap-3 mt-1">
+          {/* Sin `truncate`: la descripción explica qué se envía y a quién, y se
+              cortaba con puntos suspensivos justo en esa parte. */}
+          <p className="text-xs text-muted-foreground mt-0.5">{rule.descripcion}</p>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <span
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+              style={rule.activa
+                ? { color: 'var(--brand)', background: 'color-mix(in srgb, var(--brand) 12%, var(--card))' }
+                : { color: 'var(--muted-foreground)', background: 'var(--muted)' }}
+            >
+              {rule.activa ? 'Activada' : 'Desactivada'}
+            </span>
             <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border">
               {triggerLabels[rule.trigger] ?? rule.trigger}
             </span>
@@ -193,23 +269,37 @@ function RuleCard({
           >
             <ChevronRight size={14} className={cn('transition-transform', expanded && 'rotate-90')} />
           </button>
+          {/* Los iconos ToggleLeft/ToggleRight de lucide son outline y sólo mueven
+              la bolita ~7px dentro de una píldora simétrica: encendido y apagado
+              se veían idénticos, y en un interruptor que decide si salen emails y
+              WhatsApps a clientas eso no vale. Mismo switch relleno que
+              components/decision/piloto-automatico.tsx: color de fondo + bolita
+              blanca sólida + desplazamiento, tres señales en vez de una. */}
           <button
+            type="button"
+            role="switch"
+            aria-checked={rule.activa}
+            aria-label={`${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
+            title={rule.activa ? 'Activada — desactivar' : 'Desactivada — activar'}
             onClick={onToggle}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors"
+            style={{ background: rule.activa ? 'var(--brand)' : 'var(--muted-foreground)' }}
           >
-            {rule.activa
-              ? <ToggleRight size={28} className="text-foreground" />
-              : <ToggleLeft size={28} />
-            }
+            <span
+              className={cn(
+                'inline-block h-5 w-5 rounded-full bg-white shadow transition-transform',
+                rule.activa ? 'translate-x-5' : 'translate-x-0'
+              )}
+            />
           </button>
         </div>
       </div>
 
       {expanded && (
         <div className="border-t border-muted px-4 py-3">
-          <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Pasos del flujo</p>
+          <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Qué hace, paso a paso</p>
           <div className="space-y-2">
-            {rule.pasos.map((paso, i) => {
+            {pasos.map((paso, i) => {
               const cfg = accionConfig[paso.accion];
               const Icon = cfg.icon;
               return (
@@ -222,21 +312,16 @@ function RuleCard({
                   </div>
                   <div>
                     <span className="text-xs font-medium text-foreground">{cfg.label}</span>
-                    {paso.esperarHoras && (
-                      <span className="text-[10px] text-muted-foreground ml-1.5">
-                        → espera {paso.esperarHoras}h
-                        {paso.condicion === 'SIN_RESPUESTA' ? ' si sin respuesta' : ''}
-                      </span>
-                    )}
-                    {paso.parametros.mensaje && (
-                      <p className="text-[11px] text-muted-foreground mt-0.5 italic">
-                        &ldquo;{String(paso.parametros.mensaje)}&rdquo;
-                      </p>
-                    )}
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{paso.cuando}</p>
                   </div>
                 </div>
               );
             })}
+            {pasos.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Esta automatización no tiene pasos configurados, así que no enviará nada.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -490,7 +575,9 @@ export default function AutomatizacionesPage() {
                 tab === t ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              {t === 'log' ? 'Registro de acciones' : 'Reglas activas'}
+              {/* "Reglas activas" era engañoso: la lista incluye también las
+                  desactivadas, que ahora es el estado por defecto. */}
+              {t === 'log' ? 'Registro de acciones' : 'Reglas'}
             </button>
           ))}
         </div>
@@ -506,10 +593,14 @@ export default function AutomatizacionesPage() {
 
       {tab === 'reglas' && (
         <div className="space-y-3">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground">
+              Las reglas llegan <strong className="text-foreground">desactivadas</strong>. Ábrelas para ver
+              qué envía cada una y enciende solo las que quieras.
+            </p>
             <button
               onClick={handleCargarSugeridas}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
+              className="flex items-center gap-1.5 shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
             >
               <Zap size={12} />
               Cargar reglas sugeridas
