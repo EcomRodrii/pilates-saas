@@ -13,6 +13,7 @@ import { cn, formatFechaHora as formatFecha, formatHoraCorta as formatHora } fro
 import { aprobarCobroAutonomo } from '@/lib/api-client';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 import { mensajeSeguro } from '@/lib/errores';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -90,6 +91,20 @@ const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces
     icono: '✅', trigger: 'RENOVACION_COBRADA', condicion: { hitoMeses: 6 }, pasos: [], activa: false,
   },
 ];
+
+// Triggers cuyas acciones mandan un mensaje a la CLIENTA sin pasar por la
+// bandeja de aprobación (ver lib/engines/automation-engine.ts). Que nazcan
+// desactivadas evita encenderlas sin querer, pero encender sigue siendo un
+// clic: y ese clic da permiso para escribir en nombre del estudio, cada
+// mañana y sin volver a preguntar. Eso se confirma. Las reglas que solo
+// avisan a la dueña o dejan la acción en PENDIENTE_ADMIN no lo necesitan.
+const TRIGGERS_QUE_ESCRIBEN_A_CLIENTAS = new Set<AutomationRule['trigger']>([
+  'AUSENCIA_DIAS',
+  'PAGO_PENDIENTE_DIAS',
+  'CLASE_MANANA',
+  'NUEVA_SOCIA',
+  'RENOVACION_COBRADA',
+]);
 
 // ─── Morning Briefing ─────────────────────────────────────────────────────────
 
@@ -446,8 +461,21 @@ export default function AutomatizacionesPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [tab, setTab] = useState<'log' | 'reglas'>('log');
   const [filterResultado, setFilterResultado] = useState<ResultadoLog | 'TODAS'>('TODAS');
+  // Regla pendiente de confirmar antes de ENCENDERLA. Apagar nunca pregunta:
+  // dejar de mandar mensajes no necesita permiso de nadie.
+  const [confirmarEncender, setConfirmarEncender] = useState<AutomationRule | null>(null);
 
   const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
+  // A cuánta gente puede llegar de verdad una regla que manda mensajes.
+  const contactables = socios.filter(s => s.activo && (s.email || s.telefono)).length;
+
+  function handleToggleRule(rule: AutomationRule) {
+    if (!rule.activa && TRIGGERS_QUE_ESCRIBEN_A_CLIENTAS.has(rule.trigger)) {
+      setConfirmarEncender(rule);
+      return;
+    }
+    toggleAutomationRule(rule.id);
+  }
 
   const filteredLogs = useMemo(() => {
     return filterResultado === 'TODAS'
@@ -616,7 +644,7 @@ export default function AutomatizacionesPage() {
             <RuleCard
               key={rule.id}
               rule={rule}
-              onToggle={() => toggleAutomationRule(rule.id)}
+              onToggle={() => handleToggleRule(rule)}
             />
           ))}
         </div>
@@ -654,6 +682,49 @@ export default function AutomatizacionesPage() {
           )}
         </div>
       )}
+
+      {/* Encender una regla que escribe a las clientas es dar permiso para
+          mandar mensajes en su nombre, cada mañana y sin volver a preguntar.
+          Se dice qué hace y a cuánta gente alcanza ANTES del sí. */}
+      <Dialog open={confirmarEncender !== null} onOpenChange={open => !open && setConfirmarEncender(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
+              Esto va a escribir a tus clientas
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2 text-[13px] text-muted-foreground">
+            <p className="text-foreground font-medium">{confirmarEncender?.nombre}</p>
+            <p>{confirmarEncender?.descripcion}</p>
+            <p>
+              Los mensajes salen solos cada mañana, en nombre de tu estudio y sin
+              volver a preguntarte. Ahora mismo puede escribir a{' '}
+              <span className="font-semibold text-foreground">
+                {contactables} {contactables === 1 ? 'clienta' : 'clientas'}
+              </span>{' '}
+              que {contactables === 1 ? 'tiene' : 'tienen'} email o teléfono.
+            </p>
+            <p>Puedes pausarla cuando quieras desde esta misma pantalla.</p>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
+              onClick={() => setConfirmarEncender(null)}
+            >
+              No, dejarla pausada
+            </button>
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
+              onClick={() => {
+                if (confirmarEncender) toggleAutomationRule(confirmarEncender.id);
+                setConfirmarEncender(null);
+              }}
+            >
+              Sí, activarla
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
