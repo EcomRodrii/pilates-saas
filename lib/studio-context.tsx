@@ -131,7 +131,7 @@ import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
-import { uid } from '@/lib/utils';
+import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import {
   decidirReservaNueva,
   decidirPremioReferido,
@@ -1606,8 +1606,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const sala = salas.find(x => x.id === ses.salaId);
       const instructor = instructores.find(i => i.id === ses.instructorId);
       const inicio = new Date(ses.inicio);
-      const fecha = inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-      const hora = inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const fecha = fechaLargaEstudio(inicio);
+      const hora = horaEstudio(inicio);
       reservas
         .filter(r => r.sesionId === ses.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
         .forEach(r => {
@@ -1816,8 +1816,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           to: socio.email,
           toName: socio.nombre,
           claseNombre: clase,
-          fecha: inicioSesion.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }),
-          hora: inicioSesion.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          fecha: fechaLargaEstudio(inicioSesion),
+          hora: horaEstudio(inicioSesion),
           sala: sala?.nombre ?? '',
           instructor: instructor?.nombre ?? '',
           bonoConsumido: true,
