@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { fetchFichaEstudio, type FichaEstudio } from '@/lib/interno/client';
+import { AccionesEstudio } from './acciones';
 
 const fecha = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
@@ -46,6 +47,13 @@ export default function FichaEstudioInterno({ params }: { params: Promise<{ id: 
       <Link href="/interno/estudios" className="flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground w-fit">
         <ArrowLeft size={14} /> Estudios
       </Link>
+
+      {f.suspension.suspendido && (
+        <div className="rounded-2xl border border-red-500/40 bg-red-500/5 px-4 py-3">
+          <p className="text-[13px] font-bold text-red-700">Acceso suspendido</p>
+          <p className="text-[12.5px] text-red-700/90">{f.suspension.motivo ?? 'Sin motivo registrado.'}</p>
+        </div>
+      )}
 
       <header>
         <h1 className="text-[22px] font-bold text-foreground leading-tight">{f.estudio.nombre}</h1>
@@ -104,6 +112,10 @@ export default function FichaEstudioInterno({ params }: { params: Promise<{ id: 
             </div>
           ))}
         </Bloque>
+        <AccionesEstudio
+          id={f.estudio.id} plan={f.estudio.plan}
+          suspendido={f.suspension.suspendido} motivo={f.suspension.motivo}
+        />
       </div>
 
       <p className="text-[12px] text-muted-foreground">

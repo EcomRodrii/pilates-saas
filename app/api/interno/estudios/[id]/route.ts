@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
 
   const { data: studio } = await db.from('studios')
-    .select('id, slug, nombre, plan, email, telefono, direccion, creado_en, stripe_customer_id, stripe_account_id, owner_auth_user_id')
+    .select('id, slug, nombre, plan, email, telefono, direccion, creado_en, stripe_customer_id, stripe_account_id, owner_auth_user_id, suspendido_en, suspendido_motivo')
     .eq('id', id).maybeSingle();
   if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
 
@@ -85,6 +85,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       tieneClienteStripe: Boolean(studio.stripe_customer_id),
       clienteStripeId: (studio.stripe_customer_id as string | null) ?? null,
       cobraConStripeConnect: Boolean(studio.stripe_account_id),
+    },
+    suspension: {
+      suspendido: Boolean(studio.suspendido_en),
+      desde: (studio.suspendido_en as string | null) ?? null,
+      motivo: (studio.suspendido_motivo as string | null) ?? null,
     },
     uso: {
       socias: nSocias.count ?? 0,

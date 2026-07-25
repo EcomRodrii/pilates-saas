@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   billingEnforced,
+  evaluarSuspension,
   evaluarSuscripcion,
   evaluarFeature,
   evaluarLimiteSocias,
@@ -30,13 +31,31 @@ test('billingEnforced() solo es true con la env exactamente "true"', () => {
   conEnv('true', () => assert.equal(billingEnforced(), true));
 });
 
-test('enforcement OFF → ninguna regla deniega (null), sin tocar BD', async () => {
+test('enforcement OFF → ninguna regla deniega (null)', async () => {
+  // Ojo: desde que existe la suspensión manual, evaluarSuscripcion SÍ hace una
+  // lectura aunque el enforcement esté apagado — suspender a alguien tiene que
+  // surtir efecto sin depender de una env de billing. Sin service-role (caso de
+  // CI) no llega a tocar la BD y falla abierto igual.
   await conEnv('false', async () => {
     assert.equal(await evaluarSuscripcion('studio-x'), null);
     assert.equal(await evaluarFeature('studio-x', 'ia'), null);
     assert.equal(await evaluarFeature('studio-x', 'marketing'), null);
     assert.equal(await evaluarLimiteSocias('studio-x', 9999, 9999), null);
   });
+});
+
+test('la suspensión ignora BILLING_ENFORCED, pero falla abierto sin service-role', async () => {
+  const prevKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  try {
+    // Con el enforcement apagado a propósito: la suspensión no depende de él.
+    await conEnv('false', async () => {
+      assert.equal(await evaluarSuspension('studio-x'), null);
+      assert.equal(await evaluarSuscripcion('studio-x'), null);
+    });
+  } finally {
+    if (prevKey !== undefined) process.env.SUPABASE_SERVICE_ROLE_KEY = prevKey;
+  }
 });
 
 test('enforcement ON pero sin service-role → fail-open (null)', async () => {
