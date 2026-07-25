@@ -61,11 +61,16 @@ export async function calcularDependenciaEstudio(
   const periodoInicio = inicioISO.slice(0, 10);
   const periodoFin = finISO.slice(0, 10);
 
-  // Instructores del estudio (todos; los que no tengan actividad quedan en BAJO).
+  // Instructores EN ACTIVO (los que no tengan actividad quedan en BAJO). A quien
+  // ya no está en el equipo no se le mide la dependencia: el riesgo es "si se va,
+  // me llevo su cartera", y de alguien que ya se fue no hay nada que prevenir.
+  // Además evita alertas fantasma: tres instructoras de demo dadas de baja
+  // sostenían un "riesgo ALTO" del 32,8% que no existía.
   const { data: instructores } = await admin
     .from('instructores')
     .select('id, nombre')
-    .eq('studio_id', studioId);
+    .eq('studio_id', studioId)
+    .eq('activo', true);
   const nombreInstructor = new Map<string, string>();
   for (const i of instructores ?? []) nombreInstructor.set(i.id as string, (i.nombre as string) ?? '');
 
@@ -225,6 +230,17 @@ export async function calcularDependenciaEstudio(
       .from('instructor_dependency_snapshots')
       .upsert(filas, { onConflict: 'studio_id,instructor_id' });
     if (error) throw new Error(`[calcularDependenciaEstudio] ${error.message}`);
+  }
+
+  // Y borra los de quien ya no está en el equipo. El upsert solo pisa lo que
+  // recalcula, así que sin esto el último snapshot de una instructora dada de
+  // baja se quedaría en la tabla — y la tarjeta lo seguiría enseñando, con su
+  // nivel de riesgo congelado, para siempre.
+  const activos = [...nombreInstructor.keys()];
+  if (activos.length) {
+    await admin.from('instructor_dependency_snapshots')
+      .delete().eq('studio_id', studioId)
+      .not('instructor_id', 'in', `(${activos.map(id => `"${id}"`).join(',')})`);
   }
 
   return transiciones;
