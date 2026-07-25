@@ -40,7 +40,11 @@ export async function avisarAlumnas(
     const { EVENTOS } = await import('@/lib/notifications/catalog');
     await publish({
       type: EVENTOS.CLASE_CANCELADA, studioId: params.studioId,
-      data: { clase: claseNombre, cuando, slug: (estudio.slug as string | null) ?? '' },
+      // sesionId DEBE ir en data: resolverDestinatarios lo lee de ahí, no de
+      // resource.id. Sin él, la audiencia socias-e-instructora-de-la-sesion
+      // resolvía 0 destinatarios y el aviso in-app/push se perdía (igual que el
+      // bug que #361 arregló en su gemelo emit.ts:emitirClaseCancelada).
+      data: { clase: claseNombre, cuando, slug: (estudio.slug as string | null) ?? '', sesionId: params.sesionId },
       resource: { type: 'sesion', id: params.sesionId },
       dedupKey: `clase-cancelada:${params.sesionId}`,
     });

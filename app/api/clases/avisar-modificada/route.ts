@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
   await emitirClaseModificada(admin, {
     studioId: staff.studioId, sesionId: b.sesionId,
     clase: b.clase || 'tu clase', cuando: b.cuando || '', sala: b.sala || '',
+    instructora: b.instructora || '',
   });
   return NextResponse.json({ ok: true });
 }
