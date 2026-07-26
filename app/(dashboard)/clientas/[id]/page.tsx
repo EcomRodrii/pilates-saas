@@ -7,7 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
 import { authHeader, enviarEmailCampana } from '@/lib/api-client';
-import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeMoverDinero } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
@@ -197,6 +197,10 @@ function TabBar({ active, onChange, verFinanzas, verFichaClinica }: { active: Ta
 export default function DetalleSocio({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const rol = useRol();
+  // Sin esto, una instructora veía «Cobrar» y «Cancelar suscripción»: botones que
+  // desde la 0107 la base de datos rechaza. Enseñar un botón que no funciona es
+  // peor que no enseñarlo.
+  const puedeCobrar = puedeMoverDinero(rol);
   const verFinanzas = rol !== 'INSTRUCTOR';
   const verFichaClinica = puedeVerFichaClinica(rol);
 
@@ -581,6 +585,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                             </div>
                           )}
 
+                          {/* Congelar, reanudar y cancelar escriben en `suscripciones`, y
+                              estaban fuera de `verFinanzas`: una instructora las veía y
+                              podía cancelarle el plan a una clienta. Es lo único de esta
+                              pantalla que la migración 0107 habría dejado como botón roto. */}
+                          {puedeCobrar && (
                           <div className="mt-4 flex gap-2">
                             {suscripcion.estado === 'ACTIVA' ? (
                               <button
@@ -605,6 +614,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               Cancelar suscripción
                             </button>
                           </div>
+                          )}
                         </>
                       ) : (
                         <div className="py-6 text-center">
