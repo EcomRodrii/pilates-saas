@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
+import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { queImparten } from '@/lib/equipo';
 import { DIAS } from '@/lib/sustituciones/franjas';
@@ -124,7 +125,12 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
   if (activos.length === 0) {
     return (
       <div className={cn(cardCls, 'px-5 py-10 text-center text-[13px] text-muted-foreground max-w-4xl')}>
-        No hay instructoras activas. Añade instructoras en Configuración → Estudio para definir su horario de citas.
+        {/* Decía "en Configuración → Estudio", donde no hay ninguna instructora:
+            el equipo se gestiona en su propia pantalla. Un cartel que manda al
+            sitio equivocado es peor que no poner cartel. */}
+        No hay instructoras activas. Añádelas en{' '}
+        <Link href="/equipo" className="font-semibold text-brand hover:underline underline-offset-2">Equipo</Link>
+        {' '}y luego vuelve aquí para definir su horario de citas.
       </div>
     );
   }

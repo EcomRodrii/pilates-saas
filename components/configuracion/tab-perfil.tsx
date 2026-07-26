@@ -174,9 +174,20 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
             </button>
           </>
         ) : (
-          <p className="text-[12px] text-muted-foreground">
-            Cuenta: {form.email}. Tu nombre y datos de contacto de propietaria se gestionan en Configuración &gt; Estudio.
-          </p>
+          /* Este cartel mandaba a "Configuración > Estudio" a cambiar el nombre
+             de la propietaria. Allí no hay tal campo: esa pestaña son los datos
+             del ESTUDIO (nombre comercial, NIF, dirección). Hoy la dueña no
+             tiene ficha propia, así que el panel la llama "Propietaria" a secas
+             y no hay dónde cambiarlo. Mejor decirlo que enviarla a buscar algo
+             que no existe. */
+          <div className="text-[12px] text-muted-foreground space-y-1.5">
+            <p>Entras con <span className="font-medium text-foreground">{form.email}</span>, como propietaria del estudio.</p>
+            <p>
+              Todavía no puedes poner tu nombre aquí: por eso en el panel apareces como
+              &quot;Propietaria&quot;. Los datos del estudio —nombre comercial, NIF, dirección, marca—
+              sí se cambian en <span className="font-medium text-foreground">Configuración → Estudio</span>.
+            </p>
+          </div>
         )}
       </div>
     </div>
