@@ -156,13 +156,22 @@ export default function CentroDeControlPage() {
         </>
       )}
 
-      {(data.porEspecialista.length > 0 || hayCartera) && (
+      {/* En MODO APRENDIZAJE no se pintan los especialistas.
+          Este bloque estaba fuera del ternario de arriba, y su guarda es siempre
+          cierta porque la API siembra los 7 especialistas aunque no haya
+          análisis. Resultado: la misma pantalla decía "Aún estoy conociendo tu
+          estudio, necesito semanas de datos" Y, debajo, siete tarjetas verdes
+          diciendo "Excelente · Todo en orden". Las dos cosas no pueden ser
+          verdad a la vez, y la segunda es la que se cree la dueña.
+          La cartera SÍ se mantiene: no sale del análisis diario, se calcula
+          sobre reservas reales, así que en modo aprendizaje sigue siendo cierta. */}
+      {((!modoAprendizaje && data.porEspecialista.length > 0) || hayCartera) && (
         <div className="flex flex-col gap-3">
           <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
             Mi Equipo
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {data.porEspecialista.map(pe => <SpecialistCard key={pe.especialista} data={pe} />)}
+            {!modoAprendizaje && data.porEspecialista.map(pe => <SpecialistCard key={pe.especialista} data={pe} />)}
             <EspecialistaCartera />
           </div>
         </div>
