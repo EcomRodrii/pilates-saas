@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, RotateCcw, Check, AlertTriangle } from 'lucide-react';
 import { usePermisos } from '@/lib/permisos';
+import { useStudio } from '@/lib/studio-context';
 import { fetchLayout, guardarLayoutApi } from '@/lib/api-client';
 import { MODULOS, NO_OCULTABLES, type NavItemDef } from '@/lib/nav-config';
-import { type MenuPosicion } from '@/lib/layout-schema';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 
 // El orden del menú NO se puede cambiar, a propósito: si cada estudio coloca
@@ -36,9 +36,13 @@ function Fila({ item, oculto, onToggle }: { item: NavItemDef; oculto: boolean; o
 
 export function MenuEditor() {
   const { rol } = usePermisos();
+  const { studio } = useStudio();
+  // En una cadena el menú es único para todas las sedes (se guarda sobre la
+  // cadena, no sobre la sede activa): el copy tiene que decirlo, porque antes
+  // decía "todo el estudio" y una dueña de cadena lo leía como "toda la cadena".
+  const enCadena = Boolean(studio?.cadenaId);
   const [items, setItems] = useState<string[]>(MODULOS.map((m) => m.href));
   const [ocultos, setOcultos] = useState<Set<string>>(new Set());
-  const [posicion, setPosicion] = useState<MenuPosicion>('lateral');
   const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando');
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
@@ -53,7 +57,6 @@ export function MenuEditor() {
         const orden = [...l.orden.filter((h) => todos.includes(h)), ...todos.filter((h) => !l.orden.includes(h))];
         setItems(orden);
         setOcultos(new Set(l.ocultos));
-        setPosicion(l.menuPosition);
       })
       .catch(() => {})
       .finally(() => {
@@ -86,9 +89,9 @@ export function MenuEditor() {
     setGuardando(true);
     setAviso(null);
     try {
-      await guardarLayoutApi({ orden: [], ocultos: [...ocultos], menuPosition: posicion });
+      await guardarLayoutApi({ orden: [], ocultos: [...ocultos] });
       window.dispatchEvent(new CustomEvent('tentare-layout-changed'));
-      setAviso({ tipo: 'ok', texto: 'Menú guardado y aplicado.' });
+      setAviso({ tipo: 'ok', texto: enCadena ? 'Menú guardado y aplicado a todas las sedes.' : 'Menú guardado y aplicado.' });
     } catch (e) {
       setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
     } finally {
@@ -99,7 +102,6 @@ export function MenuEditor() {
   function restaurar() {
     setItems(MODULOS.map((m) => m.href));
     setOcultos(new Set());
-    setPosicion('lateral');
     setAviso(null);
   }
 
@@ -108,29 +110,9 @@ export function MenuEditor() {
   return (
     <div className="space-y-4 max-w-xl">
       <p className="text-[13px] text-muted-foreground">
-        Oculta los módulos que tu estudio no use. El orden es siempre el mismo para que cualquier persona del equipo se oriente igual. Se aplica a todo el estudio.
+        Oculta los módulos que {enCadena ? 'tu cadena' : 'tu estudio'} no use. El orden es siempre el mismo para que cualquier persona del equipo se oriente igual.{' '}
+        {enCadena ? 'Se aplica a todas las sedes de tu cadena.' : 'Se aplica a todo el estudio.'}
       </p>
-
-      {/* Posición del menú */}
-      <div className="space-y-2">
-        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Posición del menú</p>
-        <div className="flex gap-2">
-          {([['lateral', 'Lateral'], ['superior', 'Superior']] as const).map(([val, label]) => (
-            <button
-              key={val}
-              onClick={() => { setPosicion(val); setAviso(null); }}
-              className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
-                posicion === val ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <p className="text-[11.5px] text-muted-foreground">
-          {posicion === 'superior' ? 'Barra horizontal arriba (escritorio). En móvil se mantiene la barra inferior.' : 'Menú vertical a la izquierda (por defecto).'}
-        </p>
-      </div>
 
       <div className="space-y-1.5">
         {items.map((href) => {
