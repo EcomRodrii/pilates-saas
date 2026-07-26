@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
+import { AvisoCambioDeSede } from '@/components/layout/sede-activa';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { usePermisos } from '@/lib/permisos';
@@ -81,6 +82,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <PanelPrivacyProvider>
       <PanelThemeProvider className="min-h-screen bg-background">
         <Sidebar />
+        {/* Cambiar de sede recarga el panel entero y aterrizas en un dashboard
+            idéntico salvo por los datos: esto es lo único que confirma el salto. */}
+        <AvisoCambioDeSede />
         <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200">
           <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
             <Topbar />
