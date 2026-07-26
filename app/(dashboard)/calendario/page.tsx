@@ -669,6 +669,13 @@ function SessionSidebar({
               </button>
             ) : (
               <div className="mb-3 space-y-2">
+                {/* Que lo sepa antes de elegir un nombre, no después de haberle
+                    dicho a la clienta que ya está apuntada. */}
+                {sesion.confirmadas >= sesion.aforoMaximo && (
+                  <p className="text-[11px] font-semibold text-warning">
+                    Clase llena ({sesion.confirmadas}/{sesion.aforoMaximo}) — quien añadas entrará en lista de espera.
+                  </p>
+                )}
                 <input
                   className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground"
                   placeholder="Buscar clienta..."
@@ -1370,6 +1377,9 @@ export default function Calendario() {
   const [errorSesion, setErrorSesion] = useState<string | null>(null);
   // F0 · E1 — socia sin bono válido añadida desde el panel: para y pide decisión.
   const [avisoSinBono, setAvisoSinBono] = useState<{ sesionId: string; socioId: string } | null>(null);
+  const [confirmarEspera, setConfirmarEspera] = useState<
+    { sesionId: string; socioId: string; nombre: string; posicion: number } | null
+  >(null);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3500);
@@ -1839,6 +1849,26 @@ export default function Calendario() {
       setAvisoSinBono({ sesionId, socioId });
       return;
     }
+    anadirOPreguntarEspera(sesionId, socioId);
+  }
+
+  // Meter a alguien en una clase LLENA no la apunta: la deja en lista de espera.
+  // Antes eso pasaba en silencio —solo quedaba un "Espera #1" en letra pequeña en
+  // la lista— y la dueña, con la clienta delante en el mostrador, le decía que
+  // estaba apuntada cuando no lo estaba. Se pregunta ANTES, que es cuando aún
+  // puede decidir otra cosa.
+  function anadirOPreguntarEspera(sesionId: string, socioId: string) {
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
+    if (estado === 'LISTA_ESPERA') {
+      const socio = socios.find(s => s.id === socioId);
+      setConfirmarEspera({
+        sesionId, socioId,
+        nombre: socio ? `${socio.nombre} ${socio.apellidos}`.trim() : 'Esta clienta',
+        posicion: posicionEspera ?? 1,
+      });
+      return;
+    }
     confirmarAddReserva(sesionId, socioId);
   }
 
@@ -1867,7 +1897,9 @@ export default function Calendario() {
     if (precio != null && precio > 0) {
       addRecibo({ socioId, suscripcionId: null, concepto: 'Clase suelta', importe: precio, fechaVencimiento: new Date().toISOString().slice(0, 10) });
     }
-    confirmarAddReserva(sesionId, socioId);
+    // También por aquí: cobrarle una clase suelta y dejarla en espera sin decirlo
+    // sería peor todavía, porque ya ha pagado.
+    anadirOPreguntarEspera(sesionId, socioId);
     setAvisoSinBono(null);
     setToast(precio ? 'Clase suelta cobrada (recibo pendiente) y socia añadida' : 'Socia añadida');
   }
@@ -2385,6 +2417,39 @@ export default function Calendario() {
           {toast}
         </div>
       )}
+
+      {/* Clase llena: se pregunta ANTES de dejar a nadie en lista de espera. */}
+      <Dialog open={confirmarEspera !== null} onOpenChange={open => !open && setConfirmarEspera(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
+              Esta clase está llena
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-muted-foreground mt-2">
+            <strong className="text-foreground">{confirmarEspera?.nombre}</strong> no entra en la
+            clase: quedaría en <strong className="text-foreground">lista de espera, en el puesto nº {confirmarEspera?.posicion}</strong>.
+            Solo entrará si alguien cancela.
+          </p>
+          <div className="flex gap-2 mt-4">
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
+              onClick={() => setConfirmarEspera(null)}
+            >
+              No, déjalo
+            </button>
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
+              onClick={() => {
+                if (confirmarEspera) confirmarAddReserva(confirmarEspera.sesionId, confirmarEspera.socioId);
+                setConfirmarEspera(null);
+              }}
+            >
+              Sí, a la lista de espera
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* La clase ya está guardada; lo único que se decide aquí es si se avisa. */}
       <Dialog open={avisoInstructora !== null} onOpenChange={open => !open && setAvisoInstructora(null)}>
