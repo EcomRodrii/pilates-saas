@@ -653,6 +653,31 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }).catch(err => { console.error('Error cargando datos públicos:', err); setDataLoaded(true); });
   }
 
+  // El portal es una PWA/SPA que la clienta deja abierta. cargarPublico() solo
+  // corría al montar y tras el login: si el estudio cancela o mueve una clase en
+  // el panel, la app de la clienta se quedaba con el snapshot del montaje y
+  // seguía mostrando la clase como disponible o a la hora vieja. Al volver a
+  // primer plano, re-sincroniza desde el servidor. Throttle de 15s para no
+  // re-pedir en cada cambio de pestaña.
+  useEffect(() => {
+    if (!publicSlug) return;
+    let ultima = Date.now();
+    function alPrimerPlano() {
+      if (document.visibilityState !== 'visible') return;
+      const ahora = Date.now();
+      if (ahora - ultima < 15_000) return;
+      ultima = ahora;
+      cargarPublico();
+    }
+    document.addEventListener('visibilitychange', alPrimerPlano);
+    window.addEventListener('focus', alPrimerPlano);
+    return () => {
+      document.removeEventListener('visibilitychange', alPrimerPlano);
+      window.removeEventListener('focus', alPrimerPlano);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicSlug]);
+
   useEffect(() => {
     // Ruta pública (reserva/portal/kiosk): los datos vienen del proxy de
     // servidor scopeado (service-role), NO del acceso anónimo directo. Solo el
