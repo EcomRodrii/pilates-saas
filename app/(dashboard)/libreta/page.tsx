@@ -48,7 +48,7 @@ export default function Libreta() {
       <div className="no-print flex items-center justify-between mb-4">
         <div>
           <h1 className="text-lg font-bold text-foreground">Libreta del estudio</h1>
-          <p className="text-sm text-muted-foreground">Copia de tus socias siempre al día: imprímela o guárdala como PDF cuando quieras.</p>
+          <p className="text-sm text-muted-foreground">Copia de tus clientas siempre al día: imprímela o guárdala como PDF cuando quieras.</p>
         </div>
         <button
           onClick={() => window.print()}
@@ -61,7 +61,7 @@ export default function Libreta() {
       <div className="libreta-doc border border-border rounded-xl p-8 bg-card">
         <div className="mb-6">
           <h2 className="text-2xl font-extrabold text-foreground">Tu estudio en Tentare</h2>
-          <p className="text-sm text-muted-foreground mt-1">{studio?.nombre ?? 'Mi estudio'} · {mes} · {filas.length} socias activas</p>
+          <p className="text-sm text-muted-foreground mt-1">{studio?.nombre ?? 'Mi estudio'} · {mes} · {filas.length} clientas activas</p>
         </div>
 
         <table className="w-full text-[13px] border-collapse">
@@ -96,7 +96,7 @@ export default function Libreta() {
           </tbody>
         </table>
 
-        {filas.length === 0 && <p className="text-sm text-muted-foreground py-6 text-center">No hay socias activas todavía.</p>}
+        {filas.length === 0 && <p className="text-sm text-muted-foreground py-6 text-center">No hay clientas activas todavía.</p>}
 
         <p className="text-[11px] text-muted-foreground mt-6 leading-relaxed">
           Esta es tu libreta: cada socia con su plan, sus sesiones, sus recuperaciones vivas y su plaza fija. Son tus datos, siempre contigo.

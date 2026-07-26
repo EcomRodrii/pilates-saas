@@ -315,7 +315,7 @@ export function Sidebar() {
                 <button
                   key={val}
                   onClick={() => setNavMode(val)}
-                  title={val === 'esencial' ? 'Solo el día a día: agenda, clientes, cobros, equipo e informes' : 'Todas las funciones'}
+                  title={val === 'esencial' ? 'Solo el día a día: agenda, clientas, cobros, equipo e informes' : 'Todas las funciones'}
                   className={cn(
                     'flex-1 py-1 rounded-full text-[10.5px] font-bold transition-all',
                     navMode === val ? 'bg-brand text-brand-foreground' : 'text-white/40',

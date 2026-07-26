@@ -101,7 +101,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
           onChange={e => setDestinatario(e.target.value)}
           className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
         >
-          <option value="todos">Todos los miembros ({socios.length})</option>
+          <option value="todos">Todas las clientas ({socios.length})</option>
           {socios.map(s => (
             <option key={s.id} value={s.id}>{s.nombre} {s.apellidos}</option>
           ))}

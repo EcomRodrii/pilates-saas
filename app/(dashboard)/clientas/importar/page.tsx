@@ -197,7 +197,7 @@ export default function ImportarSociasPage() {
 
           <div className="flex items-center gap-4 text-[13px]">
             <button
-              onClick={() => descargar('plantilla-miembros-tentare.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO))}
+              onClick={() => descargar('plantilla-clientas-tentare.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO))}
               className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline"
             >
               <Download size={14} /> Descargar plantilla de ejemplo

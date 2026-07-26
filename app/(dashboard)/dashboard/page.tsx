@@ -677,7 +677,7 @@ export default function Dashboard() {
           actions={
             <>
               <Link href="/clientas?nuevo=1" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
-                <UserPlus /> Nuevo cliente
+                <UserPlus /> Nueva clienta
               </Link>
               {/* CONGELADO (feature-freeze PMF): se quitó el botón "Abrir caja" → /pos. */}
             </>
@@ -688,7 +688,7 @@ export default function Dashboard() {
         <div {...wrap('resumen')}>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Alumnos hoy', alert: false, privada: false },
+            { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Clientas hoy', alert: false, privada: false },
             { href: '/informes', Icon: Activity, value: `${ocupacionMedia}%`, label: 'Ocupación semana', alert: ocupacionMedia >= 85, privada: false },
             { href: '/cobros', Icon: CreditCard, value: pendientesTotal, label: 'Pagos pendientes', alert: pendientesTotal > 0, privada: false },
             { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0, privada: false },
@@ -988,7 +988,7 @@ export default function Dashboard() {
                   href="/clientas?nuevo=1"
                   className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                 >
-                  <UserPlus size={14} /> Nuevo cliente
+                  <UserPlus size={14} /> Nueva clienta
                 </Link>
                 <Link
                   href="/calendario"
