@@ -572,6 +572,10 @@ export interface RowSocios {
   aceptacion_fecha: string | null;
   aceptacion_firma: string | null;
   aceptacion_version: string | null;
+  // 0104: de dónde salió la firma. Sin esto, una aceptación tecleada en el
+  // mostrador por el estudio es indistinguible de una firmada por la socia.
+  aceptacion_origen: string | null;
+  aceptacion_por: string | null;
   stripe_customer_id: string | null;
   stripe_payment_method_id: string | null;
   avatar: string | null;

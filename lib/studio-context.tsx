@@ -1162,11 +1162,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }): Promise<ResultadoEscritura> {
     const { planId, aceptacionContrato, ...socioFields } = fields;
     const ahora = new Date().toISOString();
+    // Si la firma se recogió en el mostrador, se deja constancia de QUIÉN la
+    // introdujo: es lo que distingue una firma de la socia de una tecleada por
+    // el estudio en su nombre (RGPD art. 7.1, prueba del consentimiento).
+    const aceptacion = aceptacionContrato?.origen === 'MOSTRADOR'
+      ? { ...aceptacionContrato, introducidaPor: aceptacionContrato.introducidaPor ?? actorNombre ?? 'el estudio' }
+      : aceptacionContrato;
     const nuevaSocia: Socio = {
       id: `soc-${uid()}`,
       studioId: getCurrentStudioId(),
       fechaAlta: ahora,
-      ...(aceptacionContrato ? { aceptacionContrato } : {}),
+      ...(aceptacion ? { aceptacionContrato: aceptacion } : {}),
       ...socioFields,
     };
 

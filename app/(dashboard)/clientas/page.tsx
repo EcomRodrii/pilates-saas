@@ -412,11 +412,18 @@ export default function Socios() {
       activo: true,
       camposExtra: form.camposExtra,
       planId: form.planId || undefined,
-      aceptacionContrato: {
-        fecha: new Date().toISOString(),
-        firma: firma.trim(),
-        versionTexto,
-      },
+      // Sin firma no se guarda ninguna aceptación: la socia queda pendiente y
+      // el portal se la pedirá a ella (reservar/[slug] ya lo hace cuando no hay
+      // `aceptacionContrato`). Con firma, se marca que la recogió el estudio.
+      aceptacionContrato: firma.trim()
+        ? {
+            fecha: new Date().toISOString(),
+            firma: firma.trim(),
+            versionTexto,
+            origen: 'MOSTRADOR' as const,
+            // Quién la recogió lo rellena el contexto, que sí sabe quién opera.
+          }
+        : undefined,
     });
     setGuardando(false);
     // Si la BD la rechaza, el diálogo se queda abierto con los datos puestos:
@@ -1087,31 +1094,52 @@ export default function Socios() {
                 </span>
               </label>
 
-              {/* Digital signature */}
-              <FF label="Firma (nombre completo como firma digital)">
+              {/* Firma. Es OPCIONAL a propósito: si la clienta no está delante,
+                  obligar a firmar aquí significaba que el estudio tecleara su
+                  nombre por ella — y quedaba registrado como si hubiera firmado
+                  ella misma. Sin firma, la socia se crea igual y la firma se le
+                  pide la primera vez que entre a reservar. */}
+              <FF
+                label="Firma de la clienta (opcional)"
+                description="Solo si está delante y firma ella. Si se ha apuntado por teléfono, déjalo vacío: se lo pediremos cuando entre a reservar."
+              >
                 <div className="relative">
                   <PenLine size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     className={inputCls + ' pl-8 font-medium italic'}
-                    placeholder="Escribe tu nombre completo como firma…"
+                    placeholder="Nombre completo de la clienta…"
                     value={firma}
                     onChange={(e) => setFirma(e.target.value)}
                   />
                 </div>
               </FF>
 
-              {/* Acceptance summary */}
-              {aceptado && firma.trim() && (
-                <div className="flex items-start gap-2 px-3 py-2.5 bg-success/10 border border-success/20 rounded-lg">
-                  <ShieldCheck size={14} className="text-success shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[12px] font-semibold text-success">Contrato listo para firmar</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Firmado digitalmente por <span className="font-medium text-foreground">{firma.trim()}</span> —{' '}
-                      {new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </p>
+              {/* Resumen: dice exactamente qué se va a guardar y de quién. */}
+              {aceptado && (
+                firma.trim() ? (
+                  <div className="flex items-start gap-2 px-3 py-2.5 bg-success/10 border border-success/20 rounded-lg">
+                    <ShieldCheck size={14} className="text-success shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[12px] font-semibold text-success">Firmado en el estudio</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Se guardará como firmado por <span className="font-medium text-foreground">{firma.trim()}</span>,
+                        recogido presencialmente por el estudio el{' '}
+                        {new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}.
+                      </p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-start gap-2 px-3 py-2.5 bg-warning/10 border border-warning/20 rounded-lg">
+                    <FileText size={14} className="text-warning shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[12px] font-semibold text-warning">Queda pendiente de firma</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        La clienta se crea igualmente. Se le pedirá aceptar el contrato la primera vez
+                        que entre a reservar, y firmará ella.
+                      </p>
+                    </div>
+                  </div>
+                )
               )}
             </div>
           )}
@@ -1144,7 +1172,7 @@ export default function Socios() {
                 onClick={showForm === 'nueva' ? handleCrear : handleEditar}
                 disabled={
                   guardando || (showForm === 'nueva'
-                    ? !aceptado || !firma.trim()
+                    ? !aceptado
                     : !form.nombre || !form.apellidos || !form.email)
                 }
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
@@ -1152,7 +1180,9 @@ export default function Socios() {
                 {guardando && <Loader2 size={14} className="animate-spin" />}
                 {guardando
                   ? 'Guardando…'
-                  : showForm === 'nueva' ? 'Crear clienta y firmar' : 'Guardar cambios'}
+                  : showForm === 'nueva'
+                    ? (firma.trim() ? 'Crear clienta y firmar' : 'Crear clienta')
+                    : 'Guardar cambios'}
               </button>
             )}
           </div>

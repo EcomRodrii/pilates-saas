@@ -1281,7 +1281,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               <div className="space-y-2">
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-success/10">
                   <CheckCircle2 size={13} className="text-success shrink-0" />
-                  <span className="text-xs font-bold text-success">Contrato firmado</span>
+                  <span className="text-xs font-bold text-success">Contrato aceptado</span>
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1 pt-1">
                   <div className="flex items-center gap-1.5">
@@ -1292,10 +1292,30 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     <Calendar size={11} className="shrink-0" />
                     <span>{fecha(socio.aceptacionContrato.fecha)}</span>
                   </div>
+                  {/* De quién es la firma. Una recogida en el mostrador no vale
+                      como consentimiento de la socia y no puede parecerlo. */}
+                  {socio.aceptacionContrato.origen === 'MOSTRADOR' && (
+                    <p className="text-[11px] text-warning pt-0.5">
+                      Recogida en el estudio
+                      {socio.aceptacionContrato.introducidaPor ? ` por ${socio.aceptacionContrato.introducidaPor}` : ''}
+                      {' '}— no la firmó ella desde su portal.
+                    </p>
+                  )}
+                  {socio.aceptacionContrato.origen === 'PORTAL' && (
+                    <p className="text-[11px] text-success pt-0.5">Firmada por ella desde su portal.</p>
+                  )}
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Sin contrato firmado.</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-warning/10">
+                  <AlertTriangle size={13} className="text-warning shrink-0" />
+                  <span className="text-xs font-bold text-warning">Pendiente de firma</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Se le pedirá aceptar el contrato la primera vez que entre a reservar.
+                </p>
+              </div>
             )}
           </Card>
 
