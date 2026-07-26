@@ -639,6 +639,7 @@ export interface RowStudios {
   cancelacion_ventana_horas: number | null;
   cancelacion_devolver_bono_tardia: boolean | null;
   reserva_exigir_plan: boolean | null;
+  compra_publica_modo: string | null;
   reserva_max_simultaneas: number | null;
   stripe_customer_id: string | null;
   subscription_id: string | null;

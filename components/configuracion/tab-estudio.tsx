@@ -41,6 +41,7 @@ type PoliticaForm = {
   cancelacionDevolverBonoTardia: boolean;
   reservaExigirPlan: boolean;
   reservaMaxSimultaneas: number | null;
+  compraPublicaModo: 'EXIGIR_REGISTRO' | 'CREAR_FICHA';
 };
 
 function studioToPolitica(s: Studio | null): PoliticaForm {
@@ -49,6 +50,7 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     cancelacionDevolverBonoTardia: s?.cancelacionDevolverBonoTardia ?? false,
     reservaExigirPlan: s?.reservaExigirPlan ?? false,
     reservaMaxSimultaneas: s?.reservaMaxSimultaneas ?? null,
+    compraPublicaModo: s?.compraPublicaModo ?? 'EXIGIR_REGISTRO',
   };
 }
 
@@ -359,6 +361,40 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
             </span>
             <Toggle on={pol.reservaExigirPlan} onChange={v => setPol(p => ({ ...p, reservaExigirPlan: v }))} />
           </label>
+          {/* Quién puede comprar desde el enlace público sin tener ficha. Antes
+              no había ajuste: se cobraba y no se entregaba nada (el webhook
+              ignoraba el plan comprado). */}
+          <div>
+            <p className={labelCls}>Si alguien compra un bono desde tu enlace público y aún no es clienta</p>
+            <div className="space-y-2 mt-1.5">
+              {([
+                ['EXIGIR_REGISTRO', 'Que se registre antes de pagar',
+                 'Le pedimos su email y que acepte tus condiciones, y luego paga. Es lo más limpio: nadie paga sin haber aceptado el contrato.'],
+                ['CREAR_FICHA', 'Que pague directamente',
+                 'Cobras primero y le creamos la ficha con el email de su tarjeta. Vendes con menos pasos; a cambio entra sin contrato aceptado y se lo pediremos cuando entre a reservar.'],
+              ] as const).map(([valor, titulo, detalle]) => (
+                <label
+                  key={valor}
+                  className={cn(
+                    'flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors',
+                    pol.compraPublicaModo === valor ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="compra-publica-modo"
+                    className="mt-0.5 accent-[var(--brand)]"
+                    checked={pol.compraPublicaModo === valor}
+                    onChange={() => setPol(p => ({ ...p, compraPublicaModo: valor }))}
+                  />
+                  <span>
+                    <span className="block text-[13px] font-medium text-foreground">{titulo}</span>
+                    <span className="block text-[11px] text-muted-foreground mt-0.5">{detalle}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
           <div>
             <p className={labelCls}>Máximo de reservas simultáneas por clienta</p>
             <input

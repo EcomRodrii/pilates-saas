@@ -55,6 +55,10 @@ export interface Studio {
   cancelacionVentanaHoras: number;
   cancelacionDevolverBonoTardia: boolean;
   reservaExigirPlan: boolean;
+  /** Compra desde el enlace público sin ficha previa (migr 0105).
+   *  EXIGIR_REGISTRO = se registra antes de pagar. CREAR_FICHA = se cobra y
+   *  la ficha se crea con el email verificado por Stripe. */
+  compraPublicaModo: 'EXIGIR_REGISTRO' | 'CREAR_FICHA';
   reservaMaxSimultaneas: number | null;
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
