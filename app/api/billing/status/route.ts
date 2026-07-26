@@ -31,6 +31,11 @@ export async function GET(req: NextRequest) {
   // En prueba: durante el trial, current_period_end de Stripe = fin de la prueba.
   const enPrueba = subscriptionStatus === 'trialing';
   const pruebaTermina = enPrueba ? (studio?.current_period_end ?? null) : null;
+  // Fuera de la prueba ese mismo campo es la fecha del PRÓXIMO COBRO. Ya se
+  // leía de la BD y se tiraba: la pantalla de suscripción decía el plan y nada
+  // más, así que la dueña no veía ni cuánto paga ni cuándo se le cobra. Es su
+  // factura mensual.
+  const periodoTermina = studio?.current_period_end ?? null;
 
   const key = process.env.STRIPE_SECRET_KEY;
   const stripeListo = Boolean(key && !key.startsWith('sk_test_XXXX'));
@@ -50,5 +55,6 @@ export async function GET(req: NextRequest) {
     bloqueado,
     enPrueba,
     pruebaTermina,
+    periodoTermina,
   });
 }
