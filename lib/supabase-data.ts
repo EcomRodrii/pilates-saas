@@ -3773,7 +3773,7 @@ export async function dbUpdateSesionesBatch(ids: string[], changes: Partial<Sesi
   if (error) reportDbError('[dbUpdateSesionesBatch]', error);
 }
 
-export async function dbUpdateSesion(id: string, changes: Partial<Sesion>) {
+export async function dbUpdateSesion(id: string, changes: Partial<Sesion>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('tipoClaseId' in changes) db.tipo_clase_id = changes.tipoClaseId;
   if ('salaId' in changes) db.sala_id = changes.salaId;
@@ -3787,7 +3787,7 @@ export async function dbUpdateSesion(id: string, changes: Partial<Sesion>) {
   if ('googleEventId' in changes) db.google_event_id = changes.googleEventId;
   if ('serieId' in changes) db.serie_id = changes.serieId;
   const { error } = await supabase.from('sesiones').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateSesion]', error);
+  return error ? falloEscritura('[dbUpdateSesion]', error) : ESCRITURA_OK;
 }
 
 export async function dbDeleteSesion(id: string) {

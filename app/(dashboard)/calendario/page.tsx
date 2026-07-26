@@ -1662,7 +1662,7 @@ export default function Calendario() {
     setShowForm(null);
   }
 
-  function editarSesion() {
+  async function editarSesion() {
     if (!sesionId || horaInvalida) return;
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
     // Comparar INSTANTES, no cadenas. Postgres devuelve la marca de tiempo como
@@ -1676,7 +1676,7 @@ export default function Calendario() {
     // Cambiar de instructora también importa a quien está apuntada (va a clase
     // POR la profesora), así que también se avisa.
     const cambioInstructora = !!sesionActual && sesionActual.instructorId !== form.instructorId;
-    updateSesion(sesionId, {
+    const guardado = await updateSesion(sesionId, {
       tipoClaseId: form.tipoClaseId,
       salaId: form.salaId,
       instructorId: form.instructorId,
@@ -1685,6 +1685,9 @@ export default function Calendario() {
       aforoMaximo: form.aforoMaximo,
       notas: form.notas || null,
     });
+    // Si la BD rechazó el cambio (p.ej. solape de sala/instructora), NO avisamos
+    // de un movimiento que no ocurrió ni cerramos el formulario: se ve el motivo.
+    if (!guardado.ok) { setToast(guardado.error); return; }
     const apuntadas = reservas.filter(
       r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
     ).length;
@@ -1720,11 +1723,12 @@ export default function Calendario() {
   // Sustitución de instructora (avisa que no puede dar la clase, típicamente
   // con poco margen): reasigna la sesión y deja rastro en Actividad reciente,
   // igual que el resto de cambios de equipo.
-  function asignarSustituta(nuevoInstructorId: string) {
+  async function asignarSustituta(nuevoInstructorId: string) {
     if (!sesionActual) return;
     const anterior = nombreInstructor(sesionActual.instructorId);
     const nueva = nombreInstructor(nuevoInstructorId);
-    updateSesion(sesionActual.id, { instructorId: nuevoInstructorId });
+    const guardado = await updateSesion(sesionActual.id, { instructorId: nuevoInstructorId });
+    if (!guardado.ok) { setToast(guardado.error); return; }
     addActividadReciente(
       'SESION_REASIGNADA',
       `Clase de ${sesionActual.tipoClase.nombre} (${formatHora(sesionActual.inicio)}) reasignada: ${anterior} → ${nueva}`,
@@ -1775,11 +1779,14 @@ export default function Calendario() {
     setToast(`Serie actualizada · ${n} clases`);
   }
 
-  function cancelarSesion() {
+  async function cancelarSesion() {
     if (!sesionId) return;
-    // Avisar por email a cada socia con plaza (confirmada/asistida) ANTES de
-    // limpiar la selección: la promesa "las socias serán notificadas" ahora se
-    // cumple. Best-effort (si Resend no está, no bloquea la cancelación).
+    // Escribe-primero: cancelar en BD ANTES de avisar. Si la BD lo rechaza, no
+    // decimos "cancelada" ni escribimos a las socias de algo que no ha pasado.
+    const guardado = await updateSesion(sesionId, { cancelada: true });
+    if (!guardado.ok) { setToast(guardado.error); return; }
+    // Ya cancelada en BD: avisar por email a cada socia con plaza
+    // (confirmada/asistida). Best-effort (si Resend no está, no bloquea).
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     if (sesion) {
       const inicio = new Date(sesion.inicio);
@@ -1800,7 +1807,6 @@ export default function Calendario() {
           });
         });
     }
-    updateSesion(sesionId, { cancelada: true });
     // In-app/push a las apuntadas vía Notification Engine (el email ya salió arriba).
     void avisarClaseCancelada(sesionId);
     setSesionId(null);
