@@ -1679,7 +1679,7 @@ export default function Calendario() {
       r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
     ).length;
 
-    if (sesionActual && apuntadas > 0 && (cambioHora || cambioSala || cambioInstructora)) {
+    if (sesionActual && (cambioHora || cambioSala || cambioInstructora)) {
       const d = new Date(nuevoInicio);
       const cuando = cuandoEstudio(d);
       const clase = tiposClase.find(t => t.id === form.tipoClaseId)?.nombre ?? sesionActual.tipoClase.nombre;
@@ -1687,15 +1687,18 @@ export default function Calendario() {
       const instructora = cambioInstructora ? (instructores.find(x => x.id === form.instructorId)?.nombre ?? '') : '';
       const datos = { clase, cuando, sala, instructora };
 
-      // Cambiar la HORA o la SALA se avisa siempre: la alumna no puede venir a
-      // una clase que se ha movido sin que se lo digan.
+      // Cambiar la HORA o la SALA se avisa SIEMPRE. NO se condiciona a `apuntadas`:
+      // ese recuento sale del snapshot de `reservas` del panel, que no es realtime
+      // y puede no ver una reserva hecha desde el portal → vetaba el aviso de un
+      // aplazamiento real (la clienta reservó en el móvil y no le llegó el cambio).
+      // El servidor resuelve las destinatarias desde la BD y no crea nada si no
+      // hay ninguna, así que el guard de cliente sobra y hacía daño.
       //
-      // Cambiar solo la INSTRUCTORA es distinto: es la dueña quien sabe si eso
-      // merece un mensaje ("hoy da Laura") o no. Antes se mandaba en silencio,
-      // sin decírselo siquiera. Y era el momento que ella pedía: "que al
-      // cambiar la instructora me preguntes, ¿aviso a las 8 alumnas?".
+      // Cambiar solo la INSTRUCTORA es distinto: es la dueña quien decide si eso
+      // merece un mensaje ("hoy da Laura"). Se le pregunta "¿aviso a las N
+      // alumnas?" solo si el panel ve apuntadas (si no, no hay número que mostrar).
       if (cambioInstructora && !cambioHora && !cambioSala) {
-        setAvisoInstructora({ sesionId, apuntadas, instructora, datos });
+        if (apuntadas > 0) setAvisoInstructora({ sesionId, apuntadas, instructora, datos });
       } else {
         void avisarClaseModificada(sesionId, datos);
       }
@@ -1748,7 +1751,8 @@ export default function Calendario() {
         if (s.serieId !== base.serieId || s.inicio < base.inicio) continue;
         const nuevoInicioS = toISO(localDate(new Date(s.inicio)), form.horaInicio);
         if (s.inicio === nuevoInicioS && s.salaId === form.salaId) continue;
-        if (!reservas.some(r => r.sesionId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))) continue;
+        // No se filtra por `reservas` (snapshot del panel, no realtime): el
+        // servidor resuelve las apuntadas desde la BD y no crea aviso si no hay.
         const d = new Date(nuevoInicioS);
         // Anclar Europe/Madrid como el resto del sistema (emit.ts, contacto.ts): es
         // código de cliente, así que sin la timeZone la hora que ven las socias sale
