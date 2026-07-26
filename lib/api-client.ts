@@ -462,6 +462,9 @@ export interface EstadoBilling {
   // Trial: enPrueba = suscripción en periodo de prueba; pruebaTermina = ISO fin.
   enPrueba?: boolean;
   pruebaTermina?: string | null;
+  // Fin del periodo facturado = fecha del próximo cobro (ISO). Fuera de la
+  // prueba es lo que la dueña quiere ver: cuándo se le pasa el recibo.
+  periodoTermina?: string | null;
 }
 
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve

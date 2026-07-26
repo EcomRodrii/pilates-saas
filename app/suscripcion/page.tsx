@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { PLANES, PLAN_INFO, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
 import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, type EstadoBilling } from '@/lib/api-client';
+import { TZ_ESTUDIO } from '@/lib/utils';
 
 const ACC = '#FFC8E2';
 
@@ -75,6 +76,12 @@ export default function SuscripcionPage() {
   const diasPrueba = estado?.pruebaTermina
     ? Math.max(0, Math.ceil((new Date(estado.pruebaTermina).getTime() - Date.now()) / 86400000))
     : null;
+  // Fecha del próximo cobro, en cristiano. Durante la prueba es el primer cargo.
+  const proximoCobro = estado?.periodoTermina
+    ? new Date(estado.periodoTermina).toLocaleDateString('es-ES', {
+        day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ_ESTUDIO,
+      })
+    : null;
 
   return (
     <div style={{ minHeight: '100vh', background: '#EEEEE8', color: '#1A1A1A' }}>
@@ -109,18 +116,38 @@ export default function SuscripcionPage() {
 
         {activo ? (
           <div style={{ maxWidth: 460, margin: '0 auto', background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 20, padding: 32, textAlign: 'center' }}>
+            {/* Esta pantalla decía el nombre del plan y nada más. Es la factura
+                mensual del estudio: hay que ver el importe y cuándo se cobra,
+                que son datos que ya teníamos —el precio está en el catálogo y
+                la fecha la lee /api/billing/status de la BD—. La tarjeta vive
+                en Stripe, así que a eso se llega por el portal. */}
             <div style={{ fontSize: 13, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 8 }}>Plan actual</div>
             <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>{PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].nombre}</div>
-            <div style={{ fontSize: 14, color: '#5A5A52', marginBottom: 24 }}>{PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].resumen}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
+              {PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].precioMes}€
+              <span style={{ fontSize: 14, fontWeight: 500, color: '#8E8E86' }}> al mes, IVA incluido</span>
+            </div>
+            <div style={{ fontSize: 14, color: '#5A5A52', marginBottom: proximoCobro ? 12 : 24 }}>{PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].resumen}</div>
+            {proximoCobro && (
+              <div style={{ fontSize: 14, color: '#5A5A52', marginBottom: 24 }}>
+                {enPrueba ? 'Primer cobro el ' : 'Próximo cobro el '}
+                <strong style={{ color: '#1A1A1A' }}>{proximoCobro}</strong>
+              </div>
+            )}
             {enPrueba && diasPrueba !== null && (
               <div style={{ background: '#E7F6EC', border: '1px solid #B6E0C4', color: '#1E7A43', borderRadius: 10, padding: '10px 14px', fontSize: 13.5, marginBottom: 20 }}>
                 Prueba gratuita — te quedan <strong>{diasPrueba} día{diasPrueba === 1 ? '' : 's'}</strong>. Después se activará tu plan automáticamente.
               </div>
             )}
             {esPropietaria ? (
-              <button onClick={abrirPortal} disabled={accion === 'portal'} style={btnPrimary}>
-                {accion === 'portal' ? 'Abriendo…' : 'Gestionar suscripción'}
-              </button>
+              <>
+                <button onClick={abrirPortal} disabled={accion === 'portal'} style={btnPrimary}>
+                  {accion === 'portal' ? 'Abriendo…' : 'Ver facturas y método de pago'}
+                </button>
+                <p style={{ fontSize: 13, color: '#8E8E86', margin: '10px 0 0' }}>
+                  Ahí puedes cambiar la tarjeta, descargar tus facturas o cambiar de plan.
+                </p>
+              </>
             ) : (
               <p style={{ fontSize: 14, color: '#8E8E86', margin: 0 }}>Solo la propietaria puede gestionar la facturación.</p>
             )}
