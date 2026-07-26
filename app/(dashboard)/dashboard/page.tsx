@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 import { fetchLayout, authHeader } from '@/lib/api-client';
+import { dbStatsClientas } from '@/lib/supabase-data';
 import { aplicarLayout, DEFAULT_LAYOUT } from '@/lib/layout-runtime';
 import type { LayoutConfig } from '@/lib/layout-schema';
 import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
@@ -636,26 +637,20 @@ export default function Dashboard() {
     );
     const bonosCaducanHoy = suscripciones.filter(s => s.estado === 'ACTIVA' && s.fechaFin === hoyStr).length;
 
-    // P0-27: última asistencia por socia en UNA pasada (antes: por cada socia,
-    // filtrar+ordenar todas las reservas + sesiones.find → O(socios×reservas×sesiones)).
-    const ultimaAsistidaISO = new Map<string, string>();
-    for (const r of reservas) {
-      if (r.estado !== 'ASISTIDA') continue;
-      const ses = sesionById.get(r.sesionId);
-      if (!ses) continue;
-      const prev = ultimaAsistidaISO.get(r.socioId);
-      if (!prev || ses.inicio > prev) ultimaAsistidaISO.set(r.socioId, ses.inicio);
-    }
-    const nowMs = now.getTime();
-    const inactivas30d = socios.filter(s => {
-      if (!s.activo) return false;
-      const ultima = ultimaAsistidaISO.get(s.id);
-      if (!ultima) return false;
-      return Math.floor((nowMs - new Date(ultima).getTime()) / 86400000) >= 30;
-    }).length;
+    return { alumnosHoy: alumnosHoyIds.size, bonosCaducanHoy };
+  }, [reservas, sesionesHoyIds, hoyStr, suscripciones]);
 
-    return { alumnosHoy: alumnosHoyIds.size, bonosCaducanHoy, inactivas30d };
-  }, [reservas, sesionById, sesionesHoyIds, hoyStr, suscripciones, socios, now]);
+  // "Sin venir 30d" sale de la MISMA fuente que /clientas, que es a donde lleva
+  // la tarjeta. Antes se recalculaba aquí con OTRA definición —exigía `activo` y
+  // descartaba a quien no ha venido NUNCA, dos criterios que la RPC no aplica—,
+  // así que el número de la tarjeta y el de la página a la que te manda no
+  // coincidían. Compartir la fuente hace imposible que vuelvan a divergir.
+  const [statsClientas, setStatsClientas] = useState({ total: 0, activas: 0, conBono: 0, inactivas30d: 0 });
+  useEffect(() => {
+    let vivo = true;
+    void dbStatsClientas().then(r => { if (vivo) setStatsClientas(r); });
+    return () => { vivo = false; };
+  }, []);
 
   // ── Trend direction ──────────────────────────────────────────────────────────
   const TrendIcon =
@@ -697,7 +692,7 @@ export default function Dashboard() {
             { href: '/informes', Icon: Activity, value: `${ocupacionMedia}%`, label: 'Ocupación semana', alert: ocupacionMedia >= 85, privada: false },
             { href: '/cobros', Icon: CreditCard, value: pendientesTotal, label: 'Pagos pendientes', alert: pendientesTotal > 0, privada: false },
             { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0, privada: false },
-            { href: '/clientas', Icon: Clock, value: resumenHoy.inactivas30d, label: '30d sin venir', alert: resumenHoy.inactivas30d > 0, privada: false },
+            { href: '/clientas', Icon: Clock, value: statsClientas.inactivas30d, label: 'Sin venir 30d', alert: statsClientas.inactivas30d > 0, privada: false },
             { href: '/informes', Icon: TrendingUp, value: `${ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €`, label: 'Ingresos del mes', alert: false, privada: true },
           ].map(({ href, Icon, value, label, alert, privada }) => (
             <Link

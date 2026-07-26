@@ -460,11 +460,11 @@ export default function Informes() {
           >
             <Activity size={17} style={{ color: 'var(--warning)' }} />
           </div>
-          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ticket medio / cliente</p>
+          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ticket medio de quien pagó</p>
           <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
             {fmtEurFull(ticketMedio)}
           </CifraPrivada>
-          <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>por cliente en el periodo</p>
+          <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>solo entre las clientas con algún cobro en el periodo</p>
         </div>
 
         {/* Retención */}
