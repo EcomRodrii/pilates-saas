@@ -115,11 +115,10 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     setModal(null);
   }, [modal, editId, form, addTipoClase, updateTipoClase, showToast]);
 
-  const handleDelete = useCallback(() => {
-    if (confirmDel) {
-      deleteTipoClase(confirmDel);
-      showToast('Tipo de clase eliminado');
-    }
+  const handleDelete = useCallback(async () => {
+    if (!confirmDel) return;
+    const res = await deleteTipoClase(confirmDel);
+    showToast(res.ok ? 'Tipo de clase eliminado' : res.error);
   }, [confirmDel, deleteTipoClase, showToast]);
 
   const canGuardar = form.nombre.trim() && form.duracionMinutos;

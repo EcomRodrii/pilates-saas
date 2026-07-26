@@ -405,7 +405,7 @@ interface StudioContextValue {
   // Tipos de clase (mutable)
   addTipoClase: (fields: Omit<TipoClase, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateTipoClase: (id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>) => void;
-  deleteTipoClase: (id: string) => void;
+  deleteTipoClase: (id: string) => Promise<ResultadoEscritura>;
 
   // Campos personalizados de socia
   camposPersonalizados: CampoPersonalizado[];
@@ -1079,9 +1079,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setTiposClase(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
     dbUpdateTipoClase(id, changes);
   }
-  function deleteTipoClase(id: string) {
+  // Escribe primero y solo quita de pantalla si la BD lo acepta (igual que
+  // deleteSala): borrar un tipo con clases programadas lo rechaza la FK
+  // `sesiones.tipo_clase_id` y antes se borraba en optimista + fire-and-forget.
+  async function deleteTipoClase(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteTipoClase(id);
+    if (!res.ok) return res;
     setTiposClase(prev => prev.filter(t => t.id !== id));
-    dbDeleteTipoClase(id);
+    return res;
   }
 
   // ── Campos personalizados de socia ──────────────────────────────────────────
