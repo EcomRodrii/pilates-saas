@@ -24,7 +24,7 @@ import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSe
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
-import { AvisoSinBono } from '@/components/calendario/aviso-sin-bono';
+import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import type { Socio, Spot } from '@/lib/types';
@@ -1376,7 +1376,9 @@ export default function Calendario() {
   >(null);
   const [errorSesion, setErrorSesion] = useState<string | null>(null);
   // F0 · E1 — socia sin bono válido añadida desde el panel: para y pide decisión.
-  const [avisoSinBono, setAvisoSinBono] = useState<{ sesionId: string; socioId: string } | null>(null);
+  const [avisoSinBono, setAvisoSinBono] = useState<
+    { sesionId: string; socioId: string; motivo: MotivoSinBono } | null
+  >(null);
   const [confirmarEspera, setConfirmarEspera] = useState<
     { sesionId: string; socioId: string; nombre: string; posicion: number } | null
   >(null);
@@ -1863,8 +1865,14 @@ export default function Calendario() {
   // de colarla gratis y en silencio.
   function handleAddReserva(sesionId: string, socioId: string) {
     const hoyISO = new Date().toISOString().slice(0, 10);
-    if (!tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyISO)) {
-      setAvisoSinBono({ sesionId, socioId });
+    // Un bono acotado a Reformer no vale para Mat (0106): el tipo de ESTA clase
+    // decide, no solo si le quedan sesiones.
+    const tipoDeLaClase = sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null;
+    if (!tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyISO, tipoDeLaClase)) {
+      // Distinguir "no le queda bono" de "su bono no es de este tipo": con el
+      // segundo, renovar no arregla nada y el aviso lo diría mal.
+      const tieneAlguno = tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyISO);
+      setAvisoSinBono({ sesionId, socioId, motivo: tieneAlguno ? 'tipo-no-cubierto' : 'sin-bono' });
       return;
     }
     anadirOPreguntarEspera(sesionId, socioId);
@@ -2418,6 +2426,7 @@ export default function Calendario() {
       {avisoSinBono && (
         <AvisoSinBono
           open
+          motivo={avisoSinBono.motivo}
           socioNombre={(() => { const s = socios.find(x => x.id === avisoSinBono.socioId); return s ? `${s.nombre} ${s.apellidos}` : 'La clienta'; })()}
           socioId={avisoSinBono.socioId}
           claseLabel={(() => { const ses = sesionesEnriquecidas.find(x => x.id === avisoSinBono.sesionId); const tc = ses ? tiposClase.find(t => t.id === ses.tipoClaseId) : null; return tc?.nombre ?? ''; })()}

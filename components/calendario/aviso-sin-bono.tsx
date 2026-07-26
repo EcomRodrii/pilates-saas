@@ -11,8 +11,16 @@ import { formatEuro } from '@/lib/utils';
 // silencio se PARA y se pide una decisión consciente: cobrar clase suelta, vender/
 // renovar bono, o dejarla como cortesía registrada. Las socias de tarifa MENSUAL
 // no llegan aquí (tienen entitlement) — esto solo salta sin bono válido.
+/**
+ * Por qué no puede entrar. Se distinguen porque la salida es distinta: con un
+ * bono agotado se renueva; con un bono de Mat delante de una clase de Reformer
+ * no hay nada que renovar y decirle "está agotado" sería mentirle a la dueña.
+ */
+export type MotivoSinBono = 'sin-bono' | 'tipo-no-cubierto';
+
 export interface AvisoSinBonoProps {
   open: boolean;
+  motivo?: MotivoSinBono;
   socioNombre: string;
   socioId: string;
   claseLabel: string;
@@ -23,18 +31,26 @@ export interface AvisoSinBonoProps {
 }
 
 export function AvisoSinBono({
-  open, socioNombre, socioId, claseLabel, precioSuelta, onCobrarSuelta, onCortesia, onClose,
+  open, motivo = 'sin-bono', socioNombre, socioId, claseLabel, precioSuelta,
+  onCobrarSuelta, onCortesia, onClose,
 }: AvisoSinBonoProps) {
   const puedeCobrar = precioSuelta != null && precioSuelta > 0;
+  const noCubre = motivo === 'tipo-no-cubierto';
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{socioNombre} no tiene bono para esta clase</DialogTitle>
+          <DialogTitle>
+            {noCubre
+              ? `El bono de ${socioNombre} no cubre esta clase`
+              : `${socioNombre} no tiene bono para esta clase`}
+          </DialogTitle>
         </DialogHeader>
         <p className="text-[13px] leading-snug text-muted-foreground">
-          Su bono está agotado o caducado (o no tiene un plan de sesiones){claseLabel ? ` · ${claseLabel}` : ''}.
-          Elige qué hacer — así no se cuela una clase gratis sin que nadie lo decida.
+          {noCubre
+            ? `Tiene sesiones, pero su plan no incluye${claseLabel ? ` «${claseLabel}»` : ' este tipo de clase'}.`
+            : `Su bono está agotado o caducado (o no tiene un plan de sesiones)${claseLabel ? ` · ${claseLabel}` : ''}.`}
+          {' '}Elige qué hacer — así no se cuela una clase gratis sin que nadie lo decida.
         </p>
         <div className="mt-3 flex flex-col gap-2">
           <Button onClick={onCobrarSuelta} disabled={!puedeCobrar} className="justify-start">
@@ -50,7 +66,7 @@ export function AvisoSinBono({
             className={buttonVariants({ variant: 'outline' }) + ' justify-start'}
             onClick={onClose}
           >
-            <RefreshCw size={15} /> Renovar o vender bono en su ficha
+            <RefreshCw size={15} /> {noCubre ? 'Venderle un bono que sí la cubra' : 'Renovar o vender bono en su ficha'}
           </Link>
           <Button variant="ghost" onClick={onCortesia} className="justify-start">
             <Gift size={15} /> Añadir como cortesía (sin cargo)

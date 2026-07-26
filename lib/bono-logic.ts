@@ -8,6 +8,24 @@
 
 import type { Suscripcion, PlanTarifa } from '@/lib/types';
 
+// ── ¿Este plan cubre ESTA clase? ─────────────────────────────────────────────
+//
+// Un plan sin tipos de clase asignados cubre TODO — es como se han comportado
+// siempre y es lo que sigue pasando por defecto. Con tipos asignados, solo esos:
+// permite el "Bono 10 Reformer" que no sirve para Mat.
+//
+// Sin `tipoClaseId` (p. ej. al preguntar "¿tiene bono?" sin una clase concreta
+// delante) se responde por el plan, no por la clase: no se puede descartar una
+// cobertura que aún no sabemos si aplica.
+//
+// Misma semántica que `plazas_fijas.tipo_clase_id` (0078), donde null = cualquiera.
+export function planCubreTipoClase(plan: PlanTarifa, tipoClaseId?: string | null): boolean {
+  const tipos = plan.tiposClaseIds;
+  if (!tipos || tipos.length === 0) return true;
+  if (!tipoClaseId) return true;
+  return tipos.includes(tipoClaseId);
+}
+
 // Encuentra la suscripción activa de bono/puntual de la socia sobre la que se
 // descuenta o devuelve una sesión. Devuelve null si no aplica (sin suscripción
 // activa, plan no de sesiones, o saldo no gestionado por sesiones).
@@ -16,11 +34,17 @@ export function bonoConsumible(
   suscripciones: Suscripcion[],
   planesTarifa: PlanTarifa[],
   hoyISO: string = new Date().toISOString().slice(0, 10),
+  // Tipo de clase que se está reservando. Sin él se mantiene el comportamiento
+  // de siempre; con él, un bono que no cubra esa clase no es candidato — si no,
+  // con un "Bono Reformer" y un "Bono Mat" a la vez se descontaría del que
+  // caduque antes, aunque no fuera el que cubre la clase.
+  tipoClaseId?: string | null,
 ): { suscripcion: Suscripcion; plan: PlanTarifa; sesionesRestantes: number } | null {
   const candidatas = suscripciones.filter(s => {
     if (s.socioId !== socioId || s.estado !== 'ACTIVA' || s.sesionesRestantes === null) return false;
     const plan = planesTarifa.find(p => p.id === s.planId);
     if (!plan || (plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL')) return false;
+    if (!planCubreTipoClase(plan, tipoClaseId)) return false;
     // Vigente: mismo criterio que tieneEntitlementActivo. Un bono ACTIVA pero
     // CADUCADO (fechaFin < hoy) NO se consume ni se devuelve — antes se descontaba
     // igual cuando la política del estudio no exigía plan (se saltaba esa puerta).
@@ -64,11 +88,15 @@ export function tieneEntitlementActivo(
   suscripciones: Suscripcion[],
   planesTarifa: PlanTarifa[],
   hoyISO: string,
+  // Con una clase concreta delante, un plan que no la cubra no vale (un bono de
+  // Reformer no da derecho a reservar Mat). Sin ella se responde por el plan.
+  tipoClaseId?: string | null,
 ): boolean {
   return suscripciones.some(sus => {
     if (sus.socioId !== socioId || sus.estado !== 'ACTIVA') return false;
     const plan = planesTarifa.find(p => p.id === sus.planId);
     if (!plan) return false;
+    if (!planCubreTipoClase(plan, tipoClaseId)) return false;
     const vigente = !sus.fechaFin || sus.fechaFin >= hoyISO;
     if (plan.tipo === 'MENSUAL') return vigente;
     return (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && (sus.sesionesRestantes ?? 0) > 0 && vigente;

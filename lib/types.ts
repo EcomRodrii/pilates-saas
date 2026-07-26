@@ -285,6 +285,10 @@ export interface PlanTarifa {
   // las filas cargadas de BD siempre las traen vía mapPlanTarifa.
   validezDias?: number | null;   // BONO/PUNTUAL: caduca a los N días de la compra (null = sin caducidad)
   limiteSemanal?: number | null; // máx. sesiones/semana ISO (null = sin tope); se aplica en el canje
+  // Tipos de clase que cubre este plan (tabla puente `plan_tipos_clase`, migr
+  // 0106). Vacío o ausente = cubre TODAS, que es como se han comportado siempre.
+  // Permite el "Bono 10 Reformer" que no sirve para Mat.
+  tiposClaseIds?: string[];
   activo: boolean;
 }
 

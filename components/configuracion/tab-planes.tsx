@@ -27,6 +27,8 @@ type PlanForm = {
   sesiones: string;
   validezDias: string;
   limiteSemanal: string;
+  /** Vacío = el plan vale para todas las clases (lo de siempre). */
+  tiposClaseIds: string[];
   activo: boolean;
 };
 
@@ -38,6 +40,7 @@ const emptyPlanForm = (): PlanForm => ({
   sesiones: '',
   validezDias: '',
   limiteSemanal: '',
+  tiposClaseIds: [],
   activo: true,
 });
 
@@ -50,12 +53,13 @@ function planToForm(p: PlanTarifa): PlanForm {
     sesiones: p.sesiones !== null ? String(p.sesiones) : '',
     validezDias: p.validezDias !== null ? String(p.validezDias) : '',
     limiteSemanal: p.limiteSemanal !== null ? String(p.limiteSemanal) : '',
+    tiposClaseIds: p.tiposClaseIds ?? [],
     activo: p.activo,
   };
 }
 
 export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
-  const { planesTarifa, addPlan, updatePlan, deletePlan } = useStudio();
+  const { planesTarifa, tiposClase, addPlan, updatePlan, deletePlan } = useStudio();
 
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -87,6 +91,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
       // Validez solo aplica a bonos/puntuales; el límite semanal a cualquier tipo.
       validezDias: esBonoOPuntual && form.validezDias ? parseInt(form.validezDias, 10) : null,
       limiteSemanal: form.limiteSemanal ? parseInt(form.limiteSemanal, 10) : null,
+      tiposClaseIds: form.tiposClaseIds,
       activo: form.activo,
     };
     if (modal === 'nuevo') {
@@ -343,6 +348,57 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                 onChange={e => setForm(f => ({ ...f, limiteSemanal: e.target.value }))}
                 placeholder="Sin límite"
               />
+            </Field>
+            <Field
+              label="¿Para qué clases sirve? (opcional)"
+              description="Sin marcar nada, el plan sirve para todas las clases. Marca solo las que cubra si, por ejemplo, tu bono de reformer no debe valer para mat."
+            >
+              {tiposClase.length === 0 ? (
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  Aún no has creado tipos de clase. Créalos en la pestaña «Clases» y podrás acotar el plan.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {tiposClase.map(t => {
+                    const marcado = form.tiposClaseIds.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        aria-pressed={marcado}
+                        onClick={() =>
+                          setForm(f => ({
+                            ...f,
+                            tiposClaseIds: marcado
+                              ? f.tiposClaseIds.filter(x => x !== t.id)
+                              : [...f.tiposClaseIds, t.id],
+                          }))
+                        }
+                        className={cn(
+                          'rounded-full border px-3 py-1.5 text-sm transition-colors',
+                          marcado
+                            ? 'border-transparent bg-[var(--color-primary)] text-white'
+                            : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)]'
+                        )}
+                      >
+                        {t.nombre}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {form.tiposClaseIds.length > 0 && (
+                <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+                  Quien tenga este plan no podrá usarlo en el resto de clases.{' '}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => setForm(f => ({ ...f, tiposClaseIds: [] }))}
+                  >
+                    Que sirva para todas
+                  </button>
+                </p>
+              )}
             </Field>
             <div className="py-1">
               <div className="flex items-center justify-between">

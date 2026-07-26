@@ -346,3 +346,41 @@ test('candidatasParaHueco: excluye socias inactivas', () => {
   const r = candidatasParaHueco({ sesion: huecoSesion, sesiones, socios, reservas: rs, suscripciones, planesTarifa: planes, hoyISO: HOY });
   assert.equal(r.length, 0);
 });
+
+test('candidatasParaHueco: no avisa a quien tiene bono de otro tipo de clase', () => {
+  // Caso real: hueco en Reformer. Las dos han venido antes a Reformer y tienen
+  // bono activo, pero el de una solo cubre Mat. Avisarla la haría venir para
+  // encontrarse con que no puede reservar.
+  const huecoSesion = sesion({ id: 'hueco', inicio: '2026-07-11T08:00:00.000Z', tipoClaseId: 'reformer' });
+  const sesiones = [huecoSesion, sesion({ id: 'pasada', inicio: '2026-06-01T08:00:00.000Z', tipoClaseId: 'reformer' })];
+  const socios = [socia({ id: 'bono-reformer' }), socia({ id: 'bono-mat' })];
+  const rs = [
+    res({ sesionId: 'pasada', socioId: 'bono-reformer', estado: 'ASISTIDA' }),
+    res({ sesionId: 'pasada', socioId: 'bono-mat', estado: 'ASISTIDA' }),
+  ];
+  const suscripciones = [
+    suscripcion({ socioId: 'bono-reformer', planId: 'p-reformer', sesionesRestantes: 5 }),
+    suscripcion({ socioId: 'bono-mat', planId: 'p-mat', sesionesRestantes: 5 }),
+  ];
+  const planes = [
+    plan({ id: 'p-reformer', tipo: 'BONO', sesiones: 10, tiposClaseIds: ['reformer'] }),
+    plan({ id: 'p-mat', tipo: 'BONO', sesiones: 10, tiposClaseIds: ['mat'] }),
+  ];
+
+  const r = candidatasParaHueco({ sesion: huecoSesion, sesiones, socios, reservas: rs, suscripciones, planesTarifa: planes, hoyISO: HOY });
+  assert.deepEqual(r.map(s => s.id), ['bono-reformer']);
+});
+
+test('candidatasParaHueco: un plan sin tipos marcados sigue sirviendo para todo', () => {
+  // La compatibilidad hacia atrás: todos los planes que ya existían no tienen
+  // filas en plan_tipos_clase, y no deben dejar de avisar a nadie.
+  const huecoSesion = sesion({ id: 'hueco', inicio: '2026-07-11T08:00:00.000Z', tipoClaseId: 'reformer' });
+  const sesiones = [huecoSesion, sesion({ id: 'pasada', inicio: '2026-06-01T08:00:00.000Z', tipoClaseId: 'reformer' })];
+  const socios = [socia({ id: 'bono-generico' })];
+  const rs = [res({ sesionId: 'pasada', socioId: 'bono-generico', estado: 'ASISTIDA' })];
+  const suscripciones = [suscripcion({ socioId: 'bono-generico', planId: 'p-todo', sesionesRestantes: 5 })];
+  const planes = [plan({ id: 'p-todo', tipo: 'BONO', sesiones: 10 })];
+
+  const r = candidatasParaHueco({ sesion: huecoSesion, sesiones, socios, reservas: rs, suscripciones, planesTarifa: planes, hoyISO: HOY });
+  assert.deepEqual(r.map(s => s.id), ['bono-generico']);
+});

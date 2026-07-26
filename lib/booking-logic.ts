@@ -125,7 +125,9 @@ export function candidatasParaHueco(params: {
   return socios.filter(s => {
     if (!s.activo) return false;
     if (yaReservadas.has(s.id)) return false;
-    if (!tieneEntitlementActivo(s.id, suscripciones, planesTarifa, hoyISO)) return false;
+    // Con el tipo de ESTA clase: mandarle un WhatsApp de "queda hueco en
+    // Reformer" a quien solo tiene bono de Mat la haría venir para nada.
+    if (!tieneEntitlementActivo(s.id, suscripciones, planesTarifa, hoyISO, sesion.tipoClaseId)) return false;
     return socioIdsConAsistenciaTipo.has(s.id);
   });
 }

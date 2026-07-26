@@ -1275,6 +1275,9 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('mandatos_sepa').select('*').eq('studio_id', sid),
   ]);
 
+  // Tipos de clase que cubre cada plan (0106): viven en tabla puente, así que
+  // no llegan en el SELECT. Sin esto, el panel creería que todo bono vale para todo.
+  const planesConTiposPanel = await hidratarTiposDePlanes(db as never, sid, (planesTarifaRes.data ?? []).map(mapPlanTarifa));
   return {
     studio: studioRes.data ? mapStudio(studioRes.data) : null,
     // Política/términos persistidos (0102); null = el cliente aplica el texto por
@@ -1285,7 +1288,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     },
     usuarios: (usuariosRes.data ?? []).map(mapUsuario),
     socios: (sociosRes.data ?? []).map(mapSocio),
-    planesTarifa: (planesTarifaRes.data ?? []).map(mapPlanTarifa),
+    planesTarifa: planesConTiposPanel,
     suscripciones: (suscripcionesRes.data ?? []).map(mapSuscripcion),
     salas: (salasRes.data ?? []).map(mapSala),
     spots: (spotsRes.data ?? []).map(mapSpot),
@@ -1465,12 +1468,15 @@ export async function fetchPublicStudioData(
       admin.from('citas_disponibilidad').select('*').eq('studio_id', studioId),
     ]);
 
+    // Mismo motivo que en el panel: el portal decide con esto si una clase
+    // está incluida en el bono o hay que enseñar precio de suelta.
+    const planesConTiposPub = await hidratarTiposDePlanes(admin as never, studioId, (planesRes.data ?? []).map(mapPlanTarifa));
     return {
       tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
       salas: (salasRes.data ?? []).map(mapSala),
       instructores: (instructoresRes.data ?? []).map(mapInstructor),
       spots: (spotsRes.data ?? []).map(mapSpot),
-      planesTarifa: (planesRes.data ?? []).map(mapPlanTarifa),
+      planesTarifa: planesConTiposPub,
       videosOnDemand: (videosRes.data ?? []).map(mapVideoOnDemand),
       rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
       rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
@@ -1569,14 +1575,16 @@ async function validarSociaPublica(
 // Devuelve true si realmente descontó una sesión de un bono (false si la socia
 // no tenía bono consumible — p. ej. plan mensual). Lo usa el email de promoción
 // para no afirmar "se descontó una sesión" cuando no fue así.
-async function consumirBonoServidor(admin: SupabaseClient, studioId: string, socioId: string): Promise<boolean> {
+async function consumirBonoServidor(admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId?: string | null): Promise<boolean> {
   const [{ data: susRows }, { data: planRows }] = await Promise.all([
     admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
     admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
   ]);
   const suscripciones = (susRows ?? []).map(mapSuscripcion);
-  const planes = (planRows ?? []).map(mapPlanTarifa);
-  const consumible = bonoConsumible(socioId, suscripciones, planes);
+  // Los tipos que cubre cada plan viven aparte (0106): sin hidratarlos se
+  // descontaría de un bono que no cubre esta clase.
+  const planes = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
+  const consumible = bonoConsumible(socioId, suscripciones, planes, undefined, tipoClaseId);
   if (!consumible) return false;
   const { suscripcion: sus, plan } = consumible;
   // Decremento ATÓMICO condicional (arregla el sobre-consumo concurrente): N
@@ -1618,12 +1626,13 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
   return true;
 }
 
-async function devolverBonoServidor(admin: SupabaseClient, studioId: string, socioId: string) {
+async function devolverBonoServidor(admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId?: string | null) {
   const [{ data: susRows }, { data: planRows }] = await Promise.all([
     admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
     admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
   ]);
-  const consumible = bonoConsumible(socioId, (susRows ?? []).map(mapSuscripcion), (planRows ?? []).map(mapPlanTarifa));
+  const planesConTipos = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
+  const consumible = bonoConsumible(socioId, (susRows ?? []).map(mapSuscripcion), planesConTipos, undefined, tipoClaseId);
   if (!consumible) return;
   const { suscripcion: sus, plan, sesionesRestantes } = consumible;
   const nuevas = calcularDevolucionBono(sesionesRestantes, plan.sesiones);
@@ -1953,10 +1962,24 @@ export async function crearReservaPublica(params: {
       admin.from('sesiones').select('id, inicio').eq('studio_id', params.studioId),
     ]);
     const hoyISO = new Date().toISOString().slice(0, 10);
+    // El tipo de la clase importa: un bono acotado a Reformer no da derecho a
+    // reservar Mat (0106). Se resuelve aquí para poder decirlo con precisión.
+    const { data: sesGate } = await admin
+      .from('sesiones').select('tipo_clase_id').eq('id', params.sesionId).maybeSingle();
+    const tipoDeLaClase = sesGate?.tipo_clase_id as string | null | undefined;
+    const planesGate = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
     if (pol.exigirPlan && !tieneEntitlementActivo(
-      params.socioId, (susRows ?? []).map(mapSuscripcion), (planRows ?? []).map(mapPlanTarifa), hoyISO,
+      params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyISO, tipoDeLaClase,
     )) {
-      return { error: 'Necesitas un plan o bono activo para reservar' as const };
+      // Se distingue "no tienes bono" de "tu bono no vale para esta clase":
+      // con el mensaje genérico la socia no entendería por qué le rechazan una
+      // clase teniendo sesiones de sobra.
+      const tieneAlgunPlan = tieneEntitlementActivo(
+        params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyISO,
+      );
+      return tieneAlgunPlan
+        ? { error: 'Tu bono no incluye este tipo de clase' as const }
+        : { error: 'Necesitas un plan o bono activo para reservar' as const };
     }
     if (pol.maxSimultaneas != null) {
       const activas = contarReservasActivasFuturas(
@@ -1990,7 +2013,11 @@ export async function crearReservaPublica(params: {
 
   let spotAsignado: string | null = null;
   if (estado === 'CONFIRMADA') {
-    await consumirBonoServidor(admin, params.studioId, params.socioId);
+    // El tipo de la clase decide de QUÉ bono se descuenta (0106): con un "Bono
+    // Reformer" y un "Bono Mat" a la vez, sin esto se quitaría del equivocado.
+    const { data: sesTipo } = await admin
+      .from('sesiones').select('tipo_clase_id').eq('id', params.sesionId).maybeSingle();
+    await consumirBonoServidor(admin, params.studioId, params.socioId, sesTipo?.tipo_clase_id as string | null);
     // Sitio elegido por la socia (I-12): solo para reservas confirmadas (la
     // lista de espera no ocupa sitio). Se valida y asigna con guard atómico.
     if (params.spotId) {
@@ -2083,18 +2110,25 @@ export async function ejecutarCancelacionReserva(
   if (row?.era_confirmada && cancelada?.sesion_id && cancelada?.socio_id && !esPlazaFija) {
     const pol = await cargarPoliticaEstudio(admin, params.studioId);
     const { data: ses } = await admin
-      .from('sesiones').select('inicio').eq('id', cancelada.sesion_id).maybeSingle();
+      .from('sesiones').select('inicio, tipo_clase_id').eq('id', cancelada.sesion_id).maybeSingle();
     const inicio = ses?.inicio as string | undefined;
     tardia = inicio ? esCancelacionTardia(inicio, new Date(), pol.ventanaHoras) : false;
     if (inicio && debeDevolverBono(inicio, new Date(), pol.ventanaHoras, pol.devolverBonoTardia)) {
-      await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string);
+      // Se devuelve al bono que cubre esa clase: es del que se descontó.
+      await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null);
       bonoDevuelto = true;
     }
   }
 
   if (row?.promovida_socio_id) {
     const promSocioId = row.promovida_socio_id as string;
-    const bonoConsumido = await consumirBonoServidor(admin, params.studioId, promSocioId);
+    // Entra en la MISMA clase que se acaba de liberar, así que su tipo decide de
+    // qué bono se le descuenta. Se resuelve aquí porque la consulta de arriba
+    // vive dentro del bloque de la cancelación tardía.
+    const { data: sesProm } = cancelada?.sesion_id
+      ? await admin.from('sesiones').select('tipo_clase_id').eq('id', cancelada.sesion_id).maybeSingle()
+      : { data: null };
+    const bonoConsumido = await consumirBonoServidor(admin, params.studioId, promSocioId, sesProm?.tipo_clase_id as string | null);
     // Avisar a la socia ascendida de que su plaza está confirmada (indicando si
     // se le ha consumido una sesión del bono — solo si realmente ocurrió).
     // Cierra la mentira "te avisaremos si se libera una plaza". No bloquea.
@@ -2893,6 +2927,29 @@ function socioToDb(socio: Socio) {
   };
 }
 
+// Los tipos de clase que cubre cada plan viven en la tabla puente
+// `plan_tipos_clase` (0106), así que no vienen en el SELECT de planes_tarifa.
+// Esto los cuelga en `tiposClaseIds`. Sin filas para un plan = cubre todas, que
+// es el comportamiento de siempre: por eso el fallo (una consulta que falle deja
+// los planes tal cual) es abrir, no cerrar.
+async function hidratarTiposDePlanes<C extends { from: (t: string) => never }>(
+  client: C, studioId: string, planes: PlanTarifa[],
+): Promise<PlanTarifa[]> {
+  if (planes.length === 0) return planes;
+  const db = client as unknown as {
+    from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: { plan_id: string; tipo_clase_id: string }[] | null }> } };
+  };
+  const { data } = await db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', studioId);
+  if (!data || data.length === 0) return planes;
+  const porPlan = new Map<string, string[]>();
+  for (const f of data) {
+    const arr = porPlan.get(f.plan_id) ?? [];
+    arr.push(f.tipo_clase_id);
+    porPlan.set(f.plan_id, arr);
+  }
+  return planes.map(p => (porPlan.has(p.id) ? { ...p, tiposClaseIds: porPlan.get(p.id) } : p));
+}
+
 function planTarifaToDb(plan: PlanTarifa) {
   return {
     id: plan.id,
@@ -3433,9 +3490,23 @@ export async function dbAddComentarioComunidad(postId: string, texto: string): P
   }
 }
 
+/** Deja `plan_tipos_clase` exactamente con los tipos indicados (vacío = borra
+ *  todo, que significa "cubre todas"). Se reemplaza en bloque: son 0-N filas. */
+async function sincronizarTiposDePlan(planId: string, studioId: string, tipos: string[] | undefined) {
+  if (tipos === undefined) return; // no se tocó el campo
+  const { error: errDel } = await supabase.from('plan_tipos_clase').delete().eq('plan_id', planId);
+  if (errDel) { reportDbError('[sincronizarTiposDePlan:delete]', errDel); return; }
+  if (tipos.length === 0) return;
+  const { error } = await supabase.from('plan_tipos_clase').insert(
+    tipos.map(t => ({ plan_id: planId, tipo_clase_id: t, studio_id: studioId })),
+  );
+  if (error) reportDbError('[sincronizarTiposDePlan:insert]', error);
+}
+
 export async function dbInsertPlanTarifa(plan: PlanTarifa) {
   const { error } = await supabase.from('planes_tarifa').insert(planTarifaToDb(plan));
-  if (error) reportDbError('[dbInsertPlanTarifa]', error);
+  if (error) { reportDbError('[dbInsertPlanTarifa]', error); return; }
+  await sincronizarTiposDePlan(plan.id, plan.studioId ?? STUDIO_ID, plan.tiposClaseIds);
 }
 
 export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>) {
@@ -3449,7 +3520,11 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
   if ('limiteSemanal' in changes) db.limite_semanal = changes.limiteSemanal;
   if ('activo' in changes) db.activo = changes.activo;
   const { error } = await supabase.from('planes_tarifa').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdatePlanTarifa]', error);
+  if (error) { reportDbError('[dbUpdatePlanTarifa]', error); return; }
+  if ('tiposClaseIds' in changes) {
+    const { data: fila } = await supabase.from('planes_tarifa').select('studio_id').eq('id', id).maybeSingle();
+    if (fila?.studio_id) await sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds);
+  }
 }
 
 export async function dbDeletePlanTarifa(id: string) {

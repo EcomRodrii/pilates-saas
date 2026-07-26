@@ -1,11 +1,20 @@
 import type { Reserva, Sesion, Suscripcion, PlanTarifa, TipoClase, Sala, Instructor } from '@/lib/types';
 import type { RachaInfo } from '@/lib/engines/streak-engine';
+import { planCubreTipoClase } from '@/lib/bono-logic';
 
 // ¿Esta socia puede reservar sin pagar por clase suelta ahora mismo? — true si
 // tiene una suscripción activa que cubre la sesión: mensual ilimitado, o bono
 // con sesiones restantes. Si no, se le debe mostrar el precio de clase suelta.
-export function tieneCoberturaPlan(activeSus: Suscripcion | null, plan: PlanTarifa | null): boolean {
+export function tieneCoberturaPlan(
+  activeSus: Suscripcion | null,
+  plan: PlanTarifa | null,
+  // Un plan acotado a ciertos tipos de clase no cubre las demás: sin esto, el
+  // portal le decía "incluida en tu bono" a una clase que el gate iba a
+  // rechazar. Sin tipo se responde por el plan, como antes.
+  tipoClaseId?: string | null,
+): boolean {
   if (!activeSus || !plan) return false;
+  if (!planCubreTipoClase(plan, tipoClaseId)) return false;
   if (plan.tipo === 'MENSUAL') return true;
   if (plan.tipo === 'BONO') return (activeSus.sesionesRestantes ?? 0) > 0;
   return false;
