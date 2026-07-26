@@ -121,3 +121,18 @@ La firma de este documento supone la aceptación íntegra de las presentes condi
 export function faltanDatosFiscales(e: DatosEstudioLegal): boolean {
   return identificacionResponsable(e) === null;
 }
+
+const SEPARADOR_LEGAL = '\n\n─────────────────────────────────────\n\n';
+
+/**
+ * Los dos documentos que acepta la clienta, en un solo texto.
+ *
+ * Sirve para lo que se ENSEÑA y para lo que se GUARDA como evidencia, y por eso
+ * vive aquí: el panel y el portal lo componían por su cuenta y habían divergido.
+ * El portal llegó a mostrar solo los términos mientras su casilla decía "y la
+ * política de privacidad", y guardaba la cadena fija 'v1.1' como versión
+ * aceptada — con eso no se puede saber qué aceptó nadie.
+ */
+export function textoLegalCompleto(c: { politicaPrivacidad: string; terminosServicio: string }): string {
+  return [c.politicaPrivacidad, c.terminosServicio].join(SEPARADOR_LEGAL);
+}

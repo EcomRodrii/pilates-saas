@@ -8,6 +8,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
+import { textoLegalCompleto } from '@/lib/legal-textos';
 import type { Socio, NivelSemaforo } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -402,7 +403,7 @@ export default function Socios() {
     if (guardando) return;
     setGuardando(true);
     setErrorGuardar(null);
-    const versionTexto = [studioConfig.politicaPrivacidad, studioConfig.terminosServicio].join('\n\n---\n\n');
+    const versionTexto = textoLegalCompleto(studioConfig);
     const res = await addSocio({
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
@@ -1072,9 +1073,7 @@ export default function Socios() {
                   }}
                   className="h-52 overflow-y-auto rounded-lg border border-border bg-muted p-3 text-[11px] text-foreground leading-relaxed whitespace-pre-wrap font-mono"
                 >
-                  {studioConfig.politicaPrivacidad}
-                  {'\n\n─────────────────────────────────────\n\n'}
-                  {studioConfig.terminosServicio}
+                  {textoLegalCompleto(studioConfig)}
                 </div>
               </div>
 
