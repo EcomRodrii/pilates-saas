@@ -13,6 +13,7 @@ import { useStudio } from '@/lib/studio-context';
 import { portalThemeStyle } from '@/lib/portal-theme';
 import { useModo } from '@/lib/portal-modo';
 import { PORTAL_VIDEOS_CONGELADO } from '@/lib/frozen-features';
+import { PushPrompt } from './push-prompt';
 
 const ALL_NAV = [
   { seg: 'clases', icon: Calendar, label: 'Clases' },
@@ -122,6 +123,10 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           </div>
           <div style={{ height: 'calc(96px + env(safe-area-inset-bottom))' }} />
         </main>
+
+        {/* Aviso de un toque para activar notificaciones al entrar (P: la clienta
+            tenía que buscarlo en Ajustes). Se pinta solo si procede. */}
+        <PushPrompt />
 
         <nav
           className="absolute left-1/2"
