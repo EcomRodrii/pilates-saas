@@ -160,6 +160,27 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await expect(page.getByText(/reserva confirmada|lista de espera/i)).toBeVisible();
   });
 
+  // La casilla decía "acepto los términos Y LA POLÍTICA DE PRIVACIDAD" pero solo
+  // se pintaban los términos: la política estaba en un enlace del pie. Se aceptaba
+  // un texto que no se había enseñado.
+  test('el contrato enseña las DOS cosas que dice la casilla', async ({ page }) => {
+    await seedSession(page, `walkin+${Date.now()}@test.com`);
+    await mockBackend(page, { socia: null });
+
+    await page.goto(`/reservar/${SLUG}`);
+    await abrirYReservar(page);
+    await page.getByPlaceholder(/tu nombre completo/i).fill('Walk In E2E');
+    await page.getByRole('button', { name: /^continuar/i }).click();
+
+    // La casilla nombra los dos documentos…
+    const casilla = page.getByText(/acepto los términos de servicio y la política de privacidad/i);
+    await expect(casilla).toBeVisible();
+    // …y los dos tienen que estar delante de ella, no solo uno.
+    const legal = page.getByText(/POLÍTICA DE PRIVACIDAD/);
+    await expect(legal).toContainText('POLÍTICA DE PRIVACIDAD');
+    await expect(legal).toContainText('TÉRMINOS Y CONDICIONES');
+  });
+
   test('login: sin sesión, reservar pide magic link (no deja pasar sin email)', async ({ page }) => {
     await mockBackend(page); // sin seedSession → no autenticada
     await page.goto(`/reservar/${SLUG}`);

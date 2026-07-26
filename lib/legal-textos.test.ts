@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   politicaPrivacidadPorDefecto, terminosServicioPorDefecto,
-  identificacionResponsable, faltanDatosFiscales,
+  identificacionResponsable, faltanDatosFiscales, textoLegalCompleto,
 } from './legal-textos.ts';
 
 const ESTUDIO = {
@@ -73,4 +73,20 @@ test('un estudio a medio rellenar no rompe el texto', () => {
 
 test('se informa del derecho a reclamar ante la AEPD', () => {
   assert.ok(politicaPrivacidadPorDefecto(ESTUDIO).includes('Agencia Española de Protección de Datos'));
+});
+
+// Lo que se ENSEÑA y lo que se GUARDA como evidencia tienen que ser el mismo
+// texto. El portal mostraba solo los términos con una casilla que decía "y la
+// política de privacidad", y guardaba 'v1.1' fijo como versión aceptada.
+test('el texto legal completo lleva los DOS documentos', () => {
+  const t = textoLegalCompleto({ politicaPrivacidad: 'POLÍTICA X', terminosServicio: 'TÉRMINOS Y' });
+  assert.ok(t.includes('POLÍTICA X'));
+  assert.ok(t.includes('TÉRMINOS Y'));
+  assert.ok(t.indexOf('POLÍTICA X') < t.indexOf('TÉRMINOS Y'), 'la política va primero');
+});
+
+test('sirve como evidencia: cambia si cambian los textos del estudio', () => {
+  const a = textoLegalCompleto({ politicaPrivacidad: 'P1', terminosServicio: 'T' });
+  const b = textoLegalCompleto({ politicaPrivacidad: 'P2', terminosServicio: 'T' });
+  assert.notEqual(a, b, "una versión fija ('v1.1') no distinguía qué se aceptó");
 });

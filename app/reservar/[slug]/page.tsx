@@ -4,6 +4,7 @@ import { queImparten } from '@/lib/equipo';
 import { useState, useMemo, useEffect, useRef, useId } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
+import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type EstadoReserva, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
@@ -434,7 +435,11 @@ export default function ReservarPage() {
         aceptacionContrato: {
           fecha: new Date().toISOString(),
           firma: socia.nombre,
-          versionTexto: 'v1.1',
+          // El texto completo que se aceptó, igual que hace el panel. Antes se
+          // guardaba 'v1.1' fijo, que no correspondía a ningún versionado real:
+          // si el estudio editaba sus textos, no había forma de saber qué había
+          // aceptado cada clienta.
+          versionTexto: textoLegalCompleto(studioConfig),
           origen: 'PORTAL',
         },
       });
@@ -465,7 +470,7 @@ export default function ReservarPage() {
         aceptacionContrato: {
           fecha: new Date().toISOString(),
           firma: loginForm.nombre.trim(),
-          versionTexto: 'v1.1',
+          versionTexto: textoLegalCompleto(studioConfig),
           origen: 'PORTAL',
         },
         referidoPor: referidoValido,
@@ -1054,11 +1059,14 @@ export default function ReservarPage() {
                   <h2 className="text-[#1A1A1A] font-bold text-lg">Acepta los términos</h2>
                 </div>
                 <p className="text-[#8E8E86] text-sm mb-4">
-                  Antes de tu primera reserva, lee y acepta los términos de servicio.
+                  Antes de tu primera reserva, lee y acepta las condiciones y la política de privacidad.
                 </p>
+                {/* Se muestran las DOS cosas que dice la casilla. Antes solo salían
+                    los términos y la política estaba en un enlace del pie, así que
+                    se aceptaba un texto que no se había enseñado. */}
                 <div className="rounded-xl p-3 mb-4 text-[11px] text-[#8E8E86] leading-relaxed overflow-y-auto bg-[#F5F5F1] border border-[#E7E7E0]"
                   style={{ maxHeight: '160px', whiteSpace: 'pre-wrap' }}>
-                  {studioConfig.terminosServicio}
+                  {textoLegalCompleto(studioConfig)}
                 </div>
                 <label className="flex items-start gap-2.5 mb-4 cursor-pointer select-none">
                   <input
