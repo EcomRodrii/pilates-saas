@@ -73,7 +73,12 @@ set layout_config = jsonb_set(
 )
 from base b
 left join ocultos_comunes oc using (cadena_id)
-where c.id = b.cadena_id;
+where c.id = b.cadena_id
+  -- Idempotente: solo consolida cadenas que aún no tienen layout propio. Si esta
+  -- migración se re-aplicara después de que una dueña ya haya editado el menú de
+  -- su cadena (que ya se guarda en cadenas.layout_config), NO se repisa su
+  -- trabajo con una recomputación desde las filas de studio_layout ya obsoletas.
+  and c.layout_config is null;
 
 -- Nota: las filas de studio_layout de las sedes encadenadas quedan huérfanas
 -- (getLayout ya no las lee para una sede con cadena) pero se conservan a
