@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
-  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw,
+  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw, Loader2,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -37,12 +37,19 @@ function fmtClase(inicio?: string | null): string {
   return `${fecha.charAt(0).toUpperCase()}${fecha.slice(1)} · ${hora}`;
 }
 
+// Acciones de una tarjeta de sustitución. Sirven para saber QUÉ botón tiene que
+// mostrar el spinner, no solo para bloquear la tarjeta entera.
+type AccionSust = 'cancelar' | 'reprogramar' | 'confirmar' | 'avisar' | 'volver-a-buscar' | 'descartar';
+
 export default function SustitucionesPage() {
   const { instructores, sesiones, tiposClase } = useStudio();
   const [items, setItems] = useState<SustitucionPanel[]>([]);
   const [cargando, setCargando] = useState(true);
   const [nuevaBaja, setNuevaBaja] = useState(false);
-  const [accion, setAccion] = useState<string | null>(null); // id en proceso
+  // Qué se está haciendo y sobre qué tarjeta. Antes solo guardaba el id, así que
+  // todos los botones de la tarjeta se apagaban a la vez sin decir cuál estaba
+  // trabajando: estas acciones tardan y parecían no hacer nada.
+  const [accion, setAccion] = useState<{ id: string; que: AccionSust } | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);   // toast breve
   // Antes esto era un alert() del navegador con el error crudo de Postgres
   // dentro. Ahora es un banner en la propia página: no bloquea, se puede
@@ -93,8 +100,11 @@ export default function SustitucionesPage() {
     if ('error' in r) { setModo(anterior); setErrorAccion(r.error); }
   }
   async function cancelar(s: SustitucionPanel) {
+    // Estas acciones escriben y luego recargan: sin esto, un segundo clic
+    // mientras la primera sigue en curso la ejecuta dos veces.
+    if (accion) return;
     setErrorAccion(null);
-    setAccion(s.id);
+    setAccion({ id: s.id, que: 'cancelar' });
     const r = await cancelarClase(s.id);
     if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     const a = r.alumnas;
@@ -105,8 +115,11 @@ export default function SustitucionesPage() {
   }
 
   async function reprogramar(s: SustitucionPanel, inicioISO: string) {
+    // Estas acciones escriben y luego recargan: sin esto, un segundo clic
+    // mientras la primera sigue en curso la ejecuta dos veces.
+    if (accion) return;
     setErrorAccion(null);
-    setAccion(s.id);
+    setAccion({ id: s.id, que: 'reprogramar' });
     const r = await reprogramarClase(s.id, inicioISO);
     if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     setAReprogramar(null);
@@ -137,16 +150,22 @@ export default function SustitucionesPage() {
   }, [items, ahoraMs]);
 
   async function confirmar(s: SustitucionPanel, instructorId: string) {
+    // Estas acciones escriben y luego recargan: sin esto, un segundo clic
+    // mientras la primera sigue en curso la ejecuta dos veces.
+    if (accion) return;
     setErrorAccion(null);
-    setAccion(s.id);
+    setAccion({ id: s.id, que: 'confirmar' });
     const r = await confirmarSustituta(s.id, instructorId);
     if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     await recargar();
     setAccion(null);
   }
   async function avisarCandidata(s: SustitucionPanel, instructorId: string) {
+    // Estas acciones escriben y luego recargan: sin esto, un segundo clic
+    // mientras la primera sigue en curso la ejecuta dos veces.
+    if (accion) return;
     setErrorAccion(null);
-    setAccion(s.id);
+    setAccion({ id: s.id, que: 'avisar' });
     const r = await avisarSustituta(s.id, instructorId);
     if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     setAviso(r.emailSkipped
@@ -157,7 +176,10 @@ export default function SustitucionesPage() {
     setTimeout(() => setAviso(null), 6000);
   }
   async function volverABuscar(s: SustitucionPanel) {
-    setAccion(s.id);
+    // Estas acciones escriben y luego recargan: sin esto, un segundo clic
+    // mientras la primera sigue en curso la ejecuta dos veces.
+    if (accion) return;
+    setAccion({ id: s.id, que: 'volver-a-buscar' });
     const r = await recalcularCandidatas(s.id);
     if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
     setAviso(r.omitidasPorRechazo > 0
@@ -169,7 +191,10 @@ export default function SustitucionesPage() {
   }
 
   async function descartar(s: SustitucionPanel) {
-    setAccion(s.id);
+    // Estas acciones escriben y luego recargan: sin esto, un segundo clic
+    // mientras la primera sigue en curso la ejecuta dos veces.
+    if (accion) return;
+    setAccion({ id: s.id, que: 'descartar' });
     // Antes se ignoraba el resultado: si fallaba, la tarjeta seguía ahí sin
     // explicación y no había forma de saber si se había guardado o no.
     const r = await descartarSustitucion(s.id);
@@ -293,7 +318,7 @@ export default function SustitucionesPage() {
               {activas.map(s => (
                 <SustitucionCard
                   key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor} equipo={equipo}
-                  instructores={instructores} valoraciones={valoraciones} enProceso={accion === s.id}
+                  instructores={instructores} valoraciones={valoraciones} accionEnCurso={accion?.id === s.id ? accion.que : null}
                   onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={(s: SustitucionPanel) => setACancelar(s)}
                   onVolverABuscar={volverABuscar} onReprogramar={(s: SustitucionPanel) => setAReprogramar(s)}
                 />
@@ -333,7 +358,7 @@ export default function SustitucionesPage() {
       <ReprogramarDialog
         s={aReprogramar}
         avisarActivo={avisar}
-        enProceso={aReprogramar !== null && accion === aReprogramar.id}
+        enProceso={aReprogramar !== null && accion?.id === aReprogramar.id && accion.que === 'reprogramar'}
         onClose={() => setAReprogramar(null)}
         onConfirm={(inicioISO) => { if (aReprogramar) void reprogramar(aReprogramar, inicioISO); }}
       />
@@ -524,7 +549,7 @@ function HorarioActualizadoCard({ sub, sesiones, tiposClase, nombreInstructor, o
 }
 
 function SustitucionCard({
-  s, tipo, nombreInstructor, instructores, valoraciones, equipo, enProceso, onConfirmar, onDescartar, onAvisar, onCancelar, onVolverABuscar, onReprogramar,
+  s, tipo, nombreInstructor, instructores, valoraciones, equipo, accionEnCurso, onConfirmar, onDescartar, onAvisar, onCancelar, onVolverABuscar, onReprogramar,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
@@ -532,7 +557,7 @@ function SustitucionCard({
   instructores: import('@/lib/types').Instructor[];
   valoraciones: ResumenValoraciones;
   equipo: DiagnosticoEquipo;
-  enProceso: boolean;
+  accionEnCurso: AccionSust | null;
   onConfirmar: (s: SustitucionPanel, instructorId: string) => void;
   onDescartar: (s: SustitucionPanel) => void;
   onAvisar: (s: SustitucionPanel, instructorId: string) => void;
@@ -540,6 +565,9 @@ function SustitucionCard({
   onReprogramar: (s: SustitucionPanel) => void;
   onVolverABuscar: (s: SustitucionPanel) => void;
 }) {
+  // Mientras algo está en curso se bloquea la tarjeta entera (las acciones se
+  // pisan entre sí), pero solo el botón pulsado dice qué está haciendo.
+  const enProceso = accionEnCurso !== null;
   const meta = ESTADO[s.estado] ?? ESTADO.buscando;
   const ranking = Array.isArray(s.ranking) ? s.ranking : [];
   const hero = ranking[0];
@@ -592,7 +620,9 @@ function SustitucionCard({
                 onClick={() => onVolverABuscar(s)} disabled={enProceso}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-700 text-[12px] font-bold hover:bg-red-100 disabled:opacity-50 transition"
               >
-                <RefreshCw size={13} /> {enProceso ? 'Buscando…' : 'Volver a buscar'}
+                {accionEnCurso === 'volver-a-buscar'
+              ? <><Loader2 size={13} className="animate-spin" /> Buscando…</>
+              : <><RefreshCw size={13} /> Volver a buscar</>}
               </button>
               <button
                 onClick={() => onReprogramar(s)} disabled={enProceso}
@@ -618,7 +648,9 @@ function SustitucionCard({
             onClick={() => onVolverABuscar(s)} disabled={enProceso}
             className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
           >
-            <RefreshCw size={13} /> {enProceso ? 'Buscando…' : 'Volver a buscar'}
+            {accionEnCurso === 'volver-a-buscar'
+              ? <><Loader2 size={13} className="animate-spin" /> Buscando…</>
+              : <><RefreshCw size={13} /> Volver a buscar</>}
           </button>
           {/* Reprogramar salva la clase (plaza intacta, alumnas avisadas del
               cambio): va antes que cancelar, que es lo irreversible. */}
@@ -691,13 +723,17 @@ function SustitucionCard({
                   onClick={() => onDescartar(s)} disabled={enProceso}
                   className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl border border-border text-foreground text-[14px] font-semibold hover:bg-muted disabled:opacity-50 transition"
                 >
-                  <X size={15} /> Rechazar
+                  {accionEnCurso === 'descartar'
+                    ? <><Loader2 size={15} className="animate-spin" /> Rechazando…</>
+                    : <><X size={15} /> Rechazar</>}
                 </button>
                 <button
                   onClick={() => onAvisar(s, hero.instructor_id)} disabled={enProceso}
                   className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#16A34A] text-white text-[14px] font-bold hover:brightness-95 disabled:opacity-50 transition active:scale-[0.99]"
                 >
-                  <Check size={16} /> Aprobar
+                  {accionEnCurso === 'avisar'
+                    ? <><Loader2 size={16} className="animate-spin" /> Avisando a {hero.nombre.split(' ')[0]}…</>
+                    : <><Check size={16} /> Aprobar</>}
                 </button>
               </div>
             ) : (
@@ -706,14 +742,18 @@ function SustitucionCard({
                   onClick={() => onAvisar(s, hero.instructor_id)} disabled={enProceso}
                   className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-brand text-brand-foreground text-[14px] font-bold hover:brightness-95 disabled:opacity-50 transition active:scale-[0.99]"
                 >
-                  <Mail size={15} /> {contactada ? 'Volver a avisar' : `Avisar a ${hero.nombre.split(' ')[0]}`}
+                  {accionEnCurso === 'avisar'
+                    ? <><Loader2 size={15} className="animate-spin" /> Enviando el aviso…</>
+                    : <><Mail size={15} /> {contactada ? 'Volver a avisar' : `Avisar a ${hero.nombre.split(' ')[0]}`}</>}
                 </button>
                 <button
                   onClick={() => onConfirmar(s, hero.instructor_id)} disabled={enProceso}
                   title="Confirmar directamente (sin email)"
                   className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-border text-foreground text-[13px] font-semibold hover:bg-muted disabled:opacity-50 transition"
                 >
-                  <Check size={14} /> Confirmar
+                  {accionEnCurso === 'confirmar'
+                    ? <><Loader2 size={14} className="animate-spin" /> Confirmando…</>
+                    : <><Check size={14} /> Confirmar</>}
                 </button>
               </div>
             )}
@@ -744,11 +784,13 @@ function SustitucionCard({
                     <div className="flex gap-1.5 shrink-0">
                       <button onClick={() => onAvisar(s, c.instructor_id)} disabled={enProceso} title="Avisar por email"
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand-secondary text-[11px] font-bold hover:bg-brand/20 disabled:opacity-50 transition">
-                        <Mail size={12} /> Avisar
+                        {accionEnCurso === 'avisar'
+                          ? <><Loader2 size={12} className="animate-spin" /> Avisando…</>
+                          : <><Mail size={12} /> Avisar</>}
                       </button>
                       <button onClick={() => onConfirmar(s, c.instructor_id)} disabled={enProceso} title="Confirmar directamente"
                         className="flex items-center justify-center w-8 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-50 transition">
-                        <Check size={13} />
+                        {accionEnCurso === 'confirmar' ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                       </button>
                     </div>
                   </div>
@@ -766,16 +808,16 @@ function SustitucionCard({
       <div className="mt-4 flex justify-end gap-4">
         {hero && (
           <button onClick={() => onCancelar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-red-600 disabled:opacity-50 transition-colors">
-            Cancelar clase
+            {accionEnCurso === 'cancelar' ? 'Cancelando la clase…' : 'Cancelar clase'}
           </button>
         )}
         {hero && s.estado !== 'contactando' && (
           <button onClick={() => onVolverABuscar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors">
-            Volver a buscar
+            {accionEnCurso === 'volver-a-buscar' ? 'Buscando…' : 'Volver a buscar'}
           </button>
         )}
         <button onClick={() => onDescartar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors">
-          Lo resuelvo por mi cuenta
+          {accionEnCurso === 'descartar' ? 'Guardando…' : 'Lo resuelvo por mi cuenta'}
         </button>
       </div>
     </div>
@@ -969,13 +1011,20 @@ function NuevaBajaDialog({
   useEffect(() => { if (open) { setSesionId(null); setMotivo(''); setError(null); setAhoraMs(Date.now()); } }, [open]);
 
   async function crear() {
-    if (!sesionId) return;
+    // La guarda no es cosmética: `crearBaja` ya ha escrito cuando empieza la
+    // recarga, así que un segundo clic aquí crea una baja duplicada.
+    if (!sesionId || guardando) return;
     setGuardando(true); setError(null);
-    const r = await crearBaja(sesionId, motivo.trim() || undefined);
-    setGuardando(false);
-    if ('error' in r) { setError(r.error); return; }
-    await onCreada();
-    onClose();
+    try {
+      const r = await crearBaja(sesionId, motivo.trim() || undefined);
+      if ('error' in r) { setError(r.error); return; }
+      // onCreada() recarga la lista y es lo que de verdad tarda: el botón tiene
+      // que seguir bloqueado hasta que termine, no soltarse al volver crearBaja.
+      await onCreada();
+      onClose();
+    } finally {
+      setGuardando(false);
+    }
   }
 
   return (
