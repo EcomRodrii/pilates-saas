@@ -491,7 +491,7 @@ export default function CierreDeAnoPage() {
         <div className="size-9 rounded-xl grid place-items-center shrink-0" style={{ backgroundColor: 'var(--secondary)', color: 'var(--muted-foreground)' }}>347</div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold">Modelo 347 · operaciones con terceros</div>
-          <div className="text-xs text-muted-foreground mt-0.5">Clientes que te pagaron más de <b className="tabular-nums">3.005,06 €</b> en el año (declaración informativa de febrero).</div>
+          <div className="text-xs text-muted-foreground mt-0.5">Clientas que te pagaron más de <b className="tabular-nums">3.005,06 €</b> en el año (declaración informativa de febrero).</div>
         </div>
         <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: 'var(--secondary)', color: 'var(--muted-foreground)' }}>
           {cierre.candidatos347.length === 0 ? 'Ninguno este año' : `${cierre.candidatos347.length} a revisar`}

@@ -715,7 +715,7 @@ export default function Informes() {
         {/* Right: Cohort retention table */}
         <div className="bg-card border border-border rounded-xl p-6">
           <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Retención por cohorte</h2>
-          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>Clientes nuevos por mes y su actividad posterior</p>
+          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>Clientas nuevas por mes y su actividad posterior</p>
 
           {cohortRows.every(r => r.total === 0) ? (
             <div className="flex items-center justify-center h-40">
@@ -770,7 +770,7 @@ export default function Informes() {
 
         {/* Top 5 socias */}
         <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Top 5 clientes</h2>
+          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Top 5 clientas</h2>
           <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>Más sesiones asistidas en el periodo</p>
 
           {topSocias.length === 0 ? (

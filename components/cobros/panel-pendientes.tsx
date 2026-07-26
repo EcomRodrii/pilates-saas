@@ -640,7 +640,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Clientes con deuda
+              Clientas con deuda
             </p>
             <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
               <Users size={15} className="text-destructive" />
