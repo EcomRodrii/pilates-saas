@@ -3967,12 +3967,12 @@ export async function dbDeleteRecibo(id: string) {
 // /api/facturas/sellar. No insertar facturas directamente desde el cliente: se
 // saltaría la huella encadenada. facturaToDb se conserva para los backups.
 
-export async function dbInsertCita(cita: Cita) {
+export async function dbInsertCita(cita: Cita): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('citas').insert(citaToDb(cita));
-  if (error) reportDbError('[dbInsertCita]', error);
+  return error ? falloEscritura('[dbInsertCita]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateCita(id: string, changes: Partial<Cita>) {
+export async function dbUpdateCita(id: string, changes: Partial<Cita>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('instructorId' in changes) db.instructor_id = changes.instructorId;
@@ -3984,7 +3984,7 @@ export async function dbUpdateCita(id: string, changes: Partial<Cita>) {
   if ('precio' in changes) db.precio = changes.precio;
   if ('pagada' in changes) db.pagada = changes.pagada;
   const { error } = await supabase.from('citas').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateCita]', error);
+  return error ? falloEscritura('[dbUpdateCita]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertVentaPOS(venta: VentaPOS) {

@@ -283,10 +283,10 @@ interface StudioContextValue {
 
   // Citas
   citas: Cita[];
-  addCita: (fields: Omit<Cita, 'id' | 'studioId' | 'creadoEn'>) => void;
-  updateCita: (id: string, changes: Partial<Cita>) => void;
-  cancelarCita: (citaId: string) => void;
-  completarCita: (citaId: string) => void;
+  addCita: (fields: Omit<Cita, 'id' | 'studioId' | 'creadoEn'>) => Promise<ResultadoEscritura>;
+  updateCita: (id: string, changes: Partial<Cita>) => Promise<ResultadoEscritura>;
+  cancelarCita: (citaId: string) => Promise<ResultadoEscritura>;
+  completarCita: (citaId: string) => Promise<ResultadoEscritura>;
 
   // Citas — catálogo de servicios + horario fino por instructora (0046)
   citasServicios: ServicioCita[];
@@ -1279,7 +1279,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const m = leerSociaLocal();
     return { studioId: studioIdOverride ?? '', socioId: m?.socioId ?? '', email: m?.email ?? '' };
   }
-  async function postPublico(url: string, body: Record<string, unknown>) {
+  async function postPublico(url: string, body: Record<string, unknown>): Promise<ResultadoEscritura> {
     try {
       // Si hay sesión de socia (portal, magic link) se manda su Bearer: los
       // endpoints que ya exigen sesión real (canje, preferencias) derivan la
@@ -1290,7 +1290,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // x-kiosk-token. /api/public/checkin lo exige; el resto de endpoints
       // públicos ignoran la cabecera, así que enviarla siempre es inocuo.
       const kioskToken = typeof window !== 'undefined' ? window.localStorage.getItem('kioskToken') : null;
-      await fetch(url, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1299,6 +1299,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         },
         body: JSON.stringify(body),
       });
+      // Antes ni se miraba el 500: se daba por hecho que había ido bien. Quien
+      // quiera enterarse ya puede; quien no, se comporta como siempre.
+      if (!res.ok) {
+        const cuerpo = await res.json().catch(() => ({}));
+        return { ok: false, error: mensajeDeFalloAlGuardar({ ...cuerpo, status: res.status }) };
+      }
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: mensajeDeFalloAlGuardar(e) };
     } finally {
       cargarPublico(); // re-sincroniza el estado desde el servidor
     }
@@ -2184,33 +2193,40 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Citas ────────────────────────────────────────────────────────────────────
 
-  function addCita(fields: Omit<Cita, 'id' | 'studioId' | 'creadoEn'>) {
+  // Una cita es una hora reservada de una instructora y, con `precio`/`pagada`,
+  // también dinero. Se guarda ANTES de pintarla: si la escritura falla y aun
+  // así aparece en la agenda, el estudio bloquea a la instructora para algo que
+  // no existe, o da por cobrado lo que nadie cobró.
+  async function addCita(fields: Omit<Cita, 'id' | 'studioId' | 'creadoEn'>): Promise<ResultadoEscritura> {
     const nueva: Cita = {
       id: `cita-${uid()}`,
       studioId: getCurrentStudioId(),
       creadoEn: new Date().toISOString(),
       ...fields,
     };
+    const res = await dbInsertCita(nueva);
+    if (!res.ok) return res;
     setCitas(prev => [...prev, nueva]);
-    dbInsertCita(nueva);
+    return res;
   }
 
-  function updateCita(id: string, changes: Partial<Cita>) {
+  async function updateCita(id: string, changes: Partial<Cita>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateCita(id, changes);
+    if (!res.ok) return res;
     setCitas(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c));
-    dbUpdateCita(id, changes);
+    return res;
   }
 
-  function cancelarCita(citaId: string) {
-    // Optimista en ambos modos.
+  async function cancelarCita(citaId: string): Promise<ResultadoEscritura> {
+    const cpub = ctxPublico();
+    const res = cpub
+      ? await postPublico('/api/public/citas', { accion: 'cancelar', studioId: cpub.studioId, citaId })
+      : await dbUpdateCita(citaId, { estado: 'CANCELADA' });
+    if (!res.ok) return res;
     setCitas(prev => prev.map(c =>
       c.id === citaId ? { ...c, estado: 'CANCELADA' as const } : c
     ));
-    const cpub = ctxPublico();
-    if (cpub) {
-      postPublico('/api/public/citas', { accion: 'cancelar', studioId: cpub.studioId, citaId });
-      return;
-    }
-    dbUpdateCita(citaId, { estado: 'CANCELADA' });
+    return res;
   }
 
   // Reserva pública de una cita 1:1 (widget /reservar). Devuelve el resultado del
@@ -2241,11 +2257,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
   }
 
-  function completarCita(citaId: string) {
+  async function completarCita(citaId: string): Promise<ResultadoEscritura> {
+    const res = await dbUpdateCita(citaId, { estado: 'COMPLETADA' });
+    if (!res.ok) return res;
     setCitas(prev => prev.map(c =>
       c.id === citaId ? { ...c, estado: 'COMPLETADA' as const } : c
     ));
-    dbUpdateCita(citaId, { estado: 'COMPLETADA' });
+    return res;
   }
 
   // ── POS ──────────────────────────────────────────────────────────────────────

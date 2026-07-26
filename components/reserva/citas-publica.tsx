@@ -33,7 +33,7 @@ export interface CitasPublicaProps {
   autenticada: boolean;
   onNeedLogin: () => void;
   onReservar: (servicioId: string, instructorId: string, inicioISO: string) => Promise<{ ok: true } | { error: string }>;
-  onCancelar: (citaId: string) => void;
+  onCancelar: (citaId: string) => void | Promise<{ ok: true } | { ok: false; error: string }>;
   primary: string;
   primaryFg: string;
 }
@@ -63,6 +63,8 @@ export function CitasPublica({
   const [booking, setBooking] = useState<Hueco | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: true } | { error: string } | null>(null);
+  const [cancelandoId, setCancelandoId] = useState<string | null>(null);
+  const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
 
   const servicio = servicios.find(s => s.id === servicioId) ?? null;
 
@@ -127,6 +129,11 @@ export function CitasPublica({
       {citasFuturas.length > 0 && (
         <div className="space-y-2">
           <h2 className="text-foreground font-bold text-base px-1">Mis próximas citas</h2>
+          {errorCancelar && (
+            <p role="alert" className="mx-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+              <span className="font-semibold">La cita sigue en pie.</span> {errorCancelar}
+            </p>
+          )}
           {citasFuturas.map(c => (
             <div key={c.id} className="bg-white rounded-2xl shadow-sm p-4 flex items-center justify-between gap-3" style={{ border: '1px solid #F1F3F5' }}>
               <div className="min-w-0">
@@ -134,9 +141,21 @@ export function CitasPublica({
                 <p className="text-muted-foreground text-xs mt-0.5 capitalize">{fmtDiaLargo(c.inicio)} · {fmtHora(c.inicio)}</p>
                 <p className="text-muted-foreground text-xs mt-0.5 flex items-center gap-1"><User size={11} />{c.instructorNombre}</p>
               </div>
-              <button onClick={() => onCancelar(c.id)}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors">
-                <X size={12} />Cancelar
+              <button
+                onClick={async () => {
+                  if (cancelandoId) return;
+                  setCancelandoId(c.id);
+                  setErrorCancelar(null);
+                  try {
+                    const r = await onCancelar(c.id);
+                    if (r && !r.ok) setErrorCancelar(r.error);
+                  } finally {
+                    setCancelandoId(null);
+                  }
+                }}
+                disabled={cancelandoId === c.id}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-60">
+                <X size={12} />{cancelandoId === c.id ? 'Cancelando…' : 'Cancelar'}
               </button>
             </div>
           ))}
