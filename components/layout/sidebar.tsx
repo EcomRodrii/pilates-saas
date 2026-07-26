@@ -15,6 +15,7 @@ import { usePermisos } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { fetchLayout } from '@/lib/api-client';
 import { filtrarItemsMenu } from '@/lib/layout-runtime';
+import { SedeActiva } from '@/components/layout/sede-activa';
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -108,6 +109,13 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
         >
           <X size={18} className="text-white/60" />
         </button>
+      </div>
+
+      {/* En móvil no hay sidebar ni topbar, así que este menú es el único sitio
+          donde cabe la sede activa. Quien opera desde el móvil suele ser
+          recepción: es justo quien no debe cobrar en el centro equivocado. */}
+      <div className="px-4 pt-3">
+        <SedeActiva variante="sidebar" />
       </div>
 
       {/* All sections */}
@@ -294,6 +302,11 @@ export function Sidebar() {
         )}
         style={{ backgroundColor: '#0A0A0A' }}
       >
+        {/* Sede activa (solo en cadenas): lo primero de la píldora, porque
+            condiciona todo lo que hay debajo. En modo compacto no cabe el
+            nombre, y una sede sin nombre no sirve de nada. */}
+        {!collapsed && <SedeActiva variante="sidebar" />}
+
         {/* Modo Esencial / Avanzado */}
         {!collapsed && (
           <div className="px-3 pt-2.5 pb-1">
