@@ -1658,7 +1658,19 @@ export default function Calendario() {
       creadas++;
     }
     setGuardandoSesion(false);
-    setToast(form.repetir ? `Se han creado ${creadas} clases` : 'Clase creada');
+
+    // Si la clase cae en otra semana, el calendario se mueve hasta ella. Antes
+    // se quedaba donde estaba: creabas cuatro clases para la semana que viene,
+    // la rejilla seguía enseñando esta, y no sabías si existían hasta ir a
+    // buscarlas. Enseñar el resultado es la mitad de crear algo.
+    const semanaDeLaClase = weekStart(new Date(`${form.fecha}T12:00:00`));
+    const otraSemana = localDate(semanaDeLaClase) !== localDate(semana);
+    if (otraSemana) setSemana(semanaDeLaClase);
+
+    const cuantas = form.repetir ? `Se han creado ${creadas} clases` : 'Clase creada';
+    setToast(otraSemana
+      ? `${cuantas} — te llevo a esa semana`
+      : cuantas);
     setShowForm(null);
   }
 
