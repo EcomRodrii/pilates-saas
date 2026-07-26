@@ -21,7 +21,9 @@ test('son exactamente los 7 pasos del documento de producto, en ese orden', () =
     'Añade tu primer instructor',
     'Crea tu primera clase',
     'Configura tus horarios',
-    'Añade tus primeros clientes',
+    // P2-1: el panel usa una sola palabra para la clientela. Este paso decía
+    // "clientes" y era una de las cuatro que la clienta veía a la vez.
+    'Añade tus primeras clientas',
     'Activa los métodos de pago',
     'Abre las reservas',
   ]);

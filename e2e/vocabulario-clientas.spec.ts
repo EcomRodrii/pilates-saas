@@ -97,6 +97,16 @@ test.describe('El panel usa una sola palabra: clientas', () => {
     await expect(page.getByText(/Copia de tus clientas siempre al día/)).toBeVisible();
   });
 
+  test('el menú lateral dice "Configuración", que es la palabra que se busca', async ({ page }) => {
+    await montar(page, '/dashboard');
+    // Estaba en el menú, pero llamado "Mi estudio" — mientras la página se titula
+    // "Configuración". Ella lo daba por ausente y llegaba pinchando su propia foto.
+    await expect(page.getByRole('link', { name: 'Configuración' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: 'Mi estudio' })).toHaveCount(0);
+    // "Libreta de clientas" no se comprueba aquí: /libreta no está en el modo
+    // Esencial, que es el que trae el menú por defecto.
+  });
+
   test('"Miembros" sigue significando el EQUIPO, que es otra cosa', async ({ page }) => {
     await montar(page, '/equipo');
     // Aquí sí debe seguir diciendo Miembros: son las instructoras, no la clientela.

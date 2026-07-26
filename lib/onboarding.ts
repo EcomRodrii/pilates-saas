@@ -34,7 +34,7 @@ export function calcularPasosOnboarding(d: DatosOnboarding): PasoOnboarding[] {
     { id: 'instructor', label: 'Añade tu primer instructor', done: d.numInstructores > 0, href: '/equipo' },
     { id: 'clase', label: 'Crea tu primera clase', done: d.numTiposClase > 0, href: '/configuracion?tab=clases' },
     { id: 'horario', label: 'Configura tus horarios', done: d.numSesiones > 0, href: '/calendario' },
-    { id: 'clientes', label: 'Añade tus primeros clientes', done: d.numSocios > 0, href: '/clientas?nuevo=1' },
+    { id: 'clientes', label: 'Añade tus primeras clientas', done: d.numSocios > 0, href: '/clientas?nuevo=1' },
     { id: 'pago', label: 'Activa los métodos de pago', done: !!d.stripeAccountId, href: '/configuracion?tab=integraciones' },
   ];
   const listo = base.every(p => p.done);
