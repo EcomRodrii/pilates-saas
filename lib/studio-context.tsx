@@ -253,7 +253,7 @@ interface StudioContextValue {
 
   // Sesiones
   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
-  updateSesion: (id: string, changes: Partial<Sesion>) => void;
+  updateSesion: (id: string, changes: Partial<Sesion>) => Promise<ResultadoEscritura>;
   deleteSesion: (id: string) => void;
   // Series de clases recurrentes (I-3)
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
@@ -1549,9 +1549,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  function updateSesion(id: string, changes: Partial<Sesion>) {
+  async function updateSesion(id: string, changes: Partial<Sesion>): Promise<ResultadoEscritura> {
+    const anterior = sesiones.find(s => s.id === id);
     setSesiones(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
-    dbUpdateSesion(id, changes);
+    const res = await dbUpdateSesion(id, changes);
+    // Escribe-primero: si la BD rechaza (p.ej. solape de sala/instructora al mover
+    // la clase), deshace el cambio optimista para no mostrar en el panel un
+    // movimiento que no ocurrió. Quien llama enseña el motivo (res.error).
+    if (!res.ok && anterior) setSesiones(prev => prev.map(s => s.id === id ? anterior : s));
+    return res;
   }
 
   function deleteSesion(id: string) {

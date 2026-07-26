@@ -33,7 +33,7 @@ function json(route: Route, body: unknown, status = 200) {
 }
 
 /** `avisos` recoge las llamadas al endpoint que escribe a las alumnas. */
-async function montarCalendario(page: Page, extra: { sesiones?: unknown[]; reservas?: unknown[] } = {}) {
+async function montarCalendario(page: Page, extra: { sesiones?: unknown[]; reservas?: unknown[]; sesionUpdateError?: boolean } = {}) {
   const avisos: string[] = [];
 
   await page.addInitScript(([key, uid]) => {
@@ -65,8 +65,13 @@ async function montarCalendario(page: Page, extra: { sesiones?: unknown[]; reser
   await page.route('**/rest/v1/tipos_clase**', route => json(route, TIPOS));
   await page.route('**/rest/v1/salas**', route => json(route, SALAS));
   await page.route('**/rest/v1/instructores**', route => json(route, INSTRUCTORES));
-  await page.route('**/rest/v1/sesiones**', route =>
-    json(route, route.request().method() === 'GET' ? (extra.sesiones ?? []) : []));
+  await page.route('**/rest/v1/sesiones**', route => {
+    const m = route.request().method();
+    if (m === 'GET') return json(route, extra.sesiones ?? []);
+    // Simula que la BD rechaza la escritura (p.ej. solape GiST, 23P01).
+    if (extra.sesionUpdateError) return json(route, { code: '23P01', message: 'conflicting key value violates exclusion constraint' }, 400);
+    return json(route, []);
+  });
   await page.route('**/rest/v1/reservas**', route =>
     json(route, route.request().method() === 'GET' ? (extra.reservas ?? []) : []));
 
@@ -150,6 +155,30 @@ test.describe('Momentos del calendario', () => {
 
     // Se manda el aviso pese a que el panel no veía apuntadas.
     await expect.poll(() => avisos.length, { timeout: 10_000 }).toBe(1);
+  });
+
+  test('un aplazamiento que la BD rechaza no avisa a nadie y muestra el motivo', async ({ page }) => {
+    const hoy = new Date().toISOString().slice(0, 10);
+    // La escritura de la sesión falla (23P01, solape). El aplazamiento NO debe
+    // fingir éxito: sin aviso, y se enseña el motivo. Antes se avisaba y el panel
+    // mostraba la hora nueva aunque la BD la hubiera rechazado.
+    const avisos = await montarCalendario(page, {
+      sesionUpdateError: true,
+      sesiones: [{
+        id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
+        inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
+        notas: null, serie_id: null, precio_puntual: null,
+      }],
+    });
+
+    await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Editar' }).first().click();
+    await page.locator('input[type="time"]').first().fill('18:30');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    // Se muestra el motivo del rechazo y NO se avisa de un movimiento que no ocurrió.
+    await expect(page.getByText(/ya tiene una clase a esa hora/i).first()).toBeVisible({ timeout: 10_000 });
+    expect(avisos).toHaveLength(0);
   });
 
   test('los números de arriba hablan de la semana que se está mirando', async ({ page }) => {

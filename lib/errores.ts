@@ -117,6 +117,11 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
   if (code === '23514' || /violates check constraint/i.test(msg)) {
     return 'Alguno de los datos no es válido. Revísalo y vuelve a intentarlo.';
   }
+  // 23P01: violación de exclusión (GiST anti-solape de sala/instructora). Es el
+  // motivo típico de que mover una clase a otra hora no llegue a guardarse.
+  if (code === '23P01' || /exclusion constraint|conflicting key value/i.test(msg)) {
+    return 'Esa sala o instructora ya tiene una clase a esa hora. Elige otro hueco.';
+  }
   if (status >= 400) return mensajeHttp(status);
   // Si el servidor mandó una frase apta para una persona, es mejor que la nuestra.
   return mensajeSeguro(msg, ERROR_GENERICO);
