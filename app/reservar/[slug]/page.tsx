@@ -1,4 +1,5 @@
 'use client';
+import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef, useId } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
@@ -877,7 +878,7 @@ export default function ReservarPage() {
             <div>
               <h3 className="text-[#1A1A1A] font-bold text-base mb-3 px-1">Instructoras</h3>
               <div className="grid sm:grid-cols-2 gap-3">
-                {instructores.filter(i => i.activo).map(i => (
+                {queImparten(instructores).map(i => (
                   <div key={i.id} className="bg-white flex items-center gap-3 rounded-2xl p-4 shadow-sm"
                     style={{ border: '1px solid #F1F3F5' }}>
                     <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { imparteClases } from '@/lib/equipo';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -433,12 +434,14 @@ async function diagnosticarEquipo(
 ): Promise<{ total: number; sinDisponibilidad: { id: string; nombre: string }[] }> {
   try {
     const [{ data: activas }, { data: franjas }] = await Promise.all([
-      admin.from('instructores').select('id, nombre').eq('studio_id', studioId).eq('activo', true),
+      // `instructores` es el staff completo: sin excluir a recepción el aviso
+      // decía "7 de tus 8 instructoras" contando a quien no da clases.
+      admin.from('instructores').select('id, nombre, rol').eq('studio_id', studioId).eq('activo', true),
       admin.from('instructora_disponibilidad').select('instructor_id').eq('studio_id', studioId),
     ]);
 
     const conDisponibilidad = new Set((franjas ?? []).map((f) => f.instructor_id as string));
-    const lista = activas ?? [];
+    const lista = (activas ?? []).filter(i => imparteClases({ rol: i.rol as string | null }));
     return {
       total: lista.length,
       sinDisponibilidad: lista
