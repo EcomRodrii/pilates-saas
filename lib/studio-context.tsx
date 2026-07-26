@@ -49,6 +49,7 @@ import {
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
+import { politicaPrivacidadPorDefecto, terminosServicioPorDefecto, type DatosEstudioLegal } from '@/lib/legal-textos';
 import type {
   Studio,
   Socio,
@@ -152,43 +153,35 @@ export interface StudioConfig {
   terminosServicio: string;
 }
 
+/**
+ * Textos legales efectivos de un estudio: los suyos si los ha reescrito a mano,
+ * y si no, los de por defecto REDACTADOS CON SUS DATOS fiscales.
+ *
+ * Antes el fallback era un texto fijo que decía "el responsable es el estudio de
+ * pilates" — sin nombre ni NIF, aunque el estudio los tuviera rellenos. Lo que
+ * firmaba la clienta no identificaba a nadie.
+ */
+export function configLegalDe(
+  studio: DatosEstudioLegal | null | undefined,
+  guardados: { politicaPrivacidad?: string | null; terminosServicio?: string | null } | null | undefined,
+): StudioConfig {
+  const e = studio ?? {};
+  return {
+    politicaPrivacidad: guardados?.politicaPrivacidad ?? politicaPrivacidadPorDefecto(e),
+    terminosServicio: guardados?.terminosServicio ?? terminosServicioPorDefecto(e),
+  };
+}
+
+/**
+ * Solo como estado inicial, antes de saber de qué estudio hablamos. En cuanto
+ * carga, `configLegalDe` lo sustituye por el texto con los datos reales; si
+ * alguien llegara a firmar esto, el propio documento avisa de que faltan.
+ */
 export const defaultStudioConfig: StudioConfig = {
-  politicaPrivacidad: `POLÍTICA DE PRIVACIDAD
-
-En cumplimiento del Reglamento (UE) 2016/679 del Parlamento Europeo (RGPD), le informamos que sus datos personales serán incorporados a nuestros ficheros con la finalidad de gestionar su inscripción y la prestación de los servicios contratados.
-
-RESPONSABLE DEL TRATAMIENTO
-El responsable del tratamiento de sus datos es el estudio de pilates (en adelante, "el Estudio").
-
-FINALIDAD Y LEGITIMACIÓN
-Sus datos serán tratados para la gestión de membresías, facturación y comunicaciones relacionadas con los servicios contratados. La base legal es la ejecución del contrato y el cumplimiento de obligaciones legales.
-
-CONSERVACIÓN
-Sus datos se conservarán durante la vigencia de la relación contractual y, una vez finalizada, durante los plazos legalmente establecidos.
-
-DERECHOS
-Puede ejercer sus derechos de acceso, rectificación, supresión, limitación, portabilidad y oposición enviando un escrito a la dirección del estudio.`,
-
-  terminosServicio: `TÉRMINOS Y CONDICIONES DE SERVICIO
-
-1. OBJETO
-El presente contrato regula las condiciones de acceso y uso de los servicios de pilates ofrecidos por el Estudio.
-
-2. PLANES Y TARIFAS
-El socio abona la tarifa correspondiente al plan seleccionado. Los precios incluyen IVA. El Estudio se reserva el derecho de modificar tarifas con un preaviso mínimo de 30 días.
-
-3. RESERVAS Y CANCELACIONES
-Las reservas deben realizarse con antelación a través de los canales habilitados. Las cancelaciones efectuadas con menos de 12 horas de antelación serán descontadas del bono.
-
-4. RESPONSABILIDAD
-El socio declara estar en condiciones físicas adecuadas para la práctica de pilates. El Estudio no se responsabiliza de lesiones derivadas del incumplimiento de las indicaciones del instructor.
-
-5. VIGENCIA
-El contrato estará vigente mientras se mantenga la suscripción activa. Cualquiera de las partes podrá resolver el contrato con un preaviso de 15 días.
-
-6. ACEPTACIÓN
-La firma de este documento supone la aceptación íntegra de las presentes condiciones.`,
+  politicaPrivacidad: politicaPrivacidadPorDefecto(),
+  terminosServicio: terminosServicioPorDefecto(),
 };
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -619,10 +612,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setStudio(pub.studio ?? null);
       // El portal muestra a la clienta la política/términos del estudio y quedan con
       // su aceptación: hay que hidratarlos aquí (antes usaba siempre el texto por defecto).
-      setStudioConfig({
-        politicaPrivacidad: (pub.studio as { politicaPrivacidad?: string | null } | null)?.politicaPrivacidad ?? defaultStudioConfig.politicaPrivacidad,
-        terminosServicio: (pub.studio as { terminosServicio?: string | null } | null)?.terminosServicio ?? defaultStudioConfig.terminosServicio,
-      });
+      setStudioConfig(configLegalDe(
+        pub.studio as DatosEstudioLegal | null,
+        pub.studio as { politicaPrivacidad?: string | null; terminosServicio?: string | null } | null,
+      ));
       setSesiones(pub.sesiones ?? []);
       setTiposClase(pub.tiposClase ?? []);
       setSalas(pub.salas ?? []);
@@ -751,10 +744,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setAutomationRules(data.automationRules);
       setAutomationLogs(data.automationLogs);
       setStudio(data.studio);
-      setStudioConfig({
-        politicaPrivacidad: data.studioConfig?.politicaPrivacidad ?? defaultStudioConfig.politicaPrivacidad,
-        terminosServicio: data.studioConfig?.terminosServicio ?? defaultStudioConfig.terminosServicio,
-      });
+      setStudioConfig(configLegalDe(data.studio, data.studioConfig));
       setDataLoaded(true);
 
       // Campos personalizados y plantillas de email: no son ruta crítica (solo
@@ -3173,10 +3163,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setAutomationLogs(data.automationLogs);
       progressNotesStore.setNotasProgreso(data.notasProgreso);
       setStudio(data.studio);
-      setStudioConfig({
-        politicaPrivacidad: data.studioConfig?.politicaPrivacidad ?? defaultStudioConfig.politicaPrivacidad,
-        terminosServicio: data.studioConfig?.terminosServicio ?? defaultStudioConfig.terminosServicio,
-      });
+      setStudioConfig(configLegalDe(data.studio, data.studioConfig));
     }).catch(console.error);
   }
 
