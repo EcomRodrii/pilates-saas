@@ -81,3 +81,20 @@ export async function desactivarPush(getHeaders: Headers): Promise<void> {
     }
   } catch { /* best-effort */ }
 }
+
+// iPhone/iPad: Web Push solo funciona si la PWA está INSTALADA (Añadir a inicio)
+// e iOS 16.4+. En una pestaña normal de Safari, PushManager no existe, así que
+// `pushSoportado()` da false y no se distingue de "navegador incompatible". Estas
+// dos permiten mostrar la pista de "Añadir a inicio" solo cuando de verdad aplica.
+export function esIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    // iPadOS moderno se presenta como Mac; se distingue por el táctil.
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+export function esStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.('(display-mode: standalone)').matches === true
+    || (navigator as unknown as { standalone?: boolean }).standalone === true;
+}
