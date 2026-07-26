@@ -239,6 +239,11 @@ export default function CitasPage() {
   const [tab, setTab] = useState<'proximas' | 'historial'>('proximas');
   const [filterInstructor, setFilterInstructor] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
+  // Nada se pinta antes de estar guardado, así que hay que enseñar qué falló:
+  // el del modal para el alta, el de la lista para las acciones de cada fila.
+  const [errorModal, setErrorModal] = useState<string | null>(null);
+  const [errorLista, setErrorLista] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
 
   // Form state
   const [form, setForm] = useState({
@@ -349,27 +354,39 @@ export default function CitasPage() {
     return instructores.find((i) => i.id === id);
   }
 
-  function handleCompletar(id: string) {
-    completarCita(id);
+  async function handleCompletar(id: string) {
+    setErrorLista(null);
+    const r = await completarCita(id);
+    if (!r.ok) setErrorLista(r.error);
   }
 
-  function handleCancelar(id: string) {
-    cancelarCita(id);
+  async function handleCancelar(id: string) {
+    setErrorLista(null);
+    const r = await cancelarCita(id);
+    if (!r.ok) setErrorLista(r.error);
   }
 
-  function handleTogglePagada(id: string) {
+  async function handleTogglePagada(id: string) {
     const cita = citas.find((c) => c.id === id);
-    if (cita) updateCita(id, { pagada: !cita.pagada });
+    if (!cita) return;
+    setErrorLista(null);
+    // La que más duele: dar por cobrada una cita que no se guardó como cobrada
+    // significa que nadie va a reclamar ese dinero.
+    const r = await updateCita(id, { pagada: !cita.pagada });
+    if (!r.ok) setErrorLista(r.error);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.socioId || !form.instructorId || !form.fecha || !form.hora) return;
+    if (guardando) return;
 
     const inicioDate = new Date(`${form.fecha}T${form.hora}`);
     const finDate = new Date(inicioDate.getTime() + form.duracion * 60000);
 
-    addCita({
+    setGuardando(true);
+    setErrorModal(null);
+    const r = await addCita({
       socioId: form.socioId,
       instructorId: form.instructorId,
       tipo: form.tipo,
@@ -379,7 +396,13 @@ export default function CitasPage() {
       estado: 'PENDIENTE',
       precio: form.precio ? parseFloat(form.precio) : null,
       pagada: false,
-    });
+    }).finally(() => setGuardando(false));
+
+    // Si no se ha guardado, el modal se queda abierto con lo escrito: perder el
+    // formulario entero por un fallo del servidor sería castigar a quien no
+    // tiene la culpa.
+    if (!r.ok) { setErrorModal(r.error); return; }
+
     setShowModal(false);
     setForm({
       socioId: '',
@@ -399,6 +422,7 @@ export default function CitasPage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('nueva') === '1') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      setErrorModal(null);
       setShowModal(true);
       window.history.replaceState({}, '', '/citas');
     }
@@ -420,7 +444,7 @@ export default function CitasPage() {
               Importar
             </Link>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => { setErrorModal(null); setShowModal(true); }}
               className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2.5 text-sm font-medium hover:brightness-95 transition-colors shrink-0"
             >
               <Plus size={16} />
@@ -532,6 +556,12 @@ export default function CitasPage() {
           })
         )}
       </div>
+
+      {errorLista && (
+        <div role="alert" className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <span className="font-medium">No se ha guardado.</span> {errorLista}
+        </div>
+      )}
 
       {/* Nueva cita modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
@@ -657,6 +687,12 @@ export default function CitasPage() {
               </div>
             )}
 
+            {errorModal && (
+              <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                <span className="font-medium">No se ha guardado.</span> {errorModal}
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
@@ -667,9 +703,10 @@ export default function CitasPage() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-sm font-medium hover:brightness-95 transition-colors"
+                disabled={guardando}
+                className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-sm font-medium hover:brightness-95 transition-colors disabled:opacity-60"
               >
-                Guardar cita
+                {guardando ? 'Guardando…' : 'Guardar cita'}
               </button>
             </div>
           </form>
