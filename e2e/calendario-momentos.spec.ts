@@ -126,6 +126,32 @@ test.describe('Momentos del calendario', () => {
     expect(avisos).toHaveLength(0);
   });
 
+  test('mover la hora avisa aunque el panel no viera la reserva (bug del aplazamiento)', async ({ page }) => {
+    const hoy = new Date().toISOString().slice(0, 10);
+    // El panel NO trae la reserva en su snapshot (se hizo desde el portal después
+    // de cargar). Antes, el guard de cliente `apuntadas > 0` vetaba el aviso y el
+    // aplazamiento salía en silencio. Ahora se avisa siempre en cambios de hora y
+    // el servidor resuelve las destinatarias desde la BD.
+    const avisos = await montarCalendario(page, {
+      sesiones: [{
+        id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
+        inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
+        notas: null, serie_id: null, precio_puntual: null,
+      }],
+      // reservas: [] a propósito — el snapshot del panel no las ve.
+    });
+
+    await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Editar' }).first().click();
+
+    // Aplazar: mover la hora de inicio.
+    await page.locator('input[type="time"]').first().fill('18:30');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    // Se manda el aviso pese a que el panel no veía apuntadas.
+    await expect.poll(() => avisos.length, { timeout: 10_000 }).toBe(1);
+  });
+
   test('los números de arriba hablan de la semana que se está mirando', async ({ page }) => {
     const hoy = new Date().toISOString().slice(0, 10);
     await montarCalendario(page, {
