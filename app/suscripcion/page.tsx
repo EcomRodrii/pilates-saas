@@ -110,7 +110,7 @@ export default function SuscripcionPage() {
 
         {!cargandoEstado && !stripeListo && !activo && (
           <div style={{ maxWidth: 640, margin: '0 auto 24px', background: '#FFF8E6', border: '1px solid #F0E0A8', color: '#6B551A', borderRadius: 12, padding: '12px 16px', fontSize: 14 }}>
-            Los pagos aún no están configurados en este entorno. Configura las claves de Stripe y los <code>STRIPE_PRICE_*</code> para activar la suscripción.
+            Todavía no se puede contratar desde aquí: estamos terminando de configurar los pagos por nuestro lado. Escríbenos a soporte@tentare.app y lo activamos contigo.
           </div>
         )}
 
