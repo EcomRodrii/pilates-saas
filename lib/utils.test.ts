@@ -12,7 +12,7 @@
 // que un formateo que ignorase la zona fallaría en al menos uno de los dos.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro } from './utils.ts';
+import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana } from './utils.ts';
 
 test('la zona del estudio es la peninsular', () => {
   assert.equal(TZ_ESTUDIO, 'Europe/Madrid');
@@ -78,4 +78,72 @@ test('formatEuro usa coma decimal y punto de millar (formato español)', () => {
 
 test('formatEuro respeta los importes negativos (devoluciones)', () => {
   assert.equal(formatEuro(-64), '-64,00 €');
+});
+
+// ── Semanas ──────────────────────────────────────────────────────────────────
+// Por qué existen: el lunes de la semana estaba calculado a mano en tres
+// pantallas. La del dashboard hacía `getDate() - getDay() + 1`, que funciona de
+// lunes a sábado y el DOMINGO suma un día: la ventana pasaba a ser la semana
+// siguiente y "hoy" quedaba fuera. Los domingos mostraba 0% de ocupación con las
+// clases del día llenas.
+//
+// Por eso se recorren los SIETE días: un cálculo roto solo en domingo pasa
+// desapercibido seis de cada siete veces.
+
+// 2026-08-03 es lunes; del 3 al 9 de agosto de 2026 es una semana natural.
+const LUNES = '2026-08-03';
+
+test('inicioDeSemana: cualquier día de la semana devuelve SU lunes', () => {
+  const dias = ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06',
+                '2026-08-07', '2026-08-08', '2026-08-09'];
+  for (const dia of dias) {
+    const inicio = inicioDeSemana(`${dia}T12:00:00`);
+    assert.equal(
+      `${inicio.getFullYear()}-${String(inicio.getMonth() + 1).padStart(2, '0')}-${String(inicio.getDate()).padStart(2, '0')}`,
+      LUNES,
+      `${dia} debería caer en la semana del ${LUNES}`,
+    );
+  }
+});
+
+test('inicioDeSemana: el domingo NO salta a la semana siguiente (el bug)', () => {
+  // 2026-08-09 es domingo. El cálculo roto devolvía el lunes 10.
+  const inicio = inicioDeSemana('2026-08-09T12:00:00');
+  assert.equal(inicio.getDate(), 3);
+  assert.equal(inicio.getMonth(), 7); // agosto
+});
+
+test('inicioDeSemana: deja la hora a medianoche', () => {
+  const inicio = inicioDeSemana('2026-08-05T17:42:13');
+  assert.equal(inicio.getHours(), 0);
+  assert.equal(inicio.getMinutes(), 0);
+  assert.equal(inicio.getSeconds(), 0);
+});
+
+test('inicioDeSemana: cruza el cambio de mes hacia atrás', () => {
+  // Miércoles 2026-07-01 → su lunes es el 29 de junio.
+  const inicio = inicioDeSemana('2026-07-01T09:00:00');
+  assert.equal(inicio.getDate(), 29);
+  assert.equal(inicio.getMonth(), 5); // junio
+});
+
+test('finDeSemana: el domingo de esa misma semana, al final del día', () => {
+  const fin = finDeSemana('2026-08-05T09:00:00');
+  assert.equal(fin.getDate(), 9);
+  assert.equal(fin.getDay(), 0); // domingo
+  assert.equal(fin.getHours(), 23);
+});
+
+test('finDeSemana: en domingo devuelve HOY, no el domingo que viene', () => {
+  const fin = finDeSemana('2026-08-09T12:00:00');
+  assert.equal(fin.getDate(), 9);
+});
+
+test('la semana contiene siempre a la fecha de partida', () => {
+  // La propiedad que de verdad importa: hoy nunca puede quedar fuera de "esta semana".
+  for (const dia of ['2026-08-03', '2026-08-06', '2026-08-09', '2026-07-01', '2027-01-03']) {
+    const hoy = new Date(`${dia}T12:00:00`);
+    assert.ok(inicioDeSemana(hoy) <= hoy, `${dia}: el inicio de semana quedó en el futuro`);
+    assert.ok(finDeSemana(hoy) >= hoy, `${dia}: el fin de semana quedó en el pasado`);
+  }
 });

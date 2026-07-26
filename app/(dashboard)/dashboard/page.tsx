@@ -12,7 +12,7 @@ import {
   Clock, Activity, Bot, MessageSquare, Mail,
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, inicioDeSemana, finDeSemana } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -500,12 +500,13 @@ export default function Dashboard() {
 
   // Ocupación media de la semana
   const ocupacionMedia = useMemo(() => {
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay() + 1); // lunes
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    const weekStartStr = localDate(weekStart);
-    const weekEndStr = localDate(weekEnd);
+    // El cálculo del lunes estaba a mano y fallaba justo el DOMINGO:
+    // `getDate() - getDay() + 1` con `getDay() === 0` suma un día, así que la
+    // ventana pasaba a ser la semana SIGUIENTE y hoy quedaba fuera. Sin clases
+    // creadas para esa semana, `sessSemana` salía vacío y la ocupación se
+    // mostraba como 0% con la clase de hoy llena.
+    const weekStartStr = localDate(inicioDeSemana(now));
+    const weekEndStr = localDate(finDeSemana(now));
     const sessSemana = sesiones.filter(
       s =>
         !s.cancelada &&
