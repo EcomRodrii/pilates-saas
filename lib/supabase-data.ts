@@ -3225,13 +3225,12 @@ function postComunidadToDb(p: PostComunidad) {
 
 // ─── Write functions (fire-and-forget, errors logged to console) ──────────────
 
-export async function dbInsertSocio(socio: Socio) {
+export async function dbInsertSocio(socio: Socio): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('socios').insert(socioToDb(socio));
-  if (error) reportDbError('[dbInsertSocio]', error);
-  return !error;
+  return error ? falloEscritura('[dbInsertSocio]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateSocio(id: string, changes: Partial<Socio>) {
+export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('studioId' in changes) db.studio_id = changes.studioId;
   if ('nombre' in changes) db.nombre = changes.nombre;
@@ -3260,7 +3259,7 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>) {
     db.aceptacion_version = changes.aceptacionContrato?.versionTexto ?? null;
   }
   const { error } = await supabase.from('socios').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateSocio]', error);
+  return error ? falloEscritura('[dbUpdateSocio]', error) : ESCRITURA_OK;
 }
 
 // A-3/A-4: la baja de una socia NO borra la fila (destruía recibos/facturas con
@@ -3561,11 +3560,11 @@ async function conReintentoFK<T extends { error: { code: string; message: string
   return res;
 }
 
-export async function dbInsertSuscripcion(sus: Suscripcion) {
+export async function dbInsertSuscripcion(sus: Suscripcion): Promise<ResultadoEscritura> {
   const { error } = await conReintentoFK('suscripciones_socio_id_fkey', () =>
     supabase.from('suscripciones').insert(suscripcionToDb(sus)),
   );
-  if (error) reportDbError('[dbInsertSuscripcion]', error);
+  return error ? falloEscritura('[dbInsertSuscripcion]', error) : ESCRITURA_OK;
 }
 
 export async function dbUpdateSuscripcion(id: string, changes: Partial<Suscripcion>) {
@@ -3835,11 +3834,11 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
   if (error) reportDbError('[dbUpdateReserva]', error);
 }
 
-export async function dbInsertRecibo(rec: Recibo) {
+export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
   const { error } = await conReintentoFK('recibos_socio_id_fkey', () =>
     supabase.from('recibos').insert(reciboToDb(rec)),
   );
-  if (error) reportDbError('[dbInsertRecibo]', error);
+  return error ? falloEscritura('[dbInsertRecibo]', error) : ESCRITURA_OK;
 }
 
 export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>) {

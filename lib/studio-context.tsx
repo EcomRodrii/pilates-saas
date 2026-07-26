@@ -225,9 +225,9 @@ interface StudioContextValue {
   notasInternas: NotaInterna[];
 
   // Socios
-  addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string }) => void;
+  addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string }) => Promise<ResultadoEscritura>;
   addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<void>;
-  updateSocio: (id: string, changes: Partial<Socio>) => void;
+  updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
   addTagSocio: (socioId: string, tag: string) => void;
   removeTagSocio: (socioId: string, tag: string) => void;
@@ -1159,7 +1159,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Socios ────────────────────────────────────────────────────────────────────
 
-  function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }) {
+  async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }): Promise<ResultadoEscritura> {
     const { planId, aceptacionContrato, ...socioFields } = fields;
     const ahora = new Date().toISOString();
     const nuevaSocia: Socio = {
@@ -1169,13 +1169,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ...(aceptacionContrato ? { aceptacionContrato } : {}),
       ...socioFields,
     };
-    setSocios(prev => [...prev, nuevaSocia]);
 
-    // El estado local (optimista) se actualiza ya para no bloquear la UI, pero
-    // suscripcion/recibo referencian socioId por FK: si se mandan en paralelo
-    // con el insert de la socia y este tarda un pelín más, la BD los rechaza
+    // La socia va PRIMERO y se espera: todo lo demás cuelga de ella por FK
     // ("Key is not present in table socios" — Sentry JAVASCRIPT-NEXTJS-3/4).
-    // Se encadenan al ok de dbInsertSocio para garantizar el orden real.
+    // Y hasta que la BD no la acepta no se pinta nada: antes se añadía al estado
+    // de forma optimista y, si el insert fallaba, quedaba en pantalla una socia
+    // que no existía —con su suscripción, su recibo cobrado y una factura ya
+    // SELLADA— sin que nadie avisara.
+    const resSocia = await dbInsertSocio(nuevaSocia);
+    if (!resSocia.ok) return resSocia;
+    setSocios(prev => [...prev, nuevaSocia]);
+    addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
+
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
       if (plan) {
@@ -1191,8 +1196,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           sesionesRestantes: plan.sesiones,
           stripeSubscriptionId: null,
         };
-        setSuscripciones(prev => [...prev, sus]);
-
         const reciboId = `rec-${uid()}`;
         const reciboCobrado: Recibo = {
           id: reciboId,
@@ -1207,26 +1210,29 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           fechaDevolucion: null,
           intentosReintento: 0,
         };
+
+        // Suscripción y recibo, en orden y esperados. La socia ya existe, así
+        // que la FK está garantizada.
+        const resSus = await dbInsertSuscripcion(sus);
+        if (!resSus.ok) return resSus;
+        setSuscripciones(prev => [...prev, sus]);
+
+        const resRec = await dbInsertRecibo(reciboCobrado);
+        if (!resRec.ok) return resRec;
         setRecibos(prev => [...prev, reciboCobrado]);
+
+        // La factura se SELLA (Veri*Factu, cadena de hashes) y no se puede
+        // borrar: solo se emite cuando el cobro que la respalda está guardado.
+        // Antes se sellaba antes incluso de insertar a la socia.
         setFacturas(prev => {
           const fac = buildFactura(reciboCobrado, prev);
           void sellarFacturaYActualizar(fac);
           return [...prev, fac];
         });
-
-        dbInsertSocio(nuevaSocia).then(ok => {
-          if (!ok) return;
-          addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
-          dbInsertSuscripcion(sus);
-          dbInsertRecibo(reciboCobrado);
-        });
-        return;
       }
     }
 
-    dbInsertSocio(nuevaSocia).then(ok => {
-      if (ok) addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
-    });
+    return resSocia;
   }
 
   // En ruta pública, las escrituras van por los endpoints de servidor (service-
@@ -1315,18 +1321,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  function updateSocio(id: string, changes: Partial<Socio>) {
+  async function updateSocio(id: string, changes: Partial<Socio>): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (cpub) {
       // La socia edita su propio perfil vía endpoint (whitelist de campos).
       setSocios(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s)); // optimista
       postPublico('/api/public/socio', { accion: 'actualizar', studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, cambios: changes });
-      return;
+      // El portal re-sincroniza contra el servidor al terminar (cargarPublico).
+      return { ok: true };
     }
+    const res = await dbUpdateSocio(id, changes);
+    if (!res.ok) return res;
     setSocios(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
-    dbUpdateSocio(id, changes);
     const socio = socios.find(s => s.id === id);
     if (socio) addActividadReciente('SOCIA_EDITADA', `${actorNombre ?? 'Alguien'} editó los datos de ${socio.nombre} ${socio.apellidos}`, id, `/socios/${id}`);
+    return res;
   }
 
   function deleteSocio(id: string) {

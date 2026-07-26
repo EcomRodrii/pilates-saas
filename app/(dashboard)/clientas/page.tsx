@@ -14,7 +14,7 @@ import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
   ChevronUp, ChevronDown, ChevronsUpDown, Mail, Pencil,
   Trash2, AlertTriangle, CheckCircle2, Upload, X, UserX,
-  Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck
+  Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck, Loader2
 } from 'lucide-react';
 import { cn, formatFechaLarga as formatDate } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -201,6 +201,10 @@ export default function Socios() {
   const [firma, setFirma] = useState('');
   const [aceptado, setAceptado] = useState(false);
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  // El alta escribe en la BD y puede fallar: hasta ahora se cerraba el diálogo
+  // igualmente y la clienta salía en la lista sin existir de verdad.
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
   const contratoRef = useRef<HTMLDivElement>(null);
 
   // Reset selection when filters change
@@ -391,11 +395,15 @@ export default function Socios() {
     setFirma('');
     setAceptado(false);
     setScrolledToBottom(false);
+    setErrorGuardar(null);
   }
 
-  function handleCrear() {
+  async function handleCrear() {
+    if (guardando) return;
+    setGuardando(true);
+    setErrorGuardar(null);
     const versionTexto = [studioConfig.politicaPrivacidad, studioConfig.terminosServicio].join('\n\n---\n\n');
-    addSocio({
+    const res = await addSocio({
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
       email: form.email.trim(),
@@ -410,6 +418,12 @@ export default function Socios() {
         versionTexto,
       },
     });
+    setGuardando(false);
+    // Si la BD la rechaza, el diálogo se queda abierto con los datos puestos:
+    // antes se cerraba igual y la clienta aparecía en la lista sin existir.
+    if (!res.ok) { setErrorGuardar(res.error); return; }
+
+    // La bienvenida solo se manda si el alta se ha guardado de verdad.
     if (form.email.trim()) {
       const plan = planesTarifa.find((p) => p.id === form.planId);
       enviarEmailBienvenida({
@@ -421,9 +435,11 @@ export default function Socios() {
     resetModal();
   }
 
-  function handleEditar() {
-    if (!editandoId) return;
-    updateSocio(editandoId, {
+  async function handleEditar() {
+    if (!editandoId || guardando) return;
+    setGuardando(true);
+    setErrorGuardar(null);
+    const res = await updateSocio(editandoId, {
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
       email: form.email.trim(),
@@ -431,6 +447,8 @@ export default function Socios() {
       nif: form.nif || null,
       camposExtra: form.camposExtra,
     });
+    setGuardando(false);
+    if (!res.ok) { setErrorGuardar(res.error); return; }
     if (form.planId) assignPlan(editandoId, form.planId);
     resetModal();
   }
@@ -1098,6 +1116,13 @@ export default function Socios() {
             </div>
           )}
 
+          {errorGuardar && (
+            <p className="flex items-start gap-2 mt-4 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-700">
+              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+              <span>{errorGuardar}</span>
+            </p>
+          )}
+
           {/* ── Actions ─── */}
           <div className="flex gap-2 mt-5">
             <button
@@ -1118,13 +1143,16 @@ export default function Socios() {
               <button
                 onClick={showForm === 'nueva' ? handleCrear : handleEditar}
                 disabled={
-                  showForm === 'nueva'
+                  guardando || (showForm === 'nueva'
                     ? !aceptado || !firma.trim()
-                    : !form.nombre || !form.apellidos || !form.email
+                    : !form.nombre || !form.apellidos || !form.email)
                 }
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
               >
-                {showForm === 'nueva' ? 'Crear clienta y firmar' : 'Guardar cambios'}
+                {guardando && <Loader2 size={14} className="animate-spin" />}
+                {guardando
+                  ? 'Guardando…'
+                  : showForm === 'nueva' ? 'Crear clienta y firmar' : 'Guardar cambios'}
               </button>
             )}
           </div>
