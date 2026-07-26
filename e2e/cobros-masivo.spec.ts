@@ -53,7 +53,7 @@ function json(route: Route, body: unknown, status = 200) {
 }
 
 /** Devuelve los PATCH que llegaron a `recibos`: si está vacío, no se ha cobrado nada. */
-async function montarCobros(page: Page, suscripciones: unknown[] = SUSCRIPCIONES) {
+async function montarCobros(page: Page, suscripciones: unknown[] = SUSCRIPCIONES, opts: { rechazarEscritura?: boolean } = {}) {
   const escrituras: { metodo: string; body: string }[] = [];
 
   await page.addInitScript(([key, uid]) => {
@@ -86,6 +86,11 @@ async function montarCobros(page: Page, suscripciones: unknown[] = SUSCRIPCIONES
     const req = route.request();
     if (req.method() !== 'GET') {
       escrituras.push({ metodo: req.method(), body: req.postData() ?? '' });
+      // Simula que la BD rechaza (RLS, red, lo que sea): el camino que antes se
+      // tragaba en silencio y aun así pintaba facturas y renovaciones.
+      if (opts.rechazarEscritura) {
+        return json(route, { message: 'new row violates row-level security policy' }, 403);
+      }
       return json(route, []);
     }
     return json(route, RECIBOS);
@@ -171,5 +176,43 @@ test.describe('Cobrar varias a la vez', () => {
 
     await dialogo.getByRole('button', { name: 'Quitar todas' }).click();
     await expect(dialogo).toContainText('0 recibos seleccionados');
+  });
+
+  // ── Cuando la base de datos dice que no ──────────────────────────────────────
+  // `marcarCobrado` escribía de forma optimista y SIN await: marcaba el recibo
+  // como COBRADO en pantalla, emitía una factura con número fiscal y renovaba el
+  // bono, todo antes de saber si la escritura había funcionado. Si fallaba, nadie
+  // se enteraba: el resumen decía "2 cobros procesados" igual.
+  test('si la BD rechaza, lo dice y no da los cobros por buenos', async ({ page }) => {
+    await montarCobros(page, SUSCRIPCIONES, { rechazarEscritura: true });
+
+    await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
+    const dialogo = page.getByRole('dialog');
+    await dialogo.getByRole('button', { name: /^Marcar todas/ }).click();
+    await dialogo.getByRole('button', { name: /^Continuar/ }).click();
+    await dialogo.getByRole('button', { name: /^Sí, cobrar/ }).click();
+
+    // Ni un solo cobro dado por bueno, y se explica qué ha pasado.
+    await expect(dialogo).toContainText('0 cobros guardados', { timeout: 15_000 });
+    await expect(dialogo).toContainText('no se han podido guardar');
+    await expect(dialogo).toContainText('siguen como pendientes');
+    // Lo que más importa: no se ha emitido factura fiscal contra un cobro que no existe.
+    await expect(dialogo).toContainText('No se han emitido sus facturas');
+    await expect(dialogo).not.toContainText('2 cobros guardados');
+  });
+
+  test('si la BD acepta, el resumen cuadra con lo guardado', async ({ page }) => {
+    const escrituras = await montarCobros(page);
+
+    await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
+    const dialogo = page.getByRole('dialog');
+    await dialogo.getByRole('button', { name: /^Marcar todas/ }).click();
+    await dialogo.getByRole('button', { name: /^Continuar/ }).click();
+    await dialogo.getByRole('button', { name: /^Sí, cobrar/ }).click();
+
+    await expect(dialogo).toContainText('2 cobros guardados', { timeout: 15_000 });
+    await expect(dialogo).not.toContainText('no se han podido guardar');
+    // Y se escribió de verdad, una vez por recibo.
+    expect(escrituras.filter(e => e.metodo === 'PATCH').length).toBeGreaterThanOrEqual(2);
   });
 });

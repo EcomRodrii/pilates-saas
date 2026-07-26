@@ -282,11 +282,11 @@ interface StudioContextValue {
 
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => void;
-  marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => void;
+  marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura>;
   marcarDevuelto: (reciboId: string) => void;
   reintentar: (reciboId: string) => void;
   deleteRecibo: (id: string) => void;
-  cobrarTodosPendientes: (socioId?: string) => void;
+  cobrarTodosPendientes: (socioId?: string) => Promise<ResultadoEscritura>;
 
   // Citas
   citas: Cita[];
@@ -2038,15 +2038,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return fac;
   }
 
-  function marcarCobrado(reciboId: string, metodo?: MetodoCobro) {
+  async function marcarCobrado(reciboId: string, metodo?: MetodoCobro): Promise<ResultadoEscritura> {
     const fechaCobro = new Date().toISOString();
     // F2 (B2.6): cobro sin pasarela de primera clase. La dueña marca cómo cobró de
     // verdad (Bizum/efectivo/transferencia…), no solo "cobrado". La suscripción vive
     // por fechas: el cobro manual es tan válido como el de Stripe.
+    //
+    // Se ESCRIBE PRIMERO y solo después se toca la pantalla (mismo criterio que
+    // addSala/updateSala). Antes era al revés y sin await: si la BD rechazaba, el
+    // recibo salía como COBRADO, se emitía una factura con número fiscal y se
+    // renovaba el bono... con la base de datos intacta. En el cobro masivo eso
+    // pasaba con N recibos y la pantalla decía "listo" igualmente.
+    const res = await dbUpdateRecibo(reciboId, { estado: 'COBRADO', fechaCobro, ...(metodo ? { metodoCobro: metodo } : {}) });
+    if (!res.ok) return res;
+
     setRecibos(prev => prev.map(r =>
       r.id === reciboId ? { ...r, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? r.metodoCobro ?? null } : r
     ));
-    dbUpdateRecibo(reciboId, { estado: 'COBRADO', fechaCobro, ...(metodo ? { metodoCobro: metodo } : {}) });
     setFacturas(prev => {
       const recibo = recibos.find(r => r.id === reciboId) ??
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
@@ -2069,6 +2077,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         otorgarCreditos(recibo.socioId, 'RENOVACION_PLAN', reciboId);
       }
     }
+    return res;
   }
 
   function marcarDevuelto(reciboId: string) {
@@ -2093,7 +2102,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbDeleteRecibo(id);
   }
 
-  function cobrarTodosPendientes(socioId?: string) {
+  async function cobrarTodosPendientes(socioId?: string): Promise<ResultadoEscritura> {
     // Con socioId, cobra SOLO los pendientes de esa socia (botón de la ficha de
     // socia). Sin él, cobra todos los del estudio (dashboard / página de Pagos).
     // Antes ignoraba cualquier filtro y desde la ficha cobraba —y sellaba una
@@ -2101,12 +2110,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const pendientes = recibos.filter(r => r.estado === 'PENDIENTE' && (!socioId || r.socioId === socioId));
     const idsPendientes = new Set(pendientes.map(r => r.id));
     const fechaCobro = new Date().toISOString();
+    // Un solo UPDATE en lote (antes: un dbUpdateRecibo por recibo — hasta ~120
+    // round-trips secuenciales para cobrar 40 recibos pendientes).
+    // Se espera el resultado ANTES de dar nada por cobrado: si la BD rechaza, no
+    // se emiten facturas ni se renuevan bonos contra un cobro que no existe.
+    const res = await dbUpdateRecibosBatch(pendientes.map(r => r.id), { estado: 'COBRADO', fechaCobro });
+    if (!res.ok) return res;
+
     setRecibos(prev => prev.map(r =>
       idsPendientes.has(r.id) ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
     ));
-    // Un solo UPDATE en lote (antes: un dbUpdateRecibo por recibo — hasta ~120
-    // round-trips secuenciales para cobrar 40 recibos pendientes).
-    dbUpdateRecibosBatch(pendientes.map(r => r.id), { estado: 'COBRADO', fechaCobro });
     setFacturas(prev => {
       let current = [...prev];
       for (const recibo of pendientes) {
@@ -2120,6 +2133,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     for (const recibo of pendientes) {
       aplicarRenovacionSuscripcion(recibo);
     }
+    return res;
   }
 
   // ── Citas ────────────────────────────────────────────────────────────────────

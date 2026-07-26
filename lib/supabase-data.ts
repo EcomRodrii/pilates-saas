@@ -3842,7 +3842,7 @@ export async function dbInsertRecibo(rec: Recibo) {
   if (error) reportDbError('[dbInsertRecibo]', error);
 }
 
-export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>) {
+export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('suscripcionId' in changes) db.suscripcion_id = changes.suscripcionId;
@@ -3857,23 +3857,23 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>) {
   if ('sepaEstado' in changes) db.sepa_estado = changes.sepaEstado;
   if ('proximoReintento' in changes) db.proximo_reintento = changes.proximoReintento;
   const { error } = await supabase.from('recibos').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateRecibo]', error);
+  return error ? falloEscritura('[dbUpdateRecibo]', error) : ESCRITURA_OK;
 }
 
 // Aplica los mismos cambios a varios recibos (cobro masivo desde Pagos/ficha de
 // socia) en una sola llamada, en vez de un UPDATE por recibo. Solo para campos
 // uniformes entre todos los recibos del lote (estado + fechaCobro, que es lo
 // que necesita cobrarTodosPendientes).
-export async function dbUpdateRecibosBatch(ids: string[], changes: Partial<Recibo>) {
-  if (ids.length === 0) return;
+export async function dbUpdateRecibosBatch(ids: string[], changes: Partial<Recibo>): Promise<ResultadoEscritura> {
+  if (ids.length === 0) return ESCRITURA_OK;
   const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
   if ('fechaCobro' in changes) db.fecha_cobro = changes.fechaCobro;
   if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
-  if (Object.keys(db).length === 0) return;
+  if (Object.keys(db).length === 0) return ESCRITURA_OK;
   const { error } = await supabase.from('recibos').update(db).in('id', ids);
-  if (error) reportDbError('[dbUpdateRecibosBatch]', error);
+  return error ? falloEscritura('[dbUpdateRecibosBatch]', error) : ESCRITURA_OK;
 }
 
 export async function dbDeleteRecibo(id: string) {
