@@ -18,7 +18,10 @@ const ESPECIALISTA_INFO: Record<string, { nombre: string; icon: LucideIcon }> = 
 };
 
 const ESTADO_INFO: Record<PorEspecialistaAPI['estado'], { label: string; color: string; bg: string }> = {
-  EXCELENTE: { label: 'Excelente', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
+  // 'EXCELENTE' lo emite el director cuando hay CERO recomendaciones
+  // pendientes (lib/decision/director.ts), que no es lo mismo que "el negocio
+  // va excelente": la etiqueta se ajusta a lo que el dato significa.
+  EXCELENTE: { label: 'Al día', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
   BUENO: { label: 'Bueno', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
   ATENCION: { label: 'Atención', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))' },
   CRITICO: { label: 'Crítico', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
@@ -43,9 +46,15 @@ export function SpecialistCard({ data }: { data: PorEspecialistaAPI }) {
           </Badge>
         </div>
 
+        {/* "Todo en orden" afirmaba más de lo que el sistema sabe: un
+            especialista en verde solo significa que SUS reglas no han
+            encontrado nada que proponer, no que esa parte del negocio esté
+            bien. Con cero recomendaciones pendientes se decía "Todo en orden"
+            en un estudio con cero ingresos, y un semáforo que siempre está
+            verde deja de mirarse. Ahora dice exactamente lo que ha pasado. */}
         <p className="text-[13px] text-muted-foreground">
           {data.pendientes === 0
-            ? 'Todo en orden.'
+            ? 'Nada que proponerte hoy.'
             : `${data.pendientes} ${data.pendientes === 1 ? 'situación pendiente' : 'situaciones pendientes'}.`}
         </p>
 
