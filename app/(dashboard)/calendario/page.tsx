@@ -204,6 +204,9 @@ function StatsBar({ sesiones, esSemanaActual }: {
   esSemanaActual: boolean;
 }) {
   const hoy = sesiones.filter(s => !s.cancelada);
+  // "esta semana" cuando miras la semana actual, "esa semana" cuando navegas a
+  // otra: la etiqueta dice de qué semana son estos números. Es intencionado (hay
+  // un E2E que lo fija); no es un typo de "esta".
   const cuando = esSemanaActual ? 'esta semana' : 'esa semana';
   const aforo = hoy.reduce((acc, s) => acc + s.aforoMaximo, 0);
   const reservas = hoy.reduce((acc, s) => acc + s.confirmadas, 0);
@@ -1079,7 +1082,12 @@ function SessionBlock({ s, isSelected, onClick, startHour }: {
   const isFull = libres <= 0;
   const ratio = s.aforoMaximo > 0 ? s.confirmadas / s.aforoMaximo : 0;
   const occColor = ocupColorFor(ratio);
-  const showCap = durMin >= 45;
+  // Altura real de la píldora. La barra de ocupación y la 2ª línea solo caben
+  // sin solaparse ni cortarse a partir de cierta altura: mostrarlas siempre
+  // hacía que en clases cortas la barra pisara el texto (P4).
+  const cellHeight = Math.max(20, (durMin / 60) * HOUR_HEIGHT - 2);
+  const showSubline = cellHeight >= 34;
+  const showCap = cellHeight >= 56;
 
   return (
     <button
@@ -1091,7 +1099,7 @@ function SessionBlock({ s, isSelected, onClick, startHour }: {
       )}
       style={{
         top: `${(startMin / 60) * HOUR_HEIGHT + 1}px`,
-        height: `${Math.max(20, (durMin / 60) * HOUR_HEIGHT - 2)}px`,
+        height: `${cellHeight}px`,
         left: `calc(${(s.col / s.cols) * 100}% + 2px)`,
         width: `calc(${100 / s.cols}% - 4px)`,
         backgroundColor: hexToRgba(s.tipoClase.color, 0.14),
@@ -1101,7 +1109,7 @@ function SessionBlock({ s, isSelected, onClick, startHour }: {
       title={`${s.tipoClase.nombre} · ${formatHora(s.inicio)}–${formatHora(s.fin)} · ${s.instructor.nombre}`}
     >
       <p className="text-[11.5px] font-extrabold leading-tight truncate">{s.tipoClase.nombre}</p>
-      <p className="text-[10px] leading-tight truncate mt-0.5 text-muted-foreground">{formatHora(s.inicio)} · {s.instructor.nombre}</p>
+      {showSubline && <p className="text-[10px] leading-tight truncate mt-0.5 text-muted-foreground">{formatHora(s.inicio)} · {s.instructor.nombre}</p>}
       {showCap && (
         <div className="mt-auto pt-1 flex items-center gap-1.5">
           <div className="flex-1 h-[5px] rounded-full bg-black/[0.08] overflow-hidden">
@@ -1886,7 +1894,7 @@ export default function Calendario() {
           llevaba, y esa excepción es justo lo que rompe el patrón aprendido. */}
       <PageHeader
         className="shrink-0 px-6 pt-5 pb-4 sm:items-center"
-        title="Agenda"
+        title="Calendario"
         description={<span className="capitalize">{mesLabel}</span>}
         actions={
         <div className="flex items-center gap-2 flex-wrap">

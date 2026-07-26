@@ -120,7 +120,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-muted-foreground">{planesTarifa.length} planes configurados</p>
+        <p className="text-[13px] text-muted-foreground">{planesTarifa.length === 1 ? '1 plan configurado' : `${planesTarifa.length} planes configurados`}</p>
         <button className={btnPrimary} onClick={openNuevo}>
           <Plus size={13} />
           Nuevo plan

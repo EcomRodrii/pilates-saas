@@ -209,7 +209,7 @@ export function PanelFacturas() {
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total emitido</p>
           <CifraPrivada className="text-2xl font-extrabold text-foreground mt-1">{kpi(totalGeneral)} €</CifraPrivada>
-          <p className="text-xs font-medium text-muted-foreground mt-1">{filtradas.length} facturas</p>
+          <p className="text-xs font-medium text-muted-foreground mt-1">{filtradas.length} factura{filtradas.length === 1 ? '' : 's'}</p>
         </div>
       </div>
 
@@ -270,7 +270,7 @@ export function PanelFacturas() {
                 <div className="flex items-center gap-3">
                   {isOpen ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />}
                   <span className="text-sm font-bold text-foreground capitalize">{grupo.label}</span>
-                  <span className="text-xs font-semibold text-muted-foreground">{grupo.items.length} facturas</span>
+                  <span className="text-xs font-semibold text-muted-foreground">{grupo.items.length} factura{grupo.items.length === 1 ? '' : 's'}</span>
                 </div>
                 <div className="flex items-center gap-4" onClick={e => e.stopPropagation()}>
                   <button
@@ -387,7 +387,7 @@ export function PanelFacturas() {
         {/* Total footer */}
         {filtradas.length > 0 && (
           <div className="border-t-2 border-border bg-muted flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-5 py-3.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">TOTAL ({filtradas.length} facturas)</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">TOTAL ({filtradas.length} factura{filtradas.length === 1 ? '' : 's'})</span>
             <div className="flex items-center gap-4 sm:gap-8 text-sm flex-wrap">
               <span className="text-muted-foreground font-medium">Base: <CifraPrivada inline className="font-bold text-foreground">{kpi(baseTotal)} €</CifraPrivada></span>
               <span className="text-muted-foreground font-medium">IVA: <CifraPrivada inline className="font-bold text-foreground">{kpi(ivaTotal)} €</CifraPrivada></span>
