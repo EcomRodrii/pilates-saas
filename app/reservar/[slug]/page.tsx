@@ -312,8 +312,11 @@ export default function ReservarPage() {
   // Cobertura de plan/bono de la socia autenticada → precio a mostrar en el CTA
   // (informativo; el gate real se aplica en handleConfirm y en el servidor).
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
+  // Cobertura de la clase que se está mirando: con bonos acotados, "incluida en
+  // tu bono" depende del tipo, no solo de que le queden sesiones.
+  const tipoClaseAbierta = sesiones.find(x => x.id === bookingSesionId)?.tipoClaseId ?? null;
   const cubierta = socia?.socioId
-    ? tieneEntitlementActivo(socia.socioId, suscripciones, planesTarifa, localDate(now))
+    ? tieneEntitlementActivo(socia.socioId, suscripciones, planesTarifa, localDate(now), tipoClaseAbierta)
     : false;
 
   const slots = useMemo<ReservaSlot[]>(() => {
@@ -373,13 +376,23 @@ export default function ReservarPage() {
 
   // Gate de derechos (C-4): mismo criterio que el servidor, para avisar antes de
   // intentar la reserva. El servidor es la autoridad; esto es solo UX.
-  function evaluarGate(socioId?: string): string | null {
+  function evaluarGate(socioId?: string, tipoClaseId?: string | null): string | null {
     if (!studio) return null;
     if (studio.reservaExigirPlan) {
       const ok = socioId
-        ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, localDate(now))
+        ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, localDate(now), tipoClaseId)
         : false;
-      if (!ok) return 'Necesitas un plan o bono activo para reservar. Contrata uno en la pestaña "El estudio".';
+      if (!ok) {
+        // Se distingue "no tienes bono" de "tu bono no cubre esta clase": con el
+        // mensaje genérico, quien tiene 8 sesiones de Reformer no entendería por
+        // qué no puede apuntarse a Mat.
+        const tieneAlguno = socioId
+          ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, localDate(now))
+          : false;
+        return tieneAlguno
+          ? 'Tu bono no incluye este tipo de clase. Puedes reservarla pagando la clase suelta.'
+          : 'Necesitas un plan o bono activo para reservar. Contrata uno en la pestaña "El estudio".';
+      }
     }
     if (studio.reservaMaxSimultaneas != null && socioId) {
       const n = contarReservasActivasFuturas(socioId, reservas, sesiones, now);
@@ -454,7 +467,7 @@ export default function ReservarPage() {
 
     // Gate de derechos (C-4) antes de crear nada: si no cumple, avisa y no da de
     // alta a la walk-in ni reserva. El servidor lo revalida igualmente.
-    const gate = evaluarGate(socia?.socioId);
+    const gate = evaluarGate(socia?.socioId, sesion.tipoClaseId);
     if (gate) { setGateError(gate); return; }
 
     if (!socia) {
@@ -509,7 +522,8 @@ export default function ReservarPage() {
     }
     const found = socios.find(s => s.id === socia.socioId);
     const needsContract = !found?.aceptacionContrato;
-    if (needsContract || evaluarGate(socia.socioId)) {
+    const sesionDelSlot = sesiones.find(x => x.id === slot.id);
+    if (needsContract || evaluarGate(socia.socioId, sesionDelSlot?.tipoClaseId)) {
       openBooking(slot.id);
       if (spotId) setSelectedSpot(spotId);
       return;

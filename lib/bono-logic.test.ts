@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import type { Suscripcion, PlanTarifa } from '@/lib/types';
 import {
   bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo,
-  calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar,
+  calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar, planCubreTipoClase,
 } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -179,4 +179,64 @@ test('nuevaFechaFinTrasCongelar: sin caducidad (null) sigue null', () => {
 
 test('nuevaFechaFinTrasCongelar: empuja fecha_fin por los días congelados', () => {
   assert.equal(nuevaFechaFinTrasCongelar('2026-08-30', '2026-07-01', '2026-07-15'), '2026-09-13');
+});
+
+// ── Bonos acotados a tipos de clase (0106) ───────────────────────────────────
+// "El reformer me cuesta el doble de producir que el mat, y no puedo hacer un
+// Bono 10 Reformer que no sirva para Mat — esto me obliga a cobrar mal."
+
+test('un plan sin tipos asignados cubre todas las clases (como siempre)', () => {
+  const p = plan({ id: 'p1', tipo: 'BONO' });
+  assert.equal(planCubreTipoClase(p, 'tc-reformer'), true);
+  assert.equal(planCubreTipoClase(p, 'tc-mat'), true);
+  assert.equal(planCubreTipoClase({ ...p, tiposClaseIds: [] }, 'tc-mat'), true);
+});
+
+test('un plan acotado cubre los suyos y NO los demás', () => {
+  const p = plan({ id: 'p1', tipo: 'BONO', tiposClaseIds: ['tc-ref-ini', 'tc-ref-int'] });
+  assert.equal(planCubreTipoClase(p, 'tc-ref-ini'), true);
+  assert.equal(planCubreTipoClase(p, 'tc-ref-int'), true, 'un bono de reformer cubre sus niveles');
+  assert.equal(planCubreTipoClase(p, 'tc-mat'), false);
+});
+
+test('sin clase concreta delante no se descarta la cobertura', () => {
+  // "¿Tiene bono?" sin una sesión en la mano: no se puede responder que no.
+  const p = plan({ id: 'p1', tipo: 'BONO', tiposClaseIds: ['tc-reformer'] });
+  assert.equal(planCubreTipoClase(p, undefined), true);
+  assert.equal(planCubreTipoClase(p, null), true);
+});
+
+test('un bono de Reformer no da derecho a reservar Mat', () => {
+  const suscripciones = [sus({ socioId: 'a', planId: 'p1', sesionesRestantes: 5 })];
+  const planes = [plan({ id: 'p1', tipo: 'BONO', tiposClaseIds: ['tc-reformer'] })];
+  assert.equal(tieneEntitlementActivo('a', suscripciones, planes, '2026-07-26', 'tc-reformer'), true);
+  assert.equal(tieneEntitlementActivo('a', suscripciones, planes, '2026-07-26', 'tc-mat'), false);
+  // Sin tipo, el comportamiento de siempre.
+  assert.equal(tieneEntitlementActivo('a', suscripciones, planes, '2026-07-26'), true);
+});
+
+test('con dos bonos a la vez se descuenta el que CUBRE la clase, no el que caduca antes', () => {
+  // El bug silencioso: bonoConsumible ordena por fechaFin. Con un bono de Mat
+  // que caduca antes, reservar un Reformer le habría quitado una sesión de Mat.
+  const suscripciones = [
+    sus({ id: 'sus-mat', socioId: 'a', planId: 'p-mat', sesionesRestantes: 5, fechaFin: '2026-08-01' }),
+    sus({ id: 'sus-ref', socioId: 'a', planId: 'p-ref', sesionesRestantes: 5, fechaFin: '2026-12-01' }),
+  ];
+  const planes = [
+    plan({ id: 'p-mat', tipo: 'BONO', tiposClaseIds: ['tc-mat'] }),
+    plan({ id: 'p-ref', tipo: 'BONO', tiposClaseIds: ['tc-reformer'] }),
+  ];
+  assert.equal(bonoConsumible('a', suscripciones, planes, '2026-07-26', 'tc-reformer')?.suscripcion.id, 'sus-ref');
+  assert.equal(bonoConsumible('a', suscripciones, planes, '2026-07-26', 'tc-mat')?.suscripcion.id, 'sus-mat');
+  // Sin bono que cubra esa clase, no se descuenta nada de nada.
+  assert.equal(bonoConsumible('a', suscripciones, planes, '2026-07-26', 'tc-prenatal'), null);
+});
+
+test('el desempate por caducidad sigue mandando entre bonos que SÍ cubren', () => {
+  const suscripciones = [
+    sus({ id: 'sus-b', socioId: 'a', planId: 'p1', sesionesRestantes: 5, fechaFin: '2026-12-01' }),
+    sus({ id: 'sus-a', socioId: 'a', planId: 'p1', sesionesRestantes: 5, fechaFin: '2026-08-01' }),
+  ];
+  const planes = [plan({ id: 'p1', tipo: 'BONO', tiposClaseIds: ['tc-reformer'] })];
+  assert.equal(bonoConsumible('a', suscripciones, planes, '2026-07-26', 'tc-reformer')?.suscripcion.id, 'sus-a');
 });
