@@ -276,7 +276,7 @@ interface StudioContextValue {
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => void;
   marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura>;
-  marcarDevuelto: (reciboId: string) => void;
+  marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentar: (reciboId: string) => void;
   deleteRecibo: (id: string) => void;
   cobrarTodosPendientes: (socioId?: string) => Promise<ResultadoEscritura>;
@@ -359,8 +359,8 @@ interface StudioContextValue {
   otorgarCreditos: (socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) => void;
   saldoCreditos: (socioId: string) => number;
   rachaSocio: (socioId: string) => RachaInfo;
-  addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual'> & { topeMensual?: number | null }) => void;
-  updateRewardRule: (id: string, changes: Partial<Omit<RewardRule, 'id' | 'studioId'>>) => void;
+  addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual'> & { topeMensual?: number | null }) => Promise<ResultadoEscritura>;
+  updateRewardRule: (id: string, changes: Partial<Omit<RewardRule, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   addRewardCatalogItem: (fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) => void;
   updateRewardCatalogItem: (id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) => void;
   deleteRewardCatalogItem: (id: string) => void;
@@ -2079,12 +2079,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  function marcarDevuelto(reciboId: string) {
+  async function marcarDevuelto(reciboId: string): Promise<ResultadoEscritura> {
     const fechaDev = new Date().toISOString();
+    // Mismo criterio que marcarCobrado: un recibo devuelto es dinero que sale de
+    // la caja del mes. Si la BD lo rechaza y la pantalla lo da por devuelto, el
+    // cierre de caja cuadra contra algo que no está guardado.
+    const res = await dbUpdateRecibo(reciboId, { estado: 'DEVUELTO', fechaDevolucion: fechaDev });
+    if (!res.ok) return res;
     setRecibos(prev => prev.map(r =>
       r.id === reciboId ? { ...r, estado: 'DEVUELTO' as const, fechaDevolucion: fechaDev } : r
     ));
-    dbUpdateRecibo(reciboId, { estado: 'DEVUELTO', fechaDevolucion: fechaDev });
+    return res;
   }
 
   function reintentar(reciboId: string) {
@@ -2495,15 +2500,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return calcularRacha(reservas.filter(r => r.socioId === socioId), sesiones, new Date());
   }
 
-  function addRewardRule(fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual'> & { topeMensual?: number | null }) {
+  async function addRewardRule(fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual'> & { topeMensual?: number | null }): Promise<ResultadoEscritura> {
     const nueva: RewardRule = { topeMensual: null, ...fields, id: `rwr-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    const res = await dbInsertRewardRule(nueva);
+    if (!res.ok) return res;
     setRewardRules(prev => [...prev, nueva]);
-    dbInsertRewardRule(nueva);
+    return res;
   }
 
-  function updateRewardRule(id: string, changes: Partial<Omit<RewardRule, 'id' | 'studioId'>>) {
+  async function updateRewardRule(id: string, changes: Partial<Omit<RewardRule, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateRewardRule(id, changes);
+    if (!res.ok) return res;
     setRewardRules(prev => prev.map(r => r.id === id ? { ...r, ...changes } : r));
-    dbUpdateRewardRule(id, changes);
+    return res;
   }
 
   function addRewardCatalogItem(fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) {

@@ -24,6 +24,63 @@ const emptyCatalogForm = (): Omit<RewardCatalogItem, 'id' | 'studioId' | 'creado
   nombre: '', descripcion: '', costeCreditos: 500, icono: '🎁', activo: true, stock: null,
 });
 
+
+// Un número que se guarda al salir del campo, no en cada tecla.
+//
+// Antes el `onChange` del input escribía en la BD por cada pulsación: teclear
+// "100" mandaba tres UPDATE (1, 10, 100) sin await ni debounce. Además de ser
+// ruidoso, si llegaban desordenados quedaba guardado el valor intermedio.
+// Ahora el valor vive en local mientras se escribe y se persiste en blur (o con
+// Enter), una sola vez y esperando el resultado.
+function CampoNumero({
+  valor, onGuardar, className, placeholder, title, ariaLabel,
+}: {
+  valor: number | null;
+  onGuardar: (n: number | null) => Promise<{ ok: boolean; error?: string }>;
+  className?: string;
+  placeholder?: string;
+  title?: string;
+  ariaLabel?: string;
+}) {
+  const [texto, setTexto] = useState(valor === null ? '' : String(valor));
+  const [guardando, setGuardando] = useState(false);
+  const [ultimoGuardado, setUltimoGuardado] = useState(valor);
+
+  // Si el valor cambia por fuera (otra pestaña, recarga) y no se está editando,
+  // el campo sigue al dato real.
+  if (valor !== ultimoGuardado && !guardando) {
+    setUltimoGuardado(valor);
+    setTexto(valor === null ? '' : String(valor));
+  }
+
+  async function guardar() {
+    const n = parseInt(texto, 10);
+    const limpio = Number.isFinite(n) && n > 0 ? n : null;
+    if (limpio === valor) return; // nada que guardar
+    setGuardando(true);
+    const res = await onGuardar(limpio);
+    setGuardando(false);
+    // Si la BD lo rechaza, el campo vuelve a lo que hay guardado de verdad.
+    if (!res.ok) setTexto(valor === null ? '' : String(valor));
+  }
+
+  return (
+    <input
+      type="number"
+      min={0}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      title={title}
+      value={texto}
+      disabled={guardando}
+      onChange={e => setTexto(e.target.value)}
+      onBlur={guardar}
+      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+      className={className}
+    />
+  );
+}
+
 export function TabRecompensas({ showToast }: { showToast: (m: string) => void }) {
   const {
     rewardRules, addRewardRule, updateRewardRule,
@@ -41,30 +98,27 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
 
   function handleCreditosChange(trigger: string, nombre: string, descripcion: string, creditos: number) {
     const existente = reglaDe(trigger);
-    if (existente) {
-      updateRewardRule(existente.id, { creditos });
-    } else {
-      addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos, activa: true });
-    }
+    return existente
+      ? updateRewardRule(existente.id, { creditos })
+      : addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos, activa: true });
   }
 
-  function handleToggleActiva(trigger: string, nombre: string, descripcion: string) {
+  async function handleToggleActiva(trigger: string, nombre: string, descripcion: string) {
     const existente = reglaDe(trigger);
-    if (existente) {
-      updateRewardRule(existente.id, { activa: !existente.activa });
-    } else {
-      addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos: CREDITOS_SUGERIDOS[trigger] ?? 0, activa: true });
-    }
+    const res = existente
+      ? await updateRewardRule(existente.id, { activa: !existente.activa })
+      : await addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos: CREDITOS_SUGERIDOS[trigger] ?? 0, activa: true });
+    // El toggle es la única acción de esta pantalla sin sitio donde enseñar el
+    // fallo en el propio control: se avisa por toast.
+    if (!res.ok) showToast(res.error);
   }
 
   // Tope mensual de referidos premiados (solo REFERIDO_AMIGO). Vacío o 0 = sin tope.
   function handleTopeChange(trigger: string, nombre: string, descripcion: string, topeMensual: number | null) {
     const existente = reglaDe(trigger);
-    if (existente) {
-      updateRewardRule(existente.id, { topeMensual });
-    } else {
-      addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos: CREDITOS_SUGERIDOS[trigger] ?? 0, activa: true, topeMensual });
-    }
+    return existente
+      ? updateRewardRule(existente.id, { topeMensual })
+      : addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos: CREDITOS_SUGERIDOS[trigger] ?? 0, activa: true, topeMensual });
   }
 
   function openNuevo() { setForm(emptyCatalogForm()); setEditId(null); setModal('nuevo'); }
@@ -105,27 +159,22 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                 </div>
                 {def.trigger === 'REFERIDO_AMIGO' && (
                   <div className="flex flex-col items-center shrink-0">
-                    <input
-                      type="number"
-                      min={0}
+                    <CampoNumero
+                      valor={regla?.topeMensual ?? null}
+                      onGuardar={n => handleTopeChange(def.trigger, def.nombre, def.descripcion, n)}
                       placeholder="∞"
-                      value={regla?.topeMensual ?? ''}
-                      onChange={e => {
-                        const n = parseInt(e.target.value, 10);
-                        handleTopeChange(def.trigger, def.nombre, def.descripcion, Number.isFinite(n) && n > 0 ? n : null);
-                      }}
                       className={cn(inputCls, 'w-16 text-center')}
                       title="Máximo de referidos premiados al mes (vacío = sin tope)"
+                      ariaLabel={`Tope mensual de ${def.nombre}`}
                     />
                     <span className="text-[9px] text-[#A8A89F] mt-0.5">tope/mes</span>
                   </div>
                 )}
-                <input
-                  type="number"
-                  min={0}
-                  value={creditos}
-                  onChange={e => handleCreditosChange(def.trigger, def.nombre, def.descripcion, Math.max(0, parseInt(e.target.value, 10) || 0))}
+                <CampoNumero
+                  valor={creditos}
+                  onGuardar={n => handleCreditosChange(def.trigger, def.nombre, def.descripcion, Math.max(0, n ?? 0))}
                   className={cn(inputCls, 'w-20 text-center shrink-0')}
+                  ariaLabel={`Créditos por ${def.nombre}`}
                 />
                 <button
                   type="button"
