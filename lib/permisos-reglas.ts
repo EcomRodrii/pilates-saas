@@ -6,7 +6,12 @@
 // justo la que no debería existir. Aquí son funciones puras; `lib/permisos.ts`
 // las reexporta, así que ningún import de fuera cambia.
 
-import { esRutaCongelada } from './frozen-features';
+// La extensión .ts no sobra: `npm test` corre con `node --test
+// --experimental-strip-types`, que no resuelve extensiones como el bundler. Sin
+// ella el test ni siquiera importa el módulo (y pasó en CI, no en local, porque
+// local usaba tsx). Turbopack la acepta —build de producción comprobada— y
+// `allowImportingTsExtensions` está activo en tsconfig.
+import { esRutaCongelada } from './frozen-features.ts';
 import type { Rol } from './types';
 
 // Instructoras: su agenda, sus alumnas y las herramientas de contenido/equipo
