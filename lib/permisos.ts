@@ -2,44 +2,12 @@
 
 import { useAuth } from './auth-context';
 import { useStudio } from './studio-context';
-import { esRutaCongelada } from './frozen-features';
+import { puedeVer } from './permisos-reglas';
 import type { Rol } from './types';
 
-// Instructoras: su agenda, sus alumnas y las herramientas de contenido/equipo
-// — nada de cobros, informes, marketing ni ajustes del negocio.
-// CONGELADO (feature-freeze PMF): se quitaron '/ondemand' y '/comunidad' de esta
-// lista blanca — ya no son visibles para nadie. Reactivar = volver a añadirlos.
-const PERMITIDO_INSTRUCTOR = [
-  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria',
-];
-
-// Recepción: todo lo operativo, nada de configuración del negocio,
-// marketing, automatizaciones, informes o gestión del equipo.
-// '/centro-de-control' (Decision OS, MVP): solo PROPIETARIO — la apertura
-// parcial a RECEPCION se decidirá post-MVP (DECISION-OS-ANALISIS.md §8).
-const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control'];
-
-function coincide(path: string, prefijo: string) {
-  return path === prefijo || path.startsWith(`${prefijo}/`);
-}
-
-// Ficha clínica: dato de salud sensible (FICHA-CLINICA.md §11). PROPIETARIO e
-// INSTRUCTOR ven el detalle clínico; RECEPCIÓN solo ve el color del semáforo
-// (no el motivo ni las condiciones). Es una barrera de UI; la fuente de verdad
-// se protege también en servidor.
-export function puedeVerFichaClinica(rol: Rol): boolean {
-  return rol === 'PROPIETARIO' || rol === 'INSTRUCTOR';
-}
-
-export function puedeVer(rol: Rol, path: string): boolean {
-  // Feature-freeze PMF: los módulos congelados no son visibles para NINGÚN rol.
-  // Esto los saca a la vez del menú, del buscador ⌘K y hace que el guardia del
-  // layout redirija a /dashboard. Reactivar = quitar la ruta de RUTAS_CONGELADAS.
-  if (esRutaCongelada(path)) return false;
-  if (rol === 'PROPIETARIO') return true;
-  if (rol === 'INSTRUCTOR') return PERMITIDO_INSTRUCTOR.some(p => coincide(path, p));
-  return !BLOQUEADO_RECEPCION.some(p => coincide(path, p));
-}
+// Las reglas viven en un módulo puro para poder probarlas (ver
+// lib/permisos-reglas.test.ts). Se reexportan para no romper ningún import.
+export { puedeVer, puedeVerFichaClinica, puedeMoverDinero } from './permisos-reglas';
 
 // A-2 (fail-closed): antes cualquier usuario autenticado SIN ficha de instructora
 // caía a 'PROPIETARIO' —una escalada de privilegios en la UI: bastaba tener sesión
