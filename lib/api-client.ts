@@ -437,6 +437,19 @@ export async function aprobarCobroAutonomo(params: {
   return { ok: true };
 }
 
+// Manda (o vuelve a mandar) el email de invitación a alguien que ya está en el
+// equipo. Es una acción explícita a propósito: el alta ya NO envía nada sola.
+export async function invitarAlEquipo(instructorId: string): Promise<{ ok: true; email: string } | { error: string }> {
+  const res = await fetch('/api/equipo/invitar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ instructorId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  return { ok: true, email: String(data.email ?? '') };
+}
+
 // ── Billing del SaaS (suscripción del estudio a Tentare) ───────────────────────
 
 export interface EstadoBilling {
