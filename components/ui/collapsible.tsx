@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils"
 //
 // Hoy no existía ninguna primitiva para esto, y se nota: el diálogo de clases
 // recurrentes suelta 16 controles de golpe, la pestaña Estudio 16 campos en 9
-// secciones todas abiertas (incluida la "Zona de riesgo", siempre a la vista),
-// y Configuración acumula 84 ajustes repartidos en 15 pestañas.
+// secciones todas abiertas de golpe, y Configuración acumula 84 ajustes
+// repartidos en 15 pestañas.
 //
 // <AdvancedOptions> es el caso concreto que hay que repetir: lo esencial
 // visible, lo demás plegado. Si un formulario pasa de ~7 controles, lo que

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useId } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { RotateCcw, AlertTriangle, ExternalLink, Calendar as CalendarLinkIcon, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -56,7 +55,6 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
 
 export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   const { resetDatosPilates, studioConfig, updateStudioConfig, studio, updateStudio } = useStudio();
-  const [confirmReset, setConfirmReset] = useState(false);
   const [politica, setPolitica] = useState(studioConfig.politicaPrivacidad);
   const [terminos, setTerminos] = useState(studioConfig.terminosServicio);
   // Estos textos se inicializaban UNA vez al montar. Si el componente montaba
@@ -142,7 +140,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
 
   const handleReset = useCallback(() => {
     resetDatosPilates();
-    showToast('Datos restablecidos al estado de demo');
+    showToast('Datos recargados');
   }, [resetDatosPilates, showToast]);
 
   function guardarEstudio() {
@@ -492,62 +490,30 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         </button>
       </div>
 
-      {/* Danger zone */}
-      <div className={cn(cardCls, 'p-6 border-[#FCA5A5]')}>
-        <h3 className="text-[14px] font-semibold text-destructive mb-1">Zona de riesgo</h3>
+      {/* Recargar datos: NO borra nada, solo vuelve a leer del servidor. Antes se
+          llamaba "Restablecer datos de demo" y avisaba de una pérdida irreversible
+          que nunca ocurría — el pánico lo causaba el texto, no la acción. */}
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Recargar datos</h3>
         <p className="text-[13px] text-muted-foreground mb-4">
-          Las acciones de esta sección son irreversibles. Procede con precaución.
+          Vuelve a leer socias, sesiones y pagos desde el servidor. No borra ni cambia nada.
         </p>
-        <div className="flex items-center justify-between p-4 bg-destructive/10 border border-[#FCA5A5] rounded-xl">
+        <div className="flex items-center justify-between p-4 bg-muted/40 border border-border rounded-xl">
           <div>
-            <p className="text-[13px] font-semibold text-foreground">Restablecer datos de demo</p>
+            <p className="text-[13px] font-semibold text-foreground">Sincronizar con el servidor</p>
             <p className="text-[12px] text-muted-foreground mt-0.5">
-              Borra todos los cambios y vuelve al estado inicial de demostración.
+              Útil si algo no se ha actualizado en pantalla.
             </p>
           </div>
           <button
-            onClick={() => setConfirmReset(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-destructive text-destructive text-[12px] font-medium hover:bg-destructive hover:text-white transition-colors shrink-0 ml-4"
+            onClick={handleReset}
+            className={cn(btnSecondary, 'flex items-center gap-1.5 shrink-0 ml-4')}
           >
             <RotateCcw size={12} />
-            Restablecer
+            Recargar
           </button>
         </div>
       </div>
-
-      {/* Confirm reset dialog */}
-      <Dialog open={confirmReset} onOpenChange={setConfirmReset}>
-        <DialogContent className="max-w-sm">
-          <div className="flex flex-col items-center text-center gap-4 py-2">
-            <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-              <AlertTriangle size={20} className="text-warning" />
-            </div>
-            <div>
-              <h3 className="text-[14px] font-semibold text-foreground mb-1">
-                ¿Restablecer datos de demo?
-              </h3>
-              <p className="text-[13px] text-muted-foreground">
-                Todos los socios, sesiones, pagos y configuraciones que hayas creado se perderán.
-                Esta acción no se puede deshacer.
-              </p>
-            </div>
-            <div className="flex gap-2 w-full">
-              <button
-                className={cn(btnSecondary, 'flex-1 justify-center')}
-                onClick={() => setConfirmReset(false)}
-              >
-                Cancelar
-              </button>
-              <button
-                className="flex-1 bg-warning text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-amber-700 transition-colors"
-                onClick={() => { handleReset(); setConfirmReset(false); }}
-              >
-                Sí, restablecer
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
