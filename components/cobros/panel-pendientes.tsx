@@ -231,6 +231,8 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
   const [masivoProgress, setMasivoProgress]       = useState<'idle' | 'confirmar' | 'running' | 'done'>('idle');
   const [masivoCobrando, setMasivoCobrando]       = useState(0);
   const [masivoTotal, setMasivoTotal]             = useState(0);
+  // Los que la BD rechazó: sin esto el resumen final daba por cobrado todo.
+  const [masivoFallidos, setMasivoFallidos]       = useState<string[]>([]);
 
   // ── Nueva factura modal ─────────────────────────────────────────────────────
   const [showFactura, setShowFactura] = useState(false);
@@ -426,19 +428,30 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
   }, [recibos, masivoSelected]);
 
   async function ejecutarMasivo() {
+    if (masivoProgress === 'running') return; // el dinero no se cobra dos veces
     const ids = Array.from(masivoSelected);
     setMasivoTotal(ids.length);
     setMasivoCobrando(0);
+    setMasivoFallidos([]);
     setMasivoProgress('running');
     // P0-23: por lotes, cediendo el hilo entre ellos para pintar la barra y no
     // bloquear el UI. Antes se esperaba 120ms ARTIFICIALES por recibo, así que
     // cobrar 1000 recibos tardaba 2+ minutos de pura espera.
+    //
+    // Ahora se ESPERA cada cobro y se recogen los que fallan. Antes se llamaba a
+    // `marcarCobrado` sin await y sin mirar el resultado: si la base de datos
+    // rechazaba, la pantalla decía "N cobros procesados" igualmente, con sus
+    // facturas y sus renovaciones pintadas sobre un cobro que no existía.
     const CHUNK = 25;
+    const fallidos: string[] = [];
     for (let i = 0; i < ids.length; i += CHUNK) {
-      for (const id of ids.slice(i, i + CHUNK)) marcarCobrado(id);
+      const lote = ids.slice(i, i + CHUNK);
+      const res = await Promise.all(lote.map(id => marcarCobrado(id)));
+      res.forEach((r, j) => { if (!r.ok) fallidos.push(lote[j]); });
       setMasivoCobrando(Math.min(i + CHUNK, ids.length));
       await new Promise(r => setTimeout(r, 0));
     }
+    setMasivoFallidos(fallidos);
     setMasivoProgress('done');
   }
 
@@ -1192,18 +1205,32 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
           </DialogHeader>
 
           {masivoProgress === 'done' ? (
-            /* Success state */
+            /* Resultado: cobrados de verdad vs rechazados por la base de datos.
+               Nunca "N procesados" a secas: el número tiene que cuadrar con lo
+               que hay guardado, o la dueña cuadra caja contra una mentira. */
             <div className="flex flex-col items-center text-center gap-4 py-8">
-              <div className="w-16 h-16 rounded-2xl bg-success/10 flex items-center justify-center">
-                <CheckCheck size={32} className="text-success" />
+              <div className={cn(
+                'w-16 h-16 rounded-2xl flex items-center justify-center',
+                masivoFallidos.length > 0 ? 'bg-warning/10' : 'bg-success/10',
+              )}>
+                {masivoFallidos.length > 0
+                  ? <AlertTriangle size={32} className="text-warning" />
+                  : <CheckCheck size={32} className="text-success" />}
               </div>
               <div>
                 <p className="text-lg font-bold text-foreground">
-                  {masivoTotal} cobro{masivoTotal !== 1 ? 's' : ''} procesado{masivoTotal !== 1 ? 's' : ''}
+                  {masivoTotal - masivoFallidos.length} cobro{masivoTotal - masivoFallidos.length !== 1 ? 's' : ''} guardado{masivoTotal - masivoFallidos.length !== 1 ? 's' : ''}
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  <CifraPrivada inline>{formatEuro(masivoImporteTotal)}</CifraPrivada> marcados como cobrados
-                </p>
+                {masivoFallidos.length > 0 ? (
+                  <p className="text-sm text-warning mt-1 max-w-sm">
+                    {masivoFallidos.length} no se {masivoFallidos.length === 1 ? 'ha podido guardar' : 'han podido guardar'} y {masivoFallidos.length === 1 ? 'sigue' : 'siguen'} como pendiente{masivoFallidos.length !== 1 ? 's' : ''}.
+                    No se {masivoFallidos.length === 1 ? 'ha emitido su factura' : 'han emitido sus facturas'} ni se {masivoFallidos.length === 1 ? 'ha renovado su bono' : 'han renovado sus bonos'}. Vuelve a intentarlo.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    <CifraPrivada inline>{formatEuro(masivoImporteTotal)}</CifraPrivada> marcados como cobrados
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => setShowMasivo(false)}
