@@ -407,10 +407,14 @@ interface CampoMeta2 { campo: CampoMembresia; etiqueta: string; obligatorio: boo
 
 const SINONIMOS_MEMBRESIA: Record<CampoMembresia, string[]> = {
   email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'socia', 'socio', 'cliente'],
-  plan: ['plan', 'tarifa', 'membresia', 'membership', 'membership name', 'bono', 'abono', 'nombre del bono', 'nombre del abono', 'class pack', 'pack', 'producto', 'suscripcion', 'subscription', 'paquete'],
-  sesiones: ['sesiones', 'sesiones restantes', 'clases restantes', 'saldo', 'creditos', 'sessions', 'restantes', 'bonos restantes'],
-  fecha_inicio: ['fecha inicio', 'fecha de inicio', 'inicio', 'alta', 'start', 'start date', 'desde'],
-  fecha_fin: ['fecha fin', 'fecha de fin', 'fin', 'vencimiento', 'caducidad', 'end', 'end date', 'hasta', 'expira'],
+  plan: ['plan', 'tarifa', 'membresia', 'membership', 'membership name', 'membership type', 'plan name', 'bono', 'abono', 'nombre del bono', 'nombre del abono', 'class pack', 'pack', 'producto', 'suscripcion', 'subscription', 'paquete'],
+  // Momence exporta "Credits Remaining"; Eversports, "Remaining"; Timp, "Sesiones
+  // disponibles". Sin estos sinónimos el bono entraba sin saldo (= sin sesiones).
+  sesiones: ['sesiones', 'sesiones restantes', 'sesiones disponibles', 'clases restantes', 'clases disponibles', 'saldo', 'saldo restante', 'creditos', 'creditos restantes', 'credits', 'credits remaining', 'remaining credits', 'sessions', 'sessions remaining', 'restantes', 'remaining', 'bonos restantes'],
+  fecha_inicio: ['fecha inicio', 'fecha de inicio', 'inicio', 'alta', 'fecha de alta', 'fecha compra', 'fecha de compra', 'start', 'start date', 'purchase date', 'desde'],
+  // "Expiry Date" (Momence/bsport) y "Valid until" (Eversports) no casaban con
+  // "expira": el bono se importaba sin caducidad y no vencía nunca.
+  fecha_fin: ['fecha fin', 'fecha de fin', 'fin', 'vencimiento', 'caducidad', 'fecha caducidad', 'fecha de caducidad', 'valido hasta', 'end', 'end date', 'hasta', 'expira', 'expiry', 'expiry date', 'expiration', 'expiration date', 'expires', 'valid until'],
   estado: ['estado', 'status', 'activa', 'activo'],
 };
 

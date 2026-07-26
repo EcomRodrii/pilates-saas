@@ -136,7 +136,9 @@ export default function MigracionPage() {
   // Re-deriva las filas en cliente con las MISMAS funciones puras de lib/csv
   // que usó el análisis en servidor: mismo mapeo → mismas filas, determinista.
   function filasDe(a: ArchivoAnalizado): unknown[] {
-    const local = archivos.find(x => x.nombre === a.nombre);
+    // Los análisis derivados (un CSV con dos entidades) llevan nombre propio
+    // para no pisar overrides ni plegados, pero leen del archivo original.
+    const local = archivos.find(x => x.nombre === (a.origenNombre ?? a.nombre));
     if (!local || !a.mapeo || !a.entidad) return [];
     const { rows } = parseCsv(local.contenido);
     const validar = {
@@ -208,9 +210,13 @@ export default function MigracionPage() {
   const archivosEfectivos: ArchivoAnalizado[] = !plan ? [] : plan.archivos.map(a => {
     const ov = overrides[a.nombre];
     if (!ov) return a;
-    const raw = archivos.find(x => x.nombre === a.nombre);
+    const raw = archivos.find(x => x.nombre === (a.origenNombre ?? a.nombre));
     if (!raw) return a;
-    return analizarConMapeoManual(raw, ov.entidad, ov.mapeo, ctxEstudio);
+    // El reanálisis manual devuelve el nombre del archivo ORIGINAL; en un
+    // derivado hay que conservar su nombre propio y su origen, o dejaría de
+    // encontrar sus filas y machacaría la fila del principal en la lista.
+    const manual = analizarConMapeoManual(raw, ov.entidad, ov.mapeo, ctxEstudio);
+    return a.origenNombre ? { ...manual, nombre: a.nombre, origenNombre: a.origenNombre } : manual;
   });
 
   // Sin useMemo: el React Compiler ya memoiza y aquí no puede preservar la

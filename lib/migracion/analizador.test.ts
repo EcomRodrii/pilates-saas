@@ -48,6 +48,58 @@ test('formato irreconocible queda sin clasificar (decide el humano)', async () =
   assert.ok(a.avisos[0].length > 0);
 });
 
+// El caso que perdía los bonos: Momence/Timp/Eversports exportan la clienta y
+// su bono en la MISMA fila. Antes ganaba "socias" y las columnas del bono se
+// tiraban en silencio → 850 clientas y 0 bonos, con el acta en verde.
+test('un CSV con clienta Y bono en la misma fila importa las dos cosas', async () => {
+  const csv =
+    'First Name;Last Name;Email;Phone;Membership;Credits Remaining;Expiry Date;Status\n' +
+    'Nora;Ruiz;nora@test.com;611333444;Bono 10;4;14/09/2026;Active\n' +
+    'Lucía;García;lucia@test.com;622555666;Bono 10;9;20/10/2026;Active\n';
+  const plan = await analizarArchivos([{ nombre: 'momence.csv', contenido: csv }], { ...CTX, planes: ['Bono 10'] });
+
+  const socias = plan.archivos.find(a => a.entidad === 'socias');
+  const bonos = plan.archivos.find(a => a.entidad === 'membresias');
+  assert.ok(socias, 'debe seguir detectando las clientas');
+  assert.ok(bonos, 'debe detectar además los bonos del mismo archivo');
+  assert.equal(socias.ok, 2);
+  assert.equal(bonos.ok, 2);
+
+  // Da igual cuál gane como principal: las dos deben resolver al mismo archivo
+  // subido, y la derivada llevar nombre propio para no pisar los ajustes
+  // manuales de la otra.
+  assert.equal(plan.archivos.length, 2);
+  assert.notEqual(socias.nombre, bonos.nombre);
+  for (const a of [socias, bonos]) assert.equal(a.origenNombre ?? a.nombre, 'momence.csv');
+  assert.equal(plan.archivos.filter(a => a.origenNombre).length, 1, 'solo una es derivada');
+
+  // Y trae el saldo y la caducidad reales, no los del catálogo.
+  const primera = bonos.muestra[0] as { sesiones: number | null; fechaFin: string | null };
+  assert.equal(primera.sesiones, 4);
+  assert.ok(primera.fechaFin, 'la fecha de caducidad no puede perderse');
+
+  // Las clientas se crean antes de colgarles el bono.
+  assert.deepEqual(plan.orden, ['socias', 'membresias']);
+});
+
+test('avisa de las columnas que no se importan, en vez de tirarlas en silencio', async () => {
+  const csv = 'Nombre;Email;Observaciones internas;Nº de taquilla\nMaría;maria@test.com;alergia al látex;14\n';
+  const plan = await analizarArchivos([{ nombre: 'clientas.csv', contenido: csv }], CTX);
+  const a = plan.archivos.find(x => x.entidad === 'socias');
+  assert.ok(a);
+  const aviso = a.avisos.find(v => v.includes('No se importan estas columnas'));
+  assert.ok(aviso, 'debe avisar de las columnas descartadas');
+  assert.ok(aviso.includes('Observaciones internas'));
+  assert.ok(aviso.includes('Nº de taquilla'));
+});
+
+test('sin columnas propias no inventa una segunda entidad', async () => {
+  const csv = 'Nombre;Apellidos;Email;Teléfono\nMaría;Soler;maria@test.com;600111222\n';
+  const plan = await analizarArchivos([{ nombre: 'clientas.csv', contenido: csv }], CTX);
+  assert.equal(plan.archivos.length, 1);
+  assert.equal(plan.archivos[0].entidad, 'socias');
+});
+
 test('membresías sin archivo de clientas → aviso global; orden respeta dependencias', async () => {
   const socias = 'Nombre;Email\nMaría;maria@test.com\n';
   const bonos = 'Email;Plan\nmaria@test.com;Bono 10\n';
