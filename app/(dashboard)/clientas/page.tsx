@@ -525,7 +525,7 @@ export default function Socios() {
         <StatCard icon={Users} label="Total clientas" value={stats.total} color="var(--muted-foreground)" />
         <StatCard icon={UserCheck} label="Activas" value={stats.activas} color="var(--success)" />
         <StatCard icon={Bookmark} label="Con bono vigente" value={stats.conBono} color="#6E9E0A" />
-        <StatCard icon={Clock} label="Inactivas 30d" value={stats.inactivas30d} color="var(--warning)" />
+        <StatCard icon={Clock} label="Sin venir 30d" value={stats.inactivas30d} color="var(--warning)" />
       </div>
 
       {/* ── Search + filters ────────────────────────────────────────────────── */}

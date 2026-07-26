@@ -656,7 +656,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Media por cliente
+              Ingreso medio por clienta
             </p>
             <div className="w-8 h-8 rounded-lg bg-brand/10 flex items-center justify-center">
               <BarChart3 size={15} className="text-brand" />
@@ -665,7 +665,14 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
           <CifraPrivada className="text-2xl font-extrabold text-foreground">
             {formatEuro(kpis.mediaXSocia)}
           </CifraPrivada>
-          <p className="text-xs text-muted-foreground mt-1">sobre clientes activos este mes</p>
+          {/* Esta cifra y el "Ticket medio" de Informes se llamaban casi igual
+              ("Media por cliente" / "Ticket medio / cliente") y miden cosas
+              distintas: esta reparte lo cobrado del mes entre TODAS las clientas
+              activas —paguen o no—, y la de Informes solo entre quienes pagaron.
+              Con 850 clientas y 65 pagadoras salían 10 € y 130 €, las dos
+              correctas, y la dueña dejó de fiarse de las dos. Cada una dice
+              ahora sobre quién se calcula. */}
+          <p className="text-xs text-muted-foreground mt-1">lo cobrado este mes repartido entre todas las clientas activas</p>
         </div>
       </div>
 
