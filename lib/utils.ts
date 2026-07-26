@@ -40,6 +40,31 @@ export function formatFechaHora(iso: string): string {
   return new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+// ─── Semanas ─────────────────────────────────────────────────────────────────
+// El lunes de la semana de una fecha. En España la semana empieza en lunes, y
+// `Date.getDay()` devuelve 0 para DOMINGO — que es justo donde se cuela el
+// error: restar `getDay() - 1` funciona de lunes a sábado y el domingo suma un
+// día, dejando la semana empezando MAÑANA.
+//
+// Estaba escrito a mano en tres pantallas. Dos acertaban y la del dashboard no,
+// así que los domingos su "ocupación media" miraba la semana siguiente —vacía—
+// y mostraba 0% con las clases de hoy llenas. Un único sitio.
+export function inicioDeSemana(fecha: Date | string): Date {
+  const d = new Date(fecha);
+  const dia = d.getDay();                       // 0 = domingo
+  d.setDate(d.getDate() - (dia === 0 ? 6 : dia - 1));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** El domingo de la semana de una fecha (fin de semana natural, lunes→domingo). */
+export function finDeSemana(fecha: Date | string): Date {
+  const d = inicioDeSemana(fecha);
+  d.setDate(d.getDate() + 6);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 // ─── Fecha y hora DEL ESTUDIO ────────────────────────────────────────────────
 // Los tres de arriba formatean en la zona horaria del NAVEGADOR, que es lo que
 // se quiere cuando el dato solo se pinta en pantalla. Pero cuando la cadena se

@@ -6,6 +6,7 @@ import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClienta
 import { TrendingUp, Users, CreditCard, Activity, Download, FileText } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
+import { inicioDeSemana } from '@/lib/utils';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -41,14 +42,10 @@ const PERIOD_OPTS: PeriodOption[] = [
 
 function getPeriodStart(period: Period, now: Date): Date {
   switch (period) {
-    case 'week': {
-      const d = new Date(now);
-      const day = d.getDay();
-      const diff = day === 0 ? -6 : 1 - day;
-      d.setDate(d.getDate() + diff);
-      d.setHours(0, 0, 0, 0);
-      return d;
-    }
+    // Este cálculo era correcto, pero estaba copiado a mano — y la copia del
+    // dashboard no lo era. Se comparte para que no vuelvan a divergir.
+    case 'week':
+      return inicioDeSemana(now);
     case 'month':
       return new Date(now.getFullYear(), now.getMonth(), 1);
     case 'quarter':
