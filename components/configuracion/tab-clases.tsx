@@ -207,11 +207,14 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 placeholder="Ej: Reformer Avanzado"
               />
             </Field>
+            {/* La foto se sube una vez creada la clase (necesita su id). En vez
+                de enseñar un campo que no se puede usar al crear, la sección de
+                foto solo aparece al editar (P4). */}
+            {editId && (
             <Field
               label="Foto de la clase"
               description="Aparece en la página pública de reservas. Si no pones ninguna, se usa el color de abajo."
             >
-              {editId ? (
                 <div className="flex items-center gap-3">
                   <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted flex items-center justify-center shrink-0">
                     {editando?.fotoUrl ? (
@@ -238,10 +241,8 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                   </div>
                   <input ref={fotoInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
                 </div>
-              ) : (
-                <p className="text-[12px] text-muted-foreground">Podrás añadir una foto una vez creada la clase.</p>
-              )}
             </Field>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Field
               label="Duración (min)"

@@ -12,6 +12,7 @@ import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { estadoBilling } from '@/lib/api-client';
+import { navSections } from '@/lib/nav-config';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -23,6 +24,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!loading && !session) router.replace('/login');
   }, [loading, session, router]);
+
+  // Título de la pestaña por sección. Por defecto heredaba el de la web comercial
+  // (app/layout) en TODAS las pantallas del panel → con varias pestañas abiertas
+  // ninguna se distinguía (P4). Lo derivamos del propio menú.
+  useEffect(() => {
+    const item = navSections
+      .flatMap(s => s.items)
+      .filter(i => pathname === i.href || pathname.startsWith(i.href + '/'))
+      .sort((a, b) => b.href.length - a.href.length)[0];
+    document.title = item ? `Tentare · ${item.label}` : 'Tentare';
+  }, [pathname]);
 
   // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
   // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción

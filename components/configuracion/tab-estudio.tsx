@@ -9,6 +9,7 @@ import { subirLogoEstudio, eliminarLogoEstudio } from '@/lib/portal-storage';
 import { authHeader } from '@/lib/api-client';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { faltanDatosFiscales } from '@/lib/legal-textos';
+import { nifValido } from '@/lib/nif';
 import type { Studio } from '@/lib/types';
 import { Toggle, inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
@@ -71,6 +72,10 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
     if (!tocadoTerminos) setTerminos(studioConfig.terminosServicio);
   }
   const [form, setForm] = useState<StudioForm>(() => studioToForm(studio));
+  // NIF/CIF inválido. Vacío se permite (es opcional); pero si hay algo escrito,
+  // tiene que ser un identificador fiscal real y no cualquier cosa con el
+  // formato correcto (P4: aceptaba B67891234 sin comprobar el control).
+  const nifInvalido = form.nif.trim() !== '' && !nifValido(form.nif);
   // Política de reservas/cancelaciones (C-2/C-4). Estado propio, tarjeta aparte.
   const [pol, setPol] = useState(() => studioToPolitica(studio));
   // Marca (logo) e IVA — Tanda 1.
@@ -139,6 +144,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   }, [resetDatosPilates, showToast]);
 
   function guardarEstudio() {
+    if (nifInvalido) { showToast('El NIF/CIF no es válido: revisa la letra o el dígito de control.'); return; }
     updateStudio(form);
     showToast('Datos del estudio guardados');
   }
@@ -173,7 +179,8 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           </div>
           <div>
             <p className={labelCls}>NIF / CIF</p>
-            <input className={inputCls} value={form.nif} onChange={e => setForm(f => ({ ...f, nif: e.target.value }))} />
+            <input className={cn(inputCls, nifInvalido && 'border-destructive')} value={form.nif} onChange={e => setForm(f => ({ ...f, nif: e.target.value }))} />
+            {nifInvalido && <p className="text-[11px] text-destructive mt-1">Revisa el NIF/CIF: la letra o el dígito de control no cuadran.</p>}
           </div>
           <div>
             <p className={labelCls}>Teléfono</p>
