@@ -1,4 +1,5 @@
 'use client';
+import { queImparten } from '@/lib/equipo';
 
 import { useEffect, useMemo, useState } from 'react';
 import { Clock, ChevronLeft, ChevronRight, X, CheckCircle2, Calendar, User } from 'lucide-react';
@@ -67,7 +68,7 @@ export function CitasPublica({
 
   // Instructoras que aceptan citas (tienen horario fino definido).
   const instructorasDisponibles = useMemo(
-    () => instructores.filter(i => i.activo && disponibilidad.some(d => d.instructorId === i.id)),
+    () => queImparten(instructores).filter(i => disponibilidad.some(d => d.instructorId === i.id)),
     [instructores, disponibilidad],
   );
 

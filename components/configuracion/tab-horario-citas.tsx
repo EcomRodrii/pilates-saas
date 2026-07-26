@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
 import { useStudio } from '@/lib/studio-context';
+import { queImparten } from '@/lib/equipo';
 import { DIAS } from '@/lib/sustituciones/franjas';
 import type { DisponibilidadCita } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -50,7 +51,7 @@ function totalHoras(draft: Draft): number {
 
 export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void }) {
   const { instructores, citasDisponibilidad, setDisponibilidadCitas } = useStudio();
-  const activos = useMemo(() => instructores.filter(i => i.activo), [instructores]);
+  const activos = useMemo(() => queImparten(instructores), [instructores]);
 
   const [selected, setSelected] = useState<string>(activos[0]?.id ?? '');
   const [draft, setDraft] = useState<Draft>({});

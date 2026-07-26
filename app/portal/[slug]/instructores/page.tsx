@@ -1,4 +1,5 @@
 'use client';
+import { queImparten } from '@/lib/equipo';
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -20,7 +21,7 @@ export default function InstructoresPage() {
   const { instructores, tiposClase } = useStudio();
   const { t } = useModo();
 
-  const instructoresActivos = instructores.filter(i => i.activo);
+  const instructoresActivos = queImparten(instructores);
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
   const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 20 };
 

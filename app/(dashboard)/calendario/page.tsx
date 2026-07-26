@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useStudio } from '@/lib/studio-context';
+import { queImparten } from '@/lib/equipo';
 import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
@@ -1390,7 +1391,7 @@ export default function Calendario() {
     // lista y quedaban preseleccionadas → crear clase sin tocar el desplegable la
     // asignaba a alguien que ya no está en el equipo (el error que #366 arreglaba
     // en las opciones pero no en el valor por defecto).
-    instructorId: instructores.find(i => i.activo)?.id ?? '',
+    instructorId: queImparten(instructores)[0]?.id ?? '',
     fecha: localDate(now),
     horaInicio: '09:00',
     horaFin: tiposClase[0]?.duracionMinutos
@@ -1407,7 +1408,7 @@ export default function Calendario() {
   // Solo las de baja no: asignar una clase a alguien que ya no está en el equipo
   // es un error silencioso (pasó con las instructoras de demo, que se quedaron a
   // cargo de clases reales por salir las primeras del desplegable).
-  const instructoresActivos = useMemo(() => instructores.filter(i => i.activo), [instructores]);
+  const instructoresActivos = useMemo(() => queImparten(instructores), [instructores]);
 
   // Para el formulario de crear/editar: las activas MÁS la que ya tenga la clase
   // aunque esté de baja. Si no, al editar una clase suya el desplegable no la
