@@ -92,6 +92,22 @@ export async function POST(req: NextRequest) {
     if (!plan.activo) {
       return NextResponse.json({ error: 'Ese plan ya no está disponible' }, { status: 409 });
     }
+    // Comprar un plan sin ficha: decide el estudio (0105). En EXIGIR_REGISTRO
+    // no se cobra a quien no se ha registrado — sin ficha no hay contrato
+    // aceptado, así que cobrar antes sería cobrar sin consentimiento.
+    if (!socioId) {
+      const { data: cfg } = await admin
+        .from('studios')
+        .select('compra_publica_modo')
+        .eq('id', body.studioId)
+        .maybeSingle();
+      if ((cfg?.compra_publica_modo ?? 'EXIGIR_REGISTRO') === 'EXIGIR_REGISTRO') {
+        return NextResponse.json(
+          { error: 'Regístrate antes de comprar: te pedimos el email y aceptar las condiciones.', necesitaRegistro: true },
+          { status: 409 },
+        );
+      }
+    }
     importe = Number(plan.precio);
     concepto = plan.nombre;
     metadata.planId = body.planId;
@@ -106,7 +122,7 @@ export async function POST(req: NextRequest) {
 
   const { data: studio } = await admin
     .from('studios')
-    .select('stripe_account_id')
+    .select('stripe_account_id, slug')
     .eq('id', body.studioId)
     .single();
   if (!studio?.stripe_account_id) {
@@ -114,6 +130,7 @@ export async function POST(req: NextRequest) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
+  const slugEstudio = studio.slug as string | null;
 
   // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
   const fee = applicationFeeAmount(Math.round(importe * 100));
@@ -154,8 +171,18 @@ export async function POST(req: NextRequest) {
         ...(body.reciboId ? { metadata: { reciboId: body.reciboId, origen: 'tarjeta_recibo', studioId: body.studioId } } : {}),
       },
       metadata,
-      success_url: `${appUrl}/cobros?tab=pendientes&stripe_success=1${body.reciboId ? `&recibo=${body.reciboId}` : ''}`,
-      cancel_url: `${appUrl}/cobros?tab=pendientes&stripe_cancel=1`,
+      // Quien paga un PLAN desde el enlace público es una clienta, no el estudio:
+      // mandarla a /cobros la dejaba en el panel del staff (que además le pide
+      // login). Los cobros de recibo sí los inicia el estudio desde su panel.
+      ...(body.planId && !body.reciboId
+        ? {
+            success_url: `${appUrl}/reservar/${slugEstudio ?? ''}?compra=ok`,
+            cancel_url: `${appUrl}/reservar/${slugEstudio ?? ''}?compra=cancelada`,
+          }
+        : {
+            success_url: `${appUrl}/cobros?tab=pendientes&stripe_success=1${body.reciboId ? `&recibo=${body.reciboId}` : ''}`,
+            cancel_url: `${appUrl}/cobros?tab=pendientes&stripe_cancel=1`,
+          }),
       locale: 'es',
     }, { stripeAccount: studio.stripe_account_id });
 

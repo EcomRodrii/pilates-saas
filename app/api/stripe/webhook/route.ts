@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
     const reciboId = session.metadata?.reciboId;
     const socioId = session.metadata?.socioId;
     const studioId = session.metadata?.studioId;
+    // Compra de un PLAN desde el enlace público. Se escribía en el checkout y
+    // aquí no se leía nunca: Stripe cobraba y no se entregaba nada.
+    const planId = session.metadata?.planId;
 
     // P0-18: la persistencia se hace con service-role (bypassa RLS; el webhook
     // no tiene sesión de usuario) y cualquier fallo de escritura devuelve un
@@ -195,6 +198,44 @@ export async function POST(req: NextRequest) {
         // Notification Engine: confirmación de pago a la socia.
         const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
         await emitirPagoRealizado(admin, { studioId, reciboId });
+      }
+
+      // Compra de un plan desde el enlace público: crear el bono que se acaba de
+      // pagar. Un fallo aquí devuelve 5xx para que Stripe REINTENTE — el dinero
+      // ya está cobrado, así que no entregarlo no puede quedarse en un log.
+      if (planId && !reciboId) {
+        if (!studioId) {
+          Sentry.captureMessage('[stripe webhook] compra de plan sin studioId', {
+            level: 'error', extra: { planId, sessionId: session.id },
+          });
+          return NextResponse.json({ error: 'Metadata incompleta' }, { status: 400 });
+        }
+        const { entregarPlanComprado } = await import('@/lib/billing/entregar-plan-comprado');
+        const entrega = await entregarPlanComprado(admin, {
+          sessionId: session.id,
+          studioId,
+          planId,
+          socioId: socioId ?? null,
+          // Email verificado por Stripe: es a quien hay que entregarle el bono
+          // si compró antes de registrarse.
+          email: session.customer_details?.email ?? session.customer_email ?? null,
+          nombre: session.customer_details?.name ?? null,
+        });
+        if (!entrega.ok) {
+          Sentry.captureMessage('[stripe webhook] cobrado pero NO entregado', {
+            level: 'error',
+            extra: { planId, studioId, sessionId: session.id, motivo: entrega.motivo, detalle: entrega.detalle },
+          });
+          // 'sin-socia' no se arregla reintentando (no hay email al que entregar):
+          // se responde 200 para no encolar reintentos eternos, pero queda en
+          // Sentry como cobro pendiente de resolver a mano.
+          if (entrega.motivo === 'sin-socia' || entrega.motivo === 'plan-no-encontrado') {
+            return NextResponse.json({ received: true, entregado: false, motivo: entrega.motivo });
+          }
+          return NextResponse.json({ error: 'Fallo al entregar el plan comprado' }, { status: 500 });
+        }
+        const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
+        await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
       }
 
       // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la

@@ -1,0 +1,136 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { entregarPlanComprado, type CompraPlan } from './entregar-plan-comprado.ts';
+
+// El botón "Contratar" del enlace público mandaba a Stripe con metadata.planId y
+// el webhook NUNCA leía ese campo: se cobraba y no se entregaba nada. Estos
+// tests fijan qué tiene que quedar guardado después de un cobro.
+
+const PLAN = {
+  id: 'plan-1', nombre: 'Bono 10 sesiones', precio: 130, tipo: 'BONO',
+  sesiones: 10, validez_dias: 90, studio_id: 'studio-1',
+};
+
+type Fila = Record<string, unknown>;
+
+/** Supabase de mentira: guarda lo insertado para poder comprobarlo. */
+function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fallaEn?: string } = {}) {
+  const insertado: Record<string, Fila[]> = { socios: [], suscripciones: [], recibos: [] };
+
+  const api = {
+    from(tabla: string) {
+      return {
+        select() { return this; },
+        eq() { return this; },
+        ilike() { return this; },
+        maybeSingle() {
+          if (tabla === 'planes_tarifa') return Promise.resolve({ data: opts.plan === undefined ? PLAN : opts.plan, error: null });
+          if (tabla === 'socios') return Promise.resolve({ data: opts.socioExistente ?? null, error: null });
+          return Promise.resolve({ data: null, error: null });
+        },
+        insert(fila: Fila) {
+          if (opts.fallaEn === tabla) return Promise.resolve({ error: { code: '42501', message: 'row-level security' } });
+          insertado[tabla]?.push(fila);
+          return Promise.resolve({ error: null });
+        },
+      };
+    },
+  };
+  // El módulo solo usa from().select().eq().maybeSingle() e insert().
+  return { admin: api as never, insertado };
+}
+
+const COMPRA: CompraPlan = {
+  sessionId: 'cs_test_abc123def456ghi789', studioId: 'studio-1', planId: 'plan-1',
+  socioId: null, email: 'nueva@example.com', nombre: 'María Soler',
+};
+
+test('una compra entrega bono Y recibo cobrado, no solo cobra', async () => {
+  const { admin, insertado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-existente' });
+
+  assert.equal(r.ok, true);
+  assert.equal(insertado.suscripciones.length, 1);
+  assert.equal(insertado.recibos.length, 1);
+
+  const sus = insertado.suscripciones[0];
+  assert.equal(sus.socio_id, 'soc-existente');
+  assert.equal(sus.estado, 'ACTIVA');
+  assert.equal(sus.sesiones_restantes, 10, 'el bono entra con sus sesiones');
+  assert.ok(sus.fecha_fin, 'con validez_dias tiene caducidad');
+
+  const rec = insertado.recibos[0];
+  assert.equal(rec.estado, 'COBRADO', 'Stripe ya cobró: el recibo nace cobrado');
+  assert.equal(rec.importe, 130);
+  assert.ok(rec.fecha_cobro);
+});
+
+test('los ids se derivan de la sesión: un reintento de Stripe no duplica', async () => {
+  const a = fakeAdmin();
+  const b = fakeAdmin();
+  const r1 = await entregarPlanComprado(a.admin, { ...COMPRA, socioId: 'soc-1' });
+  const r2 = await entregarPlanComprado(b.admin, { ...COMPRA, socioId: 'soc-1' });
+
+  assert.equal(r1.ok && r2.ok, true);
+  assert.equal(a.insertado.suscripciones[0].id, b.insertado.suscripciones[0].id);
+  assert.equal(a.insertado.recibos[0].id, b.insertado.recibos[0].id);
+});
+
+test('sin ficha previa se crea con el email verificado por Stripe', async () => {
+  const { admin, insertado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, COMPRA);
+
+  assert.equal(r.ok, true);
+  if (!r.ok) return;
+  assert.equal(r.fichaCreada, true);
+  assert.equal(insertado.socios.length, 1);
+  assert.equal(insertado.socios[0].email, 'nueva@example.com');
+  assert.equal(insertado.socios[0].nombre, 'María');
+  assert.equal(insertado.socios[0].apellidos, 'Soler');
+  // Sin contrato: no lo ha firmado. Se lo pedirá el portal.
+  assert.equal(insertado.socios[0].aceptacion_fecha, undefined);
+});
+
+test('si ya existe alguien con ese email, se reutiliza en vez de duplicar', async () => {
+  const { admin, insertado } = fakeAdmin({ socioExistente: { id: 'soc-ya-estaba' } });
+  const r = await entregarPlanComprado(admin, COMPRA);
+
+  assert.equal(r.ok, true);
+  if (!r.ok) return;
+  assert.equal(r.socioId, 'soc-ya-estaba');
+  assert.equal(insertado.socios.length, 0, 'no se crea una segunda ficha');
+  assert.equal(insertado.suscripciones[0].socio_id, 'soc-ya-estaba');
+});
+
+test('sin socia y sin email no se inventa una ficha anónima', async () => {
+  const { admin, insertado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, { ...COMPRA, email: null });
+
+  assert.equal(r.ok, false);
+  if (r.ok) return;
+  assert.equal(r.motivo, 'sin-socia');
+  // Un bono que nadie puede reclamar es peor que no crearlo: queda en Sentry.
+  assert.equal(insertado.suscripciones.length, 0);
+  assert.equal(insertado.recibos.length, 0);
+});
+
+test('un plan de otro estudio no se entrega', async () => {
+  const { admin } = fakeAdmin({ plan: null });
+  const r = await entregarPlanComprado(admin, COMPRA);
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.equal(r.motivo, 'plan-no-encontrado');
+});
+
+test('un fallo de escritura se reporta (el webhook lo convierte en reintento)', async () => {
+  const { admin } = fakeAdmin({ fallaEn: 'suscripciones' });
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1' });
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.equal(r.motivo, 'error');
+});
+
+test('un plan sin caducidad entra sin fecha de fin', async () => {
+  const { admin, insertado } = fakeAdmin({ plan: { ...PLAN, validez_dias: null, sesiones: null, tipo: 'MENSUAL' } });
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1' });
+  assert.equal(r.ok, true);
+  assert.equal(insertado.suscripciones[0].fecha_fin, null);
+});
