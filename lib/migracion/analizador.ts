@@ -14,7 +14,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import {
   ENTIDADES, UMBRAL_CONFIANZA,
   evaluarMapeo, construirAnalisis, sinClasificar,
-  clasificarArchivoDeterminista, avisosGlobalesYOrden,
+  clasificarArchivoDeterminista, avisosGlobalesYOrden, completarConDerivadas,
   type EntidadMigracion, type ArchivoEntrada, type ArchivoAnalizado,
   type PlanMigracion, type ContextoEstudio,
 } from './clasificador.ts';
@@ -73,7 +73,11 @@ export async function analizarArchivos(archivos: ArchivoEntrada[], ctx: Contexto
 
   for (const archivo of archivos) {
     const det = clasificarArchivoDeterminista(archivo, ctx);
-    if (det.tipo === 'ok' || det.tipo === 'vacio') {
+    if (det.tipo === 'ok') {
+      resultados.push(...completarConDerivadas(archivo, det.analisis, ctx));
+      continue;
+    }
+    if (det.tipo === 'vacio') {
       resultados.push(det.analisis);
       continue;
     }
@@ -85,10 +89,12 @@ export async function analizarArchivos(archivos: ArchivoEntrada[], ctx: Contexto
       const def = ENTIDADES[ia.entidad];
       const ev = evaluarMapeo(def, headers, rows, ia.mapeo);
       if (ev.obligatoriosCubiertos && ev.tasaOk > (mejor?.tasaOk ?? 0) && ev.tasaOk >= UMBRAL_CONFIANZA) {
-        resultados.push(construirAnalisis(archivo.nombre, headers, rows, ia.entidad, 'ia', ia.mapeo, ev.validadas, ctx));
+        const analisis = construirAnalisis(archivo.nombre, headers, rows, ia.entidad, 'ia', ia.mapeo, ev.validadas, ctx);
+        resultados.push(...completarConDerivadas(archivo, analisis, ctx));
         continue;
       }
       // Propuesta de baja confianza: se enseña marcada, nunca como plan listo.
+      // Sin derivadas: si ni la principal es fiable, no toca proponer una segunda.
       if (ev.obligatoriosCubiertos && ev.tasaOk > 0) {
         const analisis = construirAnalisis(archivo.nombre, headers, rows, ia.entidad, 'ia', ia.mapeo, ev.validadas, ctx);
         analisis.avisos.unshift(`Solo ${Math.round(ev.tasaOk * 100)}% de las filas pasan la validación con este mapeo — revísalo a mano antes de ejecutar.`);

@@ -18,6 +18,10 @@ const ESPERADO: Record<string, 'socias' | 'membresias'> = {
   'nubapp_socios.csv': 'socias',
   'nubapp_abonos.csv': 'membresias',
   'mis_clientas.csv': 'socias',
+  // El Excel casero trae la clienta y su bono en la MISMA fila (columna "Bono"),
+  // así que además del archivo de clientas sale un análisis derivado con las
+  // membresías. Ver el test de abajo.
+  'mis_clientas.csv · bonos y membresías': 'membresias',
 };
 
 for (const plataforma of EJEMPLOS) {
@@ -54,9 +58,22 @@ test('Timp: fecha DD/MM/AAAA europea se normaliza a ISO', () => {
   assert.equal(m.fechaAlta, '2023-03-14'); // 14/03/2023 → ISO
 });
 
+// Un solo archivo con clienta + bono en la misma fila (lo que exporta media
+// España) debe dar las DOS entidades. Antes ganaba "socias" y los bonos se
+// perdían sin decir nada.
+test('Excel casero: del mismo archivo salen las clientas Y sus bonos', () => {
+  const plan = analizarDeterminista(EJEMPLOS.find(e => e.id === 'excel')!.archivos);
+  const socias = plan.archivos.find(a => a.entidad === 'socias');
+  const bonos = plan.archivos.find(a => a.entidad === 'membresias');
+  assert.ok(socias, 'las clientas deben seguir detectándose');
+  assert.ok(bonos, 'los bonos de la columna "Bono" no pueden perderse');
+  assert.equal(bonos.origenNombre, 'mis_clientas.csv');
+  assert.deepEqual(plan.orden, ['socias', 'membresias']);
+});
+
 test('Excel casero: "Nombre y apellidos" combinado se reconoce como nombre; fila sin email a cuarentena', () => {
   const plan = analizarDeterminista(EJEMPLOS.find(e => e.id === 'excel')!.archivos);
-  const a = plan.archivos[0];
+  const a = plan.archivos.find(x => x.entidad === 'socias')!;
   assert.equal(a.entidad, 'socias');
   // "Sin Email" (última fila, email vacío) no debe entrar → cuarentena visible.
   assert.ok(a.cuarentena.length >= 1);

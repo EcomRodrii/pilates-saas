@@ -87,6 +87,11 @@ export interface ArchivoEntrada {
 
 export interface ArchivoAnalizado {
   nombre: string;
+  // Archivo del que salen las filas. Distinto de `nombre` solo en los análisis
+  // DERIVADOS (un mismo CSV que trae dos entidades, p.ej. socias + sus bonos):
+  // el derivado se muestra con nombre propio para no pisar overrides ni plegados,
+  // pero lee las filas del archivo original.
+  origenNombre?: string;
   entidad: EntidadMigracion | null; // null = sin clasificar (decide el humano)
   entidadEtiqueta: string | null;
   origen: 'auto' | 'ia' | 'manual' | null;
@@ -277,6 +282,83 @@ export function analizarConMapeoManual(
   return analisis;
 }
 
+// ── Un mismo CSV que trae DOS entidades ──────────────────────────────────────
+// Los exports reales (Momence, Timp, Eversports, bsport) ponen la clienta y su
+// bono en la MISMA fila. Como `entidad` es singular, el archivo ganaba como
+// "socias" (más columnas reconocidas) y las de la membresía se descartaban sin
+// decir nada: 850 clientas importadas y 0 bonos, con acta en verde.
+//
+// Tras clasificar la entidad principal probamos las demás; si alguna cubre sus
+// obligatorios y aporta al menos UNA columna que la principal no usa, emitimos
+// un análisis DERIVADO sobre el mismo contenido. El resto del flujo ya lo trata
+// como un archivo más: ORDEN_EJECUCION importa socias antes que membresías, y
+// el acta y el deshacer lo cuentan aparte.
+export function derivarEntidadesSecundarias(
+  nombre: string, headers: string[], rows: string[][],
+  principal: EntidadMigracion, mapeoPrincipal: Record<string, number>,
+  ctx: ContextoEstudio,
+): ArchivoAnalizado[] {
+  const usadasPorPrincipal = new Set(Object.values(mapeoPrincipal).filter(i => i !== -1));
+  const derivados: ArchivoAnalizado[] = [];
+
+  for (const [id, def] of Object.entries(ENTIDADES) as [EntidadMigracion, DefEntidad][]) {
+    if (id === principal) continue;
+    const mapeo = def.mapear(headers);
+    const propias = Object.values(mapeo).filter(i => i !== -1 && !usadasPorPrincipal.has(i));
+    // Sin columnas propias no hay una segunda entidad: es la misma información
+    // releída (p.ej. solo el email, que ya usa la principal).
+    if (propias.length === 0) continue;
+    const ev = evaluarMapeo(def, headers, rows, mapeo);
+    if (!ev.obligatoriosCubiertos || ev.tasaOk < UMBRAL_CONFIANZA) continue;
+
+    const analisis = construirAnalisis(nombre, headers, rows, id, 'auto', mapeo, ev.validadas, ctx);
+    analisis.nombre = `${nombre} · ${def.etiqueta.toLowerCase()}`;
+    analisis.origenNombre = nombre;
+    analisis.avisos.unshift(
+      `Salen de las mismas filas que "${nombre}", de las columnas ${headers.filter((_, i) => propias.includes(i)).map(h => `«${h}»`).join(', ')}. ` +
+      'Si no las quieres, marca este bloque como "no importar".',
+    );
+    derivados.push(analisis);
+  }
+  return derivados;
+}
+
+// Red de seguridad: ninguna columna debe desaparecer en silencio. Se calcula
+// sobre TODOS los análisis del mismo archivo (principal + derivados), así que
+// solo se avisa de lo que de verdad no va a ninguna parte.
+export function avisarColumnasIgnoradas(delMismoArchivo: ArchivoAnalizado[]): void {
+  const principal = delMismoArchivo[0];
+  if (!principal || principal.entidad === null) return;
+  const usadas = new Set<number>();
+  for (const a of delMismoArchivo) {
+    for (const i of Object.values(a.mapeo ?? {})) if (i !== -1) usadas.add(i);
+  }
+  const ignoradas = principal.columnas.filter((_, i) => !usadas.has(i)).filter(h => h.trim() !== '');
+  if (ignoradas.length === 0) return;
+  principal.avisos.push(
+    `No se importan estas columnas: ${ignoradas.map(h => `«${h}»`).join(', ')}. ` +
+    'Si alguna te hace falta, ajusta la entidad o las columnas antes de ejecutar.',
+  );
+}
+
+// Envuelve un análisis ya clasificado con sus entidades derivadas y el aviso de
+// columnas ignoradas. Punto único por el que pasan las dos vías (determinista
+// en el navegador y con IA en el servidor).
+export function completarConDerivadas(
+  archivo: ArchivoEntrada, principal: ArchivoAnalizado, ctx: ContextoEstudio,
+): ArchivoAnalizado[] {
+  if (!principal.entidad || !principal.mapeo) return [principal];
+  let headers: string[] = [];
+  let rows: string[][] = [];
+  try { ({ headers, rows } = parseCsv(archivo.contenido)); } catch { return [principal]; }
+  const salida = [
+    principal,
+    ...derivarEntidadesSecundarias(principal.nombre, headers, rows, principal.entidad, principal.mapeo, ctx),
+  ];
+  avisarColumnasIgnoradas(salida);
+  return salida;
+}
+
 // Avisos globales de dependencias + orden de ejecución filtrado a lo presente.
 export function avisosGlobalesYOrden(resultados: ArchivoAnalizado[]): { orden: EntidadMigracion[]; avisos: string[] } {
   const presentes = new Set(resultados.map(r => r.entidad).filter((e): e is EntidadMigracion => e !== null));
@@ -294,10 +376,11 @@ export function avisosGlobalesYOrden(resultados: ArchivoAnalizado[]): { orden: E
 // de la landing en el navegador. Los archivos que el determinista no clasifica
 // quedan sin-clasificar (en la app real, el server prueba IA antes de rendirse).
 export function analizarDeterminista(archivos: ArchivoEntrada[], ctx: ContextoEstudio = CTX_VACIO): PlanMigracion {
-  const resultados = archivos.map(a => {
+  const resultados = archivos.flatMap(a => {
     const r = clasificarArchivoDeterminista(a, ctx);
-    if (r.tipo === 'ok' || r.tipo === 'vacio') return r.analisis;
-    return sinClasificar(a.nombre, r.headers, r.rows.length, r.motivoSinClasificar);
+    if (r.tipo === 'ok') return completarConDerivadas(a, r.analisis, ctx);
+    if (r.tipo === 'vacio') return [r.analisis];
+    return [sinClasificar(a.nombre, r.headers, r.rows.length, r.motivoSinClasificar)];
   });
   return { archivos: resultados, ...avisosGlobalesYOrden(resultados) };
 }
