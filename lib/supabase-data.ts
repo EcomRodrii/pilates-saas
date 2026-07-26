@@ -4719,9 +4719,23 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if (error) reportDbError('[dbUpdateTipoClase]', error);
 }
 
-export async function dbDeleteTipoClase(id: string) {
+export async function dbDeleteTipoClase(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('tipos_clase').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteTipoClase]', error);
+  if (!error) return ESCRITURA_OK;
+  // Mismo caso que dbDeleteSala: un 23503 en el DELETE no es "falta un dato" (el
+  // genérico lo leería como un INSERT y diría "vuelve a crearlo"): el tipo SÍ
+  // existe, pero `sesiones.tipo_clase_id` lo referencia con FK NO ACTION y
+  // Postgres bloquea el borrado. Es una condición ESPERADA (se intentó borrar un
+  // tipo en uso), no un fallo del sistema: no pasa por reportDbError —para no
+  // mandarlo a Sentry ni disparar además el banner global genérico— y devuelve
+  // su propio mensaje del borrado.
+  if ((error as { code?: string }).code === '23503') {
+    return {
+      ok: false,
+      error: 'No puedes borrar un tipo de clase con clases programadas. Reasigna esas clases a otro tipo o elimínalas primero, y vuelve a intentarlo.',
+    };
+  }
+  return falloEscritura('[dbDeleteTipoClase]', error);
 }
 
 // ─── Salas ───────────────────────────────────────────────────────────────────
