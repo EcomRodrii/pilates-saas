@@ -191,6 +191,20 @@ function descargarCsv(nombre: string, contenido: string) {
   URL.revokeObjectURL(url);
 }
 
+// Cuando una integración no está lista, lo que faltaba era una variable de
+// entorno del SERVIDOR — y eso se le enseñaba tal cual a la dueña del estudio:
+// "Falta configurar NEXT_PUBLIC_ZOOM_CLIENT_ID". Ella lleva un estudio de
+// pilates; eso no es un mensaje para ella, y además no puede hacer nada al
+// respecto porque no es suyo, es nuestro. Se le dice lo que sí le sirve saber, y
+// el nombre de la variable queda en el `title` para quien opera la plataforma.
+function NoDisponibleTodavia({ variable }: { variable: string }) {
+  return (
+    <p className="text-[11px] text-muted-foreground" title={`Falta configurar ${variable} en el servidor`}>
+      Todavía no disponible. Lo estamos terminando de conectar por nuestro lado.
+    </p>
+  );
+}
+
 export function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
   // Declarado en el componente, NO dentro del modal: ese modal es una IIFE
   // dentro del JSX y un hook no puede llamarse ahí. El sufijo por campo.key
@@ -591,9 +605,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   ) : puedeConectarStripe ? (
                     <button type="button" onClick={conectarStripe} className={cn(btnPrimary, 'no-underline')}>Conectar con Stripe</button>
                   ) : (
-                    <p className="text-[11px] text-muted-foreground">
-                      Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID</code>
-                    </p>
+                    <NoDisponibleTodavia variable="NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID" />
                   )
                 ) : cat.tipo === 'GOOGLE_CALENDAR' ? (
                   googleConectado ? (
@@ -606,9 +618,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   ) : puedeConectarGoogle ? (
                     <button type="button" onClick={conectarGoogle} className={cn(btnPrimary, 'no-underline')}>Conectar con Google</button>
                   ) : (
-                    <p className="text-[11px] text-muted-foreground">
-                      Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
-                    </p>
+                    <NoDisponibleTodavia variable="NEXT_PUBLIC_GOOGLE_CLIENT_ID" />
                   )
                 ) : cat.tipo === 'GMAIL' ? (
                   gmailConectado ? (
@@ -624,9 +634,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   ) : puedeConectarGmail ? (
                     <button type="button" onClick={conectarGmail} className={cn(btnPrimary, 'no-underline')}>Conectar con Gmail</button>
                   ) : (
-                    <p className="text-[11px] text-muted-foreground">
-                      Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
-                    </p>
+                    <NoDisponibleTodavia variable="NEXT_PUBLIC_GOOGLE_CLIENT_ID" />
                   )
                 ) : cat.tipo === 'ZOOM' ? (
                   zoomConectado ? (
@@ -639,9 +647,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   ) : puedeConectarZoom ? (
                     <button type="button" onClick={conectarZoom} className={cn(btnPrimary, 'no-underline')}>Conectar cuenta de Zoom</button>
                   ) : (
-                    <p className="text-[11px] text-muted-foreground">
-                      Falta configurar <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_ZOOM_CLIENT_ID</code>
-                    </p>
+                    <NoDisponibleTodavia variable="NEXT_PUBLIC_ZOOM_CLIENT_ID" />
                   )
                 ) : (
                   <>

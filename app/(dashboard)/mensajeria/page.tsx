@@ -84,7 +84,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
         {huboFallos && (
           <p className="text-sm text-warning">
             {resultado.fallidos} envío{resultado.fallidos !== 1 ? 's' : ''} fallaron
-            {resultado.ok === 0 ? ' — revisa que Resend esté configurado (RESEND_API_KEY) en .env.local' : ''}
+            {resultado.ok === 0 ? ' — no hemos podido enviar ninguno. Inténtalo de nuevo en unos minutos; si sigue fallando, escríbenos a soporte@tentare.app.' : ''}
           </p>
         )}
         <button onClick={reset} className="text-xs font-semibold text-brand hover:underline mt-2">Enviar otro mensaje</button>
