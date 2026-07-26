@@ -11,6 +11,7 @@ import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '
 import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia, type EquipoStats, type ValoracionDetalle, type AusenciaInstructora } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
+import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 
 type FiltroEstado = 'activas' | 'inactivas' | 'todas';
@@ -74,6 +75,11 @@ export default function EquipoPage() {
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState('');
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  // Apagada a propósito. El alta ya no manda el correo sola: darla de alta y
+  // avisarla son dos decisiones, y la segunda es de la dueña. Quien monta el
+  // estudio un domingo por la noche no quiere escribir a 18 personas a esa hora.
+  const [invitarAhora, setInvitarAhora] = useState(false);
+  const [invitando, setInvitando] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmDel, setConfirmDel] = useState<Instructor | null>(null);
   const [enlace, setEnlace] = useState<
@@ -159,12 +165,21 @@ export default function EquipoPage() {
     return out;
   }, [instructores, q, fEstado, fRol, orden, stats, cargaPorInstructor]);
 
-  function openNuevo() { setForm(emptyForm()); setEditId(null); setErrorGuardar(''); setModal('nuevo'); }
+  function openNuevo() { setForm(emptyForm()); setEditId(null); setErrorGuardar(''); setInvitarAhora(false); setModal('nuevo'); }
   function openEditar(i: Instructor) {
     setForm({ tempId: i.id, nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, fotoUrl: i.fotoUrl ?? null, activo: i.activo, rol: i.rol });
     setEditId(i.id);
     setModal('editar');
   }
+  // Enviar la invitación a alguien que ya está dado de alta.
+  async function enviarInvitacion(i: Instructor) {
+    setMenuId(null);
+    setInvitando(i.id);
+    const res = await invitarAlEquipo(i.id);
+    setInvitando(null);
+    showToast('ok' in res ? `Invitación enviada a ${res.email}` : res.error);
+  }
+
   async function guardar() {
     if (!form.nombre.trim()) return;
     const fields = {
@@ -183,11 +198,18 @@ export default function EquipoPage() {
       const res = await addInstructor({ ...fields, authUserId: null }, form.tempId);
       setGuardando(false);
       if (!res.ok) { setErrorGuardar(res.error); return; }
-      // Le decimos también lo del email: si no, la dueña no sabe si tiene que
-      // pasarle el enlace de acceso a mano.
-      showToast(fields.email
-        ? `${fields.nombre} ya está en tu equipo — le hemos enviado un email para que cree su acceso`
-        : `${fields.nombre} ya está en tu equipo`);
+      // El toast dice exactamente qué ha pasado con el correo, incluido cuando
+      // NO se ha mandado: si no, la dueña no sabe si tiene que avisarla ella.
+      if (fields.email && invitarAhora) {
+        const inv = await invitarAlEquipo(form.tempId);
+        showToast('ok' in inv
+          ? `${fields.nombre} ya está en tu equipo — invitación enviada a ${fields.email}`
+          : `${fields.nombre} ya está en tu equipo, pero la invitación no salió: ${inv.error}`);
+      } else if (fields.email) {
+        showToast(`${fields.nombre} ya está en tu equipo — todavía sin invitar`);
+      } else {
+        showToast(`${fields.nombre} ya está en tu equipo`);
+      }
     } else if (editId) {
       updateInstructor(editId, fields);
       showToast('Cambios guardados');
@@ -331,6 +353,8 @@ export default function EquipoPage() {
               onHoras={() => { setMenuId(null); setVerHoras(i); }}
               onAusencias={() => { setMenuId(null); setVerAusencias(i); }}
               ausente={ausenciaHoy(ausencias, i.id)}
+              invitando={invitando === i.id}
+              onInvitar={() => enviarInvitacion(i)}
             />
           ))}
         </div>
@@ -346,6 +370,8 @@ export default function EquipoPage() {
               onHoras={() => { setMenuId(null); setVerHoras(i); }}
               onAusencias={() => { setMenuId(null); setVerAusencias(i); }}
               ausente={ausenciaHoy(ausencias, i.id)}
+              invitando={invitando === i.id}
+              onInvitar={() => enviarInvitacion(i)}
             />
           ))}
         </div>
@@ -447,6 +473,28 @@ export default function EquipoPage() {
               <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} className="w-4 h-4 rounded accent-brand" />
               <span className="text-sm font-medium text-foreground">Miembro activo (puede recibir clases y citas)</span>
             </label>
+
+            {/* Solo al dar de alta y solo si hay email. Viene apagada: guardar la
+                ficha no debe disparar un correo. Si no la marca, la invitación
+                queda pendiente y se manda cuando ella quiera desde la lista. */}
+            {modal === 'nuevo' && form.email.trim() !== '' && (
+              <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-border p-3">
+                <input
+                  type="checkbox"
+                  checked={invitarAhora}
+                  onChange={e => setInvitarAhora(e.target.checked)}
+                  className="w-4 h-4 rounded accent-brand mt-0.5"
+                />
+                <span className="text-[13px] text-foreground">
+                  Enviarle ahora el email de invitación
+                  <span className="block text-[12px] text-muted-foreground mt-0.5">
+                    Le llega a {form.email.trim()} para que cree su acceso. Si lo dejas sin
+                    marcar podrás enviárselo cuando quieras desde la lista de equipo.
+                  </span>
+                </span>
+              </label>
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
               <button onClick={guardar} disabled={!form.nombre.trim() || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
@@ -645,8 +693,9 @@ function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoracio
   );
 }
 
-function InstructorCard({ i, carga, prox, val, asis, ausente, ...acc }: {
+function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvitar, ...acc }: {
   i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
+  invitando?: boolean; onInvitar?: () => void;
 } & AccProps) {
   return (
     <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
@@ -665,6 +714,24 @@ function InstructorCard({ i, carga, prox, val, asis, ausente, ...acc }: {
         {i.email && <p className="flex items-center gap-2 text-[13px] text-muted-foreground truncate"><Mail size={13} className="shrink-0" />{i.email}</p>}
         {i.telefono && <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Phone size={13} className="shrink-0" />{i.telefono}</p>}
         {!i.email && !i.telefono && <p className="text-[12px] text-muted-foreground italic">Sin datos de contacto</p>}
+
+        {/* `authUserId` a null = todavía no ha reclamado su acceso. Antes esto no
+            se veía en ninguna parte: el correo salía solo al guardar y, si se
+            perdía, la dueña no tenía forma de saberlo ni de reenviarlo. */}
+        {i.email && !i.authUserId && (
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            <span className="text-[12px] text-warning font-medium">Todavía sin acceso</span>
+            {onInvitar && (
+              <button
+                onClick={onInvitar}
+                disabled={invitando}
+                className="text-[12px] font-semibold text-brand hover:underline underline-offset-2 disabled:opacity-50"
+              >
+                {invitando ? 'Enviando…' : 'Enviar invitación'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-auto">
@@ -682,8 +749,9 @@ function InstructorCard({ i, carga, prox, val, asis, ausente, ...acc }: {
   );
 }
 
-function InstructorRow({ i, carga, prox, val, asis, ausente, ...acc }: {
+function InstructorRow({ i, carga, prox, val, asis, ausente, invitando, onInvitar, ...acc }: {
   i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
+  invitando?: boolean; onInvitar?: () => void;
 } & AccProps) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
@@ -691,6 +759,20 @@ function InstructorRow({ i, carga, prox, val, asis, ausente, ...acc }: {
       <div className="min-w-0 flex-1">
         <p className="font-bold text-foreground text-[14px] leading-tight truncate">{i.nombre}</p>
         <Badges i={i} ausente={ausente} />
+        {i.email && !i.authUserId && (
+          <p className="text-[12px] text-warning font-medium mt-0.5">
+            Todavía sin acceso
+            {onInvitar && (
+              <button
+                onClick={onInvitar}
+                disabled={invitando}
+                className="ml-2 font-semibold text-brand hover:underline underline-offset-2 disabled:opacity-50"
+              >
+                {invitando ? 'Enviando…' : 'Enviar invitación'}
+              </button>
+            )}
+          </p>
+        )}
       </div>
       <div className="hidden md:flex items-center gap-6 text-right">
         <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{carga}</p><p className="text-[10px] text-muted-foreground mt-0.5">7 días</p></div>
