@@ -181,6 +181,29 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await expect(legal).toContainText('TÉRMINOS Y CONDICIONES');
   });
 
+  // /portal y /reservar eran dos islas: el login del portal decía "habla con tu
+  // instructora para que te añada" cuando cualquiera puede apuntarse sola desde
+  // /reservar, y quien se apuntaba ahí no se enteraba de que tenía portal.
+  test('tras reservar, se le dice que tiene portal y cómo entrar', async ({ page }) => {
+    await seedSession(page, `walkin+${Date.now()}@test.com`);
+    await mockBackend(page, { socia: null });
+
+    await page.goto(`/reservar/${SLUG}`);
+    await abrirYReservar(page);
+    await page.getByPlaceholder(/tu nombre completo/i).fill('Walk In E2E');
+    await page.getByRole('button', { name: /^continuar/i }).click();
+    await page.getByRole('checkbox').check();
+    await page.getByRole('button', { name: /aceptar y continuar/i }).click();
+    await page.getByRole('button', { name: /confirmar reserva/i }).click();
+
+    await expect(page.getByText(/reserva confirmada|lista de espera/i)).toBeVisible();
+    // Se creó por magic link: aún no tiene contraseña, así que el enlace va a
+    // /acceso (que se la deja poner) y no a /login, que la rebotaría.
+    const alPortal = page.getByRole('link', { name: /crea tu contraseña/i });
+    await expect(alPortal).toBeVisible();
+    await expect(alPortal).toHaveAttribute('href', `/portal/${SLUG}/acceso`);
+  });
+
   test('login: sin sesión, reservar pide magic link (no deja pasar sin email)', async ({ page }) => {
     await mockBackend(page); // sin seedSession → no autenticada
     await page.goto(`/reservar/${SLUG}`);

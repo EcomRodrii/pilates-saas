@@ -965,6 +965,20 @@ export default function ReservarPage() {
                     <Download size={14} />Descargar .ics (Apple / Outlook)
                   </button>
                 </div>
+                {/* Quien reserva aquí ya es socia, pero nadie se lo dice: tiene
+                    portal propio (sus bonos, su historial, sus próximas clases).
+                    Se creó por magic link, así que aún no tiene contraseña — por
+                    eso el enlace va a /acceso, que se la deja poner, y no a
+                    /login, que la rebotaría. */}
+                <div className="w-full pt-3 mt-1 border-t border-[#E7E7E0]">
+                  <p className="text-[#767670] text-xs leading-relaxed text-center">
+                    Tus clases y tus bonos están en tu portal.{' '}
+                    <a href={`/portal/${slug}/acceso`} className="font-bold underline" style={{ color: PRIMARY }}>
+                      Crea tu contraseña
+                    </a>{' '}
+                    y entra cuando quieras.
+                  </p>
+                </div>
                 <button onClick={closeBooking} className="text-[#767670] text-sm hover:text-[#3A3A34] transition-colors mt-1">
                   Cerrar
                 </button>

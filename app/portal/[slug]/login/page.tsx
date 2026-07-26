@@ -135,8 +135,17 @@ export default function PortalLogin() {
           ¿Primera vez o olvidaste tu contraseña?
         </Link>
 
-        <p style={{ marginTop: 24, fontSize: 12, color: t.muted, textAlign: 'center' }}>
-          ¿Eres nueva? Habla con tu instructora para que te añada como socia y puedas acceder.
+        {/* Antes decía "habla con tu instructora para que te añada" — y no es
+            verdad: cualquiera puede darse de alta sola desde /reservar (magic
+            link + nombre + aceptar condiciones). El portal y la reserva eran dos
+            islas sin un solo enlace entre ellas, así que la clienta nueva se
+            quedaba en un callejón sin salida. */}
+        <p style={{ marginTop: 24, fontSize: 12, color: t.muted, textAlign: 'center', lineHeight: 1.5 }}>
+          ¿Aún no eres clienta?{' '}
+          <Link href={`/reservar/${slug}`} style={{ color: t.heroAccent, fontWeight: 700, textDecoration: 'underline' }}>
+            Apúntate y reserva tu primera clase
+          </Link>
+          {' '}— solo necesitas tu email.
         </p>
       </div>
     </div>
