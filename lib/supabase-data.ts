@@ -3990,17 +3990,17 @@ export async function dbUpsertPreferenciasSocio(p: PreferenciasSocio) {
 
 // ─── Gamificación: créditos y recompensas ────────────────────────────────────
 
-export async function dbInsertRewardRule(r: RewardRule) {
+export async function dbInsertRewardRule(r: RewardRule): Promise<ResultadoEscritura> {
   const row = {
     id: r.id, studio_id: r.studioId ?? STUDIO_ID, trigger: r.trigger, nombre: r.nombre,
     descripcion: r.descripcion ?? null, creditos: r.creditos, activa: r.activa,
     tope_mensual: r.topeMensual ?? null, creado_en: r.creadoEn,
   };
   const { error } = await supabase.from('reward_rules').insert(row);
-  if (error) reportDbError('[dbInsertRewardRule]', error);
+  return error ? falloEscritura('[dbInsertRewardRule]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule>) {
+export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
@@ -4008,7 +4008,7 @@ export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule
   if ('activa' in changes) db.activa = changes.activa;
   if ('topeMensual' in changes) db.tope_mensual = changes.topeMensual;
   const { error } = await supabase.from('reward_rules').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateRewardRule]', error);
+  return error ? falloEscritura('[dbUpdateRewardRule]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertRewardAction(a: RewardAction) {
