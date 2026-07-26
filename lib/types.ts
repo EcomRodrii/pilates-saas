@@ -111,6 +111,11 @@ export interface AceptacionContrato {
   fecha: string;
   firma: string;
   versionTexto: string;
+  /** PORTAL = la firmó la socia. MOSTRADOR = la introdujo el estudio por ella.
+   *  undefined = aceptación anterior a la migración 0104: no consta. */
+  origen?: 'PORTAL' | 'MOSTRADOR';
+  /** Solo en MOSTRADOR: quién del estudio la introdujo. */
+  introducidaPor?: string;
 }
 
 export interface Socio {

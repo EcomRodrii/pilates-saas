@@ -349,6 +349,8 @@ export function mapSocio(r: RowSocios): Socio {
           fecha: r.aceptacion_fecha,
           firma: r.aceptacion_firma ?? '',
           versionTexto: r.aceptacion_version ?? '',
+          ...(r.aceptacion_origen ? { origen: r.aceptacion_origen as 'PORTAL' | 'MOSTRADOR' } : {}),
+          ...(r.aceptacion_por ? { introducidaPor: r.aceptacion_por } : {}),
         }
       : undefined;
 
@@ -2884,6 +2886,8 @@ function socioToDb(socio: Socio) {
     aceptacion_fecha: aceptacionContrato?.fecha ?? null,
     aceptacion_firma: aceptacionContrato?.firma ?? null,
     aceptacion_version: aceptacionContrato?.versionTexto ?? null,
+    aceptacion_origen: aceptacionContrato?.origen ?? null,
+    aceptacion_por: aceptacionContrato?.introducidaPor ?? null,
   };
 }
 
@@ -3257,6 +3261,8 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
     db.aceptacion_fecha = changes.aceptacionContrato?.fecha ?? null;
     db.aceptacion_firma = changes.aceptacionContrato?.firma ?? null;
     db.aceptacion_version = changes.aceptacionContrato?.versionTexto ?? null;
+    db.aceptacion_origen = changes.aceptacionContrato?.origen ?? null;
+    db.aceptacion_por = changes.aceptacionContrato?.introducidaPor ?? null;
   }
   const { error } = await supabase.from('socios').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateSocio]', error) : ESCRITURA_OK;

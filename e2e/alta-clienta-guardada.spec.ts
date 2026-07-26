@@ -85,7 +85,7 @@ async function rellenarAlta(page: Page, conPlan: boolean) {
   if (conPlan) await page.getByRole('combobox', { name: /Plan/i }).selectOption('plan-1');
   await page.getByRole('button', { name: /Siguiente — Contrato/ }).click();
   await page.getByRole('checkbox').check();
-  await page.getByPlaceholder(/nombre completo como firma/i).fill('María Soler Puig');
+  await page.getByPlaceholder(/Nombre completo de la clienta/i).fill('María Soler Puig');
 }
 
 test.describe('El alta de una clienta solo cuenta si se guarda', () => {

@@ -435,6 +435,7 @@ export default function ReservarPage() {
           fecha: new Date().toISOString(),
           firma: socia.nombre,
           versionTexto: 'v1.1',
+          origen: 'PORTAL',
         },
       });
     }
@@ -465,6 +466,7 @@ export default function ReservarPage() {
           fecha: new Date().toISOString(),
           firma: loginForm.nombre.trim(),
           versionTexto: 'v1.1',
+          origen: 'PORTAL',
         },
         referidoPor: referidoValido,
       });
