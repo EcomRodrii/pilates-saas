@@ -130,7 +130,7 @@ export function CitasPublica({
         <div className="space-y-2">
           <h2 className="text-foreground font-bold text-base px-1">Mis próximas citas</h2>
           {errorCancelar && (
-            <p role="alert" className="mx-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+            <p role="alert" className="mx-1 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               <span className="font-semibold">La cita sigue en pie.</span> {errorCancelar}
             </p>
           )}
@@ -154,7 +154,7 @@ export function CitasPublica({
                   }
                 }}
                 disabled={cancelandoId === c.id}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-60">
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-destructive bg-destructive/10 hover:bg-destructive/10 border border-destructive/30 transition-colors disabled:opacity-60">
                 <X size={12} />{cancelandoId === c.id ? 'Cancelando…' : 'Cancelar'}
               </button>
             </div>
@@ -312,7 +312,7 @@ export function CitasPublica({
                   {servicio.precio != null && <p className="text-muted-foreground text-sm">{servicio.precio} €</p>}
                 </div>
                 {resultado && 'error' in resultado && (
-                  <div className="mb-3 px-4 py-3 rounded-xl text-sm text-rose-600 bg-rose-50 border border-rose-200">{resultado.error}</div>
+                  <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">{resultado.error}</div>
                 )}
                 {!autenticada && (
                   <p className="text-muted-foreground text-xs mb-3">Necesitas acceder con tu email para reservar.</p>

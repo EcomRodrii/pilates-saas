@@ -56,7 +56,7 @@ export function Reveal({
   );
 }
 
-export function Eyebrow({ children, color = '#5B21B6' }: { children: React.ReactNode; color?: string }) {
+export function Eyebrow({ children, color = '#22251A' }: { children: React.ReactNode; color?: string }) {
   return (
     <Reveal
       className="lp-mono"
@@ -73,8 +73,8 @@ export function Chip({ children, dark }: { children: React.ReactNode; dark?: boo
       className="lp-mono"
       style={{
         fontSize: 11.5,
-        color: dark ? '#CBB6EE' : ACC,
-        background: dark ? 'rgba(124,58,237,.16)' : ACC_SOFT,
+        color: dark ? '#C2C9A8' : ACC,
+        background: dark ? 'rgba(90,97,66,.16)' : ACC_SOFT,
         padding: '6px 12px',
         borderRadius: 999,
       }}

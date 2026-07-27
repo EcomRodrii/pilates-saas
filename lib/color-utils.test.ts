@@ -58,8 +58,8 @@ test('derivarPaleta: texto/fondo cumplen WCAG AA', () => {
 
 test('derivarPaleta: marca inválida → paleta por defecto', () => {
   assert.deepEqual(derivarPaleta('basura'), {
-    secondary: '#B57A8E',
-    accent: '#FFF2F7',
+    secondary: '#5A6142',
+    accent: '#F1F2EA',
     background: '#EEEEE8',
     text: '#1A1A1A',
   });

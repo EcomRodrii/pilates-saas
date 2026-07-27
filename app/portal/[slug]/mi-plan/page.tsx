@@ -161,7 +161,7 @@ export default function MiPlanPage() {
                   <p style={{ color: t.heroText, fontSize: 22, fontWeight: 800, lineHeight: 1.1, textTransform: 'uppercase' }}>{plan.nombre}</p>
                 </div>
                 {caducada ? (
-                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '5px 10px', borderRadius: 999, background: '#DC2626', color: '#fff' }}>Caducado</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '5px 10px', borderRadius: 999, background: '#A8442A', color: '#fff' }}>Caducado</span>
                 ) : (
                   <div style={{ width: 40, height: 40, borderRadius: 14, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <CreditCard size={18} style={{ color: t.heroAccent }} />
@@ -171,7 +171,7 @@ export default function MiPlanPage() {
               {caducada && (
                 <div style={{ background: t.surface2, borderRadius: 16, padding: '12px 16px', marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <AlertCircle size={15} style={{ color: '#DC2626', flexShrink: 0 }} />
+                    <AlertCircle size={15} style={{ color: '#A8442A', flexShrink: 0 }} />
                     <p style={{ color: t.heroText, fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>
                       Venció el {formatDate(suscripcion.fechaFin!)}.
                     </p>
@@ -179,7 +179,7 @@ export default function MiPlanPage() {
                   <Button onClick={renovarPlan} disabled={renovando} style={{ width: '100%' }}>
                     {renovando ? 'Un momento…' : `Renovar ahora · ${formatEur(plan.precio)}`}
                   </Button>
-                  {renovarError && <p style={{ color: '#DC2626', fontSize: 12, marginTop: 8 }}>{renovarError}</p>}
+                  {renovarError && <p style={{ color: '#A8442A', fontSize: 12, marginTop: 8 }}>{renovarError}</p>}
                 </div>
               )}
 
@@ -192,7 +192,7 @@ export default function MiPlanPage() {
                   <div style={{ height: 8, background: t.bar, borderRadius: 999, overflow: 'hidden' }}>
                     <div style={{
                       width: `${sesionesProgress}%`, height: '100%', borderRadius: 999,
-                      backgroundColor: suscripcion.sesionesRestantes > 3 ? 'var(--portal-brand)' : '#EF4444',
+                      backgroundColor: suscripcion.sesionesRestantes > 3 ? 'var(--portal-brand)' : '#B85436',
                     }} />
                   </div>
                   {/* Bono en las últimas: renovar en un toque, sin hablar con nadie */}
@@ -201,7 +201,7 @@ export default function MiPlanPage() {
                       <Button onClick={renovarPlan} disabled={renovando} style={{ width: '100%' }}>
                         {renovando ? 'Un momento…' : `Renovar bono · ${formatEur(plan.precio)}`}
                       </Button>
-                      {renovarError && <p style={{ color: '#DC2626', fontSize: 12, marginTop: 8 }}>{renovarError}</p>}
+                      {renovarError && <p style={{ color: '#A8442A', fontSize: 12, marginTop: 8 }}>{renovarError}</p>}
                     </div>
                   )}
                 </div>
@@ -249,7 +249,7 @@ export default function MiPlanPage() {
               {sepaActiva
                 ? 'Tus recibos se cobran automáticamente de tu cuenta bancaria.'
                 : 'Autoriza el adeudo SEPA y olvídate de pagar cada mes.'}
-              {sepaError && <span style={{ color: '#DC2626', display: 'block', marginTop: 4 }}>{sepaError}</span>}
+              {sepaError && <span style={{ color: '#A8442A', display: 'block', marginTop: 4 }}>{sepaError}</span>}
             </p>
           </div>
           <Button

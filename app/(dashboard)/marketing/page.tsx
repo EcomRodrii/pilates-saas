@@ -1010,7 +1010,7 @@ export default function MarketingPage() {
                     <span className="font-semibold text-foreground text-[14px]">{a.nombre}</span>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => setFlowBuilder({ auto: a })} title="Editar flujo" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => deleteAutomatizacion(a.id)} title="Eliminar" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => deleteAutomatizacion(a.id)} title="Eliminar" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       <button
                         onClick={() => toggleAutomatizacion(a.id)}
                         className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0 ml-1', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}

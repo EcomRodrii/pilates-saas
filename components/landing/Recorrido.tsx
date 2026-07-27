@@ -53,7 +53,7 @@ function RecorridoVisual({ index }: { index: number }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           <div style={{ display: 'flex' }}>
-            {['#D8C3E0', '#A8C7CE', ACC_SOFT].map((c, i) => (
+            {['#D6DBC4', '#A8C7CE', ACC_SOFT].map((c, i) => (
               <span key={i} style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: '2px solid #fff', marginLeft: i ? -9 : 0 }} />
             ))}
             <span style={{ width: 28, height: 28, borderRadius: '50%', background: '#EDEDE6', border: '2px solid #fff', marginLeft: -9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#8E8E86' }}>+5</span>
@@ -76,17 +76,17 @@ function RecorridoVisual({ index }: { index: number }) {
     return (
       <LiftCard style={base}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 14, background: '#F5F5F1', marginBottom: 8 }}>
-          <Avatar label="N" bg="#D8C3E0" />
+          <Avatar label="N" bg="#D6DBC4" />
           <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700 }}>Nora P.</div><div className="lp-mono" style={{ fontSize: 11, color: '#8E8E86' }}>Bono 8 · 3 sesiones</div></div>
           <span className="lp-mono" style={{ fontSize: 10.5, color: '#4E9E7F', background: '#E7F3EC', padding: '5px 9px', borderRadius: 999 }}>Activa</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 14, background: '#F5F5F1', marginBottom: 8 }}>
           <Avatar label="C" bg="#A8C7CE" />
           <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700 }}>Carla M.</div><div className="lp-mono" style={{ fontSize: 11, color: '#8E8E86' }}>Mensual ilimitado</div></div>
-          <span className="lp-mono" style={{ fontSize: 10.5, color: '#B57A8E', background: '#FBEDE8', padding: '5px 9px', borderRadius: 999 }}>Renovar</span>
+          <span className="lp-mono" style={{ fontSize: 10.5, color: '#5A6142', background: '#F1F2EA', padding: '5px 9px', borderRadius: 999 }}>Renovar</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: DARK, borderRadius: 14, padding: '11px 14px', marginTop: 12 }}>
-          <span style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(255,255,255,.08)', color: '#C08BE8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{IconInvoice(13)}</span>
+          <span style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(255,255,255,.08)', color: '#A8B080', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{IconInvoice(13)}</span>
           <div style={{ fontSize: 12.5, color: '#E8E8E4', flex: 1 }}>&ldquo;Te esperamos mañana en tu Reformer 💜&rdquo;</div>
           <span className="lp-mono" style={{ fontSize: 10, color: '#7BD3A8' }}>Enviado ✓</span>
         </div>
@@ -100,7 +100,7 @@ function RecorridoVisual({ index }: { index: number }) {
       { bg: '#EDF3F4', bar: '#3E7C86', title: 'Mat', sub: 'Sala 2' },
       { bg: '#F5F5F1' },
       { bg: ACC_SOFT, bar: ACC, title: 'Reformer', sub: 'Sala 1' },
-      { bg: '#F3ECF5', bar: '#8B4F9E', title: 'Prenatal', sub: 'Sala 1' },
+      { bg: '#F1F2EA', bar: '#5A6142', title: 'Prenatal', sub: 'Sala 1' },
       { bg: '#F5F5F1' },
       { bg: '#EDF3F4', bar: '#3E7C86', title: 'Mat', sub: 'Sala 2' },
       { bg: '#F5F5F1' },
@@ -146,7 +146,7 @@ function RecorridoVisual({ index }: { index: number }) {
           <div><div className="lp-mono" style={{ fontSize: 10, textTransform: 'uppercase', color: '#A8A89F' }}>Ingresos mes</div><div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.03em' }}>8.940€</div></div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 38 }}>
             {['40%', '60%', '50%', '80%', '100%'].map((h, i) => (
-              <span key={i} style={{ width: 8, height: h, background: i === 4 ? ACC : '#E1DAF3', borderRadius: 3 }} />
+              <span key={i} style={{ width: 8, height: h, background: i === 4 ? ACC : '#DDE1CE', borderRadius: 3 }} />
             ))}
           </div>
         </div>
@@ -155,7 +155,7 @@ function RecorridoVisual({ index }: { index: number }) {
   }
   if (index === 4) {
     const team = [
-      { name: 'Ana', spec: 'Reformer · Mat', hours: '24 h', bg: '#D8C3E0', active: true },
+      { name: 'Ana', spec: 'Reformer · Mat', hours: '24 h', bg: '#D6DBC4', active: true },
       { name: 'Lucía', spec: 'Mat · Prenatal', hours: '18 h', bg: '#A8C7CE', active: true },
       { name: 'Marta', spec: 'Prenatal', hours: '12 h', bg: ACC_SOFT, active: false },
     ];
@@ -177,7 +177,7 @@ function RecorridoVisual({ index }: { index: number }) {
     return (
       <LiftCard style={{ background: BG, border: '1px solid #E1E1D9', borderRadius: 18, overflow: 'hidden', boxShadow: '0 34px 70px -34px rgba(26,26,26,.3)', maxWidth: 460, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#E9E9E2', borderBottom: '1px solid #E1E1D9' }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#D8C3E0' }} />
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#D6DBC4' }} />
           <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
           <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
           <span className="lp-mono" style={{ flex: 1, textAlign: 'center', fontSize: 10.5, color: '#A8A89F' }}>tentare.app</span>
@@ -190,7 +190,7 @@ function RecorridoVisual({ index }: { index: number }) {
   }
   // index === 6 — radar de ocupación (mismo layout que la tarjeta real del dashboard)
   const huecos = [
-    { dot: '#8B4F9E', clase: 'Reformer · 18:00', sub: '3 huecos libres · 5 candidatas' },
+    { dot: '#5A6142', clase: 'Reformer · 18:00', sub: '3 huecos libres · 5 candidatas' },
     { dot: '#3E7C86', clase: 'Mat Pilates · 09:00', sub: '1 hueco libre · 2 candidatas' },
   ];
   return (

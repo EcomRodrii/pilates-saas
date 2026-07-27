@@ -153,7 +153,7 @@ export default function ImportarHorarioPage() {
           </div>
 
           {errorCarga && (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
+            <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
               <AlertTriangle size={15} className="shrink-0" />{errorCarga}
             </div>
           )}
@@ -197,7 +197,7 @@ export default function ImportarHorarioPage() {
               {CAMPOS_CLASE.map(c => (
                 <label key={c.campo} className="flex items-center justify-between gap-3">
                   <span className="text-[13px] text-foreground">
-                    {c.etiqueta}{c.obligatorio && <span className="text-rose-500"> *</span>}
+                    {c.etiqueta}{c.obligatorio && <span className="text-destructive"> *</span>}
                   </span>
                   <select
                     className={`${inputCls} w-44`}
@@ -211,7 +211,7 @@ export default function ImportarHorarioPage() {
               ))}
             </div>
             {!obligatoriosMapeados && (
-              <p className="mt-3 text-[12px] text-rose-600">
+              <p className="mt-3 text-[12px] text-destructive">
                 Empareja al menos <strong>Clase</strong> y <strong>Hora de inicio</strong>.
               </p>
             )}
@@ -251,7 +251,7 @@ export default function ImportarHorarioPage() {
               {conteo.ok} filas correctas
             </span>
             {conteo.err > 0 && (
-              <span className="rounded-xl bg-destructive/10 px-3 py-1.5 text-[12.5px] font-semibold text-[#991B1B]">
+              <span className="rounded-xl bg-destructive/10 px-3 py-1.5 text-[12.5px] font-semibold text-[#7A2F1D]">
                 {conteo.err} con problemas (se omiten)
               </span>
             )}
@@ -294,7 +294,7 @@ export default function ImportarHorarioPage() {
       {paso === 3 && resultado && (
         <div className="flex flex-col gap-4">
           {resultado.error ? (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
+            <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
               <AlertTriangle size={15} className="shrink-0" />{resultado.error}
             </div>
           ) : (

@@ -21,7 +21,7 @@ const GARANTIAS = [
   {
     title: 'Sin big-bang',
     body: 'Tu software actual sigue funcionando durante toda la migración. No hay corte, no hay fin de semana perdido, no hay "a ver si mañana funciona".',
-    color: '#C08BE8',
+    color: '#A8B080',
   },
   {
     title: 'Reversible con un clic',
@@ -176,10 +176,10 @@ export function Migracion() {
   return (
     <section id="migracion" style={{ padding: 'clamp(56px,7vw,96px) clamp(20px,4vw,44px)' }}>
       <Reveal style={{ maxWidth: 1280, margin: '0 auto', background: DARK, color: '#E8E8E4', borderRadius: 28, padding: 'clamp(32px,5vw,60px)', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-30%', left: '-6%', width: 440, height: 440, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,.26), transparent 64%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-30%', left: '-6%', width: 440, height: 440, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.26), transparent 64%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative' }}>
           <div style={{ maxWidth: 680, marginBottom: 'clamp(28px,4vw,40px)' }}>
-            <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#C08BE8', marginBottom: 14 }}>Cambiarse sin dolor</div>
+            <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 14 }}>Cambiarse sin dolor</div>
             <h2 style={{ fontWeight: 800, fontSize: 'clamp(28px,4.2vw,48px)', lineHeight: 1.03, letterSpacing: '-.03em', margin: '0 0 12px', color: '#fff' }}>
               ¿Ya migraste una vez y fue horrible? Por eso aquí no migras tú.
             </h2>
@@ -204,7 +204,7 @@ export function Migracion() {
           <div style={{ maxWidth: 560 }}>
             {status === 'ok' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14.5, color: '#C9C9C2' }}>
-                <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(124,58,237,.25)', color: '#C9A6F5', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✓</span>
+                <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(90,97,66,.25)', color: '#D9C29E', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✓</span>
                 Recibido. Te escribimos en menos de 24h para pedirte los exports y ponernos con ello.
               </div>
             ) : (

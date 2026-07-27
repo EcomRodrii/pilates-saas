@@ -35,7 +35,7 @@ const emptyForm = (): ServicioForm => ({
   duracionMin: '60',
   precio: '',
   autoReservable: true,
-  color: '#8B5CF6',
+  color: '#6E7650',
   descripcion: '',
   activo: true,
 });
@@ -47,7 +47,7 @@ function servicioToForm(s: ServicioCita): ServicioForm {
     duracionMin: String(s.duracionMin),
     precio: s.precio != null ? String(s.precio) : '',
     autoReservable: s.autoReservable,
-    color: s.color ?? '#8B5CF6',
+    color: s.color ?? '#6E7650',
     descripcion: s.descripcion ?? '',
     activo: s.activo,
   };
@@ -144,7 +144,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
                   <tr key={s.id} className="border-b border-background last:border-0 hover:bg-muted transition-colors">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
-                        <ColorSwatch color={s.color ?? '#8B5CF6'} size="sm" />
+                        <ColorSwatch color={s.color ?? '#6E7650'} size="sm" />
                         <span className="font-medium text-foreground">{s.nombre}</span>
                         {!s.activo && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Inactivo</span>}
                       </div>
@@ -177,7 +177,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
               {servicios.map(s => (
                 <div key={s.id} className="p-4 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <ColorSwatch color={s.color ?? '#8B5CF6'} size="sm" />
+                    <ColorSwatch color={s.color ?? '#6E7650'} size="sm" />
                     <div className="min-w-0">
                       <p className="font-medium text-foreground text-[14px] truncate">{s.nombre}</p>
                       <p className="text-[12px] text-muted-foreground">

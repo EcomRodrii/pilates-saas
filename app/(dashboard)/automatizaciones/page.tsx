@@ -27,8 +27,8 @@ function horasRestantes(iso: string) {
 
 const accionConfig: Record<AccionAutomatica, { label: string; icon: React.ElementType; color: string }> = {
   ENVIAR_EMAIL:      { label: 'Email', icon: Mail, color: 'var(--brand)' },
-  ENVIAR_WHATSAPP:   { label: 'WhatsApp', icon: MessageSquare, color: '#16A34A' },
-  COBRAR_RECIBO:     { label: 'Cobro automático', icon: CreditCard, color: '#7C3AED' },
+  ENVIAR_WHATSAPP:   { label: 'WhatsApp', icon: MessageSquare, color: '#35785A' },
+  COBRAR_RECIBO:     { label: 'Cobro automático', icon: CreditCard, color: '#5A6142' },
   CREAR_NOTA:        { label: 'Nota de progreso', icon: Eye, color: '#0891B2' },
   NOTIFICAR_ADMIN:   { label: 'Notificación admin', icon: Bell, color: 'var(--warning)' },
   OFRECER_CLASE_GRATIS: { label: 'Clase gratis', icon: Gift, color: '#DB2777' },
@@ -38,7 +38,7 @@ const accionConfig: Record<AccionAutomatica, { label: string; icon: React.Elemen
 };
 
 const resultadoConfig: Record<ResultadoLog, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  EJECUTADO:       { label: 'Ejecutado', color: '#16A34A', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', icon: CheckCircle2 },
+  EJECUTADO:       { label: 'Ejecutado', color: '#35785A', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', icon: CheckCircle2 },
   ESPERANDO:       { label: 'Esperando', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', icon: Clock },
   FALLIDO:         { label: 'Fallido', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', icon: XCircle },
   PENDIENTE_ADMIN: { label: 'Acción humana', color: 'var(--brand-secondary)', bg: 'color-mix(in srgb, var(--brand) 12%, var(--card))', icon: AlertTriangle },
@@ -377,8 +377,8 @@ function LogItem({
       'flex items-start gap-3 p-3 rounded-xl border',
       log.resultado === 'PENDIENTE_ADMIN' && 'border-border bg-brand/10',
       log.resultado === 'EJECUTADO' && 'border-muted bg-card',
-      log.resultado === 'ESPERANDO' && 'border-amber-100 bg-amber-50',
-      log.resultado === 'FALLIDO' && 'border-red-100 bg-red-50',
+      log.resultado === 'ESPERANDO' && 'border-amber-100 bg-warning/10',
+      log.resultado === 'FALLIDO' && 'border-red-100 bg-destructive/10',
     )}>
       <div
         className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
@@ -406,7 +406,7 @@ function LogItem({
             {log.mensajeCliente ? (
               <p className="text-xs text-foreground whitespace-pre-wrap">{log.mensajeCliente}</p>
             ) : (
-              <p className="text-xs text-red-600">
+              <p className="text-xs text-destructive">
                 No se ha podido redactar un mensaje para la clienta — no se puede enviar todavía.
               </p>
             )}
@@ -416,7 +416,7 @@ function LogItem({
           <span className="text-[10px] text-muted-foreground">{log.ruleName}</span>
           <span className="text-[10px] text-muted-foreground">{formatFecha(log.ejecutadoEn)}</span>
           {log.proximaAccionEn && log.resultado === 'ESPERANDO' && (
-            <span className="text-[10px] text-amber-600 font-medium">
+            <span className="text-[10px] text-warning font-medium">
               Próxima acción en {horasRestantes(log.proximaAccionEn)}
             </span>
           )}

@@ -113,8 +113,8 @@ export default function PreciosReformerPage() {
 
         <RelatedLinks
           items={[
-            { href: '/recursos/cubrir-baja-instructora', category: 'Sustituciones y equipo', categoryColor: '#8B5CF6', title: 'Cómo cubrir una baja sin hacer una llamada' },
-            { href: '/recursos', category: 'Centro de Recursos', categoryColor: '#5B21B6', title: 'Ver todas las guías para tu estudio →' },
+            { href: '/recursos/cubrir-baja-instructora', category: 'Sustituciones y equipo', categoryColor: '#6E7650', title: 'Cómo cubrir una baja sin hacer una llamada' },
+            { href: '/recursos', category: 'Centro de Recursos', categoryColor: '#22251A', title: 'Ver todas las guías para tu estudio →' },
           ]}
         />
       </ArticleShell>

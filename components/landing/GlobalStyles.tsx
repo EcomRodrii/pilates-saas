@@ -7,7 +7,7 @@ export function GlobalStyles() {
          cursor via --mx/--my custom properties written by LiftCard. */
       .tnt-lift { position: relative; transition: transform .28s cubic-bezier(.2,.7,0,1), box-shadow .28s; }
       .tnt-lift:hover { transform: translateY(-7px); box-shadow: 0 44px 80px -34px rgba(26,26,26,.34); }
-      .tnt-lift::after { content:''; position:absolute; inset:0; border-radius:inherit; background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%), rgba(109,40,217,.07), transparent 72%); opacity:0; transition:opacity .35s; pointer-events:none; }
+      .tnt-lift::after { content:''; position:absolute; inset:0; border-radius:inherit; background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%), rgba(52,56,37,.07), transparent 72%); opacity:0; transition:opacity .35s; pointer-events:none; }
       .tnt-lift:hover::after { opacity:1; }
 
       /* Discipline cards + integration chips: subtle hover feedback */
@@ -33,10 +33,10 @@ export function GlobalStyles() {
         .tnt-disc-scroller { overflow-x: auto; }
       }
       .tnt-ichip { transition: border-color .18s, color .18s; }
-      .tnt-ichip:hover { border-color: #6D28D9; color: #6D28D9; }
+      .tnt-ichip:hover { border-color: #343825; color: #343825; }
 
       /* Sustituciones flow comet */
-      .tnt-flow-comet { box-shadow: 0 0 16px 5px rgba(124,58,237,.85); animation: lp-cometpulse 1.4s ease-in-out infinite; }
+      .tnt-flow-comet { box-shadow: 0 0 16px 5px rgba(90,97,66,.85); animation: lp-cometpulse 1.4s ease-in-out infinite; }
       .tnt-flow-vline-bg, .tnt-flow-vline-fill { display: none; }
       .tnt-steps4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 20px; }
 
@@ -68,7 +68,7 @@ export function GlobalStyles() {
       @keyframes lp-floatB { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-18px); } }
       @keyframes lp-floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
       @keyframes lp-msgIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
-      @keyframes lp-cometpulse { 0%,100% { box-shadow: 0 0 14px 4px rgba(124,58,237,.7); } 50% { box-shadow: 0 0 22px 7px rgba(124,58,237,.95); } }
+      @keyframes lp-cometpulse { 0%,100% { box-shadow: 0 0 14px 4px rgba(90,97,66,.7); } 50% { box-shadow: 0 0 22px 7px rgba(90,97,66,.95); } }
       @keyframes lp-fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes lp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
       @keyframes lp-marquee { to { transform: translateX(-50%); } }

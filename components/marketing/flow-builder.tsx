@@ -38,7 +38,7 @@ export const ACCIONES: Record<AccionFlujo, { label: string; icon: React.ElementT
     ],
   },
   TAREA: {
-    label: 'Crear tarea', icon: CheckSquare, color: '#8b5cf6',
+    label: 'Crear tarea', icon: CheckSquare, color: '#6E7650',
     campos: [
       { key: 'titulo', label: 'Título de la tarea', placeholder: 'Llamar a la clienta' },
       { key: 'asignadoA', label: 'Asignar a', placeholder: 'Recepción' },
@@ -52,7 +52,7 @@ export const ACCIONES: Record<AccionFlujo, { label: string; icon: React.ElementT
     ],
   },
   NOTIFICAR_EQUIPO: {
-    label: 'Notificar al equipo', icon: Bell, color: '#f59e0b',
+    label: 'Notificar al equipo', icon: Bell, color: '#A87A1E',
     campos: [
       { key: 'mensaje', label: 'Mensaje al equipo', textarea: true, placeholder: 'Revisar nueva alta…' },
     ],
@@ -184,7 +184,7 @@ export function FlowBuilder({
                       <div className="flex items-center gap-0.5 shrink-0">
                         <button onClick={() => movePaso(p.id, -1)} disabled={i === 0} aria-label="Mover paso arriba" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronUp className="w-4 h-4" /></button>
                         <button onClick={() => movePaso(p.id, 1)} disabled={i === pasos.length - 1} aria-label="Mover paso abajo" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronDown className="w-4 h-4" /></button>
-                        <button onClick={() => removePaso(p.id)} disabled={pasos.length <= 1} aria-label="Eliminar paso" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 disabled:opacity-30 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => removePaso(p.id)} disabled={pasos.length <= 1} aria-label="Eliminar paso" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 disabled:opacity-30 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                     <div className="pl-9 space-y-2">

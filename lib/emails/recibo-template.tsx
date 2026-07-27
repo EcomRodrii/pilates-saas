@@ -49,7 +49,7 @@ export function ReciboEmail({
             <Text style={{ color: '#6B7280', fontSize: 12, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0 0 4px' }}>
               Total
             </Text>
-            <Text style={{ color: '#059669', fontSize: 24, fontWeight: 800, margin: 0 }}>
+            <Text style={{ color: '#2F6B4F', fontSize: 24, fontWeight: 800, margin: 0 }}>
               {formatEuro(importe)}
             </Text>
           </Column>

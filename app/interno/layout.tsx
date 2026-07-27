@@ -57,7 +57,7 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
     return (
       <div className="min-h-screen grid place-items-center px-6">
         <div className="max-w-sm text-center flex flex-col items-center gap-3">
-          <span className="w-11 h-11 rounded-full bg-amber-500/10 text-amber-600 grid place-items-center">
+          <span className="w-11 h-11 rounded-full bg-amber-500/10 text-warning grid place-items-center">
             <ShieldAlert size={20} />
           </span>
           <h1 className="text-[17px] font-bold text-foreground">Zona interna de Tentare</h1>

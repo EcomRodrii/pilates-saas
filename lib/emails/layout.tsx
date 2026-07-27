@@ -7,7 +7,7 @@ import { foregroundParaFondo } from '@/lib/wcag-contrast';
 // Plantilla base compartida por TODOS los emails del producto (transaccionales,
 // automatizaciones, sustituciones, valoraciones, confirmación de riesgo...).
 // Antes cada módulo repetía su propio Container/Section (3 estilos distintos:
-// React Email genérico #111827, y dos familias de HTML a mano en #6D28D9)
+// React Email genérico #111827, y dos familias de HTML a mano en #343825)
 // — ninguno usaba el logo ni el color real del estudio. Este layout:
 //   1. Da un único look premium consistente en todo el producto.
 //   2. Aplica la marca de CADA estudio (logo + colorPrimario), con fallback al
@@ -18,7 +18,7 @@ import { foregroundParaFondo } from '@/lib/wcag-contrast';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TENTARE_LOGO_URL = 'https://tentare.app/logo-horizontal.png';
-export const COLOR_PRIMARIO_DEFECTO = '#6D28D9';
+export const COLOR_PRIMARIO_DEFECTO = '#343825';
 
 interface EmailLayoutProps {
   studioNombre: string;

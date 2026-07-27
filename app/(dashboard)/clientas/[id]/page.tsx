@@ -35,7 +35,7 @@ const TAGS_OPTIONS = [
   { label: 'Lesión', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)' },
   { label: 'Embarazo', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
   { label: 'Baja temp.', bg: 'var(--muted)', text: 'var(--muted-foreground)' },
-  { label: 'Online', bg: '#E0F2FE', text: '#0369A1' },
+  { label: 'Online', bg: '#E0F2FE', text: '#3F5A7A' },
   { label: 'Profesora', bg: '#FEF9C3', text: '#713F12' },
 ];
 
@@ -44,15 +44,15 @@ const AVATAR_COLORS = [
   { bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
   { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
   { bg: '#FCE7F3', text: '#9D174D' },
-  { bg: '#EDE9FE', text: '#5B21B6' },
-  { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#991B1B' },
+  { bg: '#E8EBDD', text: '#22251A' },
+  { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#7A2F1D' },
 ];
 
 const BADGE_RECIBO: Record<string, string> = {
-  COBRADO: 'bg-emerald-100 text-emerald-800',
-  PENDIENTE: 'bg-amber-100 text-amber-800',
-  DEVUELTO: 'bg-red-100 text-red-700',
-  EN_CURSO: 'bg-blue-100 text-blue-800',
+  COBRADO: 'bg-success/10 text-success',
+  PENDIENTE: 'bg-warning/10 text-warning',
+  DEVUELTO: 'bg-destructive/10 text-destructive',
+  EN_CURSO: 'bg-info/10 text-info',
 };
 const LABEL_RECIBO: Record<string, string> = {
   COBRADO: 'Cobrado', PENDIENTE: 'Pendiente', DEVUELTO: 'Devuelto', EN_CURSO: 'En curso',
@@ -563,8 +563,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           {/* Alert banners */}
                           {sesionesRestantes === 0 && (
                             <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl" style={{ backgroundColor: '#FFF1F2', border: '1.5px solid #FECDD3' }}>
-                              <AlertTriangle size={16} className="text-red-500 shrink-0" />
-                              <span className="text-sm font-bold text-red-600 flex-1">Bono agotado — sin sesiones disponibles</span>
+                              <AlertTriangle size={16} className="text-destructive shrink-0" />
+                              <span className="text-sm font-bold text-destructive flex-1">Bono agotado — sin sesiones disponibles</span>
                               <button
                                 onClick={() => setShowChangePlan(true)}
                                 className="text-xs font-bold px-3.5 py-2 rounded-lg text-white shrink-0"
@@ -577,7 +577,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           {sesionesRestantes !== null && sesionesRestantes > 0 && sesionesRestantes <= 2 && (
                             <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', border: '1.5px solid #FDE68A' }}>
                               <AlertTriangle size={16} className="text-amber-500 shrink-0" />
-                              <span className="text-sm font-semibold text-amber-700 flex-1">Quedan solo {sesionesRestantes} sesiones</span>
+                              <span className="text-sm font-semibold text-warning flex-1">Quedan solo {sesionesRestantes} sesiones</span>
                               <button
                                 onClick={() => setShowChangePlan(true)}
                                 className="text-xs font-bold px-3.5 py-2 rounded-lg shrink-0"
@@ -612,7 +612,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                             )}
                             <button
                               onClick={() => assignPlan(id, null)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors text-muted-foreground"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors text-muted-foreground"
                             >
                               Cancelar suscripción
                             </button>
@@ -758,7 +758,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               <p className="text-sm mt-0.5" style={{ color: nota.tipo === 'SISTEMA' ? 'var(--muted-foreground)' : 'var(--foreground)' }}>{nota.texto}</p>
                             </div>
                             {nota.tipo === 'NOTA' && (
-                              <button onClick={() => deleteNota(nota.id)} aria-label="Eliminar nota" className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors mt-0.5">
+                              <button onClick={() => deleteNota(nota.id)} aria-label="Eliminar nota" className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-destructive/10 transition-colors mt-0.5">
                                 <X size={11} className="text-red-400" />
                               </button>
                             )}
@@ -808,7 +808,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         )}
                         {aiResult.alertas && (
                           <div>
-                            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide mb-0.5">Alertas / Limitaciones</p>
+                            <p className="text-[10px] font-bold text-warning uppercase tracking-wide mb-0.5">Alertas / Limitaciones</p>
                             <p className="text-sm text-foreground">{aiResult.alertas}</p>
                           </div>
                         )}
@@ -820,7 +820,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         )}
                         {aiResult.ejerciciosCasa && (
                           <div>
-                            <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-0.5">Ejercicios casa</p>
+                            <p className="text-[10px] font-bold text-success uppercase tracking-wide mb-0.5">Ejercicios casa</p>
                             <p className="text-sm text-foreground">{aiResult.ejerciciosCasa}</p>
                           </div>
                         )}
@@ -1217,7 +1217,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               </button>
               <button
                 onClick={() => setShowConfirmDelete(true)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors"
               >
                 <Trash2 size={14} />Eliminar clienta
               </button>
@@ -1550,8 +1550,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       <Dialog open={showConfirmDelete} onOpenChange={open => !open && setShowConfirmDelete(false)}>
         <DialogContent className="max-w-sm">
           <div className="flex flex-col items-center text-center gap-4 py-2">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-red-50">
-              <Trash2 size={24} className="text-red-500" />
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-destructive/10">
+              <Trash2 size={24} className="text-destructive" />
             </div>
             <div>
               <h3 className="text-base font-semibold text-foreground mb-1">Dar de baja a la clienta</h3>

@@ -201,7 +201,7 @@ export default function Mensajeria() {
             <t.icon size={14} />
             {t.label}
             {t.count > 0 && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: '#EF4444' }}>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: '#B85436' }}>
                 {t.count}
               </span>
             )}

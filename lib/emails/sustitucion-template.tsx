@@ -61,7 +61,7 @@ export function AlertaPropietariaEmail({ estudioNombre, logoUrl, colorPrimario, 
   // Una baja recién avisada NO es una alarma: es "nos hemos enterado y ya
   // estamos en ello". Rojo/ámbar se reservan para cuando algo requiere que la
   // propietaria actúe ya — si todo pinta urgente, nada lo parece.
-  const color = baja ? (colorPrimario || '#6D28D9') : agotada ? '#B91C1C' : '#92400E';
+  const color = baja ? (colorPrimario || '#343825') : agotada ? '#B91C1C' : '#92400E';
   const cuerpo = baja
     ? (yaContactando
         ? `Nos lo ha dicho desde su móvil y ya estamos avisando a las candidatas por ti. Te escribimos en cuanto alguna confirme — no tienes que hacer nada ahora mismo.`

@@ -549,7 +549,7 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
               <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Canjear {canjeando.nombre}?</h2>
               <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>Se descontarán {canjeando.costeCreditos} créditos de tu saldo.</p>
             </div>
-            {error && <p style={{ fontSize: 13, color: '#EF4444', background: 'rgba(239,68,68,0.1)', borderRadius: 14, padding: '8px 12px' }}>{error}</p>}
+            {error && <p style={{ fontSize: 13, color: '#B85436', background: 'rgba(239,68,68,0.1)', borderRadius: 14, padding: '8px 12px' }}>{error}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
               <Button variant="secondary" onClick={() => setCanjeando(null)} style={{ flex: 1 }}>Cancelar</Button>
               <Button onClick={confirmarCanje} style={{ flex: 1 }}>Confirmar</Button>

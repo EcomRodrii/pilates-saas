@@ -119,7 +119,7 @@ const BADGE: Record<string, { bg: string; text: string; label: string }> = {
   PENDIENTE: { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)', label: 'Sin cobrar' },
   DEVUELTO:  { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)', label: 'Devuelto por el banco' },
   EN_CURSO:  { bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', text: 'var(--brand)', label: 'Enviado al banco' },
-  FALLIDO:   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#991B1B', label: 'No se pudo cobrar' },
+  FALLIDO:   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#7A2F1D', label: 'No se pudo cobrar' },
 };
 
 type SortKey = 'reciente' | 'antiguo' | 'mayor' | 'menor';
@@ -867,7 +867,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                               </button>
                               <button
                                 onClick={() => marcarDevuelto(r.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-red-50 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-destructive/10 transition-colors"
                                 title="Marcar devuelto"
                               >
                                 <XCircle size={14} className="text-destructive" />
@@ -888,7 +888,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                               )}
                               <button
                                 onClick={() => marcarDevuelto(r.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-red-50 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-destructive/10 transition-colors"
                                 title="Devolver"
                               >
                                 <XCircle size={14} className="text-destructive" />
@@ -906,7 +906,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                           )}
                           <button
                             onClick={() => setConfirmEliminar(r.id)}
-                            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-red-50 transition-colors"
+                            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-destructive/10 transition-colors"
                             title="Eliminar"
                           >
                             <Trash2 size={14} className="text-destructive" />
@@ -1073,7 +1073,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                           <button className="text-xs px-2.5 py-1.5 rounded-lg font-bold border border-border text-muted-foreground hover:bg-background transition-colors">
                             Cambiar plan
                           </button>
-                          <button className="text-xs px-2.5 py-1.5 rounded-lg font-bold text-destructive hover:bg-red-50 transition-colors">
+                          <button className="text-xs px-2.5 py-1.5 rounded-lg font-bold text-destructive hover:bg-destructive/10 transition-colors">
                             Cancelar
                           </button>
                         </div>
@@ -1607,7 +1607,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
       <Dialog open={!!confirmEliminar} onOpenChange={open => !open && setConfirmEliminar(null)}>
         <DialogContent className="max-w-sm">
           <div className="flex flex-col items-center text-center gap-4 py-2">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-red-50">
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-destructive/10">
               <AlertTriangle size={24} className="text-destructive" />
             </div>
             <div>

@@ -41,7 +41,7 @@ export function generarFacturaHTML(
     <div style="font-weight:700;color:#1A1A1A;margin-bottom:6px">Sistema de facturación verificable (Veri*Factu)</div>
     <div style="margin-bottom:4px">Huella: <span style="font-family:monospace;word-break:break-all">${f.verifactuHash}</span></div>
     ${cotejo ? `<div>QR de cotejo AEAT: <a href="${cotejo}" style="color:#7AA80E;word-break:break-all">${cotejo}</a></div>` : ''}
-    ${entornoProduccion ? '' : '<div style="margin-top:6px;color:#B57A8E">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</div>'}
+    ${entornoProduccion ? '' : '<div style="margin-top:6px;color:#B45309">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</div>'}
   </div>
 </div>` : '';
   return `<!DOCTYPE html>
@@ -54,7 +54,7 @@ export function generarFacturaHTML(
   body { font-family: -apple-system, Arial, sans-serif; font-size: 13px; color: #1A1A1A; padding: 40px; max-width: 680px; margin: 0 auto; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
   .title { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; }
-  .numero { font-size: 13px; font-family: monospace; font-weight: 700; color: #B57A8E; margin-top: 4px; }
+  .numero { font-size: 13px; font-family: monospace; font-weight: 700; color: #343825; margin-top: 4px; }
   .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 32px; }
   .party-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8E8E86; margin-bottom: 6px; }
   .party-name { font-weight: 700; margin-bottom: 2px; }

@@ -22,8 +22,8 @@ const CATEGORY_GRADIENTS: Record<Exclude<Category, 'todos'>, string> = {
   sustituciones: 'linear-gradient(140deg,#22463a,#4E9E7F)',
   rentabilidad: 'linear-gradient(140deg,#1f3d42,#3E7C86)',
   operacion: 'linear-gradient(140deg,#5e2318,#C2503A)',
-  espana: 'linear-gradient(140deg,#3a2148,#8B4F9E)',
-  software: 'linear-gradient(140deg,#2b1a52,#6D28D9)',
+  espana: 'linear-gradient(140deg,#22251A,#5A6142)',
+  software: 'linear-gradient(140deg,#1C1F14,#343825)',
 };
 
 type Article = {
@@ -100,9 +100,9 @@ export default function RecursosPage() {
       <SiteNav backHref="/recursos" backLabel="Recursos" />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,48px)' }}>
-        <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(124,58,237,.16), transparent 62%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 760, margin: '0 auto' }}>
-          <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5B21B6', background: '#F1ECFB', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Centro de Recursos</div>
+          <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Centro de Recursos</div>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(36px,5.4vw,62px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Cómo llenar, cobrar y<br />automatizar tu estudio.</h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 560, margin: '0 0 30px' }}>Guías prácticas para propietarias de estudios de pilates: ocupación, precios, sustituciones, retención y la parte administrativa que nadie te contó. Sin humo.</p>
           <div style={{ position: 'relative', maxWidth: 460 }}>
@@ -195,9 +195,9 @@ export default function RecursosPage() {
         </div>
 
         <div style={{ marginTop: 'clamp(48px,6vw,72px)', background: '#0F0F0F', color: '#E8E8E4', borderRadius: 26, padding: 'clamp(32px,5vw,56px)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: '-30%', right: '-6%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,.3), transparent 64%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: '-30%', right: '-6%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.3), transparent 64%)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', maxWidth: 520 }}>
-            <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: '#C08BE8', marginBottom: 14 }}>La newsletter de Tentare</div>
+            <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 14 }}>La newsletter de Tentare</div>
             <h2 style={{ fontWeight: 800, fontSize: 'clamp(26px,3.4vw,40px)', lineHeight: 1.05, letterSpacing: '-.03em', margin: '0 0 12px', color: '#fff' }}>Una idea al mes para llenar tu estudio.</h2>
             <p style={{ fontSize: 16, lineHeight: 1.55, color: '#A6A69E', margin: '0 0 24px' }}>Guías nuevas, plantillas y datos del sector. Sin spam — cancelas cuando quieras.</p>
             <a

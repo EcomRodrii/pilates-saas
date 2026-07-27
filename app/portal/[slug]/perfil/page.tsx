@@ -196,7 +196,7 @@ export default function PerfilPage() {
 
       <div style={{ padding: '20px 16px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         {error && (
-          <div style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', fontSize: 13, fontWeight: 600, borderRadius: 16, padding: '12px 16px' }}>{error}</div>
+          <div style={{ background: 'rgba(239,68,68,0.1)', color: '#B85436', fontSize: 13, fontWeight: 600, borderRadius: 16, padding: '12px 16px' }}>{error}</div>
         )}
 
         {/* Datos personales */}
@@ -294,7 +294,7 @@ export default function PerfilPage() {
         </Card>
 
         {/* Logout */}
-        <Button variant="secondary" onClick={handleLogout} style={{ width: '100%', color: '#EF4444' }}>
+        <Button variant="secondary" onClick={handleLogout} style={{ width: '100%', color: '#B85436' }}>
           <LogOut size={15} />Cerrar sesión
         </Button>
       </div>

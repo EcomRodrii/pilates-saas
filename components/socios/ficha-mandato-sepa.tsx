@@ -52,10 +52,10 @@ export function FichaMandatoSepa({ socioId }: { socioId: string }) {
           <p className="text-xs text-muted-foreground mt-1">
             IBAN ····{mandato.iban.slice(-4)} · mandato <span className="font-mono">{mandato.refMandato}</span> · firmado {mandato.fechaFirma.slice(0, 10).split('-').reverse().join('/')}
           </p>
-          <p className="text-[11px] text-emerald-600 mt-1">Entra en la remesa del banco (cuaderno 19.14).</p>
+          <p className="text-[11px] text-success mt-1">Entra en la remesa del banco (cuaderno 19.14).</p>
           <div className="flex gap-2 mt-3">
             <button onClick={abrir} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground">Editar</button>
-            <button onClick={() => quitarMandato(mandato.id)} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-red-600">Quitar</button>
+            <button onClick={() => quitarMandato(mandato.id)} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive">Quitar</button>
           </div>
         </>
       ) : editando ? (
@@ -74,7 +74,7 @@ export function FichaMandatoSepa({ socioId }: { socioId: string }) {
               <input type="date" className={inputCls} value={firma} onChange={e => setFirma(e.target.value)} />
             </div>
           </div>
-          {err && <p className="text-xs font-medium text-red-600">{err}</p>}
+          {err && <p className="text-xs font-medium text-destructive">{err}</p>}
           <div className="flex gap-2">
             <button onClick={guardar} className="text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95">Guardar mandato</button>
             <button onClick={() => setEditando(false)} className="text-xs font-semibold px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground">Cancelar</button>

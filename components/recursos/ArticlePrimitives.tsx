@@ -2,7 +2,7 @@ import { ACC } from '@/components/landing/theme';
 import { IconCheck } from '@/components/landing/icons';
 
 // Dark stat callout used for "the real cost" / "calendar" figure blocks.
-export function StatBlock({ eyebrow, eyebrowColor = '#C08BE8', stats, note }: { eyebrow: string; eyebrowColor?: string; stats: { value: string; label: string }[]; note?: string }) {
+export function StatBlock({ eyebrow, eyebrowColor = '#A8B080', stats, note }: { eyebrow: string; eyebrowColor?: string; stats: { value: string; label: string }[]; note?: string }) {
   return (
     <div style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 18, padding: '24px 26px', margin: '24px 0' }}>
       <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: eyebrowColor, marginBottom: 14 }}>{eyebrow}</div>
@@ -20,7 +20,7 @@ export function StatBlock({ eyebrow, eyebrowColor = '#C08BE8', stats, note }: { 
 }
 
 // Purple/tinted callout box with an icon — "la idea clave" style.
-export function Callout({ title, children, bg = '#F1ECFB', border = '#E4D8F7', iconColor = ACC, textColor = '#4A3A5E' }: { title: string; children: React.ReactNode; bg?: string; border?: string; iconColor?: string; textColor?: string }) {
+export function Callout({ title, children, bg = '#F1F2EA', border = '#E0E5D0', iconColor = ACC, textColor = '#3E4430' }: { title: string; children: React.ReactNode; bg?: string; border?: string; iconColor?: string; textColor?: string }) {
   return (
     <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 16, padding: '18px 20px', margin: '26px 0', display: 'flex', gap: 14 }}>
       <span style={{ flexShrink: 0, color: iconColor }}>
@@ -38,7 +38,7 @@ export function Callout({ title, children, bg = '#F1ECFB', border = '#E4D8F7', i
 export function Checklist({ eyebrow, items }: { eyebrow: string; items: React.ReactNode[] }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px', margin: '22px 0' }}>
-      <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#5B21B6', marginBottom: 16 }}>{eyebrow}</div>
+      <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#22251A', marginBottom: 16 }}>{eyebrow}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
         {items.map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
@@ -77,11 +77,11 @@ export function BeforeAfterCols({ beforeLabel, beforeItems, afterLabel, afterIte
 
 export function CtaBlock({ title, body, href = '/crear-estudio', cta = 'Crear mi estudio →' }: { title: string; body?: string; href?: string; cta?: string }) {
   return (
-    <div style={{ background: 'linear-gradient(135deg,#6D28D9,#4C1D95)', color: '#fff', borderRadius: 22, padding: 'clamp(28px,4vw,40px)', margin: '44px 0 0', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ background: 'linear-gradient(135deg,#343825,#191C11)', color: '#fff', borderRadius: 22, padding: 'clamp(28px,4vw,40px)', margin: '44px 0 0', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: '-40%', left: '50%', transform: 'translateX(-50%)', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,.16), transparent 62%)', pointerEvents: 'none' }} />
       <div style={{ position: 'relative' }}>
         <h2 style={{ fontWeight: 800, fontSize: 'clamp(24px,3vw,34px)', lineHeight: 1.1, letterSpacing: '-.03em', margin: body ? '0 0 12px' : '0 0 24px', color: '#fff' }}>{title}</h2>
-        {body && <p style={{ fontSize: 16, lineHeight: 1.55, color: '#EADEFB', margin: '0 0 24px', maxWidth: 440, marginLeft: 'auto', marginRight: 'auto' }}>{body}</p>}
+        {body && <p style={{ fontSize: 16, lineHeight: 1.55, color: '#E8EBDD', margin: '0 0 24px', maxWidth: 440, marginLeft: 'auto', marginRight: 'auto' }}>{body}</p>}
         <a href={href} className="hover:-translate-y-0.5 transition-transform" style={{ display: 'inline-block', fontSize: 16, fontWeight: 700, color: ACC, background: '#fff', padding: '15px 30px', borderRadius: 999 }}>{cta}</a>
       </div>
     </div>

@@ -87,7 +87,7 @@ export default function SuscripcionPage() {
     <div style={{ minHeight: '100vh', background: '#EEEEE8', color: '#1A1A1A' }}>
       <div style={{ maxWidth: 1080, margin: '0 auto', padding: '56px 24px 80px' }}>
         <header style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div style={{ fontSize: 13, letterSpacing: '.14em', textTransform: 'uppercase', color: '#B57A8E', fontWeight: 600, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5A6142', fontWeight: 600, marginBottom: 12 }}>
             Suscripción de tu estudio
           </div>
           <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-.03em', margin: '0 0 10px' }}>
@@ -152,7 +152,7 @@ export default function SuscripcionPage() {
               <p style={{ fontSize: 14, color: '#8E8E86', margin: 0 }}>Solo la propietaria puede gestionar la facturación.</p>
             )}
             <div style={{ marginTop: 20 }}>
-              <Link href="/dashboard" style={{ fontSize: 14, color: '#B57A8E', textDecoration: 'none' }}>Volver al panel →</Link>
+              <Link href="/dashboard" style={{ fontSize: 14, color: '#5A6142', textDecoration: 'none' }}>Volver al panel →</Link>
             </div>
           </div>
         ) : (
@@ -188,7 +188,7 @@ export default function SuscripcionPage() {
                     <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', fontSize: 14.5, lineHeight: 1.9, color: destacado ? '#D8D8D2' : '#5A5A52', flex: 1 }}>
                       {BULLETS[plan].map((b) => (
                         <li key={b} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                          <span style={{ color: destacado ? ACC : '#B57A8E', flexShrink: 0 }}>✓</span> {b}
+                          <span style={{ color: destacado ? ACC : '#5A6142', flexShrink: 0 }}>✓</span> {b}
                         </li>
                       ))}
                     </ul>

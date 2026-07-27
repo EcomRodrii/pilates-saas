@@ -81,7 +81,7 @@ export default function IdeasPage() {
                       <select value={idea.estado} onChange={(e) => actualizarIdea(idea.id, { estado: e.target.value as EstadoIdea })} className="rounded-full border border-border bg-card px-2 h-7 text-[11px] font-semibold text-foreground focus:outline-none">
                         {COLUMNAS.map((c) => <option key={c} value={c}>{ESTADO_IDEA_META[c].label}</option>)}
                       </select>
-                      <button title="Eliminar" onClick={() => eliminarIdea(idea.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button title="Eliminar" onClick={() => eliminarIdea(idea.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </article>
                 ))}

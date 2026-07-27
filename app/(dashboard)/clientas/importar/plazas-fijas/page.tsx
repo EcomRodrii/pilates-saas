@@ -157,7 +157,7 @@ export default function ImportarPlazasFijasPage() {
           </div>
 
           {errorCarga && (
-            <div className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #b3261e)' }}>
+            <div className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #8E3722)' }}>
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
               <span>{errorCarga}</span>
             </div>
@@ -198,15 +198,15 @@ export default function ImportarPlazasFijasPage() {
               ))}
             </div>
             {!obligatoriosMapeados && (
-              <p className="text-[12px] mt-4 flex items-center gap-1.5" style={{ color: 'var(--destructive, #b3261e)' }}>
+              <p className="text-[12px] mt-4 flex items-center gap-1.5" style={{ color: 'var(--destructive, #8E3722)' }}>
                 <AlertTriangle size={13} /> Asigna <strong>Email</strong>, <strong>Día</strong>, <strong>Hora</strong> y <strong>Sala</strong> para continuar.
               </p>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-3 max-w-md">
-            <Contador color="#16a34a" valor={conteo.ok} label="Listas para importar" Icon={Check} />
-            <Contador color="#dc2626" valor={conteo.err} label="Con errores (se omiten)" Icon={AlertTriangle} />
+            <Contador color="#35785A" valor={conteo.ok} label="Listas para importar" Icon={Check} />
+            <Contador color="#A8442A" valor={conteo.err} label="Con errores (se omiten)" Icon={AlertTriangle} />
           </div>
 
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -256,7 +256,7 @@ export default function ImportarPlazasFijasPage() {
           {resultado.error ? (
             <div className="bg-card border border-border rounded-2xl p-6 text-center">
               <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 12%, transparent)' }}>
-                <AlertTriangle size={22} style={{ color: 'var(--destructive, #b3261e)' }} />
+                <AlertTriangle size={22} style={{ color: 'var(--destructive, #8E3722)' }} />
               </div>
               <p className="text-[15px] font-semibold text-foreground">La importación falló</p>
               <p className="text-[13px] text-muted-foreground mt-1">{resultado.error}</p>
@@ -323,8 +323,8 @@ function Contador({ color, valor, label, Icon }: { color: string; valor: number;
 
 function EstadoBadge({ estado, motivo }: { estado: 'ok' | 'error'; motivo?: string }) {
   const cfg = estado === 'ok'
-    ? { color: '#16a34a', texto: 'Lista', Icon: Check }
-    : { color: '#dc2626', texto: motivo ?? 'Error', Icon: AlertTriangle };
+    ? { color: '#35785A', texto: 'Lista', Icon: Check }
+    : { color: '#A8442A', texto: motivo ?? 'Error', Icon: AlertTriangle };
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md whitespace-nowrap" style={{ backgroundColor: cfg.color + '1A', color: cfg.color }} title={motivo}>
       <cfg.Icon size={10} /> {cfg.texto}

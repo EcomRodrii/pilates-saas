@@ -16,7 +16,7 @@ export function CentroDeControl() {
         <Reveal delay={120} style={{ maxWidth: 1000, margin: '0 auto' }}>
           <LiftCard style={{ background: BG, border: '1px solid #E1E1D9', borderRadius: 20, overflow: 'hidden', boxShadow: '0 44px 90px -40px rgba(26,26,26,.34)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', background: '#E9E9E2', borderBottom: '1px solid #E1E1D9' }}>
-              <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#D8C3E0' }} />
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#D6DBC4' }} />
               <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
               <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#E1E1D8' }} />
               <span className="lp-mono" style={{ flex: 1, textAlign: 'center', fontSize: 10.5, color: '#A8A89F' }}>tentare.app/centro-de-control</span>
@@ -29,7 +29,7 @@ export function CentroDeControl() {
               <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: 18 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', lineHeight: 1.25, maxWidth: '74%' }}>Buenos días, Marta. Tu estudio va bien — hay 2 cosas que mirar.</div>
-                  <span className="lp-mono" style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, color: '#D97706', background: '#FFFBEB', borderRadius: 999, padding: '5px 11px' }}>Atención</span>
+                  <span className="lp-mono" style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, color: '#8F6215', background: '#FFFBEB', borderRadius: 999, padding: '5px 11px' }}>Atención</span>
                 </div>
                 <div style={{ display: 'flex', gap: 22, marginTop: 12, fontSize: 12.5, color: '#8E8E86', flexWrap: 'wrap' }}>
                   <span>Tiempo estimado <strong style={{ color: '#1A1A1A' }}>6 min</strong></span>
@@ -40,7 +40,7 @@ export function CentroDeControl() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }} className="tnt-g2">
                 <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14, padding: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span style={{ width: 26, height: 26, borderRadius: 8, background: '#FBEDE8', color: '#C2503A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{IconAlert(14)}</span>
+                    <span style={{ width: 26, height: 26, borderRadius: 8, background: '#F1F2EA', color: '#C2503A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{IconAlert(14)}</span>
                     <span style={{ fontSize: 13, fontWeight: 700 }}>Baja de instructora sin cubrir</span>
                   </div>
                   <p style={{ fontSize: 12.5, lineHeight: 1.5, color: MUTED, margin: '0 0 12px' }}>Marta no puede el jueves 19:00. 3 candidatas disponibles y ya avisadas.</p>
@@ -62,7 +62,7 @@ export function CentroDeControl() {
                 </div>
               </div>
               <div style={{ background: DARK, color: '#D8D8D2', borderRadius: 14, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <span className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: '#C08BE8' }}>Mientras dormías</span>
+                <span className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: '#A8B080' }}>Mientras dormías</span>
                 <span style={{ fontSize: 13 }}>2 reservas nuevas · 1 bono renovado · 1 pago reintentado con éxito</span>
               </div>
             </div>

@@ -79,7 +79,7 @@ export const AUTONOMY_MODES = [
     key: 'asistido',
     tab: 'Asistido',
     level: 'Nivel 2 · recomendado',
-    levelColor: '#C08BE8',
+    levelColor: '#A8B080',
     title: 'Asistido',
     body: (
       <>
@@ -118,12 +118,12 @@ export const AUTONOMY_MODES = [
 ] as const;
 
 export const CENTRO_CARDS = [
-  { title: 'Resumen ejecutivo', body: 'El estado de tu estudio en una frase, cada mañana.', bg: ACC_SOFT, fg: '#6D28D9' },
+  { title: 'Resumen ejecutivo', body: 'El estado de tu estudio en una frase, cada mañana.', bg: ACC_SOFT, fg: '#343825' },
   { title: 'Prioridades que solo apruebas', body: 'Decisiones listas sobre la mesa. Tú dices sí o no.', bg: '#E7F3EC', fg: '#4E9E7F' },
-  { title: 'Mientras dormías', body: 'Lo que se resolvió solo mientras no estabas.', bg: '#3A2E52', fg: '#C08BE8' },
+  { title: 'Mientras dormías', body: 'Lo que se resolvió solo mientras no estabas.', bg: '#262A1C', fg: '#A8B080' },
   { title: 'Cada área, vigilada', body: 'Reservas, cobros, equipo y alumnas — controlados por separado.', bg: '#EDF3F4', fg: '#3E7C86' },
-  { title: 'Riesgo de plantón', body: 'Te avisa si dependes demasiado de una sola instructora.', bg: '#FBEDE8', fg: '#C2503A' },
-  { title: 'Accesos rápidos', body: 'Lo que más usas, siempre a un clic.', bg: '#F3ECF5', fg: '#8B4F9E' },
+  { title: 'Riesgo de plantón', body: 'Te avisa si dependes demasiado de una sola instructora.', bg: '#F1F2EA', fg: '#C2503A' },
+  { title: 'Accesos rápidos', body: 'Lo que más usas, siempre a un clic.', bg: '#F1F2EA', fg: '#5A6142' },
 ];
 
 export const DAY_MOMENTS = [

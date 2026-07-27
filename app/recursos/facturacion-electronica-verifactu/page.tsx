@@ -39,7 +39,7 @@ export default function VerifactuPage() {
     <PageShell>
       <ArticleShell
         category="España y fiscalidad"
-        coverGradient="linear-gradient(140deg,#3a2148,#8B4F9E)"
+        coverGradient="linear-gradient(140deg,#22251A,#5A6142)"
         title="Facturación electrónica: qué cambia con Veri*factu"
         intro="Qué es, cuándo te obliga y qué debe tener cada factura de tu estudio a partir de ahora. Sin letra pequeña."
         readTime="7 min de lectura"
@@ -55,7 +55,7 @@ export default function VerifactuPage() {
         <p>El calendario se ha movido más de una vez. Tras el aplazamiento aprobado por el Real Decreto-ley 15/2025 (2 de diciembre de 2025), las fechas vigentes hoy son:</p>
         <StatBlock
           eyebrow="Calendario vigente"
-          eyebrowColor="#C08BE8"
+          eyebrowColor="#A8B080"
           stats={[
             { value: '1 enero 2027', label: 'Empresas (Impuesto sobre Sociedades)' },
             { value: '1 julio 2027', label: 'Autónomos y resto de negocios' },
@@ -75,7 +75,7 @@ export default function VerifactuPage() {
               <>Un <strong>registro inalterable</strong> de cada evento — no solo de la factura final, también de anulaciones y correcciones.</>,
             ].map((item, i) => (
               <div key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 6, background: '#F1ECFB', color: ACC, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>{IconCheck(12)}</span>
+                <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 6, background: '#F1F2EA', color: ACC, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>{IconCheck(12)}</span>
                 <span style={{ fontSize: 15, lineHeight: 1.5, color: '#3A3A34' }}>{item}</span>
               </div>
             ))}
@@ -110,7 +110,7 @@ export default function VerifactuPage() {
 
         <RelatedLinks
           items={[
-            { href: '/recursos/cubrir-baja-instructora', category: 'Sustituciones y equipo', categoryColor: '#8B5CF6', title: 'Cómo cubrir una baja sin hacer una llamada' },
+            { href: '/recursos/cubrir-baja-instructora', category: 'Sustituciones y equipo', categoryColor: '#6E7650', title: 'Cómo cubrir una baja sin hacer una llamada' },
             { href: '/recursos/precios-reformer-mat', category: 'Rentabilidad', categoryColor: '#3E7C86', title: 'Reformer vs. mat: cómo poner precio a cada clase' },
           ]}
         />

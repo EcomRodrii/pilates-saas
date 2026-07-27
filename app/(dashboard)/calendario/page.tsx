@@ -537,7 +537,7 @@ function SessionSidebar({
         <button
           onClick={() => setShowConfirm('eliminar')}
           aria-label="Eliminar sesión"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 transition-colors ml-auto"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto"
         >
           <Trash2 size={12} />
         </button>
@@ -550,7 +550,7 @@ function SessionSidebar({
             className="w-14 h-14 rounded-2xl flex items-center justify-center"
             style={{ backgroundColor: showConfirm === 'eliminar' ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : 'color-mix(in srgb, var(--warning) 12%, var(--card))' }}
           >
-            <AlertTriangle size={24} color={showConfirm === 'eliminar' ? '#EF4444' : 'var(--warning)'} />
+            <AlertTriangle size={24} color={showConfirm === 'eliminar' ? '#B85436' : 'var(--warning)'} />
           </div>
           <div>
             <h3 className="text-base font-bold text-foreground mb-1">
@@ -598,7 +598,7 @@ function SessionSidebar({
               <button
                 onClick={() => { showConfirm === 'eliminar' ? onEliminarSesion() : onCancelarSesion(); setShowConfirm(null); }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-                style={{ backgroundColor: showConfirm === 'eliminar' ? '#EF4444' : 'var(--warning)' }}
+                style={{ backgroundColor: showConfirm === 'eliminar' ? '#B85436' : 'var(--warning)' }}
               >
                 {showConfirm === 'eliminar' ? 'Eliminar' : 'Cancelar clase'}
               </button>
@@ -656,7 +656,7 @@ function SessionSidebar({
                     {prepIALoading ? 'Preparando…' : 'Preparar clase con IA'}
                   </button>
                 )}
-                {prepIAError && <p className="text-[11px] text-red-600 mt-1.5">No se pudo generar la preparación. Inténtalo de nuevo.</p>}
+                {prepIAError && <p className="text-[11px] text-destructive mt-1.5">No se pudo generar la preparación. Inténtalo de nuevo.</p>}
                 {prepIA && (
                   <div className="rounded-xl border border-border bg-card p-3 space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
@@ -854,7 +854,7 @@ function SessionSidebar({
                       <button
                         onClick={() => onCancelarReserva(r.id)}
                         aria-label="Quitar reserva"
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-400 transition-colors opacity-60 group-hover:opacity-100"
+                        className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-red-400 transition-colors opacity-60 group-hover:opacity-100"
                       >
                         <X size={12} />
                       </button>
@@ -1066,9 +1066,9 @@ function ModalClasesRecurrentes({
             </div>
           )}
           {conflictosCount > 0 && (
-            <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center gap-2">
-              <AlertTriangle size={15} className="text-amber-600 shrink-0" />
-              <p className="text-sm font-semibold text-amber-800">
+            <div className="rounded-xl bg-warning/10 border border-warning/30 px-4 py-3 flex items-center gap-2">
+              <AlertTriangle size={15} className="text-warning shrink-0" />
+              <p className="text-sm font-semibold text-warning">
                 {conflictosCount} de estas clases se solapan con la sala o la instructora ya programadas.
               </p>
             </div>
@@ -2336,7 +2336,7 @@ export default function Calendario() {
                   />
                   <span className="text-sm text-muted-foreground">semanas</span>
                   {repetirInvalido && (
-                    <span className="text-xs text-amber-700">Mínimo 2 semanas.</span>
+                    <span className="text-xs text-warning">Mínimo 2 semanas.</span>
                   )}
                 </div>
               )}
@@ -2356,8 +2356,8 @@ export default function Calendario() {
                 culpar a la usuaria de una consecuencia, no de la causa. */}
             {faltaConfigurar && (
               <div className="px-6 pb-1 shrink-0">
-                <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 border border-amber-200 text-amber-900 flex gap-2">
-                  <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                <div className="rounded-xl px-3.5 py-2.5 text-xs bg-warning/10 border border-warning/30 text-amber-900 flex gap-2">
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warning" />
                   <div>
                     <p>Para crear la clase falta {faltaConfigurar.faltan.join(', ')}.</p>
                     {faltaConfigurar.sinCrear && (
@@ -2377,8 +2377,8 @@ export default function Calendario() {
             {/* Hora fin <= hora inicio: bloquea guardar (no es un aviso, es inválido) */}
             {horaInvalida && !faltaConfigurar && (
               <div className="px-6 pb-1 shrink-0">
-                <div className="rounded-xl px-3.5 py-2.5 text-xs bg-red-50 border border-red-200 text-red-800 flex gap-2">
-                  <AlertTriangle size={14} className="shrink-0 mt-0.5 text-red-600" />
+                <div className="rounded-xl px-3.5 py-2.5 text-xs bg-destructive/10 border border-destructive/30 text-destructive flex gap-2">
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5 text-destructive" />
                   <p>La hora de fin debe ser posterior a la hora de inicio.</p>
                 </div>
               </div>
@@ -2391,8 +2391,8 @@ export default function Calendario() {
             {(conflictosForm || aforoSobrante > 0) && (
               <div className="px-6 pb-1 shrink-0 space-y-2">
                 {conflictosForm && (
-                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-red-50 border border-red-200 text-red-800 flex gap-2">
-                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-red-600" />
+                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-destructive/10 border border-destructive/30 text-destructive flex gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-destructive" />
                     <div className="space-y-0.5">
                       {conflictosForm.sala.length > 0 && (
                         <p><span className="font-bold">{nombreSala(form.salaId)}</span> ya está ocupada: {conflictosForm.sala.map(c => `${formatHora(c.inicio)}–${formatHora(c.fin)}`).join(', ')}</p>
@@ -2405,8 +2405,8 @@ export default function Calendario() {
                   </div>
                 )}
                 {aforoSobrante > 0 && (
-                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 flex gap-2">
-                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-warning/10 border border-warning/30 text-warning flex gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warning" />
                     <p>Hay <span className="font-bold">{sesionActual?.confirmadas} confirmada{(sesionActual?.confirmadas ?? 0) !== 1 ? 's' : ''}</span> y bajas el aforo a {form.aforoMaximo}: {aforoSobrante} quedaría{aforoSobrante !== 1 ? 'n' : ''} por encima del cupo. No se moverán a lista de espera automáticamente.</p>
                   </div>
                 )}

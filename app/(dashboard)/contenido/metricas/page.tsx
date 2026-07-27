@@ -54,11 +54,11 @@ export default function MetricasPage() {
 
       {/* Tarjetas grandes */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-        <MetricCard label="Seguidores totales" value={fmtNum(resumen.seguidores.valor)} delta={resumen.seguidores.cambioPct} icon={Users} accent="#7c3aed" delay={0} />
+        <MetricCard label="Seguidores totales" value={fmtNum(resumen.seguidores.valor)} delta={resumen.seguidores.cambioPct} icon={Users} accent="#5A6142" delay={0} />
         <MetricCard label="Alcance" value={fmtNum(resumen.alcance.valor)} delta={resumen.alcance.cambioPct} icon={Eye} accent="#0ea5e9" delay={1} />
         <MetricCard label="Interacciones" value={fmtNum(resumen.interacciones.valor)} delta={resumen.interacciones.cambioPct} icon={Heart} accent="#ec4899" delay={2} />
-        <MetricCard label="Visualizaciones" value={fmtNum(resumen.visualizaciones.valor)} delta={resumen.visualizaciones.cambioPct} icon={Play} accent="#f59e0b" delay={3} />
-        <MetricCard label="Engagement" value={`${resumen.engagement.valor.toFixed(1)}%`} delta={resumen.engagement.cambioPct} icon={Percent} accent="#10b981" delay={4} />
+        <MetricCard label="Visualizaciones" value={fmtNum(resumen.visualizaciones.valor)} delta={resumen.visualizaciones.cambioPct} icon={Play} accent="#A87A1E" delay={3} />
+        <MetricCard label="Engagement" value={`${resumen.engagement.valor.toFixed(1)}%`} delta={resumen.engagement.cambioPct} icon={Percent} accent="#48896A" delay={4} />
         <MejorPublicacionCard resumen={resumen} delay={5} />
       </div>
 
@@ -72,7 +72,7 @@ export default function MetricasPage() {
           <DeltaPill pct={resumen.seguidores.cambioPct} />
         </div>
         <div className="text-muted-foreground">
-          <LineChart series={[{ nombre: 'Seguidores', color: '#7c3aed', valores: serie.map((p) => p.seguidores) }]} labels={labels} height={220} />
+          <LineChart series={[{ nombre: 'Seguidores', color: '#5A6142', valores: serie.map((p) => p.seguidores) }]} labels={labels} height={220} />
         </div>
       </section>
 
@@ -133,7 +133,7 @@ function MejorPublicacionCard({ resumen, delay }: { resumen: ReturnType<typeof c
     <div className="bg-card border border-border rounded-3xl p-5 flex flex-col gap-2 contenido-anim col-span-2 lg:col-span-1" style={{ animationDelay: `${delay * 60}ms` }}>
       <div className="flex items-center justify-between">
         <span className="text-[12px] font-semibold text-muted-foreground">Mejor publicación</span>
-        <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: '#f59e0b1a', color: '#f59e0b' }}>
+        <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: '#A87A1E1a', color: '#A87A1E' }}>
           <Trophy className="w-4 h-4" />
         </span>
       </div>

@@ -135,7 +135,7 @@ export function PilotoAutomatico() {
               Nunca cobra tarjetas ni toca dinero automáticamente. Todo lo que se ejecuta solo queda registrado en Actividad.
             </p>
           </div>
-          {error && <p className="text-[12px] text-rose-600">{error}</p>}
+          {error && <p className="text-[12px] text-destructive">{error}</p>}
         </div>
       )}
     </div>

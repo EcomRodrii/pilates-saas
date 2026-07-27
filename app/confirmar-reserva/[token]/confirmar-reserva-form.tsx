@@ -80,7 +80,7 @@ export function ConfirmarReservaForm({
             {estado === 'enviando' ? 'Confirmando…' : 'Sí, voy a venir'}
           </button>
           {estado === 'error' && (
-            <p className="mt-2 text-sm text-rose-600">No se pudo confirmar. Revisa tu conexión e inténtalo otra vez.</p>
+            <p className="mt-2 text-sm text-destructive">No se pudo confirmar. Revisa tu conexión e inténtalo otra vez.</p>
           )}
           <p className="mt-3 text-xs text-slate-400">
             Si no confirmas, liberaremos tu plaza para que otra persona pueda venir.

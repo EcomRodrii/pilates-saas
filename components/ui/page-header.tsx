@@ -61,7 +61,12 @@ function PageHeader({
           <div className="flex flex-wrap items-center gap-2">
             <h1
               data-slot="page-header-title"
-              className="text-2xl leading-tight font-bold text-balance"
+              // text-foreground explícito, no heredado: `body` vive FUERA del
+              // contenedor `.dark` (la clase se aplica al panel, nunca a <html>,
+              // para no teñir la app de socias), así que hereda el #1A1A1A del
+              // modo claro. En oscuro el título de CADA página quedaba negro
+              // sobre negro. Preexistente, se ve al revisar contraste.
+              className="text-2xl leading-tight font-bold text-balance text-foreground"
             >
               {title}
             </h1>

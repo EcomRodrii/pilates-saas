@@ -322,7 +322,7 @@ export default function Productos() {
                       <Pencil size={13} />
                     </button>
                     <button onClick={() => deletePlan(plan.id)} aria-label="Eliminar plan"
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors">
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                       <Trash2 size={13} />
                     </button>
                   </div>

@@ -31,7 +31,7 @@ export function Precio() {
               {plan.popular && (
                 <div className="lp-mono" style={{ position: 'absolute', top: -12, left: 34, background: ACC, color: '#fff', fontSize: 11, fontWeight: 600, letterSpacing: '.08em', padding: '6px 13px', borderRadius: 999 }}>POPULAR</div>
               )}
-              <div className="lp-mono" style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: plan.dark ? '#C08BE8' : '#8E8E86', marginBottom: 14 }}>{plan.name}</div>
+              <div className="lp-mono" style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: plan.dark ? '#A8B080' : '#8E8E86', marginBottom: 14 }}>{plan.name}</div>
               <div style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-.03em', color: plan.dark ? '#fff' : undefined }}>{plan.price}<span style={{ fontSize: 16, fontWeight: 500, color: '#8E8E86' }}>/mes</span></div>
               <p style={{ fontSize: 14, color: plan.dark ? '#8E8E86' : MUTED, margin: '6px 0 22px' }}>{plan.desc}</p>
               <div style={{ borderTop: plan.dark ? '1px solid rgba(255,255,255,.08)' : '1px solid #EDEDE6', paddingTop: 18, fontSize: 14.5, color: plan.dark ? '#D8D8D2' : MUTED, lineHeight: 2 }}>

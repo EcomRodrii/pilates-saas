@@ -9,13 +9,13 @@ import { FLOW_STEPS } from './data';
 export function Sustituciones() {
   return (
     <section id="sustituciones" style={{ background: DARK, color: '#E8E8E4', padding: 'clamp(76px,9vw,124px) clamp(20px,4vw,44px)', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: 'min(900px,90vw)', height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,.24), transparent 66%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: 'min(900px,90vw)', height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.24), transparent 66%)', pointerEvents: 'none' }} />
       <div className="tnt-wrap" style={{ maxWidth: 1280, margin: '0 auto', position: 'relative' }}>
         <div style={{ textAlign: 'center', maxWidth: 760, margin: '0 auto clamp(48px,6vw,72px)' }}>
           <Reveal className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#fff', background: ACC, padding: '8px 15px', borderRadius: 999, marginBottom: 22 }}>
             ★ La función estrella de Tentare
           </Reveal>
-          <Reveal delay={80}><h2 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,62px)', lineHeight: 1, letterSpacing: '-.04em', margin: '0 0 18px' }}>Cubre las bajas de instructoras <span style={{ color: '#C08BE8' }}>solo</span>.</h2></Reveal>
+          <Reveal delay={80}><h2 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,62px)', lineHeight: 1, letterSpacing: '-.04em', margin: '0 0 18px' }}>Cubre las bajas de instructoras <span style={{ color: '#A8B080' }}>solo</span>.</h2></Reveal>
           <Reveal delay={140}><p style={{ fontSize: 19, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Casi ningún software de estudio lo resuelve de verdad. Cuando una instructora avisa de que no puede, Tentare ejecuta el flujo entero — de la baja a las alumnas avisadas. Tú solo apruebas.</p></Reveal>
         </div>
 
@@ -62,7 +62,7 @@ function SustitucionesFlow() {
       <div style={{ position: 'absolute', top: 30, left: '12.5%', right: '12.5%', height: 3, background: 'rgba(255,255,255,.1)', zIndex: 0 }} className="tnt-flowline" />
       <div
         className="tnt-flowline"
-        style={{ position: 'absolute', top: 30, left: '12.5%', width: `${progressPct * 0.75}%`, height: 3, background: ACC, zIndex: 1, transition: 'width .6s ease', boxShadow: '0 0 12px rgba(124,58,237,.6)' }}
+        style={{ position: 'absolute', top: 30, left: '12.5%', width: `${progressPct * 0.75}%`, height: 3, background: ACC, zIndex: 1, transition: 'width .6s ease', boxShadow: '0 0 12px rgba(90,97,66,.6)' }}
       />
       <div
         className="tnt-flowline tnt-flow-comet"
@@ -85,7 +85,7 @@ function SustitucionesFlow() {
       <div className="tnt-flow-vline-bg" style={{ position: 'absolute', top: 30, bottom: 64, left: '50%', width: 3, background: 'rgba(255,255,255,.1)', transform: 'translateX(-50%)', zIndex: 0 }} />
       <div
         className="tnt-flow-vline-fill"
-        style={{ position: 'absolute', top: 30, left: '50%', width: 3, height: `${progressPct}%`, background: ACC, transform: 'translateX(-50%)', zIndex: 1, transition: 'height .6s ease', boxShadow: '0 0 12px rgba(124,58,237,.6)' }}
+        style={{ position: 'absolute', top: 30, left: '50%', width: 3, height: `${progressPct}%`, background: ACC, transform: 'translateX(-50%)', zIndex: 1, transition: 'height .6s ease', boxShadow: '0 0 12px rgba(90,97,66,.6)' }}
       />
       <div className="tnt-steps4" style={{ position: 'relative', zIndex: 2 }}>
         {FLOW_STEPS.map((s, i) => {

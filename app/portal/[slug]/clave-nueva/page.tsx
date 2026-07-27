@@ -62,7 +62,7 @@ export default function PortalClaveNueva() {
         ) : !session ? (
           <div style={{ textAlign: 'center' }}>
             <div style={{ width: 56, height: 56, borderRadius: 999, background: 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <AlertCircle size={26} style={{ color: '#EF4444' }} />
+              <AlertCircle size={26} style={{ color: '#B85436' }} />
             </div>
             <h1 style={{ fontSize: 20, fontWeight: 800, textTransform: 'uppercase', color: t.ink }}>Enlace no válido</h1>
             <p style={{ fontSize: 13, color: t.muted, marginTop: 8, lineHeight: 1.5 }}>

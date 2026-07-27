@@ -138,7 +138,7 @@ export function BajaForm({ token }: { token: string }) {
             Volver
           </button>
 
-          {errorEnvio && <p className="mt-2 text-center text-sm text-rose-600">{errorEnvio}</p>}
+          {errorEnvio && <p className="mt-2 text-center text-sm text-destructive">{errorEnvio}</p>}
         </div>
       </Pantalla>
     );
