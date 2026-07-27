@@ -3834,8 +3834,8 @@ export async function dbInsertSesionesBatch(sesiones: Sesion[]): Promise<Resulta
 // Aplica los mismos cambios a varias sesiones (editar/cancelar "esta y futuras"
 // de una serie) en una sola llamada. Solo para cambios uniformes (no inicio/fin,
 // que varían por sesión — esos se hacen por sesión).
-export async function dbUpdateSesionesBatch(ids: string[], changes: Partial<Sesion>) {
-  if (ids.length === 0) return;
+export async function dbUpdateSesionesBatch(ids: string[], changes: Partial<Sesion>): Promise<ResultadoEscritura> {
+  if (ids.length === 0) return ESCRITURA_OK;
   const db: Record<string, unknown> = {};
   if ('tipoClaseId' in changes) db.tipo_clase_id = changes.tipoClaseId;
   if ('salaId' in changes) db.sala_id = changes.salaId;
@@ -3843,9 +3843,9 @@ export async function dbUpdateSesionesBatch(ids: string[], changes: Partial<Sesi
   if ('aforoMaximo' in changes) db.aforo_maximo = changes.aforoMaximo;
   if ('cancelada' in changes) db.cancelada = changes.cancelada;
   if ('notas' in changes) db.notas = changes.notas;
-  if (Object.keys(db).length === 0) return;
+  if (Object.keys(db).length === 0) return ESCRITURA_OK;
   const { error } = await supabase.from('sesiones').update(db).in('id', ids);
-  if (error) reportDbError('[dbUpdateSesionesBatch]', error);
+  return error ? falloEscritura('[dbUpdateSesionesBatch]', error) : ESCRITURA_OK;
 }
 
 export async function dbUpdateSesion(id: string, changes: Partial<Sesion>): Promise<ResultadoEscritura> {
