@@ -114,6 +114,8 @@ type FormData = {
   horaInicio: string;
   horaFin: string;
   aforoMaximo: number;
+  /** El aforo se ha escrito a mano: elegir sala ya no lo pisa. */
+  aforoTocado?: boolean;
   notas: string;
   repetir: boolean;
   repetirSemanas: number;
@@ -131,7 +133,30 @@ type RecurringFormData = {
   fechaInicio: string;
   fechaFin: string;
   aforoMaximo: number;
+  /** El aforo se ha escrito a mano: elegir sala ya no lo pisa. */
+  aforoTocado?: boolean;
 };
+
+// ─── Aviso de aforo mayor que la sala ─────────────────────────────────────────
+//
+// Poner aforo 12 en una sala de 8 no lo impedía nadie: se vendían cuatro plazas
+// que no existen y el problema aparecía con cuatro clientas de pie. Se avisa
+// mientras se escribe, no al guardar — y no se bloquea, porque hay estudios que
+// meten una colchoneta extra a propósito y esa decisión es suya.
+function AvisoAforoSala({ salas, salaId, aforo }: {
+  salas: { id: string; nombre: string; capacidad: number }[];
+  salaId: string;
+  aforo: number;
+}) {
+  const sala = salas.find(s => s.id === salaId);
+  if (!sala || !Number.isFinite(aforo) || aforo <= sala.capacidad) return null;
+  return (
+    <p role="alert" className="mt-1.5 text-[11px] leading-snug text-[var(--warning)]">
+      «{sala.nombre}» tiene {sala.capacidad} plaza{sala.capacidad === 1 ? '' : 's'}.
+      Con {aforo} estarías vendiendo {aforo - sala.capacidad} más de las que caben.
+    </p>
+  );
+}
 
 // ─── FormField wrapper ────────────────────────────────────────────────────────
 
@@ -247,7 +272,7 @@ function StatsBar({ sesiones, esSemanaActual }: {
 
 function FilterBar({ instructores, salas, filtroInstructor, filtroSala, onInstructor, onSala, busqueda, onBusqueda }: {
   instructores: { id: string; nombre: string }[];
-  salas: { id: string; nombre: string }[];
+  salas: { id: string; nombre: string; capacidad: number }[];
   filtroInstructor: string; filtroSala: string;
   onInstructor: (v: string) => void; onSala: (v: string) => void;
   busqueda: string; onBusqueda: (v: string) => void;
@@ -876,7 +901,7 @@ function ModalClasesRecurrentes({
   instructores: { id: string; nombre: string }[];
   // Para avisar en el selector de quién está de vacaciones/baja esos días.
   ausencias?: AusenciaInstructora[];
-  salas: { id: string; nombre: string }[];
+  salas: { id: string; nombre: string; capacidad: number }[];
   onCrear: (sesiones: Omit<import('@/lib/types').Sesion, 'id' | 'studioId'>[]) => void;
   sesionesExistentes: SlotSesion[];
 }) {
@@ -982,7 +1007,20 @@ function ModalClasesRecurrentes({
             </select>
           </FormField>
           <FormField label="Sala">
-            <select className={s2} value={form.salaId} onChange={e => setForm(f => ({ ...f, salaId: e.target.value }))}>
+            {/* Al elegir sala, el aforo pasa a ser el de ESA sala. Antes había
+                que teclearlo en cada clase aunque la capacidad ya estuviera
+                configurada, y si se olvidaba se vendían plazas que no existen.
+                Si ya se ha tocado el aforo a mano, no se pisa: puede haber una
+                clase deliberadamente más pequeña. */}
+            <select className={s2} value={form.salaId} onChange={e => {
+              const salaId = e.target.value;
+              const cap = salas.find(x => x.id === salaId)?.capacidad;
+              setForm(f => ({
+                ...f,
+                salaId,
+                aforoMaximo: f.aforoTocado || cap == null ? f.aforoMaximo : cap,
+              }));
+            }}>
               {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
           </FormField>
@@ -1017,8 +1055,10 @@ function ModalClasesRecurrentes({
             </FormField>
           </div>
           <FormField label="Aforo máximo" description="Al llenarse, las siguientes reservas entran en lista de espera; no se bloquean.">
-            <input type="number" min={1} max={300} className={f2} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
+            <input type="number" min={1} max={300} className={f2} value={form.aforoMaximo}
+              onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value), aforoTocado: true }))} />
           </FormField>
+          <AvisoAforoSala salas={salas} salaId={form.salaId} aforo={form.aforoMaximo} />
           {estimatedCount > 0 && (
             <div className="rounded-xl bg-muted px-4 py-3 flex items-center gap-2">
               <CalendarDays size={15} className="text-muted-foreground shrink-0" />
@@ -2193,7 +2233,17 @@ export default function Calendario() {
                   </select>
                 </FormField>
                 <FormField label="Sala">
-                  <select className={selectCls} value={form.salaId} onChange={e => setForm(f => ({ ...f, salaId: e.target.value }))}>
+                  {/* Igual que en el formulario de serie: la sala manda su
+                      capacidad al aforo, salvo que ya se haya tocado a mano. */}
+                  <select className={selectCls} value={form.salaId} onChange={e => {
+                    const salaId = e.target.value;
+                    const cap = salas.find(x => x.id === salaId)?.capacidad;
+                    setForm(f => ({
+                      ...f,
+                      salaId,
+                      aforoMaximo: f.aforoTocado || cap == null ? f.aforoMaximo : cap,
+                    }));
+                  }}>
                     {!form.salaId && (
                       <option value="">{salas.length ? 'Elige una sala' : 'Todavía no tienes salas'}</option>
                     )}
@@ -2230,8 +2280,10 @@ export default function Calendario() {
                 </FormField>
               </div>
               <FormField label="Aforo máximo" description="Al llenarse, las siguientes reservas entran en lista de espera; no se bloquean.">
-                <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo} onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value) }))} />
+                <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo}
+                  onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value), aforoTocado: true }))} />
               </FormField>
+              <AvisoAforoSala salas={salas} salaId={form.salaId} aforo={form.aforoMaximo} />
               {/* Era un <span onClick> dentro de un <label>: no lo alcanzaba el
                   tabulador ni lo anunciaba ningún lector. Ahora todo el bloque
                   es el botón, así que sigue siendo pulsable entero. */}
