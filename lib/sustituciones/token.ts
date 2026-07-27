@@ -20,7 +20,12 @@ const TTL_ACEPTAR_MS = 3 * 60 * 60 * 1000;             // 3 h: aceptar una susti
 // instructora lo guarda en el móvil y lo usa el día que le toque. Scope APARTE
 // del de disponibilidad a propósito: aunque sea la misma persona, un enlace que
 // solo edita su horario no debe poder además desconvocar clases.
-export type ScopeToken = 'disponibilidad' | 'aceptar_sustitucion' | 'reportar_baja';
+// 'invitacion' identifica a la persona invitada ANTES de que exista su cuenta:
+// es lo que convierte el correo en un enlace de verdad en vez de un /login
+// pelado, donde quien ya tuviera sesión abierta acababa en su propio panel sin
+// enterarse de nada. TTL largo (30 días): la dueña invita hoy y la instructora
+// entra cuando puede.
+export type ScopeToken = 'disponibilidad' | 'aceptar_sustitucion' | 'reportar_baja' | 'invitacion';
 
 function secret(): string {
   const s = process.env.SUSTITUCION_TOKEN_SECRET || process.env.OAUTH_STATE_SECRET;
