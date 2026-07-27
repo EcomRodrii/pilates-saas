@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Suscripcion, PlanTarifa } from '@/lib/types';
 import {
+  hayAlgoQueContratar,
   bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo,
   calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar, planCubreTipoClase,
 } from './bono-logic.ts';
@@ -239,4 +240,24 @@ test('el desempate por caducidad sigue mandando entre bonos que SÍ cubren', () 
   ];
   const planes = [plan({ id: 'p1', tipo: 'BONO', tiposClaseIds: ['tc-reformer'] })];
   assert.equal(bonoConsumible('a', suscripciones, planes, '2026-07-26', 'tc-reformer')?.suscripcion.id, 'sus-a');
+});
+
+// ── Exigir un plan que no se puede comprar ──────────────────────────────────
+// Desde la 0109 el ajuste «exigir plan» viene activado de fábrica. Un estudio
+// recién creado lo tiene activado y aún no ha creado ningún plan: su primera
+// clienta vería "necesitas un plan o bono activo" y, al ir a contratarlo, nada
+// que comprar. Medido en prod: 13 de los 15 estudios estaban justo así.
+
+test('sin ningún plan a la venta, exigir plan no tiene sentido', () => {
+  assert.equal(hayAlgoQueContratar([]), false);
+});
+
+test('con planes pero todos desactivados, tampoco', () => {
+  // Desactivar todos los planes es la forma de "cerrar la tienda": el gate no
+  // puede seguir pidiendo algo que ya no se vende.
+  assert.equal(hayAlgoQueContratar([{ activo: false }, { activo: false }]), false);
+});
+
+test('basta UN plan activo para que el gate vuelva a tener sentido', () => {
+  assert.equal(hayAlgoQueContratar([{ activo: false }, { activo: true }]), true);
 });

@@ -6,7 +6,7 @@ import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/sen
 import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo } from '@/lib/bono-logic';
+import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -1994,7 +1994,10 @@ export async function crearReservaPublica(params: {
       .from('sesiones').select('tipo_clase_id').eq('id', params.sesionId).maybeSingle();
     const tipoDeLaClase = sesGate?.tipo_clase_id as string | null | undefined;
     const planesGate = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
-    if (pol.exigirPlan && !tieneEntitlementActivo(
+    // Si el estudio no vende ningún plan, exigirlo solo deja a la clienta en un
+    // callejón: el mensaje le pide contratar algo que no existe.
+    const seVendeAlgo = hayAlgoQueContratar(planesGate);
+    if (pol.exigirPlan && seVendeAlgo && !tieneEntitlementActivo(
       params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyISO, tipoDeLaClase,
     )) {
       // Se distingue "no tienes bono" de "tu bono no vale para esta clase":

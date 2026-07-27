@@ -133,3 +133,19 @@ export function nuevaFechaFinTrasCongelar(fechaFin: string | null, desdeISO: str
   fin.setUTCDate(fin.getUTCDate() + dias);
   return fin.toISOString().slice(0, 10);
 }
+
+/**
+ * ¿Tiene sentido exigir plan para reservar? Solo si el estudio vende alguno.
+ *
+ * Desde la 0109 el ajuste «exigir plan o bono activo» viene ACTIVADO de fábrica,
+ * que es lo correcto para un estudio en marcha. Pero un estudio recién creado lo
+ * tiene activado y todavía no ha creado ni un plan: su primera clienta vería
+ * «necesitas un plan o bono activo» y, al ir a contratarlo, nada que comprar.
+ * Un callejón sin salida en el primer minuto de vida del negocio.
+ *
+ * Exigir algo que no se puede conseguir no protege nada: solo bloquea. Cuando la
+ * dueña crea su primer plan, el gate empieza a aplicar solo.
+ */
+export function hayAlgoQueContratar(planes: { activo: boolean }[]): boolean {
+  return planes.some(p => p.activo);
+}
