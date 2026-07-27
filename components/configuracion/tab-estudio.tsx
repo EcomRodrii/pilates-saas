@@ -50,7 +50,7 @@ type PoliticaForm = {
 function studioToPolitica(s: Studio | null): PoliticaForm {
   return {
     cancelacionVentanaHoras: s?.cancelacionVentanaHoras ?? 12,
-    cancelacionDevolverBonoTardia: s?.cancelacionDevolverBonoTardia ?? true,
+    cancelacionDevolverBonoTardia: s?.cancelacionDevolverBonoTardia ?? false,
     reservaExigirPlan: s?.reservaExigirPlan ?? true,
     reservaMaxSimultaneas: s?.reservaMaxSimultaneas ?? null,
     compraPublicaModo: s?.compraPublicaModo ?? 'EXIGIR_REGISTRO',
@@ -422,7 +422,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               Devolver la sesión del bono en cancelaciones tardías
-              <span className="block text-[11px] text-muted-foreground">Activado (recomendado): la sesión del bono se devuelve aunque la cancelación sea tardía. Desactívalo si prefieres que la pierda.</span>
+              <span className="block text-[11px] text-muted-foreground">Desactivado: una cancelación tardía pierde la sesión (recomendado).</span>
             </span>
             <Toggle on={pol.cancelacionDevolverBonoTardia} onChange={v => setPol(p => ({ ...p, cancelacionDevolverBonoTardia: v }))} />
           </label>
