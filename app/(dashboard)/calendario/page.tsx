@@ -922,6 +922,10 @@ function ModalClasesRecurrentes({
   });
 
   const [form, setForm] = useState<RecurringFormData>(emptyForm);
+  // Igual que «repetir N semanas» más abajo: por debajo del mínimo NO se
+  // corrige el número, se marca el estado como inválido y se bloquea el botón.
+  // Corregirlo mientras se escribe es lo que rompía el campo.
+  const duracionInvalida = !form.duracion || form.duracion < 15;
 
   useEffect(() => {
     if (open) setForm(emptyForm());
@@ -1029,10 +1033,38 @@ function ModalClasesRecurrentes({
               <input type="time" className={f2} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
             </FormField>
             <FormField label="Duración (min)">
+              {/* El clamp era `Math.max(15, ...)` DENTRO del onChange, y por eso
+                  no se podía escribir ninguna duración real. Al teclear "50", el
+                  "5" intermedio se reescribía a 15 y React repintaba el value:
+                  el resultado era "1550". Y no es un caso raro — 30, 45, 50, 60
+                  y 90 empiezan TODAS por un dígito menor que 15, así que el
+                  campo estaba roto para lo único que alguien iba a escribir.
+
+                  Mismo arreglo que en «repetir N semanas»: limitar solo por
+                  arriba (así el tecleo fluye) y tratar el mínimo como estado
+                  inválido que bloquea el botón, en vez de corregir el número por
+                  debajo de quien escribe. El campo nunca enseña un valor
+                  distinto del que se va a crear.
+
+                  El `value={form.duracion || ''}` tampoco es cosmética: con un
+                  número siempre pintado, borrar el campo daba `Number('') = 0`,
+                  React repintaba un "0" y el siguiente dígito se le pegaba
+                  detrás ("050"). Un campo numérico tiene que poder estar vacío
+                  mientras se escribe; vacío cuenta como inválido y el botón
+                  sigue bloqueado. */}
               <input type="number" min={15} max={300} step={5} className={f2}
-                value={form.duracion}
-                onChange={e => setForm(f => ({ ...f, duracion: Math.max(15, Number(e.target.value)) }))} />
+                aria-invalid={duracionInvalida}
+                value={form.duracion || ''}
+                onChange={e => {
+                  const bruto = e.target.value;
+                  if (bruto === '') { setForm(f => ({ ...f, duracion: 0 })); return; }
+                  const n = Number(bruto);
+                  setForm(f => ({ ...f, duracion: Number.isNaN(n) ? f.duracion : Math.min(300, n) }));
+                }} />
             </FormField>
+            {duracionInvalida && (
+              <p className="col-span-2 -mt-2 text-xs text-amber-700">Mínimo 15 minutos.</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <span id={`${uid}-dias`} className="text-xs font-bold text-foreground uppercase tracking-wider">Días de la semana</span>
@@ -1078,7 +1110,7 @@ function ModalClasesRecurrentes({
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">Cancelar</button>
           <button
             onClick={handleSubmit}
-            disabled={form.diasSemana.length === 0 || estimatedCount === 0}
+            disabled={form.diasSemana.length === 0 || estimatedCount === 0 || duracionInvalida}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-brand text-brand-foreground hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {estimatedCount > 0 ? `Crear ${estimatedCount} clases` : 'Crear clases'}
