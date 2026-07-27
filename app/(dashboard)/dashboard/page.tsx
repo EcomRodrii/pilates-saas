@@ -743,6 +743,9 @@ export default function Dashboard() {
           const todayLogs = automationLogs.filter(l => l.ejecutadoEn.startsWith(today));
           const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
           const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
+          // 'ESPERANDO' nunca lo escribe ningún camino de ejecución: aquí
+          // marcaba siempre 0 (P2-4). 'FALLIDO' sí ocurre de verdad.
+          const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
           return (
             <Link
               href="/automatizaciones"
@@ -761,7 +764,7 @@ export default function Dashboard() {
                   </p>
                 )}
                 <p className="mt-0.5 text-[11px] text-primary-foreground/50">
-                  {ejecutadas} acciones ejecutadas hoy · {automationLogs.filter(l => l.resultado === 'ESPERANDO').length} esperando respuesta
+                  {ejecutadas} acciones ejecutadas hoy{fallidas > 0 ? ` · ${fallidas} fallida${fallidas > 1 ? 's' : ''}` : ''}
                 </p>
               </div>
               <ArrowUpRight className="size-4 shrink-0 text-primary-foreground/40" />

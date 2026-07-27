@@ -136,6 +136,11 @@ export default function SustitucionesPage() {
 
   const activas = items.filter(s => ESTADO[s.estado]?.activa);
   const resueltas = items.filter(s => !ESTADO[s.estado]?.activa);
+  // P2-4: el "0 esperando respuesta" del panel de automatizaciones era una
+  // cuenta de un estado que ningún camino de ejecución escribe — no tenía
+  // nada que ver con sustituciones. Este SÍ es el dato real: candidatas
+  // avisadas cuyo plazo sigue abierto ("Marta no ha contestado").
+  const esperandoRespuesta = activas.filter(s => s.estado === 'contactando').length;
 
   // Última sustitución confirmada (reciente) → card "Horario actualizado".
   const ultimaConfirmada = useMemo(() => {
@@ -315,6 +320,12 @@ export default function SustitucionesPage() {
         <div className="space-y-5">
           {activas.length > 0 && (
             <div className="space-y-3">
+              {esperandoRespuesta > 0 && (
+                <p className="flex items-center gap-1.5 text-[12px] font-semibold text-warning">
+                  <Clock size={13} />
+                  {esperandoRespuesta} esperando respuesta
+                </p>
+              )}
               {activas.map(s => (
                 <SustitucionCard
                   key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor} equipo={equipo}
