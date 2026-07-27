@@ -235,6 +235,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [showChangePlan, setShowChangePlan] = useState(false);
   const [showAddRecibo, setShowAddRecibo] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [borrando, setBorrando] = useState(false);
+  // Cerrojo síncrono anti-doble-baja: el estado `borrando` no frena un doble
+  // clic en el mismo tick (se lee antes de re-renderizar); el ref sí.
+  const borrandoRef = useRef(false);
   const [showAddTag, setShowAddTag] = useState(false);
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [notaText, setNotaText] = useState('');
@@ -366,11 +370,24 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   }
 
   async function handleDelete() {
-    // Espera a que la baja (endpoint /api/socios/eliminar) COMPLETE antes de
-    // navegar: window.location.href cancela peticiones en vuelo, así que sin el
-    // await la clienta no llegaba a anonimizarse (parecía borrada pero seguía).
-    await deleteSocio(id);
-    window.location.href = '/clientas';
+    // Un doble clic disparaba DOS bajas (dos llamadas a /api/socios/eliminar).
+    // El cerrojo síncrono lo corta antes de que React deshabilite el botón.
+    if (borrandoRef.current) return;
+    borrandoRef.current = true;
+    setBorrando(true);
+    try {
+      // Espera a que la baja (endpoint /api/socios/eliminar) COMPLETE antes de
+      // navegar: window.location.href cancela peticiones en vuelo, así que sin el
+      // await la clienta no llegaba a anonimizarse (parecía borrada pero seguía).
+      await deleteSocio(id);
+      // La recarga dura desmonta la ficha; en el camino feliz no se suelta el
+      // cerrojo a propósito (no debe volver a poder pulsarse).
+      window.location.href = '/clientas';
+    } catch {
+      borrandoRef.current = false;
+      setBorrando(false);
+      setToast('No se ha podido dar de baja. Vuelve a intentarlo.');
+    }
   }
 
   function handleAddRecibo() {
@@ -1563,8 +1580,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               <button onClick={() => setShowConfirmDelete(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted">
                 Cancelar
               </button>
-              <button onClick={handleDelete} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors">
-                Eliminar
+              <button onClick={handleDelete} disabled={borrando} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 transition-colors">
+                {borrando ? 'Eliminando…' : 'Eliminar'}
               </button>
             </div>
           </div>
