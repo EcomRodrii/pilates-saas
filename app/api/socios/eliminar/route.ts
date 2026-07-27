@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 
 // A-3/A-4: baja de una socia con RETENCIÓN FISCAL. No se borra la fila (eso
 // destruía recibos/facturas con obligación de conservación, o fallaba a medias
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol !== 'PROPIETARIO' && sesion.rol !== 'RECEPCION') {
+  if (!puedeGestionarClientas(sesion.rol)) {
     return NextResponse.json({ error: 'No tienes permiso para dar de baja a una socia' }, { status: 403 });
   }
 

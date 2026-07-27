@@ -19,17 +19,18 @@ async function propietaria(admin: SupabaseClient, studioId: string): Promise<Rec
   }];
 }
 
-// Recepcionistas activas del estudio (staff de mostrador). Sin auth_user_id no
-// hay in-app/push, así que se descartan (una recepción sin cuenta no recibe).
+// Staff de mostrador del estudio: recepción y quien lleva la sede (MANAGER).
+// Sin auth_user_id no hay in-app/push, así que se descartan (una recepción sin
+// cuenta no recibe).
 async function recepcionistas(admin: SupabaseClient, studioId: string): Promise<Recipient[]> {
   const { data } = await admin.from('instructores')
-    .select('id, nombre, email, auth_user_id')
-    .eq('studio_id', studioId).eq('rol', 'RECEPCION').eq('activo', true);
+    .select('id, nombre, email, auth_user_id, rol')
+    .eq('studio_id', studioId).in('rol', ['RECEPCION', 'MANAGER']).eq('activo', true);
   return (data ?? [])
     .filter(r => r.auth_user_id)
     .map(r => ({
-      role: 'RECEPCION' as const, userId: r.auth_user_id as string,
-      nombre: (r.nombre as string | null) ?? 'Recepción',
+      role: (r.rol as 'RECEPCION' | 'MANAGER'), userId: r.auth_user_id as string,
+      nombre: (r.nombre as string | null) ?? 'Mostrador',
       email: (r.email as string | null) ?? null,
     }));
 }

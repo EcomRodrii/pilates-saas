@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { emailValido, parsearFecha } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
+import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 
 export const maxDuration = 60;
 
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol !== 'PROPIETARIO' && sesion.rol !== 'RECEPCION') {
+  if (!puedeGestionarClientas(sesion.rol)) {
     return NextResponse.json({ error: 'No tienes permiso para importar plazas fijas' }, { status: 403 });
   }
 

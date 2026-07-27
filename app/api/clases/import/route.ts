@@ -6,6 +6,7 @@ import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid } from '@/lib/utils';
 import type { FilaClase } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
+import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol !== 'PROPIETARIO' && sesion.rol !== 'RECEPCION') {
+  if (!puedeGestionarClientas(sesion.rol)) {
     return NextResponse.json({ error: 'No tienes permiso para importar el horario' }, { status: 403 });
   }
 

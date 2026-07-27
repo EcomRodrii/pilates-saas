@@ -3,6 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enviarEmailInvitacionEquipo } from '@/lib/emails/invitacion-equipo-server';
+import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
@@ -19,8 +20,8 @@ function appUrl(): string {
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol !== 'PROPIETARIO') {
-    return NextResponse.json({ error: 'Solo la propietaria puede invitar al equipo' }, { status: 403 });
+  if (!puedeGestionarEquipo(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para invitar al equipo' }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -44,6 +45,17 @@ export async function POST(req: NextRequest) {
 
   if (!instructor) {
     return NextResponse.json({ error: 'Esa persona ya no está en tu equipo.' }, { status: 404 });
+  }
+  // Un manager invita a su equipo, no a la propietaria ni a otro manager: dar
+  // acceso a una cuenta con más permisos que los tuyos es escalada por la puerta
+  // de atrás. Este endpoint usa service-role y se salta la RLS, así que la regla
+  // se aplica aquí a mano.
+  if (sesion.rol !== 'PROPIETARIO'
+      && !rolesQuePuedeAsignar(sesion.rol).includes(instructor.rol as never)) {
+    return NextResponse.json(
+      { error: 'No puedes invitar a esta persona. Pídeselo a la propietaria.' },
+      { status: 403 },
+    );
   }
   if (!instructor.email) {
     return NextResponse.json(

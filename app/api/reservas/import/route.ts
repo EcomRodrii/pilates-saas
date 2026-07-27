@@ -6,6 +6,7 @@ import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid } from '@/lib/utils';
 import type { FilaReserva } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
+import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   const sesionStaff = await verificarSesionStaff(req);
   if (!sesionStaff) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesionStaff.rol !== 'PROPIETARIO' && sesionStaff.rol !== 'RECEPCION') {
+  if (!puedeGestionarClientas(sesionStaff.rol)) {
     return NextResponse.json({ error: 'No tienes permiso para importar reservas' }, { status: 403 });
   }
 

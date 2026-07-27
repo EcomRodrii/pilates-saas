@@ -5,7 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 export interface SesionStaff {
   userId: string;
   studioId: string;
-  rol: 'PROPIETARIO' | 'RECEPCION' | 'INSTRUCTOR';
+  rol: 'PROPIETARIO' | 'RECEPCION' | 'INSTRUCTOR' | 'MANAGER';
   // Nombre para mostrar (instructora → su nombre; propietaria → nombre del estudio).
   nombre: string;
 }

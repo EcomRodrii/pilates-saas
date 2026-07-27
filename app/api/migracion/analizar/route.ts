@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { analizarArchivos, type ArchivoEntrada } from '@/lib/migracion/analizador';
+import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 
 // Migración Mágica · analizar: recibe los archivos tal cual los exportó la
 // propietaria de su software anterior y devuelve el PLAN (entidad detectada,
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol !== 'PROPIETARIO' && sesion.rol !== 'RECEPCION') {
+  if (!puedeGestionarClientas(sesion.rol)) {
     return NextResponse.json({ error: 'Sin permiso para importar datos' }, { status: 403 });
   }
 

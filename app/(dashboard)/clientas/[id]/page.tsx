@@ -7,7 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
 import { authHeader, enviarEmailCampana } from '@/lib/api-client';
-import { useRol, puedeVerFichaClinica, puedeMoverDinero } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
@@ -201,7 +201,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // desde la 0107 la base de datos rechaza. Enseñar un botón que no funciona es
   // peor que no enseñarlo.
   const puedeCobrar = puedeMoverDinero(rol);
-  const verFinanzas = rol !== 'INSTRUCTOR';
+  // Antes era `rol !== 'INSTRUCTOR'`, escrito a mano. Con un rol nuevo esa forma
+  // se equivoca sola: el manager habría heredado la vista de facturación sin que
+  // nadie lo decidiera. Ahora lo dice una regla con nombre.
+  const verFinanzas = puedeVerFinanzas(rol);
   const verFichaClinica = puedeVerFichaClinica(rol);
 
   const {

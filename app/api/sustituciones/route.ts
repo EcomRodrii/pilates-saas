@@ -12,6 +12,7 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import {
   puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
 } from '@/lib/sustituciones/recalculo';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 
 // Emite el evento de escalado. Best-effort: si el bus de Inngest falla, el contacto
 // ya se hizo (email enviado) — el escalado es una capa de resiliencia encima, no
@@ -136,7 +137,7 @@ export async function PATCH(req: NextRequest) {
   // vacaciones son del plan Estudio+ — mismo gate que anuncia la página de
   // precios ("sustituciones asistidas" en Base, "autónomas" en Estudio).
   if (body?.action === 'config_modo') {
-    if (sesion.rol !== 'PROPIETARIO') return NextResponse.json({ error: 'Solo la propietaria' }, { status: 403 });
+    if (!puedeGestionarEquipo(sesion.rol)) return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
     const modo = typeof body?.modo === 'string' ? body.modo : '';
     if (!['manual', 'asistido', 'autonomo', 'vacaciones'].includes(modo)) {
       return NextResponse.json({ error: 'Modo no válido' }, { status: 400 });
@@ -156,7 +157,7 @@ export async function PATCH(req: NextRequest) {
   // Toggle de "avisar a alumnas" (ajuste del estudio, no necesita sustitución).
   if (body?.action === 'config_avisar') {
     if (typeof body?.avisar !== 'boolean') return NextResponse.json({ error: 'Falta el valor' }, { status: 400 });
-    if (sesion.rol !== 'PROPIETARIO') return NextResponse.json({ error: 'Solo la propietaria' }, { status: 403 });
+    if (!puedeGestionarEquipo(sesion.rol)) return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
     const { error } = await admin.from('studios').update({ avisar_alumnas: body.avisar }).eq('id', sesion.studioId);
     if (error) return errorInterno('sustituciones:config_avisar', error,
       'No se ha podido guardar el ajuste de avisos. Vuelve a intentarlo.');
