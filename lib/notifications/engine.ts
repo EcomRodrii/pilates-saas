@@ -20,36 +20,41 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { REGLAS } from './catalog.ts';
-import { crearInApp } from './inapp.ts';
+import { crearInApp, type NotificacionCreada } from './inapp.ts';
 import type { NotificationEvent } from './types.ts';
 
 // Publica un evento. Nunca propaga errores: una notificación no puede tumbar una
 // reserva ni un cobro.
-export async function publish(event: NotificationEvent): Promise<void> {
+//
+// Devuelve QUÉ se creó realmente (lista vacía si no se creó nada). Casi todas las
+// llamadas lo ignoran —son fuego y olvido—, pero cuando la dueña pulsa "Sí,
+// avisar" hay que poder decirle a cuántas personas ha avisado de verdad en vez de
+// dar por hecho que fueron las que el panel creía ver.
+export async function publish(event: NotificationEvent): Promise<NotificacionCreada[]> {
   if (!REGLAS[event.type]) {
     console.warn('[notifications] evento sin regla, ignorado:', event.type);
-    return;
+    return [];
   }
 
   // 1) In-app SÍNCRONO (garantizado).
-  let paraEntregar: string[] = [];
+  let creadas: NotificacionCreada[] = [];
   try {
     const admin = getSupabaseAdmin();
     if (!admin) {
       console.error('[notifications] sin service-role: no se puede crear la notificación');
-      return;
+      return [];
     }
-    const { creadas } = await crearInApp(admin, event);
-    paraEntregar = creadas.filter(c => c.canalesExtra.length > 0).map(c => c.id);
+    ({ creadas } = await crearInApp(admin, event));
   } catch (e) {
     console.error('[notifications] crear in-app falló:', e instanceof Error ? e.message : e);
-    return;
+    return [];
   }
 
   // 2) Canales externos (best-effort). Sin nada que entregar no se llama: la
   //    mayoría de eventos son solo in-app.
-  if (paraEntregar.length === 0) return;
-  await entregarExternos(paraEntregar);
+  const paraEntregar = creadas.filter(c => c.canalesExtra.length > 0).map(c => c.id);
+  if (paraEntregar.length > 0) await entregarExternos(paraEntregar);
+  return creadas;
 }
 
 // Salto HTTP interno a la ruta que sí puede cargar web-push. Con timeout, para

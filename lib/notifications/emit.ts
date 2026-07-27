@@ -176,15 +176,18 @@ export async function emitirClaseCancelada(
 // Clase modificada (cambio de horario/sala) → socias apuntadas. Recibe los datos
 // de display YA formateados desde el cliente (con los valores NUEVOS), para no
 // depender de que la escritura optimista haya llegado a la BD al leer la sesión.
+// Devuelve a cuántas SOCIAS se ha avisado de verdad (la instructora entrante
+// también recibe aviso, pero no cuenta: quien pregunta es la dueña y lo que
+// quiere saber es cuántas alumnas se han enterado).
 export async function emitirClaseModificada(
   admin: SupabaseClient, p: { studioId: string; sesionId: string; clase: string; cuando: string; sala: string; instructora?: string },
-): Promise<void> {
+): Promise<number> {
   try {
     const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
     // La socia ve la nueva instructora en el cuerpo ({sala}{instructora}); vacío
     // si no cambió. Con separador para no pegarla a la sala.
     const instructoraTxt = p.instructora ? ` · con ${p.instructora}` : '';
-    await publish({
+    const creadas = await publish({
       type: EVENTOS.CLASE_MODIFICADA, studioId: p.studioId,
       data: { clase: p.clase, cuando: p.cuando, sala: p.sala, sesionId: p.sesionId, instructora: instructoraTxt, slug: (studio?.slug as string | null) ?? '' },
       resource: { type: 'sesion', id: p.sesionId },
@@ -192,8 +195,10 @@ export async function emitirClaseModificada(
       // sin esto el aviso se descartaría como duplicado del cambio anterior.
       dedupKey: `clase-modificada:${p.sesionId}:${p.cuando}:${p.sala}:${p.instructora ?? ''}`,
     });
+    return creadas.filter(c => c.destinatario.role === 'SOCIA').length;
   } catch (e) {
     console.error('[notifications] emitirClaseModificada:', e instanceof Error ? e.message : e);
+    return 0;
   }
 }
 

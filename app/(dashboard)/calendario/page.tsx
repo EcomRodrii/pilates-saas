@@ -1748,6 +1748,15 @@ export default function Calendario() {
     setShowForm(null);
   }
 
+  // Cuántas alumnas se enterarían de un cambio en esta sesión. SOLO CONFIRMADA,
+  // porque es exactamente a quien avisa el servidor (ver `sociasDeSesion` en
+  // lib/notifications/recipients.ts). Contando también las ASISTIDA —una clase
+  // que ya se dio— el panel ofrecía "¿aviso a la alumna?" y luego no se avisaba
+  // a nadie, que fue justo lo que pasó en la prueba de producción.
+  function cuantasApuntadas(id: string): number {
+    return reservas.filter(r => r.sesionId === id && r.estado === 'CONFIRMADA').length;
+  }
+
   async function editarSesion() {
     if (!sesionId || horaInvalida) return;
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
@@ -1774,9 +1783,7 @@ export default function Calendario() {
     // Si la BD rechazó el cambio (p.ej. solape de sala/instructora), NO avisamos
     // de un movimiento que no ocurrió ni cerramos el formulario: se ve el motivo.
     if (!guardado.ok) { setToast(guardado.error); return; }
-    const apuntadas = reservas.filter(
-      r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
-    ).length;
+    const apuntadas = cuantasApuntadas(sesionId);
 
     if (sesionActual && (cambioHora || cambioSala || cambioInstructora)) {
       const d = new Date(nuevoInicio);
@@ -1830,9 +1837,7 @@ export default function Calendario() {
     // Laura" no siempre merece un mensaje). Se pregunta antes de cerrar el
     // diálogo de cobertura para que el segundo no se monte sobre uno que se está
     // desmontando.
-    const apuntadas = reservas.filter(
-      r => r.sesionId === sesionActual.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
-    ).length;
+    const apuntadas = cuantasApuntadas(sesionActual.id);
     if (apuntadas > 0) {
       setAvisoInstructora({
         sesionId: sesionActual.id,
@@ -2616,11 +2621,20 @@ export default function Calendario() {
             <button
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
               onClick={() => {
-                if (avisoInstructora) {
-                  void avisarClaseModificada(avisoInstructora.sesionId, avisoInstructora.datos);
-                  setToast(`Avisadas ${avisoInstructora.apuntadas} alumna${avisoInstructora.apuntadas !== 1 ? 's' : ''}`);
-                }
+                const aviso = avisoInstructora;
                 setAvisoInstructora(null);
+                if (!aviso) return;
+                setToast('Avisando…');
+                // El número lo dice el SERVIDOR, que es quien resuelve las
+                // destinatarias contra la BD. Antes se cantaba el recuento del
+                // panel sin esperar respuesta: si no salía ninguna notificación
+                // (fallo de red, o ninguna reserva viva) igual ponía "Avisadas 1
+                // alumna". Un mensaje que se sabe falso es peor que ninguno.
+                void avisarClaseModificada(aviso.sesionId, aviso.datos).then(n => {
+                  if (n === null) setToast('No se ha podido avisar. Inténtalo otra vez.');
+                  else if (n === 0) setToast('No había ninguna alumna a la que avisar');
+                  else setToast(`Avisada${n !== 1 ? 's' : ''} ${n} alumna${n !== 1 ? 's' : ''}`);
+                });
               }}
             >
               Sí, avisar
