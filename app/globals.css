@@ -138,10 +138,10 @@
      luminosidad: como relleno de botón es perfecto, pero a tamaño pequeño
      —una línea de gráfica, un icono, un enlace, el aro de foco— no se lee como
      color, se lee como negro, y la interfaz se queda apagada. Este sí tiene
-     cuerpo (4,90:1 sobre el fondo del panel) sin salirse de la familia.
+     cuerpo (5,69:1 sobre el fondo del panel) sin salirse de la familia.
      NO sustituye a --brand en botones ni rellenos: solo donde el oliva se
      comportaría como un neutro. */
-  --brand-medio: #5F6C33;
+  --brand-medio: #55622C;
   /* Delimita el botón cuando el fondo es oscuro y el oliva no se despega de él
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
      transparente: ahí el propio oliva ya contrasta 10,4:1 con el fondo. */
