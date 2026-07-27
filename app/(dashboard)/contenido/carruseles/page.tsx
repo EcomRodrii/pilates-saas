@@ -114,7 +114,7 @@ export default function CarruselesPage() {
           {/* Preview + navegación */}
           <div className="space-y-3">
             {demo && (
-              <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
+              <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[12px] text-warning dark:text-amber-400">
                 <Info className="w-4 h-4 shrink-0" /> Modo demo: carrusel generado con plantilla local. Edita cada diapositiva libremente.
               </div>
             )}
@@ -164,7 +164,7 @@ export default function CarruselesPage() {
             <div className="bg-card border border-border rounded-3xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-foreground">Diapositiva {idx + 1}</h3>
-                <button onClick={() => removeSlide(idx)} disabled={b.slides.length <= 1} className="inline-flex items-center gap-1 text-[12px] font-semibold text-muted-foreground hover:text-rose-600 disabled:opacity-30 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Quitar</button>
+                <button onClick={() => removeSlide(idx)} disabled={b.slides.length <= 1} className="inline-flex items-center gap-1 text-[12px] font-semibold text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Quitar</button>
               </div>
               <div className="space-y-1.5">
                 <label htmlFor={`${uid}-4`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Título</label>
@@ -216,7 +216,7 @@ export default function CarruselesPage() {
                     <span className="text-[11px] text-muted-foreground">{fmtFecha(c.updatedAt)}</span>
                     <div className="flex items-center gap-0.5">
                       <button title="Duplicar" onClick={() => duplicarCarrusel(c.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><Copy className="w-3.5 h-3.5" /></button>
-                      <button title="Eliminar" onClick={() => eliminarCarrusel(c.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button title="Eliminar" onClick={() => eliminarCarrusel(c.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
                 </div>

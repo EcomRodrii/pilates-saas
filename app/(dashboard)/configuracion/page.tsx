@@ -195,7 +195,7 @@ export function ConfirmDialog({
 export function TipoPlanBadge({ tipo }: { tipo: PlanTarifa['tipo'] }) {
   const map: Record<string, string> = {
     MENSUAL: 'bg-accent text-accent-foreground',
-    BONO: 'bg-blue-50 text-blue-700',
+    BONO: 'bg-info/10 text-info',
     PUNTUAL: 'bg-background text-muted-foreground',
   };
   return (
@@ -208,9 +208,9 @@ export function TipoPlanBadge({ tipo }: { tipo: PlanTarifa['tipo'] }) {
 export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
   const map: Record<string, string> = {
     TODOS: 'bg-background text-muted-foreground',
-    PRINCIPIANTE: 'bg-green-50 text-green-700',
-    MEDIO: 'bg-amber-50 text-amber-700',
-    AVANZADO: 'bg-red-50 text-red-600',
+    PRINCIPIANTE: 'bg-success/10 text-success',
+    MEDIO: 'bg-warning/10 text-warning',
+    AVANZADO: 'bg-destructive/10 text-destructive',
   };
   const labels: Record<string, string> = {
     TODOS: 'Todos',

@@ -258,7 +258,7 @@ export default function CierreDeAnoPage() {
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="text-xs font-medium text-muted-foreground">Facturas emitidas</div>
           <div className="text-2xl font-extrabold tracking-tight mt-2 tabular-nums">{cierre.totales.numFacturas}</div>
-          <div className="text-xs mt-1 inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+          <div className="text-xs mt-1 inline-flex items-center gap-1 text-success dark:text-emerald-400 font-semibold">
             <ShieldCheck className="size-3.5" /> {cierre.sellado.selladas}/{cierre.sellado.totalFacturas} selladas
           </div>
         </div>
@@ -333,7 +333,7 @@ export default function CierreDeAnoPage() {
         <section className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3">
           <h2 className="text-base font-bold m-0">Sellado fiscal</h2>
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl grid place-items-center shrink-0 bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+            <div className="size-10 rounded-xl grid place-items-center shrink-0 bg-success/10 text-success dark:bg-emerald-950 dark:text-emerald-400">
               <ShieldCheck className="size-5" />
             </div>
             <div>
@@ -539,7 +539,7 @@ export default function CierreDeAnoPage() {
 
           {envResult?.ok ? (
             <div className="flex items-center gap-2.5 rounded-xl border border-border bg-accent px-4 py-3 text-sm">
-              <span className="size-7 rounded-full grid place-items-center shrink-0 bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400"><Check className="size-4" /></span>
+              <span className="size-7 rounded-full grid place-items-center shrink-0 bg-success/10 text-success dark:bg-emerald-950 dark:text-emerald-400"><Check className="size-4" /></span>
               <span>{envResult.msg}</span>
             </div>
           ) : (

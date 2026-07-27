@@ -227,7 +227,7 @@ function CondicionCard({ c, now, onEdit, onAlta, onDelete }: {
           )}
           {c.notas && <p className="text-xs text-muted-foreground mt-2 italic">{c.notas}</p>}
           {activa && c.revisarEn && (
-            <p className={cn('text-[11px] mt-2 flex items-center gap-1', vencida ? 'text-red-600 font-semibold' : 'text-muted-foreground')}>
+            <p className={cn('text-[11px] mt-2 flex items-center gap-1', vencida ? 'text-destructive font-semibold' : 'text-muted-foreground')}>
               <CalendarClock size={12} />
               {vencida ? `Revisión vencida hace ${diasDesde(c.revisarEn, now)} días` : `Revisar el ${fechaCorta(c.revisarEn)}`}
             </p>
@@ -235,10 +235,10 @@ function CondicionCard({ c, now, onEdit, onAlta, onDelete }: {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {activa && (
-            <button onClick={onAlta} title="Dar de alta / resolver" className="p-1.5 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-muted"><CheckCircle2 size={15} /></button>
+            <button onClick={onAlta} title="Dar de alta / resolver" className="p-1.5 rounded-lg text-muted-foreground hover:text-success hover:bg-muted"><CheckCircle2 size={15} /></button>
           )}
           <button onClick={onEdit} title="Editar" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"><Pencil size={14} /></button>
-          <button onClick={onDelete} title="Eliminar" className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-muted"><Trash2 size={14} /></button>
+          <button onClick={onDelete} title="Eliminar" className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted"><Trash2 size={14} /></button>
         </div>
       </div>
     </div>

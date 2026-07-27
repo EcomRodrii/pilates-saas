@@ -81,7 +81,7 @@ function Tabla({ titulo, filas, pie, apagado }: {
               <span className="block text-[13.5px] font-semibold text-foreground truncate">{f.nombre}</span>
               <span className="block text-[11.5px] text-muted-foreground truncate">
                 /{f.slug} · {f.plan}
-                {f.tieneClienteStripe && <span className="text-emerald-600 font-semibold"> · Stripe</span>}
+                {f.tieneClienteStripe && <span className="text-success font-semibold"> · Stripe</span>}
               </span>
             </span>
             <span className="text-[13px] tabular-nums text-right text-foreground">{f.socias}</span>

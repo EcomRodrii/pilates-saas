@@ -126,7 +126,7 @@ export function CodigosDescuento() {
                 onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
               />
             </div>
-            {errorAlta && <p className="text-[12px] text-rose-600">{errorAlta}</p>}
+            {errorAlta && <p className="text-[12px] text-destructive">{errorAlta}</p>}
             <div className="flex justify-end">
               <button
                 onClick={crear}

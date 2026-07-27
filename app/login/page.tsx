@@ -128,7 +128,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p className="text-[13px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
             )}
             {info && (
               <p className="text-[13px] rounded-lg px-3 py-2" style={{ color: '#22251A', background: '#F1F2EA' }}>{info}</p>

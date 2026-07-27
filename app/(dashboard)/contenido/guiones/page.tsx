@@ -83,7 +83,7 @@ export default function GuionesPage() {
       {borrador && (
         <section className="bg-card border border-border rounded-3xl p-5 space-y-4 contenido-anim">
           {demo && (
-            <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-400">
+            <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[12px] text-warning dark:text-amber-400">
               <Info className="w-4 h-4 shrink-0" /> Modo demo: guion generado con plantilla local (IA no disponible en este entorno). Es totalmente editable.
             </div>
           )}
@@ -168,7 +168,7 @@ function CampoEdit({ label, value, onChange, textarea, rows = 2, className }: {
 
 function IconBtn({ title, onClick, icon: Icon, danger }: { title: string; onClick: () => void; icon: React.ElementType; danger?: boolean }) {
   return (
-    <button title={title} onClick={onClick} className={cn('w-8 h-8 rounded-full flex items-center justify-center transition-colors', danger ? 'text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10' : 'text-muted-foreground hover:text-foreground hover:bg-muted')}>
+    <button title={title} onClick={onClick} className={cn('w-8 h-8 rounded-full flex items-center justify-center transition-colors', danger ? 'text-muted-foreground hover:text-destructive hover:bg-rose-500/10' : 'text-muted-foreground hover:text-foreground hover:bg-muted')}>
       <Icon className="w-4 h-4" />
     </button>
   );

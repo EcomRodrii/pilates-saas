@@ -144,7 +144,7 @@ export function PublicacionDialog({
 
         <div className="flex items-center justify-between gap-2 pt-2">
           {editando ? (
-            <button onClick={borrar} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-500/10 transition-colors">
+            <button onClick={borrar} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-sm font-semibold text-destructive hover:bg-rose-500/10 transition-colors">
               <Trash2 className="w-4 h-4" /> Eliminar
             </button>
           ) : <span />}

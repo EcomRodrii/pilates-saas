@@ -25,12 +25,12 @@ interface AdminItem {
 
 const ROL_ETIQUETA: Record<string, string> = { PROPIETARIO: 'Propietaria', INSTRUCTOR: 'Instructora', SOCIA: 'Socia' };
 const PRIO_COLOR: Record<string, string> = {
-  CRITICA: 'text-red-600 bg-red-500/10', ALTA: 'text-amber-600 bg-amber-500/10',
+  CRITICA: 'text-destructive bg-red-500/10', ALTA: 'text-warning bg-amber-500/10',
   MEDIA: 'text-brand bg-brand/10', BAJA: 'text-muted-foreground bg-muted', SILENCIOSA: 'text-muted-foreground bg-muted',
 };
 const ESTADO_COLOR: Record<string, string> = {
-  SENT: 'text-emerald-600', DELIVERED: 'text-emerald-600', PENDING: 'text-muted-foreground',
-  SKIPPED: 'text-muted-foreground/70', FAILED: 'text-red-600',
+  SENT: 'text-success', DELIVERED: 'text-success', PENDING: 'text-muted-foreground',
+  SKIPPED: 'text-muted-foreground/70', FAILED: 'text-destructive',
 };
 
 function fecha(iso: string) {
@@ -98,7 +98,7 @@ export default function NotificationCenterPage() {
                           <span key={i} className="whitespace-nowrap text-[12px]">
                             <span className="text-muted-foreground">{d.channel}</span>{' '}
                             <span className={`font-semibold ${ESTADO_COLOR[d.status] ?? ''}`}>{d.status}</span>
-                            {d.error && <span className="text-red-500/70 text-[11px]"> · {d.error}</span>}
+                            {d.error && <span className="text-destructive/70 text-[11px]"> · {d.error}</span>}
                           </span>
                         ))}
                       </div>

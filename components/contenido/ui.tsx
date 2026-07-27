@@ -78,8 +78,8 @@ export function DeltaPill({ pct, className }: { pct: number; className?: string 
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums',
-        up && 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400',
-        down && 'bg-rose-500/12 text-rose-600 dark:text-rose-400',
+        up && 'bg-emerald-500/12 text-success dark:text-emerald-400',
+        down && 'bg-rose-500/12 text-destructive dark:text-rose-400',
         !up && !down && 'bg-muted text-muted-foreground',
         className,
       )}

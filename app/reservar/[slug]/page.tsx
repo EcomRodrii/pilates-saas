@@ -44,7 +44,7 @@ const NIVEL_COLOR: Record<string, { bg: string; text: string }> = {
   PRINCIPIANTE: { bg: '#D1FAE5', text: '#065F46' },
   MEDIO: { bg: '#FEF3C7', text: '#92400E' },
   AVANZADO: { bg: '#FEE2E2', text: '#B91C1C' },
-  TODOS: { bg: '#FFF2F7', text: '#1D4ED8' },
+  TODOS: { bg: '#FFF2F7', text: '#3F5A7A' },
 };
 
 // ─── Calendar helpers ─────────────────────────────────────────────────────────
@@ -793,7 +793,7 @@ export default function ReservarPage() {
                               const pierdeBono = tardia && !(studio?.cancelacionDevolverBonoTardia ?? false);
                               setCancelConfirm({ reservaId: r.id, pierdeBono, ventana });
                             }}
-                              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-500 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
+                              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-destructive bg-destructive/10 hover:bg-destructive/10 border border-destructive/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
                               <X size={12} /> Cancelar plaza
                             </button>
                           </div>
@@ -833,7 +833,7 @@ export default function ReservarPage() {
                 <h3 className="text-[#1A1A1A] font-bold text-base">Nuestros planes</h3>
               </div>
               {stripeError && (
-                <div className="mb-3 px-4 py-3 rounded-xl text-sm text-rose-600 bg-rose-50 border border-rose-200">
+                <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">
                   {stripeError}
                 </div>
               )}
@@ -959,7 +959,7 @@ export default function ReservarPage() {
             {loginStep === 'done' && bookingSesion && (
               <div className="flex flex-col items-center text-center gap-4">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#D1FAE5' }}>
-                  <CheckCircle2 size={30} style={{ color: '#059669' }} />
+                  <CheckCircle2 size={30} style={{ color: '#2F6B4F' }} />
                 </div>
                 <div>
                   <p className="text-[#1A1A1A] font-extrabold text-xl">¡Reserva confirmada!</p>
@@ -1003,7 +1003,7 @@ export default function ReservarPage() {
             {loginStep === 'espera' && (
               <div className="flex flex-col items-center text-center py-4 gap-4">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
-                  <CheckCircle2 size={30} style={{ color: '#D97706' }} />
+                  <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
                 </div>
                 <div>
                   <p className="text-[#1A1A1A] font-extrabold text-xl">¡En lista de espera!</p>
@@ -1034,7 +1034,7 @@ export default function ReservarPage() {
                       autoFocus
                       className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#767670] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors mb-3"
                       style={{ backgroundColor: '#F5F5F1' }} />
-                    {loginError && <p className="text-rose-600 text-sm mb-3">{loginError}</p>}
+                    {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                     <button onClick={handleEnviarEnlace} disabled={!loginForm.email}
                       className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                       style={{ backgroundColor: PRIMARY }}>
@@ -1133,7 +1133,7 @@ export default function ReservarPage() {
                   <p className="text-[#8E8E86] text-sm">{fmtLong(new Date(bookingSesion.inicio))}</p>
                   <p className="text-[#8E8E86] text-sm">{fmtTime(bookingSesion.inicio)} · {bookingSesion.instructor?.nombre}</p>
                   {bookingSesion.ocupadas >= bookingSesion.aforoMaximo && (
-                    <p className="text-amber-600 text-xs font-medium mt-2">
+                    <p className="text-warning text-xs font-medium mt-2">
                       Clase llena — te apuntaremos en lista de espera
                     </p>
                   )}
@@ -1182,7 +1182,7 @@ export default function ReservarPage() {
                   </p>
                 </div>
                 {gateError && (
-                  <div className="mb-3 px-4 py-3 rounded-xl text-sm text-rose-600 bg-rose-50 border border-rose-200">
+                  <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">
                     {gateError}
                   </div>
                 )}

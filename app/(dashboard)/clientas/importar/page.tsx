@@ -189,7 +189,7 @@ export default function ImportarSociasPage() {
           </div>
 
           {errorCarga && (
-            <div className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #b3261e)' }}>
+            <div className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #8E3722)' }}>
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
               <span>{errorCarga}</span>
             </div>
@@ -252,7 +252,7 @@ export default function ImportarSociasPage() {
               ))}
             </div>
             {!obligatoriosMapeados && (
-              <p className="text-[12px] mt-4 flex items-center gap-1.5" style={{ color: 'var(--destructive, #b3261e)' }}>
+              <p className="text-[12px] mt-4 flex items-center gap-1.5" style={{ color: 'var(--destructive, #8E3722)' }}>
                 <AlertTriangle size={13} /> Asigna al menos <strong>Nombre</strong> y <strong>Email</strong> para continuar.
               </p>
             )}
@@ -260,9 +260,9 @@ export default function ImportarSociasPage() {
 
           {/* Resumen de validación */}
           <div className="grid grid-cols-3 gap-3">
-            <Contador color="#16a34a" valor={conteo.ok} label="Listos para importar" Icon={Check} />
-            <Contador color="#d97706" valor={conteo.dup} label="Duplicados (se omiten)" Icon={Copy} />
-            <Contador color="#dc2626" valor={conteo.err} label="Con errores (se omiten)" Icon={AlertTriangle} />
+            <Contador color="#35785A" valor={conteo.ok} label="Listos para importar" Icon={Check} />
+            <Contador color="#8F6215" valor={conteo.dup} label="Duplicados (se omiten)" Icon={Copy} />
+            <Contador color="#A8442A" valor={conteo.err} label="Con errores (se omiten)" Icon={AlertTriangle} />
           </div>
 
           {/* Previsualización */}
@@ -318,7 +318,7 @@ export default function ImportarSociasPage() {
           {resultado.error ? (
             <div className="bg-card border border-border rounded-2xl p-6 text-center">
               <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 12%, transparent)' }}>
-                <AlertTriangle size={22} style={{ color: 'var(--destructive, #b3261e)' }} />
+                <AlertTriangle size={22} style={{ color: 'var(--destructive, #8E3722)' }} />
               </div>
               <p className="text-[15px] font-semibold text-foreground">La importación falló</p>
               <p className="text-[13px] text-muted-foreground mt-1">{resultado.error}</p>
@@ -398,9 +398,9 @@ function Contador({ color, valor, label, Icon }: { color: string; valor: number;
 
 function EstadoBadge({ estado, motivo }: { estado: 'ok' | 'error' | 'duplicada'; motivo?: string }) {
   const cfg = {
-    ok: { color: '#16a34a', texto: 'Listo', Icon: Check },
-    duplicada: { color: '#d97706', texto: 'Duplicado', Icon: Copy },
-    error: { color: '#dc2626', texto: motivo ?? 'Error', Icon: AlertTriangle },
+    ok: { color: '#35785A', texto: 'Listo', Icon: Check },
+    duplicada: { color: '#8F6215', texto: 'Duplicado', Icon: Copy },
+    error: { color: '#A8442A', texto: motivo ?? 'Error', Icon: AlertTriangle },
   }[estado];
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md whitespace-nowrap" style={{ backgroundColor: cfg.color + '1A', color: cfg.color }} title={motivo}>

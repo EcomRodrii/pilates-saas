@@ -25,7 +25,7 @@ export function ImpagoEmail({
   colorPrimario,
   definitivo,
 }: Props) {
-  const acento = definitivo ? '#B91C1C' : '#D97706';
+  const acento = definitivo ? '#B91C1C' : '#8F6215';
   const titulo = definitivo ? 'No hemos podido cobrar tu cuota' : 'Problema con tu pago';
   const cuerpo = definitivo
     ? 'Hemos intentado cobrar tu cuota varias veces y no ha sido posible. Ponte en contacto con el estudio para regularizar el pago y no perder tu plaza.'

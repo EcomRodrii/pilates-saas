@@ -263,13 +263,13 @@ export default function PortalHome() {
                 <span style={{ fontSize: 16, fontWeight: 800, color: t.ink }}>{plan.nombre}</span>
               </div>
               <div style={{ width: 42, height: 42, borderRadius: 12, background: bonoCaducado ? 'rgba(239,68,68,0.12)' : t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CreditCard size={18} style={{ color: bonoCaducado ? '#EF4444' : t.heroAccent }} />
+                <CreditCard size={18} style={{ color: bonoCaducado ? '#B85436' : t.heroAccent }} />
               </div>
             </div>
             {bonoCaducado ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(239,68,68,0.1)', borderRadius: 14, padding: '12px 14px' }}>
-                <AlertCircle size={16} style={{ color: '#EF4444', flexShrink: 0 }} />
-                <p style={{ fontSize: 12.5, fontWeight: 700, color: '#EF4444', lineHeight: 1.2 }}>Caducado el {new Date(activeSus.fechaFin!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} · renueva con tu instructor</p>
+                <AlertCircle size={16} style={{ color: '#B85436', flexShrink: 0 }} />
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: '#B85436', lineHeight: 1.2 }}>Caducado el {new Date(activeSus.fechaFin!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} · renueva con tu instructor</p>
               </div>
             ) : activeSus.sesionesRestantes != null && plan.sesiones != null ? (
               <>
@@ -278,7 +278,7 @@ export default function PortalHome() {
                   <span style={{ fontSize: 12, color: t.muted }}>sesiones restantes</span>
                 </div>
                 <div style={{ height: 8, background: t.bar, borderRadius: 999, overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min(100, Math.round((activeSus.sesionesRestantes / plan.sesiones) * 100))}%`, height: '100%', borderRadius: 999, background: activeSus.sesionesRestantes > 3 ? 'var(--portal-brand)' : '#EF4444' }} />
+                  <div style={{ width: `${Math.min(100, Math.round((activeSus.sesionesRestantes / plan.sesiones) * 100))}%`, height: '100%', borderRadius: 999, background: activeSus.sesionesRestantes > 3 ? 'var(--portal-brand)' : '#B85436' }} />
                 </div>
               </>
             ) : (

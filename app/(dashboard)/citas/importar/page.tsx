@@ -157,7 +157,7 @@ export default function ImportarCitasPage() {
           </div>
 
           {errorCarga && (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
+            <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
               <AlertTriangle size={15} className="shrink-0" />{errorCarga}
             </div>
           )}
@@ -200,7 +200,7 @@ export default function ImportarCitasPage() {
               {CAMPOS_CITA.map(c => (
                 <label key={c.campo} className="flex items-center justify-between gap-3">
                   <span className="text-[13px] text-foreground">
-                    {c.etiqueta}{c.obligatorio && <span className="text-rose-500"> *</span>}
+                    {c.etiqueta}{c.obligatorio && <span className="text-destructive"> *</span>}
                   </span>
                   <select className={`${inputCls} w-44`} value={mapeo[c.campo]}
                     onChange={e => setMapeo(m => ({ ...m, [c.campo]: Number(e.target.value) }))}>
@@ -211,7 +211,7 @@ export default function ImportarCitasPage() {
               ))}
             </div>
             {!obligatoriosMapeados && (
-              <p className="mt-3 text-[12px] text-rose-600">
+              <p className="mt-3 text-[12px] text-destructive">
                 Empareja <strong>email</strong>, <strong>fecha</strong> y <strong>hora</strong>.
               </p>
             )}
@@ -222,7 +222,7 @@ export default function ImportarCitasPage() {
               {conteo.ok} filas correctas
             </span>
             {conteo.err > 0 && (
-              <span className="rounded-xl bg-[#FEE2E2] px-3 py-1.5 text-[12.5px] font-semibold text-[#991B1B]">
+              <span className="rounded-xl bg-[#FEE2E2] px-3 py-1.5 text-[12.5px] font-semibold text-[#7A2F1D]">
                 {conteo.err} con problemas (se omiten)
               </span>
             )}
@@ -266,13 +266,13 @@ export default function ImportarCitasPage() {
       {paso === 3 && resultado && (
         <div className="flex flex-col gap-4">
           {resultado.error ? (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
+            <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
               <AlertTriangle size={15} className="shrink-0" />{resultado.error}
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card py-10 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#D1FAE5]">
-                <PartyPopper size={26} className="text-[#059669]" />
+                <PartyPopper size={26} className="text-[#2F6B4F]" />
               </div>
               <p className="text-[18px] font-bold text-foreground">Citas importadas</p>
               <p className="text-[13px] text-muted-foreground">{resultado.importadas} citas creadas</p>

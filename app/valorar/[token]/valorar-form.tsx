@@ -77,7 +77,7 @@ export function ValorarForm({
                 onClick={() => setPuntuacion(n)} onMouseEnter={() => setHover(n)}
                 className="p-1 transition active:scale-95"
               >
-                <svg width="36" height="36" viewBox="0 0 24 24" fill={n <= nivel ? '#F5B301' : 'none'} stroke={n <= nivel ? '#F5B301' : '#CBD5E1'} strokeWidth="1.6" strokeLinejoin="round">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill={n <= nivel ? '#D9C29E' : 'none'} stroke={n <= nivel ? '#D9C29E' : '#CBD5E1'} strokeWidth="1.6" strokeLinejoin="round">
                   <path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z" />
                 </svg>
               </button>
@@ -99,7 +99,7 @@ export function ValorarForm({
         >
           {estado === 'enviando' ? 'Enviando…' : 'Enviar valoración'}
         </button>
-        {estado === 'error' && <p className="mt-3 text-center text-sm text-rose-600">No se pudo enviar. Inténtalo otra vez.</p>}
+        {estado === 'error' && <p className="mt-3 text-center text-sm text-destructive">No se pudo enviar. Inténtalo otra vez.</p>}
       </div>
     </main>
   );

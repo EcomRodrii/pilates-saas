@@ -78,7 +78,7 @@ export function AceptarForm({
         >
           No puedo esta vez
         </button>
-        {estado === 'error' && <p className="mt-3 text-center text-sm text-rose-600">No se pudo enviar. Inténtalo otra vez.</p>}
+        {estado === 'error' && <p className="mt-3 text-center text-sm text-destructive">No se pudo enviar. Inténtalo otra vez.</p>}
       </div>
     </main>
   );

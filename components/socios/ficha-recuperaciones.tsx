@@ -86,7 +86,7 @@ export function FichaRecuperaciones({ socioId }: { socioId: string }) {
                   <p className="text-xs text-muted-foreground mt-0.5">{r.motivo || 'Sin motivo'} · concedida {fechaCorta(r.creadaEn)}</p>
                 </div>
                 {st.viva && (
-                  <button onClick={() => anularRecuperacion(r.id)} title="Anular recuperación" className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-muted shrink-0">
+                  <button onClick={() => anularRecuperacion(r.id)} title="Anular recuperación" className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted shrink-0">
                     <X size={14} />
                   </button>
                 )}
@@ -105,7 +105,7 @@ export function FichaRecuperaciones({ socioId }: { socioId: string }) {
               <label htmlFor="recup-motivo" className={labelCls}>Motivo (opcional)</label>
               <input id="recup-motivo" className={inputCls} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ej: avisó que el martes no podía" />
             </div>
-            {aviso && <p className="text-xs font-medium text-amber-600">{aviso}</p>}
+            {aviso && <p className="text-xs font-medium text-warning">{aviso}</p>}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setDialogOpen(false)} className="text-xs font-semibold px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground">Cancelar</button>

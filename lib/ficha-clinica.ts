@@ -82,21 +82,21 @@ export function restriccionesDeZona(zona: ZonaCorporal): RestriccionDef[] {
 // ─── Metadatos de presentación compartidos ───────────────────────────────────
 
 export const SEMAFORO_META: Record<NivelSemaforo, { emoji: string; label: string; color: string }> = {
-  VERDE: { emoji: '🟢', label: 'Sin restricciones', color: '#059669' },
-  AMBAR: { emoji: '🟡', label: 'Adaptar ejercicios', color: '#D97706' },
-  ROJO:  { emoji: '🔴', label: 'Evitar movimientos', color: '#DC2626' },
+  VERDE: { emoji: '🟢', label: 'Sin restricciones', color: '#2F6B4F' },
+  AMBAR: { emoji: '🟡', label: 'Adaptar ejercicios', color: '#8F6215' },
+  ROJO:  { emoji: '🔴', label: 'Evitar movimientos', color: '#A8442A' },
 };
 
 export const RIESGO_META: Record<NivelRiesgo, { label: string; color: string }> = {
-  BAJO:  { label: 'Riesgo bajo', color: '#059669' },
-  MEDIO: { label: 'Riesgo medio', color: '#D97706' },
-  ALTO:  { label: 'Riesgo alto', color: '#DC2626' },
+  BAJO:  { label: 'Riesgo bajo', color: '#2F6B4F' },
+  MEDIO: { label: 'Riesgo medio', color: '#8F6215' },
+  ALTO:  { label: 'Riesgo alto', color: '#A8442A' },
 };
 
 // Evolución post-clase (§8): respuesta de 1 clic. Orden de mejor a peor.
 export const RESPUESTAS_ORDEN: RespuestaSesion[] = ['MEJOR', 'IGUAL', 'MOLESTIAS', 'DOLOR'];
 export const RESPUESTA_META: Record<RespuestaSesion, { emoji: string; label: string; color: string; bg: string }> = {
-  MEJOR:     { emoji: '😀', label: 'Mejor',     color: '#059669', bg: '#D1FAE5' },
+  MEJOR:     { emoji: '😀', label: 'Mejor',     color: '#2F6B4F', bg: '#D1FAE5' },
   IGUAL:     { emoji: '😐', label: 'Igual',     color: '#6B7280', bg: '#F3F4F6' },
   MOLESTIAS: { emoji: '😕', label: 'Molestias', color: '#92400E', bg: '#FEF3C7' },
   DOLOR:     { emoji: '😣', label: 'Dolor',     color: '#B91C1C', bg: '#FEE2E2' },

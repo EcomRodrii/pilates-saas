@@ -101,7 +101,7 @@ export function DisponibilidadForm({
             {estado === 'guardando' ? 'Guardando…' : 'Guardar disponibilidad'}
           </button>
           {estado === 'error' && (
-            <p className="mt-2 text-center text-sm text-rose-600">
+            <p className="mt-2 text-center text-sm text-destructive">
               No se pudo guardar. Revisa tu conexión e inténtalo otra vez.
             </p>
           )}

@@ -99,7 +99,7 @@ export default function FichaEstudioInterno({ params }: { params: Promise<{ id: 
                 {!p.activo && <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">de baja</span>}
                 {/* Sin cuenta no recibe ni campana ni push: es la explicación
                     de la mitad de los "no me llega nada" del soporte. */}
-                {!p.tieneCuenta && <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600">sin cuenta</span>}
+                {!p.tieneCuenta && <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-warning">sin cuenta</span>}
               </span>
             </div>
           ))}

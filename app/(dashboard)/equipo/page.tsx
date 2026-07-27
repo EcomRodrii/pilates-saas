@@ -525,7 +525,7 @@ export default function EquipoPage() {
               {enlace.loading ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">Generando enlace…</p>
               ) : enlace.error ? (
-                <p className="text-sm text-red-600">{enlace.error}</p>
+                <p className="text-sm text-destructive">{enlace.error}</p>
               ) : enlace.url ? (
                 <>
                   <div className="flex items-center gap-2">
@@ -618,7 +618,7 @@ function Badges({ i, ausente }: { i: Instructor; ausente?: AusenciaInstructora |
       </span>
       <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ROL_LABEL[i.rol]}</span>
       {ausente && (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
           <Plane size={10} />{AUSENCIA_ETIQUETA[ausente.tipo]}
         </span>
       )}
@@ -683,7 +683,7 @@ function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoracio
             <button onClick={() => onEnlace('reportar_baja')} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
               <CalendarOff size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.reportar_baja.menu}
             </button>
-            <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-red-600 hover:bg-red-50 text-left">
+            <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-destructive/10 text-left">
               <Trash2 size={14} /> Eliminar
             </button>
           </div>
@@ -1130,7 +1130,7 @@ function AusenciasDialog({ instructor, onClose }: { instructor: Instructor | nul
             placeholder="Nota (opcional, solo la ves tú)" className={inputCls} />
           {error && <p className="text-[12.5px] text-destructive">{error}</p>}
           {aviso && (
-            <p className="flex items-start gap-1.5 text-[12.5px] text-amber-700">
+            <p className="flex items-start gap-1.5 text-[12.5px] text-warning">
               <AlertTriangle size={13} className="shrink-0 mt-0.5" />{aviso}
             </p>
           )}

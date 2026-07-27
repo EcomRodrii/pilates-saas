@@ -12,7 +12,7 @@ import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/pag
 const ROL_LABEL: Record<string, { label: string; bg: string; text: string }> = {
   PROPIETARIO: { label: 'Propietaria', bg: '#F1F2EA', text: '#343825' },
   INSTRUCTOR: { label: 'Instructora', bg: '#FFF2F7', text: '#5A6142' },
-  RECEPCION: { label: 'Recepción', bg: '#EAF6FF', text: '#0369A1' },
+  RECEPCION: { label: 'Recepción', bg: '#EAF6FF', text: '#3F5A7A' },
 };
 
 export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {

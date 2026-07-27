@@ -807,8 +807,8 @@ export default function Dashboard() {
             value={renovacionesProximas.length}
             sub={renovacionesProximas.length > 0 ? `Próxima ${new Date(renovacionesProximas[0].fechaFin!).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}` : 'Sin vencimientos'}
             Icon={RefreshCw}
-            tint="text-emerald-600"
-            tintBg="bg-emerald-50"
+            tint="text-success"
+            tintBg="bg-success/10"
           />
         </div>
         </div>

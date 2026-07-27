@@ -29,7 +29,7 @@ export function CentroDeControl() {
               <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: 18 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', lineHeight: 1.25, maxWidth: '74%' }}>Buenos días, Marta. Tu estudio va bien — hay 2 cosas que mirar.</div>
-                  <span className="lp-mono" style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, color: '#D97706', background: '#FFFBEB', borderRadius: 999, padding: '5px 11px' }}>Atención</span>
+                  <span className="lp-mono" style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, color: '#8F6215', background: '#FFFBEB', borderRadius: 999, padding: '5px 11px' }}>Atención</span>
                 </div>
                 <div style={{ display: 'flex', gap: 22, marginTop: 12, fontSize: 12.5, color: '#8E8E86', flexWrap: 'wrap' }}>
                   <span>Tiempo estimado <strong style={{ color: '#1A1A1A' }}>6 min</strong></span>

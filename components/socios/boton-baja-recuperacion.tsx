@@ -50,9 +50,9 @@ export function BotonBajaRecuperacion({ reserva, socio }: { reserva: Reserva; so
       </a>
     );
   }
-  if (estado === 'tope') return <span className="text-[11px] font-medium text-amber-600 shrink-0">Ya tiene 4 recuperaciones</span>;
-  if (estado === 'sin-tel') return <span className="text-[11px] font-medium text-emerald-600 shrink-0">Recuperación guardada</span>;
-  if (estado === 'error') return <span className="text-[11px] font-medium text-red-600 shrink-0">Error, reintenta</span>;
+  if (estado === 'tope') return <span className="text-[11px] font-medium text-warning shrink-0">Ya tiene 4 recuperaciones</span>;
+  if (estado === 'sin-tel') return <span className="text-[11px] font-medium text-success shrink-0">Recuperación guardada</span>;
+  if (estado === 'error') return <span className="text-[11px] font-medium text-destructive shrink-0">Error, reintenta</span>;
 
   return (
     <>

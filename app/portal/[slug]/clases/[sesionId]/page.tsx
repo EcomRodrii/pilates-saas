@@ -114,7 +114,7 @@ export default function ClaseDetallePage() {
                 <Users size={13} />
                 <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plazas</span>
               </div>
-              <p style={{ fontSize: 14, fontWeight: 800, color: libres <= 2 && libres > 0 ? '#D97706' : libres === 0 ? '#EF4444' : t.ink }}>
+              <p style={{ fontSize: 14, fontWeight: 800, color: libres <= 2 && libres > 0 ? '#8F6215' : libres === 0 ? '#B85436' : t.ink }}>
                 {libres > 0 ? `${libres} libre${libres !== 1 ? 's' : ''}` : 'Completo'}
               </p>
             </div>
@@ -139,8 +139,8 @@ export default function ClaseDetallePage() {
             <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, borderRadius: 18, padding: '12px 16px', backgroundColor: miReserva.estado === 'CONFIRMADA' ? 'rgba(62,155,108,0.12)' : 'rgba(217,119,6,0.12)' }}>
               {miReserva.estado === 'CONFIRMADA'
                 ? <CheckCircle size={15} style={{ color: '#3E9B6C', flexShrink: 0 }} />
-                : <AlertCircle size={15} style={{ color: '#D97706', flexShrink: 0 }} />}
-              <p style={{ fontSize: 13, fontWeight: 700, color: miReserva.estado === 'CONFIRMADA' ? '#3E9B6C' : '#D97706' }}>
+                : <AlertCircle size={15} style={{ color: '#8F6215', flexShrink: 0 }} />}
+              <p style={{ fontSize: 13, fontWeight: 700, color: miReserva.estado === 'CONFIRMADA' ? '#3E9B6C' : '#8F6215' }}>
                 {miReserva.estado === 'CONFIRMADA' ? 'Ya tienes esta clase reservada' : 'Estás en lista de espera'}
               </p>
             </div>

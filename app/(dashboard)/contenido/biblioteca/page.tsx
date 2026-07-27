@@ -117,7 +117,7 @@ export default function BibliotecaPage() {
                 </div>
                 <div className="flex items-center gap-0.5">
                   <button title="Duplicar" onClick={() => duplicarPublicacion(p.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><Copy className="w-3.5 h-3.5" /></button>
-                  <button title="Eliminar" onClick={() => eliminarPublicacion(p.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button title="Eliminar" onClick={() => eliminarPublicacion(p.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
             </article>

@@ -22,9 +22,9 @@ const ESTADO: Record<string, EstadoMeta> = {
   buscando: { label: 'Buscando', cls: 'bg-warning/10 text-warning', activa: true },
   pendiente_aprobacion: { label: 'Esperando tu visto bueno', cls: 'bg-brand/10 text-brand-secondary', activa: true },
   contactando: { label: 'Contactando', cls: 'bg-warning/10 text-warning', activa: true },
-  agotada: { label: 'Nadie ha respondido', cls: 'bg-red-100 text-red-700', activa: true },
+  agotada: { label: 'Nadie ha respondido', cls: 'bg-destructive/10 text-destructive', activa: true },
   confirmada: { label: 'Cubierta', cls: 'bg-success/10 text-success', activa: false },
-  sin_sustituta: { label: 'Sin sustituta', cls: 'bg-red-100 text-red-700', activa: false },
+  sin_sustituta: { label: 'Sin sustituta', cls: 'bg-destructive/10 text-destructive', activa: false },
   resuelta_fuera: { label: 'Resuelta fuera', cls: 'bg-muted text-muted-foreground', activa: false },
   cancelada: { label: 'Cancelada', cls: 'bg-muted text-muted-foreground', activa: false },
 };
@@ -412,7 +412,7 @@ function ReprogramarDialog({ s, avisarActivo, enProceso, onClose, onConfirm }: {
             <input id={`${uid}-h`} type="time" className={inputCls} value={hora} onChange={e => setHora(e.target.value)} />
           </div>
         </div>
-        {enPasado && <p className="text-[12px] text-red-600">La nueva fecha debe ser futura.</p>}
+        {enPasado && <p className="text-[12px] text-destructive">La nueva fecha debe ser futura.</p>}
         <div className="flex justify-end gap-2 pt-2">
           <button onClick={onClose} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
           <button
@@ -438,7 +438,7 @@ function Estrellas({ val }: { val?: { media: number; total: number } }) {
   if (!val || val.total <= 0) return null;
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FEF9C3] text-[#A16207] shrink-0" title={`${val.total} valoración${val.total === 1 ? '' : 'es'} de alumnas`}>
-      <Star size={10} fill="#F5B301" stroke="#F5B301" />
+      <Star size={10} fill="#D9C29E" stroke="#D9C29E" />
       {val.media.toFixed(1)}
       <span className="font-medium text-[#CA8A04]">({val.total})</span>
     </span>
@@ -497,7 +497,7 @@ function HorarioActualizadoCard({ sub, sesiones, tiposClase, nombreInstructor, o
     <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3.5">
         <div className="flex items-center gap-1.5">
-          <RefreshCw size={14} className="text-[#16A34A]" />
+          <RefreshCw size={14} className="text-[#35785A]" />
           <span className="text-[13px] font-bold text-foreground">Horario actualizado automáticamente</span>
         </div>
         <button onClick={onClose} title="Cerrar" className="text-muted-foreground hover:text-foreground transition-colors"><X size={15} /></button>
@@ -607,10 +607,10 @@ function SustitucionCard({
       </p>
 
       {s.estado === 'agotada' && (
-        <div className="mt-3 flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-3">
-          <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+        <div className="mt-3 flex items-start gap-2 rounded-xl bg-destructive/10 border border-red-100 p-3">
+          <AlertTriangle size={16} className="text-destructive shrink-0 mt-0.5" />
           <div className="min-w-0">
-            <p className="text-[13px] text-red-700">
+            <p className="text-[13px] text-destructive">
               Avisamos a todas las candidatas disponibles y ninguna confirmó. Avisa a alguien por tu cuenta,
               vuelve a intentarlo con una candidata de abajo, reprograma la clase a otro horario, o cancélala
               (avisamos a las alumnas).
@@ -618,7 +618,7 @@ function SustitucionCard({
             <div className="mt-2 flex flex-wrap gap-2">
               <button
                 onClick={() => onVolverABuscar(s)} disabled={enProceso}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-700 text-[12px] font-bold hover:bg-red-100 disabled:opacity-50 transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-destructive/30 text-destructive text-[12px] font-bold hover:bg-destructive/10 disabled:opacity-50 transition"
               >
                 {accionEnCurso === 'volver-a-buscar'
               ? <><Loader2 size={13} className="animate-spin" /> Buscando…</>
@@ -626,7 +626,7 @@ function SustitucionCard({
               </button>
               <button
                 onClick={() => onReprogramar(s)} disabled={enProceso}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-700 text-[12px] font-bold hover:bg-red-100 disabled:opacity-50 transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-destructive/30 text-destructive text-[12px] font-bold hover:bg-destructive/10 disabled:opacity-50 transition"
               >
                 <CalendarClock size={13} /> Reprogramar clase
               </button>
@@ -637,10 +637,10 @@ function SustitucionCard({
 
       {!hero ? (
         // Sin candidatas disponibles
-        <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3">
+        <div className="mt-4 rounded-xl bg-destructive/10 border border-red-100 p-3">
           <div className="flex items-start gap-2">
-            <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
-            <p className="text-[13px] text-red-700">{motivoSinCandidatas(sinDispRelevantes)}</p>
+            <AlertTriangle size={16} className="text-destructive shrink-0 mt-0.5" />
+            <p className="text-[13px] text-destructive">{motivoSinCandidatas(sinDispRelevantes)}</p>
           </div>
           {/* Buscar otra vez va PRIMERO: es gratis y reversible. Cancelar manda
               un email a todas las alumnas y no hay vuelta atrás. */}
@@ -691,7 +691,7 @@ function SustitucionCard({
             <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[12px] font-semibold text-foreground">Compatibilidad</span>
-                <span className="text-[14px] font-extrabold text-[#16A34A] tabular-nums">{hero.compatibilidad}%</span>
+                <span className="text-[14px] font-extrabold text-[#35785A] tabular-nums">{hero.compatibilidad}%</span>
               </div>
               <div className="h-2 rounded-full bg-black/[0.06] overflow-hidden">
                 <div className="h-full rounded-full bg-success transition-all duration-500" style={{ width: `${hero.compatibilidad}%` }} />
@@ -729,7 +729,7 @@ function SustitucionCard({
                 </button>
                 <button
                   onClick={() => onAvisar(s, hero.instructor_id)} disabled={enProceso}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#16A34A] text-white text-[14px] font-bold hover:brightness-95 disabled:opacity-50 transition active:scale-[0.99]"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#35785A] text-white text-[14px] font-bold hover:brightness-95 disabled:opacity-50 transition active:scale-[0.99]"
                 >
                   {accionEnCurso === 'avisar'
                     ? <><Loader2 size={16} className="animate-spin" /> Avisando a {hero.nombre.split(' ')[0]}…</>
@@ -776,7 +776,7 @@ function SustitucionCard({
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-bold text-foreground flex items-center gap-1.5 flex-wrap">
                         {c.nombre}
-                        <span className="text-[11px] font-bold text-[#16A34A] tabular-nums">{c.compatibilidad}%</span>
+                        <span className="text-[11px] font-bold text-[#35785A] tabular-nums">{c.compatibilidad}%</span>
                         <Estrellas val={valoraciones[c.instructor_id]} />
                       </p>
                       <p className="text-[11px] text-muted-foreground truncate">{(c.motivos ?? []).join(' · ')}</p>
@@ -807,7 +807,7 @@ function SustitucionCard({
       {/* Pie */}
       <div className="mt-4 flex justify-end gap-4">
         {hero && (
-          <button onClick={() => onCancelar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-red-600 disabled:opacity-50 transition-colors">
+          <button onClick={() => onCancelar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-destructive disabled:opacity-50 transition-colors">
             {accionEnCurso === 'cancelar' ? 'Cancelando la clase…' : 'Cancelar clase'}
           </button>
         )}
@@ -865,9 +865,9 @@ function TrazaContactos({
             <li key={`${e.en}-${i}`} className="flex items-baseline gap-2.5 text-[12px]">
               <span className="tabular-nums text-muted-foreground shrink-0">{fmtMomento(e.en)}</span>
               <span className={
-                e.tipo === 'aceptado' ? 'text-[#16A34A] font-semibold'
+                e.tipo === 'aceptado' ? 'text-[#35785A] font-semibold'
                 : e.tipo === 'rechazado' ? 'text-muted-foreground'
-                : e.tipo === 'fallo' ? 'text-red-600'
+                : e.tipo === 'fallo' ? 'text-destructive'
                 : 'text-foreground'
               }>
                 {e.texto}
@@ -932,7 +932,7 @@ function PedirDisponibilidadDialog({
           Cada una abre su enlace en el móvil y marca sus franjas en unos segundos — sin instalar nada
           ni crear cuenta. En cuanto lo hagan, podré proponerlas como sustitutas.
         </p>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <ul className="space-y-2 mt-1">
           {instructores.map(i => (
             <li key={i.id} className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2.5">
@@ -1064,7 +1064,7 @@ function NuevaBajaDialog({
               className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all"
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
             <button onClick={crear} disabled={!sesionId || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">

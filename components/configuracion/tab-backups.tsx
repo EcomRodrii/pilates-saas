@@ -11,7 +11,7 @@ import type { BackupMeta, TipoBackup } from '@/lib/types';
 import { btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 const TIPO_LABEL: Record<TipoBackup, { label: string; bg: string; text: string }> = {
-  DIARIO: { label: 'Diario', bg: '#EAF6FF', text: '#0369A1' },
+  DIARIO: { label: 'Diario', bg: '#EAF6FF', text: '#3F5A7A' },
   SEMANAL: { label: 'Semanal', bg: '#F1F2EA', text: '#5A6142' },
   MENSUAL: { label: 'Mensual', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
   MANUAL: { label: 'Manual', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
@@ -99,7 +99,7 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
       <p className="text-[12px] text-muted-foreground">
         Todos los días se crea automáticamente una copia diaria (los lunes también semanal, y el día 1 de cada mes también mensual) — en segundo plano, sin interrumpir la app. Restaurar sobrescribe todos los datos actuales del negocio.
       </p>
-      {error && <p className="text-[12px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+      {error && <p className="text-[12px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>}
 
       {ordenados.length === 0 ? (
         <div className={cn(cardCls, 'p-8 text-center')}>
@@ -151,7 +151,7 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
               onChange={e => setConfirmText(e.target.value)}
               placeholder="RESTAURAR"
             />
-            {error && <p className="text-[12px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+            {error && <p className="text-[12px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>}
             <div className="flex justify-end gap-2 pt-1">
               <button onClick={() => setRestaurando(null)} className={btnSecondary}>Cancelar</button>
               <button

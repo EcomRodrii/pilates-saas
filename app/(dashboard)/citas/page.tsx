@@ -678,8 +678,8 @@ export default function CitasPage() {
             </FF>
 
             {conflictoInstructor && (
-              <div className="rounded-xl px-3.5 py-2.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 flex gap-2">
-                <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+              <div className="rounded-xl px-3.5 py-2.5 text-xs bg-warning/10 border border-warning/30 text-warning flex gap-2">
+                <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warning" />
                 <p>
                   <span className="font-bold">{getInstructor(form.instructorId)?.nombre ?? 'La instructora'}</span> ya
                   tiene algo agendado: {conflictoInstructor.map((c) => `${formatHoraCorta(c.inicio)}–${formatHoraCorta(c.fin)}`).join(', ')}. Revisa antes de guardar.

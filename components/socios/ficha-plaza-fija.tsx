@@ -128,7 +128,7 @@ export function FichaPlazaFija({ socioId }: { socioId: string }) {
                 <button
                   onClick={() => setABorrar(p)}
                   title="Quitar plaza fija"
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-muted shrink-0"
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted shrink-0"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -186,7 +186,7 @@ export function FichaPlazaFija({ socioId }: { socioId: string }) {
                 <input id={`${uid}-hasta`} type="date" className={inputCls} value={f.vigenciaHasta} onChange={e => setF(p => ({ ...p, vigenciaHasta: e.target.value }))} />
               </div>
             </div>
-            {error && <p className="text-xs font-medium text-red-600">{error}</p>}
+            {error && <p className="text-xs font-medium text-destructive">{error}</p>}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setDialogOpen(false)} className="text-xs font-semibold px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground">Cancelar</button>

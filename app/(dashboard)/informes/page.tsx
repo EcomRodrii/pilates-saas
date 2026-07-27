@@ -750,7 +750,7 @@ export default function Informes() {
                           className="inline-block px-1.5 py-0.5 rounded font-bold tabular-nums"
                           style={{
                             backgroundColor: row.pct30 >= 70 ? 'color-mix(in srgb, var(--success) 12%, var(--card))' : row.pct30 >= 40 ? 'color-mix(in srgb, var(--warning) 12%, var(--card))' : 'color-mix(in srgb, var(--destructive) 12%, var(--card))',
-                            color: row.pct30 >= 70 ? 'var(--success)' : row.pct30 >= 40 ? 'var(--warning)' : '#991B1B',
+                            color: row.pct30 >= 70 ? 'var(--success)' : row.pct30 >= 40 ? 'var(--warning)' : '#7A2F1D',
                           }}
                         >
                           {row.total > 0 ? `${row.pct30}%` : '—'}

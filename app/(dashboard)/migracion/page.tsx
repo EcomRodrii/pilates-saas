@@ -316,7 +316,7 @@ export default function MigracionPage() {
       {paso === 'revisar' && plan && (
         <div className="space-y-4">
           {efectivo.avisos.map(av => (
-            <div key={av} className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-[13px] text-amber-800">
+            <div key={av} className="flex items-start gap-2 rounded-xl bg-warning/10 border border-warning/30 px-4 py-3 text-[13px] text-warning">
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />{av}
             </div>
           ))}
@@ -392,7 +392,7 @@ export default function MigracionPage() {
               </div>
 
               {a.avisos.map(av => (
-                <p key={av} className="mt-2 flex items-start gap-1.5 text-[12px] text-amber-700"><AlertTriangle size={13} className="shrink-0 mt-0.5" />{av}</p>
+                <p key={av} className="mt-2 flex items-start gap-1.5 text-[12px] text-warning"><AlertTriangle size={13} className="shrink-0 mt-0.5" />{av}</p>
               ))}
 
               {a.entidad && a.muestra.length > 0 && (
@@ -418,7 +418,7 @@ export default function MigracionPage() {
 
               {a.cuarentena.length > 0 && (
                 <div className="mt-2">
-                  <button onClick={() => toggleAbierto(a.nombre)} className="flex items-center gap-1 text-[12px] font-semibold text-amber-700">
+                  <button onClick={() => toggleAbierto(a.nombre)} className="flex items-center gap-1 text-[12px] font-semibold text-warning">
                     {abiertos.has(a.nombre) ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                     {a.cuarentena.length} fila{a.cuarentena.length === 1 ? '' : 's'} no se importará{a.cuarentena.length === 1 ? '' : 'n'} (ver motivos)
                   </button>
@@ -488,7 +488,7 @@ export default function MigracionPage() {
               <p className="mt-3 text-[13px] text-destructive">{resultados.find(r => r.error)?.error} — el proceso se detuvo ahí; puedes deshacer y volver a intentarlo.</p>
             )}
             {resultados.some(r => r.batchAviso) && (
-              <p className="mt-3 text-[12px] text-amber-700">⚠️ Parte del lote no quedó registrado para deshacer. Si necesitas revertir, escríbenos a soporte@tentare.app.</p>
+              <p className="mt-3 text-[12px] text-warning">⚠️ Parte del lote no quedó registrado para deshacer. Si necesitas revertir, escríbenos a soporte@tentare.app.</p>
             )}
           </div>
 
