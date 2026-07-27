@@ -1754,13 +1754,13 @@ export default function Calendario() {
   // Edita "esta y las siguientes" de la serie (I-3): aplica tipo/sala/instructora/
   // aforo/notas y la hora (manteniendo la fecha de cada sesión). La fecha del
   // form no se propaga —cada sesión conserva su día—, solo la hora.
-  function editarSerie() {
+  async function editarSerie() {
     if (!sesionId || horaInvalida) return;
     const n = sesionesEnriquecidas.filter(s => {
       const base = sesionesEnriquecidas.find(x => x.id === sesionId);
       return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio;
     }).length;
-    editarSerieDesde(sesionId, {
+    const guardado = await editarSerieDesde(sesionId, {
       tipoClaseId: form.tipoClaseId,
       salaId: form.salaId,
       instructorId: form.instructorId,
@@ -1769,6 +1769,9 @@ export default function Calendario() {
       horaInicio: form.horaInicio,
       horaFin: form.horaFin,
     });
+    // Si la BD rechazó el cambio (p.ej. solape), NO avisamos de un movimiento que
+    // no ocurrió ni cerramos el formulario: se muestra el motivo.
+    if (!guardado.ok) { setToast(guardado.error); return; }
     // Avisa (in-app/push) a las apuntadas de CADA sesión futura de la serie que
     // cambie de horario o sala. Cada una conserva su fecha, con la hora nueva.
     const base = sesionesEnriquecidas.find(x => x.id === sesionId);
@@ -1829,13 +1832,14 @@ export default function Calendario() {
 
   // Cancela "esta y las siguientes" de la serie (I-3). El contexto avisa por
   // email a las socias con plaza de cada sesión afectada.
-  function cancelarSerie() {
+  async function cancelarSerie() {
     if (!sesionId) return;
     const n = sesionesEnriquecidas.filter(s => {
       const base = sesionesEnriquecidas.find(x => x.id === sesionId);
       return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio && !s.cancelada;
     }).length;
-    cancelarSerieDesde(sesionId);
+    const guardado = await cancelarSerieDesde(sesionId);
+    if (!guardado.ok) { setToast(guardado.error); return; }
     setSesionId(null);
     setToast(`Serie cancelada · ${n} clases · clientas avisadas`);
   }

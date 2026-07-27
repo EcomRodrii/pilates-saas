@@ -257,8 +257,8 @@ interface StudioContextValue {
   deleteSesion: (id: string) => void;
   // Series de clases recurrentes (I-3)
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
-  editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => void;
-  cancelarSerieDesde: (sesionId: string) => void;
+  editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura>;
+  cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura>;
 
   // Reservas
   addReserva: (sesionId: string, socioId: string, spotId?: string | null) => EstadoReserva;
@@ -1602,12 +1602,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // instructora, aforo, notas) se aplican a todas; la hora se re-aplica a la
   // fecha de cada sesión (mantiene su día, cambia H:M). changes trae horaInicio/
   // horaFin en 'HH:MM' (hora local) para poder reconstruir inicio/fin por sesión.
-  function editarSerieDesde(
+  async function editarSerieDesde(
     sesionId: string,
     changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string },
-  ) {
+  ): Promise<ResultadoEscritura> {
     const objetivo = sesionesDeSerieDesde(sesionId);
-    if (objetivo.length === 0) return;
+    if (objetivo.length === 0) return { ok: true };
     const uniformes = {
       tipoClaseId: changes.tipoClaseId, salaId: changes.salaId,
       instructorId: changes.instructorId, aforoMaximo: changes.aforoMaximo, notas: changes.notas,
@@ -1625,20 +1625,39 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const h = conHora.find(c => c.id === s.id)!;
       return { ...s, ...uniformes, inicio: h.inicio, fin: h.fin };
     }));
-    // Uniformes en batch (1 llamada) + hora por sesión (varía por fecha).
-    dbUpdateSesionesBatch([...ids], uniformes);
-    conHora.forEach(h => dbUpdateSesion(h.id, { inicio: h.inicio, fin: h.fin }));
+    // Escribe-primero. Uniformes en batch (1 llamada) + hora por sesión (varía por
+    // fecha). Si CUALQUIER escritura falla (p.ej. solape al mover la serie a una
+    // hora ocupada), se deshace el bloque entero en pantalla y se devuelve el
+    // motivo — antes fallaban en silencio y la serie se veía movida sin estarlo.
+    // (Lo ideal sería un RPC transaccional todo-o-nada; esto ya evita el engaño.)
+    const resultados = await Promise.all([
+      dbUpdateSesionesBatch([...ids], uniformes),
+      ...conHora.map(h => dbUpdateSesion(h.id, { inicio: h.inicio, fin: h.fin })),
+    ]);
+    const fallo = resultados.find(r => !r.ok);
+    if (fallo && !fallo.ok) {
+      const antes = new Map(objetivo.map(s => [s.id, s]));
+      setSesiones(prev => prev.map(s => antes.get(s.id) ?? s));
+      return fallo;
+    }
+    return { ok: true };
   }
 
   // Cancela "esta y las siguientes" de una serie (p. ej. "cancelar la serie del
   // verano") y avisa por email a las socias con plaza en cada sesión afectada.
-  function cancelarSerieDesde(sesionId: string) {
+  async function cancelarSerieDesde(sesionId: string): Promise<ResultadoEscritura> {
     const objetivo = sesionesDeSerieDesde(sesionId).filter(s => !s.cancelada);
-    if (objetivo.length === 0) return;
+    if (objetivo.length === 0) return { ok: true };
     const ids = objetivo.map(s => s.id);
     const idSet = new Set(ids);
     setSesiones(prev => prev.map(s => idSet.has(s.id) ? { ...s, cancelada: true } : s));
-    dbUpdateSesionesBatch(ids, { cancelada: true });
+    // Escribe-primero: la cancelación es UN batch atómico. Si la BD lo rechaza, se
+    // deshace y NO se avisa de una cancelación que no ha ocurrido.
+    const res = await dbUpdateSesionesBatch(ids, { cancelada: true });
+    if (!res.ok) {
+      setSesiones(prev => prev.map(s => idSet.has(s.id) ? { ...s, cancelada: false } : s));
+      return res;
+    }
     // Aviso a las socias con plaza en cualquiera de las sesiones canceladas.
     notificarCancelacionSesiones(objetivo);
     // Notification Engine: además del email, in-app/push por cada sesión cancelada
@@ -1646,6 +1665,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // "esta y las siguientes" de una serie solo mandaba email y las socias no
     // recibían ningún aviso in-app/push.
     ids.forEach(id => { void avisarClaseCancelada(id); });
+    return { ok: true };
   }
 
   // Email de cancelación a cada socia con plaza (confirmada/asistida) en las
