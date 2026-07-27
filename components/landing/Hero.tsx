@@ -119,7 +119,7 @@ export function Hero() {
             Cuando una instructora avisa de que no puede, Tentare busca sustituta, la contacta y avisa a las alumnas antes de que cuelgues el teléfono. Tú solo apruebas.
           </p>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginBottom: 22, animation: 'lp-riseIn .85s cubic-bezier(.2,.7,0,1) .42s both' }}>
-            <Link href="/crear-estudio" className={btnCta} style={{ fontSize: 16, fontWeight: 700, padding: '16px 28px', boxShadow: '0 16px 34px rgba(52,56,37,.34)' }}>
+            <Link href="/crear-estudio" className={btnCta} style={{ fontSize: 16, fontWeight: 700, padding: '16px 28px', boxShadow: '0 16px 34px rgba(217,194,158,.28)' }}>
               Crear mi estudio →
             </Link>
           </div>

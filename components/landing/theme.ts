@@ -7,4 +7,4 @@ export const MUTED = '#5A5A52';
 export const MUTED_DARK = '#A6A69E';
 
 export const btnCta =
-  'inline-block bg-[#343825] text-[#D9C29E] rounded-full transition-all duration-250 hover:brightness-110 hover:-translate-y-0.5';
+  'inline-block bg-[#D9C29E] text-[#343825] rounded-full transition-all duration-250 hover:brightness-110 hover:-translate-y-0.5';

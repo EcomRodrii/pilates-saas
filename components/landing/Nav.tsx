@@ -49,7 +49,7 @@ export function Nav() {
           </div>
           <div className="tnt-navcta" style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
             <Link href="/login" style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', padding: '9px 6px' }}>Entrar</Link>
-            <Link href="/crear-estudio" className="hover:brightness-110" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: ACC, padding: '11px 20px', borderRadius: 999, boxShadow: '0 10px 22px rgba(52,56,37,.28)' }}>
+            <Link href="/crear-estudio" className="hover:brightness-110" style={{ fontSize: 14, fontWeight: 700, color: '#D9C29E', background: ACC, padding: '11px 20px', borderRadius: 999, boxShadow: '0 10px 22px rgba(52,56,37,.22)' }}>
               Crear estudio
             </Link>
           </div>
@@ -115,7 +115,7 @@ export function Nav() {
             <Link
               href="/crear-estudio"
               onClick={() => setMenuOpen(false)}
-              style={{ textAlign: 'center', padding: 16, fontSize: 16, fontWeight: 700, color: '#fff', background: ACC, borderRadius: 999, boxShadow: '0 14px 30px rgba(52,56,37,.4)', animation: 'lp-riseIn .55s cubic-bezier(.2,.7,0,1) .48s both' }}
+              style={{ textAlign: 'center', padding: 16, fontSize: 16, fontWeight: 700, color: '#D9C29E', background: ACC, borderRadius: 999, boxShadow: '0 14px 30px rgba(52,56,37,.4)', animation: 'lp-riseIn .55s cubic-bezier(.2,.7,0,1) .48s both' }}
             >
               Crear estudio
             </Link>

@@ -102,14 +102,15 @@
   --radius: 1rem;
   --sidebar: #0F0F0F;
   --sidebar-foreground: #E8E8E4;
-  /* La barra lateral es casi negra (#0F0F0F): el oliva oscuro desaparecería
-     encima (1,4:1). Usa el oliva CLARO, que da 5,77:1. */
-  --sidebar-primary: #8A9165;
-  --sidebar-primary-foreground: #16161A;
+  /* La barra lateral es casi negra (#0F0F0F) SIEMPRE, también en modo claro:
+     el oliva de relleno daría 1,59:1 y el item activo no se vería. Mismo
+     criterio que en oscuro — manda la arena (11,10:1). */
+  --sidebar-primary: #D9C29E;
+  --sidebar-primary-foreground: #343825;
   --sidebar-accent: rgba(255,255,255,0.06);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255,255,255,0.06);
-  --sidebar-ring: rgba(138,145,101,0.5);
+  --sidebar-ring: rgba(217,194,158,0.5);
 
   /* Escala de acento del sistema. El nombre "lime" es histórico (plantilla
      Midbox); hoy son alias de la marca de Tentare y no deben divergir de ella. */
@@ -171,19 +172,21 @@
   --border: #303035;
   --input: #303035;
 
-  /* Marca en modo oscuro. El oliva se queda: sobre #16161A da 1,64:1, así que
-     un botón relleno de oliva no se despegaría del fondo. No se cambia el color
-     del texto (la identidad es arena sobre oliva, 7,00:1, y se respeta) — se le
-     da CONTORNO con el oliva claro, que contrasta 5,43:1 con el fondo. No
-     existe ningún oliva que sea a la vez visible sobre oscuro y admita arena
-     encima a 4,5:1: son requisitos incompatibles, y esta es la salida que
-     conserva la identidad intacta.
-     --accent* y --ring sí se aclaran: como TEXTO y como foco, el oliva oscuro
-     sobre fondo oscuro sería directamente ilegible. */
+  /* Marca en modo oscuro: EL PAR SE INVIERTE.
+     El oliva es muy oscuro (13% de luminosidad): como relleno sobre #16161A da
+     1,49:1 y el botón se hunde en la página. Un contorno fino lo hacía "válido"
+     según la norma, pero seguía viéndose mal, que es lo que importa.
+     Aquí manda la arena: relleno arena + texto oliva. Son los MISMOS dos
+     colores de la identidad, en el orden que funciona sobre fondo oscuro —
+     10,45:1 contra el fondo y 7,00:1 del texto sobre el botón. */
+  --brand: #D9C29E;
+  --brand-foreground: #343825;
+  --brand-secondary: #C2AC86;
+  --brand-borde: transparent;
+
   --accent: #262A1C;
-  --accent-foreground: #A8B080;
-  --ring: #8A9165;
-  --brand-borde: #8A9165;
+  --accent-foreground: #D9C29E;
+  --ring: #D9C29E;
 }
 
 @layer base {
@@ -200,20 +203,6 @@
     font-family: var(--font-jakarta), system-ui, sans-serif;
   }
 
-  /* Contorno del relleno de marca en modo oscuro.
-     El oliva (#343825) contrasta 1,64:1 con el fondo oscuro del panel: un botón
-     relleno se fundiría con la página. En vez de cambiar la identidad (arena
-     sobre oliva, que es lo que se ha pedido y da 7,00:1), se le dibuja un
-     contorno de 1px en oliva claro — 5,43:1 contra el fondo, por encima del 3:1
-     que WCAG 1.4.11 exige para delimitar un control.
-     Va con box-shadow interior y no con `border` para no alterar el tamaño de
-     ningún botón: son ~528 usos de bg-brand y ninguno reserva espacio de borde.
-     Solo afecta al relleno sólido; los tintes (bg-brand/10) no llevan clase
-     `bg-brand` y quedan fuera, que es lo correcto. */
-  .dark .bg-brand,
-  .dark .bg-portal-brand {
-    box-shadow: inset 0 0 0 1px var(--brand-borde);
-  }
 }
 
 /* Scrollbars finas y discretas en toda la app (evita la barra gorda/fea al
