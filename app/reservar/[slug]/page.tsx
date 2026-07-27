@@ -7,7 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type EstadoReserva, type Reserva } from '@/lib/types';
-import { tieneEntitlementActivo } from '@/lib/bono-logic';
+import { tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import { contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { CitasPublica } from '@/components/reserva/citas-publica';
@@ -378,7 +378,9 @@ export default function ReservarPage() {
   // intentar la reserva. El servidor es la autoridad; esto es solo UX.
   function evaluarGate(socioId?: string, tipoClaseId?: string | null): string | null {
     if (!studio) return null;
-    if (studio.reservaExigirPlan) {
+    // Mismo criterio que el servidor: exigir plan cuando no hay ninguno a la
+    // venta solo bloquea (ver `hayAlgoQueContratar`).
+    if (studio.reservaExigirPlan && hayAlgoQueContratar(planesTarifa)) {
       const ok = socioId
         ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, localDate(now), tipoClaseId)
         : false;
