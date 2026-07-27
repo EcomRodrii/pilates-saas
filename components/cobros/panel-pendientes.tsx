@@ -167,6 +167,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     deleteRecibo,
     cobrarTodosPendientes,
     addRecibo,
+    resetDatosPilates,
   } = useStudio();
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
@@ -186,9 +187,19 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     const reciboId = params.get('recibo');
     const cancel = params.get('stripe_cancel');
     if (success && reciboId) {
-      marcarCobrado(reciboId);
-      setStripeToast({ tipo: 'ok', msg: 'Pago completado correctamente.' });
+      // SEGURIDAD: antes se marcaba el recibo COBRADO (y se sellaba su factura,
+      // y se renovaba el bono) solo por traer este query-param en la URL —
+      // cualquiera podía fabricar el enlace y dar por pagado un recibo sin que
+      // Stripe hubiera cobrado nada. El webhook de checkout.session.completed
+      // ya hace ese trabajo en servidor, con el importe verificado contra
+      // Stripe. Aquí no se escribe: se relee el estado real.
+      setStripeToast({ tipo: 'ok', msg: 'Pago completado. Actualizando…' });
       window.history.replaceState({}, '', '/cobros?tab=deudas');
+      resetDatosPilates();
+      // El webhook casi siempre llega antes que este redirect, pero por si hay
+      // una carrera se relee una vez más tras un margen breve.
+      const t = setTimeout(() => resetDatosPilates(), 2500);
+      return () => clearTimeout(t);
     } else if (cancel) {
       setStripeToast({ tipo: 'error', msg: 'Pago cancelado.' });
       window.history.replaceState({}, '', '/cobros?tab=deudas');
