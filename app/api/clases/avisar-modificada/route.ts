@@ -21,10 +21,12 @@ export async function POST(req: NextRequest) {
     .select('id').eq('id', b.sesionId).eq('studio_id', staff.studioId).maybeSingle();
   if (!ses) return NextResponse.json({ error: 'Sesión no encontrada' }, { status: 404 });
 
-  await emitirClaseModificada(admin, {
+  const avisadas = await emitirClaseModificada(admin, {
     studioId: staff.studioId, sesionId: b.sesionId,
     clase: b.clase || 'tu clase', cuando: b.cuando || '', sala: b.sala || '',
     instructora: b.instructora || '',
   });
-  return NextResponse.json({ ok: true });
+  // `avisadas` = socias a las que se ha creado el aviso de verdad. El panel lo
+  // usa para no cantar "avisadas 3" cuando no se ha avisado a nadie.
+  return NextResponse.json({ ok: true, avisadas });
 }

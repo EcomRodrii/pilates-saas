@@ -1016,16 +1016,25 @@ export async function avisarClaseCancelada(sesionId: string): Promise<void> {
 
 // Avisa (in-app/push) a las apuntadas de que su clase cambió de horario/sala.
 // Se le pasan los datos NUEVOS ya formateados desde el cliente.
+//
+// Devuelve a cuántas alumnas se ha avisado, o `null` si el aviso no llegó a
+// salir. El panel lo necesita para decir la verdad cuando la dueña pulsa "Sí,
+// avisar": antes daba por hecho que se había avisado a las que él creía ver
+// apuntadas, y podían ser cero (p. ej. si la única reserva ya estaba marcada
+// como asistida, que el servidor no notifica).
 export async function avisarClaseModificada(
   sesionId: string, datos: { clase: string; cuando: string; sala: string; instructora?: string },
-): Promise<void> {
+): Promise<number | null> {
   try {
-    await fetch('/api/clases/avisar-modificada', {
+    const res = await fetch('/api/clases/avisar-modificada', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ sesionId, ...datos }),
     });
-  } catch { /* best-effort: no bloquea la edición */ }
+    if (!res.ok) return null;
+    const j = (await res.json().catch(() => null)) as { avisadas?: number } | null;
+    return typeof j?.avisadas === 'number' ? j.avisadas : null;
+  } catch { /* best-effort: no bloquea la edición */ return null; }
 }
 
 export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente & {

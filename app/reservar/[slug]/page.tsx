@@ -202,6 +202,10 @@ export default function ReservarPage() {
 
   // Booking flow
   const [bookingSesionId, setBookingSesionId] = useState<string | null>(null);
+  // Anti doble-reserva: handleConfirm es async (alta de walk-in + reserva). Sin
+  // cerrojo, un doble clic da de alta dos fichas `soc-…` y/o reserva dos veces.
+  const [confirmando, setConfirmando] = useState(false);
+  const confirmandoRef = useRef(false);
   const [loginForm, setLoginForm] = useState({ nombre: '', email: '' });
   const [loginStep, setLoginStep] = useState<Step>('login');
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
@@ -464,6 +468,7 @@ export default function ReservarPage() {
 
   async function handleConfirm() {
     if (!bookingSesionId) return;
+    if (confirmandoRef.current) return; // cerrojo síncrono anti doble-reserva
     const sesion = sesionesRich.find(s => s.id === bookingSesionId);
     if (!sesion) return;
 
@@ -472,6 +477,9 @@ export default function ReservarPage() {
     const gate = evaluarGate(socia?.socioId, sesion.tipoClaseId);
     if (gate) { setGateError(gate); return; }
 
+    confirmandoRef.current = true;
+    setConfirmando(true);
+    try {
     if (!socia) {
       // Walk-in: alta de la ficha. El servidor la vincula a su auth_user_id a
       // partir del JWT (magic link) y usa el email del token; el nombre lo puso
@@ -504,6 +512,10 @@ export default function ReservarPage() {
       setEsperaPos(enEspera + 1);
     }
     setLoginStep(estado === 'LISTA_ESPERA' ? 'espera' : 'done');
+    } finally {
+      confirmandoRef.current = false;
+      setConfirmando(false);
+    }
   }
 
   // ── Reserva desde el calendario compartido ─────────────────────────────────
@@ -1189,9 +1201,10 @@ export default function ReservarPage() {
                   </div>
                 )}
                 <button onClick={handleConfirm}
-                  className="w-full py-3 rounded-2xl font-bold text-white"
+                  disabled={confirmando}
+                  className="w-full py-3 rounded-2xl font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ backgroundColor: PRIMARY }}>
-                  Confirmar reserva
+                  {confirmando ? 'Confirmando…' : 'Confirmar reserva'}
                 </button>
               </>
             )}
