@@ -457,7 +457,14 @@ export default function Socios() {
     });
     setGuardando(false);
     if (!res.ok) { setErrorGuardar(res.error); return; }
-    if (form.planId) assignPlan(editandoId, form.planId);
+    // Sólo si el plan ha cambiado de verdad. `assignPlan` cancela la suscripción
+    // vigente y crea otra nueva (perdiendo las sesiones que le quedaban del bono)
+    // y además emite el recibo de la venta: llamarlo al editar el teléfono le
+    // reseteaba el bono a la clienta y ahora, encima, le cobraría otra vez.
+    const susActual = suscripciones.find(s => s.socioId === editandoId && s.estado === 'ACTIVA');
+    if (form.planId && form.planId !== (susActual?.planId ?? '')) {
+      assignPlan(editandoId, form.planId);
+    }
     resetModal();
   }
 

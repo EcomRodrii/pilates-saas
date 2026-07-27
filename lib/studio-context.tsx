@@ -1508,6 +1508,35 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     });
     aDesactivar.forEach(s => dbUpdateSuscripcion(s.id, { estado: 'CANCELADA' }));
     if (nueva) dbInsertSuscripcion(nueva);
+
+    // Asignar un plan es una VENTA, y hasta ahora no dejaba rastro de dinero:
+    // sólo el alta de socia (addSocio) generaba recibo, y el bono que se vende
+    // en recepción semanas después se asigna desde aquí. Resultado: suscripción
+    // creada, 0 recibos, 0 facturas — el importe no aparecía ni como cobrado ni
+    // como pendiente, y a fin de mes faltaba de la caja sin que nada avisara.
+    //
+    // Se crea PENDIENTE, no COBRADO como en el alta: aquí no sabemos si ya ha
+    // pagado, y dar por cobrado lo que no lo está es el mismo error contable al
+    // revés. Pendiente aparece en "Quién me debe", donde marcarCobrado ya emite
+    // la factura. Un plan de 0 € (invitación, prueba) no genera recibo.
+    if (nueva && plan && plan.precio > 0) {
+      const reciboPlan: Recibo = {
+        id: `rec-${uid()}`,
+        studioId: getCurrentStudioId(),
+        socioId,
+        suscripcionId: nueva.id,
+        concepto: plan.nombre,
+        importe: plan.precio,
+        estado: 'PENDIENTE',
+        fechaVencimiento: nueva.fechaInicio,
+        fechaCobro: null,
+        fechaDevolucion: null,
+        intentosReintento: 0,
+      };
+      setRecibos(prev => [...prev, reciboPlan]);
+      dbInsertRecibo(reciboPlan);
+    }
+
     const socio = socios.find(s => s.id === socioId);
     addActividadReciente(
       'PLAN_ASIGNADO',

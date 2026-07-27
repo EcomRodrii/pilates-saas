@@ -27,7 +27,15 @@ function fmt(n: number) { return n.toLocaleString('es-ES', { minimumFractionDigi
 
 // ── Plan form modal ───────────────────────────────────────────────────────────
 
-type PlanFormData = { nombre: string; precio: string; tipo: PlanTarifa['tipo']; sesiones: string; descripcion: string; activo: boolean };
+// `validezDias` y `limiteSemanal` existen en PlanTarifa y en BD desde
+// 0075_bono_validez_limite_congelacion, y toda la cadena de abajo ya los usa
+// (calcularFechaFinBono → suscripciones.fecha_fin → bonoConsumible →
+// tieneEntitlementActivo → aviso de bono a punto de caducar → congelación).
+// Este formulario nació sin ellos, y como es el que está en el menú lateral,
+// todo bono creado aquí salía con validez null: un bono que no caduca nunca.
+// El de components/configuracion/tab-planes.tsx sí los tiene — son dos
+// formularios de la misma entidad y este se quedó atrás.
+type PlanFormData = { nombre: string; precio: string; tipo: PlanTarifa['tipo']; sesiones: string; validezDias: string; limiteSemanal: string; descripcion: string; activo: boolean };
 
 function PlanModal({ initial, onSave, onClose }: {
   initial?: PlanTarifa;
@@ -40,6 +48,8 @@ function PlanModal({ initial, onSave, onClose }: {
     precio: initial?.precio?.toString() ?? '',
     tipo: initial?.tipo ?? 'MENSUAL',
     sesiones: initial?.sesiones?.toString() ?? '',
+    validezDias: initial?.validezDias?.toString() ?? '',
+    limiteSemanal: initial?.limiteSemanal?.toString() ?? '',
     descripcion: initial?.descripcion ?? '',
     activo: initial?.activo ?? true,
   });
@@ -78,13 +88,29 @@ function PlanModal({ initial, onSave, onClose }: {
             </div>
           </div>
           {(form.tipo === 'BONO' || form.tipo === 'PUNTUAL') && (
-            <div>
-              <label htmlFor={`${uid}-4`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Número de sesiones</label>
-              <input id={`${uid}-4`} value={form.sesiones} onChange={e => set('sesiones', e.target.value)} type="number" min="1"
-                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
-                placeholder="8" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor={`${uid}-4`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Número de sesiones</label>
+                <input id={`${uid}-4`} value={form.sesiones} onChange={e => set('sesiones', e.target.value)} type="number" min="1"
+                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
+                  placeholder="8" />
+              </div>
+              <div>
+                <label htmlFor={`${uid}-6`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Caduca a los (días)</label>
+                <input id={`${uid}-6`} value={form.validezDias} onChange={e => set('validezDias', e.target.value)} type="number" min="1"
+                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
+                  placeholder="Ej. 60" />
+                <p className="text-[11px] text-muted-foreground mt-1">Días desde la compra. Déjalo vacío si el bono no caduca.</p>
+              </div>
             </div>
           )}
+          <div>
+            <label htmlFor={`${uid}-7`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Límite semanal (opcional)</label>
+            <input id={`${uid}-7`} value={form.limiteSemanal} onChange={e => set('limiteSemanal', e.target.value)} type="number" min="1"
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
+              placeholder="Sin límite" />
+            <p className="text-[11px] text-muted-foreground mt-1">Máximo de clases por semana con este plan. Vacío = sin tope.</p>
+          </div>
           <div>
             <label htmlFor={`${uid}-5`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Descripción</label>
             <input id={`${uid}-5`} value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
@@ -229,12 +255,19 @@ export default function Productos() {
   // Count active suscripciones per plan
   const susCount = (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length;
 
-  function savePlan(d: ReturnType<typeof Object.assign> & { nombre: string; precio: string; tipo: PlanTarifa['tipo']; sesiones: string; descripcion: string; activo: boolean }) {
+  function savePlan(d: PlanFormData) {
+    // La validez sólo aplica a bonos y puntuales (un mensual se renueva, no
+    // caduca); el límite semanal vale para cualquier tipo. Mismo criterio que
+    // components/configuracion/tab-planes.tsx, que es el otro formulario de esta
+    // misma entidad.
+    const esBonoOPuntual = d.tipo === 'BONO' || d.tipo === 'PUNTUAL';
     const fields = {
       nombre: d.nombre.trim(),
       precio: parseFloat(d.precio) || 0,
       tipo: d.tipo,
       sesiones: d.tipo !== 'MENSUAL' && d.sesiones ? parseInt(d.sesiones) : null,
+      validezDias: esBonoOPuntual && d.validezDias ? parseInt(d.validezDias, 10) : null,
+      limiteSemanal: d.limiteSemanal ? parseInt(d.limiteSemanal, 10) : null,
       descripcion: d.descripcion.trim() || null,
       activo: d.activo,
     };
@@ -334,6 +367,13 @@ export default function Productos() {
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {plan.tipo === 'MENSUAL' ? 'al mes' : plan.sesiones ? `${plan.sesiones} sesiones` : 'por sesión'}
                     </p>
+                    {/* La caducidad no se veía en ningún sitio: había que abrir el
+                        plan para saber si el bono expira, y hasta ahora ni eso. */}
+                    {plan.tipo !== 'MENSUAL' && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {plan.validezDias ? `Caduca a los ${plan.validezDias} días` : 'Sin caducidad'}
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
                     <div className="flex items-center gap-1 text-muted-foreground">
