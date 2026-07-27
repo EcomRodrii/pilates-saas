@@ -232,7 +232,7 @@ export default function CierreDeAnoPage() {
 
       {/* Aviso de honestidad */}
       <div className="flex gap-2.5 items-start rounded-xl border border-border bg-accent px-4 py-3 text-sm">
-        <Info className="size-4 shrink-0 mt-0.5 text-brand" aria-hidden />
+        <Info className="size-4 shrink-0 mt-0.5 text-brand-medio" aria-hidden />
         <p className="text-foreground/85 leading-relaxed m-0">
           <b>Esto recopila tus ingresos y el IVA repercutido</b>, no es tu declaración. No incluye gastos ni IVA soportado, y no se presenta a Hacienda — el cierre lo valida y presenta tu gestoría. Tentare te da el paquete hecho.
         </p>
@@ -482,7 +482,7 @@ export default function CierreDeAnoPage() {
         )}
         <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-3 border-t border-border text-sm text-muted-foreground">
           <span>Mostrando {Math.min(8, facturasAnio.length)} de <b className="text-foreground tabular-nums">{facturasAnio.length}</b> facturas del año</span>
-          <button onClick={descargarCsv} className="text-brand font-semibold">Descargar libro completo (CSV) →</button>
+          <button onClick={descargarCsv} className="text-brand-medio font-semibold">Descargar libro completo (CSV) →</button>
         </div>
       </section>
 

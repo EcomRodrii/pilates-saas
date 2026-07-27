@@ -360,7 +360,7 @@ export default function Productos() {
 
           {/* Add card */}
           <button onClick={() => setPlanModal('new')}
-            className="bg-card rounded-2xl border-2 border-dashed border-border p-5 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-brand hover:text-brand transition-colors min-h-[160px]">
+            className="bg-card rounded-2xl border-2 border-dashed border-border p-5 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-brand hover:text-brand-medio transition-colors min-h-[160px]">
             <Plus size={20} />
             <span className="text-sm font-semibold">Añadir plan</span>
           </button>
@@ -455,7 +455,7 @@ export default function Productos() {
           )}
           <div className="p-4 border-t border-border">
             <button onClick={() => setPosModal('new')}
-              className="flex items-center gap-2 text-sm font-semibold text-brand hover:text-[#6E9E0A] transition-colors">
+              className="flex items-center gap-2 text-sm font-semibold text-brand-medio hover:text-[#6E9E0A] transition-colors">
               <Plus size={14} />
               Añadir producto
             </button>

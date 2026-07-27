@@ -173,7 +173,7 @@ export default function ImportarCitasPage() {
                 </p>
                 <button
                   onClick={e => { e.stopPropagation(); descargar('plantilla-citas.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO)); }}
-                  className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand hover:underline"
+                  className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-medio hover:underline"
                 >
                   <Download size={13} />Descargar plantilla de ejemplo
                 </button>

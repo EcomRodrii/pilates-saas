@@ -15,7 +15,7 @@ function Tarjeta({ titulo, valor, pie, acento }: {
   return (
     <div className="rounded-2xl border border-border bg-card px-4 py-3.5">
       <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{titulo}</p>
-      <p className={`mt-1 text-[26px] font-bold tabular-nums leading-none ${acento ? 'text-brand' : 'text-foreground'}`}>{valor}</p>
+      <p className={`mt-1 text-[26px] font-bold tabular-nums leading-none ${acento ? 'text-brand-medio' : 'text-foreground'}`}>{valor}</p>
       {pie && <p className="mt-1.5 text-[11.5px] text-muted-foreground leading-snug">{pie}</p>}
     </div>
   );
@@ -100,9 +100,9 @@ export default function ResumenInterno() {
           <li><strong>Tickets, incidentes y leads:</strong> no hay soporte ni CRM construidos. Cuando los haya, sus KPIs entran aquí.</li>
         </ul>
         <p className="mt-2 text-[12px] text-muted-foreground">
-          Estado de servidores, errores y cobros: <Link href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand">Stripe</Link>,{' '}
-          <Link href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand">Vercel</Link> y{' '}
-          <Link href="https://sentry.io" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand">Sentry</Link> ya lo hacen mejor de lo que lo haríamos aquí.
+          Estado de servidores, errores y cobros: <Link href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-medio">Stripe</Link>,{' '}
+          <Link href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-medio">Vercel</Link> y{' '}
+          <Link href="https://sentry.io" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-medio">Sentry</Link> ya lo hacen mejor de lo que lo haríamos aquí.
         </p>
       </section>
     </div>

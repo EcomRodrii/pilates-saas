@@ -42,7 +42,7 @@ export function Topbar() {
           label={oculto ? 'Mostrar cifras' : 'Ocultar cifras (modo privacidad)'}
           icon={oculto ? EyeOff : Eye}
           onClick={() => setOculto(!oculto)}
-          className={oculto ? 'text-brand' : 'text-muted-foreground'}
+          className={oculto ? 'text-brand-medio' : 'text-muted-foreground'}
         />
         <Link
           href="/mensajeria"

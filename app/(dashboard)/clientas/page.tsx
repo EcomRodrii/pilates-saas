@@ -913,7 +913,7 @@ export default function Socios() {
             {visibles < lista.length && (
               <button
                 onClick={() => setVisibles((v) => v + PAGE)}
-                className="text-[12px] font-semibold text-brand hover:underline"
+                className="text-[12px] font-semibold text-brand-medio hover:underline"
               >
                 Ver más ({Math.min(PAGE, lista.length - visibles)})
               </button>

@@ -129,7 +129,7 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
             el equipo se gestiona en su propia pantalla. Un cartel que manda al
             sitio equivocado es peor que no poner cartel. */}
         No hay instructoras activas. Añádelas en{' '}
-        <Link href="/equipo" className="font-semibold text-brand hover:underline underline-offset-2">Equipo</Link>
+        <Link href="/equipo" className="font-semibold text-brand-medio hover:underline underline-offset-2">Equipo</Link>
         {' '}y luego vuelve aquí para definir su horario de citas.
       </div>
     );
@@ -188,7 +188,7 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
                   </div>
                 ))}
                 <button onClick={() => addFranja(dia.dow)}
-                  className="flex items-center gap-1 text-[12px] font-medium text-brand hover:brightness-90 px-1.5 py-1">
+                  className="flex items-center gap-1 text-[12px] font-medium text-brand-medio hover:brightness-90 px-1.5 py-1">
                   <Plus size={13} />Franja
                 </button>
               </div>

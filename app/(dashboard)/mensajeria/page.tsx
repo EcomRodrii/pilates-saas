@@ -87,7 +87,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
             {resultado.ok === 0 ? ' — no hemos podido enviar ninguno. Inténtalo de nuevo en unos minutos; si sigue fallando, escríbenos a soporte@tentare.app.' : ''}
           </p>
         )}
-        <button onClick={reset} className="text-xs font-semibold text-brand hover:underline mt-2">Enviar otro mensaje</button>
+        <button onClick={reset} className="text-xs font-semibold text-brand-medio hover:underline mt-2">Enviar otro mensaje</button>
       </div>
     );
   }
@@ -252,7 +252,7 @@ export default function Mensajeria() {
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.texto}</p>
                       {n.enlace && (
-                        <Link href={n.enlace} className="inline-flex items-center gap-1 text-xs text-brand mt-1.5 hover:underline">
+                        <Link href={n.enlace} className="inline-flex items-center gap-1 text-xs text-brand-medio mt-1.5 hover:underline">
                           Ver más <ChevronRight size={10} />
                         </Link>
                       )}

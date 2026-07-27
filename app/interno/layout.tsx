@@ -62,7 +62,7 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
           </span>
           <h1 className="text-[17px] font-bold text-foreground">Zona interna de Tentare</h1>
           <p className="text-[13.5px] text-muted-foreground">{error}</p>
-          <Link href="/" className="mt-1 text-[13px] font-semibold text-brand">Volver a Tentare</Link>
+          <Link href="/" className="mt-1 text-[13px] font-semibold text-brand-medio">Volver a Tentare</Link>
         </div>
       </div>
     );
