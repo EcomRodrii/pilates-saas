@@ -7,7 +7,10 @@ import type { Rol } from './types';
 
 // Las reglas viven en un módulo puro para poder probarlas (ver
 // lib/permisos-reglas.test.ts). Se reexportan para no romper ningún import.
-export { puedeVer, puedeVerFichaClinica, puedeMoverDinero } from './permisos-reglas';
+export {
+  puedeVer, puedeVerFichaClinica, puedeMoverDinero, puedeVerFinanzas,
+  puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar,
+} from './permisos-reglas';
 
 // A-2 (fail-closed): antes cualquier usuario autenticado SIN ficha de instructora
 // caía a 'PROPIETARIO' —una escalada de privilegios en la UI: bastaba tener sesión

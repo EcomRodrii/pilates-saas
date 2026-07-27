@@ -1,6 +1,6 @@
 // ─── Core types ──────────────────────────────────────────────────────────────
 
-export type Rol = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION';
+export type Rol = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION' | 'MANAGER';
 export type EstadoSuscripcion = 'ACTIVA' | 'PAUSADA' | 'CANCELADA' | 'EXPIRADA';
 export type TipoPlan = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 // FALLIDO (0041): estado terminal tras agotar los reintentos de dunning (+1/+3/+7).

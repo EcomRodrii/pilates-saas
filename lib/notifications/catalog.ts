@@ -129,8 +129,11 @@ export const ROLES_POR_AUDIENCIA: Record<Audiencia, NotificationRole[]> = {
   'socias-e-instructora-de-la-sesion': ['SOCIA', 'INSTRUCTOR'],
   'propietaria': ['PROPIETARIO'],
   'instructora-del-evento': ['INSTRUCTOR'],
-  'mostrador': ['PROPIETARIO', 'RECEPCION'],
-  'mostrador-y-socia': ['PROPIETARIO', 'RECEPCION', 'SOCIA'],
+  // El manager entra en «mostrador»: lleva la sede, así que un aviso de lo que
+  // pasa en ella le corresponde. Que no vea la facturación no significa que no
+  // deba enterarse de una lista de espera o de una baja.
+  'mostrador': ['PROPIETARIO', 'RECEPCION', 'MANAGER'],
+  'mostrador-y-socia': ['PROPIETARIO', 'RECEPCION', 'MANAGER', 'SOCIA'],
 };
 
 // Canales que este rol puede llegar a recibir en esta categoría, según lo que
@@ -352,5 +355,8 @@ export const CATEGORIAS_POR_ROL: Record<NotificationRole, NotificationCategory[]
   // Recepción = mostrador: lo operativo que gestiona (reservas nuevas, cobros
   // fallidos). No configura marketing/informes/sistema (fuera de su rol).
   RECEPCION: ['reservas', 'pagos'],
+  // El manager lleva la sede pero no el dinero: lo operativo y las sustituciones
+  // (es quien las resuelve), sin la categoría de pagos.
+  MANAGER: ['reservas', 'clases', 'sustituciones'],
   SOCIA: ['reservas', 'clases', 'pagos', 'marketing'],
 };

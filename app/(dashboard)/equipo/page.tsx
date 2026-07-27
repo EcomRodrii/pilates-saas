@@ -13,6 +13,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
+import { useRol } from '@/lib/permisos';
+import { rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
 
 type FiltroEstado = 'activas' | 'inactivas' | 'todas';
 type FiltroRol = 'todos' | Rol;
@@ -45,11 +47,13 @@ const labelCls = 'text-[12px] font-semibold text-foreground block mb-1.5';
 
 const ROL_LABEL: Record<Rol, string> = {
   PROPIETARIO: 'Propietaria',
+  MANAGER: 'Responsable de sede',
   RECEPCION: 'Recepción',
   INSTRUCTOR: 'Instructora',
 };
 const ROL_DESC: Record<Rol, string> = {
   PROPIETARIO: 'Acceso total: negocio, marketing, automatizaciones y equipo.',
+  MANAGER: 'Lleva el día a día de la sede: horario, clientas, lista de espera, sustituciones y equipo. No ve facturación, informes de ingresos ni ajustes del negocio, y no puede dar acceso de propietaria.',
   RECEPCION: 'Reservas, clientas, cobros y caja — sin acceso a marketing, informes ni ajustes del negocio.',
   INSTRUCTOR: 'Calendario, citas (sin precios), miembros, oferta digital, comunidad y mensajería — sin datos de facturación.',
 };
@@ -61,6 +65,8 @@ type Form = { tempId: string; nombre: string; email: string; telefono: string; c
 const emptyForm = (): Form => ({ tempId: `ins-${generarId()}`, nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, fotoUrl: null, activo: true, rol: 'INSTRUCTOR' });
 
 export default function EquipoPage() {
+  // Qué niveles de acceso puede repartir quien está mirando esta pantalla.
+  const miRol = useRol();
   const uid = useId();
   const { instructores, sesiones, tiposClase, addInstructor, updateInstructor, deleteInstructor, actividadReciente } = useStudio();
 
@@ -309,7 +315,7 @@ export default function EquipoPage() {
           <PillSelect label="Estado" value={fEstado} onChange={v => setFEstado(v as FiltroEstado)}
             options={[['activas', 'Activas'], ['inactivas', 'Inactivas'], ['todas', 'Todas']]} />
           <PillSelect label="Rol" value={fRol} onChange={v => setFRol(v as FiltroRol)}
-            options={[['todos', 'Todos'], ['PROPIETARIO', 'Propietaria'], ['RECEPCION', 'Recepción'], ['INSTRUCTOR', 'Instructora']]} />
+            options={[['todos', 'Todos'], ['PROPIETARIO', 'Propietaria'], ['MANAGER', 'Responsable de sede'], ['RECEPCION', 'Recepción'], ['INSTRUCTOR', 'Instructora']]} />
           <div className="ml-auto flex items-center gap-2">
             <PillSelect label="Ordenar" value={orden} onChange={v => setOrden(v as Orden)}
               options={[['nombre-az', 'Nombre A-Z'], ['nombre-za', 'Nombre Z-A'], ['clases', 'Más clases'], ['valoracion', 'Mejor valoración']]} />
@@ -435,7 +441,11 @@ export default function EquipoPage() {
             <div>
               <span id={`${uid}-rol`} className={labelCls}>Rol y acceso al panel</span>
               <div role="group" aria-labelledby={`${uid}-rol`} className="space-y-1.5">
-                {(['PROPIETARIO', 'RECEPCION', 'INSTRUCTOR'] as Rol[]).map(r => (
+                {/* Solo los roles que esta persona puede repartir. Un manager
+                    no ve «Propietaria» ni «Responsable de sede»: ofrecérselos
+                    sería enseñar un botón que el servidor rechaza (y la RLS de
+                    la 0108 también). */}
+                {rolesQuePuedeAsignar(miRol).map(r => (
                   <button
                     key={r}
                     type="button"

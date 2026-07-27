@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
 
 // A-2: gestión del equipo (alta/edición/baja de instructoras y su ROL) con
 // enforcement de servidor. Antes el cliente escribía `rol` —incluido PROPIETARIO—
@@ -14,7 +15,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 // El studio_id es SIEMPRE el del JWT (nunca el del body) y toda operación se
 // scopea a ese estudio, así que una dueña no puede tocar el equipo de otro.
 
-const ROLES_VALIDOS = new Set(['PROPIETARIO', 'RECEPCION', 'INSTRUCTOR']);
+const ROLES_VALIDOS = new Set(['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR']);
 
 // Campos que la dueña puede fijar en cualquier ficha del estudio.
 function saneaFieldsPropietario(src: Record<string, unknown>): Record<string, unknown> {
@@ -49,8 +50,8 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol !== 'PROPIETARIO') {
-    return NextResponse.json({ error: 'Solo la propietaria puede gestionar el equipo' }, { status: 403 });
+  if (!puedeGestionarEquipo(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para gestionar el equipo' }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -60,6 +61,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Faltan datos obligatorios (id, nombre)' }, { status: 400 });
   }
   const rol = ROLES_VALIDOS.has(String(body?.rol)) ? String(body?.rol) : 'INSTRUCTOR';
+
+  // Este endpoint usa service-role, que SE SALTA la RLS: la policy de la 0108 no
+  // llega hasta aquí. Así que la regla de "solo hacia abajo" hay que aplicarla a
+  // mano, o un manager se daría de alta una propietaria y habríamos hecho el
+  // trabajo para nada.
+  if (!rolesQuePuedeAsignar(sesion.rol).includes(rol as never)) {
+    return NextResponse.json(
+      { error: 'No puedes dar ese nivel de acceso. Pídeselo a la propietaria.' },
+      { status: 403 },
+    );
+  }
 
   const row = {
     id,
@@ -104,7 +116,7 @@ export async function PATCH(req: NextRequest) {
   // La ficha a editar debe existir y pertenecer al estudio de la sesión.
   const { data: ficha, error: errLeer } = await admin
     .from('instructores')
-    .select('id, studio_id, auth_user_id')
+    .select('id, studio_id, auth_user_id, rol')
     .eq('id', id)
     .eq('studio_id', sesion.studioId)
     .maybeSingle();
@@ -113,11 +125,25 @@ export async function PATCH(req: NextRequest) {
 
   const esPropietario = sesion.rol === 'PROPIETARIO';
   const esPropia = ficha.auth_user_id === sesion.userId;
-  if (!esPropietario && !esPropia) {
+  // Un manager edita fichas de su equipo, pero NO la de la propietaria ni la de
+  // otro manager: si no, bastaría con reescribir la ficha de la dueña.
+  const puedeEditarEsaFicha =
+    sesion.rol === 'MANAGER' && rolesQuePuedeAsignar('MANAGER').includes(ficha.rol as never);
+  if (!esPropietario && !esPropia && !puedeEditarEsaFicha) {
     return NextResponse.json({ error: 'Solo puedes editar tu propia ficha' }, { status: 403 });
   }
 
-  const update = esPropietario ? saneaFieldsPropietario(changes) : saneaFieldsPropios(changes);
+  const update = (esPropietario || puedeEditarEsaFicha)
+    ? saneaFieldsPropietario(changes)
+    : saneaFieldsPropios(changes);
+  // Y tampoco puede ascenderla al editarla.
+  if (!esPropietario && 'rol' in update
+      && !rolesQuePuedeAsignar(sesion.rol).includes(update.rol as never)) {
+    return NextResponse.json(
+      { error: 'No puedes dar ese nivel de acceso. Pídeselo a la propietaria.' },
+      { status: 403 },
+    );
+  }
   if ('nombre' in update && !String(update.nombre).trim()) {
     return NextResponse.json({ error: 'El nombre no puede quedar vacío' }, { status: 400 });
   }
@@ -142,13 +168,22 @@ export async function DELETE(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol !== 'PROPIETARIO') {
-    return NextResponse.json({ error: 'Solo la propietaria puede eliminar miembros' }, { status: 403 });
+  if (!puedeGestionarEquipo(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para dar de baja a nadie' }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as { id?: unknown } | null;
   const id = typeof body?.id === 'string' ? body.id : null;
   if (!id) return NextResponse.json({ error: 'Falta el id' }, { status: 400 });
+
+  // Un manager no puede borrar a la propietaria ni a otro manager.
+  if (sesion.rol !== 'PROPIETARIO') {
+    const { data: victima } = await admin
+      .from('instructores').select('rol').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
+    if (!victima || !rolesQuePuedeAsignar(sesion.rol).includes(victima.rol as never)) {
+      return NextResponse.json({ error: 'No puedes dar de baja a esta persona.' }, { status: 403 });
+    }
+  }
 
   const { error } = await admin
     .from('instructores')

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { firmarTokenInstructora, verificarTokenInstructora, type ScopeToken } from '@/lib/sustituciones/token';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 
 // Genera un deep link firmado que la propietaria envía a una instructora para
 // que haga algo sin login. Solo la propietaria del estudio.
@@ -28,8 +29,8 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol !== 'PROPIETARIO') {
-    return NextResponse.json({ error: 'Solo la propietaria puede generar enlaces' }, { status: 403 });
+  if (!puedeGestionarEquipo(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para generar enlaces' }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as { instructorId?: string; scope?: unknown } | null;

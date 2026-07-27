@@ -28,6 +28,14 @@ const PERMITIDO_INSTRUCTOR = [
 // parcial a RECEPCION se decidirá post-MVP (DECISION-OS-ANALISIS.md §8).
 const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control'];
 
+// Manager: lleva una sede. Todo lo operativo de recepción MÁS el equipo, y
+// MENOS el dinero — incluida la pantalla de cobros, que recepción sí ve porque
+// cobra en mostrador y un manager no.
+const BLOQUEADO_MANAGER = [
+  '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion',
+  '/centro-de-control', '/transacciones',
+];
+
 function coincide(path: string, prefijo: string) {
   return path === prefijo || path.startsWith(`${prefijo}/`);
 }
@@ -52,6 +60,38 @@ export function puedeMoverDinero(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'RECEPCION';
 }
 
+// VER la facturación (la pestaña Pagos de una ficha, el gasto total). Es otra
+// pregunta que `puedeMoverDinero`, aunque hoy la respuesta coincida: se pueden
+// separar el día que alguien tenga que consultar sin poder tocar.
+// Antes esto se escribía a mano como `rol !== 'INSTRUCTOR'`, que con un rol
+// nuevo se equivoca sola: un manager habría heredado la vista de finanzas.
+export function puedeVerFinanzas(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'RECEPCION';
+}
+
+// Dar de alta, importar, editar y dar de baja CLIENTAS. Es el trabajo de
+// mostrador, y el manager lo hace.
+export function puedeGestionarClientas(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'RECEPCION' || rol === 'MANAGER';
+}
+
+// Dar de alta y editar al EQUIPO. Es lo que distingue a un manager de recepción,
+// y el permiso más delicado que hay: con él se pueden repartir permisos. Que un
+// manager no pueda ascender a nadie NO se defiende aquí — se defiende en la RLS
+// (migración 0108), porque esto es solo la UI.
+export function puedeGestionarEquipo(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER';
+}
+
+// Roles que un rol puede REPARTIR al invitar o editar a alguien. La propietaria
+// reparte todo; el manager solo hacia abajo. Espejo de la policy 0108: si las
+// dos dejan de coincidir, la UI ofrece algo que la base de datos rechaza.
+export function rolesQuePuedeAsignar(rol: Rol): Rol[] {
+  if (rol === 'PROPIETARIO') return ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'];
+  if (rol === 'MANAGER') return ['RECEPCION', 'INSTRUCTOR'];
+  return [];
+}
+
 export function puedeVer(rol: Rol, path: string): boolean {
   // Feature-freeze PMF: los módulos congelados no son visibles para NINGÚN rol.
   // Esto los saca a la vez del menú, del buscador ⌘K y hace que el guardia del
@@ -59,5 +99,6 @@ export function puedeVer(rol: Rol, path: string): boolean {
   if (esRutaCongelada(path)) return false;
   if (rol === 'PROPIETARIO') return true;
   if (rol === 'INSTRUCTOR') return PERMITIDO_INSTRUCTOR.some(p => coincide(path, p));
+  if (rol === 'MANAGER') return !BLOQUEADO_MANAGER.some(p => coincide(path, p));
   return !BLOQUEADO_RECEPCION.some(p => coincide(path, p));
 }

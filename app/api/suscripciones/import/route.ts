@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { emailValido, parsearFecha, normalizarEstadoMembresia } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol !== 'PROPIETARIO' && sesion.rol !== 'RECEPCION') {
+  if (!puedeMoverDinero(sesion.rol)) {  // importar bonos es dinero: aquí no entra el manager
     return NextResponse.json({ error: 'No tienes permiso para importar membresías' }, { status: 403 });
   }
 
