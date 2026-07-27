@@ -110,12 +110,12 @@
   /* La barra lateral es casi negra (#0F0F0F) SIEMPRE, también en modo claro:
      el oliva de relleno daría 1,59:1 y el item activo no se vería. Mismo
      criterio que en oscuro — manda la arena (11,10:1). */
-  --sidebar-primary: #D9C29E;
-  --sidebar-primary-foreground: #343825;
+  --sidebar-primary: #343825;
+  --sidebar-primary-foreground: #D9C29E;
   --sidebar-accent: rgba(255,255,255,0.06);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255,255,255,0.06);
-  --sidebar-ring: rgba(217,194,158,0.5);
+  --sidebar-ring: rgba(107,122,60,0.5);
 
   /* Escala de acento del sistema. El nombre "lime" es histórico (plantilla
      Midbox); hoy son alias de la marca de Tentare y no deben divergir de ella. */
@@ -183,21 +183,25 @@
   --border: #303035;
   --input: #303035;
 
-  /* Marca en modo oscuro: EL PAR SE INVIERTE.
-     El oliva es muy oscuro (13% de luminosidad): como relleno sobre #16161A da
-     1,49:1 y el botón se hunde en la página. Un contorno fino lo hacía "válido"
-     según la norma, pero seguía viéndose mal, que es lo que importa.
-     Aquí manda la arena: relleno arena + texto oliva. Son los MISMOS dos
-     colores de la identidad, en el orden que funciona sobre fondo oscuro —
-     10,45:1 contra el fondo y 7,00:1 del texto sobre el botón. */
-  --brand: #D9C29E;
-  --brand-foreground: #343825;
-  --brand-secondary: #C2AC86;
+  /* Marca en modo oscuro: SALVIA, ni oliva ni arena.
+     Dos intentos fallidos antes de este, y los dos por el mismo motivo — mirar
+     el contraste de UN elemento en vez de la pantalla entera:
+       · Oliva de relleno (1,49:1): el botón se hundía en el fondo.
+       · Arena de relleno: contraste espléndido, pero --brand no pinta solo
+         botones. Tiñe decenas de superficies con bg-brand/5 y /10, y con arena
+         cada una de esas se volvía un lavado beige. La pantalla entera acababa
+         en sepia.
+     La salvia resuelve las dos cosas: 5,43:1 contra el fondo, y sus tintes al
+     5-10% son un verde apenas perceptible en vez de un baño beige. La arena se
+     queda donde siempre debió estar en oscuro: como TEXTO sobre la marca. */
+  --brand: #8A9165;
+  --brand-foreground: #16161A;
+  --brand-secondary: #A8B37A;
   --brand-borde: transparent;
 
   --accent: #262A1C;
-  --accent-foreground: #D9C29E;
-  --ring: #D9C29E;
+  --accent-foreground: #A8B37A;
+  --ring: #8A9165;
   --brand-medio: #A8B37A;
 }
 
