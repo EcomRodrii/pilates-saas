@@ -3894,6 +3894,36 @@ export async function dbUpdateSesion(id: string, changes: Partial<Sesion>): Prom
   return error ? falloEscritura('[dbUpdateSesion]', error) : ESCRITURA_OK;
 }
 
+// Edita "esta y las siguientes" de una serie en UNA transacción (RPC 0109). Antes
+// eran N escrituras no atómicas (lote de campos uniformes + un UPDATE de hora por
+// sesión): si el lote iba bien y una hora fallaba por solape, la BD quedaba a
+// medias y el panel se deshacía entero → divergían hasta recargar. La RPC lo hace
+// todo-o-nada: reconstruye la hora por sesión (fecha local + hora, en Madrid) y si
+// cualquier sesión solapa hace rollback completo y devuelve un único error (23P01,
+// que lib/errores traduce a "esa sala/instructora ya tiene clase a esa hora").
+export async function dbUpdateSerieDesde(
+  studioId: string,
+  sesionOrigenId: string,
+  cambios: {
+    tipoClaseId: string; salaId: string; instructorId: string;
+    aforoMaximo: number; notas: string | null;
+    horaInicio: string; horaFin: string;
+  },
+): Promise<ResultadoEscritura> {
+  const { error } = await supabase.rpc('editar_serie_desde', {
+    p_studio_id: studioId,
+    p_sesion_origen_id: sesionOrigenId,
+    p_tipo_clase_id: cambios.tipoClaseId,
+    p_sala_id: cambios.salaId,
+    p_instructor_id: cambios.instructorId,
+    p_aforo_maximo: cambios.aforoMaximo,
+    p_notas: cambios.notas,
+    p_hora_inicio: cambios.horaInicio,
+    p_hora_fin: cambios.horaFin,
+  });
+  return error ? falloEscritura('[dbUpdateSerieDesde]', error) : ESCRITURA_OK;
+}
+
 export async function dbDeleteSesion(id: string) {
   const { error } = await supabase.from('sesiones').delete().eq('id', id);
   if (error) reportDbError('[dbDeleteSesion]', error);

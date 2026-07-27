@@ -17,7 +17,7 @@ import {
   dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion,
   dbPonerExcepcion, dbQuitarExcepcion,
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
-  dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch,
+  dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
@@ -49,6 +49,7 @@ import {
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
+import { horarioConNuevaHora } from '@/lib/serie-horario';
 import { politicaPrivacidadPorDefecto, terminosServicioPorDefecto, type DatosEstudioLegal } from '@/lib/legal-textos';
 import type {
   Studio,
@@ -456,13 +457,6 @@ interface StudioContextValue {
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
-
-// Fecha local ('YYYY-MM-DD') de un instante ISO — para reconstruir la hora de
-// cada sesión de una serie manteniendo su día (I-3).
-function localDateFromISO(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 const StudioContext = createContext<StudioContextValue | null>(null);
 
@@ -1612,33 +1606,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       tipoClaseId: changes.tipoClaseId, salaId: changes.salaId,
       instructorId: changes.instructorId, aforoMaximo: changes.aforoMaximo, notas: changes.notas,
     };
-    // Reconstruye inicio/fin de cada sesión con su propia fecha + la nueva hora.
-    const conHora = objetivo.map(s => {
-      const dia = localDateFromISO(s.inicio); // 'YYYY-MM-DD' local de la sesión
-      const inicio = new Date(`${dia}T${changes.horaInicio}:00`).toISOString();
-      const fin = new Date(`${dia}T${changes.horaFin}:00`).toISOString();
-      return { id: s.id, inicio, fin };
-    });
+    // Pintado optimista: reconstruye inicio/fin de cada sesión con su misma FECHA
+    // local (Madrid) y la hora nueva. Mismo cálculo que la RPC (0109), por eso lo
+    // que se ve coincide con lo que se guarda.
+    const conHora = objetivo.map(s => ({ id: s.id, ...horarioConNuevaHora(s.inicio, changes.horaInicio, changes.horaFin) }));
     const ids = new Set(objetivo.map(s => s.id));
     setSesiones(prev => prev.map(s => {
       if (!ids.has(s.id)) return s;
       const h = conHora.find(c => c.id === s.id)!;
       return { ...s, ...uniformes, inicio: h.inicio, fin: h.fin };
     }));
-    // Escribe-primero. Uniformes en batch (1 llamada) + hora por sesión (varía por
-    // fecha). Si CUALQUIER escritura falla (p.ej. solape al mover la serie a una
-    // hora ocupada), se deshace el bloque entero en pantalla y se devuelve el
-    // motivo — antes fallaban en silencio y la serie se veía movida sin estarlo.
-    // (Lo ideal sería un RPC transaccional todo-o-nada; esto ya evita el engaño.)
-    const resultados = await Promise.all([
-      dbUpdateSesionesBatch([...ids], uniformes),
-      ...conHora.map(h => dbUpdateSesion(h.id, { inicio: h.inicio, fin: h.fin })),
-    ]);
-    const fallo = resultados.find(r => !r.ok);
-    if (fallo && !fallo.ok) {
+    // UNA sola escritura, transaccional (RPC): reconstruye la hora por sesión y
+    // aplica campos + hora TODO-O-NADA. Si CUALQUIER sesión solapa (p. ej. el hueco
+    // ocupado solo los lunes), la BD hace rollback completo y devuelve un único
+    // motivo — nunca queda media serie movida. Aquí se deshace además el bloque
+    // optimista en pantalla. (Antes: lote + N updates NO atómicos; el fallo parcial
+    // dejaba BD y panel divergentes hasta recargar. Follow-up de #415.)
+    const res = await dbUpdateSerieDesde(getCurrentStudioId(), sesionId, changes);
+    if (!res.ok) {
       const antes = new Map(objetivo.map(s => [s.id, s]));
       setSesiones(prev => prev.map(s => antes.get(s.id) ?? s));
-      return fallo;
+      return res;
     }
     return { ok: true };
   }
