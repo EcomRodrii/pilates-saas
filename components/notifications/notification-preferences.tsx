@@ -82,7 +82,7 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
    <div className="flex flex-col gap-4">
     {/* Activar push en este dispositivo */}
     <div className="rounded-2xl border border-border bg-card px-4 py-3.5 flex items-center gap-3">
-      <span className={`w-9 h-9 rounded-full flex items-center justify-center ${permiso === 'granted' ? 'bg-emerald-500/10 text-success' : 'bg-brand/10 text-brand'}`}>
+      <span className={`w-9 h-9 rounded-full flex items-center justify-center ${permiso === 'granted' ? 'bg-emerald-500/10 text-success' : 'bg-brand/10 text-brand-medio'}`}>
         {permiso === 'granted' ? <BellRing size={17} /> : permiso === 'denied' ? <BellOff size={17} /> : <Bell size={17} />}
       </span>
       <div className="flex-1 min-w-0">

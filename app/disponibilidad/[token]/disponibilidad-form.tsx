@@ -53,7 +53,7 @@ export function DisponibilidadForm({
           <h1 className="text-lg font-semibold text-slate-900">¡Guardado!</h1>
           <p className="mt-2 text-sm text-slate-500">
             Tu estudio ya sabe cuándo puedes cubrir clases. Puedes cerrar esta página o
-            <button onClick={() => setEstado('idle')} className="ml-1 text-brand underline">
+            <button onClick={() => setEstado('idle')} className="ml-1 text-brand-medio underline">
               volver a editar
             </button>
             .

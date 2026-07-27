@@ -89,7 +89,7 @@ export function BajaForm({ token }: { token: string }) {
           </p>
           <button
             onClick={() => { setHecho(null); setElegida(null); setMotivo(''); }}
-            className="mt-6 text-sm font-medium text-brand underline"
+            className="mt-6 text-sm font-medium text-brand-medio underline"
           >
             Avisar de otra clase
           </button>

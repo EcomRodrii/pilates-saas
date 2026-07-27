@@ -271,7 +271,7 @@ export default function MigracionPage() {
             onDrop={e => { e.preventDefault(); setArrastrando(false); void onFiles(e.dataTransfer.files); }}
             className={`w-full rounded-2xl border-2 border-dashed p-10 text-center transition-colors ${arrastrando ? 'border-brand bg-brand/5' : 'border-border bg-card hover:border-brand/50'}`}
           >
-            <UploadCloud size={34} className="mx-auto mb-3 text-brand" />
+            <UploadCloud size={34} className="mx-auto mb-3 text-brand-medio" />
             <p className="text-[15px] font-bold text-foreground">Arrastra aquí lo que puedas exportar de tu software actual</p>
             <p className="text-[13px] text-muted-foreground mt-1.5">
               Clientas, bonos, horario, reservas, citas — CSV o Excel, da igual el formato o el nombre de las columnas. Hasta 8 archivos.
@@ -287,7 +287,7 @@ export default function MigracionPage() {
             <div className="mt-4 space-y-2">
               {archivos.map(a => (
                 <div key={a.nombre} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5">
-                  <FileSpreadsheet size={16} className="text-brand shrink-0" />
+                  <FileSpreadsheet size={16} className="text-brand-medio shrink-0" />
                   <span className="flex-1 text-[13px] font-medium text-foreground truncate">{a.nombre}</span>
                   <button
                     onClick={() => setArchivos(prev => prev.filter(x => x.nombre !== a.nombre))}
@@ -324,7 +324,7 @@ export default function MigracionPage() {
           {archivosEfectivos.map(a => (
             <div key={a.nombre} className="rounded-2xl border border-border bg-card p-4">
               <div className="flex items-center gap-3">
-                <FileSpreadsheet size={18} className={a.entidad ? 'text-brand' : 'text-muted-foreground'} />
+                <FileSpreadsheet size={18} className={a.entidad ? 'text-brand-medio' : 'text-muted-foreground'} />
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-bold text-foreground truncate">{a.nombre}</p>
                   <p className="text-[12px] text-muted-foreground">
@@ -346,7 +346,7 @@ export default function MigracionPage() {
               <div className="mt-2.5">
                 <button
                   onClick={() => setEditando(editando === a.nombre ? null : a.nombre)}
-                  className="text-[12px] font-semibold text-brand hover:underline"
+                  className="text-[12px] font-semibold text-brand-medio hover:underline"
                 >
                   {editando === a.nombre ? 'Cerrar ajustes' : a.entidad ? 'Ajustar entidad o columnas' : 'Asignar a mano'}
                 </button>
@@ -457,7 +457,7 @@ export default function MigracionPage() {
       {/* ── Paso 3: ejecutando ─────────────────────────────────────────────── */}
       {paso === 'ejecutando' && (
         <div className="text-center py-16">
-          <Loader2 size={30} className="mx-auto mb-4 animate-spin text-brand" />
+          <Loader2 size={30} className="mx-auto mb-4 animate-spin text-brand-medio" />
           <p className="text-[14px] font-bold text-foreground">{progreso}</p>
           <p className="text-[12px] text-muted-foreground mt-1">Tu software anterior sigue funcionando: aquí no se corta nada.</p>
         </div>

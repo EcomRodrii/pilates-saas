@@ -308,7 +308,7 @@ export default function SustitucionesPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-border bg-card">
           <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
-            <Sparkles size={26} className="text-brand" />
+            <Sparkles size={26} className="text-brand-medio" />
           </div>
           <p className="text-[16px] font-bold text-foreground">Ninguna baja ahora mismo</p>
           <p className="text-[13px] text-muted-foreground mt-1 mb-5 max-w-xs">Cuando una instructora no pueda dar una clase, márcala aquí y te propondremos a quién avisar — con sus motivos, sin números.</p>
@@ -1063,7 +1063,7 @@ function NuevaBajaDialog({
                     <p className="text-[13px] font-bold text-foreground truncate">{t?.nombre ?? 'Clase'} · <span className="font-medium text-muted-foreground">{fmtClase(s.inicio)}</span></p>
                     <p className="text-[11px] text-muted-foreground">{ins?.nombre ?? 'Sin instructora'}</p>
                   </div>
-                  {sel && <Check size={16} className="text-brand shrink-0" />}
+                  {sel && <Check size={16} className="text-brand-medio shrink-0" />}
                 </button>
               );
             })}

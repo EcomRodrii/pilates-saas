@@ -175,7 +175,7 @@ export function PanelMovimientos() {
                     {m.miembro}{m.metodo ? ` · ${m.metodo}` : ''}
                   </p>
                   {m.facturaId && (
-                    <Link href="/cobros?tab=facturas" className="text-[11px] text-brand hover:underline inline-flex items-center gap-1 mt-1">
+                    <Link href="/cobros?tab=facturas" className="text-[11px] text-brand-medio hover:underline inline-flex items-center gap-1 mt-1">
                       <FileText size={10} /> Ver factura
                     </Link>
                   )}
@@ -232,7 +232,7 @@ export function PanelMovimientos() {
                     </td>
                     <td className="px-4 py-3">
                       {m.miembroId
-                        ? <Link href={`/clientas/${m.miembroId}`} className="text-brand hover:underline font-medium">{m.miembro}</Link>
+                        ? <Link href={`/clientas/${m.miembroId}`} className="text-brand-medio hover:underline font-medium">{m.miembro}</Link>
                         : <span className="text-muted-foreground">{m.miembro}</span>
                       }
                     </td>

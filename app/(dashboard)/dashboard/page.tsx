@@ -131,8 +131,8 @@ function RevenueSparkline({
     >
       <defs>
         <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="var(--brand)" stopOpacity="0" />
+          <stop offset="0%" stopColor="var(--brand-medio)" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="var(--brand-medio)" stopOpacity="0" />
         </linearGradient>
       </defs>
 
@@ -140,7 +140,7 @@ function RevenueSparkline({
       <path d={areaD} fill="url(#spark-grad)" />
 
       {/* Line */}
-      <path d={pathD} fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} fill="none" stroke="var(--brand-medio)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
       {/* Data points */}
       {pts.map((p, i) => (
@@ -149,7 +149,7 @@ function RevenueSparkline({
             cx={p.x}
             cy={p.y}
             r={i === currentIdx ? 5 : 3}
-            fill={i === currentIdx ? "var(--brand)" : "var(--card)"} stroke="var(--brand)"
+            fill={i === currentIdx ? "var(--brand-medio)" : "var(--card)"} stroke="var(--brand-medio)"
             strokeWidth="2"
           />
           <text
@@ -373,7 +373,7 @@ function ClaseHoyCard({
           <div className="px-4 py-2.5 border-t border-muted">
             <Link
               href="/calendario"
-              className="text-[11px] font-medium text-brand hover:underline"
+              className="text-[11px] font-medium text-brand-medio hover:underline"
             >
               Gestionar clase →
             </Link>
@@ -879,7 +879,7 @@ export default function Dashboard() {
                   <p className="text-[13px] text-muted-foreground">Sin clases hoy</p>
                   <Link
                     href="/calendario"
-                    className="text-[12px] font-medium text-brand hover:underline"
+                    className="text-[12px] font-medium text-brand-medio hover:underline"
                   >
                     + Programar clase
                   </Link>
@@ -920,7 +920,7 @@ export default function Dashboard() {
                     <div key={r.id} className="flex items-center gap-3 px-5 py-3">
                       <Link
                         href={`/clientas/${r.socioId}`}
-                        className="w-8 h-8 rounded-full bg-info/10 text-brand font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
+                        className="w-8 h-8 rounded-full bg-info/10 text-brand-medio font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
                       >
                         {r.socio!.nombre[0]}
                         {r.socio!.apellidos[0]}
@@ -949,7 +949,7 @@ export default function Dashboard() {
                   <div className="px-5 py-3 border-t border-muted">
                     <Link
                       href="/cobros?tab=pendientes"
-                      className="text-[11px] font-medium text-brand hover:underline"
+                      className="text-[11px] font-medium text-brand-medio hover:underline"
                     >
                       Ver todos los pagos pendientes →
                     </Link>
@@ -1062,7 +1062,7 @@ export default function Dashboard() {
                         href={`/clientas/${r.socioId}`}
                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted transition-colors"
                       >
-                        <div className="w-7 h-7 rounded-full bg-info/10 text-brand text-[10px] font-bold flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-info/10 text-brand-medio text-[10px] font-bold flex items-center justify-center shrink-0">
                           {r.socio!.nombre[0]}
                           {r.socio!.apellidos[0]}
                         </div>

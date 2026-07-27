@@ -659,7 +659,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
               Ingreso medio por clienta
             </p>
             <div className="w-8 h-8 rounded-lg bg-brand/10 flex items-center justify-center">
-              <BarChart3 size={15} className="text-brand" />
+              <BarChart3 size={15} className="text-brand-medio" />
             </div>
           </div>
           <CifraPrivada className="text-2xl font-extrabold text-foreground">
@@ -804,7 +804,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                           onClick={e => e.stopPropagation()}
                           className="shrink-0"
                         >
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand">
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand-medio">
                             {initials}
                           </div>
                         </Link>
@@ -816,7 +816,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                             <Link
                               href={`/clientas/${r.socioId}`}
                               onClick={e => e.stopPropagation()}
-                              className="hover:text-brand hover:underline transition-colors"
+                              className="hover:text-brand-medio hover:underline transition-colors"
                             >
                               {name}
                             </Link>
@@ -857,7 +857,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                               <button
                                 onClick={() => cobrarOnline(r.id)}
                                 disabled={stripeLoading === r.id}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-brand/10 text-brand hover:bg-info/10 transition-colors disabled:opacity-60"
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-brand/10 text-brand-medio hover:bg-info/10 transition-colors disabled:opacity-60"
                                 title="Enviar enlace de pago Stripe"
                               >
                                 {stripeLoading === r.id
@@ -898,7 +898,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                           {r.estado === 'DEVUELTO' && (
                             <button
                               onClick={() => reintentar(r.id)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-info/10 text-brand hover:bg-info/10 transition-colors"
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-info/10 text-brand-medio hover:bg-info/10 transition-colors"
                             >
                               <RefreshCw size={12} />
                               Reintentar
@@ -961,7 +961,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                             {factura && (
                               <div>
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Factura</p>
-                                <p className="text-sm font-semibold text-brand">{factura.numeroCompleto}</p>
+                                <p className="text-sm font-semibold text-brand-medio">{factura.numeroCompleto}</p>
                               </div>
                             )}
                           </div>
@@ -1030,12 +1030,12 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                       <div key={sus.id} className="grid grid-cols-6 gap-4 px-5 py-4 items-center hover:bg-muted transition-colors group min-w-[700px]">
                         {/* Cliente */}
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand shrink-0">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand-medio shrink-0">
                             {initials}
                           </div>
                           <div className="min-w-0">
                             <Link href={`/clientas/${sus.socioId}`}
-                              className="text-sm font-semibold text-foreground truncate hover:text-brand hover:underline block">
+                              className="text-sm font-semibold text-foreground truncate hover:text-brand-medio hover:underline block">
                               {socio ? `${socio.nombre} ${socio.apellidos}` : 'Clienta eliminada'}
                             </Link>
                           </div>
@@ -1170,7 +1170,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                     const badge = BADGE[r.estado] ?? BADGE.PENDIENTE;
                     return (
                       <div key={r.id} className="flex items-center gap-4 px-5 py-3.5">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand shrink-0">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand-medio shrink-0">
                           {socioInitials(r.socioId)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1319,7 +1319,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                 {idsCobrables.length > 0 && (
                   <button
                     onClick={alternarTodas}
-                    className="text-[13px] font-semibold text-brand hover:underline underline-offset-2"
+                    className="text-[13px] font-semibold text-brand-medio hover:underline underline-offset-2"
                   >
                     {masivoSelected.size === idsCobrables.length ? 'Quitar todas' : `Marcar todas (${idsCobrables.length})`}
                   </button>
@@ -1369,7 +1369,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                         </div>
 
                         {/* Avatar */}
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand shrink-0">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand-medio shrink-0">
                           {initials}
                         </div>
 

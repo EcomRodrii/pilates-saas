@@ -1277,7 +1277,7 @@ function WeekGrid({
     return (
       <div className="flex flex-col items-center justify-center text-center py-20 mx-6 mb-6 rounded-2xl border border-dashed border-border bg-card">
         <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
-          <CalendarDays size={26} className="text-brand" />
+          <CalendarDays size={26} className="text-brand-medio" />
         </div>
         <p className="text-[16px] font-bold text-foreground">No hay clases esta semana</p>
         <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Crea la primera clase para empezar a llenar el calendario</p>
@@ -2166,7 +2166,7 @@ export default function Calendario() {
               </span>
               <span className={cn(
                 'text-[13px] font-extrabold w-5 h-5 flex items-center justify-center rounded-full',
-                isSelected ? (isToday ? 'bg-brand text-brand-foreground' : 'text-primary-foreground') : (isToday ? 'text-brand' : 'text-foreground'),
+                isSelected ? (isToday ? 'bg-brand text-brand-foreground' : 'text-primary-foreground') : (isToday ? 'text-brand-medio' : 'text-foreground'),
               )}>
                 {d.getDate()}
               </span>
@@ -2328,7 +2328,7 @@ export default function Calendario() {
                   className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-muted/60 border border-border cursor-pointer text-left"
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <RefreshCw size={14} className="text-brand" />
+                    <RefreshCw size={14} className="text-brand-medio" />
                     Repetir semanalmente
                   </span>
                   <span

@@ -149,7 +149,7 @@ function CitaCard({
           <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
             <span className="truncate">{socioNombre}</span>
             {esNuevo && (
-              <span className="shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-brand/15 text-brand uppercase tracking-wide">
+              <span className="shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-brand/15 text-brand-medio uppercase tracking-wide">
                 Nuevo
               </span>
             )}

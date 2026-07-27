@@ -151,12 +151,12 @@ export function CodigosDescuento() {
             <div key={c.id} className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 hover:bg-muted/50">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-                  {auto ? <Sparkles size={14} className="text-brand" /> : <Ticket size={14} className="text-muted-foreground" />}
+                  {auto ? <Sparkles size={14} className="text-brand-medio" /> : <Ticket size={14} className="text-muted-foreground" />}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-mono text-[13px] font-bold text-foreground">{c.codigo}</p>
-                    {auto && <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">Automático</span>}
+                    {auto && <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand-medio">Automático</span>}
                   </div>
                   <p className="truncate text-[12px] text-muted-foreground">
                     {c.tipo === 'PORCENTAJE' ? `${c.valor}%` : `${c.valor}€`} · {c.descripcion} · caduca {fmtFecha(c.expira)} · {usados} usos

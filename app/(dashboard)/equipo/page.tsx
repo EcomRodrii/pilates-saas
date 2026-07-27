@@ -337,7 +337,7 @@ export default function EquipoPage() {
       {instructores.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[#E2E4EB] bg-card">
           <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
-            <Users size={26} className="text-brand" />
+            <Users size={26} className="text-brand-medio" />
           </div>
           <p className="text-[16px] font-bold text-foreground">Aún no hay nadie en el equipo</p>
           <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Añade a tus instructoras para asignarles clases y citas</p>
@@ -735,7 +735,7 @@ function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvit
               <button
                 onClick={onInvitar}
                 disabled={invitando}
-                className="text-[12px] font-semibold text-brand hover:underline underline-offset-2 disabled:opacity-50"
+                className="text-[12px] font-semibold text-brand-medio hover:underline underline-offset-2 disabled:opacity-50"
               >
                 {invitando ? 'Enviando…' : 'Enviar invitación'}
               </button>
@@ -776,7 +776,7 @@ function InstructorRow({ i, carga, prox, val, asis, ausente, invitando, onInvita
               <button
                 onClick={onInvitar}
                 disabled={invitando}
-                className="ml-2 font-semibold text-brand hover:underline underline-offset-2 disabled:opacity-50"
+                className="ml-2 font-semibold text-brand-medio hover:underline underline-offset-2 disabled:opacity-50"
               >
                 {invitando ? 'Enviando…' : 'Enviar invitación'}
               </button>

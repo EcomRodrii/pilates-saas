@@ -170,7 +170,7 @@ export default function ImportarHorarioPage() {
                 </p>
                 <button
                   onClick={e => { e.stopPropagation(); descargar('plantilla-horario.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO)); }}
-                  className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand hover:underline"
+                  className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-medio hover:underline"
                 >
                   <Download size={13} />Descargar plantilla de ejemplo
                 </button>
@@ -221,7 +221,7 @@ export default function ImportarHorarioPage() {
           {conteo.recurrentes > 0 && (
             <div className="rounded-2xl border border-border bg-card p-4">
               <div className="flex items-start gap-2.5">
-                <Repeat size={15} className="mt-0.5 shrink-0 text-brand" />
+                <Repeat size={15} className="mt-0.5 shrink-0 text-brand-medio" />
                 <div className="flex-1">
                   <p className="text-[13px] font-semibold text-foreground">Horario que se repite</p>
                   <p className="mt-0.5 text-[12.5px] text-muted-foreground">
@@ -321,14 +321,14 @@ export default function ImportarHorarioPage() {
               siguiente es traer quién está apuntada a cada clase. */}
           {!resultado.error && (
             <div className="flex items-start gap-2.5 rounded-2xl border border-border bg-card p-4">
-              <Users size={15} className="mt-0.5 shrink-0 text-brand" />
+              <Users size={15} className="mt-0.5 shrink-0 text-brand-medio" />
               <div>
                 <p className="text-[13px] font-semibold text-foreground">Ahora trae las reservas</p>
                 <p className="mt-0.5 text-[12.5px] text-muted-foreground">
                   Con el horario ya dentro, importa quién está apuntada a cada clase para que nadie pierda su sitio.
                 </p>
                 <Link href="/calendario/importar/reservas"
-                  className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand hover:underline">
+                  className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-medio hover:underline">
                   Importar reservas<ArrowRight size={13} />
                 </Link>
               </div>

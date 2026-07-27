@@ -26,7 +26,7 @@ interface AdminItem {
 const ROL_ETIQUETA: Record<string, string> = { PROPIETARIO: 'Propietaria', INSTRUCTOR: 'Instructora', SOCIA: 'Socia' };
 const PRIO_COLOR: Record<string, string> = {
   CRITICA: 'text-destructive bg-red-500/10', ALTA: 'text-warning bg-amber-500/10',
-  MEDIA: 'text-brand bg-brand/10', BAJA: 'text-muted-foreground bg-muted', SILENCIOSA: 'text-muted-foreground bg-muted',
+  MEDIA: 'text-brand-medio bg-brand/10', BAJA: 'text-muted-foreground bg-muted', SILENCIOSA: 'text-muted-foreground bg-muted',
 };
 const ESTADO_COLOR: Record<string, string> = {
   SENT: 'text-success', DELIVERED: 'text-success', PENDING: 'text-muted-foreground',

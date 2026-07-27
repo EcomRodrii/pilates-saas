@@ -350,7 +350,7 @@ export function Sidebar() {
         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
         {studioSlug && (collapsed ? (
           <div className="px-2 pb-2 flex flex-col items-center gap-0.5">
-            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-brand">
+            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-brand-medio">
               <ExternalLink size={15} />
             </Link>
           </div>
@@ -359,7 +359,7 @@ export function Sidebar() {
             <Link
               href={`/portal/${studioSlug}/login`}
               target="_blank"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-brand"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-brand-medio"
             >
               <ExternalLink size={12} className="shrink-0" />
               <span>Portal clientes</span>
@@ -403,7 +403,7 @@ export function Sidebar() {
                     className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-[12px] font-semibold text-white/70 hover:bg-card/5 hover:text-white transition-colors text-left"
                   >
                     {SIDEBAR_SIZES[key].label}
-                    {size === key && <Check size={13} className="text-brand shrink-0" />}
+                    {size === key && <Check size={13} className="text-brand-medio shrink-0" />}
                   </button>
                 ))}
               </div>

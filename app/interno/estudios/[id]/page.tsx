@@ -79,7 +79,7 @@ export default function FichaEstudioInterno({ params }: { params: Promise<{ id: 
                 {' '}
                 <a href={`https://dashboard.stripe.com/customers/${f.pagos.clienteStripeId}`}
                    target="_blank" rel="noopener noreferrer"
-                   className="font-semibold text-brand inline-flex items-center gap-1">
+                   className="font-semibold text-brand-medio inline-flex items-center gap-1">
                   Ver en Stripe <ExternalLink size={11} />
                 </a>
               </>

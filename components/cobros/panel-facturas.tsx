@@ -216,11 +216,11 @@ export function PanelFacturas() {
       {/* Verifactu banner */}
       <div className="flex items-center gap-3 p-4 rounded-xl bg-brand/10 border border-info/10">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-info/10">
-          <FileText size={15} className="text-brand" />
+          <FileText size={15} className="text-brand-medio" />
         </div>
         <div className="flex-1">
           <p className="text-sm font-bold text-foreground">Verifactu — Próximamente</p>
-          <p className="text-xs font-medium mt-0.5 text-brand">
+          <p className="text-xs font-medium mt-0.5 text-brand-medio">
             Integración con AEAT en desarrollo. Las facturas se generan automáticamente al cobrar un recibo.
           </p>
         </div>
@@ -293,12 +293,12 @@ export function PanelFacturas() {
                     return (
                       <div key={f.id} className="px-4 py-3.5 flex items-start gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="font-mono text-[12px] font-bold text-brand">{f.numeroCompleto}</p>
+                          <p className="font-mono text-[12px] font-bold text-brand-medio">{f.numeroCompleto}</p>
                           <p className="text-[14px] font-semibold text-foreground truncate mt-0.5">{f.receptorNombre}</p>
                           <p className="text-[12px] text-muted-foreground mt-0.5">{fecha(f.fechaEmision)} · IVA {f.tipoIVA}%</p>
                           <div className="flex items-center gap-4 mt-1.5">
                             <button onClick={() => setPreview(f.id)} className="text-[12px] font-semibold text-muted-foreground">Ver</button>
-                            <button onClick={() => descargarPDF(f, socio)} className="text-[12px] font-semibold text-brand inline-flex items-center gap-1">
+                            <button onClick={() => descargarPDF(f, socio)} className="text-[12px] font-semibold text-brand-medio inline-flex items-center gap-1">
                               <Download size={11} /> PDF
                             </button>
                           </div>
@@ -330,11 +330,11 @@ export function PanelFacturas() {
                         const socio = socioParaFactura(f.reciboId);
                         return (
                           <tr key={f.id} className="hover:bg-muted transition-colors">
-                            <td className="px-4 py-3 font-mono text-xs font-bold text-brand">{f.numeroCompleto}</td>
+                            <td className="px-4 py-3 font-mono text-xs font-bold text-brand-medio">{f.numeroCompleto}</td>
                             <td className="px-4 py-3 whitespace-nowrap font-medium text-muted-foreground">{fecha(f.fechaEmision)}</td>
                             <td className="px-4 py-3 font-semibold text-foreground">
                               {socio
-                                ? <Link href={`/clientas/${socio.id}`} className="hover:text-brand hover:underline transition-colors">{f.receptorNombre}</Link>
+                                ? <Link href={`/clientas/${socio.id}`} className="hover:text-brand-medio hover:underline transition-colors">{f.receptorNombre}</Link>
                                 : f.receptorNombre
                               }
                             </td>
@@ -352,7 +352,7 @@ export function PanelFacturas() {
                                 </button>
                                 <button
                                   onClick={() => descargarPDF(f, socio)}
-                                  className="text-xs font-semibold text-brand hover:text-[#6E9E0A] transition-colors flex items-center gap-1"
+                                  className="text-xs font-semibold text-brand-medio hover:text-[#6E9E0A] transition-colors flex items-center gap-1"
                                 >
                                   <Download size={11} />
                                   PDF
@@ -480,7 +480,7 @@ export function PanelFacturas() {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 font-bold text-foreground mb-1.5">
-                      <ShieldCheck size={13} className="text-brand" />
+                      <ShieldCheck size={13} className="text-brand-medio" />
                       Sistema de facturación verificable (Veri*Factu)
                     </div>
                     <p className="text-muted-foreground break-all">
@@ -489,7 +489,7 @@ export function PanelFacturas() {
                     {urlCotejo(previewFactura) && (
                       <p className="text-muted-foreground break-all mt-1">
                         QR de cotejo AEAT:{' '}
-                        <a href={urlCotejo(previewFactura)!} target="_blank" rel="noopener noreferrer" className="text-brand underline">
+                        <a href={urlCotejo(previewFactura)!} target="_blank" rel="noopener noreferrer" className="text-brand-medio underline">
                           {urlCotejo(previewFactura)}
                         </a>
                       </p>

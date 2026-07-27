@@ -60,7 +60,7 @@ export function ValorarForm({
     <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
       <div className="max-w-sm w-full rounded-2xl bg-white p-7 shadow-sm">
         <h1 className="text-xl font-bold text-slate-900 leading-snug">
-          ¿Qué tal la clase{instructorNombre ? <> con <span className="text-brand">{instructorNombre}</span></> : null}?
+          ¿Qué tal la clase{instructorNombre ? <> con <span className="text-brand-medio">{instructorNombre}</span></> : null}?
         </h1>
         <div className="mt-4 rounded-xl bg-slate-50 border border-slate-100 p-4">
           <p className="text-[17px] font-bold text-slate-900">{claseNombre}</p>

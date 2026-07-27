@@ -72,7 +72,7 @@ export function PilotoAutomatico() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10">
-            <Sparkles size={16} className="text-brand" />
+            <Sparkles size={16} className="text-brand-medio" />
           </div>
           <div>
             <h2 className="font-heading text-[15px] font-semibold text-foreground">Piloto automático</h2>

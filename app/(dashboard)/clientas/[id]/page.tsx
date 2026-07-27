@@ -670,7 +670,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   {proximasReservas.length > 0 && (
                     <div className="border border-border rounded-xl p-5">
                       <div className="flex items-center gap-2 mb-4">
-                        <Clock size={15} className="text-brand" />
+                        <Clock size={15} className="text-brand-medio" />
                         <SectionTitle>Próximas reservas</SectionTitle>
                       </div>
                       <div className="space-y-2">
