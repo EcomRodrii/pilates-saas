@@ -32,6 +32,10 @@ export const CAMPOS_REQUERIDOS: Record<string, readonly string[]> = {
   promocion: ['claseNombre', 'fecha', 'hora'],
   cancelacion: ['claseNombre', 'fecha', 'hora'],
   recordatorio: ['claseNombre', 'fecha', 'hora'],
+  // El cambio de instructora sí exige `instructor`: el email entero existe para
+  // decir quién da ahora la clase, y sin él la fila "Ahora la da" sale en blanco
+  // — o sea, un correo que avisa de un cambio sin decir cuál.
+  cambio: ['claseNombre', 'fecha', 'hora', 'instructor'],
 };
 
 // `null` cuenta como ausente: los defaults de parámetro de las plantillas

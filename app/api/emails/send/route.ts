@@ -8,6 +8,7 @@ import { ReservaEmail } from '@/lib/emails/reserva-template';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
 import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
+import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { resolverPlantilla, interpolar, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   const resend = new Resend(apiKey);
   const body = await req.json() as {
-    tipo: 'recibo' | 'bienvenida' | 'reserva' | 'automatizacion' | 'promocion' | 'cancelacion' | 'recordatorio';
+    tipo: 'recibo' | 'bienvenida' | 'reserva' | 'automatizacion' | 'promocion' | 'cancelacion' | 'cambio' | 'recordatorio';
     to: string;
     toName: string;
     data: Record<string, unknown>;
@@ -91,6 +92,13 @@ export async function POST(req: NextRequest) {
     };
     html = await render(CancelacionClaseEmail({ socioNombre: body.toName, intro: introCustom, ...marca, ...d }));
     subject = asuntoCustom ?? `Clase cancelada — ${d.claseNombre}`;
+  } else if (body.tipo === 'cambio') {
+    const d = body.data as {
+      claseNombre: string; fecha: string; hora: string;
+      sala: string; instructor: string; instructorAnterior?: string; estudioNombre?: string;
+    };
+    html = await render(CambioClaseEmail({ socioNombre: body.toName, intro: introCustom, ...marca, ...d }));
+    subject = asuntoCustom ?? `Cambio de instructora — ${d.claseNombre}`;
   } else if (body.tipo === 'recordatorio') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;

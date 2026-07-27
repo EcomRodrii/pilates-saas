@@ -66,3 +66,29 @@ test('data ausente o null no revienta el validador', () => {
 test('un tipo desconocido no se bloquea aquí (lo rechaza el route con 400)', () => {
   assert.equal(validarDatosEmail('inventado', {}), null);
 });
+
+// Cambio de instructora: el email existe para decir QUIÉN da ahora la clase.
+test('cambio: sin instructor no se envía (sería un aviso que no dice el cambio)', () => {
+  assert.match(
+    validarDatosEmail('cambio', { claseNombre: 'Reformer', fecha: 'lunes', hora: '09:00' }) ?? '',
+    /instructor/,
+  );
+});
+
+test('cambio: con los cuatro campos pasa', () => {
+  assert.equal(
+    validarDatosEmail('cambio', {
+      claseNombre: 'Reformer', fecha: 'domingo, 2 de agosto', hora: '09:00', instructor: 'Laura Gil',
+    }),
+    null,
+  );
+});
+
+test('cambio: sala no se exige (una sesión puede no tenerla asignada)', () => {
+  assert.equal(
+    validarDatosEmail('cambio', {
+      claseNombre: 'Reformer', fecha: 'domingo', hora: '09:00', instructor: 'Laura Gil', sala: '',
+    }),
+    null,
+  );
+});

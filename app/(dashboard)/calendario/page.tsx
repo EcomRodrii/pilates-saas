@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
-import { enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
+import { enviarEmailCancelacionClase, enviarEmailCambioClase, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
@@ -1444,7 +1444,15 @@ export default function Calendario() {
   const [guardandoSesion, setGuardandoSesion] = useState(false);
   // Cambio de instructora ya guardado, pendiente de decidir si se avisa.
   const [avisoInstructora, setAvisoInstructora] = useState<
-    { sesionId: string; apuntadas: number; instructora: string; datos: { clase: string; cuando: string; sala: string; instructora: string } } | null
+    {
+      sesionId: string; apuntadas: number; instructora: string;
+      datos: { clase: string; cuando: string; sala: string; instructora: string };
+      // Lo que necesita el EMAIL, que es el canal que de verdad llega: la
+      // notificación in-app sólo la ve quien ha reclamado su cuenta del portal.
+      // `cuando` no vale aquí porque la plantilla pinta fecha y hora en filas
+      // separadas. `anterior` es quien la daba antes (va tachada en el correo).
+      email: { clase: string; fecha: string; hora: string; sala: string; instructora: string; anterior: string };
+    } | null
   >(null);
   const [errorSesion, setErrorSesion] = useState<string | null>(null);
   // F0 · E1 — socia sin bono válido añadida desde el panel: para y pide decisión.
@@ -1757,6 +1765,46 @@ export default function Calendario() {
     return reservas.filter(r => r.sesionId === id && r.estado === 'CONFIRMADA').length;
   }
 
+  // "Sí, avisar" del diálogo de cambio de instructora.
+  //
+  // Manda EMAIL además de la notificación in-app. El in-app solo lo ve quien ha
+  // reclamado su cuenta del portal, y en un estudio pequeño eso es una minoría:
+  // apoyarse solo en él era la razón de que la alumna siguiera llegando sin
+  // saber que la clase la daba otra. Mismo criterio que la cancelación, que ya
+  // manda su propio correo (por eso clase.* no declara EMAIL en el catálogo:
+  // llegaría dos veces).
+  //
+  // El toast cuenta lo que ha salido DE VERDAD, no lo que se pretendía enviar.
+  async function avisarCambioInstructora(aviso: NonNullable<typeof avisoInstructora>) {
+    setToast('Avisando…');
+    const apuntadas = reservas
+      .filter(r => r.sesionId === aviso.sesionId && r.estado === 'CONFIRMADA')
+      .map(r => socios.find(s => s.id === r.socioId))
+      .filter(s => !!s);
+    const conEmail = apuntadas.filter(s => !!s.email);
+    const sinEmail = apuntadas.length - conEmail.length;
+
+    const enviados = (await Promise.all(conEmail.map(s => enviarEmailCambioClase({
+      to: s.email!, toName: s.nombre,
+      claseNombre: aviso.email.clase, fecha: aviso.email.fecha, hora: aviso.email.hora,
+      sala: aviso.email.sala, instructor: aviso.email.instructora,
+      instructorAnterior: aviso.email.anterior,
+    })))).filter(Boolean).length;
+
+    const enApp = await avisarClaseModificada(aviso.sesionId, aviso.datos);
+    const faltan = sinEmail > 0 ? ` · ${sinEmail} sin email guardado` : '';
+
+    if (enviados > 0) {
+      setToast(`Avisada${enviados !== 1 ? 's' : ''} ${enviados} alumna${enviados !== 1 ? 's' : ''} por email${faltan}`);
+    } else if (conEmail.length === 0 && enApp) {
+      // Nadie tiene email: el aviso existe en la app, pero hay que decirle a la
+      // dueña que a estas les toca llamarlas ella.
+      setToast(`Aviso puesto en la app${faltan}`);
+    } else {
+      setToast('No se ha podido avisar. Inténtalo otra vez.');
+    }
+  }
+
   async function editarSesion() {
     if (!sesionId || horaInvalida) return;
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
@@ -1804,7 +1852,14 @@ export default function Calendario() {
       // merece un mensaje ("hoy da Laura"). Se le pregunta "¿aviso a las N
       // alumnas?" solo si el panel ve apuntadas (si no, no hay número que mostrar).
       if (cambioInstructora && !cambioHora && !cambioSala) {
-        if (apuntadas > 0) setAvisoInstructora({ sesionId, apuntadas, instructora, datos });
+        if (apuntadas > 0) setAvisoInstructora({
+          sesionId, apuntadas, instructora, datos,
+          email: {
+            clase, sala, instructora,
+            fecha: fechaLargaEstudio(d), hora: horaEstudio(d),
+            anterior: nombreInstructor(sesionActual.instructorId),
+          },
+        });
       } else {
         void avisarClaseModificada(sesionId, datos);
       }
@@ -1848,6 +1903,14 @@ export default function Calendario() {
           cuando: cuandoEstudio(new Date(sesionActual.inicio)),
           sala: sesionActual.sala?.nombre ?? '',
           instructora: nueva,
+        },
+        email: {
+          clase: sesionActual.tipoClase.nombre,
+          fecha: fechaLargaEstudio(new Date(sesionActual.inicio)),
+          hora: horaEstudio(new Date(sesionActual.inicio)),
+          sala: sesionActual.sala?.nombre ?? '',
+          instructora: nueva,
+          anterior,
         },
       });
     }
@@ -2609,7 +2672,7 @@ export default function Calendario() {
           </DialogHeader>
           <p className="text-[13px] text-muted-foreground mt-2">
             Has cambiado quién da la clase{avisoInstructora?.instructora ? <> — ahora la da <strong className="text-foreground">{avisoInstructora.instructora}</strong></> : null}.
-            {' '}Puedo avisar por la app a quien esté apuntada. El horario y la sala no cambian.
+            {' '}Puedo avisarlas por email y por la app. El horario y la sala no cambian.
           </p>
           <div className="flex gap-2 mt-4">
             <button
@@ -2624,17 +2687,7 @@ export default function Calendario() {
                 const aviso = avisoInstructora;
                 setAvisoInstructora(null);
                 if (!aviso) return;
-                setToast('Avisando…');
-                // El número lo dice el SERVIDOR, que es quien resuelve las
-                // destinatarias contra la BD. Antes se cantaba el recuento del
-                // panel sin esperar respuesta: si no salía ninguna notificación
-                // (fallo de red, o ninguna reserva viva) igual ponía "Avisadas 1
-                // alumna". Un mensaje que se sabe falso es peor que ninguno.
-                void avisarClaseModificada(aviso.sesionId, aviso.datos).then(n => {
-                  if (n === null) setToast('No se ha podido avisar. Inténtalo otra vez.');
-                  else if (n === 0) setToast('No había ninguna alumna a la que avisar');
-                  else setToast(`Avisada${n !== 1 ? 's' : ''} ${n} alumna${n !== 1 ? 's' : ''}`);
-                });
+                void avisarCambioInstructora(aviso);
               }}
             >
               Sí, avisar

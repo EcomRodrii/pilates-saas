@@ -1055,6 +1055,34 @@ export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente
   });
 }
 
+// Email de "cambio de instructora" a una alumna con plaza. Va aparte del
+// Notification Engine (que sólo llega a quien ha reclamado su cuenta del
+// portal), igual que la cancelación. Devuelve si salió, porque el panel le
+// dice a la dueña a cuántas ha avisado de verdad.
+export async function enviarEmailCambioClase(params: DatosClaseEmailCliente & {
+  to: string; toName: string; instructorAnterior?: string;
+}): Promise<boolean> {
+  try {
+    const res = await fetch('/api/emails/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({
+        tipo: 'cambio',
+        to: params.to,
+        toName: params.toName,
+        data: {
+          claseNombre: params.claseNombre, fecha: params.fecha, hora: params.hora,
+          sala: params.sala, instructor: params.instructor,
+          instructorAnterior: params.instructorAnterior,
+        },
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // ── Valoraciones: resumen (media + total) por instructora ───────────────────
 export type ResumenValoraciones = Record<string, { media: number; total: number }>;
 
