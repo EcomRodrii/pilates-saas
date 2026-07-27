@@ -25,6 +25,7 @@ import type { LayoutConfig } from '@/lib/layout-schema';
 import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
+import { useRol, puedeVerFinanzas, puedeVer } from '@/lib/permisos';
 import { Toast, useToast } from '@/components/ui/toast';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
 
@@ -581,6 +582,14 @@ export default function Dashboard() {
     return t >= start && t <= end;
   };
 
+  // Una instructora veía los ingresos del mes del estudio en su pantalla de
+  // inicio. En una cadena con 18 instructoras eso es la cuenta de resultados del
+  // negocio repartida a 18 personas, sin que nadie lo decidiera. `CifraPrivada`
+  // no vale para esto: es un difuminado contra miradas de reojo, se quita con un
+  // clic y no es un permiso.
+  const rolActual = useRol();
+  const verFinanzas = puedeVerFinanzas(rolActual);
+
   // ── Pagos pendientes ─────────────────────────────────────────────────────────
   const pendientes = useMemo(
     () =>
@@ -690,20 +699,25 @@ export default function Dashboard() {
           {[
             { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Clientas hoy', alert: false, privada: false },
             { href: '/informes', Icon: Activity, value: `${ocupacionMedia}%`, label: 'Ocupación semana', alert: ocupacionMedia >= 85, privada: false },
-            { href: '/cobros', Icon: CreditCard, value: pendientesTotal, label: 'Pagos pendientes', alert: pendientesTotal > 0, privada: false },
+            ...(verFinanzas ? [{ href: '/cobros', Icon: CreditCard, value: pendientesTotal as number | string, label: 'Pagos pendientes', alert: pendientesTotal > 0, privada: false }] : []),
             { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0, privada: false },
             { href: '/clientas', Icon: Clock, value: statsClientas.inactivas30d, label: 'Sin venir 30d', alert: statsClientas.inactivas30d > 0, privada: false },
-            { href: '/informes', Icon: TrendingUp, value: `${ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €`, label: 'Ingresos del mes', alert: false, privada: true },
-          ].map(({ href, Icon, value, label, alert, privada }) => (
-            <Link
-              key={label}
-              href={href}
-              className="rounded-xl border p-3.5 transition-colors hover:bg-muted"
-              style={{
-                backgroundColor: alert ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : 'var(--card)',
-                borderColor: alert ? 'color-mix(in srgb, var(--destructive) 40%, var(--card))' : 'var(--border)',
-              }}
-            >
+            ...(verFinanzas ? [{ href: '/informes', Icon: TrendingUp, value: `${ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €`, label: 'Ingresos del mes', alert: false, privada: true }] : []),
+          ].map(({ href, Icon, value, label, alert, privada }) => {
+            // "Ocupación semana" enlazaba a /informes también para una
+            // instructora, que no puede verlo: el guardia del layout la rebotaba
+            // al dashboard. Un enlace que te devuelve donde estabas no es un
+            // enlace. Si no puede ir, se pinta la cifra sin enlace.
+            const puedeIr = puedeVer(rolActual, href);
+            const estilo = {
+              backgroundColor: alert ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : 'var(--card)',
+              borderColor: alert ? 'color-mix(in srgb, var(--destructive) 40%, var(--card))' : 'var(--border)',
+            };
+            const clase = puedeIr
+              ? 'rounded-xl border p-3.5 transition-colors hover:bg-muted'
+              : 'rounded-xl border p-3.5';
+            const cuerpo = (
+              <>
               <Icon size={15} style={{ color: alert ? 'var(--destructive)' : 'var(--muted-foreground)' }} />
               {privada ? (
                 <CifraPrivada className="text-[22px] font-bold leading-none mt-2" style={{ color: alert ? 'var(--destructive)' : 'var(--foreground)' }}>{value}</CifraPrivada>
@@ -711,8 +725,12 @@ export default function Dashboard() {
                 <p className="text-[22px] font-bold leading-none mt-2" style={{ color: alert ? 'var(--destructive)' : 'var(--foreground)' }}>{value}</p>
               )}
               <p className="text-[10.5px] font-medium text-muted-foreground mt-1 leading-tight">{label}</p>
-            </Link>
-          ))}
+              </>
+            );
+            return puedeIr
+              ? <Link key={label} href={href} className={clase} style={estilo}>{cuerpo}</Link>
+              : <div key={label} className={clase} style={estilo}>{cuerpo}</div>;
+          })}
         </div>
         </div>
 
@@ -753,6 +771,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Revenue card (full width) ──────────────────────────────────────── */}
+        {verFinanzas && (
         <div {...wrap('ingresos')}>
         <Card>
           <CardContent className="flex items-start justify-between gap-4">
@@ -786,11 +805,21 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         </div>
+        )}
 
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
         <div {...wrap('kpis')}>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard label="Clientas activas" value={sociasActivas} sub={`${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`} Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
+          {/* El subtítulo era siempre "N pagos pendientes". Para quien no lleva
+              la caja eso es un dato de caja —y encima, con la 0109, un "0 pagos
+              pendientes" falso, porque la RLS ya no le sirve los recibos. */}
+          <KpiCard
+            label="Clientas activas"
+            value={sociasActivas}
+            sub={verFinanzas
+              ? `${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`
+              : `${statsClientas.inactivas30d} sin venir en 30 días`}
+            Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
           <Card size="sm" className="gap-2.5">
             <CardContent className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
@@ -862,7 +891,7 @@ export default function Dashboard() {
             </div>
 
             {/* Pagos pendientes */}
-            {pendientes.length > 0 && (
+            {verFinanzas && pendientes.length > 0 && (
               <div className="bg-card rounded-xl border border-border">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-muted">
                   <div className="flex items-center gap-2">
