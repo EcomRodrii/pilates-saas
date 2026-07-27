@@ -4,6 +4,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enviarEmailInvitacionEquipo } from '@/lib/emails/invitacion-equipo-server';
 import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { firmarTokenInstructora } from '@/lib/sustituciones/token';
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   // disparar correos a nombre del equipo de otro estudio pasando un id ajeno.
   const { data: instructor } = await admin
     .from('instructores')
-    .select('nombre, email, rol, auth_user_id')
+    .select('id, nombre, email, rol, auth_user_id')
     .eq('id', instructorId)
     .eq('studio_id', sesion.studioId)
     .maybeSingle();
@@ -86,7 +87,13 @@ export async function POST(req: NextRequest) {
       colorPrimario: studio?.color_primario,
       logoUrl: studio?.logo_url,
       rol: instructor.rol as string,
-      url: `${appUrl()}/login`,
+      // Enlace CON TOKEN, no un /login pelado. El anterior no identificaba a
+      // nadie: quien lo abría con otra sesión abierta acababa en su propio panel
+      // sin enterarse de la invitación, y quien se registraba con otro correo se
+      // creaba una cuenta suelta que no quedaba vinculada al estudio.
+      url: `${appUrl()}/invitacion?token=${encodeURIComponent(
+        firmarTokenInstructora(instructor.id as string, sesion.studioId, 'invitacion'),
+      )}`,
     });
   } catch (e) {
     // El envío es best-effort por dentro, pero si revienta aquí la dueña TIENE
