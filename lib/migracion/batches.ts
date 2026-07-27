@@ -138,3 +138,47 @@ export async function deshacerBatch(
 
   return { ok: true, borrados };
 }
+
+export interface BatchReciente {
+  id: string;
+  creadoEn: string;
+  // Recuento de lo que creó cada lote, derivado de ids_creados (no hace falta
+  // guardar un resumen aparte: la fuente de la verdad son los propios ids).
+  conteos: Partial<Record<EntidadBatch, number>>;
+  total: number;
+}
+
+/**
+ * Lista los lotes de migración que TODAVÍA se pueden deshacer (no deshechos) de
+ * un estudio, con el recuento de lo que creó cada uno. Es lo que hace que el
+ * botón de deshacer sobreviva a una recarga: el id del lote deja de vivir solo
+ * en la memoria del navegador y se puede recuperar del servidor.
+ */
+export async function listarBatchesRecientes(
+  admin: SupabaseClient,
+  params: { studioId: string; limite?: number },
+): Promise<BatchReciente[]> {
+  const { studioId, limite = 10 } = params;
+  const { data, error } = await admin
+    .from('migracion_batches')
+    .select('id, creado_en, ids_creados')
+    .eq('studio_id', studioId)
+    .is('deshecho_en', null)
+    .order('creado_en', { ascending: false })
+    .limit(limite);
+  if (error) throw new Error(error.message);
+
+  return (data ?? [])
+    .map(fila => {
+      const ids = (fila.ids_creados ?? {}) as Partial<Record<EntidadBatch, string[]>>;
+      const conteos: Partial<Record<EntidadBatch, number>> = {};
+      let total = 0;
+      for (const entidad of Object.keys(ids) as EntidadBatch[]) {
+        const n = (ids[entidad] ?? []).length;
+        if (n > 0) { conteos[entidad] = n; total += n; }
+      }
+      return { id: fila.id as string, creadoEn: fila.creado_en as string, conteos, total };
+    })
+    // Un lote sin ids (creado pero sin registrar nada) no tiene nada que deshacer.
+    .filter(b => b.total > 0);
+}

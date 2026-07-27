@@ -5,7 +5,7 @@
 // (muestras, cuarentena, avisos) → ejecutar → acta con botón de deshacer.
 // Nada se importa sin revisión, y todo lo importado se puede deshacer.
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useId } from 'react';
 import {
   UploadCloud, FileSpreadsheet, AlertTriangle, CheckCircle2, Sparkles,
@@ -15,7 +15,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useStudio } from '@/lib/studio-context';
 import {
-  analizarMigracion, deshacerMigracion,
+  analizarMigracion, deshacerMigracion, migracionesRecientes,
   importarSocias, importarMembresias, importarClases, importarReservas, importarCitas,
 } from '@/lib/api-client';
 import {
@@ -25,6 +25,7 @@ import {
 } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 import type { PlanMigracion, ArchivoAnalizado } from '@/lib/migracion/analizador';
+import type { BatchReciente } from '@/lib/migracion/batches';
 // Runtime desde clasificador (client-safe): analizador.ts arrastra el SDK de
 // Anthropic y no puede entrar en un bundle de cliente.
 import {
@@ -44,6 +45,26 @@ interface ResultadoEntidad {
   incidencias: number; // sinSocia/sinSesion/errores... agregado
   error?: string;
   batchAviso?: string | null;
+}
+
+// Etiquetas legibles de lo que crea un lote (claves de ids_creados → nombre de
+// cara a la propietaria), para el resumen de "migraciones recientes".
+const ETIQUETA_ENTIDAD_BATCH: Record<string, string> = {
+  socios: 'clientas', suscripciones: 'bonos', tipos_clase: 'tipos de clase',
+  sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'plazas fijas',
+};
+
+function resumenBatch(conteos: Record<string, number>): string {
+  const partes = Object.entries(conteos)
+    .filter(([, n]) => n > 0)
+    .map(([k, n]) => `${n} ${ETIQUETA_ENTIDAD_BATCH[k] ?? k}`);
+  return partes.length ? partes.join(' · ') : 'sin registros';
+}
+
+function fechaLote(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 // Convierte un XLSX/XLS en uno o varios "archivos" CSV (una por hoja con datos)
@@ -98,6 +119,19 @@ export default function MigracionPage() {
   const [deshaciendo, setDeshaciendo] = useState(false);
   const [deshecho, setDeshecho] = useState<Record<string, number> | null>(null);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  // Lotes que aún se pueden deshacer, recuperados del servidor: hacen que el
+  // botón de deshacer sobreviva a una recarga (el id ya no vive solo en React).
+  const [recientes, setRecientes] = useState<BatchReciente[]>([]);
+  const [confirmarReciente, setConfirmarReciente] = useState<string | null>(null);
+  const [deshaciendoReciente, setDeshaciendoReciente] = useState<string | null>(null);
+
+  // Carga inicial de las migraciones deshacibles. Silencioso: si no es
+  // propietaria (403) o falla la red, simplemente no aparece el panel.
+  useEffect(() => {
+    let vivo = true;
+    void migracionesRecientes().then(r => { if (vivo && 'batches' in r) setRecientes(r.batches); });
+    return () => { vivo = false; };
+  }, []);
 
   async function onFiles(lista: FileList | File[]) {
     setError(null);
@@ -189,6 +223,9 @@ export default function MigracionPage() {
     // Refresca el panel para que lo importado aparezca ya en Clientas, Calendario,
     // etc., sin que la propietaria tenga que recargar la página.
     resetDatosPilates();
+    // Y el lote recién creado pasa a estar en "migraciones recientes" por si
+    // vuelve más tarde a deshacerlo desde la pantalla de inicio.
+    void cargarRecientes();
   }
 
   async function deshacer() {
@@ -202,6 +239,23 @@ export default function MigracionPage() {
     }
     setDeshecho(r.borrados);
     // Lo deshecho también debe desaparecer de los listados sin recargar a mano.
+    resetDatosPilates();
+    void cargarRecientes();
+  }
+
+  async function cargarRecientes() {
+    const r = await migracionesRecientes();
+    if ('batches' in r) setRecientes(r.batches);
+  }
+
+  // Deshace un lote desde el panel de "migraciones recientes" (no desde el acta
+  // recién generada): mismo endpoint, pero refrescando la lista en vez del acta.
+  async function deshacerReciente(id: string) {
+    setDeshaciendoReciente(id);
+    const r = await deshacerMigracion(id);
+    setDeshaciendoReciente(null);
+    if ('error' in r) { setError(r.error); return; }
+    await cargarRecientes();
     resetDatosPilates();
   }
 
@@ -307,6 +361,34 @@ export default function MigracionPage() {
                   : <><Sparkles size={16} /> Analizar {archivos.length} archivo{archivos.length === 1 ? '' : 's'}</>}
               </button>
               <p className="text-[12px] text-muted-foreground text-center">El análisis no importa nada: primero verás el plan completo y lo confirmas tú.</p>
+            </div>
+          )}
+
+          {/* Migraciones deshacibles: recuperadas del servidor, así el botón de
+              deshacer sigue aquí aunque se recargue la página o se vuelva luego. */}
+          {recientes.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-[13px] font-extrabold text-foreground">Migraciones recientes</h2>
+              <p className="text-[12px] text-muted-foreground mt-1 mb-3">
+                Puedes deshacer cualquiera con un clic: se borra exactamente lo que creó, y nada más. Siguen aquí aunque recargues la página.
+              </p>
+              <div className="space-y-2">
+                {recientes.map(b => (
+                  <div key={b.id} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-foreground">{fechaLote(b.creadoEn)}</p>
+                      <p className="text-[12px] text-muted-foreground truncate">{resumenBatch(b.conteos)}</p>
+                    </div>
+                    <button
+                      onClick={() => setConfirmarReciente(b.id)}
+                      disabled={deshaciendoReciente === b.id}
+                      className="flex items-center gap-1.5 py-2 px-3 rounded-xl border border-border text-[12px] font-bold text-foreground hover:bg-muted disabled:opacity-50 transition shrink-0"
+                    >
+                      <Undo2 size={13} /> {deshaciendoReciente === b.id ? 'Deshaciendo…' : 'Deshacer'}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -524,6 +606,16 @@ export default function MigracionPage() {
         textoConfirmar="Deshacer migración"
         destructivo
         onConfirm={() => { setConfirmDeshacer(false); void deshacer(); }}
+      />
+
+      <ConfirmDialog
+        open={confirmarReciente !== null}
+        onOpenChange={abierto => { if (!abierto) setConfirmarReciente(null); }}
+        titulo="¿Deshacer esta migración?"
+        descripcion="Se borrará exactamente lo que creó esta importación (y nada más). Tus datos anteriores a la migración no se tocan."
+        textoConfirmar="Deshacer migración"
+        destructivo
+        onConfirm={() => { const id = confirmarReciente; setConfirmarReciente(null); if (id) void deshacerReciente(id); }}
       />
     </div>
   );

@@ -630,6 +630,24 @@ export async function deshacerMigracion(
   }
 }
 
+// Lista los lotes de migración que aún se pueden deshacer. Es lo que permite
+// que el botón de deshacer siga estando tras recargar la página: el id del lote
+// se recupera del servidor en vez de vivir solo en memoria.
+export async function migracionesRecientes(): Promise<
+  { batches: import('@/lib/migracion/batches').BatchReciente[] } | { error: string }
+> {
+  try {
+    const res = await fetch('/api/migracion/recientes', {
+      headers: { ...(await authHeader()) },
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data;
+  } catch {
+    return { error: 'No se pudo conectar con el servidor' };
+  }
+}
+
 // ── Facturas (Veri*Factu) ──────────────────────────────────────────────────────
 // Sella y persiste una factura en el servidor: calcula la huella encadenada por
 // estudio (SHA-256, node:crypto) y la guarda. Devuelve los campos sellados para
