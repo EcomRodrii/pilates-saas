@@ -77,7 +77,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!loading && session && rolResuelto && !autorizado) router.replace('/dashboard');
   }, [loading, session, rolResuelto, autorizado, router]);
 
-  if (loading) return null;
+  // Antes era `return null`: pantalla en BLANCO mientras se resuelve la sesión.
+  // Sumado a que el panel son ~2,3 MB de JS que hay que descargar y ejecutar
+  // antes de llegar aquí, en carga fría eso son muchos segundos de nada — y una
+  // pantalla vacía no se lee como "cargando", se lee como "se ha roto". El marco
+  // + skeleton ya existen para el caso de datos; se reutilizan también aquí.
+  if (loading) {
+    return (
+      <PanelPrivacyProvider>
+        <PanelThemeProvider className="min-h-screen bg-background">
+          <main className="lg:pl-[var(--sidebar-w)] min-h-screen">
+            <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+              <PanelSkeleton />
+            </div>
+          </main>
+        </PanelThemeProvider>
+      </PanelPrivacyProvider>
+    );
+  }
 
   if (rolResuelto && !autorizado) {
     return (

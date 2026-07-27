@@ -1819,6 +1819,34 @@ export default function Calendario() {
       'SESION_REASIGNADA',
       `Clase de ${sesionActual.tipoClase.nombre} (${formatHora(sesionActual.inicio)}) reasignada: ${anterior} → ${nueva}`,
     );
+
+    // Ofrecer avisar a las apuntadas, igual que al cambiar la instructora desde
+    // "Editar clase" (ver editarSesion). Este camino se quedó fuera de #348 y era
+    // justo el que se usa de verdad: cuando alguien avisa de que no puede venir se
+    // entra por "Buscar sustituta", no por el desplegable del formulario. Media
+    // clase reservó con la instructora anterior y nadie les decía nada.
+    //
+    // Mismo criterio que allí: no se avisa solo, lo decide la dueña ("hoy da
+    // Laura" no siempre merece un mensaje). Se pregunta antes de cerrar el
+    // diálogo de cobertura para que el segundo no se monte sobre uno que se está
+    // desmontando.
+    const apuntadas = reservas.filter(
+      r => r.sesionId === sesionActual.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
+    ).length;
+    if (apuntadas > 0) {
+      setAvisoInstructora({
+        sesionId: sesionActual.id,
+        apuntadas,
+        instructora: nueva,
+        datos: {
+          clase: sesionActual.tipoClase.nombre,
+          cuando: cuandoEstudio(new Date(sesionActual.inicio)),
+          sala: sesionActual.sala?.nombre ?? '',
+          instructora: nueva,
+        },
+      });
+    }
+
     setShowCobertura(false);
     setToast(`Sustituta asignada: ${nueva}`);
   }
