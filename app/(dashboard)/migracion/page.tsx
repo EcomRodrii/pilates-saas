@@ -249,7 +249,7 @@ export default function MigracionPage() {
   return (
     <div className="max-w-3xl mx-auto pb-16">
       <PageHeader
-        title="Migración"
+        title="Traer mis datos"
         description="Trae tu estudio desde tu software anterior. Tú no migras nada: arrastra lo que tengas, revisa el plan y confirma — todo se puede deshacer con un clic."
       />
 

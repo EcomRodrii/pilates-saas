@@ -8,10 +8,13 @@ import {
   Bot, Package, Store, Inbox,
   UserCog, Users2, Compass, Replace,
   Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
-  Calculator, Notebook,
+  Calculator, Notebook, DownloadCloud,
 } from 'lucide-react';
-import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
-import { esRutaCongelada } from '@/lib/frozen-features';
+// Relativos y con extensión: `npm test` corre `node --test
+// --experimental-strip-types`, que no resuelve ni el alias `@/` ni las
+// extensiones. Sin esto, el menú se queda otra vez sin poder probarse.
+import { MARKETING_MODULE_ENABLED } from './feature-flags.ts';
+import { esRutaCongelada } from './frozen-features.ts';
 
 export interface NavItemDef {
   href: string;
@@ -77,6 +80,10 @@ const allSections: NavSection[] = [
       { href: '/informes', label: 'Informes', icon: BarChart2 },
       { href: '/cierre', label: 'Cierre de año', icon: Calculator },
       { href: '/libreta', label: 'Libreta de clientas', icon: Notebook },
+      // La pantalla existía pero no había forma de llegar a ella: había que
+      // saberse la URL. Se llama "Traer mis datos" y no "Migración" porque nadie
+      // que viene de otra app piensa en migrar, piensa en traerse lo suyo.
+      { href: '/migracion', label: 'Traer mis datos', icon: DownloadCloud },
       { href: '/configuracion', label: 'Configuración', icon: Settings },
       { href: '/suscripcion', label: 'Suscripción', icon: CreditCard },
     ],
@@ -112,7 +119,14 @@ export const bottomNavItems: NavItemDef[] = [
 ];
 
 // Modo Esencial: módulos del día a día (preferencia de UI por-navegador).
-export const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/citas', '/clientas', '/equipo', '/cobros', '/informes', '/configuracion'];
+//
+// `/migracion` entra aquí aunque se use UNA vez, y a propósito: el modo por
+// defecto es «esencial», así que dejarlo fuera lo escondería justo del estudio
+// que lo necesita —uno recién creado, el día que trae sus datos de BSport o
+// Momence—. La contrapartida (una entrada de más para quien ya migró) tiene
+// salida: no está en NO_OCULTABLES, así que se puede quitar desde el editor de
+// menú. Al revés no la habría: no se puede encontrar lo que no se ve.
+export const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/citas', '/clientas', '/equipo', '/cobros', '/informes', '/configuracion', '/migracion'];
 
 // Módulos que nunca se pueden ocultar (acceso crítico a facturación/config).
 export const NO_OCULTABLES = ['/dashboard', '/configuracion', '/suscripcion'];
