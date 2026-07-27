@@ -254,7 +254,7 @@ export function Sidebar() {
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
         style={{ backgroundColor: '#ffffff', borderColor: 'var(--border)' }}
       >
-        <Image src="/logo-horizontal.png" alt="Tentare" width={100} height={69} className="h-9 w-auto object-contain" />
+        <Image src="/logo-horizontal-oscuro.png" alt="Tentare" width={100} height={69} className="h-9 w-auto object-contain" />
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
@@ -288,9 +288,9 @@ export function Sidebar() {
         )}
       >
         {collapsed ? (
-          <Image src="/logo-icon.png" alt="Tentare" width={56} height={56} className="w-14 h-14 object-contain" />
+          <Image src="/logo-icon-oscuro.png" alt="Tentare" width={56} height={56} className="w-14 h-14 object-contain" />
         ) : (
-          <Image src="/logo-horizontal.png" alt="Tentare" width={260} height={120} className="h-16 w-auto object-contain" />
+          <Image src="/logo-horizontal-oscuro.png" alt="Tentare" width={260} height={120} className="h-16 w-auto object-contain" />
         )}
       </div>
 

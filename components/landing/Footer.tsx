@@ -8,7 +8,7 @@ export function Footer() {
       <div className="tnt-wrap" style={{ maxWidth: 1280, margin: '0 auto' }}>
         <div className="tnt-footer" style={{ display: 'grid', gridTemplateColumns: '1.5fr repeat(4,1fr)', gap: 34, marginBottom: 52 }}>
           <div>
-            <Image src="/logo-mark.png" alt="Tentare" width={38} height={38} style={{ height: 38, width: 'auto', marginBottom: 16 }} />
+            <Image src="/logo-mark-oscuro.png" alt="Tentare" width={38} height={38} style={{ height: 38, width: 'auto', marginBottom: 16 }} />
             <p style={{ fontSize: 14.5, lineHeight: 1.6, color: MUTED_DARK, maxWidth: 260, margin: '0 0 18px' }}>El software completo para tu estudio de pilates. Y el que cubre las bajas de instructoras solo.</p>
             <div style={{ display: 'flex', gap: 10 }}>
               <a href="https://instagram.com/tentare.app" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, background: '#1A1A1A', color: '#C4C4BC' }}>
