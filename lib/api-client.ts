@@ -1173,3 +1173,37 @@ export async function importarCitas(rows: FilaCita[], batchId?: string): Promise
     return { ...vacio, error: 'No se pudo conectar con el servidor' };
   }
 }
+
+// ─── Plantillas de email: vista previa + envío de prueba (P2-11) ─────────────
+
+type BorradorPlantilla = { tipo: string; asunto?: string | null; intro?: string | null };
+
+export async function previsualizarPlantilla(datos: BorradorPlantilla): Promise<{ html: string; subject: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/plantillas-email/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(datos),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data as { html: string; subject: string };
+  } catch {
+    return { error: 'No se pudo generar la vista previa' };
+  }
+}
+
+export async function enviarPruebaPlantilla(datos: BorradorPlantilla): Promise<{ ok: true; enviadoA: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/plantillas-email/prueba', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(datos),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data as { ok: true; enviadoA: string };
+  } catch {
+    return { error: 'No se pudo enviar la prueba' };
+  }
+}

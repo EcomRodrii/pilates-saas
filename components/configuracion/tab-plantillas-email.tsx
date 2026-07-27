@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useId } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Eye, Send, Loader2, X } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { cn } from '@/lib/utils';
 import type { PlantillaEmail, TipoPlantillaEmail } from '@/lib/types';
-import { inputCls, btnPrimary, cardCls, Field, Toggle } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/app/(dashboard)/configuracion/page';
+import { previsualizarPlantilla, enviarPruebaPlantilla } from '@/lib/api-client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // ─── Plantillas de email transaccional ───────────────────────────────────────
 
@@ -43,14 +45,21 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, estabas en lista de espera y ha quedado una plaza libre.',
     variables: ['{nombre}', '{clase}'],
   },
+  {
+    tipo: 'impago', label: 'Pago fallido', descripcion: 'Cuando un cobro automático no se completa. De las que más importan: la lee alguien a quien le acaban de fallar un cobro.',
+    asuntoDefault: 'Problema con tu pago — {estudio}',
+    introDefault: 'Hola {nombre}, hemos intentado cobrar tu cuota y el pago no se ha completado.',
+    variables: ['{nombre}', '{estudio}'],
+  },
 ];
 
 function PlantillaCard({
-  meta, plantilla, onSave,
+  meta, plantilla, onSave, showToast,
 }: {
   meta: (typeof PLANTILLAS_META)[number];
   plantilla: PlantillaEmail | undefined;
   onSave: (changes: { asunto?: string | null; intro?: string | null; activa?: boolean }) => void;
+  showToast: (m: string) => void;
 }) {
   const [asunto, setAsunto] = useState(plantilla?.asunto ?? '');
   const [intro, setIntro] = useState(plantilla?.intro ?? '');
@@ -58,6 +67,27 @@ function PlantillaCard({
 
   // Re-sincroniza si cambian los datos cargados (p. ej. tras la carga diferida).
   useEffect(() => { setAsunto(plantilla?.asunto ?? ''); setIntro(plantilla?.intro ?? ''); }, [plantilla?.asunto, plantilla?.intro]);
+
+  // Vista previa y envío de prueba (P2-11): renderizan el BORRADOR tal cual
+  // está en el formulario, sin necesidad de guardarlo antes.
+  const [preview, setPreview] = useState<{ html: string; subject: string } | null>(null);
+  const [cargandoPreview, setCargandoPreview] = useState(false);
+  const [enviandoPrueba, setEnviandoPrueba] = useState(false);
+
+  async function abrirPreview() {
+    setCargandoPreview(true);
+    const r = await previsualizarPlantilla({ tipo: meta.tipo, asunto: asunto || null, intro: intro || null });
+    setCargandoPreview(false);
+    if ('error' in r) { showToast(r.error); return; }
+    setPreview(r);
+  }
+
+  async function enviarPrueba() {
+    setEnviandoPrueba(true);
+    const r = await enviarPruebaPlantilla({ tipo: meta.tipo, asunto: asunto || null, intro: intro || null });
+    setEnviandoPrueba(false);
+    showToast('error' in r ? r.error : `Prueba enviada a ${r.enviadoA}`);
+  }
 
   return (
     <div className={cn(cardCls, 'p-6')}>
@@ -86,16 +116,51 @@ function PlantillaCard({
           <textarea className={cn(inputCls, 'resize-none')} rows={3} placeholder={meta.introDefault}
             value={intro} onChange={e => setIntro(e.target.value)} />
         </Field>
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] text-muted-foreground">
-            Variables: {meta.variables.map(v => <code key={v} className="bg-muted rounded px-1 py-0.5 mx-0.5">{v}</code>)}
-            . Deja un campo vacío para usar el texto por defecto.
-          </p>
+        <p className="text-[11px] text-muted-foreground">
+          Variables: {meta.variables.map(v => <code key={v} className="bg-muted rounded px-1 py-0.5 mx-0.5">{v}</code>)}
+          . Deja un campo vacío para usar el texto por defecto.
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={abrirPreview} disabled={cargandoPreview} className={cn(btnSecondary, 'disabled:opacity-50')}>
+            {cargandoPreview ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />} Vista previa
+          </button>
+          <button onClick={enviarPrueba} disabled={enviandoPrueba} className={cn(btnSecondary, 'disabled:opacity-50')}>
+            {enviandoPrueba ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviarme una prueba
+          </button>
           <button onClick={() => onSave({ asunto: asunto.trim() || null, intro: intro.trim() || null })} className={btnPrimary}>
             <Check size={14} /> Guardar
           </button>
         </div>
       </div>
+
+      <Dialog open={!!preview} onOpenChange={open => { if (!open) setPreview(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Vista previa — {meta.label}</DialogTitle>
+          </DialogHeader>
+          {preview && (
+            <div className="space-y-3">
+              <p className="text-[12px] text-muted-foreground">
+                Asunto: <span className="font-medium text-foreground">{preview.subject}</span>
+              </p>
+              <div className="rounded-xl border border-border overflow-hidden bg-white">
+                <iframe
+                  title={`Vista previa de ${meta.label}`}
+                  srcDoc={preview.html}
+                  sandbox=""
+                  className="w-full h-[420px]"
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Con datos de muestra (Ana García, Reformer Iniciación) — así se ve sin esperar a una clienta real.
+              </p>
+              <button onClick={() => setPreview(null)} className={cn(btnSecondary, 'w-full justify-center')}>
+                <X size={14} /> Cerrar
+              </button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -114,6 +179,7 @@ export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => vo
           meta={meta}
           plantilla={plantillasEmail.find(p => p.tipo === meta.tipo)}
           onSave={changes => { upsertPlantillaEmail(meta.tipo, changes); showToast('Plantilla guardada'); }}
+          showToast={showToast}
         />
       ))}
     </div>

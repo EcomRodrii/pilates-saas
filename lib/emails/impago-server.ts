@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { ImpagoEmail } from '@/lib/emails/impago-template';
-import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+import { resolverMarcaEstudio, resolverPlantilla, interpolar } from '@/lib/emails/plantillas-server';
 
 // Envío del email de IMPAGO a la socia desde código de servidor (webhook de Stripe
 // y barrido de dunning). Mismo patrón que send-server.ts: si Resend no está
@@ -21,7 +21,13 @@ export async function enviarEmailImpago(params: {
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
 
   try {
-    const marca = await resolverMarcaEstudio(params.studioId);
+    const [marca, plantilla] = await Promise.all([
+      resolverMarcaEstudio(params.studioId),
+      resolverPlantilla(params.studioId, 'impago'),
+    ]);
+    const vars = { nombre: params.toName, estudio: params.estudioNombre };
+    const intro = plantilla.intro ? interpolar(plantilla.intro, vars) : undefined;
+    const asuntoOverride = plantilla.asunto ? interpolar(plantilla.asunto, vars) : undefined;
     const html = await render(
       ImpagoEmail({
         socioNombre: params.toName,
@@ -30,11 +36,12 @@ export async function enviarEmailImpago(params: {
         concepto: params.concepto,
         importe: params.importe,
         definitivo: params.definitivo,
+        intro,
       }),
     );
-    const subject = params.definitivo
+    const subject = asuntoOverride ?? (params.definitivo
       ? `No hemos podido cobrar tu cuota — ${params.concepto}`
-      : `Problema con tu pago — ${params.concepto}`;
+      : `Problema con tu pago — ${params.concepto}`);
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
