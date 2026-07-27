@@ -112,7 +112,7 @@ export default function CrearEstudioPage() {
             <form onSubmit={handleStudioSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
-                  <Building2 size={20} className="text-[#B57A8E]" />
+                  <Building2 size={20} className="text-[#5A6142]" />
                 </div>
                 <div>
                   <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Tu estudio</h1>
@@ -180,7 +180,7 @@ export default function CrearEstudioPage() {
             <form onSubmit={handleOwnerSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
-                  <User size={20} className="text-[#B57A8E]" />
+                  <User size={20} className="text-[#5A6142]" />
                 </div>
                 <div>
                   <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Tu cuenta</h1>
@@ -253,7 +253,7 @@ export default function CrearEstudioPage() {
             <div className="p-6 space-y-4 text-center">
               <div className="flex justify-center">
                 <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center">
-                  <Mail size={32} className="text-[#B57A8E]" />
+                  <Mail size={32} className="text-[#5A6142]" />
                 </div>
               </div>
               <div>
@@ -276,7 +276,7 @@ export default function CrearEstudioPage() {
             <div className="p-6 space-y-5 text-center">
               <div className="flex justify-center">
                 <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center">
-                  <CheckCircle2 size={32} className="text-[#B57A8E]" />
+                  <CheckCircle2 size={32} className="text-[#5A6142]" />
                 </div>
               </div>
 
@@ -291,7 +291,7 @@ export default function CrearEstudioPage() {
               {nuevoSlug && (
                 <div className="bg-[#F8F9FA] rounded-xl px-4 py-3 text-left space-y-1">
                   <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#9CA3AF]">URL del portal</p>
-                  <p className="text-[13px] font-medium text-[#B57A8E] break-all">
+                  <p className="text-[13px] font-medium text-[#5A6142] break-all">
                     {typeof window !== 'undefined' ? window.location.origin : ''}/portal/{nuevoSlug}
                   </p>
                 </div>
@@ -320,7 +320,7 @@ export default function CrearEstudioPage() {
 
         <p className="text-center text-[12px] text-[#9CA3AF] mt-4">
           ¿Ya tienes cuenta?{' '}
-          <Link href="/login" className="text-[#B57A8E] hover:underline">
+          <Link href="/login" className="text-[#5A6142] hover:underline">
             Iniciar sesión
           </Link>
         </p>

@@ -108,7 +108,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="tu@email.com"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#6D28D9]/20 focus:border-[#6D28D9] transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-brand/15 focus:border-brand transition-all"
               />
             </div>
 
@@ -123,7 +123,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-[#6D28D9]/20 focus:border-[#6D28D9] transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-brand/15 focus:border-brand transition-all"
               />
             </div>
 
@@ -131,14 +131,14 @@ export default function LoginPage() {
               <p className="text-[13px] text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
             )}
             {info && (
-              <p className="text-[13px] rounded-lg px-3 py-2" style={{ color: '#5B21B6', background: '#F1ECFB' }}>{info}</p>
+              <p className="text-[13px] rounded-lg px-3 py-2" style={{ color: '#22251A', background: '#F1F2EA' }}>{info}</p>
             )}
 
             <button
               type="submit"
               disabled={submitting}
               className="w-full py-3 rounded-full text-[14px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
-              style={{ background: '#6D28D9', boxShadow: '0 10px 22px rgba(109,40,217,.28)' }}
+              style={{ background: 'var(--brand)', color: 'var(--brand-foreground)', boxShadow: '0 10px 22px color-mix(in srgb, var(--brand) 28%, transparent)' }}
             >
               {submitting ? 'Un momento…' : modo === 'entrar' ? 'Entrar' : 'Crear cuenta'}
             </button>

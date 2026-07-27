@@ -137,7 +137,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     nombre: 'Kisi',
     descripcion: 'Ofrece acceso seguro y rápido a tu estudio. Gestiona el estado de tus clientes en tiempo real.',
     Icon: KeyRound,
-    color: '#4F46E5',
+    color: '#4A5033',
     bg: '#EEF0FE',
     categoria: 'Control de acceso',
     campos: [

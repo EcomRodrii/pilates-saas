@@ -12,7 +12,7 @@ import { btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuraci
 
 const TIPO_LABEL: Record<TipoBackup, { label: string; bg: string; text: string }> = {
   DIARIO: { label: 'Diario', bg: '#EAF6FF', text: '#0369A1' },
-  SEMANAL: { label: 'Semanal', bg: '#F3EEFF', text: '#7C3AED' },
+  SEMANAL: { label: 'Semanal', bg: '#F1F2EA', text: '#5A6142' },
   MENSUAL: { label: 'Mensual', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
   MANUAL: { label: 'Manual', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
 };

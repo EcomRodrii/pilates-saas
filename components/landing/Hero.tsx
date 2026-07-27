@@ -99,7 +99,7 @@ export function Hero() {
     <header id="top" style={{ position: 'relative', padding: 'clamp(96px,11vw,132px) clamp(20px,4vw,44px) 56px', overflow: 'hidden', isolation: 'isolate' }}>
       <HeroVideo />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(100deg, rgba(10,9,12,.88) 0%, rgba(10,9,12,.82) 34%, rgba(10,9,12,.42) 62%, rgba(10,9,12,.6) 100%)', zIndex: -1 }} />
-      <div style={{ position: 'absolute', top: -140, right: -120, width: 560, height: 560, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(124,58,237,.28), transparent 62%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: -140, right: -120, width: 560, height: 560, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.28), transparent 62%)', pointerEvents: 'none' }} />
       <div className="tnt-wrap tnt-hero" style={{ maxWidth: 1280, margin: '0 auto', display: 'grid', gridTemplateColumns: '1.02fr .98fr', gap: 52, alignItems: 'center' }}>
         <div>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(38px,5.6vw,66px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px', color: '#fff' }}>
@@ -108,10 +108,10 @@ export function Hero() {
           </h1>
           <p style={{ fontSize: 'clamp(18px,1.7vw,23px)', fontWeight: 600, lineHeight: 1.35, color: '#F3F2ED', margin: '0 0 18px', animation: 'lp-riseIn .85s cubic-bezier(.2,.7,0,1) .24s both' }}>
             Reservas, cobros y equipo en un panel — y la única plataforma que cubre una baja de instructora{' '}
-            <span style={{ position: 'relative', whiteSpace: 'nowrap', color: '#C9A6F5' }}>
+            <span style={{ position: 'relative', whiteSpace: 'nowrap', color: '#D9C29E' }}>
               sola.
               <svg viewBox="0 0 90 14" style={{ position: 'absolute', left: 0, bottom: -6, width: '100%', height: 12, overflow: 'visible' }}>
-                <path d="M3 9 C 25 3, 65 3, 87 8" fill="none" stroke="#C9A6F5" strokeWidth={5} strokeLinecap="round" strokeDasharray={100} strokeDashoffset={100} style={{ animation: 'lp-dash 1s ease .7s forwards' }} />
+                <path d="M3 9 C 25 3, 65 3, 87 8" fill="none" stroke="#D9C29E" strokeWidth={5} strokeLinecap="round" strokeDasharray={100} strokeDashoffset={100} style={{ animation: 'lp-dash 1s ease .7s forwards' }} />
               </svg>
             </span>
           </p>
@@ -119,7 +119,7 @@ export function Hero() {
             Cuando una instructora avisa de que no puede, Tentare busca sustituta, la contacta y avisa a las alumnas antes de que cuelgues el teléfono. Tú solo apruebas.
           </p>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginBottom: 22, animation: 'lp-riseIn .85s cubic-bezier(.2,.7,0,1) .42s both' }}>
-            <Link href="/crear-estudio" className={btnCta} style={{ fontSize: 16, fontWeight: 700, padding: '16px 28px', boxShadow: '0 16px 34px rgba(109,40,217,.34)' }}>
+            <Link href="/crear-estudio" className={btnCta} style={{ fontSize: 16, fontWeight: 700, padding: '16px 28px', boxShadow: '0 16px 34px rgba(52,56,37,.34)' }}>
               Crear mi estudio →
             </Link>
           </div>

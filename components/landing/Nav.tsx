@@ -49,7 +49,7 @@ export function Nav() {
           </div>
           <div className="tnt-navcta" style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
             <Link href="/login" style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', padding: '9px 6px' }}>Entrar</Link>
-            <Link href="/crear-estudio" className="hover:brightness-110" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: ACC, padding: '11px 20px', borderRadius: 999, boxShadow: '0 10px 22px rgba(109,40,217,.28)' }}>
+            <Link href="/crear-estudio" className="hover:brightness-110" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: ACC, padding: '11px 20px', borderRadius: 999, boxShadow: '0 10px 22px rgba(52,56,37,.28)' }}>
               Crear estudio
             </Link>
           </div>
@@ -73,7 +73,7 @@ export function Nav() {
             animation: 'lp-fadeIn .25s ease both', overflowY: 'auto',
           }}
         >
-          <div style={{ position: 'fixed', top: -160, right: -140, width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,.32), transparent 62%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'fixed', top: -160, right: -140, width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.32), transparent 62%)', pointerEvents: 'none' }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'clamp(28px,6vh,52px)', position: 'relative' }}>
             <span className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)' }}>Menú</span>
             <button
@@ -98,7 +98,7 @@ export function Nav() {
                   animation: `lp-riseIn .55s cubic-bezier(.2,.7,0,1) ${0.08 + i * 0.06}s both`,
                 }}
               >
-                <span className="lp-mono" style={{ fontSize: 11, color: '#C9A6F5', letterSpacing: '.08em' }}>{String(i + 1).padStart(2, '0')}</span>
+                <span className="lp-mono" style={{ fontSize: 11, color: '#D9C29E', letterSpacing: '.08em' }}>{String(i + 1).padStart(2, '0')}</span>
                 {l.label}
               </a>
             ))}
@@ -115,7 +115,7 @@ export function Nav() {
             <Link
               href="/crear-estudio"
               onClick={() => setMenuOpen(false)}
-              style={{ textAlign: 'center', padding: 16, fontSize: 16, fontWeight: 700, color: '#fff', background: ACC, borderRadius: 999, boxShadow: '0 14px 30px rgba(109,40,217,.4)', animation: 'lp-riseIn .55s cubic-bezier(.2,.7,0,1) .48s both' }}
+              style={{ textAlign: 'center', padding: 16, fontSize: 16, fontWeight: 700, color: '#fff', background: ACC, borderRadius: 999, boxShadow: '0 14px 30px rgba(52,56,37,.4)', animation: 'lp-riseIn .55s cubic-bezier(.2,.7,0,1) .48s both' }}
             >
               Crear estudio
             </Link>

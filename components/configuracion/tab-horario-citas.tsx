@@ -154,7 +154,7 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
               selected === i.id ? 'bg-brand text-brand-foreground border-brand' : 'bg-card text-muted-foreground border-border hover:text-foreground',
             )}
           >
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: selected === i.id ? 'rgba(255,255,255,0.8)' : (i.color ?? '#8B5CF6') }} />
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: selected === i.id ? 'rgba(255,255,255,0.8)' : (i.color ?? '#6E7650') }} />
             {i.nombre}
           </button>
         ))}

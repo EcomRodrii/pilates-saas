@@ -44,7 +44,7 @@ const AVATAR_COLORS = [
   { bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
   { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
   { bg: '#FCE7F3', text: '#9D174D' },
-  { bg: '#EDE9FE', text: '#5B21B6' },
+  { bg: '#E8EBDD', text: '#22251A' },
   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#991B1B' },
 ];
 

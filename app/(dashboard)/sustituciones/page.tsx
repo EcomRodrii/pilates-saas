@@ -677,7 +677,7 @@ function SustitucionCard({
             </div>
 
             <div className="flex items-center gap-3.5">
-              <ProfileAvatar avatarId={insDe(hero.instructor_id)?.avatar ?? null} nombre={hero.nombre} color={insDe(hero.instructor_id)?.color ?? '#6D28D9'} size="lg" />
+              <ProfileAvatar avatarId={insDe(hero.instructor_id)?.avatar ?? null} nombre={hero.nombre} color={insDe(hero.instructor_id)?.color ?? '#343825'} size="lg" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-[18px] font-extrabold text-foreground leading-tight truncate">{hero.nombre}</p>
@@ -772,7 +772,7 @@ function SustitucionCard({
               <div className="space-y-1.5">
                 {resto.map(c => (
                   <div key={c.instructor_id} className="flex items-center gap-3 rounded-xl border border-border p-2.5">
-                    <ProfileAvatar avatarId={insDe(c.instructor_id)?.avatar ?? null} nombre={c.nombre} color={insDe(c.instructor_id)?.color ?? '#7C3AED'} size="sm" />
+                    <ProfileAvatar avatarId={insDe(c.instructor_id)?.avatar ?? null} nombre={c.nombre} color={insDe(c.instructor_id)?.color ?? '#5A6142'} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-bold text-foreground flex items-center gap-1.5 flex-wrap">
                         {c.nombre}

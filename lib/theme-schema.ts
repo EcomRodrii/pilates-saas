@@ -67,11 +67,11 @@ export type ThemeConfig = z.infer<typeof themeConfigSchema>;
 export const themeDraftSchema = themeConfigSchema.partial();
 export type ThemeDraft = z.infer<typeof themeDraftSchema>;
 
-/** Tema por defecto del sistema (paleta "Tentare", morado). */
+/** Tema por defecto del sistema (identidad Tentare: oliva + arena). */
 export const DEFAULT_THEME: ThemeConfig = {
-  primary: '#6D28D9',
-  secondary: '#7C3AED',
-  accent: '#F5F3FF',
+  primary: '#343825',
+  secondary: '#5A6142',
+  accent: '#F1F2EA',
   background: '#F6F7F9',
   text: '#1A1A1A',
   fontId: 'jakarta',

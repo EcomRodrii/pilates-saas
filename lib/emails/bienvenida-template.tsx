@@ -25,8 +25,8 @@ export function BienvenidaEmail({
       </Text>
 
       {planNombre && (
-        <Section style={{ backgroundColor: '#F5F0FF', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
-          <Text style={{ color: colorPrimario || '#6D28D9', fontSize: 13, fontWeight: 600, margin: '0 0 4px', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+        <Section style={{ backgroundColor: '#F1F2EA', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
+          <Text style={{ color: colorPrimario || '#343825', fontSize: 13, fontWeight: 600, margin: '0 0 4px', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
             Tu plan
           </Text>
           <Text style={{ color: '#1A1A1A', fontSize: 16, fontWeight: 700, margin: 0 }}>

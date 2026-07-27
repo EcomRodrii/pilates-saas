@@ -28,7 +28,7 @@ function horasRestantes(iso: string) {
 const accionConfig: Record<AccionAutomatica, { label: string; icon: React.ElementType; color: string }> = {
   ENVIAR_EMAIL:      { label: 'Email', icon: Mail, color: 'var(--brand)' },
   ENVIAR_WHATSAPP:   { label: 'WhatsApp', icon: MessageSquare, color: '#16A34A' },
-  COBRAR_RECIBO:     { label: 'Cobro automático', icon: CreditCard, color: '#7C3AED' },
+  COBRAR_RECIBO:     { label: 'Cobro automático', icon: CreditCard, color: '#5A6142' },
   CREAR_NOTA:        { label: 'Nota de progreso', icon: Eye, color: '#0891B2' },
   NOTIFICAR_ADMIN:   { label: 'Notificación admin', icon: Bell, color: 'var(--warning)' },
   OFRECER_CLASE_GRATIS: { label: 'Clase gratis', icon: Gift, color: '#DB2777' },

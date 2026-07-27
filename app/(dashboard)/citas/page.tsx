@@ -20,7 +20,7 @@ import {
 // ─── Helper constants ─────────────────────────────────────────────────────────
 
 const TIPO_BADGE: Record<TipoCita, { label: string; cls: string }> = {
-  PRIVADA:     { label: 'Privada',      cls: 'bg-[#EDE9FE] text-[#6D28D9]' },
+  PRIVADA:     { label: 'Privada',      cls: 'bg-[#E8EBDD] text-[#343825]' },
   EVALUACION:  { label: 'Evaluación',   cls: 'bg-info/10 text-info' },
   FISIOTERAPIA:{ label: 'Fisioterapia', cls: 'bg-success/10 text-success' },
   ONLINE:      { label: 'Online',       cls: 'bg-warning/10 text-warning' },

@@ -194,7 +194,7 @@ export function ConfirmDialog({
 
 export function TipoPlanBadge({ tipo }: { tipo: PlanTarifa['tipo'] }) {
   const map: Record<string, string> = {
-    MENSUAL: 'bg-purple-50 text-purple-700',
+    MENSUAL: 'bg-accent text-accent-foreground',
     BONO: 'bg-blue-50 text-blue-700',
     PUNTUAL: 'bg-background text-muted-foreground',
   };

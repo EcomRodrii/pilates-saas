@@ -14,7 +14,7 @@ export function Problema() {
     <section id="problema" style={{ background: DARK, color: '#E8E8E4', padding: 'clamp(72px,9vw,116px) clamp(20px,4vw,44px)', position: 'relative', overflow: 'hidden' }}>
       <div className="tnt-wrap tnt-g2" style={{ maxWidth: 1280, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 22, alignItems: 'center' }}>
         <Reveal>
-          <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#C08BE8', marginBottom: 18 }}>El problema</div>
+          <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 18 }}>El problema</div>
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(32px,4.6vw,54px)', lineHeight: 1.02, letterSpacing: '-.04em', margin: '0 0 22px' }}>Tu estudio no cabe en cinco apps y un cuaderno.</h2>
           <p style={{ fontSize: 18, lineHeight: 1.6, color: MUTED_DARK, maxWidth: 440, margin: '0 0 18px' }}>
             Reservas en una, cobros en otra, el calendario en un grupo de WhatsApp, las horas en una hoja de cálculo. Y cuando una instructora avisa de que no puede — a las 22:47 — empieza el caos: llamar una por una, cuadrar, avisar a las alumnas.
@@ -38,8 +38,8 @@ export function Problema() {
                   style={{
                     alignSelf: m.me ? 'flex-end' : 'flex-start',
                     maxWidth: '82%',
-                    background: m.me ? '#3A2E52' : '#242424',
-                    color: m.me ? '#E8DEF6' : '#E8E8E4',
+                    background: m.me ? '#262A1C' : '#242424',
+                    color: m.me ? '#E4E8D6' : '#E8E8E4',
                     fontSize: 13,
                     lineHeight: 1.4,
                     padding: '9px 12px',

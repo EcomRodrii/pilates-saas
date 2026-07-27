@@ -84,8 +84,8 @@
   --secondary-foreground: #1A1A1A;
   --muted: #F5F5F1;
   --muted-foreground: #8E8E86;
-  --accent: #F5F3FF;
-  --accent-foreground: #6D28D9;
+  --accent: #F1F2EA;
+  --accent-foreground: #343825;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: #ffffff;
   /* Valores iguales a los hex más repetidos del panel (#059669, #D97706,
@@ -98,34 +98,46 @@
   --info-foreground: #ffffff;
   --border: #E7E7E0;
   --input: #E7E7E0;
-  --ring: #6D28D9;
+  --ring: #343825;
   --radius: 1rem;
   --sidebar: #0F0F0F;
   --sidebar-foreground: #E8E8E4;
-  --sidebar-primary: #6D28D9;
-  --sidebar-primary-foreground: #ffffff;
+  /* La barra lateral es casi negra (#0F0F0F): el oliva oscuro desaparecería
+     encima (1,4:1). Usa el oliva CLARO, que da 5,77:1. */
+  --sidebar-primary: #8A9165;
+  --sidebar-primary-foreground: #16161A;
   --sidebar-accent: rgba(255,255,255,0.06);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255,255,255,0.06);
-  --sidebar-ring: rgba(109,40,217,0.4);
+  --sidebar-ring: rgba(138,145,101,0.5);
 
-  /* Lime accent scale (Midbox) — ahora paleta morada del sistema */
-  --lime: #6D28D9;
-  --lime-dark: #5B21B6;
-  --lime-bg: #F5F3FF;
+  /* Escala de acento del sistema. El nombre "lime" es histórico (plantilla
+     Midbox); hoy son alias de la marca de Tentare y no deben divergir de ella. */
+  --lime: #343825;
+  --lime-dark: #22251A;
+  --lime-bg: #F1F2EA;
 
-  /* Marca del panel — sobreescrito en tiempo real por lib/panel-theme.tsx según
-     la paleta elegida por cada usuario (personal, localStorage). El valor de
-     aquí es la paleta "Tentare" (morado). */
-  --brand: #6D28D9;
-  --brand-foreground: #ffffff;
-  --brand-secondary: #7C3AED;
+  /* ── Identidad de Tentare ──────────────────────────────────────────────────
+     Oliva #343825 + arena #D9C29E: 7,00:1, pasa AA de sobra.
+
+     Es el valor POR DEFECTO. lib/panel-theme.tsx lo sobreescribe con el tema
+     que haya publicado el estudio (white-label): quien eligió su propio color
+     lo conserva a propósito. Estas variables mandan en las superficies de
+     Tentare (landing, login, alta, panel interno) y en los estudios que no han
+     tocado el tema. */
+  --brand: #343825;
+  --brand-foreground: #D9C29E;
+  --brand-secondary: #5A6142;
+  /* Delimita el botón cuando el fondo es oscuro y el oliva no se despega de él
+     (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
+     transparente: ahí el propio oliva ya contrasta 10,4:1 con el fondo. */
+  --brand-borde: transparent;
 
   /* Marca de la app de socias — sobreescrito por lib/portal-theme.tsx según
      studio.temaPortal (compartido, Supabase, solo editable por el propietario). */
-  --portal-brand: #6D28D9;
-  --portal-brand-foreground: #ffffff;
-  --portal-brand-secondary: #7C3AED;
+  --portal-brand: #343825;
+  --portal-brand-foreground: #D9C29E;
+  --portal-brand-secondary: #5A6142;
 }
 
 /* Modo oscuro del panel — personal, activado por lib/panel-theme.tsx añadiendo
@@ -158,6 +170,20 @@
   --info-foreground: #16161A;
   --border: #303035;
   --input: #303035;
+
+  /* Marca en modo oscuro. El oliva se queda: sobre #16161A da 1,64:1, así que
+     un botón relleno de oliva no se despegaría del fondo. No se cambia el color
+     del texto (la identidad es arena sobre oliva, 7,00:1, y se respeta) — se le
+     da CONTORNO con el oliva claro, que contrasta 5,43:1 con el fondo. No
+     existe ningún oliva que sea a la vez visible sobre oscuro y admita arena
+     encima a 4,5:1: son requisitos incompatibles, y esta es la salida que
+     conserva la identidad intacta.
+     --accent* y --ring sí se aclaran: como TEXTO y como foco, el oliva oscuro
+     sobre fondo oscuro sería directamente ilegible. */
+  --accent: #262A1C;
+  --accent-foreground: #A8B080;
+  --ring: #8A9165;
+  --brand-borde: #8A9165;
 }
 
 @layer base {
@@ -172,6 +198,21 @@
   }
   html {
     font-family: var(--font-jakarta), system-ui, sans-serif;
+  }
+
+  /* Contorno del relleno de marca en modo oscuro.
+     El oliva (#343825) contrasta 1,64:1 con el fondo oscuro del panel: un botón
+     relleno se fundiría con la página. En vez de cambiar la identidad (arena
+     sobre oliva, que es lo que se ha pedido y da 7,00:1), se le dibuja un
+     contorno de 1px en oliva claro — 5,43:1 contra el fondo, por encima del 3:1
+     que WCAG 1.4.11 exige para delimitar un control.
+     Va con box-shadow interior y no con `border` para no alterar el tamaño de
+     ningún botón: son ~528 usos de bg-brand y ninguno reserva espacio de borde.
+     Solo afecta al relleno sólido; los tintes (bg-brand/10) no llevan clase
+     `bg-brand` y quedan fuera, que es lo correcto. */
+  .dark .bg-brand,
+  .dark .bg-portal-brand {
+    box-shadow: inset 0 0 0 1px var(--brand-borde);
   }
 }
 

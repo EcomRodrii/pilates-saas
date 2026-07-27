@@ -95,7 +95,7 @@ const email: Canal = {
 
     const { data: st } = await admin.from('studios')
       .select('nombre, color_primario, logo_url').eq('id', notificacion.studioId).maybeSingle();
-    const color = (st?.color_primario as string | null) || '#6D28D9';
+    const color = (st?.color_primario as string | null) || '#343825';
     const estudio = (st?.nombre as string | null) || 'Tentare';
     const logo = st?.logo_url as string | null;
     const base = process.env.NEXT_PUBLIC_APP_URL || 'https://tentare.app';

@@ -10,8 +10,8 @@ import { subirFotoAdmin, eliminarFotoAdmin, subirFotoInstructor, eliminarFotoIns
 import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 const ROL_LABEL: Record<string, { label: string; bg: string; text: string }> = {
-  PROPIETARIO: { label: 'Propietaria', bg: '#F3EEFF', text: '#6D28D9' },
-  INSTRUCTOR: { label: 'Instructora', bg: '#FFF2F7', text: '#B57A8E' },
+  PROPIETARIO: { label: 'Propietaria', bg: '#F1F2EA', text: '#343825' },
+  INSTRUCTOR: { label: 'Instructora', bg: '#FFF2F7', text: '#5A6142' },
   RECEPCION: { label: 'Recepción', bg: '#EAF6FF', text: '#0369A1' },
 };
 

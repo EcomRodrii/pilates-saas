@@ -95,7 +95,7 @@ export interface PaletaDerivada {
 export function derivarPaleta(primary: string): PaletaDerivada {
   const hsl = hexToHsl(primary);
   if (!hsl) {
-    return { secondary: '#B57A8E', accent: '#FFF2F7', background: '#EEEEE8', text: '#1A1A1A' };
+    return { secondary: '#5A6142', accent: '#F1F2EA', background: '#EEEEE8', text: '#1A1A1A' };
   }
   return {
     secondary: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.6, 12, 60), l: clamp(hsl.l * 0.55, 26, 46) }),

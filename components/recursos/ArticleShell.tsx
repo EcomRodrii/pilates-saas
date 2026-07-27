@@ -57,7 +57,7 @@ export function ArticleShell({
 
   return (
     <>
-      <div ref={barRef} style={{ position: 'fixed', top: 0, left: 0, height: 3, width: 0, background: ACC, zIndex: 120, boxShadow: '0 0 10px rgba(124,58,237,.5)' }} />
+      <div ref={barRef} style={{ position: 'fixed', top: 0, left: 0, height: 3, width: 0, background: ACC, zIndex: 120, boxShadow: '0 0 10px rgba(90,97,66,.5)' }} />
       <SiteNav />
 
       <header style={{ position: 'relative', background: coverGradient, color: '#fff', overflow: 'hidden', padding: 'clamp(48px,7vw,84px) clamp(20px,4vw,44px) clamp(40px,5vw,60px)' }}>

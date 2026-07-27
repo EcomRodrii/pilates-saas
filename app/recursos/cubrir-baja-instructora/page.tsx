@@ -36,7 +36,7 @@ export default function CubrirBajaPage() {
     <PageShell>
       <ArticleShell
         category="Sustituciones y equipo"
-        coverGradient="linear-gradient(140deg,#241250,#6D28D9)"
+        coverGradient="linear-gradient(140deg,#191C11,#343825)"
         title="Cómo cubrir una baja de instructora sin hacer una llamada"
         intro="El proceso que roba noches a las propietarias de estudios — y cómo convertirlo en algo que ocurre solo, paso a paso."
         readTime="8 min de lectura"
@@ -109,7 +109,7 @@ export default function CubrirBajaPage() {
         <RelatedLinks
           items={[
             { href: '/recursos/precios-reformer-mat', category: 'Rentabilidad', categoryColor: '#3E7C86', title: 'Reformer vs. mat: cómo poner precio a cada clase' },
-            { href: '/recursos', category: 'Centro de Recursos', categoryColor: '#5B21B6', title: 'Ver todas las guías para tu estudio →' },
+            { href: '/recursos', category: 'Centro de Recursos', categoryColor: '#22251A', title: 'Ver todas las guías para tu estudio →' },
           ]}
         />
       </ArticleShell>

@@ -38,7 +38,7 @@ export const ACCIONES: Record<AccionFlujo, { label: string; icon: React.ElementT
     ],
   },
   TAREA: {
-    label: 'Crear tarea', icon: CheckSquare, color: '#8b5cf6',
+    label: 'Crear tarea', icon: CheckSquare, color: '#6E7650',
     campos: [
       { key: 'titulo', label: 'Título de la tarea', placeholder: 'Llamar a la clienta' },
       { key: 'asignadoA', label: 'Asignar a', placeholder: 'Recepción' },
