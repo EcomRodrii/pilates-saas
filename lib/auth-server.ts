@@ -8,6 +8,10 @@ export interface SesionStaff {
   rol: 'PROPIETARIO' | 'RECEPCION' | 'INSTRUCTOR' | 'MANAGER';
   // Nombre para mostrar (instructora → su nombre; propietaria → nombre del estudio).
   nombre: string;
+  // Email de la cuenta autenticada (no el del estudio). Lo usan rutas que
+  // necesitan escribir AL usuario logueado — p. ej. el envío de prueba de una
+  // plantilla de email (P2-11): nunca a un destinatario que venga del body.
+  email: string | null;
 }
 
 // Verifica el JWT que el cliente manda en el header Authorization (obtenido
@@ -47,10 +51,10 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
       db.from('studios').select('nombre').eq('owner_auth_user_id', user.id).eq('id', activa.studio_id).maybeSingle(),
     ]);
     if (comoInstructor) {
-      return { userId: user.id, studioId: activa.studio_id, rol: comoInstructor.rol, nombre: comoInstructor.nombre || 'Equipo' };
+      return { userId: user.id, studioId: activa.studio_id, rol: comoInstructor.rol, nombre: comoInstructor.nombre || 'Equipo', email: user.email ?? null };
     }
     if (comoOwner) {
-      return { userId: user.id, studioId: activa.studio_id, rol: 'PROPIETARIO', nombre: comoOwner.nombre || 'Estudio' };
+      return { userId: user.id, studioId: activa.studio_id, rol: 'PROPIETARIO', nombre: comoOwner.nombre || 'Estudio', email: user.email ?? null };
     }
   }
 
@@ -66,7 +70,7 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
     .limit(1);
   const instructor = instructores?.[0];
   if (instructor) {
-    return { userId: user.id, studioId: instructor.studio_id, rol: instructor.rol, nombre: instructor.nombre || 'Equipo' };
+    return { userId: user.id, studioId: instructor.studio_id, rol: instructor.rol, nombre: instructor.nombre || 'Equipo', email: user.email ?? null };
   }
 
   const { data: studios } = await db
@@ -77,7 +81,7 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
     .limit(1);
   const studio = studios?.[0];
   if (studio) {
-    return { userId: user.id, studioId: studio.id, rol: 'PROPIETARIO', nombre: studio.nombre || 'Estudio' };
+    return { userId: user.id, studioId: studio.id, rol: 'PROPIETARIO', nombre: studio.nombre || 'Estudio', email: user.email ?? null };
   }
 
   return null;

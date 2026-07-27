@@ -178,7 +178,7 @@ export interface InstructorDependencySnapshot {
 }
 
 // ─── Plantillas de email transaccional (override por estudio) ────────────────
-export type TipoPlantillaEmail = 'bienvenida' | 'reserva' | 'recordatorio' | 'cancelacion' | 'promocion';
+export type TipoPlantillaEmail = 'bienvenida' | 'reserva' | 'recordatorio' | 'cancelacion' | 'promocion' | 'impago';
 
 export interface PlantillaEmail {
   id: string;

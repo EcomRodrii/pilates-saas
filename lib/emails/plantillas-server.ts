@@ -8,9 +8,10 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 export type PlantillaOverride = { asunto?: string; intro?: string };
 
-// Los 5 transaccionales relacionales que el estudio puede personalizar. `recibo`
+// Los 6 transaccionales relacionales que el estudio puede personalizar. `recibo`
 // (contenido fiscal) y `automatizacion` (100% dinámico) quedan fuera a propósito.
-export const TIPOS_PLANTILLA_EDITABLES = ['bienvenida', 'reserva', 'recordatorio', 'cancelacion', 'promocion'] as const;
+// `impago` (P2-11) es de las que mueven dinero de verdad y antes no se podía tocar.
+export const TIPOS_PLANTILLA_EDITABLES = ['bienvenida', 'reserva', 'recordatorio', 'cancelacion', 'promocion', 'impago'] as const;
 export type TipoPlantillaEditable = (typeof TIPOS_PLANTILLA_EDITABLES)[number];
 
 export function esTipoEditable(tipo: string): tipo is TipoPlantillaEditable {

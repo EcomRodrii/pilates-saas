@@ -11,6 +11,7 @@ interface Props {
   // true = fallo definitivo tras agotar los reintentos (acción requerida);
   // false = primer fallo (informativo, aún se reintentará solo).
   definitivo: boolean;
+  intro?: string; // texto de introducción personalizado por el estudio
 }
 
 // Email a la SOCIA cuando un cobro de su recibo falla. Solo se envía en el primer
@@ -24,6 +25,7 @@ export function ImpagoEmail({
   logoUrl,
   colorPrimario,
   definitivo,
+  intro,
 }: Props) {
   const acento = definitivo ? '#B91C1C' : '#8F6215';
   const titulo = definitivo ? 'No hemos podido cobrar tu cuota' : 'Problema con tu pago';
@@ -32,9 +34,9 @@ export function ImpagoEmail({
     : 'Hemos intentado cobrar tu cuota y el pago no se ha completado. Lo volveremos a intentar automáticamente en los próximos días — no tienes que hacer nada, pero revisa que tu método de pago esté al día.';
 
   return (
-    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} headerColor={acento} titulo={titulo} preview={cuerpo.slice(0, 90)}>
+    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} headerColor={acento} titulo={titulo} preview={(intro ?? cuerpo).slice(0, 90)}>
       <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 24px' }}>
-        Hola <strong>{socioNombre}</strong>, {cuerpo}
+        {intro ?? <>Hola <strong>{socioNombre}</strong>, {cuerpo}</>}
       </Text>
 
       <Section style={{ backgroundColor: '#FAFAF7', borderRadius: 10, padding: '20px 24px', marginBottom: 20 }}>
