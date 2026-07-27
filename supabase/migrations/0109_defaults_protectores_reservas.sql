@@ -44,6 +44,20 @@
 -- de arrastre. Decisión del usuario.
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- DECISIÓN (2026-07-27): Marco confirma la opción 1 — la clienta PIERDE la
+-- sesión del bono si cancela tarde (`cancelacion_devolver_bono_tardia = false`,
+-- que es justo el valor con el que ya estaban los 15 estudios de producción).
+-- Coherente con el título original de este PR y con el copy de tab-estudio.tsx.
+-- Cierra la ambigüedad de la CORRECCIÓN de arriba: no hay una segunda mitad
+-- pendiente de aplicar. `false` sigue siendo el DEFAULT de la columna y ningún
+-- estudio necesita backfill — no hace falta SQL adicional aquí.
+--
+-- El código de aplicación (fallbacks + copy) se realineó con este mismo valor
+-- en PR #431, que había quedado apuntando a `true` por el mismo malentendido
+-- que esta migración.
+-- ─────────────────────────────────────────────────────────────────────────────
+
 alter table public.studios
   alter column reserva_exigir_plan set default true;
 
