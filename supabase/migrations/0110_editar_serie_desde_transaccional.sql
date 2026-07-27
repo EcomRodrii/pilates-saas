@@ -98,5 +98,11 @@ begin
 end;
 $$;
 
+-- Anon NO debe poder ejecutarlo. Una función nueva se crea con EXECUTE a PUBLIC
+-- por defecto (el proyecto no revoca por defecto), y el guard STUDIO_MISMATCH solo
+-- actúa con auth.uid() presente → un anónimo lo saltaría y podría reescribir las
+-- clases de CUALQUIER estudio vía /rest/v1/rpc. Se revoca PUBLIC y se da solo a
+-- authenticated + service_role, igual que reservar_plaza/crear_recuperacion.
+revoke execute on function public.editar_serie_desde(text, text, text, text, text, integer, text, text, text) from public;
 grant execute on function public.editar_serie_desde(text, text, text, text, text, integer, text, text, text)
   to authenticated, service_role;
