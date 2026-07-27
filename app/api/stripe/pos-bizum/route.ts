@@ -21,6 +21,11 @@ export async function POST(req: NextRequest) {
   if (!sesion) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
+  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
+  // comprueba aquí. Las instructoras no cobran — solo dirección y recepción.
+  if (sesion.rol === 'INSTRUCTOR') {
+    return NextResponse.json({ error: 'Las instructoras no pueden registrar cobros' }, { status: 403 });
+  }
   // Mismo gate de suscripción del SaaS que el datáfono (terminal/cobrar) y el cobro
   // off-session: un estudio con la suscripción a Tentare no activa no debe poder
   // generar cobros. Antes pos-bizum se lo saltaba → enforcement inconsistente.
