@@ -18,6 +18,11 @@ import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
+  // comprueba aquí. Las instructoras no cobran — solo dirección y recepción.
+  if (sesion.rol === 'INSTRUCTOR') {
+    return NextResponse.json({ error: 'Las instructoras no pueden registrar cobros' }, { status: 403 });
+  }
 
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });

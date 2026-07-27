@@ -28,6 +28,11 @@ export async function POST(req: NextRequest) {
   if (!sesion) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
+  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
+  // comprueba aquí. Las instructoras no emiten facturas — solo dirección y recepción.
+  if (sesion.rol === 'INSTRUCTOR') {
+    return NextResponse.json({ error: 'Las instructoras no pueden emitir facturas' }, { status: 403 });
+  }
 
   const admin = getSupabaseAdmin();
   if (!admin) {
