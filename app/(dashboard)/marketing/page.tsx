@@ -537,7 +537,7 @@ export default function MarketingPage() {
   // Hover state for campaign cards
   const [hoveredCampana, setHoveredCampana] = useState<string | null>(null)
   const [enviandoId, setEnviandoId] = useState<string | null>(null)
-  const [resultadoEnvio, setResultadoEnvio] = useState<string | null>(null)
+  const [resultadoEnvio, setResultadoEnvio] = useState<{ texto: string; tipo: 'ok' | 'warning' | 'error' } | null>(null)
 
   async function handleEnviarCampana(c: Campana) {
     if (enviandoId) return
@@ -546,7 +546,7 @@ export default function MarketingPage() {
     // ("enviada a 42 de 42"). El endpoint ya lo rechaza; avisamos aquí para no
     // dejarlo en un mudo "enviada a 0 de 42".
     if (c.tipo === 'EMAIL' && (!c.asunto?.trim() || !c.contenido?.trim())) {
-      setResultadoEnvio(`"${c.nombre}" no tiene ${!c.asunto?.trim() ? 'asunto' : 'contenido'}. Edítala antes de enviarla.`)
+      setResultadoEnvio({ texto: `"${c.nombre}" no tiene ${!c.asunto?.trim() ? 'asunto' : 'contenido'}. Edítala antes de enviarla.`, tipo: 'warning' })
       return
     }
     setEnviandoId(c.id)
@@ -555,11 +555,11 @@ export default function MarketingPage() {
       const { enviados, total } = await enviarCampana(c)
       setResultadoEnvio(
         total === 0
-          ? `"${c.nombre}": no hay destinatarias con email en ese segmento.`
-          : `"${c.nombre}" enviada a ${enviados} de ${total} destinatarias.`
+          ? { texto: `"${c.nombre}": no hay destinatarias con email en ese segmento.`, tipo: 'warning' }
+          : { texto: `"${c.nombre}" enviada a ${enviados} de ${total} destinatarias.`, tipo: 'ok' }
       )
     } catch {
-      setResultadoEnvio(`No se pudo enviar "${c.nombre}". Revisa la configuración de email.`)
+      setResultadoEnvio({ texto: `No se pudo enviar "${c.nombre}". Revisa la configuración de email.`, tipo: 'error' })
     } finally {
       setEnviandoId(null)
     }
@@ -829,9 +829,14 @@ export default function MarketingPage() {
           </div>
 
           {resultadoEnvio && (
-            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-success/10 text-success text-sm px-4 py-2.5">
-              <span>{resultadoEnvio}</span>
-              <button onClick={() => setResultadoEnvio(null)} className="text-success/70 hover:text-success">✕</button>
+            <div className={cn(
+              'mb-3 flex items-center justify-between gap-3 rounded-lg text-sm px-4 py-2.5',
+              resultadoEnvio.tipo === 'ok' && 'bg-success/10 text-success',
+              resultadoEnvio.tipo === 'warning' && 'bg-warning/10 text-warning',
+              resultadoEnvio.tipo === 'error' && 'bg-destructive/10 text-destructive'
+            )}>
+              <span>{resultadoEnvio.texto}</span>
+              <button onClick={() => setResultadoEnvio(null)} className="opacity-70 hover:opacity-100">✕</button>
             </div>
           )}
 
