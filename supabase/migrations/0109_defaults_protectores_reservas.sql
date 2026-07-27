@@ -4,10 +4,9 @@
 --
 --   · reserva_exigir_plan            → una clienta SIN plan ni bono activo
 --                                       podía reservar y ocupar plaza igual.
---   · cancelacion_devolver_bono_tardia → una cancelación tardía devolvía la
---                                       sesión del bono como si no hubiera
---                                       pasado nada — la ventana de aviso no
---                                       protegía nada en la práctica.
+--   · cancelacion_devolver_bono_tardia → APARCADO. Ver la corrección de abajo:
+--                                       el SQL original hacía lo contrario de
+--                                       lo que decía este párrafo.
 --
 -- Las dos costaban dinero de la misma forma que P2-7 (bonos por tipo de
 -- clase): el sistema dejaba pasar lo que el negocio no quería. El propio
@@ -22,14 +21,32 @@
 -- motiva esto es justo de una dueña con el valor heredado, no elegido.
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- CORRECCIÓN (2026-07-27): esta migración se mergeó pero NUNCA llegó a
+-- aplicarse en producción, y al ir a aplicarla se vio que su segunda mitad
+-- hacía lo CONTRARIO de lo que dice el título del PR y este mismo comentario.
+--
+--   `debeDevolverBono()` (lib/booking-logic.ts:29):
+--       if (devolverEnTardia) return true;   ← true = devuelve SIEMPRE
+--       return !esCancelacionTardia(...);    ← false = no devuelve si es tardía
+--
+-- Es decir, `cancelacion_devolver_bono_tardia = true` es la opción PERMISIVA:
+-- con ella la ventana de cancelación deja de penalizar nada. Los 15 estudios de
+-- producción estaban ya en `false` (la sesión se pierde si se cancela tarde),
+-- así que aplicarla tal cual les habría QUITADO la penalización a todos.
+--
+-- El copy del ajuste en tab-estudio.tsx dice lo mismo que el SQL («Activado
+-- (recomendado): la sesión se devuelve aunque sea tardía»), así que la
+-- contradicción está entre el enunciado y el código, no dentro del código.
+--
+-- Se aplica solo la mitad sin ambigüedad —exigir plan— y la política de
+-- cancelación se queda como estaba, a la espera de decidirla a propósito y no
+-- de arrastre. Decisión del usuario.
+-- ─────────────────────────────────────────────────────────────────────────────
+
 alter table public.studios
-  alter column reserva_exigir_plan set default true,
-  alter column cancelacion_devolver_bono_tardia set default true;
+  alter column reserva_exigir_plan set default true;
 
 update public.studios
   set reserva_exigir_plan = true
   where reserva_exigir_plan is distinct from true;
-
-update public.studios
-  set cancelacion_devolver_bono_tardia = true
-  where cancelacion_devolver_bono_tardia is distinct from true;
