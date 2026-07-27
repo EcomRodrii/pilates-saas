@@ -307,8 +307,8 @@ function mapStudio(r: RowStudios): Studio {
     subscriptionStatus: r.subscription_status ?? null,
     currentPeriodEnd: r.current_period_end ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
-    cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
-    reservaExigirPlan: r.reserva_exigir_plan ?? false,
+    cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? true,
+    reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
@@ -1412,8 +1412,8 @@ function studioPublico(r: RowStudios) {
     // Política pública que la página de reservas necesita para avisar a la socia
     // (ventana de cancelación) y hacer el pre-check de derechos/límite.
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
-    cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
-    reservaExigirPlan: r.reserva_exigir_plan ?? false,
+    cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? true,
+    reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
   };
@@ -1922,8 +1922,8 @@ async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
     .eq('id', studioId).maybeSingle();
   return {
     ventanaHoras: (data?.cancelacion_ventana_horas ?? 12) as number,
-    devolverBonoTardia: (data?.cancelacion_devolver_bono_tardia ?? false) as boolean,
-    exigirPlan: (data?.reserva_exigir_plan ?? false) as boolean,
+    devolverBonoTardia: (data?.cancelacion_devolver_bono_tardia ?? true) as boolean,
+    exigirPlan: (data?.reserva_exigir_plan ?? true) as boolean,
     maxSimultaneas: (data?.reserva_max_simultaneas ?? null) as number | null,
   };
 }
