@@ -9,6 +9,7 @@ import { authHeader } from '@/lib/api-client';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { faltanDatosFiscales } from '@/lib/legal-textos';
 import { nifValido } from '@/lib/nif';
+import { normalizarSlug, motivoSlugInvalido } from '@/lib/slug';
 import type { Studio } from '@/lib/types';
 import { Toggle, inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
@@ -417,6 +418,11 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         <p className="text-[12px] text-muted-foreground mb-3">
           Páginas de tu estudio para compartir con tus clientas.
         </p>
+        {/* La dirección se generaba con el nombre al crear el estudio y no se
+            podía cambiar nunca más: quien se rebautizaba se quedaba con la
+            vieja. Y ni siquiera se veía escrita — solo había un enlace para
+            abrirla. */}
+        <DireccionPublica />
         <div className="space-y-2">
           {/* F4·E5: enlace derivado de la sede activa; sin slug no se pinta (nunca un /reservar/ roto). */}
           {studio?.slug && (
@@ -514,6 +520,118 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Dirección pública del estudio ───────────────────────────────────────────
+//
+// Cambiarla afecta a todo lo ya compartido: la bio de Instagram, el QR de la
+// puerta, los folletos. Por eso se dice ANTES —no después— que la anterior va a
+// seguir funcionando: sin esa frase, nadie con un negocio en marcha se atreve a
+// tocar el botón, y con ella el cambio deja de dar miedo porque deja de ser
+// irreversible.
+function DireccionPublica() {
+  const { studio } = useStudio();
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // La confirmación viaja en la URL y no en un efecto: leerla al pintar evita
+  // un setState dentro de useEffect (cascada de renders) y además sobrevive a
+  // la recarga sin guardar nada en ningún sitio.
+  const hecho = typeof window === 'undefined'
+    ? null
+    : new URLSearchParams(window.location.search).get('direccion-anterior');
+
+  const slug = studio?.slug ?? '';
+  const propuesto = normalizarSlug(valor);
+  // El aviso sale mientras se escribe y con la MISMA función que valida el
+  // servidor: si no, se ve algo válido que luego se rechaza al guardar.
+  const motivo = valor ? motivoSlugInvalido(propuesto) : null;
+
+  function abrir() {
+    setValor(slug); setError(null); setEditando(true);
+  }
+
+  async function guardar() {
+    if (guardando || motivo || !propuesto) return;
+    setGuardando(true); setError(null);
+    try {
+      const res = await fetch('/api/estudio/direccion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ slug: propuesto }),
+      });
+      const cuerpo = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(cuerpo?.error ?? 'No se ha podido cambiar la dirección.'); return; }
+      // Se recarga en vez de tocar el estado a mano: el enlace de «Portal de
+      // reservas» de justo debajo se deriva de `studio.slug`, y verlo con la
+      // dirección vieja después de cambiarla es exactamente la confusión que
+      // este cambio venía a quitar. Cambiar la dirección pública se hace una
+      // vez cada mucho; una recarga ahí no molesta a nadie.
+      const anterior = encodeURIComponent(cuerpo?.anterior ?? '');
+      window.location.href = `/configuracion?tab=estudio&direccion-anterior=${anterior}`;
+      return;
+    } catch {
+      setError('No hay conexión con el servidor. Inténtalo de nuevo.');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (!slug && !editando) return null;
+
+  return (
+    <div className="mb-4 rounded-xl border border-border p-4">
+      <p className={cn(labelCls, 'mb-1')}>Dirección de tu portal</p>
+
+      {!editando ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          <code className="text-[12px] text-foreground bg-muted rounded-lg px-2 py-1 break-all">
+            /reservar/{slug}
+          </code>
+          <button onClick={abrir} className="text-[12px] font-semibold underline text-muted-foreground hover:text-foreground">
+            Cambiar
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[12px] text-muted-foreground shrink-0">/reservar/</span>
+            <input
+              aria-label="Dirección de tu portal"
+              className={inputCls}
+              value={valor}
+              onChange={e => { setValor(e.target.value); setError(null); }}
+              placeholder="mi-estudio"
+            />
+          </div>
+          {propuesto && propuesto !== valor && (
+            <p className="text-[11px] text-muted-foreground">Quedará así: <b>/reservar/{propuesto}</b></p>
+          )}
+          {motivo && <p role="alert" className="text-[11px] text-destructive">{motivo}</p>}
+          {error && <p role="alert" className="text-[11px] text-destructive">{error}</p>}
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Tu dirección actual <b>/reservar/{slug}</b> seguirá funcionando: quien
+            entre por ella llegará igual a tu portal. Nada de lo que ya has
+            compartido deja de servir.
+          </p>
+          <div className="flex gap-2 pt-1">
+            <button onClick={guardar} disabled={guardando || !!motivo || !propuesto} className={cn(btnPrimary, 'disabled:opacity-60')}>
+              {guardando ? 'Cambiando…' : 'Cambiar dirección'}
+            </button>
+            <button onClick={() => setEditando(false)} className={btnSecondary}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {hecho && (
+        <p role="status" className="mt-2 text-[11px] text-muted-foreground">
+          Hecho. <b>/reservar/{hecho}</b> sigue llevando aquí, así que los enlaces
+          que ya habías compartido siguen funcionando.
+        </p>
+      )}
     </div>
   );
 }

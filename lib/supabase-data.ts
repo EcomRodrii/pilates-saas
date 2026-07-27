@@ -1421,6 +1421,32 @@ function studioPublico(r: RowStudios) {
 
 export type PublicStudioData = Awaited<ReturnType<typeof fetchPublicStudioData>>;
 
+/**
+ * El estudio al que apunta una dirección pública, mirando también las viejas.
+ *
+ * Un estudio que se rebautiza cambia su dirección, pero la anterior está en la
+ * bio de Instagram, en el QR de la puerta y en cada WhatsApp que ha mandado.
+ * Si la dirección es antigua se devuelve `slugActual` para que la ruta redirija
+ * en vez de enseñar un 404 a una clienta que hizo lo correcto.
+ */
+export async function resolverStudioPorSlug(
+  admin: SupabaseClient,
+  slug: string,
+): Promise<{ row: Record<string, unknown>; slugActual: string | null } | null> {
+  const { data: directo } = await admin
+    .from('studios').select('*').eq('slug', slug).maybeSingle();
+  if (directo) return { row: directo, slugActual: null };
+
+  const { data: antiguo } = await admin
+    .from('studio_slugs_antiguos').select('studio_id').eq('slug', slug).maybeSingle();
+  if (!antiguo) return null;
+
+  const { data: row } = await admin
+    .from('studios').select('*').eq('id', antiguo.studio_id).maybeSingle();
+  if (!row) return null;
+  return { row, slugActual: (row as { slug: string }).slug };
+}
+
 export async function fetchPublicStudioData(
   slug: string,
   member?: { socioId: string; email: string },
@@ -1428,9 +1454,9 @@ export async function fetchPublicStudioData(
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada (SUPABASE_SERVICE_ROLE_KEY)');
 
-  const { data: studioRow } = await admin
-    .from('studios').select('*').eq('slug', slug).maybeSingle();
-  if (!studioRow) return null;
+  const resuelto = await resolverStudioPorSlug(admin as never, slug);
+  if (!resuelto) return null;
+  const studioRow = resuelto.row as unknown as RowStudios;
   const studioId: string = studioRow.id;
 
   // Catálogo público (nada de PII): clases, horarios, salas, instructoras,
@@ -2365,8 +2391,11 @@ export async function cancelarCitaPublica(params: {
 export async function resolverSociaAutenticada(slug: string, authUserId: string, email: string) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
-  const { data: studio } = await admin.from('studios').select('id').eq('slug', slug).maybeSingle();
-  if (!studio) return null;
+  // También por dirección antigua: si no, quien entra al portal desde un enlace
+  // viejo se queda sin sesión aunque su ficha exista.
+  const resuelto = await resolverStudioPorSlug(admin as never, slug);
+  if (!resuelto) return null;
+  const studio = resuelto.row as { id: string };
 
   // 1) Ya vinculada: la socia de este estudio cuyo auth_user_id es este usuario.
   const { data: linked } = await admin
