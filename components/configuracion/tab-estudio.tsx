@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useId } from 'react';
-import { RotateCcw, AlertTriangle, ExternalLink, Calendar as CalendarLinkIcon, Building2 } from 'lucide-react';
+import { RotateCcw, AlertTriangle, ExternalLink, Calendar as CalendarLinkIcon, Building2, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
+import { useAuth } from '@/lib/auth-context';
 import { subirLogoEstudio, eliminarLogoEstudio } from '@/lib/portal-storage';
 import { authHeader } from '@/lib/api-client';
+import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/lib/supabase-data';
+import { CLAVE_CAMBIO_SEDE } from '@/components/layout/sede-activa';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { faltanDatosFiscales } from '@/lib/legal-textos';
 import { nifValido } from '@/lib/nif';
@@ -89,6 +92,35 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   const puedeAnadirSedes = !!studio && tieneFeature({ plan: studio.plan, subscriptionStatus: studio.subscriptionStatus }, 'multiCentro');
   const [nuevaSede, setNuevaSede] = useState({ nombre: '', ciudad: '', telefono: '' });
   const [creandoSede, setCreandoSede] = useState(false);
+
+  // P2-14: "no hay lista de sedes, solo añadir". La dueña de una cadena podía
+  // crear sedes pero nunca ver cuántas tenía ni sus nombres desde aquí — solo
+  // desde el selector del menú de perfil, que además solo lista, no dice cuál
+  // es cuál en un vistazo. Mismo dato que ese selector (fetchMisEstudios),
+  // así que las dos vistas nunca pueden divergir.
+  const { user } = useAuth();
+  const [sedes, setSedes] = useState<SedeSeleccionable[]>([]);
+  const [cambiandoASede, setCambiandoASede] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let vivo = true;
+    fetchMisEstudios().then(r => { if (vivo) setSedes(r); });
+    return () => { vivo = false; };
+  }, [user]);
+
+  function cambiarmeASede(id: string) {
+    if (!user || id === studio?.id || cambiandoASede) return;
+    setCambiandoASede(id);
+    // Mismo patrón que SedeActiva.elegir() (components/layout/sede-activa.tsx):
+    // hard-nav tras guardar, para que StudioProvider remonte limpio contra la
+    // nueva sede.
+    cambiarSedeActiva(user.id, id).then(ok => {
+      if (!ok) { setCambiandoASede(null); showToast('No se ha podido cambiar de sede'); return; }
+      const destino = sedes.find(s => s.id === id);
+      try { sessionStorage.setItem(CLAVE_CAMBIO_SEDE, destino?.nombre ?? ''); } catch { /* modo privado */ }
+      window.location.href = '/dashboard';
+    });
+  }
   async function anadirSede() {
     if (!nuevaSede.nombre.trim()) { showToast('Ponle un nombre a la sede'); return; }
     setCreandoSede(true);
@@ -100,8 +132,9 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
       });
       const data = await res.json();
       if (!res.ok) { showToast(`Error: ${data.error ?? 'no se pudo crear la sede'}`); return; }
-      showToast(`Sede "${nuevaSede.nombre}" creada — cámbiate a ella desde el menú de perfil`);
+      showToast(`Sede "${nuevaSede.nombre}" creada — ya aparece en "Tus sedes"`);
       setNuevaSede({ nombre: '', ciudad: '', telefono: '' });
+      fetchMisEstudios().then(setSedes); // refresca "Tus sedes" sin recargar la página
     } finally {
       setCreandoSede(false);
     }
@@ -232,6 +265,46 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         </button>
       </div>
 
+      {/* Tus sedes: con una sola sede no hay nada que listar (mismo criterio
+          que el selector del menú de perfil). */}
+      {sedes.length > 1 && (
+        <div className={cn(cardCls, 'p-6')}>
+          <h3 className="text-[14px] font-semibold text-foreground mb-1 flex items-center gap-2">
+            <Building2 size={15} className="text-muted-foreground" /> Tus sedes
+          </h3>
+          <p className="text-[12px] text-muted-foreground mb-4">
+            {sedes.length} sedes en tu cadena. Cámbiate a cualquiera sin salir de aquí.
+          </p>
+          <div className="space-y-2">
+            {sedes.map(s => {
+              const esActual = s.id === studio?.id;
+              return (
+                <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-foreground truncate">{s.nombre}</p>
+                    {s.ciudad && <p className="text-[11px] text-muted-foreground truncate">{s.ciudad}</p>}
+                  </div>
+                  {esActual ? (
+                    <span className="flex items-center gap-1.5 text-[12px] font-medium text-success shrink-0">
+                      <Check size={14} /> Estás aquí
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => cambiarmeASede(s.id)}
+                      disabled={cambiandoASede !== null}
+                      className={cn(btnSecondary, 'shrink-0 disabled:opacity-50')}
+                    >
+                      {cambiandoASede === s.id ? <Loader2 size={14} className="animate-spin" /> : null}
+                      {cambiandoASede === s.id ? 'Cambiando…' : 'Cambiarme'}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Añadir sede (plan CADENA) */}
       {puedeAnadirSedes && (
         <div className={cn(cardCls, 'p-6')}>
@@ -240,7 +313,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           </h3>
           <p className="text-[12px] text-muted-foreground mb-4">
             Tu plan Cadena cubre todas tus sedes con una sola suscripción. La sede nueva queda operativa
-            al momento — cámbiate a ella desde el menú de perfil (arriba a la derecha).
+            al momento — aparecerá en &ldquo;Tus sedes&rdquo; arriba, con un botón para cambiarte a ella.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>

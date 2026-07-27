@@ -20,8 +20,11 @@ import { useCore } from '@/lib/core-context';
 import { cn } from '@/lib/utils';
 import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/lib/supabase-data';
 
-/** Marca la sede recién elegida para poder confirmarlo al aterrizar. */
-const CLAVE_CAMBIO = 'tentare:sede-cambiada';
+/** Marca la sede recién elegida para poder confirmarlo al aterrizar. Exportada:
+ *  el listado de sedes de Configuración > Estudio (P2-14) cambia de sede con
+ *  el mismo mecanismo y debe enseñar el mismo aviso al aterrizar. */
+export const CLAVE_CAMBIO_SEDE = 'tentare:sede-cambiada';
+const CLAVE_CAMBIO = CLAVE_CAMBIO_SEDE;
 
 export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 'topbar' }) {
   const { user } = useAuth();
