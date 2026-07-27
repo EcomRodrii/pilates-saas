@@ -199,7 +199,7 @@ export function Sidebar() {
   // Módulos que este estudio ha decidido no usar. Se leen una vez al montar; si
   // falla la carga, `ocultos` queda vacío y se ve todo (mejor de más que de
   // menos: esconder por un error de red dejaría a alguien sin encontrar su
-  // trabajo). NO_OCULTABLES protege lo imprescindible en lib/nav-config.tsx.
+  // trabajo). NO_OCULTABLES protege lo imprescindible en lib/nav-config.ts.
   const [ocultos, setOcultos] = useState<Set<string>>(new Set());
   useEffect(() => {
     let vivo = true;

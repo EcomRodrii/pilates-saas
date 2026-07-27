@@ -27,7 +27,7 @@
 //   1. Quitar su prefijo de RUTAS_CONGELADAS (abajo).
 //   2. Restaurar su ruta: renombrar `page.frozen.tsx` → `page.tsx` (y en kiosk
 //      también `layout.frozen.tsx` → `layout.tsx`), borrando el stub.
-//   3. Volver a añadir su entrada de menú en lib/nav-config.tsx y su permiso en
+//   3. Volver a añadir su entrada de menú en lib/nav-config.ts y su permiso en
 //      lib/permisos.ts si se quitaron (ver comentarios "CONGELADO" allí).
 //   Para el "Vídeos" del portal: poner PORTAL_VIDEOS_CONGELADO a false.
 //
