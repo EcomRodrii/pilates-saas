@@ -113,7 +113,12 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   const todayLogs = logs.filter(l => l.ejecutadoEn.startsWith(today));
   const pendingAdmin = logs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
   const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
-  const esperando = todayLogs.filter(l => l.resultado === 'ESPERANDO').length;
+  // 'ESPERANDO' nunca lo escribe ningún camino de ejecución (ver
+  // automation-engine.ts): las automatizaciones son de disparo único, no
+  // esperan respuesta de nadie. El contador que había aquí marcaba siempre 0.
+  // 'FALLIDO' sí ocurre de verdad (sin email, WhatsApp sin configurar…) y es
+  // justo lo que necesita un vistazo.
+  const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
 
   const hour = new Date().getHours();
   const greeting = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
@@ -153,8 +158,8 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
           <div className="text-white/50 text-xs mt-0.5">Acciones hoy</div>
         </div>
         <div className="rounded-xl bg-card/10 px-4 py-3">
-          <div className="text-2xl font-bold text-amber-300">{esperando}</div>
-          <div className="text-white/50 text-xs mt-0.5">Esperando resp.</div>
+          <div className={cn('text-2xl font-bold', fallidas > 0 ? 'text-amber-300' : 'text-white')}>{fallidas}</div>
+          <div className="text-white/50 text-xs mt-0.5">Fallidas hoy</div>
         </div>
         <div className="rounded-xl bg-card/10 px-4 py-3">
           <div className={cn('text-2xl font-bold', pendingAdmin.length > 0 ? 'text-red-300' : 'text-green-300')}>
