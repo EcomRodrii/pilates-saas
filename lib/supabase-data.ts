@@ -1,4 +1,4 @@
-import { capturarExcepcion } from '@/lib/sentry-cliente';
+import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
@@ -194,8 +194,8 @@ async function fetchAllRows<T>(
       // "0 filas" en vez de un error. Se reporta para que el fallo sea visible
       // a quien opera, aunque la UI (código existente) siga usando lo que ya
       // se había podido traer.
-      Sentry.captureMessage('fetchAllRows: fallo leyendo una página', {
-        level: 'error', tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
+      capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
+        tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
       });
       return { data: filas, error };
     }

@@ -115,8 +115,12 @@ export function capturarExcepcion(error: unknown, contexto?: CaptureContext): vo
   encolar('captureException', contexto === undefined ? [error] : [error, contexto]);
 }
 
-export function capturarMensaje(mensaje: string, nivel: SeverityLevel = 'info'): void {
-  encolar('captureMessage', [mensaje, nivel]);
+export function capturarMensaje(
+  mensaje: string,
+  nivel: SeverityLevel = 'info',
+  contexto?: { tags?: Record<string, string>; extra?: Record<string, unknown> },
+): void {
+  encolar('captureMessage', [mensaje, contexto ? { level: nivel, ...contexto } : nivel]);
 }
 
 export function fijarUsuario(usuario: { id: string } | null): void {
