@@ -7,7 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
 import { authHeader, enviarEmailCampana } from '@/lib/api-client';
-import { useRol, puedeVerFichaClinica, puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
@@ -202,6 +202,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // desde la 0107 la base de datos rechaza. Enseñar un botón que no funciona es
   // peor que no enseñarlo.
   const puedeCobrar = puedeMoverDinero(rol);
+  // Alta, edición y baja de clientas: mostrador y manager. La instructora tenía
+  // los tres botones a la vista y los tres terminaban en el rechazo de la RLS.
+  const gestionaClientas = puedeGestionarClientas(rol);
   // Antes era `rol !== 'INSTRUCTOR'`, escrito a mano. Con un rol nuevo esa forma
   // se equivoca sola: el manager habría heredado la vista de facturación sin que
   // nadie lo decidiera. Ahora lo dice una regla con nombre.
@@ -602,6 +605,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                             <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl" style={{ backgroundColor: '#FFF1F2', border: '1.5px solid #FECDD3' }}>
                               <AlertTriangle size={16} className="text-destructive shrink-0" />
                               <span className="text-sm font-bold text-destructive flex-1">Bono agotado — sin sesiones disponibles</span>
+                              {/* El aviso lo ve todo el mundo (a la instructora le
+                                  sirve para saber por qué no puede reservarle);
+                                  el botón, no: abría un diálogo que `verFinanzas`
+                                  ya cerraba, así que no hacía absolutamente nada. */}
+                              {puedeCobrar && (
                               <button
                                 onClick={() => setShowChangePlan(true)}
                                 className="text-xs font-bold px-3.5 py-2 rounded-lg text-white shrink-0"
@@ -609,12 +617,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               >
                                 Renovar bono
                               </button>
+                              )}
                             </div>
                           )}
                           {sesionesRestantes !== null && sesionesRestantes > 0 && sesionesRestantes <= 2 && (
                             <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', border: '1.5px solid #FDE68A' }}>
                               <AlertTriangle size={16} className="text-amber-500 shrink-0" />
                               <span className="text-sm font-semibold text-warning flex-1">Quedan solo {sesionesRestantes} sesiones</span>
+                              {puedeCobrar && (
                               <button
                                 onClick={() => setShowChangePlan(true)}
                                 className="text-xs font-bold px-3.5 py-2 rounded-lg shrink-0"
@@ -622,6 +632,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               >
                                 Renovar
                               </button>
+                              )}
                             </div>
                           )}
 
@@ -1241,6 +1252,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               >
                 <Mail size={14} />Enviar email
               </button>
+              {gestionaClientas && (<>
               <button
                 onClick={openEdit}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
@@ -1259,6 +1271,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               >
                 <Trash2 size={14} />Eliminar clienta
               </button>
+              </>)}
             </div>
           </Card>
 

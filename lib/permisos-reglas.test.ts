@@ -145,3 +145,40 @@ test('gestionar equipo: ni recepción ni instructoras', () => {
   assert.equal(puedeGestionarEquipo('RECEPCION'), false);
   assert.equal(puedeGestionarEquipo('INSTRUCTOR'), false);
 });
+
+// ── Importar: la lista blanca por prefijo abría de más ────────────────────────
+// '/clientas' permitido implicaba '/clientas/importar' permitido. Seis pantallas
+// de importación quedaban a la vista de la instructora, que además es de quien
+// más se fía el estudio para NO tocar el alta masiva.
+
+test('la instructora no llega a ninguna pantalla de importación', () => {
+  assert.equal(puedeVer('INSTRUCTOR', '/clientas/importar'), false);
+  assert.equal(puedeVer('INSTRUCTOR', '/clientas/importar/membresias'), false);
+  assert.equal(puedeVer('INSTRUCTOR', '/clientas/importar/plazas-fijas'), false);
+  assert.equal(puedeVer('INSTRUCTOR', '/citas/importar'), false);
+  assert.equal(puedeVer('INSTRUCTOR', '/calendario/importar'), false);
+  assert.equal(puedeVer('INSTRUCTOR', '/calendario/importar/reservas'), false);
+});
+
+test('bloquear la importación no le quita a la instructora su trabajo', () => {
+  assert.equal(puedeVer('INSTRUCTOR', '/clientas'), true);
+  assert.equal(puedeVer('INSTRUCTOR', '/clientas/abc-123'), true);
+  assert.equal(puedeVer('INSTRUCTOR', '/citas'), true);
+  assert.equal(puedeVer('INSTRUCTOR', '/calendario'), true);
+});
+
+test('recepción y propietaria sí importan: es trabajo de mostrador', () => {
+  for (const rol of ['PROPIETARIO', 'RECEPCION'] as const) {
+    assert.equal(puedeVer(rol, '/clientas/importar'), true, rol);
+    assert.equal(puedeVer(rol, '/clientas/importar/membresias'), true, rol);
+    assert.equal(puedeVer(rol, '/calendario/importar'), true, rol);
+  }
+});
+
+test('el manager importa clientas pero no bonos: los bonos son dinero', () => {
+  assert.equal(puedeVer('MANAGER', '/clientas/importar'), true);
+  assert.equal(puedeVer('MANAGER', '/clientas/importar/plazas-fijas'), true);
+  assert.equal(puedeVer('MANAGER', '/citas/importar'), true);
+  assert.equal(puedeVer('MANAGER', '/calendario/importar'), true);
+  assert.equal(puedeVer('MANAGER', '/clientas/importar/membresias'), false);
+});
