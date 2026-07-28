@@ -51,12 +51,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Supabase responde en inglés y con su propia jerga. Lo que llegaba a la
+  // pantalla del alta era, literalmente:
+  //   «captcha protection: request disallowed (no captcha_token found)»
+  //
+  // Pasa siempre que el proyecto tiene el captcha activado y el navegador no
+  // manda token, que es TODO entorno sin NEXT_PUBLIC_TURNSTILE_SITE_KEY: local
+  // y las preview de Vercel. Ahí el alta es directamente imposible — al
+  // contrario de lo que dice el comentario de components/auth/turnstile-widget,
+  // que da por hecho que sin la variable «el formulario sigue funcionando igual
+  // que hoy». No es un fallo que se pueda arreglar desde aquí (hace falta la
+  // env var, o apagar el captcha en el proyecto de Supabase), pero al menos que
+  // el mensaje diga qué pasa y en el idioma del producto.
+  function mensajeDeError(error: { message: string }): string {
+    const m = error.message.toLowerCase();
+    if (m.includes('captcha')) {
+      return 'No se ha podido verificar que no eres un robot. Recarga la página e inténtalo otra vez; si sigue pasando, escríbenos.';
+    }
+    if (m.includes('invalid login credentials')) return 'Email o contraseña incorrectos';
+    if (m.includes('email not confirmed')) {
+      return 'Te falta confirmar tu email. Busca nuestro correo (mira también en spam) y pulsa el enlace.';
+    }
+    if (m.includes('user already registered')) {
+      return 'Ya hay una cuenta con ese email. Inicia sesión, o usa «he olvidado mi contraseña».';
+    }
+    if (m.includes('password')) return 'La contraseña debe tener al menos 8 caracteres.';
+    return error.message;
+  }
+
   async function signIn(email: string, password: string, captchaToken?: string) {
     const { error } = await supabase.auth.signInWithPassword({
       email, password,
       ...(captchaToken ? { options: { captchaToken } } : {}),
     });
-    if (error) return { error: error.message };
+    if (error) return { error: mensajeDeError(error) };
     return { error: null };
   }
 
@@ -77,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...(captchaToken ? { captchaToken } : {}),
       },
     });
-    if (error) return { error: error.message, needsConfirmation: false };
+    if (error) return { error: mensajeDeError(error), needsConfirmation: false };
     return { error: null, needsConfirmation: !data.session };
   }
 
