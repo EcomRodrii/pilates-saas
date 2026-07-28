@@ -1,4 +1,4 @@
--- 0098: crear_recuperacion idempotente por reserva de origen.
+-- 0103: crear_recuperacion idempotente por reserva de origen.
 -- Bug (ALTA, self-service): cancelar_reserva_plaza devuelve sin error también
 -- cuando la reserva YA estaba CANCELADA, así que re-llamar a cancelar la misma
 -- plaza fija (id res-pf-…) volvía a minar una recuperación cada vez, hasta el tope

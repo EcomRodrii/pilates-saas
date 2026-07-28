@@ -7,7 +7,7 @@
 -- Las columnas onb_* guardan las respuestas del wizard (centros, software
 -- anterior, alumnos activos, si quiere importar datos, qué le preocupa, cómo
 -- quiere que le ayudemos) — sin FK ni CHECK, mismo criterio que
--- como_nos_conocio (0118): son opciones de un <select> de la UI, no un
+-- como_nos_conocio (0123): son opciones de un <select> de la UI, no un
 -- catálogo con reglas propias.
 
 ALTER TABLE public.studios

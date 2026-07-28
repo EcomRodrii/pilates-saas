@@ -1,4 +1,4 @@
--- 0092 · F1 (B1) — contadores de clientas SERVER-SIDE. Los 4 KPI de /clientas
+-- 0097 · F1 (B1) — contadores de clientas SERVER-SIDE. Los 4 KPI de /clientas
 -- (total/activas/con bono/inactivas 30d) se calculaban sobre el array `socios` del
 -- cliente, capado a 1000 → mienten a escala. RPC con count() SQL (no se capa); la
 -- RLS acota por estudio (SECURITY INVOKER). Replica EXACTO la semántica del cliente:

@@ -1,4 +1,4 @@
--- 0094 · F2 (C1) — índices de cobertura para las 48 FK sin índice. Evitan seq
+-- 0099 · F2 (C1) — índices de cobertura para las 48 FK sin índice. Evitan seq
 -- scans en joins y cascadas de borrado a escala. CREATE INDEX normal (tablas
 -- pequeñas en prod → lock trivial; va en migración transaccional). Idempotente.
 

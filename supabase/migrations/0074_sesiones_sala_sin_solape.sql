@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- 0071 · TENTARE — dos clases no pueden pisar la misma sala a la vez
+-- 0074 · TENTARE — dos clases no pueden pisar la misma sala a la vez
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- Gemela de sesiones_instructor_sin_solape (0048), pero por SALA: el aviso del

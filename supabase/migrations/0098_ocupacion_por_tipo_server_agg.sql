@@ -1,4 +1,4 @@
--- 0093 · F1 (B4/C2) — ocupación por tipo de clase SERVER-SIDE. El cálculo de /informes
+-- 0098 · F1 (B4/C2) — ocupación por tipo de clase SERVER-SIDE. El cálculo de /informes
 -- iteraba el array `reservas`+`sesiones` del cliente, capado a 1000 → mal a escala.
 -- RPC que agrega en SQL (no se capa); RLS acota por estudio (SECURITY INVOKER).
 -- ocupadas = reservas CONFIRMADA/ASISTIDA; aforo = suma de aforo_maximo de sesiones

@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- 0061 · automation_logs.mensaje_cliente — separar nota interna de mensaje real
+-- 0062 · automation_logs.mensaje_cliente — separar nota interna de mensaje real
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- BUG: `detalle` se usaba a la vez como (a) nota interna para la propietaria

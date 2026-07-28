@@ -1,4 +1,4 @@
--- 0102: la política de privacidad y los términos del estudio se guardan en BD.
+-- 0107: la política de privacidad y los términos del estudio se guardan en BD.
 -- Bug (exposición legal): updateStudioConfig solo mutaba el estado de React
 -- (StudioConfig nacía del texto por defecto y NUNCA se hidrataba ni se persistía).
 -- La dueña editaba los textos en Configuración, veía el toast "guardado", pero no

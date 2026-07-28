@@ -1709,7 +1709,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       instructorId: changes.instructorId, aforoMaximo: changes.aforoMaximo, notas: changes.notas,
     };
     // Pintado optimista: reconstruye inicio/fin de cada sesión con su misma FECHA
-    // local (Madrid) y la hora nueva. Mismo cálculo que la RPC (0109), por eso lo
+    // local (Madrid) y la hora nueva. Mismo cálculo que la RPC (0114), por eso lo
     // que se ve coincide con lo que se guarda.
     const conHora = objetivo.map(s => ({ id: s.id, ...horarioConNuevaHora(s.inicio, changes.horaInicio, changes.horaFin) }));
     const ids = new Set(objetivo.map(s => s.id));

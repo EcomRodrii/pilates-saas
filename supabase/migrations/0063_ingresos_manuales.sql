@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- 0062 · TENTARE — Ingresos manuales para el Cierre de año
+-- 0063 · TENTARE — Ingresos manuales para el Cierre de año
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- Ingresos cobrados FUERA de Tentare (efectivo, transferencia, otra plataforma,

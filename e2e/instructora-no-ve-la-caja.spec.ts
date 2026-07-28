@@ -71,7 +71,7 @@ async function seedSesion(page: Page, uid: string, email: string) {
 }
 
 /**
- * `verRecibos` imita lo que hace la RLS de la 0109: al personal que no lleva la
+ * `verRecibos` imita lo que hace la RLS de la 0114: al personal que no lleva la
  * caja, PostgREST le devuelve una lista vacía en vez de un error. Así el test
  * comprueba las dos mitades a la vez — que la RLS no se los sirve y que la UI
  * tampoco deja un hueco con un 0 € falso.

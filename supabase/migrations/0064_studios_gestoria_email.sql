@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- 0063 · TENTARE — Email de la gestoría (para enviarle el Cierre de año)
+-- 0064 · TENTARE — Email de la gestoría (para enviarle el Cierre de año)
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- Dónde enviar el paquete del cierre anual. Se guarda a nivel de estudio para

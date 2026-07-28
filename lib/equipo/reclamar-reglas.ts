@@ -56,7 +56,7 @@ function reclamable(rol: Rol): boolean {
 // `/api/equipo/invitar` ya impide que un MANAGER invite por encima de su rol,
 // pero su listón es `rolesQuePuedeAsignar`, que le deja crear fichas de
 // RECEPCION — y RECEPCION mueve dinero, que es justo lo que a un MANAGER se le
-// niega (0108). O sea: podía fabricarse una ficha de recepción con un segundo
+// niega (0113). O sea: podía fabricarse una ficha de recepción con un segundo
 // correo suyo, mandarse la invitación y acabar cobrando. Mientras el self-claim
 // estuvo roto eso no era alcanzable; al arreglarlo, lo sería.
 //

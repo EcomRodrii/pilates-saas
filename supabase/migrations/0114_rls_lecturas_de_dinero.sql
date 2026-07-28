@@ -1,5 +1,5 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- La otra mitad de la 0107.
+-- La otra mitad de la 0112.
 --
 -- Allí se cerraron las ESCRITURAS de la facturación y se dejaron las lecturas
 -- abiertas a propósito, porque cerrarlas sin tocar la UI habría dejado pantallas

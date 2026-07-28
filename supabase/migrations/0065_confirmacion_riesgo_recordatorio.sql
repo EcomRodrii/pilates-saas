@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- 0064 · TENTARE — recordatorio antes del corte de confirmación por riesgo
+-- 0065 · TENTARE — recordatorio antes del corte de confirmación por riesgo
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- Hueco real detectado probando en vivo (0059): el sistema mandaba UN solo

@@ -7,7 +7,7 @@ import {
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
 // `recibos`/`suscripciones`/`ventas_pos` era `studio_id = current_studio_id()`
-// para TODO el personal. Probado en vivo contra producción antes de la 0107:
+// para TODO el personal. Probado en vivo contra producción antes de la 0112:
 // la instructora de `studio-1` podía escribir los 22 recibos del estudio.
 //
 // Estas reglas son la barrera de UI. Su único trabajo es no enseñar un botón

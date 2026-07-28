@@ -68,7 +68,7 @@ begin
      where ss.id = p_sesion_id and ss.studio_id = p_studio_id;
 
     -- Sin filas en la tabla puente, el plan cubre TODAS las clases: es la
-    -- semántica de la 0106 y la que han tenido siempre los planes de antes.
+    -- semántica de la 0111 y la que han tenido siempre los planes de antes.
     select exists (
       select 1 from public.plan_tipos_clase ptc
        where ptc.plan_id = v_plan_id and ptc.studio_id = p_studio_id

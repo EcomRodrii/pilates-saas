@@ -23,7 +23,7 @@
 --   · WITH CHECK  — en qué se pueden quedar: solo INSTRUCTOR o RECEPCION. No
 --                   puede crear un manager ni ascender a nadie.
 --
--- No se confía esto a la UI. La lección de la 0107 es exactamente esa: la
+-- No se confía esto a la UI. La lección de la 0112 es exactamente esa: la
 -- separación de roles tiene que estar en la base de datos o no está.
 -- ─────────────────────────────────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ alter table public.instructores add constraint instructores_rol_valido
   check (rol in ('PROPIETARIO', 'INSTRUCTOR', 'RECEPCION', 'MANAGER')) not valid;
 
 -- ── 2. Puede recibir avisos ──────────────────────────────────────────────────
--- Mismo paso que hubo que dar con RECEPCION (0097): sin esto, mandarle un aviso
+-- Mismo paso que hubo que dar con RECEPCION (0102): sin esto, mandarle un aviso
 -- de mostrador a un manager revienta con check_violation. Quien lleva la sede
 -- tiene que enterarse de lo que pasa en ella.
 alter table public.notification drop constraint if exists notification_recipient_role_check;
@@ -58,6 +58,6 @@ create policy manager_gestiona_equipo on public.instructores
 comment on policy manager_gestiona_equipo on public.instructores is
   'Un manager da de alta y edita instructoras y recepción de SU estudio. No puede tocar filas de PROPIETARIO ni de MANAGER (incluida la suya), ni dejar una fila con esos roles: eso sería darse permisos a sí mismo.';
 
--- El dinero no se toca: `puede_mover_dinero()` (0107) es una lista blanca de
+-- El dinero no se toca: `puede_mover_dinero()` (0112) es una lista blanca de
 -- PROPIETARIO y RECEPCION, así que MANAGER queda fuera sin cambiar nada. Se deja
 -- dicho aquí porque es una decisión, no un olvido.

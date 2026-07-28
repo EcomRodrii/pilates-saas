@@ -4,7 +4,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // P2-9. "Exigir plan o bono activo para reservar" era una decisión de negocio
 // que nadie tomó: heredaba un DEFAULT false de hace meses, dejando reservar
 // sin plan ni bono activo. Ahora el estudio nace protegido en eso — migración
-// 0109 aplicada en producción (default true + backfill de las filas).
+// 0114 aplicada en producción (default true + backfill de las filas).
 //
 // "Devolver la sesión del bono en cancelaciones tardías" se aparcó (#427):
 // el PR original decía que activarla por defecto protegía, pero el código

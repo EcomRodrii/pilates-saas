@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- 0072 · TENTARE — avisar a las alumnas al confirmar sustitución, por defecto
+-- 0075 · TENTARE — avisar a las alumnas al confirmar sustitución, por defecto
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- La landing y el flujo de sustituciones prometen "alumnas avisadas" cuando se

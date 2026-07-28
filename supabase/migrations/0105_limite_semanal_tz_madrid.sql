@@ -1,11 +1,11 @@
--- 0100: el límite semanal de reservas cuenta la semana en Europe/Madrid, no en UTC.
+-- 0105: el límite semanal de reservas cuenta la semana en Europe/Madrid, no en UTC.
 -- Bug: reservar_plaza calculaba la ventana semanal con date_trunc('week', v_inicio)
 -- sobre un timestamptz, que trunca en la zona de SESIÓN (UTC en Supabase). Una clase
 -- de madrugada del lunes (p.ej. lunes 00:30 Madrid = domingo 22:30 UTC en verano)
 -- caía en el bucket de la semana ANTERIOR, así que el conteo de "clases de esta
 -- semana" se descuadraba en la banda ~22:00–00:00 UTC alrededor del lunes: se podía
 -- pasar el limite_semanal (o bloquear de más) en el borde. El resto del sistema
--- (plazas fijas, 0079) ya ancla Europe/Madrid; aquí se alinea.
+-- (plazas fijas, 0084) ya ancla Europe/Madrid; aquí se alinea.
 CREATE OR REPLACE FUNCTION public.reservar_plaza(p_studio_id text, p_sesion_id text, p_socio_id text, p_reserva_id text)
  RETURNS TABLE(estado text, posicion_espera integer)
  LANGUAGE plpgsql

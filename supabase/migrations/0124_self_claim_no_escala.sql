@@ -1,7 +1,7 @@
 -- Escalada de privilegios vía `self_claim_instructores`.
 --
 -- ⚠️ YA APLICADA EN PRODUCCIÓN (2026-07-28, versión 20260728132411) antes de
--- que #453 ocupara el número 0118. Se renumeró a 0119 solo para el guardia de
+-- que #453 ocupara el número 0123. Se renumeró a 0124 solo para el guardia de
 -- numeración del repo; en producción va DESPUÉS de studios_como_nos_conocio
 -- (20260728123808), que es el orden correcto.
 --

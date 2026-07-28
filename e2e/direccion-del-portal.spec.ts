@@ -12,7 +12,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // dirección está en la bio de Instagram, en el QR de la puerta y en cada
 // WhatsApp que el estudio ha mandado.
 //
-// Así que se cambia a mano, y la anterior SIGUE FUNCIONANDO (0110). Esto es lo
+// Así que se cambia a mano, y la anterior SIGUE FUNCIONANDO (0115). Esto es lo
 // que convierte «cambiar la dirección» en algo que alguien con un negocio en
 // marcha se atreve a tocar.
 // ─────────────────────────────────────────────────────────────────────────────

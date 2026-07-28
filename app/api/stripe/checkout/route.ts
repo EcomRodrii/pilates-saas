@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     if (!plan.activo) {
       return NextResponse.json({ error: 'Ese plan ya no está disponible' }, { status: 409 });
     }
-    // Comprar un plan sin ficha: decide el estudio (0105). En EXIGIR_REGISTRO
+    // Comprar un plan sin ficha: decide el estudio (0110). En EXIGIR_REGISTRO
     // no se cobra a quien no se ha registrado — sin ficha no hay contrato
     // aceptado, así que cobrar antes sería cobrar sin consentimiento.
     if (!socioId) {

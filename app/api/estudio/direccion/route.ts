@@ -13,7 +13,7 @@ import { normalizarSlug, motivoSlugInvalido } from '@/lib/slug';
 // Solo la PROPIETARIA: la dirección pública es la identidad del negocio de cara
 // a sus clientas, y cambiarla afecta a todo lo que ya se ha compartido.
 //
-// La anterior NO se tira: se guarda en `studio_slugs_antiguos` (0110) y las
+// La anterior NO se tira: se guarda en `studio_slugs_antiguos` (0115) y las
 // rutas públicas redirigen. Renombrar deja de ser irreversible.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, slug: pedido, sinCambios: true });
   }
 
-  // ¿Libre? La RPC mira `studios` Y el histórico (0110): coger la dirección
+  // ¿Libre? La RPC mira `studios` Y el histórico (0115): coger la dirección
   // antigua de otro estudio sería quedarse con su tráfico.
   const { data: libre } = await admin.rpc('slug_estudio_disponible', { p_slug: pedido });
   if (libre !== true) {

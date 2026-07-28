@@ -1,6 +1,6 @@
 -- «Sin venir 30d» contaba a las clientas que acababas de dar de alta.
 --
--- La 0092 resuelve la última visita con:
+-- La 0097 resuelve la última visita con:
 --   coalesce((select ultima from vis where ...), 'epoch'::timestamptz) < now() - 30 days
 --
 -- Es decir: quien no tiene ninguna reserva ASISTIDA se trata como si su última

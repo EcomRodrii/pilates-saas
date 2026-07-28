@@ -2057,7 +2057,7 @@ export default function Calendario() {
   // de colarla gratis y en silencio.
   function handleAddReserva(sesionId: string, socioId: string) {
     const hoyISO = new Date().toISOString().slice(0, 10);
-    // Un bono acotado a Reformer no vale para Mat (0106): el tipo de ESTA clase
+    // Un bono acotado a Reformer no vale para Mat (0111): el tipo de ESTA clase
     // decide, no solo si le quedan sesiones.
     const tipoDeLaClase = sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null;
     if (!tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyISO, tipoDeLaClase)) {

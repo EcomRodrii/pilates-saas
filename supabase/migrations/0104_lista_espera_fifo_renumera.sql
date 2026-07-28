@@ -1,4 +1,4 @@
--- 0099: lista de espera justa (FIFO por antigüedad) + renumeración densa.
+-- 0104: lista de espera justa (FIFO por antigüedad) + renumeración densa.
 -- Bug: reservar_plaza asignaba posicion_espera = count(LISTA_ESPERA)+1, y
 -- cancelar_reserva_plaza promovía por `min(posicion_espera)` SIN renumerar el
 -- resto. Tras una promoción (o una cancelación de espera) quedaban huecos: el

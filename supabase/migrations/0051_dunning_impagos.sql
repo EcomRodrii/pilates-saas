@@ -1,4 +1,4 @@
--- 0041 · Dunning — gestión de impagos y reintentos automáticos de cobro
+-- 0051 · Dunning — gestión de impagos y reintentos automáticos de cobro
 -- Fase 1 Pagos España. Completa el ciclo de cobro: cuando un cobro de un recibo
 -- falla (tarjeta declinada o adeudo SEPA devuelto), se reintenta automáticamente
 -- a los +1, +3 y +7 días del vencimiento. Si los tres reintentos fallan, el

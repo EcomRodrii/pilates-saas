@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- 0075 · TENTARE — Migración Mágica: lotes reversibles
+-- 0080 · TENTARE — Migración Mágica: lotes reversibles
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- Cada ejecución de migración registra los IDs que creó, por entidad, para

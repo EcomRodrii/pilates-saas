@@ -1,6 +1,6 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Dos tablas más con el patrón que ya costó dos agujeros: `FOR ALL` sin mirar
--- el rol (0107 con la facturación, 0113 con clientas y citas).
+-- el rol (0112 con la facturación, 0118 con clientas y citas).
 --
 --     USING (studio_id = current_studio_id())   -- a `authenticated`, FOR ALL
 --
@@ -54,7 +54,7 @@ create policy mandatos_sepa_escritura_delete on public.mandatos_sepa
   using (studio_id = public.current_studio_id() and public.puede_mover_dinero());
 
 -- ── recuperaciones: trabajo de mostrador ────────────────────────────────────
--- `puede_gestionar_clientas()` (0113) y no `puede_mover_dinero()`: conceder una
+-- `puede_gestionar_clientas()` (0118) y no `puede_mover_dinero()`: conceder una
 -- recuperación es gestión de clientas, y quien lleva una sede tiene que poder
 -- hacerlo cuando cancela una clase.
 drop policy if exists admin_recuperaciones on public.recuperaciones;

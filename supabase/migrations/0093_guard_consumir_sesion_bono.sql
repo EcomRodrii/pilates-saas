@@ -1,4 +1,4 @@
--- 0088 · F0 (audit A1 / pentest) — cerrar `consumir_sesion_bono` sin guardia de tenant.
+-- 0093 · F0 (audit A1 / pentest) — cerrar `consumir_sesion_bono` sin guardia de tenant.
 --
 -- ANTES: función SECURITY DEFINER en LANGUAGE sql, un UPDATE puro, ejecutable por
 -- `authenticated` vía REST y SIN validar el estudio del que llama. Cualquier usuario

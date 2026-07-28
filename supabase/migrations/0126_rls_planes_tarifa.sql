@@ -3,12 +3,12 @@
 -- Venía de 0000_base.sql: `admin_planes_tarifa ... FOR ALL ... USING (studio_id
 -- = current_studio_id())`. Solo comprobaba el ESTUDIO, no quién eres dentro de
 -- él, así que cualquier instructora podía cambiar el precio de los bonos, crear
--- planes o borrarlos desde la consola del navegador. Ni 0107 (escrituras de
--- dinero) ni 0109 (lecturas) ni 0113 (clientas y citas) la tocaron.
+-- planes o borrarlos desde la consola del navegador. Ni 0112 (escrituras de
+-- dinero) ni 0114 (lecturas) ni 0118 (clientas y citas) la tocaron.
 --
 -- Mismo patrón que esas tres: LEER lo puede todo el personal —el calendario y
 -- la ficha necesitan saber qué planes existen— y ESCRIBIR exige
--- `puede_mover_dinero()`, la función que ya creó 0107 y que es el espejo en SQL
+-- `puede_mover_dinero()`, la función que ya creó 0112 y que es el espejo en SQL
 -- de `puedeMoverDinero` en lib/permisos-reglas.ts. Un plan es un precio: quien
 -- no puede cobrar tampoco debería poder decidir cuánto se cobra.
 drop policy if exists admin_planes_tarifa on public.planes_tarifa;
