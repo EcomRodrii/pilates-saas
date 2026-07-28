@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Camera, Check, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -76,6 +76,15 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
     ? sesiones.filter(s => s.instructorId === yo.id && new Date(s.inicio) > now).sort((a, b) => a.inicio.localeCompare(b.inicio))[0]
     : null;
 
+  // useCallback: AvatarPicker está memoizado (memo) y se re-renderiza en cada
+  // tecleo de los inputs de abajo (viven en el mismo componente que `form`) si
+  // esta prop no es estable entre renders.
+  const onAvatarChange = useCallback((id: string | null) => {
+    if (yo) updateInstructor(yo.id, { avatar: id });
+    else updateAvatarAdmin(id);
+    showToast('Avatar actualizado');
+  }, [yo, updateInstructor, updateAvatarAdmin, showToast]);
+
   function guardar() {
     if (!yo) return;
     updateInstructor(yo.id, { nombre: form.nombre.trim(), email: form.email.trim() || null, telefono: form.telefono.trim() || null });
@@ -124,14 +133,7 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
         )}
         {errorFoto && <p className="text-[11px] text-destructive mt-1">{errorFoto}</p>}
         <div className="mt-5">
-          <AvatarPicker
-            value={avatarId ?? null}
-            onChange={id => {
-              if (yo) updateInstructor(yo.id, { avatar: id });
-              else updateAvatarAdmin(id);
-              showToast('Avatar actualizado');
-            }}
-          />
+          <AvatarPicker value={avatarId ?? null} onChange={onAvatarChange} />
         </div>
       </div>
 
