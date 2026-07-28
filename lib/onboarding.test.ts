@@ -18,7 +18,7 @@ test('son exactamente los 7 pasos del documento de producto, en ese orden', () =
   const labels = calcularPasosOnboarding(VACIO).map(p => p.label);
   assert.deepEqual(labels, [
     'Configura tu estudio',
-    'Añade tu primer instructor',
+    'Añade tu primera instructora',
     'Crea tu primera clase',
     'Configura tus horarios',
     // P2-1: el panel usa una sola palabra para la clientela. Este paso decía

@@ -14,10 +14,21 @@ type SalaForm = {
   color: string;
 };
 
-const emptySalaForm = (): SalaForm => ({
+// El calendario colorea las clases POR SALA. Con un único color por defecto,
+// crear dos salas seguidas daba dos salas del mismo rosa y el color dejaba de
+// distinguir nada hasta que se cambiaba a mano en cada una. Se va rotando por
+// esta paleta según cuántas salas haya ya, así que salen distintas sin tocar
+// nada — y siguen siendo editables.
+const COLORES_SALA = ['#F7A6C4', '#7FB2E5', '#8FC98A', '#E8B45C', '#B79BE0', '#5FC2C2'];
+
+export function colorSalaPorDefecto(numSalas: number): string {
+  return COLORES_SALA[numSalas % COLORES_SALA.length];
+}
+
+const emptySalaForm = (color: string): SalaForm => ({
   nombre: '',
   capacidad: '10',
-  color: '#F7A6C4',
+  color,
 });
 
 function salaToForm(s: Sala): SalaForm {
@@ -29,16 +40,18 @@ function salaToForm(s: Sala): SalaForm {
 }
 
 export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
-  const { salas, sesiones, addSala, updateSala, deleteSala, bloqueosMaquina, marcarAveria, quitarAveria } = useStudio();
+  const { salas, sesiones, reservas, addSala, updateSala, updateSesion, deleteSala, bloqueosMaquina, marcarAveria, quitarAveria } = useStudio();
 
   const [modal, setModal] = useState<'nueva' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<SalaForm>(emptySalaForm());
+  const [form, setForm] = useState<SalaForm>(() => emptySalaForm(COLORES_SALA[0]));
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   // Sala que la dueña intentó borrar pero tiene clases: no se puede borrar hasta
   // reasignarlas o eliminarlas (FK `sesiones.sala_id`, NO ACTION). Se lo decimos
   // antes de mostrar el diálogo destructivo, no después de que falle en la BD.
   const [bloqueada, setBloqueada] = useState<{ nombre: string; n: number } | null>(null);
+  // Aviso al bajar la capacidad de una sala con clases futuras de aforo mayor.
+  const [avisoAforo, setAvisoAforo] = useState<{ capacidad: number; total: number; conReservas: number } | null>(null);
   // Guardar deja de ser instantáneo: esperamos a la base de datos antes de
   // cerrar el modal. Si falla, el modal sigue abierto con lo que había escrito
   // y el motivo real — nada de dar por buena una sala que no se ha guardado.
@@ -48,11 +61,11 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
   const [averiaForm, setAveriaForm] = useState<{ salaId: string; motivo: string; hasta: string }>({ salaId: '', motivo: '', hasta: '' });
 
   const openNueva = useCallback(() => {
-    setForm(emptySalaForm());
+    setForm(emptySalaForm(colorSalaPorDefecto(salas.length)));
     setEditId(null);
     setErrorGuardar(null);
     setModal('nueva');
-  }, []);
+  }, [salas.length]);
 
   const openEditar = useCallback((s: Sala) => {
     setForm(salaToForm(s));
@@ -63,22 +76,63 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
 
   const closeModal = useCallback(() => { setModal(null); setErrorGuardar(null); }, []);
 
-  const guardar = useCallback(async () => {
+  // Clases FUTURAS de la sala cuyo aforo supera una capacidad dada, con cuánta
+  // gente tienen ya confirmada. Bajar la capacidad de la sala no tocaba nada de
+  // esto: las clases ya creadas conservaban su aforo y `reservar_plaza` seguía
+  // admitiendo gente hasta ese número, porque `aforo_efectivo()` parte de
+  // `sesiones.aforo_maximo` y solo descuenta averías — nunca mira `salas.capacidad`.
+  // Resultado: dos personas de pie un martes, y nadie avisado.
+  const clasesQueSePasan = useCallback((salaId: string, capacidad: number) => {
+    const ahora = new Date().toISOString();
+    return sesiones
+      .filter(s => s.salaId === salaId && !s.cancelada && s.inicio >= ahora && s.aforoMaximo > capacidad)
+      .map(s => ({
+        sesion: s,
+        confirmadas: reservas.filter(r => r.sesionId === s.id && r.estado === 'CONFIRMADA').length,
+      }));
+  }, [sesiones, reservas]);
+
+  // `ajustarClases`: además de la sala, baja el aforo de sus clases futuras.
+  // Nunca por debajo de las plazas YA confirmadas — eso no expulsaría a nadie
+  // (las reservas siguen ahí) pero dejaría un aforo que miente. En esas clases
+  // se deja el aforo en las confirmadas, que es el mínimo honesto: no entra
+  // nadie más y las que ya tienen plaza la conservan.
+  const guardar = useCallback(async (ajustarClases?: boolean) => {
     const fields = {
       nombre: form.nombre.trim(),
       capacidad: parseInt(form.capacidad, 10) || 1,
       color: form.color,
     };
+    const afectadas = modal === 'editar' && editId ? clasesQueSePasan(editId, fields.capacidad) : [];
+    // Al BAJAR la capacidad, avisar antes de dejar clases sobrevendidas.
+    if (afectadas.length > 0 && ajustarClases === undefined) {
+      setAvisoAforo({
+        capacidad: fields.capacidad,
+        total: afectadas.length,
+        conReservas: afectadas.filter(a => a.confirmadas > 0).length,
+      });
+      return;
+    }
     setGuardando(true);
     setErrorGuardar(null);
     const res = modal === 'nueva'
       ? await addSala(fields)
       : editId ? await updateSala(editId, fields) : { ok: true as const };
+    if (res.ok && ajustarClases) {
+      for (const { sesion, confirmadas } of afectadas) {
+        updateSesion(sesion.id, { aforoMaximo: Math.max(fields.capacidad, confirmadas) });
+      }
+    }
     setGuardando(false);
+    setAvisoAforo(null);
     if (!res.ok) { setErrorGuardar(res.error); return; }
-    showToast(modal === 'nueva' ? `"${fields.nombre}" ya está guardada` : 'Sala actualizada');
+    showToast(
+      modal === 'nueva' ? `"${fields.nombre}" ya está guardada`
+        : ajustarClases ? `Sala actualizada y ${afectadas.length} ${afectadas.length === 1 ? 'clase ajustada' : 'clases ajustadas'}`
+        : 'Sala actualizada',
+    );
     setModal(null);
-  }, [modal, editId, form, addSala, updateSala, showToast]);
+  }, [modal, editId, form, addSala, updateSala, updateSesion, clasesQueSePasan, showToast]);
 
   // Nº de clases que usan la sala. Cuenta TODAS las sesiones que la referencian
   // (también canceladas o pasadas: la fila sigue en la tabla y la FK igual la
@@ -314,7 +368,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
             </button>
             <button
               className={cn(btnPrimary, 'flex-1 justify-center')}
-              onClick={guardar}
+              onClick={() => guardar()}
               disabled={!canGuardar || guardando}
             >
               {guardando ? 'Guardando…' : modal === 'nueva' ? 'Crear sala' : 'Guardar cambios'}
@@ -366,6 +420,65 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
               disabled={!averiaForm.salaId}
             >
               Marcar avería
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bajar la capacidad no tocaba las clases ya programadas: seguían
+          admitiendo gente hasta su aforo antiguo. Aquí se dice y se ofrece
+          arreglarlo de una vez. */}
+      <Dialog open={!!avisoAforo} onOpenChange={open => !open && setAvisoAforo(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tienes clases con más plazas que la sala</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-[13px] text-muted-foreground">
+            <p>
+              {avisoAforo?.total === 1
+                ? 'Hay 1 clase futura en esta sala con más plazas'
+                : `Hay ${avisoAforo?.total} clases futuras en esta sala con más plazas`}
+              {' '}que la capacidad nueva ({avisoAforo?.capacidad}).
+              {(avisoAforo?.conReservas ?? 0) > 0 && (
+                <>
+                  {' '}
+                  <strong className="text-foreground">
+                    {avisoAforo?.conReservas === 1
+                      ? '1 de ellas ya tiene reservas'
+                      : `${avisoAforo?.conReservas} de ellas ya tienen reservas`}
+                  </strong>.
+                </>
+              )}
+            </p>
+            <p>
+              Si no las ajustas, seguirán admitiendo reservas hasta su aforo anterior
+              y puede presentarse más gente de la que cabe.
+            </p>
+            <p className="text-[12px]">
+              Ajustarlas no echa a nadie: en las que ya tengan más reservas que la
+              capacidad nueva, el aforo se deja en las plazas ya confirmadas.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 mt-4">
+            <button
+              className={cn(btnPrimary, 'w-full justify-center')}
+              onClick={() => guardar(true)}
+              disabled={guardando}
+            >
+              Ajustar también esas clases
+            </button>
+            <button
+              className={cn(btnSecondary, 'w-full justify-center')}
+              onClick={() => guardar(false)}
+              disabled={guardando}
+            >
+              Cambiar solo la sala
+            </button>
+            <button
+              className="text-[13px] text-muted-foreground hover:text-foreground py-1"
+              onClick={() => setAvisoAforo(null)}
+            >
+              Cancelar
             </button>
           </div>
         </DialogContent>

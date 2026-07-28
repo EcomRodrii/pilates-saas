@@ -13,7 +13,27 @@
 // campo nuevo a la tarifa se hace en este fichero, y entonces no puede
 // quedarse a medias en una de las dos.
 // ─────────────────────────────────────────────────────────────────────────────
-import type { PlanTarifa } from '@/lib/types';
+import type { PlanTarifa, TipoPlan } from '@/lib/types';
+
+// Cómo se llaman los tipos de tarifa EN CASTELLANO.
+//
+// `MENSUAL`, `BONO` y `PUNTUAL` son constantes de la base de datos, y se
+// enseñaban tal cual —en mayúsculas— en el desplegable de crear tarifa, en su
+// texto de ayuda y en la insignia de la tabla. Una dueña de estudio no dice
+// «PUNTUAL»: dice «clase suelta». Aquí, junto al resto de la entidad, para que
+// las dos pantallas de tarifas digan lo mismo.
+export const NOMBRE_TIPO_PLAN: Record<TipoPlan, string> = {
+  MENSUAL: 'Cuota mensual',
+  BONO: 'Bono de sesiones',
+  PUNTUAL: 'Clase suelta',
+};
+
+/** Una línea explicando cada tipo, para el desplegable de crear tarifa. */
+export const EXPLICACION_TIPO_PLAN: Record<TipoPlan, string> = {
+  MENSUAL: 'Se cobra sola cada mes hasta que la clienta se dé de baja.',
+  BONO: 'Un puñado de sesiones que se van gastando conforme reserva.',
+  PUNTUAL: 'Un pago único, sin renovación.',
+};
 
 /** El formulario en crudo: todo texto, como sale de los <input>. */
 export type FormularioPlan = {
