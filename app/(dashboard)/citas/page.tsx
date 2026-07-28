@@ -5,7 +5,7 @@ import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import { useRol, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
+import { useRol, puedeGestionarClientas } from '@/lib/permisos';
 import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
 import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
 import { cn, formatEuro, formatFechaCorta, formatHoraCorta } from '@/lib/utils';
@@ -237,11 +237,17 @@ function CitaCard({
 export default function CitasPage() {
   const { socios, instructores, citas, sesiones, addCita, updateCita, completarCita, cancelarCita } = useStudio();
   const rol = useRol();
-  // `rol !== 'INSTRUCTOR'` escrito a mano se equivoca solo en cuanto aparece un
-  // rol nuevo: el MANAGER heredaba el toggle de pagado/pendiente, que es dinero
-  // y es justo lo que su definición le quita. Con los helpers, no.
+  // Todo lo de esta pantalla escribe en `citas`, y su RLS exige
+  // `puede_gestionar_clientas()` — que incluye al MANAGER. Así que el helper que
+  // toca es ese, también para el precio y el estado de cobro: marcar una cita
+  // como pagada es una MARCA en la propia cita, no un recibo (los recibos sí
+  // exigen `puede_mover_dinero()`, y por eso cobrar vive en otra pantalla).
+  //
+  // Se escribía `rol !== 'INSTRUCTOR'` a mano, que resulta ser exactamente este
+  // helper; el valor de cambiarlo no es corregir el reparto de hoy sino que no
+  // se descuadre solo al añadir el siguiente rol.
   const gestionaCitas = puedeGestionarClientas(rol);
-  const verPrecio = puedeMoverDinero(rol);
+  const verPrecio = gestionaCitas;
   const [tab, setTab] = useState<'proximas' | 'historial'>('proximas');
   const [filterInstructor, setFilterInstructor] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
