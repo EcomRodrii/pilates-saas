@@ -11,6 +11,7 @@ import { usePermisos } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
+import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
 import { estadoBilling } from '@/lib/api-client';
 import { navSections } from '@/lib/nav-config';
 
@@ -105,6 +106,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </PanelThemeProvider>
       </PanelPrivacyProvider>
     );
+  }
+
+  // Pantalla de bienvenida a pantalla completa tras crear el estudio (una sola
+  // vez): se evalúa aquí, con el estudio ya cargado y el billing ya resuelto,
+  // y ANTES de montar Sidebar/Topbar — no es un overlay, sustituye el layout
+  // entero mientras esté activa. "Salir" de ella no navega a ningún sitio:
+  // updateStudio actualiza el estado local de forma optimista, así que el
+  // siguiente render de este mismo layout deja de cumplir la condición.
+  if (studio && !cargandoDatos && !studio.bienvenidaVistaEn) {
+    return <PantallaBienvenida studio={studio} />;
   }
 
   return (
