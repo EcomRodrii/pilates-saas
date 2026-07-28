@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseCsv, detectarDelimitador, parsearSaldoBono,
+  parseCsv, detectarDelimitador, parsearSaldoBono, parsearFecha, inferirOrdenFecha,
   validarFilasMembresia, autoMapearMembresia, autoMapear,
   type CampoMembresia,
 } from './csv.ts';
@@ -126,6 +126,67 @@ test('pero una columna que SÍ es el NIF sigue mapeando', () => {
   assert.equal(autoMapear(['Nombre', 'Email', 'NIF']).nif, 2);
   assert.equal(autoMapear(['Nombre', 'Email', 'DNI']).nif, 2);
   assert.equal(autoMapear(['Nombre', 'Email', 'Documento de identidad']).nif, 2);
+});
+
+// ── Fechas americanas ─────────────────────────────────────────────────────────
+//
+// Momence y Mindbody son plataformas de EE.UU. y exportan MM/DD/YYYY. Leyéndolas
+// como españolas pasaban dos cosas, ninguna visible:
+//   · 12/31/2024 no era válida (mes 31) → se descartaba, y la socia perdía su
+//     antigüedad o el bono se quedaba sin caducidad;
+//   · 09/01/2026 SÍ era válida → 9 de enero en vez del 1 de septiembre, y el
+//     bono caducaba ocho meses antes sin que nadie lo mirara.
+//
+// Una fecha suelta es ambigua y no hay forma de saberlo. Una COLUMNA casi
+// siempre se delata: basta con que una tenga el segundo número por encima de 12.
+
+test('una columna con 12/31 se lee entera como americana', () => {
+  assert.equal(inferirOrdenFecha(['06/30/2026', '12/31/2024', '09/01/2026']), 'mda');
+});
+
+test('una columna con 31/12 se lee entera como española', () => {
+  assert.equal(inferirOrdenFecha(['30/06/2026', '31/12/2024']), 'dma');
+});
+
+test('sin pistas se queda en español, que es el idioma del producto', () => {
+  assert.equal(inferirOrdenFecha(['03/04/2024', '05/06/2024']), 'dma');
+});
+
+test('si el archivo mezcla los dos formatos no se inventa nada', () => {
+  // No hay lectura correcta posible: se deja la española en vez de elegir a
+  // cara o cruz sobre datos de dinero.
+  assert.equal(inferirOrdenFecha(['31/12/2024', '12/31/2024']), 'dma');
+});
+
+test('la fecha imposible en español deja de perderse', () => {
+  assert.equal(parsearFecha('12/31/2024', 'dma'), null, 'antes: se descartaba');
+  assert.equal(parsearFecha('12/31/2024', 'mda'), '2024-12-31');
+});
+
+test('y la ambigua deja de leerse al revés — ocho meses de diferencia', () => {
+  assert.equal(parsearFecha('09/01/2026', 'dma'), '2026-01-09');
+  assert.equal(parsearFecha('09/01/2026', 'mda'), '2026-09-01');
+});
+
+test('un export de Momence entero: las caducidades salen bien', () => {
+  const csv = 'email;membershipName;creditsRemaining;expiryDate\n'
+    + 'a@x.com;Bono 10;4;06/30/2026\n'
+    + 'b@x.com;Bono 10;3;12/31/2024\n'   // la que delata el formato
+    + 'c@x.com;Bono 10;2;09/01/2026\n';  // la que se leía al revés
+  const r = parseCsv(csv);
+  const filas = validarFilasMembresia(r.rows, autoMapearMembresia(r.headers));
+  assert.equal(filas[0].datos.fechaFin, '2026-06-30');
+  assert.equal(filas[1].datos.fechaFin, '2024-12-31');
+  assert.equal(filas[2].datos.fechaFin, '2026-09-01');
+});
+
+test('un CSV español sigue leyéndose español', () => {
+  // Regresión: la inferencia no puede haber roto el caso normal.
+  const csv = 'email;plan;sesiones;caducidad\na@x.com;Bono 10;4;30/06/2026\nb@x.com;Bono 10;3;31/12/2024\n';
+  const r = parseCsv(csv);
+  const filas = validarFilasMembresia(r.rows, autoMapearMembresia(r.headers));
+  assert.equal(filas[0].datos.fechaFin, '2026-06-30');
+  assert.equal(filas[1].datos.fechaFin, '2024-12-31');
 });
 
 test('las cabeceras camelCase de Momence siguen mapeando', () => {
