@@ -26,6 +26,7 @@ import { Faq } from '@/components/landing/Faq';
 import { CtaFinal } from '@/components/landing/CtaFinal';
 import { Footer } from '@/components/landing/Footer';
 import { GlobalStyles } from '@/components/landing/GlobalStyles';
+import { IntroLogo } from '@/components/landing/IntroLogo';
 
 const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' });
 
@@ -46,6 +47,11 @@ export default function LandingPage() {
 
   return (
     <div className={plexMono.variable} style={{ background: BG, color: '#1A1A1A', overflowX: 'clip', position: 'relative' }}>
+      {/* Va ARRIBA del todo pero se pinta solo en cliente: el HTML del servidor
+          —el que ven Google y los lectores de pantalla— es la landing, sin
+          cortina delante. `autenticado` lo apaga para quien está a punto de
+          ser redirigido a su panel. */}
+      <IntroLogo autenticado={!!session} />
       <Nav />
       <Hero />
       <Problema />
