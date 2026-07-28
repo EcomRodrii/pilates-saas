@@ -293,15 +293,71 @@ function anioDe2Digitos(yy: number): number {
  * Devuelve null si está vacía o no es una fecha válida — para migración es
  * lenient: una fecha ilegible no invalida la fila, solo se ignora ese campo.
  */
-export function parsearFecha(celda: string | null | undefined): string | null {
+/**
+ * En qué orden vienen día y mes en una columna de fechas numéricas.
+ *
+ * `dma` = 31/12/2024 (España). `mda` = 12/31/2024 (EE.UU.).
+ */
+export type OrdenFecha = 'dma' | 'mda';
+
+const RE_FECHA_NUM = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?!\d)/;
+
+/**
+ * Deduce el orden mirando la COLUMNA ENTERA, no una celda suelta.
+ *
+ * Una fecha aislada como `09/01/2026` es ambigua: puede ser el 9 de enero o el
+ * 1 de septiembre, y no hay forma de saberlo. Pero una columna con cien fechas
+ * casi siempre se delata sola: en cuanto UNA tiene el segundo número por encima
+ * de 12 (`12/31/2024`), esa columna es americana y todas se leen igual.
+ *
+ * Importa porque Momence y Mindbody son plataformas de EE.UU. y exportan
+ * `MM/DD/YYYY`. Leyéndolas como españolas pasaban dos cosas, ninguna visible:
+ *   · `12/31/2024` no era una fecha válida (mes 31) → se descartaba, y la socia
+ *     perdía su antigüedad o el bono se quedaba sin caducidad;
+ *   · `09/01/2026` sí era válida → 9 de enero en vez del 1 de septiembre, y el
+ *     bono caducaba ocho meses antes sin que nadie lo mirara.
+ *
+ * Ante la duda se queda en español, que es el idioma del producto: sin ninguna
+ * pista, `03/04/2024` se lee 3 de abril.
+ */
+export function inferirOrdenFecha(valores: (string | null | undefined)[]): OrdenFecha {
+  let primeroSobre12 = false;
+  let segundoSobre12 = false;
+  for (const v of valores) {
+    const m = (v ?? '').trim().match(RE_FECHA_NUM);
+    if (!m) continue;
+    if (+m[1] > 12) primeroSobre12 = true;
+    if (+m[2] > 12) segundoSobre12 = true;
+  }
+  // Solo se cambia a americano cuando la columna lo demuestra Y no se contradice.
+  // Si aparecen las dos señales, el archivo mezcla formatos: no hay lectura
+  // correcta posible y se deja la española, que es la del producto.
+  return segundoSobre12 && !primeroSobre12 ? 'mda' : 'dma';
+}
+
+/** Los valores crudos de una columna, para poder inferir su formato. */
+function columna(rows: string[][], idx: number): string[] {
+  return idx >= 0 ? rows.map((f) => f[idx] ?? '') : [];
+}
+
+export function parsearFecha(
+  celda: string | null | undefined,
+  orden: OrdenFecha = 'dma',
+): string | null {
   const s = (celda ?? '').trim();
   if (!s) return null;
   let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/); // ISO: YYYY-MM-DD
   if (m) return fechaValidaISO(+m[1], +m[2], +m[3]);
-  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/); // europeo: DD/MM/YYYY
-  if (m) return fechaValidaISO(+m[3], +m[2], +m[1]);
-  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})(?!\d)/); // europeo con año de 2 díg.
-  if (m) return fechaValidaISO(anioDe2Digitos(+m[3]), +m[2], +m[1]);
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/); // DD/MM/YYYY o MM/DD/YYYY
+  if (m) {
+    const [dia, mes] = orden === 'mda' ? [+m[2], +m[1]] : [+m[1], +m[2]];
+    return fechaValidaISO(+m[3], mes, dia);
+  }
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})(?!\d)/); // con año de 2 díg.
+  if (m) {
+    const [dia, mes] = orden === 'mda' ? [+m[2], +m[1]] : [+m[1], +m[2]];
+    return fechaValidaISO(anioDe2Digitos(+m[3]), mes, dia);
+  }
 
   // Fechas con nombre de mes, en cualquier orden razonable (día-mes-año o
   // mes-día-año). Se localiza el mes por palabra y se reparten los números.
@@ -383,6 +439,8 @@ export function validarFilas(
   const emailsVistos = new Set<string>();
   const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
 
+    // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
+  const orden = inferirOrdenFecha([...columna(rows, mapeo.fecha_alta) , ...columna(rows, mapeo.fecha_nacimiento)]);
   return rows.map((fila, i) => {
     let nombre = val(fila, mapeo.nombre);
     let apellidos = val(fila, mapeo.apellidos);
@@ -401,9 +459,9 @@ export function validarFilas(
     const telefono = sinApostrofo(val(fila, mapeo.telefono)) || null;
     const nif = sinApostrofo(val(fila, mapeo.nif)) || null;
     const tags = mapeo.tags >= 0 ? parsearTags(val(fila, mapeo.tags)) : [];
-    const fechaAlta = mapeo.fecha_alta >= 0 ? parsearFecha(val(fila, mapeo.fecha_alta)) : null;
+    const fechaAlta = mapeo.fecha_alta >= 0 ? parsearFecha(val(fila, mapeo.fecha_alta), orden) : null;
     const direccion = mapeo.direccion >= 0 ? (val(fila, mapeo.direccion) || null) : null;
-    const fechaNacimiento = mapeo.fecha_nacimiento >= 0 ? parsearFecha(val(fila, mapeo.fecha_nacimiento)) : null;
+    const fechaNacimiento = mapeo.fecha_nacimiento >= 0 ? parsearFecha(val(fila, mapeo.fecha_nacimiento), orden) : null;
 
     const datos: FilaSocia = { nombre, apellidos, email, telefono, nif, tags, fechaAlta, direccion, fechaNacimiento };
     const base = { fila: i + 1, datos };
@@ -529,6 +587,8 @@ export function validarFilasMembresia(
   mapeo: Record<CampoMembresia, number>,
 ): FilaMembresiaValidada[] {
   const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+    // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
+  const orden = inferirOrdenFecha([...columna(rows, mapeo.fecha_inicio) , ...columna(rows, mapeo.fecha_fin)]);
   return rows.map((fila, i) => {
     const emailRaw = val(fila, mapeo.email);
     const email = emailRaw.toLowerCase();
@@ -540,8 +600,8 @@ export function validarFilasMembresia(
     // de dejar que el servidor rellene el hueco con el bono entero del plan.
     const saldoIlegible = Number.isNaN(sesionesParsed as number);
     const sesiones = saldoIlegible ? null : (sesionesParsed as number | null);
-    const fechaInicio = mapeo.fecha_inicio >= 0 ? parsearFecha(val(fila, mapeo.fecha_inicio)) : null;
-    const fechaFin = mapeo.fecha_fin >= 0 ? parsearFecha(val(fila, mapeo.fecha_fin)) : null;
+    const fechaInicio = mapeo.fecha_inicio >= 0 ? parsearFecha(val(fila, mapeo.fecha_inicio), orden) : null;
+    const fechaFin = mapeo.fecha_fin >= 0 ? parsearFecha(val(fila, mapeo.fecha_fin), orden) : null;
     const estado = mapeo.estado >= 0 ? normalizarEstadoMembresia(val(fila, mapeo.estado)) : null;
 
     const datos: FilaMembresia = { email, plan, sesiones, fechaInicio, fechaFin, estado };
@@ -617,13 +677,15 @@ export function validarFilasPlazaFija(
   mapeo: Record<CampoPlazaFija, number>,
 ): FilaPlazaFijaValidada[] {
   const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+    // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
+  const orden = inferirOrdenFecha([...columna(rows, mapeo.vigencia_desde)]);
   return rows.map((fila, i) => {
     const emailRaw = val(fila, mapeo.email);
     const email = emailRaw.toLowerCase();
     const diaSemana = mapeo.dia_semana >= 0 ? parsearDiaSemana(val(fila, mapeo.dia_semana)) : null;
     const horaInicio = mapeo.hora_inicio >= 0 ? normalizarHora(val(fila, mapeo.hora_inicio)) : null;
     const sala = val(fila, mapeo.sala);
-    const vigenciaDesde = mapeo.vigencia_desde >= 0 ? parsearFecha(val(fila, mapeo.vigencia_desde)) : null;
+    const vigenciaDesde = mapeo.vigencia_desde >= 0 ? parsearFecha(val(fila, mapeo.vigencia_desde), orden) : null;
 
     const datos: FilaPlazaFija = { email, diaSemana, horaInicio, sala, vigenciaDesde };
     const base = { fila: i + 1, datos };
@@ -750,11 +812,13 @@ export function validarFilasClase(
   mapeo: Record<CampoClase, number>,
 ): FilaClaseValidada[] {
   const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+    // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
+  const orden = inferirOrdenFecha([...columna(rows, mapeo.fecha)]);
   return rows.map((fila, i) => {
     const clase = val(fila, mapeo.clase);
     const horaInicio = parsearHora(val(fila, mapeo.hora_inicio));
     const horaFin = parsearHora(val(fila, mapeo.hora_fin));
-    const fecha = parsearFecha(val(fila, mapeo.fecha));
+    const fecha = parsearFecha(val(fila, mapeo.fecha), orden);
     const diaSemana = parsearDiaSemana(val(fila, mapeo.dia_semana));
     const durRaw = val(fila, mapeo.duracion);
     const duracion = durRaw !== '' && Number.isFinite(Number(durRaw)) ? Math.trunc(Number(durRaw)) : null;
@@ -847,10 +911,12 @@ export function validarFilasReserva(
   mapeo: Record<CampoReserva, number>,
 ): FilaReservaValidada[] {
   const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+    // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
+  const orden = inferirOrdenFecha([...columna(rows, mapeo.fecha)]);
   return rows.map((fila, i) => {
     const email = val(fila, mapeo.email).toLowerCase();
     const clase = val(fila, mapeo.clase);
-    const fecha = parsearFecha(val(fila, mapeo.fecha));
+    const fecha = parsearFecha(val(fila, mapeo.fecha), orden);
     const horaInicio = parsearHora(val(fila, mapeo.hora_inicio));
     const estado = normalizarEstadoReserva(val(fila, mapeo.estado));
 
@@ -952,10 +1018,12 @@ export function validarFilasCita(
   mapeo: Record<CampoCita, number>,
 ): FilaCitaValidada[] {
   const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+    // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
+  const orden = inferirOrdenFecha([...columna(rows, mapeo.fecha)]);
   return rows.map((fila, i) => {
     const email = val(fila, mapeo.email).toLowerCase();
     const servicio = val(fila, mapeo.servicio) || null;
-    const fecha = parsearFecha(val(fila, mapeo.fecha));
+    const fecha = parsearFecha(val(fila, mapeo.fecha), orden);
     const horaInicio = parsearHora(val(fila, mapeo.hora_inicio));
     const durRaw = val(fila, mapeo.duracion);
     const dur = durRaw !== '' && Number.isFinite(Number(durRaw)) ? Math.trunc(Number(durRaw)) : null;

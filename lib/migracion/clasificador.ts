@@ -14,6 +14,7 @@ import {
   autoMapear, autoMapearMembresia, autoMapearClase, autoMapearReserva, autoMapearCita,
   validarFilas, validarFilasMembresia, validarFilasClase, validarFilasReserva, validarFilasCita,
   CAMPOS_SOCIA, CAMPOS_MEMBRESIA, CAMPOS_CLASE, CAMPOS_RESERVA, CAMPOS_CITA,
+  inferirOrdenFecha,
 } from '../csv.ts';
 
 export type EntidadMigracion = 'socias' | 'membresias' | 'clases' | 'reservas' | 'citas';
@@ -186,8 +187,25 @@ export function construirAnalisis(
     ok: ok.length, duplicadas: dup.length, errores: err.length,
     muestra: ok.slice(0, MAX_MUESTRA).map(v => v.datos),
     cuarentena: [...err, ...dup].slice(0, MAX_CUARENTENA).map(v => ({ fila: v.fila, motivo: v.motivo ?? 'Duplicada en el archivo' })),
-    avisos: avisosDeContexto(entidad, validadas, ctx),
+    avisos: [...avisosDeContexto(entidad, validadas, ctx), ...avisoFechasAmericanas(rows, mapeo)],
   };
+}
+
+/**
+ * Momence y Mindbody exportan MM/DD/YYYY. El parser lo detecta solo mirando la
+ * columna entera y lee las fechas bien, pero esa es una decisión que hemos
+ * tomado NOSOTROS sobre las fechas de sus bonos: conviene que se vea antes de
+ * ejecutar, no descubrirlo cuando a una clienta le caduca el bono antes de
+ * tiempo. Si el archivo ya viene en formato español no se dice nada.
+ */
+function avisoFechasAmericanas(rows: string[][], mapeo: Record<string, number>): string[] {
+  const idx = Object.entries(mapeo)
+    .filter(([campo, i]) => i >= 0 && /fecha|vigencia|caduc/.test(campo))
+    .map(([, i]) => i);
+  if (idx.length === 0) return [];
+  const valores = rows.flatMap(f => idx.map(i => f[i] ?? ''));
+  if (inferirOrdenFecha(valores) !== 'mda') return [];
+  return ['Las fechas vienen en formato americano (mes/día/año), como exporta Momence. Se leen así — revisa un par en la muestra antes de ejecutar.'];
 }
 
 export function sinClasificar(nombre: string, headers: string[], total: number, motivo: string): ArchivoAnalizado {
