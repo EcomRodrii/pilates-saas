@@ -15,6 +15,7 @@ interface StudioForm {
   tipo: StudioTipo;
   ciudad: string;
   telefono: string;
+  comoNosConocio: string;
 }
 
 interface OwnerForm {
@@ -24,12 +25,13 @@ interface OwnerForm {
 }
 
 const TIPOS: StudioTipo[] = ['Pilates', 'Yoga', 'Fitness', 'CrossFit', 'Danza', 'Otro'];
+const COMO_NOS_CONOCIO_OPCIONES = ['Google', 'Instagram', 'TikTok', 'Recomendación', 'YouTube', 'Otro'];
 
 export default function CrearEstudioPage() {
   const uid = useId();
   const { signUp } = useAuth();
   const [step, setStep] = useState(1);
-  const [studio, setStudio] = useState<StudioForm>({ nombre: '', tipo: 'Pilates', ciudad: '', telefono: '' });
+  const [studio, setStudio] = useState<StudioForm>({ nombre: '', tipo: 'Pilates', ciudad: '', telefono: '', comoNosConocio: '' });
   const [owner, setOwner] = useState<OwnerForm>({ nombreCompleto: '', email: '', contrasena: '' });
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -47,7 +49,12 @@ export default function CrearEstudioPage() {
     setError('');
     setCreating(true);
 
-    const studioFields = { nombre: studio.nombre, ciudad: studio.ciudad, telefono: studio.telefono };
+    const studioFields = {
+      nombre: studio.nombre,
+      ciudad: studio.ciudad,
+      telefono: studio.telefono,
+      comoNosConocio: studio.comoNosConocio || undefined,
+    };
 
     // Los datos del negocio viajan como metadata del propio usuario de Supabase
     // (no localStorage): así, si confirma el email desde otro dispositivo
@@ -166,6 +173,18 @@ export default function CrearEstudioPage() {
                     onChange={e => setStudio(s => ({ ...s, telefono: e.target.value }))}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
                   />
+                </div>
+
+                <div>
+                  <label htmlFor={`${uid}-4b`} className="block text-[13px] font-medium text-[#374151] mb-1">¿Cómo nos has conocido? <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
+                  <select id={`${uid}-4b`}
+                    value={studio.comoNosConocio}
+                    onChange={e => setStudio(s => ({ ...s, comoNosConocio: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition bg-white"
+                  >
+                    <option value="">Selecciona una opción</option>
+                    {COMO_NOS_CONOCIO_OPCIONES.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
                 </div>
               </div>
 

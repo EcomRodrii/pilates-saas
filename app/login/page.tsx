@@ -32,7 +32,7 @@ export default function LoginPage() {
       // así que esto funciona aunque el email se confirme desde otro
       // dispositivo distinto al que hizo el alta.
       const pending = user.user_metadata?.pending_studio as
-        | { nombre: string; ciudad: string; telefono: string }
+        | { nombre: string; ciudad: string; telefono: string; comoNosConocio?: string }
         | undefined;
       if (pending) {
         const newStudio = await dbCreateStudio({ ...pending, ownerAuthUserId: user.id });
