@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/nextjs';
+import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
@@ -171,6 +171,42 @@ export function setCurrentStudioId(id: string) {
 // se acotan aquí: eso rompería los informes; su fix es agregación server-side.
 const RECENT_FEED_LIMIT = 500;
 
+// 2.3: PostgREST devuelve como mucho 1000 filas por consulta y lo trunca EN
+// SILENCIO si no se pagina — no es lentitud, es incorrección: un estudio con
+// más de 1000 reservas/recibos/etc. recibía datos incompletos sin ningún error,
+// y todos los informes/KPIs se calculaban sobre una muestra parcial. A
+// diferencia de RECENT_FEED_LIMIT (que SÍ acota a propósito, son feeds), esto
+// no acota nada: trae la tabla entera, solo que en páginas de 1000. Uso: tablas
+// que se agregan sobre histórico (ver comentario arriba) — reservas, recibos,
+// facturas, ventas_pos, sesiones, credit_transactions.
+const PAGE_SIZE = 1000;
+async function fetchAllRows<T>(
+  studioId: string,
+  tabla: string,
+  pagina: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  const filas: T[] = [];
+  let desde = 0;
+  for (;;) {
+    const { data, error } = await pagina(desde, desde + PAGE_SIZE - 1);
+    if (error) {
+      // 2.4: antes esto se tragaba en silencio (data ?? []) y la app pintaba
+      // "0 filas" en vez de un error. Se reporta para que el fallo sea visible
+      // a quien opera, aunque la UI (código existente) siga usando lo que ya
+      // se había podido traer.
+      capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
+        tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
+      });
+      return { data: filas, error };
+    }
+    if (!data || data.length === 0) break;
+    filas.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    desde += PAGE_SIZE;
+  }
+  return { data: filas, error: null };
+}
+
 export function getCurrentStudioId() {
   return STUDIO_ID;
 }
@@ -243,7 +279,7 @@ function reportDbError(tag: string, error: unknown) {
   // pero NO se envían a Sentry (ruido no accionable, no un error de BD).
   if (!esErrorDeRedCliente(error)) {
     try {
-      Sentry.captureException(
+      capturarExcepcion(
         error instanceof Error ? error : new Error(`${tag}: ${typeof error === 'string' ? error : JSON.stringify(error)}`),
         { tags: { area: 'db', studioId: STUDIO_ID || 'desconocido' }, extra: { op: tag } },
       );
@@ -751,6 +787,7 @@ function mapTipoClase(r: RowTiposClase): TipoClase {
     descripcion: r.descripcion ?? null,
     nivel: r.nivel,
     fotoUrl: r.foto_url ?? null,
+    ventanaCancelacionHoras: r.ventana_cancelacion_horas ?? null,
   } as TipoClase;
 }
 
@@ -1223,13 +1260,13 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('spots').select('*').eq('studio_id', sid),
     db.from('tipos_clase').select('*').eq('studio_id', sid),
     db.from('instructores').select('*').eq('studio_id', sid),
-    db.from('sesiones').select('*').eq('studio_id', sid),
-    db.from('reservas').select('*').eq('studio_id', sid),
-    db.from('recibos').select('*').eq('studio_id', sid),
-    db.from('facturas').select('*').eq('studio_id', sid),
+    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('*').eq('studio_id', sid).range(from, to)),
     db.from('citas').select('*').eq('studio_id', sid),
     db.from('productos_pos').select('*').eq('studio_id', sid),
-    db.from('ventas_pos').select('*').eq('studio_id', sid),
+    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
     db.from('campanas').select('*').eq('studio_id', sid),
     db.from('automatizaciones').select('*').eq('studio_id', sid),
     db.from('automation_rules').select('*').eq('studio_id', sid),
@@ -1354,9 +1391,11 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
     // fetch). Se cargan acotados a los más recientes en vez de años de filas.
     // credit_transactions NO se acota: alimenta los gráficos del dashboard
-    // (computeSerieGrafico), que sí necesitan la serie completa.
+    // (computeSerieGrafico), que sí necesitan la serie completa. 2.3: por eso
+    // mismo es la que más se beneficia de paginar en vez de recibir el tope de
+    // 1000 filas de PostgREST en silencio.
     db.from('reward_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
-    db.from('credit_transactions').select('*').eq('studio_id', sid),
+    fetchAllRows(sid, 'credit_transactions', (from, to) => db.from('credit_transactions').select('*').eq('studio_id', sid).range(from, to)),
     db.from('achievement_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('challenge_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('notas_progreso').select('*').eq('studio_id', sid),
@@ -1954,6 +1993,21 @@ async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
   };
 }
 
+// P2-8: la ventana de cancelación puede acotarse por tipo de clase (reformer
+// necesita más antelación que mat para recolocar la plaza). NULL en
+// tipos_clase.ventana_cancelacion_horas = hereda la del estudio — es el
+// comportamiento de siempre para todo tipo de clase sin override.
+async function resolverVentanaCancelacion(
+  admin: SupabaseClient, studioId: string, tipoClaseId: string | null | undefined, ventanaEstudio: number,
+): Promise<number> {
+  if (!tipoClaseId) return ventanaEstudio;
+  const { data } = await admin
+    .from('tipos_clase').select('ventana_cancelacion_horas')
+    .eq('id', tipoClaseId).eq('studio_id', studioId).maybeSingle();
+  const override = data?.ventana_cancelacion_horas as number | null | undefined;
+  return override ?? ventanaEstudio;
+}
+
 // Crea una reserva respetando aforo/lista de espera (booking-logic) y consume
 // bono si queda CONFIRMADA. Valida identidad de la socia y el derecho a reservar
 // (C-4: plan/bono activo y tope de reservas simultáneas, si el estudio lo exige).
@@ -2141,8 +2195,9 @@ export async function ejecutarCancelacionReserva(
     const { data: ses } = await admin
       .from('sesiones').select('inicio, tipo_clase_id').eq('id', cancelada.sesion_id).maybeSingle();
     const inicio = ses?.inicio as string | undefined;
-    tardia = inicio ? esCancelacionTardia(inicio, new Date(), pol.ventanaHoras) : false;
-    if (inicio && debeDevolverBono(inicio, new Date(), pol.ventanaHoras, pol.devolverBonoTardia)) {
+    const ventana = await resolverVentanaCancelacion(admin, params.studioId, ses?.tipo_clase_id as string | null, pol.ventanaHoras);
+    tardia = inicio ? esCancelacionTardia(inicio, new Date(), ventana) : false;
+    if (inicio && debeDevolverBono(inicio, new Date(), ventana, pol.devolverBonoTardia)) {
       // Se devuelve al bono que cubre esa clase: es del que se descontó.
       await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null);
       bonoDevuelto = true;
@@ -4840,7 +4895,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
   const row = {
     id: t.id, studio_id: t.studioId ?? STUDIO_ID, nombre: t.nombre, color: t.color,
     duracion_minutos: t.duracionMinutos, descripcion: t.descripcion ?? null, nivel: t.nivel,
-    foto_url: t.fotoUrl ?? null,
+    foto_url: t.fotoUrl ?? null, ventana_cancelacion_horas: t.ventanaCancelacionHoras ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -4854,6 +4909,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('nivel' in changes) db.nivel = changes.nivel;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  if ('ventanaCancelacionHoras' in changes) db.ventana_cancelacion_horas = changes.ventanaCancelacionHoras;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateTipoClase]', error);
 }

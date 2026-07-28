@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import * as Sentry from '@sentry/nextjs';
+import { fijarEtiqueta } from '@/lib/sentry-cliente';
 import { CoreProvider } from '@/lib/core-context';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
@@ -573,7 +573,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // B0.6: etiqueta cada error de Sentry con el estudio activo (además del usuario,
   // que se fija en auth-context). Así se puede filtrar "qué estudios sufren X".
   useEffect(() => {
-    Sentry.setTag('studio_id', studio?.id ?? undefined);
+    fijarEtiqueta('studio_id', studio?.id ?? undefined);
   }, [studio?.id]);
 
   // ── Fetch all data from Supabase whenever the auth session changes ──────────

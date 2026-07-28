@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import * as Sentry from '@sentry/nextjs';
+import { fijarUsuario } from '@/lib/sentry-cliente';
 import { supabase } from './db/supabase';
 import { setCurrentStudioId } from './supabase-data';
 
@@ -10,7 +10,7 @@ import { setCurrentStudioId } from './supabase-data';
 // error (antes los issues llegaban sin usuario). Solo el id (un UUID), nunca
 // email ni nombre — respeta sendDefaultPii:false de la config de Sentry.
 function identificarEnSentry(session: Session | null) {
-  Sentry.setUser(session?.user ? { id: session.user.id } : null);
+  fijarUsuario(session?.user ? { id: session.user.id } : null);
 }
 
 type AuthContextType = {
