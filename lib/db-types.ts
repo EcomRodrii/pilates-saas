@@ -660,6 +660,13 @@ export interface RowStudios {
   sepa_acreedor_id: string | null;
   sepa_iban: string | null;
   sepa_titular: string | null;
+  bienvenida_vista_en: string | null;
+  onb_centros: string | null;
+  onb_software_anterior: string | null;
+  onb_alumnos_activos: string | null;
+  onb_importar_datos: string | null;
+  onb_prioridad: string[] | null;
+  onb_ayuda_alta: string | null;
 }
 
 export interface RowMandatosSepa {

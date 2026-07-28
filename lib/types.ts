@@ -71,6 +71,16 @@ export interface Studio {
   sepaAcreedorId: string | null;   // identificador de acreedor SEPA
   sepaIban: string | null;          // IBAN de la cuenta acreedora del estudio
   sepaTitular: string | null;       // titular de la cuenta acreedora
+  // Pantalla de bienvenida a pantalla completa tras crear el estudio (intro +
+  // wizard + resumen), mostrada UNA sola vez. NULL = estudio nuevo, aún no la
+  // ha visto. Mismo patrón que onboardingDescartadoEn.
+  bienvenidaVistaEn: string | null;
+  onbCentros: string | null;
+  onbSoftwareAnterior: string | null;
+  onbAlumnosActivos: string | null;
+  onbImportarDatos: string | null;
+  onbPrioridad: string[] | null;
+  onbAyudaAlta: string | null;
 }
 
 // F2 (B2.10): mandato SEPA de domiciliación de una socia (independiente de Stripe;

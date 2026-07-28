@@ -309,6 +309,10 @@ function falloEscritura(tag: string, error: unknown): ResultadoEscritura {
 
 // ─── Mappers: DB (snake_case) → TS (camelCase) ───────────────────────────────
 
+// Sentinel truthy (no se muestra en ningún sitio, solo hace que `!bienvenidaVistaEn`
+// sea false) para filas sin la columna `bienvenida_vista_en` — ver mapStudio.
+const COLUMNA_AUSENTE_ASUME_YA_VISTA = '1970-01-01T00:00:00.000Z';
+
 function mapStudio(r: RowStudios): Studio {
   return {
     id: r.id,
@@ -354,6 +358,20 @@ function mapStudio(r: RowStudios): Studio {
     sepaAcreedorId: r.sepa_acreedor_id ?? null,
     sepaIban: r.sepa_iban ?? null,
     sepaTitular: r.sepa_titular ?? null,
+    // A diferencia del resto de campos de este mapper, aquí NO se puede usar
+    // `?? null`: un valor NULL real (estudio recién creado) y una fila que ni
+    // siquiera trae la columna (fixtures/mocks antiguos, p.ej. toda la suite
+    // E2E anterior a esta migración) colapsarían al mismo `null` — y ese
+    // `null` es precisamente lo que hace aparecer la pantalla de bienvenida a
+    // pantalla completa. Con `in` se distingue "columna ausente → tratar como
+    // ya vista" (seguro) de "columna presente y NULL → estudio nuevo, mostrarla".
+    bienvenidaVistaEn: 'bienvenida_vista_en' in r ? (r.bienvenida_vista_en ?? null) : COLUMNA_AUSENTE_ASUME_YA_VISTA,
+    onbCentros: r.onb_centros ?? null,
+    onbSoftwareAnterior: r.onb_software_anterior ?? null,
+    onbAlumnosActivos: r.onb_alumnos_activos ?? null,
+    onbImportarDatos: r.onb_importar_datos ?? null,
+    onbPrioridad: r.onb_prioridad ?? null,
+    onbAyudaAlta: r.onb_ayuda_alta ?? null,
   } as Studio;
 }
 
@@ -5111,6 +5129,13 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('sepaAcreedorId' in changes) db.sepa_acreedor_id = changes.sepaAcreedorId;
   if ('sepaIban' in changes) db.sepa_iban = changes.sepaIban;
   if ('sepaTitular' in changes) db.sepa_titular = changes.sepaTitular;
+  if ('bienvenidaVistaEn' in changes) db.bienvenida_vista_en = changes.bienvenidaVistaEn;
+  if ('onbCentros' in changes) db.onb_centros = changes.onbCentros;
+  if ('onbSoftwareAnterior' in changes) db.onb_software_anterior = changes.onbSoftwareAnterior;
+  if ('onbAlumnosActivos' in changes) db.onb_alumnos_activos = changes.onbAlumnosActivos;
+  if ('onbImportarDatos' in changes) db.onb_importar_datos = changes.onbImportarDatos;
+  if ('onbPrioridad' in changes) db.onb_prioridad = changes.onbPrioridad;
+  if ('onbAyudaAlta' in changes) db.onb_ayuda_alta = changes.onbAyudaAlta;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);
 }
