@@ -73,7 +73,7 @@ export function puedeVerFichaClinica(rol: Rol): boolean {
 // Mover dinero: crear cobros, marcarlos cobrados, asignar o cancelar planes.
 // La propietaria y recepción — recepción cobra en mostrador y vende bonos, así
 // que necesita poder de verdad. La instructora no: no tiene ningún motivo para
-// tocar la facturación, y hasta la migración 0107 podía (la separación de roles
+// tocar la facturación, y hasta la migración 0112 podía (la separación de roles
 // estaba en el menú, no en la base de datos).
 //
 // Esto es la barrera de UI y su ÚNICO trabajo es no enseñar un botón que la
@@ -100,7 +100,7 @@ export function puedeGestionarClientas(rol: Rol): boolean {
 // Dar de alta y editar al EQUIPO. Es lo que distingue a un manager de recepción,
 // y el permiso más delicado que hay: con él se pueden repartir permisos. Que un
 // manager no pueda ascender a nadie NO se defiende aquí — se defiende en la RLS
-// (migración 0108), porque esto es solo la UI.
+// (migración 0113), porque esto es solo la UI.
 export function puedeGestionarEquipo(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER';
 }

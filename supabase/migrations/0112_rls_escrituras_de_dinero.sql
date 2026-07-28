@@ -36,7 +36,7 @@ create or replace function public.puede_mover_dinero() returns boolean
   $$;
 
 comment on function public.puede_mover_dinero() is
-  'Roles que pueden ESCRIBIR facturación (recibos, suscripciones, ventas). Recepción incluida: cobra en mostrador. Ver migración 0107.';
+  'Roles que pueden ESCRIBIR facturación (recibos, suscripciones, ventas). Recepción incluida: cobra en mostrador. Ver migración 0112.';
 
 grant execute on function public.puede_mover_dinero() to authenticated;
 

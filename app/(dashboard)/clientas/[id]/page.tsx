@@ -639,7 +639,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           {/* Congelar, reanudar y cancelar escriben en `suscripciones`, y
                               estaban fuera de `verFinanzas`: una instructora las veía y
                               podía cancelarle el plan a una clienta. Es lo único de esta
-                              pantalla que la migración 0107 habría dejado como botón roto. */}
+                              pantalla que la migración 0112 habría dejado como botón roto. */}
                           {puedeCobrar && (
                           <div className="mt-4 flex gap-2">
                             {suscripcion.estado === 'ACTIVA' ? (

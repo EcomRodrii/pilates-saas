@@ -26,13 +26,18 @@ import { readdirSync } from 'node:fs';
 const DIR = new URL('../supabase/migrations', import.meta.url);
 
 /**
- * Las que ya colisionaban antes de existir este test.
+ * Ya no hay excepciones, y la lista se queda vacía a propósito.
  *
- * No se renumeran a posteriori a propósito: están aplicadas hace semanas y sus
- * números aparecen en descripciones de PR y en notas. Cambiarlos ahora rompería
- * esas referencias a cambio de nada — el daño ya está hecho y es sólo estético.
+ * Hubo cinco números repetidos (0061, 0069, 0071, 0072 y 0075) que se toleraban
+ * por ser "sólo estéticos". No lo eran: `schema_migrations.version` es clave
+ * primaria, así que el segundo de cada par reventaba `supabase start` y no había
+ * forma de levantar el proyecto en local. Se renumeraron respetando el orden real
+ * de aplicación en producción.
+ *
+ * Si alguna vez vuelve a hacer falta una excepción, piénsalo dos veces: significa
+ * que ese número no se puede aplicar sobre una base vacía.
  */
-const HISTORICAS = new Set(['0061', '0069', '0071', '0072', '0075']);
+const HISTORICAS = new Set<string>();
 
 function prefijosDuplicados(): Record<string, string[]> {
   const porPrefijo: Record<string, string[]> = {};
@@ -62,15 +67,25 @@ test('ninguna migración nueva repite número', () => {
   );
 });
 
-test('las históricas siguen ahí: la lista de excepciones no tapa nada nuevo', () => {
-  // Si alguien renumera una histórica, esta lista deja de hacer falta y hay que
-  // quitarla — si no, seguiría dando permiso para colisionar en ese número.
-  const numeros = new Set<string>();
+test('la lista de excepciones sigue vacía', () => {
+  // El test de arriba sólo sirve si nadie vuelve a meter números en HISTORICAS
+  // para silenciarlo. Una excepción nueva significa una migración que no se
+  // puede aplicar sobre una base vacía: eso hay que arreglarlo, no taparlo.
+  assert.deepEqual(
+    [...HISTORICAS], [],
+    'No añadas números aquí para saltarte el test: renumera tu migración.',
+  );
+});
+
+test('toda migración numerada se puede aplicar sobre una base vacía', () => {
+  // El motivo de existir de todo esto: `schema_migrations.version` es clave
+  // primaria. Dos ficheros con el mismo número = el segundo revienta el
+  // `supabase start` y nadie puede levantar el proyecto en local.
+  const porPrefijo: Record<string, string[]> = {};
   for (const f of readdirSync(DIR)) {
     const m = /^(\d{4})_/.exec(f);
-    if (m) numeros.add(m[1]);
+    if (m) (porPrefijo[m[1]] ??= []).push(f);
   }
-  for (const n of HISTORICAS) {
-    assert.ok(numeros.has(n), `${n} ya no existe: quítalo de HISTORICAS.`);
-  }
+  const repetidos = Object.entries(porPrefijo).filter(([, fs]) => fs.length > 1);
+  assert.deepEqual(repetidos, [], 'Números repetidos, sin excepciones que valgan.');
 });

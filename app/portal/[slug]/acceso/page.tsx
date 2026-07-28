@@ -7,6 +7,7 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { Mail, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
 
 // Verificación de propiedad del email por magic link. NO abre sesión "de uso":
 // solo sirve para demostrar que la socia controla ese email, como paso previo
@@ -22,12 +23,15 @@ export default function PortalAcceso() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
+  // esto nunca bloquea el envío — mismo comportamiento que /login.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const r = await enviarEnlace(email);
+    const r = await enviarEnlace(email, captchaToken ?? undefined);
     setLoading(false);
     if ('error' in r) {
       setError(r.error || 'No se pudo enviar el enlace.');
@@ -123,13 +127,15 @@ export default function PortalAcceso() {
                 </div>
               )}
 
+              <TurnstileWidget onToken={setCaptchaToken} />
+
               <button
                 type="submit"
-                disabled={loading || !email}
+                disabled={loading || !email || (turnstileConfigurado() && !captchaToken)}
                 style={{
                   width: '100%', padding: '14px 0', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
                   fontWeight: 800, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
-                  opacity: loading || !email ? 0.5 : 1,
+                  opacity: loading || !email || (turnstileConfigurado() && !captchaToken) ? 0.5 : 1,
                 }}
               >
                 {loading ? 'Enviando...' : 'Enviar enlace'}

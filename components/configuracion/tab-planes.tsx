@@ -34,7 +34,7 @@ const emptyPlanForm = planVacio;
 const planToForm = planAFormulario;
 
 // Para qué clases sirve una tarifa. Sin marcar nada cubre todas — es la
-// semántica de `plan_tipos_clase` (migr 0106) y la que han tenido siempre.
+// semántica de `plan_tipos_clase` (migr 0111) y la que han tenido siempre.
 function CoberturaPlan({ plan, tiposClase }: { plan: PlanTarifa; tiposClase: TipoClase[] }) {
   const ids = plan.tiposClaseIds ?? [];
   if (ids.length === 0) {

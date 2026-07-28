@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 
-// El índice `instructores_email_unico_por_estudio` (migr 0120) impide dos fichas
+// El índice `instructores_email_unico_por_estudio` (migr 0125) impide dos fichas
 // con el mismo email en un estudio. Cuando salta NO es un fallo del servidor: es
 // la dueña intentando dar de alta a alguien que ya está. Pasarlo por
 // `errorInterno` lo registraría como error y llenaría el log de rojo tapando los

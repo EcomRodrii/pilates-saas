@@ -49,7 +49,7 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
     const [{ data: comoInstructor }, { data: comoOwner }] = await Promise.all([
       // `activo`: dar de baja tiene que revocar el acceso, y aquí importa el
       // doble — este camino corre con SERVICE-ROLE, que se salta la RLS entera.
-      // Sin este filtro, la migración 0125 cerraría la puerta de la base de
+      // Sin este filtro, la migración 0130 cerraría la puerta de la base de
       // datos y las rutas de API seguirían abriendo la suya.
       db.from('instructores').select('rol, nombre').eq('auth_user_id', user.id).eq('studio_id', activa.studio_id).neq('activo', false).maybeSingle(),
       db.from('studios').select('nombre').eq('owner_auth_user_id', user.id).eq('id', activa.studio_id).maybeSingle(),

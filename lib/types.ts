@@ -55,7 +55,7 @@ export interface Studio {
   cancelacionVentanaHoras: number;
   cancelacionDevolverBonoTardia: boolean;
   reservaExigirPlan: boolean;
-  /** Compra desde el enlace público sin ficha previa (migr 0105).
+  /** Compra desde el enlace público sin ficha previa (migr 0110).
    *  EXIGIR_REGISTRO = se registra antes de pagar. CREAR_FICHA = se cobra y
    *  la ficha se crea con el email verificado por Stripe. */
   compraPublicaModo: 'EXIGIR_REGISTRO' | 'CREAR_FICHA';
@@ -126,7 +126,7 @@ export interface AceptacionContrato {
   firma: string;
   versionTexto: string;
   /** PORTAL = la firmó la socia. MOSTRADOR = la introdujo el estudio por ella.
-   *  undefined = aceptación anterior a la migración 0104: no consta. */
+   *  undefined = aceptación anterior a la migración 0109: no consta. */
   origen?: 'PORTAL' | 'MOSTRADOR';
   /** Solo en MOSTRADOR: quién del estudio la introdujo. */
   introducidaPor?: string;

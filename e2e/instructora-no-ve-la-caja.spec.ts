@@ -11,7 +11,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // `CifraPrivada` no servía: es un difuminado contra miradas de reojo, lo activa
 // y desactiva quien mira, y no es un permiso.
 //
-// La otra mitad del arreglo está en la migración 0109 (la RLS deja de servirle
+// La otra mitad del arreglo está en la migración 0114 (la RLS deja de servirle
 // los recibos). Aquí se fija lo que se ve en pantalla, que es lo que la dueña
 // puede comprobar: con la RLS cerrada y la UI sin tocar, la tarjeta seguiría
 // ahí enseñando "0 €" — más falso todavía.

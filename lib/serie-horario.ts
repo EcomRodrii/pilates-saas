@@ -2,7 +2,7 @@
 // estudio (Europe/Madrid).
 //
 // Es el ESPEJO en TypeScript de lo que hace la RPC `editar_serie_desde` en SQL
-// (`... AT TIME ZONE 'Europe/Madrid'`, migración 0109). La RPC es la autoridad —lo
+// (`... AT TIME ZONE 'Europe/Madrid'`, migración 0114). La RPC es la autoridad —lo
 // escribe todo-o-nada en una transacción—; esto calcula lo mismo para el pintado
 // optimista, de modo que lo que se ve en el calendario coincide con lo que la base
 // de datos acaba guardando, incluido el cambio de horario de verano. El test
@@ -16,7 +16,7 @@
 import { fechaLocalDe, horaParedAInstante } from './citas/slots.ts';
 
 // La zona del estudio. Constante en todo el sistema (utils.TZ_ESTUDIO,
-// citas.TZ_CITAS, migraciones 0079/0100/0109): España peninsular.
+// citas.TZ_CITAS, migraciones 0084/0100/0109): España peninsular.
 const TZ_ESTUDIO = 'Europe/Madrid';
 
 /**

@@ -35,7 +35,7 @@ create or replace function public.puede_ver_finanzas() returns boolean
   $$;
 
 comment on function public.puede_ver_finanzas() is
-  'Roles que pueden LEER facturación (recibos, facturas, ventas). El manager NO: lleva la sede, no la caja. Ver migración 0109.';
+  'Roles que pueden LEER facturación (recibos, facturas, ventas). El manager NO: lleva la sede, no la caja. Ver migración 0114.';
 
 grant execute on function public.puede_ver_finanzas() to authenticated;
 
