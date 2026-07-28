@@ -8,7 +8,10 @@ import { test, expect, type Page } from '@playwright/test';
 // cortina puede arruinar una landing:
 //
 //   · que no se quede             — se retira sola, y también con un gesto.
-//   · que no salga a quien vuelve — se recuerda 30 días.
+//   · que salga SIEMPRE           — y, sobre todo, que esté desde el primer
+//                                   fotograma: la primera versión se pintaba
+//                                   tras hidratar y se veía la web ANTES que
+//                                   la cortina.
 //   · que no salga a quien pidió  — `prefers-reduced-motion`.
 //     menos movimiento
 //   · que no esté en el HTML      — Google y los lectores de pantalla tienen
@@ -18,7 +21,6 @@ import { test, expect, type Page } from '@playwright/test';
 // de un visitante.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CLAVE = 'tentare:intro-vista';
 const SEL_PIEZA = 'div[aria-hidden="true"] img[src^="/logo-piezas/"]';
 const cortina = (page: Page) => page.locator('div[aria-hidden="true"]').filter({ has: page.locator('img[src^="/logo-piezas/"]') });
 
@@ -53,7 +55,7 @@ test.describe('La intro del logo', () => {
     await entrarYCazarLaCortina(page);
     // El montaje dura ~2,5s y luego se disuelve. Con margen de sobra, pero
     // finito: si se quedara, este test lo diría.
-    await expect(cortina(page)).toHaveCount(0, { timeout: 15_000 });
+    await expect(cortina(page)).toBeHidden({ timeout: 15_000 });
     // Y la landing está debajo, viva.
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   });
@@ -72,21 +74,18 @@ test.describe('La intro del logo', () => {
     expect(vividos, 'hay que hacer clic pronto para que esto demuestre algo').toBeLessThan(900);
 
     await page.mouse.click(400, 300);
-    await expect(cortina(page)).toHaveCount(0, { timeout: 900 });
+    await expect(cortina(page)).toBeHidden({ timeout: 900 });
     // Como mucho 900 + 900 = 1800 ms de vida, y sola no se va hasta ~2900 ms:
     // si ha desaparecido, la ha quitado el clic.
   });
 
-  test('a quien ya la vio no se le repite', async ({ page }) => {
+  test('sale también en la segunda visita', async ({ page }) => {
     await entrarYCazarLaCortina(page);
-    await expect(cortina(page)).toHaveCount(0, { timeout: 15_000 });
+    await expect(cortina(page)).toBeHidden({ timeout: 15_000 });
 
-    // Segunda visita: nada. Es la diferencia entre un detalle de marca y una
-    // peaje que se paga en cada visita.
-    await page.goto('/?segunda=1');
-    await page.waitForLoadState('networkidle');
-    await expect(cortina(page)).toHaveCount(0);
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    // Se enseña siempre, no una vez por visitante.
+    await entrarYCazarLaCortina(page);
+    await expect(cortina(page)).toBeVisible();
   });
 
   test('quien pide menos movimiento no la ve', async ({ page }) => {
@@ -94,18 +93,32 @@ test.describe('La intro del logo', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30_000 });
-    await expect(cortina(page)).toHaveCount(0);
-    // Y no se marca como vista: si mañana quita el ajuste, la verá.
-    const marca = await page.evaluate(k => window.localStorage.getItem(k), CLAVE);
-    expect(marca, 'no debe consumir la única vez que se enseña').toBeNull();
+    // Se oculta por CSS (`display: none`), no por JavaScript: así tampoco
+    // depende de que el JS llegue.
+    await expect(cortina(page)).toBeHidden();
   });
 
-  test('no viaja en el HTML del servidor', async ({ page }) => {
-    // Lo que reciben Google y los lectores de pantalla es la landing. Se mira
-    // la respuesta cruda, no el DOM ya hidratado.
+  test('viaja EN el HTML: es lo que quita el flash', async ({ page }) => {
+    // El fallo que se vio en producción: la cortina se pintaba tras hidratar,
+    // así que primero se veía la web. Si vuelve a salir del HTML, vuelve el
+    // flash — por eso se mira la respuesta CRUDA, no el DOM ya hidratado.
     const res = await page.request.get('/');
     const html = await res.text();
-    expect(html).not.toContain('logo-piezas');
+    expect(html, 'sin esto, la cortina llega tarde y se ve la web antes').toContain('logo-piezas');
+    // Y la landing sigue entera en ese mismo HTML: la cortina va delante, no
+    // en lugar de.
     expect(html.toLowerCase()).toContain('pilates');
+    expect(html).toContain('El software que lleva');
+  });
+
+  test('se retira aunque no haya JavaScript', async ({ browser }) => {
+    // La retirada es CSS (la última keyframe la deja en visibility:hidden).
+    // Si dependiera del JS, un fallo de carga dejaría la web tapada.
+    const ctx = await browser.newContext({ javaScriptEnabled: false });
+    const page = await ctx.newPage();
+    await page.goto('/');
+    await expect(cortina(page)).toBeVisible();
+    await expect(cortina(page)).toBeHidden({ timeout: 15_000 });
+    await ctx.close();
   });
 });
