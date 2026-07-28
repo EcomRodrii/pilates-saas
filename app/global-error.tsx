@@ -1,6 +1,6 @@
 'use client'; // Los error boundaries tienen que ser Client Components.
 
-import * as Sentry from '@sentry/nextjs';
+import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { useEffect } from 'react';
 
 // Último cortafuegos: captura los errores que rompen hasta el root layout (los
@@ -17,8 +17,11 @@ export default function GlobalError({
   error: Error & { digest?: string };
   unstable_retry: () => void;
 }) {
+  // `capturarExcepcion` encola y fuerza la carga del SDK en el acto (no espera
+  // al idle): si hemos llegado aquí la app se ha caído entera, y ese informe es
+  // justo el que no puede perderse.
   useEffect(() => {
-    Sentry.captureException(error);
+    capturarExcepcion(error);
   }, [error]);
 
   return (

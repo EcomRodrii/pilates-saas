@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/nextjs';
+import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
@@ -279,7 +279,7 @@ function reportDbError(tag: string, error: unknown) {
   // pero NO se envían a Sentry (ruido no accionable, no un error de BD).
   if (!esErrorDeRedCliente(error)) {
     try {
-      Sentry.captureException(
+      capturarExcepcion(
         error instanceof Error ? error : new Error(`${tag}: ${typeof error === 'string' ? error : JSON.stringify(error)}`),
         { tags: { area: 'db', studioId: STUDIO_ID || 'desconocido' }, extra: { op: tag } },
       );
