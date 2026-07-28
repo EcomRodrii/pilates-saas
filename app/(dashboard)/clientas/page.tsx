@@ -9,6 +9,7 @@ import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
 import { textoLegalCompleto } from '@/lib/legal-textos';
+import { ERROR_GENERICO } from '@/lib/errores';
 import type { Socio, NivelSemaforo } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -190,6 +191,8 @@ export default function Socios() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAsignarPlan, setShowAsignarPlan] = useState(false);
   const [asignarPlanId, setAsignarPlanId] = useState('');
+  const [asignando, setAsignando] = useState(false);
+  const [errorAsignar, setErrorAsignar] = useState<string | null>(null);
 
   // Create / edit modal
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
@@ -381,9 +384,42 @@ export default function Socios() {
     setSelected(new Set());
   }
 
-  function handleAsignarPlan() {
-    if (!asignarPlanId) return;
-    selected.forEach((id) => assignPlan(id, asignarPlanId));
+  // Asignar en bloque es la venta más cara de la pantalla: son N cobros a la vez.
+  // Antes era un `forEach` que disparaba N escrituras sin esperar a ninguna, y el
+  // diálogo se cerraba igual — con permisos insuficientes (una instructora) se
+  // cerraba tras no haber asignado ni un solo plan. Ahora se van de una en una,
+  // se cuenta lo que ha salido bien y el diálogo solo se cierra si TODO ha salido
+  // bien; si no, se queda abierto diciendo a quién ha fallado y por qué.
+  async function handleAsignarPlan() {
+    if (!asignarPlanId || asignando) return;
+    setAsignando(true);
+    setErrorAsignar(null);
+
+    const fallidas: string[] = [];
+    let ultimoError = '';
+    const conseguidas = new Set<string>();
+    for (const id of selected) {
+      try {
+        await assignPlan(id, asignarPlanId);
+        conseguidas.add(id);
+      } catch (e) {
+        const socio = socios.find((s) => s.id === id);
+        fallidas.push(socio ? `${socio.nombre} ${socio.apellidos}`.trim() : id);
+        ultimoError = e instanceof Error ? e.message : ERROR_GENERICO;
+      }
+    }
+    setAsignando(false);
+
+    if (fallidas.length > 0) {
+      // Las que sí han salido dejan de estar seleccionadas: reintentar no debe
+      // volver a cobrárselas.
+      setSelected(new Set([...selected].filter((id) => !conseguidas.has(id))));
+      setErrorAsignar(
+        `No se ha podido asignar el plan a ${fallidas.length === 1 ? fallidas[0] : `${fallidas.length} clientas (${fallidas.join(', ')})`}. ${ultimoError}`,
+      );
+      return;
+    }
+
     setSelected(new Set());
     setShowAsignarPlan(false);
     setAsignarPlanId('');
@@ -465,7 +501,18 @@ export default function Socios() {
     // reseteaba el bono a la clienta y ahora, encima, le cobraría otra vez.
     const susActual = suscripciones.find(s => s.socioId === editandoId && s.estado === 'ACTIVA');
     if (form.planId && form.planId !== (susActual?.planId ?? '')) {
-      assignPlan(editandoId, form.planId);
+      // Los datos ya están guardados; lo que puede fallar aquí es la venta. Si
+      // falla, el diálogo se queda abierto contándolo en vez de cerrarse como si
+      // el plan hubiera cambiado.
+      setGuardando(true);
+      try {
+        await assignPlan(editandoId, form.planId);
+      } catch (e) {
+        setGuardando(false);
+        setErrorGuardar(`Los datos se han guardado, pero el plan no se ha podido cambiar. ${e instanceof Error ? e.message : ERROR_GENERICO}`);
+        return;
+      }
+      setGuardando(false);
     }
     resetModal();
   }
@@ -1200,7 +1247,7 @@ export default function Socios() {
       {/* ── Modal: Asignar plan (bulk) ──────────────────────────────────────── */}
       <Dialog
         open={showAsignarPlan}
-        onOpenChange={(open) => { if (!open) { setShowAsignarPlan(false); setAsignarPlanId(''); } }}
+        onOpenChange={(open) => { if (!open && !asignando) { setShowAsignarPlan(false); setAsignarPlanId(''); setErrorAsignar(null); } }}
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -1213,6 +1260,7 @@ export default function Socios() {
               <select
                 className={selectCls}
                 value={asignarPlanId}
+                disabled={asignando}
                 onChange={(e) => setAsignarPlanId(e.target.value)}
               >
                 <option value="">Selecciona un plan…</option>
@@ -1221,19 +1269,23 @@ export default function Socios() {
                 ))}
               </select>
             </FF>
+            {errorAsignar && (
+              <p className="text-[12.5px] text-destructive">{errorAsignar}</p>
+            )}
             <div className="flex gap-2">
               <button
-                onClick={() => { setShowAsignarPlan(false); setAsignarPlanId(''); }}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
+                onClick={() => { setShowAsignarPlan(false); setAsignarPlanId(''); setErrorAsignar(null); }}
+                disabled={asignando}
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAsignarPlan}
-                disabled={!asignarPlanId}
+                disabled={!asignarPlanId || asignando}
                 className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
               >
-                Asignar plan
+                {asignando ? 'Asignando…' : 'Asignar plan'}
               </button>
             </div>
           </div>
