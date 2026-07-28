@@ -59,7 +59,7 @@ export default function NotificacionesPage() {
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ minHeight: '100%', background: t.bg }}>
       <div style={{ padding: '24px 20px 16px', background: t.surface, display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 10, borderBottom: `1px solid ${t.line}` }}>
         <button
           onClick={() => router.push(`/portal/${slug}/home`)}

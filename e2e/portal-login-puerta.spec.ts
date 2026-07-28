@@ -20,7 +20,9 @@ test.describe('El login del portal no es un callejón sin salida', () => {
     await page.goto(`/portal/${SLUG}/login`);
 
     // La puerta real, con su enlace.
-    const apuntarse = page.getByRole('link', { name: /apúntate y reserva tu primera clase/i });
+    // El texto cambió con el rediseño (v2); el contrato que protege este test
+    // —que la puerta existe y lleva a /reservar— es el mismo.
+    const apuntarse = page.getByRole('link', { name: /reserva tu primera clase/i });
     await expect(apuntarse).toBeVisible({ timeout: 30_000 });
     await expect(apuntarse).toHaveAttribute('href', `/reservar/${SLUG}`);
 

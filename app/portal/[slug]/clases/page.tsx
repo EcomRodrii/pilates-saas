@@ -121,7 +121,7 @@ export default function ClasesPage() {
   }
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ minHeight: '100%', background: t.bg }}>
       {/* Header */}
       <div style={{ padding: '24px 20px 20px' }}>
         <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1 }}>Clases</h1>

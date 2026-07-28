@@ -1,33 +1,45 @@
 'use client';
 
-// Reemplazo drop-in de components/portal/portal-shell.tsx
-// Mantiene toda la lógica de auth/redirección original; solo cambia el aspecto
-// (fondo por tema, tab bar flotante con indicador animado por transform).
+// El armazón del portal de la clienta: puerta de sesión, transición entre
+// pantallas y el menú de abajo.
+//
+// El menú viene del diseño "Tentare App Cliente v2": una cápsula de cristal con
+// etiquetas de texto y una pastilla blanca que se desliza. Dos cambios respecto
+// al menú anterior, y los dos son suyos:
+//
+//  · Etiquetas en vez de iconos. Un icono de "progreso" o de "mi plan" siempre
+//    hay que adivinarlo; a este tamaño la palabra ocupa lo mismo y no se
+//    adivina nada.
+//  · Cuatro secciones y la primera es Inicio, no Clases. El diseño lo pide, y
+//    además el Inicio es ahora la pantalla que resume todo — aterrizar en el
+//    calendario se saltaba lo único que da contexto.
+//
+// "Progreso" sale del menú y pasa a ser una de las filas del Inicio, también
+// como en el diseño. No se pierde: se llega igual, un toque más abajo.
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Home, Calendar, CreditCard, Play, TrendingUp } from 'lucide-react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { portalThemeStyle } from '@/lib/portal-theme';
 import { useModo } from '@/lib/portal-modo';
 import { PORTAL_VIDEOS_CONGELADO } from '@/lib/frozen-features';
+import { EASE, dur, sans, texto, radio, altura, sombra, cristal, desenfoque } from '@/lib/portal-design';
 import { PushPrompt } from './push-prompt';
 
 const ALL_NAV = [
-  { seg: 'clases', icon: Calendar, label: 'Clases' },
-  { seg: 'home', icon: Home, label: 'Inicio' },
-  { seg: 'mi-plan', icon: CreditCard, label: 'Mi plan' },
-  { seg: 'videos', icon: Play, label: 'Vídeos' },
-  { seg: 'progreso', icon: TrendingUp, label: 'Progreso' },
+  { seg: 'home', label: 'Inicio' },
+  { seg: 'clases', label: 'Agenda' },
+  { seg: 'mi-plan', label: 'Mi plan' },
+  { seg: 'videos', label: 'Vídeos' },
+  { seg: 'perfil', label: 'Perfil' },
 ];
 
 // VOD congelado (feature-freeze PMF, independiente del flag de marketing): sin
-// "Vídeos" en el portal de socias. Reactivar = PORTAL_VIDEOS_CONGELADO=false.
+// "Vídeos" en el portal de socias. Reactivar = PORTAL_VIDEOS_CONGELADO=false, y
+// el menú se reparte solo — la pastilla mide `100/NAV.length`.
 const NAV = PORTAL_VIDEOS_CONGELADO ? ALL_NAV.filter((n) => n.seg !== 'videos') : ALL_NAV;
-
-const SLOT = 100 / NAV.length;
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
@@ -37,7 +49,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
   const themeStyle = portalThemeStyle(studio?.temaPortal);
-  const { t } = useModo();
+  const { t, noche } = useModo();
 
   const isLoginPage = pathname === `/portal/${slug}` || pathname === `/portal/${slug}/login` || pathname === `/portal/${slug}/acceso`;
   // /clave-nueva llega recién autenticada por magic link (o sin sesión válida
@@ -49,15 +61,14 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading || isClaveNueva) return;
     if (!session && !isLoginPage) router.replace(`/portal/${slug}/login`);
-    if (session && isLoginPage) router.replace(`/portal/${slug}/clases`);
+    if (session && isLoginPage) router.replace(`/portal/${slug}/home`);
   }, [session, isLoading, isLoginPage, isClaveNueva, router, slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Transición entre pantallas del portal (clases/home/mi-plan/...): la
-  // pantalla saliente se queda montada (misma key, así React la conserva en
-  // vez de desmontarla) y se superpone en absolute mientras se desvanece; la
-  // entrante hace fade-in encima. Así nunca hay un instante sin nada pintado
-  // que deje ver el fondo del shell — que en modo noche es casi negro y se
-  // veía como un parpadeo al cambiar de pestaña.
+  // Transición entre pantallas del portal: la pantalla saliente se queda
+  // montada (misma key, así React la conserva en vez de desmontarla) y se
+  // superpone en absolute mientras se desvanece; la entrante hace fade-in
+  // encima. Así nunca hay un instante sin nada pintado que deje ver el fondo
+  // del shell.
   const [screen, setScreen] = useState<{ path: string; node: React.ReactNode }>({ path: pathname, node: children });
   const [leaving, setLeaving] = useState<{ path: string; node: React.ReactNode } | null>(null);
   if (screen.path !== pathname) {
@@ -73,10 +84,9 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   }, [leaving]);
 
   // El portal es una app de móvil, no un sitio responsive: en pantallas anchas
-  // (alguien lo abre en el navegador del ordenador) FRAME la limita al ancho de
-  // un teléfono y la centra, en vez de estirarla borde a borde — así se evita
-  // el aspecto roto/desproporcionado que da un diseño móvil sin tope de ancho.
-  const FRAME: React.CSSProperties = { maxWidth: 480, width: '100%', height: '100%', margin: '0 auto', position: 'relative', overflow: 'hidden' };
+  // FRAME la limita al ancho de un teléfono y la centra, en vez de estirarla
+  // borde a borde.
+  const FRAME: React.CSSProperties = { maxWidth: 480, width: '100%', height: '100%', margin: '0 auto', position: 'relative', overflow: 'hidden', fontFamily: sans };
 
   if (isClaveNueva) {
     return (
@@ -110,7 +120,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     <div className="fixed inset-0" style={{ background: t.bg }}>
       <div
         className="flex flex-col overflow-hidden"
-        style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", ...themeStyle }}
+        style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)', background: t.bg, ...themeStyle }}
       >
         <main className="flex-1 overflow-y-auto relative" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
           {leaving && (
@@ -121,71 +131,65 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           <div key={screen.path} className={leaving ? 'portal-page-in' : undefined}>
             {screen.node}
           </div>
-          <div style={{ height: 'calc(96px + env(safe-area-inset-bottom))' }} />
+          {/* Hueco bajo el contenido para que el menú flotante no tape la
+              última fila. Vive aquí y no en cada pantalla porque el menú
+              también vive aquí: si cambia de alto, esto cambia con él. */}
+          <div style={{ height: `calc(${altura.tabbar + 38}px + env(safe-area-inset-bottom))` }} />
         </main>
 
-        {/* Aviso de un toque para activar notificaciones al entrar (P: la clienta
-            tenía que buscarlo en Ajustes). Se pinta solo si procede. */}
+        {/* Aviso de un toque para activar notificaciones al entrar. Se pinta
+            solo si procede. */}
         <PushPrompt />
 
         <nav
-          className="absolute left-1/2"
+          aria-label="Secciones"
           style={{
-            bottom: 'calc(18px + env(safe-area-inset-bottom))',
-            transform: 'translateX(-50%)',
-            width: 'min(340px, calc(100% - 48px))',
-            height: 60,
-            borderRadius: 999,
+            position: 'absolute', left: 18, right: 18,
+            bottom: 'calc(22px + env(safe-area-inset-bottom))',
+            height: altura.tabbar, zIndex: 14, borderRadius: radio.tabbar,
             background: t.tabbar,
-            border: `1px solid ${t.line}`,
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
+            ...cristal(desenfoque.tabbar, 170),
+            border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`,
+            boxShadow: sombra.tabbar,
+            display: 'flex', alignItems: 'center', padding: 6,
           }}
         >
-          {/* Indicador de pestaña activa: una sola burbuja, animada solo con
-              transform (GPU/compositor) — nada de filtros SVG ni de `left`,
-              que en Safari de iOS renderizan por software y dan tirones. El
-              rebote lo pone la curva "back-out" (overshoot), no un blur. */}
+          {/* La pastilla. Se mueve solo con `transform` — nunca con `left`, que
+              obliga a recalcular disposición en cada frame y en Safari de iOS se
+              nota. El ancho sale del número de secciones, así que si vuelve
+              "Vídeos" no hay que tocar nada. */}
           {activeIndex >= 0 && (
-            <div
-              className="absolute inset-y-0"
+            <span
+              aria-hidden
               style={{
-                left: 0, width: `${SLOT}%`, pointerEvents: 'none',
+                position: 'absolute', left: 6, top: 6, bottom: 6,
+                width: `calc((100% - 12px) / ${NAV.length})`,
+                borderRadius: radio.pastilla, background: noche ? t.surface2 : '#FFFFFF',
+                boxShadow: sombra.pastilla, pointerEvents: 'none',
                 transform: `translateX(${activeIndex * 100}%)`,
-                transition: 'transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+                transition: `transform ${dur.tab}ms ${EASE}`,
                 willChange: 'transform',
               }}
-            >
-              <div
-                className="absolute top-1/2 left-1/2"
-                style={{
-                  width: 46, height: 46, borderRadius: 999,
-                  background: 'var(--portal-brand)', transform: 'translate(-50%, -50%)',
-                }}
-              />
-            </div>
+            />
           )}
 
-          <div className="relative flex h-full">
-            {NAV.map(({ seg, icon: Icon, label }, i) => {
-              const href = `/portal/${slug}/${seg}`;
-              const active = i === activeIndex;
-              return (
-                <Link
-                  key={seg}
-                  href={href}
-                  aria-label={label}
-                  className="flex-1 flex items-center justify-center active:opacity-70"
-                >
-                  <Icon
-                    size={21}
-                    strokeWidth={active ? 2.4 : 1.9}
-                    style={{ color: active ? 'var(--portal-brand-foreground)' : t.muted, transition: 'color 160ms ease 60ms' }}
-                  />
-                </Link>
-              );
-            })}
-          </div>
+          {NAV.map(({ seg, label }, i) => {
+            const active = i === activeIndex;
+            return (
+              <Link
+                key={seg}
+                href={`/portal/${slug}/${seg}`}
+                aria-current={active ? 'page' : undefined}
+                style={{
+                  position: 'relative', flex: 1, textAlign: 'center', ...texto.tab,
+                  color: active ? t.ink : t.muted, textDecoration: 'none',
+                  transition: 'color 350ms ease',
+                }}
+              >
+                {label}
+              </Link>
+            );
+          })}
         </nav>
       </div>
     </div>

@@ -52,7 +52,7 @@ export default function PortalClaveNueva() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: t.bg, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 24, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: t.bg, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 24 }}>
       <div style={{ maxWidth: 400, width: '100%', margin: '0 auto' }}>
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>

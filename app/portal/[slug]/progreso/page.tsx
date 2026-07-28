@@ -94,7 +94,7 @@ export default function ProgresoPage() {
   if (!socio || !socioId) return null;
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ minHeight: '100%', background: t.bg }}>
       {/* Header */}
       <div style={{ padding: '24px 20px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>

@@ -68,7 +68,7 @@ export default function VideosPage() {
   };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ minHeight: '100%', background: t.bg }}>
 
       {/* Header */}
       <div style={{ padding: '24px 20px 16px' }}>
