@@ -5,6 +5,7 @@ import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { ReservaEmail } from '@/lib/emails/reserva-template';
 import { resolverPlantilla, interpolar, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
+import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Envío de emails transaccionales desde CÓDIGO DE SERVIDOR (no una ruta staff):
@@ -74,6 +75,14 @@ export async function enviarEmailTransaccional(params: {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
+  // Direcciones de ejemplo (RFC 2606): ni se intentan. Por aquí pasan justo los
+  // envíos automáticos —recordatorio de 24 h, cancelación, promoción de lista de
+  // espera—, que son los que más veces se disparan sobre datos de demo. No se
+  // llama a `avisarFalloEmail`: no es que el correo esté roto, es que esa ficha
+  // tiene una dirección inventada, y avisar a la dueña cada día de eso es ruido.
+  if (esDominioReservado(params.to)) {
+    return { ok: false, error: `Email de ejemplo (${params.to}), no una dirección real` };
+  }
 
   try {
     const [plantilla, marca] = await Promise.all([

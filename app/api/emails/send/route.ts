@@ -13,6 +13,7 @@ import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { resolverPlantilla, interpolar, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
+import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 
 export async function POST(req: NextRequest) {
   // SEGURIDAD: solo staff autenticado. Evita que cualquiera use la cuenta de
@@ -32,6 +33,18 @@ export async function POST(req: NextRequest) {
     toName: string;
     data: Record<string, unknown>;
   };
+
+  // Direcciones de ejemplo (RFC 2606): se cortan ANTES de llamar a Resend, igual
+  // que en el motor de automatizaciones. Hasta ahora la guarda sólo vivía allí, así
+  // que todo lo que dispara la dueña a mano desde el panel —recibo, bienvenida,
+  // cancelación, cambio de instructora, campaña— salía sin filtrar. Resend las
+  // rechaza de todas formas, pero con un error suyo en inglés; aquí le decimos qué
+  // arreglar y nos ahorramos la llamada. Ver lib/emails/dominios-reservados.ts.
+  if (esDominioReservado(body.to)) {
+    return NextResponse.json({
+      error: `${body.toName || body.to} tiene un email de ejemplo (${body.to}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.`,
+    }, { status: 400 });
+  }
 
   // `body.data` llega con un `as` que TypeScript no comprueba en runtime. Se
   // valida ANTES de renderizar: los campos que van en template literals (asunto,
