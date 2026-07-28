@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
 import { mapIngresoManual, desglosarIvaDesdeTotal } from '@/lib/fiscal/cierre-engine';
 import type { RowIngresosManuales } from '@/lib/db-types';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // CRUD de ingresos cobrados FUERA de Tentare que el estudio añade al cierre de
 // año (efectivo, transferencia, otra plataforma…). Solo staff autenticado; el
@@ -37,6 +38,11 @@ export async function GET(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Esta ruta usa service-role, que SE SALTA la RLS: el rol hay que mirarlo
+  // aquí o no lo mira nadie. Un ingreso manual entra en el cierre fiscal.
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para ver o tocar los ingresos manuales' }, { status: 403 });
+  }
 
   const anio = Number(new URL(req.url).searchParams.get('anio'));
   let q = admin.from('ingresos_manuales').select('*').eq('studio_id', sesion.studioId);
@@ -54,6 +60,11 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Esta ruta usa service-role, que SE SALTA la RLS: el rol hay que mirarlo
+  // aquí o no lo mira nadie. Un ingreso manual entra en el cierre fiscal.
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para ver o tocar los ingresos manuales' }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: 'Cuerpo no válido' }, { status: 400 });
@@ -72,6 +83,11 @@ export async function PATCH(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Esta ruta usa service-role, que SE SALTA la RLS: el rol hay que mirarlo
+  // aquí o no lo mira nadie. Un ingreso manual entra en el cierre fiscal.
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para ver o tocar los ingresos manuales' }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const id = typeof body?.id === 'string' ? body.id : null;
@@ -94,6 +110,11 @@ export async function DELETE(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Esta ruta usa service-role, que SE SALTA la RLS: el rol hay que mirarlo
+  // aquí o no lo mira nadie. Un ingreso manual entra en el cierre fiscal.
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para ver o tocar los ingresos manuales' }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as { id?: unknown } | null;
   const id = typeof body?.id === 'string' ? body.id : null;
