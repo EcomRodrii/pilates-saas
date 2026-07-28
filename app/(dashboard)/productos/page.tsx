@@ -7,6 +7,11 @@ import { Package, Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X,
 import type { PlanTarifa, ProductoPOS } from '@/lib/types';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import {
+  planVacio, planAFormulario, formularioAPlan, motivoNoGuardable, caducaPorDias,
+  type FormularioPlan,
+} from '@/lib/planes/formulario';
 
 type Tab = 'planes' | 'pos';
 
@@ -27,34 +32,24 @@ function fmt(n: number) { return n.toLocaleString('es-ES', { minimumFractionDigi
 
 // ── Plan form modal ───────────────────────────────────────────────────────────
 
-// `validezDias` y `limiteSemanal` existen en PlanTarifa y en BD desde
-// 0075_bono_validez_limite_congelacion, y toda la cadena de abajo ya los usa
-// (calcularFechaFinBono → suscripciones.fecha_fin → bonoConsumible →
-// tieneEntitlementActivo → aviso de bono a punto de caducar → congelación).
-// Este formulario nació sin ellos, y como es el que está en el menú lateral,
-// todo bono creado aquí salía con validez null: un bono que no caduca nunca.
-// El de components/configuracion/tab-planes.tsx sí los tiene — son dos
-// formularios de la misma entidad y este se quedó atrás.
-type PlanFormData = { nombre: string; precio: string; tipo: PlanTarifa['tipo']; sesiones: string; validezDias: string; limiteSemanal: string; descripcion: string; activo: boolean };
+// El formulario y su derivación viven en lib/planes/formulario.ts, compartidos
+// con components/configuracion/tab-planes.tsx. Eran dos copias, se separaron, y
+// esa separación costó dos bugs de dinero: un bono vendido aquí no generaba
+// recibo y no caducaba nunca. Los campos se pintan donde toque; lo que se
+// GUARDA se decide en un solo sitio y está cubierto por tests.
 
-function PlanModal({ initial, onSave, onClose }: {
+function PlanModal({ initial, tiposClase, onSave, onClose }: {
   initial?: PlanTarifa;
-  onSave: (d: PlanFormData) => void;
+  tiposClase: { id: string; nombre: string }[];
+  onSave: (f: FormularioPlan) => void;
   onClose: () => void;
 }) {
   const uid = useId();
-  const [form, setForm] = useState<PlanFormData>({
-    nombre: initial?.nombre ?? '',
-    precio: initial?.precio?.toString() ?? '',
-    tipo: initial?.tipo ?? 'MENSUAL',
-    sesiones: initial?.sesiones?.toString() ?? '',
-    validezDias: initial?.validezDias?.toString() ?? '',
-    limiteSemanal: initial?.limiteSemanal?.toString() ?? '',
-    descripcion: initial?.descripcion ?? '',
-    activo: initial?.activo ?? true,
-  });
-  const set = (k: keyof PlanFormData, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
-  const valid = form.nombre.trim() && form.precio && Number(form.precio) >= 0;
+  const [form, setForm] = useState<FormularioPlan>(initial ? planAFormulario(initial) : planVacio());
+  const set = (k: keyof FormularioPlan, v: string | boolean | string[]) => setForm(f => ({ ...f, [k]: v }));
+  // Decir POR QUÉ no se puede guardar, no solo apagar el botón: un botón gris
+  // sin explicación es de las cosas que más desesperan.
+  const falta = motivoNoGuardable(form);
 
   return (
     <DashboardSheet open onClose={onClose} label={initial ? 'Editar plan' : 'Nuevo plan'} closeOnBackdropClick={false}>
@@ -87,7 +82,7 @@ function PlanModal({ initial, onSave, onClose }: {
               </select>
             </div>
           </div>
-          {(form.tipo === 'BONO' || form.tipo === 'PUNTUAL') && (
+          {caducaPorDias(form.tipo) && (
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor={`${uid}-4`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Número de sesiones</label>
@@ -117,6 +112,40 @@ function PlanModal({ initial, onSave, onClose }: {
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
               placeholder="Acceso ilimitado a clases grupales" />
           </div>
+          {/* Restricción por tipo de clase. Existía sólo en el formulario de
+              Configuración: creado desde aquí, el plan nacía sirviendo para
+              todo, y al editarlo la restricción seguía puesta pero era
+              invisible e ineditable. Dos pantallas de lo mismo, una ciega. */}
+          {tiposClase.length > 0 && (
+            <div>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">¿Para qué clases sirve?</span>
+              <div className="flex flex-wrap gap-1.5">
+                {tiposClase.map(tc => {
+                  const puesto = form.tiposClaseIds.includes(tc.id);
+                  return (
+                    <button
+                      key={tc.id}
+                      type="button"
+                      aria-pressed={puesto}
+                      onClick={() => set('tiposClaseIds', puesto
+                        ? form.tiposClaseIds.filter(x => x !== tc.id)
+                        : [...form.tiposClaseIds, tc.id])}
+                      className="px-2.5 py-1.5 rounded-lg text-[13px] font-medium border transition-colors"
+                      style={puesto
+                        ? { backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)', borderColor: 'var(--brand)' }
+                        : { borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+                      {tc.nombre}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                {form.tiposClaseIds.length === 0
+                  ? 'Sin marcar nada, sirve para todas tus clases.'
+                  : 'Sólo se podrá usar en las clases marcadas.'}
+              </p>
+            </div>
+          )}
           {/* Era un <div onClick> dentro de un <label>: el tabulador no lo
               alcanzaba, no respondía a Espacio/Enter y ningún lector de
               pantalla lo anunciaba como control. Ahora es un botón real con
@@ -136,13 +165,16 @@ function PlanModal({ initial, onSave, onClose }: {
             <span className="text-sm font-medium text-foreground">Plan activo</span>
           </div>
         </div>
-        <div className="flex gap-3 px-6 pb-6">
+        <div className="px-6 pb-6">
+          {falta && <p className="text-[12px] text-muted-foreground mb-2" role="status">{falta}</p>}
+          <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">Cancelar</button>
-          <button onClick={() => valid && onSave(form)} disabled={!valid}
+          <button onClick={() => !falta && onSave(form)} disabled={!!falta}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
             style={{ backgroundColor: 'var(--brand)' }}>
             {initial ? 'Guardar cambios' : 'Crear plan'}
           </button>
+          </div>
         </div>
       </>
     </DashboardSheet>
@@ -239,9 +271,14 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Productos() {
-  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones } = useStudio();
+  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase } = useStudio();
   const [tab, setTab] = useState<Tab>('planes');
   const [planModal, setPlanModal] = useState<PlanTarifa | null | 'new'>(null);
+  // Borrar una tarifa no se confirmaba: un clic de más y desaparecía sin
+  // preguntar ni avisar. El otro formulario sí confirmaba — misma acción
+  // destructiva, dos comportamientos.
+  const [borrando, setBorrando] = useState<PlanTarifa | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [posModal, setPosModal] = useState<ProductoPOS | null | 'new'>(null);
 
   // CONGELADO (feature-freeze PMF): oculta la pestaña "Productos POS" mientras POS
@@ -255,28 +292,15 @@ export default function Productos() {
   // Count active suscripciones per plan
   const susCount = (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length;
 
-  function savePlan(d: PlanFormData) {
-    // La validez sólo aplica a bonos y puntuales (un mensual se renueva, no
-    // caduca); el límite semanal vale para cualquier tipo. Mismo criterio que
-    // components/configuracion/tab-planes.tsx, que es el otro formulario de esta
-    // misma entidad.
-    const esBonoOPuntual = d.tipo === 'BONO' || d.tipo === 'PUNTUAL';
-    const fields = {
-      nombre: d.nombre.trim(),
-      precio: parseFloat(d.precio) || 0,
-      tipo: d.tipo,
-      sesiones: d.tipo !== 'MENSUAL' && d.sesiones ? parseInt(d.sesiones) : null,
-      validezDias: esBonoOPuntual && d.validezDias ? parseInt(d.validezDias, 10) : null,
-      limiteSemanal: d.limiteSemanal ? parseInt(d.limiteSemanal, 10) : null,
-      descripcion: d.descripcion.trim() || null,
-      activo: d.activo,
-    };
-    if (planModal && planModal !== 'new') {
-      updatePlan(planModal.id, fields);
-    } else {
-      addPlan(fields);
-    }
+  function savePlan(f: FormularioPlan) {
+    // La derivación (qué caduca, qué se descarta, qué es null) vive en
+    // lib/planes/formulario.ts y la comparte con el formulario de Configuración.
+    const datos = formularioAPlan(f);
+    const editando = planModal && planModal !== 'new';
+    if (editando) updatePlan(planModal.id, datos);
+    else addPlan(datos);
     setPlanModal(null);
+    setAviso(editando ? 'Tarifa actualizada' : `"${datos.nombre}" ya está a la venta`);
   }
 
   function savePos(d: { nombre: string; precio: string; categoria: ProductoPOS['categoria']; activo: boolean }) {
@@ -354,7 +378,7 @@ export default function Productos() {
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => deletePlan(plan.id)} aria-label="Eliminar plan"
+                    <button onClick={() => setBorrando(plan)} aria-label="Eliminar plan"
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                       <Trash2 size={13} />
                     </button>
@@ -507,9 +531,38 @@ export default function Productos() {
       {planModal && (
         <PlanModal
           initial={planModal !== 'new' ? planModal : undefined}
-          onSave={savePlan as Parameters<typeof PlanModal>[0]['onSave']}
+          tiposClase={tiposClase}
+          // Sin cast: el `as Parameters<...>` que había aquí silenciaba
+          // cualquier desajuste futuro entre el formulario y el guardado —
+          // justo el tipo de silencio que dejó a esta pantalla sin caducidad.
+          onSave={savePlan}
           onClose={() => setPlanModal(null)}
         />
+      )}
+      <ConfirmDialog
+        open={borrando !== null}
+        onOpenChange={o => !o && setBorrando(null)}
+        titulo="¿Eliminar esta tarifa?"
+        destructivo
+        descripcion={borrando
+          ? (susCount(borrando.id) > 0
+              // Decir cuántas la tienen contratada ANTES de borrar: el recuento
+              // ya se calculaba para pintarlo en la tarjeta, pero no se usaba
+              // para avisar en el único momento en que importa.
+              ? `"${borrando.nombre}" la tienen contratada ${susCount(borrando.id)} clienta${susCount(borrando.id) !== 1 ? 's' : ''}. Seguirán con su plan y se les seguirá cobrando; lo que desaparece es la tarifa del catálogo, para que no puedas venderla más.`
+              : `"${borrando.nombre}" dejará de estar a la venta. No la tiene contratada nadie.`)
+          : ''}
+        textoConfirmar="Eliminar"
+        onConfirm={() => {
+          if (borrando) { deletePlan(borrando.id); setAviso(`"${borrando.nombre}" ya no está a la venta`); }
+          setBorrando(null);
+        }}
+      />
+      {aviso && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-foreground text-background text-[13px] font-medium shadow-lg"
+          role="status" onAnimationEnd={() => setAviso(null)}>
+          {aviso}
+        </div>
       )}
       {posModal && (
         <PosModal

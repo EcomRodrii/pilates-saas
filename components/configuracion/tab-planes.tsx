@@ -8,6 +8,10 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { PlanTarifa } from '@/lib/types';
 import {
+  planVacio, planAFormulario, formularioAPlan, motivoNoGuardable,
+  type FormularioPlan,
+} from '@/lib/planes/formulario';
+import {
   Field,
   Toggle,
   ConfirmDialog,
@@ -19,44 +23,14 @@ import {
   cardCls,
 } from '@/app/(dashboard)/configuracion/page';
 
-type PlanForm = {
-  nombre: string;
-  descripcion: string;
-  precio: string;
-  tipo: PlanTarifa['tipo'];
-  sesiones: string;
-  validezDias: string;
-  limiteSemanal: string;
-  /** Vacío = el plan vale para todas las clases (lo de siempre). */
-  tiposClaseIds: string[];
-  activo: boolean;
-};
-
-const emptyPlanForm = (): PlanForm => ({
-  nombre: '',
-  descripcion: '',
-  precio: '',
-  tipo: 'MENSUAL',
-  sesiones: '',
-  validezDias: '',
-  limiteSemanal: '',
-  tiposClaseIds: [],
-  activo: true,
-});
-
-function planToForm(p: PlanTarifa): PlanForm {
-  return {
-    nombre: p.nombre,
-    descripcion: p.descripcion ?? '',
-    precio: String(p.precio),
-    tipo: p.tipo,
-    sesiones: p.sesiones !== null ? String(p.sesiones) : '',
-    validezDias: p.validezDias !== null ? String(p.validezDias) : '',
-    limiteSemanal: p.limiteSemanal !== null ? String(p.limiteSemanal) : '',
-    tiposClaseIds: p.tiposClaseIds ?? [],
-    activo: p.activo,
-  };
-}
+// El formulario y su derivación viven en lib/planes/formulario.ts, compartidos
+// con app/(dashboard)/productos/page.tsx. Eran dos copias de la misma entidad y
+// se separaron: a la otra le faltaba la caducidad, y un bono vendido allí no
+// caducaba nunca. Los campos se pintan donde toque; lo que se GUARDA se decide
+// en un solo sitio, y está cubierto por tests.
+type PlanForm = FormularioPlan;
+const emptyPlanForm = planVacio;
+const planToForm = planAFormulario;
 
 export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
   const { planesTarifa, tiposClase, addPlan, updatePlan, deletePlan } = useStudio();
@@ -81,24 +55,14 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
   const closeModal = useCallback(() => setModal(null), []);
 
   const guardar = useCallback(() => {
-    const esBonoOPuntual = form.tipo !== 'MENSUAL';
-    const fields = {
-      nombre: form.nombre.trim(),
-      descripcion: form.descripcion.trim() || null,
-      precio: parseFloat(form.precio) || 0,
-      tipo: form.tipo,
-      sesiones: esBonoOPuntual && form.sesiones ? parseInt(form.sesiones, 10) : null,
-      // Validez solo aplica a bonos/puntuales; el límite semanal a cualquier tipo.
-      validezDias: esBonoOPuntual && form.validezDias ? parseInt(form.validezDias, 10) : null,
-      limiteSemanal: form.limiteSemanal ? parseInt(form.limiteSemanal, 10) : null,
-      tiposClaseIds: form.tiposClaseIds,
-      activo: form.activo,
-    };
+    // La derivación (qué caduca, qué se descarta, qué es null) vive en
+    // lib/planes/formulario.ts y la comparte con la pantalla de Productos.
+    const datos = formularioAPlan(form);
     if (modal === 'nuevo') {
-      addPlan(fields);
+      addPlan(datos);
       showToast('Plan creado correctamente');
     } else if (editId) {
-      updatePlan(editId, fields);
+      updatePlan(editId, datos);
       showToast('Plan actualizado');
     }
     setModal(null);
@@ -120,7 +84,9 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
   }, [confirmDel, deletePlan, showToast]);
 
   const sesionesRequeridas = form.tipo === 'BONO' || form.tipo === 'PUNTUAL';
-  const canGuardar = form.nombre.trim() && form.precio;
+  // Mismo criterio que Productos, y diciendo QUÉ falta en vez de solo apagar
+  // el botón. Antes aquí no se comprobaba que el precio no fuera negativo.
+  const falta = motivoNoGuardable(form);
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -411,6 +377,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
               </p>
             </div>
           </div>
+          {falta && <p className="text-[12px] text-muted-foreground mt-4 -mb-1" role="status">{falta}</p>}
           <div className="flex gap-2 mt-4">
             <button className={cn(btnSecondary, 'flex-1 justify-center')} onClick={closeModal}>
               Cancelar
@@ -418,7 +385,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
             <button
               className={cn(btnPrimary, 'flex-1 justify-center')}
               onClick={guardar}
-              disabled={!canGuardar}
+              disabled={!!falta}
             >
               {modal === 'nuevo' ? 'Crear plan' : 'Guardar cambios'}
             </button>
