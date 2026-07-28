@@ -6,6 +6,7 @@ import { emailValido, parsearFecha, normalizarEstadoMembresia } from '@/lib/csv'
 import { uid } from '@/lib/utils';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
+import { catalogo } from '@/lib/migracion/catalogo';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -56,9 +57,9 @@ export async function POST(req: NextRequest) {
 
   // Catálogo del estudio para emparejar: socias por email + planes por nombre.
   const [{ data: socios, error: errS }, { data: planes, error: errP }, { data: susExist, error: errX }] = await Promise.all([
-    admin.from('socios').select('id, email').eq('studio_id', sesion.studioId),
-    admin.from('planes_tarifa').select('id, nombre, tipo, sesiones').eq('studio_id', sesion.studioId),
-    admin.from('suscripciones').select('socio_id, plan_id, estado').eq('studio_id', sesion.studioId),
+    catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', sesion.studioId).range(d, h)),
+    catalogo<{ id: string; nombre: string; tipo: string; sesiones: number | null }>((d, h) => admin.from('planes_tarifa').select('id, nombre, tipo, sesiones').eq('studio_id', sesion.studioId).range(d, h)),
+    catalogo<{ socio_id: string; plan_id: string; estado: string }>((d, h) => admin.from('suscripciones').select('socio_id, plan_id, estado').eq('studio_id', sesion.studioId).range(d, h)),
   ]);
   if (errS || errP || errX) {
     return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
@@ -119,8 +120,22 @@ export async function POST(req: NextRequest) {
 
     const fechaInicio = parsearFecha(f.fechaInicio) ?? hoy;
     const fechaFin = parsearFecha(f.fechaFin);
-    // Saldo de bono: usa el del CSV si viene; si no y el plan es BONO, el del plan.
-    const sesionesCsv = typeof f.sesiones === 'number' && Number.isFinite(f.sesiones) ? Math.max(0, Math.trunc(f.sesiones)) : null;
+    // Saldo de bono: el del CSV si viene; si la celda venía VACÍA y el plan es
+    // BONO, el del plan.
+    //
+    // ⚠️ Ese `??` es una decisión de dinero, no un default cómodo: rellena el
+    // hueco con el bono ENTERO. Mientras el cliente mandaba `null` tanto para
+    // «vacío» como para «no supe leerlo», una socia con «4 de 10» entraba con
+    // 10 sesiones. Ahora `validarFilasMembresia` marca esas filas como error y
+    // no llegan hasta aquí, así que un `null` significa de verdad «vacío».
+    // Si alguna vez llega un saldo ilegible por otra vía, se rechaza la fila en
+    // lugar de inventarse el saldo.
+    const saldoBruto = f.sesiones;
+    if (saldoBruto != null && !Number.isFinite(saldoBruto)) {
+      errores.push({ fila: numFila, email: emailRaw, motivo: 'El saldo del bono no es un número' });
+      return;
+    }
+    const sesionesCsv = typeof saldoBruto === 'number' ? Math.max(0, Math.trunc(saldoBruto)) : null;
     const sesionesRestantes = sesionesCsv ?? (plan.tipo === 'BONO' ? plan.sesiones : null);
 
     paraInsertar.push({

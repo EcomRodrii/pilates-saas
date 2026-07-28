@@ -6,6 +6,7 @@ import { emailValido, parsearFecha } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
+import { catalogo } from '@/lib/migracion/catalogo';
 
 export const maxDuration = 60;
 
@@ -46,9 +47,9 @@ export async function POST(req: NextRequest) {
   if (filas.length > MAX_FILAS) return NextResponse.json({ error: `Máximo ${MAX_FILAS} filas por importación` }, { status: 413 });
 
   const [{ data: socios, error: errS }, { data: salas, error: errSa }, { data: plazasExist, error: errP }] = await Promise.all([
-    admin.from('socios').select('id, email').eq('studio_id', sesion.studioId),
-    admin.from('salas').select('id, nombre').eq('studio_id', sesion.studioId),
-    admin.from('plazas_fijas').select('socio_id, dia_semana, hora_inicio, sala_id, estado').eq('studio_id', sesion.studioId),
+    catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', sesion.studioId).range(d, h)),
+    catalogo<{ id: string; nombre: string }>((d, h) => admin.from('salas').select('id, nombre').eq('studio_id', sesion.studioId).range(d, h)),
+    catalogo<{ socio_id: string; dia_semana: number; hora_inicio: string; sala_id: string | null; estado: string }>((d, h) => admin.from('plazas_fijas').select('socio_id, dia_semana, hora_inicio, sala_id, estado').eq('studio_id', sesion.studioId).range(d, h)),
   ]);
   if (errS || errSa || errP) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
 
