@@ -5319,7 +5319,7 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
 // negocio (el slug real, que puede llevar sufijo "-2" si hubo colisión de
 // nombre — la UI de éxito lo necesita para no inventarse la URL del portal),
 // o null si falló.
-export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string }): Promise<{ id: string; slug: string } | null> {
+export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string; comoNosConocio?: string }): Promise<{ id: string; slug: string } | null> {
   // Dos carreras transitorias se reintentan (en vez de dejar pasar el error crudo):
   //  · 23505 slug: generateUniqueSlug comprueba disponibilidad y el insert llega
   //    después; un segundo alta con el mismo nombre (doble clic, dos pestañas)
@@ -5343,6 +5343,7 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
       plan: 'BASE',
       owner_auth_user_id: fields.ownerAuthUserId,
       slug,
+      como_nos_conocio: fields.comoNosConocio || null,
     });
     if (!error) return { id, slug };
     ultimoError = error;
