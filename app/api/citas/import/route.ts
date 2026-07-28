@@ -7,6 +7,7 @@ import type { FilaCita } from '@/lib/csv';
 import { errorInterno } from '@/lib/errores-servidor';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
+import { catalogo } from '@/lib/migracion/catalogo';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -66,10 +67,10 @@ export async function POST(req: NextRequest) {
 
   const [{ data: socios, error: eS }, { data: servicios, error: eSv }, { data: instructores, error: eI }, { data: citasExist, error: eC }] =
     await Promise.all([
-      admin.from('socios').select('id, email').eq('studio_id', studioId).is('borrado_en', null),
-      admin.from('citas_servicios').select('id, nombre, tipo, duracion_min, precio').eq('studio_id', studioId),
-      admin.from('instructores').select('id, nombre').eq('studio_id', studioId),
-      admin.from('citas').select('socio_id, inicio, estado').eq('studio_id', studioId),
+      catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', studioId).is('borrado_en', null).range(d, h)),
+      catalogo<{ id: string; nombre: string; tipo: string; duracion_min: number | null; precio: number | null }>((d, h) => admin.from('citas_servicios').select('id, nombre, tipo, duracion_min, precio').eq('studio_id', studioId).range(d, h)),
+      catalogo<{ id: string; nombre: string }>((d, h) => admin.from('instructores').select('id, nombre').eq('studio_id', studioId).range(d, h)),
+      catalogo<{ socio_id: string | null; inicio: string; estado: string }>((d, h) => admin.from('citas').select('socio_id, inicio, estado').eq('studio_id', studioId).range(d, h)),
     ]);
   if (eS || eSv || eI || eC) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
 

@@ -6,6 +6,7 @@ import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing/billing-g
 import { emailValido, parsearFecha } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
+import { catalogo } from '@/lib/migracion/catalogo';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
@@ -58,10 +59,15 @@ export async function POST(req: NextRequest) {
   }
 
   // Emails ya existentes en el estudio (dedup case-insensitive).
-  const { data: existentes, error: errLeer } = await admin
-    .from('socios')
-    .select('email')
-    .eq('studio_id', sesion.studioId);
+  //
+  // Paginado a propósito: sin `.range()` PostgREST corta en 1000 filas SIN
+  // avisar, el catálogo llega incompleto y reimportar DUPLICA a las clientas
+  // que no entraron en esas 1000. En un estudio de 850 no se nota; en uno de
+  // 1200, la segunda pasada del CSV le crea 200 fichas repetidas.
+  const { data: existentes, error: errLeer } = await catalogo<{ email: string | null }>(
+    (desde, hasta) =>
+      admin.from('socios').select('email').eq('studio_id', sesion.studioId).range(desde, hasta),
+  );
   if (errLeer) {
     return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
   }

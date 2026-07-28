@@ -7,6 +7,7 @@ import { uid } from '@/lib/utils';
 import type { FilaReserva } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
+import { catalogo } from '@/lib/migracion/catalogo';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -66,9 +67,9 @@ export async function POST(req: NextRequest) {
 
   // ── Catálogo para emparejar ────────────────────────────────────────────────
   const [{ data: socios, error: eS }, { data: tipos, error: eT }, { data: sesiones, error: eSes }] = await Promise.all([
-    admin.from('socios').select('id, email').eq('studio_id', studioId).is('borrado_en', null),
-    admin.from('tipos_clase').select('id, nombre').eq('studio_id', studioId),
-    admin.from('sesiones').select('id, tipo_clase_id, inicio, aforo_maximo').eq('studio_id', studioId),
+    catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', studioId).is('borrado_en', null).range(d, h)),
+    catalogo<{ id: string; nombre: string }>((d, h) => admin.from('tipos_clase').select('id, nombre').eq('studio_id', studioId).range(d, h)),
+    catalogo<{ id: string; tipo_clase_id: string | null; inicio: string; aforo_maximo: number | null }>((d, h) => admin.from('sesiones').select('id, tipo_clase_id, inicio, aforo_maximo').eq('studio_id', studioId).range(d, h)),
   ]);
   if (eS || eT || eSes) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
 

@@ -13,18 +13,37 @@ export interface ParsedCsv {
 
 const DELIMITADORES = [',', ';', '\t'] as const;
 
-/** Detecta el delimitador contando ocurrencias en la primera línea no vacía. */
+/**
+ * Detecta el delimitador contando ocurrencias fuera de comillas.
+ *
+ * Mira las primeras líneas no vacías, no solo la primera. Un Excel español
+ * exportado a mano suele traer un título antes de la cabecera:
+ *
+ *     Listado de clientas 2026
+ *                                 ← línea en blanco
+ *     Nombre;Apellidos;Email
+ *
+ * `parseCsv` ya sabe saltarse ese preámbulo para encontrar la cabecera, pero la
+ * detección miraba la PRIMERA línea del archivo — un título sin `;` — y elegía
+ * la coma. Resultado: todo el CSV en una sola columna, archivo sin clasificar, y
+ * la dueña sin ninguna pista de por qué. Justo la combinación más común de
+ * España: separador `;` y una fila de título.
+ *
+ * Se queda con el delimitador que MÁS aparece en el conjunto, así que una línea
+ * de título con una coma suelta ya no gana a tres `;` de la cabecera real.
+ */
 export function detectarDelimitador(texto: string): string {
-  const primeraLinea = texto.split(/\r?\n/).find((l) => l.trim() !== '') ?? '';
+  const lineas = texto.split(/\r?\n/).filter((l) => l.trim() !== '').slice(0, 5);
   let mejor = ',';
   let maxCuenta = -1;
   for (const d of DELIMITADORES) {
-    // Cuenta ocurrencias fuera de comillas (heurística simple sobre la cabecera).
     let cuenta = 0;
-    let enComillas = false;
-    for (const c of primeraLinea) {
-      if (c === '"') enComillas = !enComillas;
-      else if (c === d && !enComillas) cuenta++;
+    for (const linea of lineas) {
+      let enComillas = false;
+      for (const c of linea) {
+        if (c === '"') enComillas = !enComillas;
+        else if (c === d && !enComillas) cuenta++;
+      }
     }
     if (cuenta > maxCuenta) {
       maxCuenta = cuenta;
@@ -113,6 +132,12 @@ export function parseCsv(input: string): ParsedCsv {
     const idx = limpios.findIndex((r) => r.length >= anchoDom);
     if (idx > 0) inicio = idx;
   }
+  // Una fila de solo separadores (";;;;;") tiene el ancho correcto pero está
+  // vacía. Excel las cuela entre el título y la cabecera de verdad, y como
+  // "encaja" se tomaba como cabecera: todas las columnas salían sin nombre y el
+  // archivo no mapeaba ni un campo. Se salta hacia la primera fila que tenga
+  // algún nombre de columna.
+  while (inicio < limpios.length && limpios[inicio].every((c) => c.trim() === '')) inicio++;
   const headers = (limpios[inicio] ?? []).map((h) => h.trim());
   return { headers, rows: limpios.slice(inicio + 1), delimiter };
 }
@@ -192,6 +217,12 @@ function mapearColumnas<T extends string>(
   const buscar = (campo: T, modo: 'exacto' | 'parcial'): number => {
     for (const syn of sinonimos[campo]) {
       const s = normaliza(syn);
+      // Un sinónimo muy corto casa por accidente en la pasada parcial: `id`
+      // capturaba `memberId` de Momence y metía "M-10234" en el NIF, que es un
+      // campo fiscal y sale en las facturas. Nadie lo veía porque el NIF no es
+      // obligatorio y no daba ningún error. Los sinónimos de 3 letras o menos
+      // solo valen para coincidencia EXACTA.
+      if (modo === 'parcial' && s.length <= 3) continue;
       const idx = modo === 'exacto'
         ? H.findIndex((h, i) => !usados.has(i) && h === s)
         : H.findIndex((h, i) => !usados.has(i) && h.includes(s));
@@ -422,6 +453,46 @@ export function autoMapearMembresia(headers: string[]): Record<CampoMembresia, n
   return mapearColumnas(headers, CAMPOS_MEMBRESIA.map((c) => c.campo), SINONIMOS_MEMBRESIA);
 }
 
+/**
+ * El saldo que queda en un bono, tal y como lo escribe el software viejo.
+ *
+ * `Number()` a secas devolvía NaN con todo lo que no fuera un entero pelado, y
+ * eso acababa en `null`. El servidor interpreta `null` como «el CSV no traía
+ * saldo» y le regala a la socia el bono ENTERO del catálogo: una clienta con 4
+ * sesiones escritas «4 de 10» entraba con 10. En una migración de 850 clientas
+ * eso son cientos de clases regaladas, y nadie se entera hasta que se agotan.
+ *
+ * Por eso se distinguen tres respuestas, y no dos:
+ *   · `null`  → la celda venía vacía. Es legítimo caer al saldo del plan.
+ *   · number  → lo hemos entendido.
+ *   · NaN     → venía ALGO que no sabemos leer. Nunca se inventa un saldo: la
+ *               fila se marca como error para que la dueña lo mire.
+ *
+ * Formatos reales que se aceptan: "4", "4,0" y "4.0" (coma decimal española),
+ * "4 de 10" y "4/10" (lo que escribe medio mundo a mano), "10 sesiones",
+ * "10 credits". Se queda con el PRIMER número, que es el saldo restante.
+ */
+export function parsearSaldoBono(celda: string): number | null | typeof NaN {
+  const s = celda.trim();
+  if (s === '') return null;
+  // Una mensualidad sin tope escribe "ilimitado" en la columna de saldo. Eso NO
+  // es un saldo ilegible: es "sin saldo que contar", igual que la celda vacía.
+  // Confundirlos haría fallar la importación de todas las cuotas mensuales.
+  if (SIN_SALDO.has(normaliza(s))) return null;
+  // Primer número del texto, con coma o punto decimal.
+  const m = s.match(/-?\d+(?:[.,]\d+)?/);
+  if (!m) return NaN;
+  const n = Number(m[0].replace(',', '.'));
+  if (!Number.isFinite(n)) return NaN;
+  return Math.max(0, Math.trunc(n));
+}
+
+/** Marcadores de "esta membresía no cuenta sesiones" en los exports reales. */
+const SIN_SALDO = new Set([
+  'ilimitado', 'ilimitada', 'ilimitados', 'ilimitadas',
+  'unlimited', 'sin limite', 'sin tope', 'n/a', 'na', '-', '--', '∞',
+]);
+
 export interface FilaMembresia {
   email: string;
   plan: string;
@@ -463,7 +534,12 @@ export function validarFilasMembresia(
     const email = emailRaw.toLowerCase();
     const plan = val(fila, mapeo.plan);
     const sesionesRaw = mapeo.sesiones >= 0 ? val(fila, mapeo.sesiones) : '';
-    const sesiones = sesionesRaw !== '' && Number.isFinite(Number(sesionesRaw)) ? Math.trunc(Number(sesionesRaw)) : null;
+    const sesionesParsed = parsearSaldoBono(sesionesRaw);
+    // NaN = la celda traía algo ilegible. Se deja en null para el objeto de
+    // datos, pero se recuerda aparte: abajo la fila se marca como error en vez
+    // de dejar que el servidor rellene el hueco con el bono entero del plan.
+    const saldoIlegible = Number.isNaN(sesionesParsed as number);
+    const sesiones = saldoIlegible ? null : (sesionesParsed as number | null);
     const fechaInicio = mapeo.fecha_inicio >= 0 ? parsearFecha(val(fila, mapeo.fecha_inicio)) : null;
     const fechaFin = mapeo.fecha_fin >= 0 ? parsearFecha(val(fila, mapeo.fecha_fin)) : null;
     const estado = mapeo.estado >= 0 ? normalizarEstadoMembresia(val(fila, mapeo.estado)) : null;
@@ -474,6 +550,15 @@ export function validarFilasMembresia(
     if (!emailRaw) return { ...base, estado: 'error' as const, motivo: 'Falta el email de la socia' };
     if (!emailValido(emailRaw)) return { ...base, estado: 'error' as const, motivo: 'Email no válido' };
     if (!plan) return { ...base, estado: 'error' as const, motivo: 'Falta el plan' };
+    // Antes esta fila entraba con el bono ENTERO del plan. Mejor no importarla y
+    // que se vea, que regalarle sesiones a alguien sin que nadie se entere.
+    if (saldoIlegible) {
+      return {
+        ...base,
+        estado: 'error' as const,
+        motivo: `No entiendo el saldo «${sesionesRaw}». Déjalo en un número (4) o vacío para dar el bono completo.`,
+      };
+    }
     return { ...base, estado: 'ok' as const };
   });
 }
