@@ -430,11 +430,16 @@ function SessionSidebar({
     }
   }
 
-  const sociosEnClase = new Set(reservas.filter(r => r.estado !== 'CANCELADA').map(r => r.socioId));
-  const sociosDisponibles = socios.filter(
-    s => s.activo && !sociosEnClase.has(s.id) &&
-    (buscarSocia === '' || `${s.nombre} ${s.apellidos}`.toLowerCase().includes(buscarSocia.toLowerCase()))
-  );
+  // socios es el listado completo de clientas del estudio (puede ser
+  // cientos) — memoizado para no recorrerlo en cada render del sidebar
+  // disparado por estado no relacionado (activeTab, prepIA, showConfirm...).
+  const sociosDisponibles = useMemo(() => {
+    const sociosEnClase = new Set(reservas.filter(r => r.estado !== 'CANCELADA').map(r => r.socioId));
+    return socios.filter(
+      s => s.activo && !sociosEnClase.has(s.id) &&
+      (buscarSocia === '' || `${s.nombre} ${s.apellidos}`.toLowerCase().includes(buscarSocia.toLowerCase()))
+    );
+  }, [reservas, socios, buscarSocia]);
 
   if (!sesion) return null;
 
@@ -2115,8 +2120,13 @@ export default function Calendario() {
   // ── Label ────────────────────────────────────────────────────────────────────
   const mesLabel = `${semana.toLocaleDateString('es-ES', { day: 'numeric' })} – ${addDays(semana, 6).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
 
-  // Sessions of the current week (agenda groups them by day)
-  const sesionesSemana = sesionesFiltered.filter(s => dias.some(d => localDate(d) === localDate(s.inicio)));
+  // Sessions of the current week (agenda groups them by day). sesionesFiltered
+  // deriva del histórico completo del estudio — memoizado para no recorrerlo
+  // en cada render disparado por estado no relacionado con la semana/filtro.
+  const sesionesSemana = useMemo(
+    () => sesionesFiltered.filter(s => dias.some(d => localDate(d) === localDate(s.inicio))),
+    [sesionesFiltered, dias]
+  );
 
   if (!mounted) return null;
 

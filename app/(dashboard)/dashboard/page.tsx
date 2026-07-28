@@ -495,7 +495,7 @@ export default function Dashboard() {
       : 0;
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
-  const sociasActivas = socios.filter(s => s.activo).length;
+  const sociasActivas = useMemo(() => socios.filter(s => s.activo).length, [socios]);
   const reservasHoy = useMemo(() => reservas.filter(
     r => r.estado !== 'CANCELADA' && sesionesHoyIds.has(r.sesionId)
   ).length, [reservas, sesionesHoyIds]);
@@ -602,6 +602,20 @@ export default function Dashboard() {
   );
 
   const pendientesTotal = useMemo(() => recibos.filter(r => r.estado === 'PENDIENTE').length, [recibos]);
+
+  // automationLogs es un log de auditoría acumulativo (motor de notificaciones);
+  // estos filtros recorrían el array completo en cada render del Dashboard,
+  // incluidos los disparados por estado no relacionado (toasts, confirms).
+  const automationBriefing = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const todayLogs = automationLogs.filter(l => l.ejecutadoEn.startsWith(today));
+    const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
+    const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
+    // 'ESPERANDO' nunca lo escribe ningún camino de ejecución: aquí marcaba
+    // siempre 0 (P2-4). 'FALLIDO' sí ocurre de verdad.
+    const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
+    return { pendingAdmin, ejecutadas, fallidas };
+  }, [automationLogs]);
 
   // ── Radar de ocupación: clases con hueco en las próximas 48h ────────────────
   const tipoClaseById = useMemo(() => new Map(tiposClase.map(t => [t.id, t])), [tiposClase]);
@@ -739,13 +753,7 @@ export default function Dashboard() {
         {/* ── Automation briefing ────────────────────────────────────────────── */}
         <div {...wrap('automatizaciones')}>
         {(() => {
-          const today = new Date().toISOString().slice(0, 10);
-          const todayLogs = automationLogs.filter(l => l.ejecutadoEn.startsWith(today));
-          const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
-          const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
-          // 'ESPERANDO' nunca lo escribe ningún camino de ejecución: aquí
-          // marcaba siempre 0 (P2-4). 'FALLIDO' sí ocurre de verdad.
-          const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
+          const { pendingAdmin, ejecutadas, fallidas } = automationBriefing;
           return (
             <Link
               href="/automatizaciones"
@@ -903,7 +911,7 @@ export default function Dashboard() {
                       Pagos pendientes
                     </h2>
                     <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">
-                      {recibos.filter(r => r.estado === 'PENDIENTE').length}
+                      {pendientesTotal}
                     </span>
                   </div>
                   {pendientes.length > 1 && (
@@ -945,7 +953,7 @@ export default function Dashboard() {
                     </div>
                   ))}
                 </div>
-                {recibos.filter(r => r.estado === 'PENDIENTE').length > 5 && (
+                {pendientesTotal > 5 && (
                   <div className="px-5 py-3 border-t border-muted">
                     <Link
                       href="/cobros?tab=pendientes"
