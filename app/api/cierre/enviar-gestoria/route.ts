@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { puedeVerFinanzas } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { computeCierreAnual, mapFacturaRow, mapIngresoManual } from '@/lib/fiscal/cierre-engine';
@@ -17,6 +18,14 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Esta ruta lee facturas e ingresos con service-role (se salta la RLS de 0109)
+  // y los MANDA POR EMAIL a una dirección que llega en el body. Sin este control,
+  // cualquiera con sesión de personal —una instructora incluida— podía exfiltrar
+  // la contabilidad anual completa a su propio correo. La RLS no cubre esto
+  // precisamente porque aquí se usa `getSupabaseAdmin`.
+  if (!puedeVerFinanzas(sesion.rol)) {
+    return NextResponse.json({ error: 'Solo la propietaria puede enviar el cierre a la gestoría' }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as { anio?: unknown; email?: unknown } | null;
   const anio = Number(body?.anio);

@@ -4,6 +4,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lanza un cobro al datáfono físico (server-driven). Crea un PaymentIntent
@@ -19,9 +20,12 @@ export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
-  // comprueba aquí. Las instructoras no cobran — solo dirección y recepción.
-  if (sesion.rol === 'INSTRUCTOR') {
-    return NextResponse.json({ error: 'Las instructoras no pueden registrar cobros' }, { status: 403 });
+  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
+  // mano: `rol === 'INSTRUCTOR'` dejaba pasar al MANAGER, que podía lanzar un
+  // cobro al datáfono de hasta 10.000 € pese a que su propia descripción en
+  // pantalla promete que no toca la caja.
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'Tu rol no puede registrar cobros' }, { status: 403 });
   }
 
   const key = process.env.STRIPE_SECRET_KEY;

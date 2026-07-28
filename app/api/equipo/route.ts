@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
+
+// El índice `instructores_email_unico_por_estudio` (migr 0120) impide dos fichas
+// con el mismo email en un estudio. Cuando salta NO es un fallo del servidor: es
+// la dueña intentando dar de alta a alguien que ya está. Pasarlo por
+// `errorInterno` lo registraría como error y llenaría el log de rojo tapando los
+// fallos de verdad — exactamente lo que ya pasó con los emails de demo.
+// Se responde 409 con qué hacer, y no se registra nada.
+const EMAIL_DUPLICADO = 'instructores_email_unico_por_estudio';
+function esEmailDuplicado(error: { code?: string; message?: string } | null): boolean {
+  return error?.code === '23505' && (error.message ?? '').includes(EMAIL_DUPLICADO);
+}
+const MENSAJE_EMAIL_DUPLICADO =
+  'Ya hay alguien en tu equipo con ese email. Si volvió después de una baja, reactiva su ficha en vez de crear otra: así conserva su historial.';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
 
@@ -87,8 +100,11 @@ export async function POST(req: NextRequest) {
     auth_user_id: null, // el vínculo se hace vía self-claim (la persona reclama su ficha)
   };
   const { error } = await admin.from('instructores').insert(row);
+  if (esEmailDuplicado(error)) {
+    return NextResponse.json({ error: MENSAJE_EMAIL_DUPLICADO }, { status: 409 });
+  }
   if (error) return errorInterno('equipo:crear', error,
-    'No se ha podido dar de alta a esta persona. Revisa que el email no esté ya en uso e inténtalo de nuevo.');
+    'No se ha podido dar de alta a esta persona. Vuelve a intentarlo.');
 
   // El alta YA NO manda el email de invitación por su cuenta.
   //
@@ -156,6 +172,9 @@ export async function PATCH(req: NextRequest) {
     .update(update)
     .eq('id', id)
     .eq('studio_id', sesion.studioId);
+  if (esEmailDuplicado(error)) {
+    return NextResponse.json({ error: MENSAJE_EMAIL_DUPLICADO }, { status: 409 });
+  }
   if (error) return errorInterno('equipo:actualizar', error,
     'No se han podido guardar los cambios de esta persona. Vuelve a intentarlo.');
   return NextResponse.json({ ok: true });

@@ -1026,7 +1026,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setReservas(prev => prev.map(r =>
         (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
           ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
-      consumirSesionBono(promovidaSocioId);
+      consumirSesionBono(promovidaSocioId, sesionId);
     }
     return { recuperacion: 'CREADA', caduca };
   }
@@ -1491,7 +1491,26 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // ── Suscripciones ────────────────────────────────────────────────────────────
 
   function assignPlan(socioId: string, planId: string | null) {
-    const aDesactivar = suscripciones.filter(s => s.socioId === socioId && s.estado === 'ACTIVA');
+    // Un bono con sesiones sin gastar es DINERO QUE LA CLIENTA YA PAGÓ. Antes,
+    // asignarle cualquier otro plan cancelaba TODAS sus suscripciones activas sin
+    // mirar si les quedaba algo dentro y sin avisar: venderle un bono de mat de
+    // 90 € le borraba el de reformer de 150 € con sus 10 sesiones intactas.
+    //
+    // Lo que sí se sustituye es la cuota recurrente — nadie tiene dos
+    // mensualidades a la vez. Los bonos con saldo conviven, y TIENEN que
+    // convivir: si una socia solo puede tener un bono, acotar un bono a ciertos
+    // tipos de clase (migr 0106) no sirve para nada, porque darle el de reformer
+    // le impediría reservar mat en absoluto.
+    //
+    // Nota: el camino público ya se comportaba así (lib/billing/entregar-plan-
+    // comprado.ts no cancela nada), así que esto además alinea los dos caminos,
+    // que hasta ahora dejaban la base en estados distintos según quién comprara.
+    const conservaSaldo = (s: Suscripcion) =>
+      planesTarifa.find(p => p.id === s.planId)?.tipo === 'BONO' && (s.sesionesRestantes ?? 0) > 0;
+    const aDesactivar = suscripciones.filter(
+      s => s.socioId === socioId && s.estado === 'ACTIVA' && !conservaSaldo(s),
+    );
+    const idsADesactivar = new Set(aDesactivar.map(s => s.id));
     const plan = planId ? planesTarifa.find(p => p.id === planId) : null;
     const nueva: Suscripcion | null = plan ? {
       id: `sus-${uid()}`,
@@ -1506,9 +1525,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     } : null;
     setSuscripciones(prev => {
       const deactivated = prev.map(s =>
-        s.socioId === socioId && s.estado === 'ACTIVA'
-          ? { ...s, estado: 'CANCELADA' as const }
-          : s
+        idsADesactivar.has(s.id) ? { ...s, estado: 'CANCELADA' as const } : s
       );
       return nueva ? [...deactivated, nueva] : deactivated;
     });
@@ -1719,9 +1736,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Descuenta una sesión del bono activo del socio al confirmar una reserva.
   // Si el bono se agota, genera el recibo de renovación + notificación.
-  async function consumirSesionBono(socioId: string) {
+  // `sesionId` no es opcional por comodidad: sin él, con un "Bono Reformer" y un
+  // "Bono Mat" vivos a la vez, bonoConsumible ordena por caducidad y descuenta
+  // del que caduque antes — aunque sea el que NO cubre esta clase. La puerta de
+  // entrada (calendario) sí comprobaba la cobertura; el descuento no, así que la
+  // clase cara se servía contra el bono barato y la restricción de la migr 0106
+  // se evaporaba justo en el momento de gastar.
+  async function consumirSesionBono(socioId: string, sesionId?: string | null) {
+    const tipoClaseId = sesionId ? sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null : null;
     // bono-logic resuelve el bono consumible (qué suscripción descontar).
-    const consumible = bonoConsumible(socioId, suscripciones, planesTarifa);
+    const consumible = bonoConsumible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
     if (!consumible) return;
     const { suscripcion: sus, plan } = consumible;
 
@@ -1777,8 +1801,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Devuelve una sesión al bono cuando se cancela una reserva confirmada,
   // sin superar el total del plan.
-  function devolverSesionBono(socioId: string) {
-    const consumible = bonoConsumible(socioId, suscripciones, planesTarifa);
+  // Mismo motivo que en consumirSesionBono: hay que devolver la sesión AL BONO
+  // QUE LA PAGÓ. Sin el tipo de clase se le devolvía al que caducara antes, que
+  // con dos bonos vivos regala saldo en uno y lo deja perdido en el otro.
+  function devolverSesionBono(socioId: string, sesionId?: string | null) {
+    const tipoClaseId = sesionId ? sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null : null;
+    const consumible = bonoConsumible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
     if (!consumible) return;
     const { suscripcion: sus, plan, sesionesRestantes } = consumible;
 
@@ -1831,7 +1859,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         setReservas(prev => prev.map(x => x.id === reservaId
           ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera } : x));
       }
-      if (r.estado === 'CONFIRMADA') consumirSesionBono(socioId);
+      if (r.estado === 'CONFIRMADA') consumirSesionBono(socioId, sesionId);
       if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
       // I12: evaluar logros/retos sobre el set con el estado AUTORITATIVO de la
       // RPC, no sobre la estimación optimista. Si la estimación fue CONFIRMADA
@@ -1878,11 +1906,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Devolver bono a quien canceló solo si su reserva ocupaba plaza (según la
       // BD, no el snapshot) Y la política de cancelación del estudio lo permite.
       if (eraConfirmada && cancelada) {
-        const inicio = sesionId ? sesiones.find(s => s.id === sesionId)?.inicio : undefined;
-        const devolver = !inicio || !studio
+        const ses = sesionId ? sesiones.find(s => s.id === sesionId) : undefined;
+        const inicio = ses?.inicio;
+        // La ventana de cancelación puede estar acotada por tipo de clase (migr
+        // 0111). El portal ya la respetaba; esto usaba siempre la global del
+        // estudio, así que la misma cancelación salía tardía por el portal y a
+        // tiempo si la hacía recepción. La política dejaba de ser una política y
+        // pasaba a depender de por dónde entrara la socia.
+        const ventana =
+          tiposClase.find(t => t.id === ses?.tipoClaseId)?.ventanaCancelacionHoras
+          ?? studio?.cancelacionVentanaHoras;
+        const devolver = !inicio || !studio || ventana == null
           ? true
-          : debeDevolverBono(inicio, new Date(), studio.cancelacionVentanaHoras, studio.cancelacionDevolverBonoTardia);
-        if (devolver) devolverSesionBono(cancelada.socioId);
+          : debeDevolverBono(inicio, new Date(), ventana, studio.cancelacionDevolverBonoTardia);
+        if (devolver) devolverSesionBono(cancelada.socioId, sesionId);
       }
 
       if (!promovidaSocioId || !sesionId) return;
@@ -1892,7 +1929,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
           ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
       // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
-      consumirSesionBono(promovidaSocioId);
+      consumirSesionBono(promovidaSocioId, sesionId);
 
       const socio = socios.find(s => s.id === promovidaSocioId);
       const sesion = sesiones.find(s => s.id === sesionId);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect, useId, useRef } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
@@ -21,9 +21,22 @@ export default function LoginPage() {
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que hoy.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // Este efecto crea el estudio, y crear un estudio NO es idempotente. Sus
+  // dependencias cambian de identidad más de una vez por login (`user` es un
+  // objeto nuevo en cada evento de auth; `claimInstructorAccount` se redeclara
+  // en cada render de StudioProvider), y `pending_studio` solo se limpia al
+  // final del await — así que cada re-disparo veía el alta aún pendiente y
+  // creaba OTRO estudio. En producción eso dejó a cinco propietarios con
+  // estudios duplicados; a uno, con cuatro en 1,24 s.
+  //
+  // La guarda va en un ref y no en estado: tiene que cerrar la puerta en el
+  // mismo tick, antes del primer await, o dos disparos seguidos se cuelan igual.
+  const yaArrancado = useRef(false);
 
   useEffect(() => {
     if (loading || !session || !user) return;
+    if (yaArrancado.current) return;
+    yaArrancado.current = true;
 
     (async () => {
       // Alta pendiente de /crear-estudio (el proyecto exigía confirmar el

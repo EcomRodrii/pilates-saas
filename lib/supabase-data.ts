@@ -7,6 +7,7 @@ import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, debeDevolverBono, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
+import { idEstudioDe } from '@/lib/id-estudio';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -5320,10 +5321,10 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
 // nombre — la UI de éxito lo necesita para no inventarse la URL del portal),
 // o null si falló.
 export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string; comoNosConocio?: string }): Promise<{ id: string; slug: string } | null> {
-  // Dos carreras transitorias se reintentan (en vez de dejar pasar el error crudo):
+  // Carreras que se reintentan (en vez de dejar pasar el error crudo):
   //  · 23505 slug: generateUniqueSlug comprueba disponibilidad y el insert llega
-  //    después; un segundo alta con el mismo nombre (doble clic, dos pestañas)
-  //    puede colarse en ese hueco (Sentry NEXTJS-F). Se regenera el slug al vuelo.
+  //    después; DOS PROPIETARIAS DISTINTAS con el mismo nombre de estudio pueden
+  //    colarse en ese hueco (Sentry NEXTJS-F). Se regenera el slug al vuelo.
   //  · 23503 owner FK: al confirmar el email, el alta puede adelantar al commit
   //    de auth.users y la FK owner_auth_user_id no encuentra la fila todavía
   //    (Sentry NEXTJS-G, culprit /login). La fila aparece en unos ms → backoff.
@@ -5331,9 +5332,21 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
   //    la misma auth.users en el primario; si el commit de auth.users va en vuelo,
   //    la FK falla igual. Es consistencia eventual → la cura es ensanchar la
   //    ventana de reintento hasta que la fila es visible (8 intentos, ~6 s).
+  //
+  // ⚠️ El id ya NO lleva Date.now()+random. Con un id aleatorio, un segundo alta
+  // DE LA MISMA PROPIETARIA no chocaba nunca por clave primaria: chocaba por slug
+  // y el reintento de arriba lo rescataba generando "-2", "-3", "-4". O sea que
+  // el reintento puesto para NEXTJS-F convertía un duplicado que la base habría
+  // rechazado en un duplicado que se guardaba. Cinco propietarias acabaron con
+  // estudios partidos en producción; una, con cuatro.
+  //
+  // Derivando el id de (propietaria + nombre), ese segundo intento choca por
+  // PRIMARY KEY y lo tratamos como lo que es: el estudio ya existe, se devuelve.
+  // Las sedes de una cadena NO pasan por aquí (van por /api/cadena/sedes), así
+  // que esto no limita el multi-centro.
+  const id = idEstudioDe(fields.ownerAuthUserId, fields.nombre);
   let ultimoError: { code: string; message: string } | null = null;
   for (let intento = 0; intento < 8; intento++) {
-    const id = `studio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const slug = await generateUniqueSlug(fields.nombre);
     const { error } = await supabase.from('studios').insert({
       id,
@@ -5347,8 +5360,15 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
     });
     if (!error) return { id, slug };
     ultimoError = error;
+    if (error.code === '23505' && error.message.includes('studios_pkey')) {
+      // Ya lo habíamos creado nosotros (efecto re-disparado, doble clic, dos
+      // pestañas). No es un fallo: se devuelve el que hay, con SU slug real.
+      const mios = await fetchMisEstudios();
+      const existente = mios.find((e) => e.id === id);
+      return existente ? { id, slug: existente.slug ?? slug } : null;
+    }
     if (error.code === '23505' && error.message.includes('studios_slug_key')) {
-      continue; // choque de slug: reintenta con uno recién generado, sin esperar.
+      continue; // choque de slug con OTRA propietaria: reintenta con uno nuevo.
     }
     if (error.code === '23503' && error.message.includes('studios_owner_auth_user_id_fkey')) {
       await new Promise((r) => setTimeout(r, Math.min(1000, 250 * 2 ** intento))); // 250→1000ms, ~6 s en total

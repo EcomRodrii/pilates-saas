@@ -88,11 +88,30 @@ test('el manager no ve el negocio: ni cobros, ni informes, ni ajustes', () => {
   }
 });
 
+// Este test existe porque el anterior daba falsa tranquilidad: comprobaba
+// '/transacciones', que desde que las pantallas del dinero se consolidaron es
+// solo un redirect a /cobros. La pantalla REAL estaba abierta al manager, y en
+// el menú lateral. Comprobar el alias y no el destino es el fallo que hay que
+// no repetir, así que aquí se nombran las rutas de verdad.
+test('el manager no llega a la pantalla real del dinero, no solo a su alias', () => {
+  for (const ruta of ['/cobros', '/cierre']) {
+    assert.equal(puedeVer('MANAGER', ruta), false, ruta);
+  }
+  // Y los alias que redirigen ahí tampoco, o se cuela por la puerta de atrás.
+  for (const ruta of ['/transacciones', '/facturas', '/pagos']) {
+    assert.equal(puedeVer('MANAGER', ruta), false, ruta);
+  }
+  // Las subrutas también: coincide() es por prefijo, que no se escape un detalle.
+  assert.equal(puedeVer('MANAGER', '/cobros/movimientos'), false);
+});
+
 test('recepción sigue viendo cobros y el manager no: es la diferencia', () => {
   // No es un descuido que recepción tenga MÁS acceso en un sitio: cobra en
   // mostrador. El manager gestiona, no cobra.
   assert.equal(puedeVer('RECEPCION', '/transacciones'), true);
+  assert.equal(puedeVer('RECEPCION', '/cobros'), true);
   assert.equal(puedeVer('MANAGER', '/transacciones'), false);
+  assert.equal(puedeVer('MANAGER', '/cobros'), false);
   // Y al revés con el equipo.
   assert.equal(puedeVer('RECEPCION', '/equipo'), false);
   assert.equal(puedeVer('MANAGER', '/equipo'), true);
