@@ -57,10 +57,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signUp(email: string, password: string, metadata?: Record<string, unknown>) {
+    // emailRedirectTo es OBLIGATORIO aquí. Sin él, el enlace de verificación
+    // devuelve a la RAÍZ del sitio, y la vinculación de la ficha de instructora
+    // (claimInstructorAccount) solo se ejecuta en /login → la cuenta quedaba
+    // creada y verificada pero SIN vincular: el panel decía "no registrada" y
+    // la instructora entraba a una pantalla en blanco, sin estudio asociado.
+    // Le pasó a Rosi y a María Soler, y hubo que vincularlas a mano.
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      ...(metadata ? { options: { data: metadata } } : {}),
+      options: { ...(metadata ? { data: metadata } : {}), ...(redirectTo ? { emailRedirectTo: redirectTo } : {}) },
     });
     if (error) return { error: error.message, needsConfirmation: false };
     return { error: null, needsConfirmation: !data.session };
