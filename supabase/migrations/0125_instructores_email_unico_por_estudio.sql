@@ -1,6 +1,6 @@
 -- Un email, una ficha por estudio.
 --
--- Cierra la vía que quedaba abierta tras la 0119. Aquella impide que el
+-- Cierra la vía que quedaba abierta tras la 0124. Aquella impide que el
 -- self-claim ascienda de rol, pero no impide fabricar la ficha que se reclama:
 -- un MANAGER puede dar de alta a alguien con rol INSTRUCTOR o RECEPCION
 -- (rolesQuePuedeAsignar('MANAGER') lo permite, y así debe ser) usando SU PROPIO

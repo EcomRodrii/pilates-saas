@@ -53,7 +53,7 @@ test('una ficha dada de baja no se reclama', () => {
   );
 });
 
-// Mismo criterio que el coalesce(activo, true) de la 0125: solo una baja
+// Mismo criterio que el coalesce(activo, true) de la 0130: solo una baja
 // explícita revoca. Un nulo accidental no debe dejar fuera a nadie.
 test('activo nulo cuenta como activa', () => {
   assert.equal(
