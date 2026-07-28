@@ -50,7 +50,7 @@ export default function InvitarPage() {
   const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 20 };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ minHeight: '100%', background: t.bg }}>
       {/* Header */}
       <div style={{ padding: '24px 20px 32px', background: t.hero, borderBottom: `1px solid ${t.heroLine}` }}>
         <div style={{ width: 48, height: 48, borderRadius: 16, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>

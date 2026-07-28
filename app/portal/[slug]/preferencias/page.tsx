@@ -55,7 +55,7 @@ export default function PreferenciasPage() {
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ minHeight: '100%', background: t.bg }}>
       <div style={{ padding: '24px 20px 20px' }}>
         <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1 }}>Preferencias</h1>
         <p style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>Cuéntanos cómo te gusta entrenar</p>

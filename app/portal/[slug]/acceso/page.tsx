@@ -46,7 +46,7 @@ export default function PortalAcceso() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: t.bg, display: 'flex', flexDirection: 'column', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: t.bg, display: 'flex', flexDirection: 'column' }}>
       {/* Hero con la identidad del estudio */}
       <div
         style={{

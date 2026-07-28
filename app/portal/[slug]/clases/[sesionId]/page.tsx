@@ -63,7 +63,7 @@ export default function ClaseDetallePage() {
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ minHeight: '100%', background: t.bg }}>
       {/* Header */}
       <div style={{ padding: '24px 20px 40px', position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>

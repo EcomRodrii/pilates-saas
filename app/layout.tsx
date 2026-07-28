@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans } from 'next/font/google';
+import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans } from 'next/font/google';
 import { StudioProvider } from '@/lib/studio-context';
 import { AuthProvider } from '@/lib/auth-context';
 import './globals.css';
@@ -8,6 +8,33 @@ const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-jakarta',
   weight: ['400', '500', '600', '700', '800'],
+});
+
+// Las dos familias del portal de la clienta (lib/portal-design.ts). Van por
+// `next/font`, que las descarga en build y las sirve desde nuestro propio
+// dominio: cero petición a fonts.googleapis.com en tiempo de ejecución, cero
+// FOUT y nada que enseñarle a la clienta sobre lo que visita.
+//
+// La cursiva de la serif NO es decorativa en este diseño —titula la mitad de
+// las pantallas—, así que se pide explícitamente: sin ella el navegador la
+// falsearía inclinando la redonda, que en una Didone se nota a la legua.
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  variable: '--font-display',
+  weight: '400',
+  style: ['normal', 'italic'],
+  display: 'swap',
+});
+
+// El diseño solo usa 400/500/600, pero se carga también el 700: las 14
+// pantallas del portal que aún no se han migrado piden 700 y 800, y sin un
+// grueso real el navegador falsea la negrita engordando el trazo — que en una
+// grotesca se ve sucio. El 800 cae al 700, que sí existe.
+const instrumentSans = Instrument_Sans({
+  subsets: ['latin'],
+  variable: '--font-ui',
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -34,7 +61,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${jakarta.variable} antialiased`}>
+    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} antialiased`}>
       <body className="bg-background">
         <AuthProvider>
           <StudioProvider>{children}</StudioProvider>

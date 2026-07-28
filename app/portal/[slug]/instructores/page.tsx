@@ -26,7 +26,7 @@ export default function InstructoresPage() {
   const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 20 };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ minHeight: '100%', background: t.bg, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
         <p style={microLabel}>Equipo</p>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: t.ink, marginTop: 4, textTransform: 'uppercase', letterSpacing: '-0.01em' }}>Nuestros instructores</h1>

@@ -1,0 +1,93 @@
+import type { Page, Route } from '@playwright/test';
+
+// Montaje del portal de la clienta con datos deterministas, compartido por los
+// tests de las dos pantallas del diseño v2. Vive fuera de un `.spec` porque
+// Playwright prohíbe que un test importe de otro test.
+
+export const SLUG = 'tentare';
+const STUDIO_ID = 'studio-test';
+export const SOCIA = { socioId: 'soc-marta', nombre: 'Marta Ruiz', email: 'marta@example.com' };
+
+// Una clase dentro de 3 h 12 min, para que la cuenta atrás tenga algo que decir.
+function enHoras(h: number, m = 0) {
+  return new Date(Date.now() + (h * 60 + m) * 60_000).toISOString();
+}
+
+function json(route: Route, body: unknown, status = 200) {
+  return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+}
+
+// OJO: /api/public/studio-data devuelve los datos YA mapeados al dominio
+// (camelCase), no las filas crudas de Postgres. Un mock en snake_case cuela
+// —la pantalla pinta igual— pero `getHomeCardContext` no encuentra nada y todo
+// cae al caso "sin clases". Costó un ciclo entero de tests averiguarlo.
+const TIPOS = [
+  { id: 'tc-1', studioId: STUDIO_ID, nombre: 'Reformer Flow', color: '#2C352C', duracionMin: 50 },
+  { id: 'tc-2', studioId: STUDIO_ID, nombre: 'Mat & Respiración', color: '#6B7A64', duracionMin: 50 },
+  { id: 'tc-3', studioId: STUDIO_ID, nombre: 'Barre Sculpt', color: '#8B8779', duracionMin: 45 },
+];
+
+const ses = (id: string, tipoClaseId: string, h: number, aforoMaximo: number) => ({
+  id, studioId: STUDIO_ID, tipoClaseId, instructorId: 'ins-1', salaId: 'sala-1',
+  inicio: enHoras(h, id === 'ses-1' ? 12 : 0), fin: enHoras(h + 1),
+  aforoMaximo, cancelada: false, notas: null, precioPuntual: null,
+});
+
+const SESIONES = [
+  ses('ses-1', 'tc-1', 3, 10), ses('ses-2', 'tc-2', 26, 12),
+  ses('ses-3', 'tc-3', 50, 8), ses('ses-4', 'tc-1', 74, 10),
+];
+
+// La reserva de Marta para la clase de dentro de 3 h. Tiene que estar en las
+// DOS listas: `aforoReservas` (que es lo que cuenta plazas para todo el mundo) y
+// `socia.reservas` (la suya, con socioId). El contexto las cruza por id.
+const MI_RESERVA = {
+  id: 'res-1', studioId: STUDIO_ID, sesionId: 'ses-1', socioId: SOCIA.socioId,
+  estado: 'CONFIRMADA', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: '2026-07-20T10:00:00Z',
+};
+
+export async function montarPortal(page: Page, opciones: { conSesion: boolean; fotoUrl?: string | null }) {
+  const { conSesion, fotoUrl = null } = opciones;
+
+  if (conSesion) {
+    await page.addInitScript(([sesion]) => {
+      // Misma clave que lib/db/supabase-portal.ts. Con esto getSession()
+      // devuelve token y PortalAuthProvider pasa a resolver contra la API.
+      localStorage.setItem('sb-portal-auth', JSON.stringify({
+        access_token: 'e2e-token', refresh_token: 'e2e-refresh', token_type: 'bearer',
+        expires_at: 4102444800, expires_in: 999999999,
+        user: { id: 'auth-marta', email: sesion.email, aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+      }));
+    }, [SOCIA] as const);
+  }
+
+  // Comodines primero: Playwright resuelve las rutas en orden inverso.
+  await page.route('**/api/**', route => json(route, {}));
+  await page.route('**/rest/v1/**', route => json(route, []));
+  await page.route('**/auth/v1/**', route => json(route, {}));
+  await page.route('**/api/theme**', route =>
+    json(route, { primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }));
+  await page.route('**/api/public/session', route =>
+    conSesion ? json(route, SOCIA) : json(route, { error: 'no' }, 401));
+  await page.route('**/api/public/studio-data', route => json(route, {
+    studio: {
+      id: STUDIO_ID, nombre: 'Estudio Alma', ciudad: 'Marbella', slug: SLUG,
+      colorPrimario: '#2C352C', temaPortal: 'oliva', logoUrl: null, fotoUrl,
+    },
+    sesiones: SESIONES,
+    tiposClase: TIPOS,
+    salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala Norte', capacidad: 12 }],
+    instructores: [{ id: 'ins-1', studioId: STUDIO_ID, nombre: 'Ana Ferrer', rol: 'INSTRUCTOR', activo: true, color: '#2C352C' }],
+    spots: [], planesTarifa: [], videosOnDemand: [], rewardRules: [], rewardCatalog: [],
+    levelDefinitions: [], achievementDefinitions: [], challengeDefinitions: [],
+    citasServicios: [], citasDisponibilidad: [],
+    aforoReservas: conSesion ? [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null }] : [],
+    socia: conSesion ? {
+      socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
+      reservas: [MI_RESERVA],
+      suscripciones: [], recibos: [], facturas: [], preferenciasSocio: [],
+      memberCredits: [], rewardHistory: [], rewardRedemptions: [],
+      achievementProgress: [], challengeProgress: [], creditTransactions: [], citas: [],
+    } : null,
+  }));
+}

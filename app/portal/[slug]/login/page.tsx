@@ -1,13 +1,32 @@
 'use client';
 
+// 01 — ACCESO. Implementación del diseño "Tentare App Cliente v2".
+//
+// Tres decisiones que se apartan del lienzo, y por qué:
+//
+// 1. El diseño ofrece «Continuar con Apple / Google / email». Aquí no hay OAuth
+//    social —cero `signInWithOAuth` en el repo— y un botón que promete entrar
+//    con Apple y no entra es una mentira en la pantalla de acceso. Se conserva
+//    el RITMO del diseño (una pila de cápsulas de 66 px sobre la hoja de
+//    cristal) con los métodos que sí existen: contraseña y enlace por correo.
+// 2. El lienzo pinta `pointer-events: none` sobre la hoja y `role="button"` en
+//    divs: eso es para poder arrastrar el marco dentro del editor, no una
+//    decisión de diseño. Aquí van botones y enlaces de verdad.
+// 3. El logo del estudio no sale en v2, pero sí salía en v1 (círculo de 56 px
+//    sobre el nombre). Se conserva de v1 cuando el estudio tiene logo: es un
+//    producto de marca blanca y quitarle su logo a quien paga por ponerlo no es
+//    una decisión que tocara tomar aquí.
+
 import { useState, useId } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
+import {
+  EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
+} from '@/lib/portal-design';
 
 export default function PortalLogin() {
   const uid = useId();
@@ -15,7 +34,7 @@ export default function PortalLogin() {
   const router = useRouter();
   const { loginConPassword } = usePortalAuth();
   const { studio } = useStudio();
-  const { t } = useModo();
+  const { t, noche } = useModo();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -23,136 +42,206 @@ export default function PortalLogin() {
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que /login.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // El fundido de bienvenida del diseño: la pantalla se lava en crema y aparece
+  // «Bienvenida, {nombre}» mientras la sesión se propaga. No es adorno — cubre
+  // justo el hueco entre que Supabase responde y PortalShell redirige, que
+  // antes era un salto en seco.
+  const [entrando, setEntrando] = useState(false);
+
+  const bloqueado = loading || !email || !password || (turnstileConfigurado() && !captchaToken);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
     const r = await loginConPassword(email, password, captchaToken ?? undefined);
-    setLoading(false);
     if ('error' in r) {
+      setLoading(false);
       setError(r.error || 'No se pudo iniciar sesión.');
       return;
     }
+    setEntrando(true);
     // La sesión se propaga vía onAuthStateChange (usePortalAuth); PortalShell
     // redirige sola a /clases cuando resuelva. Empujamos por si tarda.
-    router.replace(`/portal/${slug}/clases`);
+    router.replace(`/portal/${slug}/home`);
   }
 
-  const inicial = studio?.nombre?.trim()?.[0]?.toUpperCase() ?? 'T';
-  const inputStyle: React.CSSProperties = {
-    background: t.surface, border: `1px solid ${t.line}`, color: t.ink, borderRadius: 16,
+  const nombreEstudio = studio?.nombre?.trim() || 'Tentare';
+  // El nombre va en una sola línea a 44 px. Uno largo («Estudio Alma de
+  // Marbella») desbordaría el marco de 402, así que se encoge hasta 26 px en
+  // vez de partirse: partir un display serif en dos líneas rompe el bloque.
+  const tamNombre = nombreEstudio.length > 22 ? 26 : nombreEstudio.length > 15 ? 34 : 44;
+  const brillo = noche ? 'rgba(18,20,14,.95)' : 'rgba(246,244,239,.95)';
+
+  // Campo de texto con la forma de los botones: cápsula de 66 px. Es lo que
+  // mantiene el ritmo vertical del diseño aunque el contenido sea un formulario
+  // y no una lista de proveedores.
+  const campo: React.CSSProperties = {
+    width: '100%', height: altura.botonAcceso, borderRadius: radio.botonAlto,
+    background: t.surface, border: `1px solid ${t.line}`, color: t.ink,
+    padding: '0 26px', fontSize: 16, fontFamily: 'inherit', outline: 'none',
+    transition: transicion(['border-color', 'box-shadow'], dur.color),
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: t.bg, display: 'flex', flexDirection: 'column', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      {/* Hero con la identidad del estudio */}
+    <div style={{ height: '100%', position: 'relative', overflow: 'hidden', background: t.bg, color: t.ink }}>
+
+      {/* Portada del estudio. El diseño nunca enseña esta pantalla sin imagen,
+          pero la mayoría de estudios entra sin haber subido ninguna: sin foto,
+          el degradado de marca ocupa la pantalla ENTERA, no los 486 px de la
+          foto. Cortarlo a 486 dejaba una costura horizontal a media pantalla —
+          se ve, y se ve mal. */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: studio?.fotoUrl ? altura.fotoAcceso : '100%', background: studio?.fotoUrl ? t.surface2 : t.hero }}>
+        {studio?.fotoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={studio.fotoUrl}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        )}
+      </div>
       <div
+        aria-hidden
         style={{
-          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
-          padding: '80px 24px 48px', minHeight: '45vh', background: t.hero, borderBottom: `1px solid ${t.heroLine}`, textAlign: 'center',
+          position: 'absolute', top: 0, left: 0, right: 0, height: altura.fotoAcceso, pointerEvents: 'none',
+          background: `linear-gradient(180deg, ${noche ? 'rgba(18,20,14,.46)' : 'rgba(246,244,239,.46)'} 0%, ${noche ? 'rgba(18,20,14,.06)' : 'rgba(246,244,239,.06)'} 32%, ${noche ? 'rgba(18,20,14,0)' : 'rgba(246,244,239,0)'} 66%)`,
         }}
-      >
-        {studio?.logoUrl ? (
+      />
+
+      {/* Identidad del estudio sobre la foto */}
+      <div style={{ position: 'absolute', top: 104, left: 0, right: 0, zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
+        {studio?.logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={studio.logoUrl}
-            alt={studio?.nombre ?? 'Logo'}
-            style={{ width: 72, height: 72, borderRadius: 18, objectFit: 'cover', marginBottom: 16, background: t.surface2, border: `1px solid ${t.heroLine}` }}
+            alt=""
+            style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', marginBottom: 22, border: `1px solid ${t.heroLine}`, background: t.surface }}
           />
-        ) : (
-          <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, border: `1px solid ${t.heroLine}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.heroText, fontWeight: 800, fontSize: 22, marginBottom: 16 }}>
-            {inicial}
+        )}
+        <h1 style={{ ...display(tamNombre), color: t.heroText, textAlign: 'center', padding: '0 24px', textShadow: `0 2px 30px ${brillo}` }}>
+          {nombreEstudio}
+        </h1>
+        {studio?.ciudad && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 20 }}>
+            <span style={{ width: 20, height: 1, background: noche ? 'rgba(243,241,233,.35)' : 'rgba(34,38,31,.35)' }} />
+            <span style={{ ...micro(9.5, 0.34), color: t.heroSub, textShadow: `0 1px 22px ${brillo}` }}>{studio.ciudad}</span>
+            <span style={{ width: 20, height: 1, background: noche ? 'rgba(243,241,233,.35)' : 'rgba(34,38,31,.35)' }} />
           </div>
         )}
-        <h1 style={{ color: t.heroText, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1.05 }}>
-          {studio?.nombre ?? 'Tentare'}
-        </h1>
-        <p style={{ color: t.heroSub, fontSize: 13, marginTop: 4 }}>
-          Pilates{studio?.ciudad ? ` · ${studio.ciudad}` : ''}
-        </p>
       </div>
 
-      {/* Hoja con el formulario */}
-      <div style={{ position: 'relative', zIndex: 10, marginTop: -24, background: t.bg, borderRadius: '32px 32px 0 0', padding: '32px 24px 40px' }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.01em', color: t.ink, lineHeight: 1.1 }}>Bienvenida de nuevo</h2>
-        <p style={{ fontSize: 13, color: t.muted, marginTop: 4, marginBottom: 24 }}>Entra con tu email y contraseña para reservar tus clases</p>
+      {/* La hoja de cristal */}
+      <div
+        style={{
+          position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 6,
+          borderRadius: radio.hoja,
+          background: noche ? 'rgba(28,31,23,.76)' : 'rgba(246,244,239,.76)',
+          ...cristal(desenfoque.hoja),
+          border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`,
+          boxShadow: sombra.hojaAcceso,
+          padding: '34px 26px 24px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          maxHeight: 'calc(100% - 24px)', overflowY: 'auto',
+        }}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ ...display(34, false, 1.06), color: t.ink }}>Bienvenida de nuevo</div>
+          <div style={{ ...display(34, true, 1.06), color: t.ink }}>a tu calma.</div>
+          <div style={{ ...texto.meta, color: t.muted, marginTop: 14 }}>El movimiento como un lujo silencioso.</div>
+        </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <label htmlFor={`${uid}-email`} style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Email</label>
-            <div style={{ position: 'relative' }}>
-              <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.muted }} />
-              <input id={`${uid}-email`}
-                type="email"
-                value={email}
-                onChange={e => { setEmail(e.target.value); setError(''); }}
-                placeholder="tu@email.com"
-                required
-                autoFocus
-                autoComplete="email"
-                style={{ ...inputStyle, width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 14, paddingBottom: 14, fontSize: 16, outline: 'none' }}
-              />
-            </div>
-          </div>
+        <form onSubmit={handleSubmit} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 30 }}>
+          <label htmlFor={`${uid}-email`} className="sr-only">Email</label>
+          <input
+            id={`${uid}-email`}
+            type="email"
+            value={email}
+            onChange={e => { setEmail(e.target.value); setError(''); }}
+            placeholder="Tu email"
+            required
+            autoComplete="email"
+            style={campo}
+          />
 
-          <div>
-            <label htmlFor={`${uid}-clave`} style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Contraseña</label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.muted }} />
-              <input id={`${uid}-clave`}
-                type="password"
-                value={password}
-                onChange={e => { setPassword(e.target.value); setError(''); }}
-                placeholder="••••••••"
-                required
-                autoComplete="current-password"
-                style={{ ...inputStyle, width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 14, paddingBottom: 14, fontSize: 16, outline: 'none' }}
-              />
-            </div>
-          </div>
+          <label htmlFor={`${uid}-clave`} className="sr-only">Contraseña</label>
+          <input
+            id={`${uid}-clave`}
+            type="password"
+            value={password}
+            onChange={e => { setPassword(e.target.value); setError(''); }}
+            placeholder="Tu contraseña"
+            required
+            autoComplete="current-password"
+            style={campo}
+          />
 
           {error && (
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#B91C1C', background: 'rgba(239,68,68,0.1)', borderRadius: 14, padding: 12 }}>
-              <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-              <p>{error}</p>
-            </div>
+            <p role="alert" style={{ ...texto.pie, color: '#B0453A', textAlign: 'center', padding: '2px 4px', lineHeight: 1.45 }}>
+              {error}
+            </p>
           )}
 
           <TurnstileWidget onToken={setCaptchaToken} />
 
           <button
             type="submit"
-            disabled={loading || !email || !password || (turnstileConfigurado() && !captchaToken)}
+            disabled={bloqueado}
             style={{
-              width: '100%', padding: '14px 0', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-              fontWeight: 800, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
-              opacity: loading || !email || !password || (turnstileConfigurado() && !captchaToken) ? 0.5 : 1,
+              height: altura.botonAcceso, borderRadius: radio.botonAlto,
+              background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+              ...texto.boton, border: 'none', cursor: bloqueado ? 'default' : 'pointer',
+              boxShadow: sombra.botonOscuro, opacity: bloqueado ? 0.55 : 1,
+              transition: transicion(['transform', 'opacity']),
             }}
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? 'Un momento…' : 'Entrar'}
           </button>
+
+          <Link
+            href={`/portal/${slug}/acceso`}
+            style={{
+              height: altura.botonAcceso, borderRadius: radio.botonAlto,
+              border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
+              color: t.muted2, ...texto.boton, fontWeight: 400,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              textDecoration: 'none', transition: transicion(['background', 'border-color', 'transform']),
+            }}
+          >
+            Entrar con un enlace
+          </Link>
         </form>
 
-        <Link
-          href={`/portal/${slug}/acceso`}
-          style={{ display: 'block', marginTop: 20, fontSize: 13, fontWeight: 700, color: t.heroAccent, textAlign: 'center', textDecoration: 'underline' }}
-        >
-          ¿Primera vez o olvidaste tu contraseña?
-        </Link>
-
-        {/* Antes decía "habla con tu instructora para que te añada" — y no es
-            verdad: cualquiera puede darse de alta sola desde /reservar (magic
-            link + nombre + aceptar condiciones). El portal y la reserva eran dos
-            islas sin un solo enlace entre ellas, así que la clienta nueva se
-            quedaba en un callejón sin salida. */}
-        <p style={{ marginTop: 24, fontSize: 12, color: t.muted, textAlign: 'center', lineHeight: 1.5 }}>
-          ¿Aún no eres clienta?{' '}
-          <Link href={`/reservar/${slug}`} style={{ color: t.heroAccent, fontWeight: 700, textDecoration: 'underline' }}>
-            Apúntate y reserva tu primera clase
+        <p style={{ ...texto.pie, color: t.micro, marginTop: 24, textAlign: 'center', lineHeight: 1.5 }}>
+          ¿Primera vez en {nombreEstudio}?{' '}
+          <Link
+            href={`/reservar/${slug}`}
+            style={{ color: t.muted2, borderBottom: `1px solid ${noche ? 'rgba(243,241,233,.3)' : 'rgba(34,38,31,.3)'}`, paddingBottom: 1, textDecoration: 'none' }}
+          >
+            Reserva tu primera clase
           </Link>
-          {' '}— solo necesitas tu email.
         </p>
+      </div>
+
+      {/* Fundido de bienvenida */}
+      <div
+        aria-hidden={!entrando}
+        style={{
+          position: 'absolute', inset: 0, zIndex: 9, background: t.bg,
+          opacity: entrando ? 1 : 0, pointerEvents: entrando ? 'auto' : 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: `opacity ${dur.wash}ms ${EASE}`,
+        }}
+      >
+        <div
+          style={{
+            ...display(34, true), color: t.ink, textAlign: 'center', padding: '0 32px',
+            transform: entrando ? 'none' : 'scale(1.06)',
+            transition: `transform ${dur.washInner}ms ${EASE}`,
+          }}
+        >
+          Bienvenida.
+        </div>
       </div>
     </div>
   );

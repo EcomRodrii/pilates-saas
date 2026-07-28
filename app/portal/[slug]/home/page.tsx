@@ -1,317 +1,484 @@
 'use client';
 
-// Reemplazo drop-in de app/portal/[slug]/home/page.tsx
-// Rediseño "Impulso" (deportivo, data-forward) con modo día/noche.
-// La CAPA DE DATOS es idéntica a la original: mismos hooks, mismos cálculos,
-// mismos href y handlers. Solo cambian el markup y los estilos.
+// 02 — INICIO. Implementación del diseño "Tentare App Cliente v2".
+//
+// La capa de datos es la misma de siempre: mismos hooks de `useStudio`, mismo
+// `getHomeCardContext`, mismas notificaciones. Lo que cambia es la composición.
+//
+// Cómo se ha mapeado cada hueco del diseño a algo que existe de verdad:
+//
+//  · Tarjeta grande con foto → `getHomeCardContext`. El diseño solo dibuja el
+//    caso "tienes clase hoy"; los otros cuatro (bono agotado, racha en riesgo,
+//    llevas tiempo sin venir, sin reservas) reutilizan la MISMA tarjeta con otro
+//    contenido, para no inventar una forma que el diseño no tiene.
+//  · "Esta semana" → las próximas sesiones con hueco. Las tarjetas llevan al
+//    detalle de la clase, que es donde se reserva; el diseño no dibuja botón de
+//    reservar aquí.
+//  · Las cuatro filas → cuatro destinos reales y distintos, ninguno repetido en
+//    el menú de abajo.
+//  · El banner de "TALLER" no tiene detrás ningún concepto de taller en el
+//    producto. Ocupa ese hueco «Invita a una amiga», que es la única pieza
+//    promocional real que hay y encaje con la forma (foto + volanta + titular
+//    en cursiva + círculo de acción).
+//  · El botón "Ver mi acceso" abre hoy la reserva. El pase con QR llega en su
+//    propio PR: es funcionalidad, no interfaz.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import {
-  Calendar, CreditCard, Play, Clock, ChevronRight, Zap,
-  AlertCircle, ListChecks, User, AlertTriangle, Coins, UserPlus, Bell,
-  Sun, Moon, MapPin, QrCode, Flame,
-} from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext } from '@/lib/portal-home-logic';
 import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
 import { useModo } from '@/lib/portal-modo';
-import { PORTAL_VIDEOS_CONGELADO } from '@/lib/frozen-features';
+import {
+  dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
+} from '@/lib/portal-design';
+
+/** El glifo del botón de acceso: 3×3 celdas de 4 px, como un código en miniatura. */
+function GlifoAcceso({ color }: { color: string }) {
+  const on = [1, 1, 0, 1, 0, 1, 0, 1, 1];
+  return (
+    <span aria-hidden style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 4px)', gridTemplateRows: 'repeat(3, 4px)', gap: 2.5, flex: '0 0 auto' }}>
+      {on.map((v, i) => (
+        <span key={i} style={{ background: color, opacity: v ? 1 : 0.35 }} />
+      ))}
+    </span>
+  );
+}
 
 export default function PortalHome() {
   const { slug } = useParams<{ slug: string }>();
   const { session } = usePortalAuth();
-  const { socios, suscripciones, planesTarifa, sesiones, reservas, recibos, tiposClase, salas, instructores, saldoCreditos, rachaSocio, addReserva } = useStudio();
-  const { noche, toggle, t } = useModo();
+  const {
+    socios, suscripciones, planesTarifa, sesiones, reservas, recibos,
+    tiposClase, salas, instructores, studio,
+  } = useStudio();
+  const { t, noche } = useModo();
+
+  // El reloj vive en estado y arranca en null: el servidor y el navegador no
+  // pueden coincidir en "ahora", y una cuenta atrás pintada en el HTML del
+  // servidor es un desajuste de hidratación garantizado. Late cada 30 s, que es
+  // lo que necesita el "EN 3 H 12 MIN" y nada más.
+  const [ahora, setAhora] = useState<Date | null>(null);
+  useEffect(() => {
+    // El compilador de React avisa de que esto encadena renders, y tiene razón:
+    // es justo lo que hace un reloj. La alternativa (useSyncExternalStore con
+    // el tiempo troceado en cubos de 30 s) resuelve el aviso y deja el código
+    // bastante peor de leer para el mismo resultado. Se asume, acotado a un
+    // tic cada 30 s.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAhora(new Date());
+    const id = setInterval(() => setAhora(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const now = ahora ?? new Date();
+
+  const raizRef = useRef<HTMLDivElement>(null);
+  const topBarRef = useRef<HTMLDivElement>(null);
+  const saludoRef = useRef<HTMLDivElement>(null);
+  const fotoRef = useRef<HTMLDivElement>(null);
+
+  // Scroll → opacidad de la barra, desvanecido del saludo y paralaje de la foto.
+  //
+  // Quien hace scroll es el <main> del armazón, no esta pantalla: montar aquí
+  // otro contenedor con scroll propio daría dos barras anidadas y dejaría a las
+  // 14 pantallas sin migrar sin el hueco del menú. Por eso se busca hacia
+  // arriba en vez de crear uno.
+  //
+  // Se escribe directo sobre el estilo en vez de pasar por estado: son tres
+  // propiedades que cambian en cada frame y un `setState` aquí re-renderizaría
+  // la pantalla entera 60 veces por segundo. Solo se tocan `opacity` y
+  // `transform`, que el compositor resuelve sin repintar nada.
+  useEffect(() => {
+    const el = raizRef.current?.closest('main');
+    if (!el) return;
+    let pendiente = false;
+    const aplicar = () => {
+      pendiente = false;
+      const y = el.scrollTop;
+      if (topBarRef.current) topBarRef.current.style.opacity = String(Math.min(1, Math.max(0, (y - 20) / 60)));
+      if (saludoRef.current) {
+        const p = Math.min(1, y / 150);
+        saludoRef.current.style.opacity = String(1 - p * 0.85);
+        saludoRef.current.style.transform = `translate3d(0,${-p * 12}px,0)`;
+      }
+      if (fotoRef.current) {
+        fotoRef.current.style.transform = `translate3d(0,${Math.max(-30, Math.min(30, y * 0.075))}px,0)`;
+      }
+    };
+    const onScroll = () => {
+      if (pendiente) return;
+      pendiente = true;
+      requestAnimationFrame(aplicar);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
 
   const socio = socios.find(s => s.id === session?.socioId);
   const activeSus = suscripciones.find(s => s.socioId === session?.socioId && s.estado === 'ACTIVA') ?? null;
   const plan = activeSus ? planesTarifa.find(p => p.id === activeSus.planId) : null;
-  const now = new Date();
-  const bonoCaducado = !!(activeSus?.fechaFin && activeSus.fechaFin < now.toISOString().slice(0, 10));
 
-  const misReservas = useMemo(() =>
-    reservas.filter(r => r.socioId === session?.socioId), [reservas, session?.socioId]);
+  const misReservas = useMemo(
+    () => reservas.filter(r => r.socioId === session?.socioId),
+    [reservas, session?.socioId],
+  );
 
-  const racha = useMemo(() => session ? rachaSocio(session.socioId) : null,
-    [session, reservas, sesiones]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { rachaSocio } = useStudio();
+  const racha = useMemo(
+    () => (session ? rachaSocio(session.socioId) : null),
+    [session, reservas, sesiones], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const homeCard = useMemo(() => getHomeCardContext({
     now, misReservas, sesiones, tiposClase, salas, instructores, activeSus,
     racha: racha ?? { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: '' },
   }), [now, misReservas, sesiones, tiposClase, salas, instructores, activeSus, racha]);
 
-  const totalAsistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
-  const clasesEsteMes = useMemo(() => {
-    const mes = now.getMonth(); const año = now.getFullYear();
-    return misReservas.filter(r => {
-      if (r.estado !== 'ASISTIDA') return false;
-      const s = sesiones.find(x => x.id === r.sesionId);
-      if (!s) return false;
-      const d = new Date(s.inicio);
-      return d.getMonth() === mes && d.getFullYear() === año;
-    }).length;
-  }, [misReservas, sesiones]);
-
-  const h = now.getHours();
-  const greeting = h < 12 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
-  const nombre = socio?.nombre ?? session?.nombre.split(' ')[0] ?? '';
-
-  const formatTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  const formatDayShort = (iso: string) =>
-    new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
-
   const notifItems = useMemo(() => {
     if (!session?.socioId) return [];
     return buildPortalNotifications({ socioId: session.socioId, reservas, recibos, sesiones, tiposClase, instructores });
   }, [session?.socioId, reservas, recibos, sesiones, tiposClase, instructores]);
-  const unreadCount = usePortalNotifUnreadCount(session?.socioId, notifItems);
+  const sinLeer = usePortalNotifUnreadCount(session?.socioId, notifItems);
 
-  const proximosDias = useMemo(() => {
-    return Array.from({ length: 5 }, (_, i) => {
-      const d = new Date(now); d.setDate(d.getDate() + i); d.setHours(0, 0, 0, 0);
-      return d;
-    });
-  }, [now]);
-  const [diaSeleccionado, setDiaSeleccionado] = useState(0);
+  const totalAsistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
+  const proximas = misReservas.filter(r => {
+    if (r.estado !== 'CONFIRMADA') return false;
+    const s = sesiones.find(x => x.id === r.sesionId);
+    return !!s && new Date(s.inicio) > now;
+  }).length;
 
-  const clasesDelDia = useMemo(() => {
-    const dia = proximosDias[diaSeleccionado];
-    if (!dia) return [];
-    const dayKey = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`;
+  // Las próximas seis sesiones con hueco: el carrusel de "Esta semana".
+  const estaSemana = useMemo(() => {
+    const libres = (sesionId: string, aforo: number) =>
+      aforo - reservas.filter(r => r.sesionId === sesionId && r.estado === 'CONFIRMADA').length;
     return sesiones
-      .filter(s => !s.cancelada && s.inicio.slice(0, 10) === dayKey && new Date(s.inicio) > now)
+      .filter(s => !s.cancelada && new Date(s.inicio) > now)
       .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime())
-      .slice(0, 4);
-  }, [proximosDias, diaSeleccionado, sesiones, now]);
+      .slice(0, 6)
+      .map(s => ({ s, libres: libres(s.id, s.aforoMaximo) }));
+  }, [sesiones, reservas, now]);
 
-  const getLibres = (sesionId: string, aforo: number) =>
-    aforo - reservas.filter(r => r.sesionId === sesionId && r.estado === 'CONFIRMADA').length;
-  const getMiReserva = (sesionId: string) =>
-    misReservas.find(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')) ?? null;
+  const nombre = socio?.nombre ?? session?.nombre?.split(' ')[0] ?? '';
+  const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const diaCorto = (iso: string) =>
+    new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).replace('.', '').toUpperCase();
 
-  // ── Estilos derivados del tema ──────────────────────────────
-  const accentBg = noche ? 'var(--portal-brand)' : t.ink;
-  // De noche accentBg es el color de marca (varía por estudio/preset), así que
-  // el texto encima debe ser el foreground de ESE preset, no el fijo de t.accentInk
-  // — si no, un preset con marca oscura (ej. burgundy) queda con texto oscuro
-  // sobre fondo oscuro. De día accentBg es siempre t.ink (oscuro fijo), así que
-  // el t.accentInk de día (blanco fijo) sigue siendo correcto.
-  const accentInk = noche ? 'var(--portal-brand-foreground)' : t.accentInk;
-  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 22 };
-  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
+  const fechaHoy = ahora
+    ? new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(ahora).toUpperCase()
+    : '';
+
+  // ── La tarjeta grande ──────────────────────────────────────────────────────
+  //
+  // Un solo componente para los cinco estados. El diseño solo dibuja el
+  // primero; los demás cambian volanta, titular y destino, nunca la forma.
+  const tarjeta = (() => {
+    switch (homeCard.caso) {
+      case 'PROXIMA_CLASE': {
+        const inicio = new Date(homeCard.sesion.inicio);
+        const mins = Math.max(0, Math.round((inicio.getTime() - now.getTime()) / 60000));
+        const h = Math.floor(mins / 60);
+        const esHoy = inicio.toDateString() === now.toDateString();
+        return {
+          volanta: 'Tu próxima clase',
+          contador: ahora ? (h > 0 ? `EN ${h} H ${mins % 60} MIN` : `EN ${mins} MIN`) : null,
+          titulo: homeCard.tipo?.nombre ?? 'Clase',
+          meta: [
+            `${esHoy ? 'Hoy' : diaCorto(homeCard.sesion.inicio)} · ${hora(homeCard.sesion.inicio)}`,
+            homeCard.instructor?.nombre,
+            homeCard.sala?.nombre,
+          ].filter(Boolean) as string[],
+          cta: 'Ver mi reserva',
+          href: `/portal/${slug}/reservas`,
+        };
+      }
+      case 'ULTIMA_SESION':
+        return {
+          volanta: 'Tu bono se acaba', contador: null,
+          titulo: 'Te queda una sesión',
+          meta: [plan?.nombre, 'Renuévalo y sigues igual'].filter(Boolean) as string[],
+          cta: 'Renovar mi bono', href: `/portal/${slug}/mi-plan`,
+        };
+      case 'RACHA_EN_RIESGO':
+        return {
+          volanta: `Racha de ${homeCard.semanas} semanas`, contador: null,
+          titulo: 'No la pierdas ahora',
+          meta: [`Te quedan ${homeCard.diasParaPerder} ${homeCard.diasParaPerder === 1 ? 'día' : 'días'}`, 'Reserva esta semana'],
+          cta: 'Buscar mi clase', href: `/portal/${slug}/clases`,
+        };
+      case 'INACTIVA':
+        return {
+          volanta: `${homeCard.diasSinVenir} días sin venir`, contador: null,
+          titulo: 'Tu sitio te espera',
+          meta: ['Hay clases con hueco esta semana'],
+          cta: 'Volver a reservar', href: `/portal/${slug}/clases`,
+        };
+      default:
+        return {
+          volanta: 'Sin clases reservadas', contador: null,
+          titulo: 'Empieza por aquí',
+          meta: ['Elige el día que mejor te venga'],
+          cta: 'Ver la agenda', href: `/portal/${slug}/clases`,
+        };
+    }
+  })();
+
+  const filas = [
+    { etiqueta: 'Mis reservas', valor: proximas > 0 ? `${proximas} próxima${proximas !== 1 ? 's' : ''}` : 'Ninguna', href: `/portal/${slug}/reservas` },
+    { etiqueta: 'Mi progreso', valor: `${totalAsistidas} clase${totalAsistidas !== 1 ? 's' : ''}`, href: `/portal/${slug}/progreso` },
+    { etiqueta: 'Notificaciones', valor: sinLeer > 0 ? `${sinLeer} nueva${sinLeer !== 1 ? 's' : ''}` : 'Al día', href: `/portal/${slug}/notificaciones`, punto: sinLeer > 0 },
+    { etiqueta: 'El equipo', valor: `${instructores.length} instructora${instructores.length !== 1 ? 's' : ''}`, href: `/portal/${slug}/instructores` },
+  ];
+
+  const conFoto = !!studio?.fotoUrl;
+  const cristalClaro = noche ? 'rgba(28,31,23,.72)' : 'rgba(246,244,239,.72)';
+  const bordeCristal = noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.80)';
+  const lineaSuave = noche ? 'rgba(243,241,233,.20)' : 'rgba(34,38,31,.20)';
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      <div style={{ padding: '20px 20px 8px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div ref={raizRef} style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
 
-        {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: t.muted }}>{greeting}</span>
-            <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', color: t.ink, lineHeight: 1 }}>Hola, {nombre}</h1>
+      {/* Barra que aparece al desplazar. `sticky` con margen negativo del mismo
+          alto: se queda pegada arriba sin ocupar sitio, así el contenido pasa
+          por debajo en vez de empezar 92 px más abajo. */}
+      <div
+        ref={topBarRef}
+        aria-hidden
+        style={{
+          position: 'sticky', top: 0, height: altura.topbar, marginBottom: -altura.topbar, zIndex: 12,
+          opacity: 0, pointerEvents: 'none',
+          background: noche ? 'rgba(18,20,14,.78)' : 'rgba(246,244,239,.78)',
+          ...cristal(desenfoque.topbar, 150),
+          borderBottom: `1px solid ${noche ? 'rgba(243,241,233,.07)' : 'rgba(34,38,31,.07)'}`,
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 14,
+          transition: 'opacity 500ms ease',
+        }}
+      >
+        <span style={{ ...display(19), color: t.ink }}>{studio?.nombre ?? 'Tentare'}</span>
+      </div>
+
+      {/* 62 px arriba como el diseño. Abajo solo 32: el hueco que deja libre el
+          menú flotante lo pone el armazón, que es quien sabe cuánto mide. */}
+      <div style={{ padding: '62px 24px 32px' }}>
+        {/* Saludo */}
+        <div ref={saludoRef} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, willChange: 'transform, opacity' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{fechaHoy || ' '}</div>
+            <h1 style={{ ...display(50), color: t.ink, marginTop: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              Hola, {nombre}.
+            </h1>
+            <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>
+              {homeCard.caso === 'PROXIMA_CLASE' ? 'Hoy tienes una cita contigo.' : 'Tu sitio sigue aquí.'}
+            </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <button onClick={toggle} aria-label="Cambiar tema" style={{ width: 42, height: 42, borderRadius: 13, background: t.surface, border: `1px solid ${t.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {noche ? <Sun size={19} style={{ color: t.ink }} /> : <Moon size={19} style={{ color: t.ink }} />}
-            </button>
-            <Link href={`/portal/${slug}/notificaciones`} style={{ position: 'relative', width: 42, height: 42, borderRadius: 13, background: t.surface, border: `1px solid ${t.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Bell size={18} style={{ color: t.ink }} />
-              {unreadCount > 0 && <span style={{ position: 'absolute', top: 8, right: 9, width: 8, height: 8, borderRadius: 999, background: 'var(--portal-brand)', border: `1.5px solid ${t.surface}` }} />}
-            </Link>
-            <Link href={`/portal/${slug}/perfil`} style={{ borderRadius: 13, overflow: 'hidden' }}>
-              <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
-            </Link>
-          </div>
-        </div>
-
-        {/* ── Stats: racha grande + mes/total ── */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Link href={`/portal/${slug}/progreso?tab=logros`} style={{ flex: 1.3, ...card, padding: 18, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 10, textDecoration: 'none' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={microLabel}>Racha</span>
-              <Flame size={17} style={{ color: 'var(--portal-brand)' }} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-              <span style={{ fontSize: 42, fontWeight: 800, color: t.ink, lineHeight: 0.9 }}>{racha?.semanas ?? 0}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: t.muted }}>sem</span>
-            </div>
-          </Link>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ flex: 1, ...card, borderRadius: 18, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ ...microLabel, fontSize: 10.5, letterSpacing: '0.08em' }}>Mes</span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: t.ink }}>{clasesEsteMes}</span>
-            </div>
-            <Link href={`/portal/${slug}/progreso?tab=recompensas`} style={{ flex: 1, ...card, borderRadius: 18, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, ...microLabel, fontSize: 10.5, letterSpacing: '0.08em' }}><Coins size={12} style={{ color: 'var(--portal-brand)' }} />Créditos</span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: t.ink }}>{socio ? saldoCreditos(socio.id) : 0}</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* ── Tarjeta contextual ── */}
-        {homeCard.caso === 'PROXIMA_CLASE' && (
-          <Link href={`/portal/${slug}/reservas`} style={{ display: 'block', borderRadius: 26, overflow: 'hidden', textDecoration: 'none' }}>
-            <div style={{ background: t.hero, border: `1px solid ${t.heroLine}`, padding: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.heroAccent }}>
-                  <span style={{ width: 7, height: 7, borderRadius: 999, background: t.heroAccent }} />Tu próxima clase
-                </span>
-                <Zap size={18} style={{ color: t.heroAccent }} />
-              </div>
-              <h3 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', color: t.heroText, lineHeight: 0.98 }}>{homeCard.tipo?.nombre ?? 'Clase'}</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, fontSize: 12.5, fontWeight: 600, color: t.heroSub }}>
-                {homeCard.instructor && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><User size={14} />{homeCard.instructor.nombre}</span>}
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Clock size={14} />{formatDayShort(homeCard.sesion.inicio)} · {formatTime(homeCard.sesion.inicio)}</span>
-                {homeCard.sala && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><MapPin size={14} />{homeCard.sala.nombre}</span>}
-              </div>
-              <div style={{ marginTop: 18, height: 50, borderRadius: 14, background: accentBg, color: accentInk, fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <QrCode size={17} />Ver reserva
-              </div>
-            </div>
-          </Link>
-        )}
-
-        {homeCard.caso === 'ULTIMA_SESION' && (
-          <Link href={`/portal/${slug}/mi-plan`} style={{ display: 'block', borderRadius: 26, overflow: 'hidden', textDecoration: 'none' }}>
-            <div style={{ padding: 20, background: 'linear-gradient(135deg,#B45309,#92400E)', color: '#fff' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}><AlertCircle size={18} /><span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.75 }}>Último aviso</span></div>
-              <p style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Solo te queda una sesión del bono</p>
-              <p style={{ fontSize: 13, opacity: 0.75, marginBottom: 16 }}>Renueva antes de perder tu plaza.</p>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#92400E', fontSize: 13, fontWeight: 800, padding: '11px 18px', borderRadius: 14, textTransform: 'uppercase' }}>Renovar</span>
-            </div>
-          </Link>
-        )}
-
-        {homeCard.caso === 'RACHA_EN_RIESGO' && (
-          <Link href={`/portal/${slug}/clases`} style={{ display: 'block', borderRadius: 26, overflow: 'hidden', textDecoration: 'none' }}>
-            <div style={{ padding: 20, background: 'linear-gradient(135deg,#EA580C,#9A3412)', color: '#fff' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}><Flame size={18} /><span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.75 }}>Racha de {homeCard.semanas} semanas</span></div>
-              <p style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Te quedan {homeCard.diasParaPerder} {homeCard.diasParaPerder === 1 ? 'día' : 'días'} para mantener tu racha</p>
-              <p style={{ fontSize: 13, opacity: 0.75, marginBottom: 16 }}>Reserva una clase esta semana para no perderla.</p>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#9A3412', fontSize: 13, fontWeight: 800, padding: '11px 18px', borderRadius: 14, textTransform: 'uppercase' }}><Calendar size={15} />Reservar ahora</span>
-            </div>
-          </Link>
-        )}
-
-        {(homeCard.caso === 'INACTIVA' || homeCard.caso === 'SIN_CLASES') && (
-          <Link href={`/portal/${slug}/clases`} style={{ display: 'block', borderRadius: 26, overflow: 'hidden', textDecoration: 'none' }}>
-            <div style={{ background: t.hero, border: `1px solid ${t.heroLine}`, padding: 20 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.heroAccent }}>{homeCard.caso === 'INACTIVA' ? `${homeCard.diasSinVenir} días sin venir` : 'Próxima clase'}</span>
-              <p style={{ fontSize: 20, fontWeight: 800, color: t.heroText, margin: '8px 0 4px', letterSpacing: '-0.01em' }}>{homeCard.caso === 'INACTIVA' ? 'Hace tiempo que no entrenas' : 'Aún no tienes ninguna clase reservada'}</p>
-              <p style={{ fontSize: 13, color: t.heroSub, marginBottom: 16 }}>Tenemos clases disponibles esta semana.</p>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: accentBg, color: accentInk, fontSize: 13, fontWeight: 800, padding: '12px 18px', borderRadius: 14, textTransform: 'uppercase' }}><Calendar size={15} />Reservar clase</div>
-            </div>
-          </Link>
-        )}
-
-        {/* ── Reserva rápida ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 15, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', color: t.ink }}>Reserva rápida</span>
-            <Link href={`/portal/${slug}/clases`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 12, fontWeight: 700, color: t.heroAccent }}>Ver agenda <ChevronRight size={13} /></Link>
-          </div>
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-            {proximosDias.map((d, i) => {
-              const activo = i === diaSeleccionado;
-              return (
-                <button key={d.toISOString()} onClick={() => setDiaSeleccionado(i)} style={{ flex: '0 0 auto', width: 52, height: 66, borderRadius: 16, border: `1px solid ${activo ? accentBg : t.line}`, background: activo ? accentBg : t.surface, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: activo ? accentInk : t.muted }}>{d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}</span>
-                  <span style={{ fontSize: 20, fontWeight: 800, color: activo ? accentInk : t.ink }}>{d.getDate()}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {clasesDelDia.length === 0 ? (
-              <p style={{ fontSize: 13, color: t.muted, padding: '16px 0', textAlign: 'center' }}>Sin clases este día</p>
-            ) : clasesDelDia.map(ses => {
-              const tipo = tiposClase.find(t2 => t2.id === ses.tipoClaseId);
-              const instr = instructores.find(i => i.id === ses.instructorId);
-              const libres = getLibres(ses.id, ses.aforoMaximo);
-              const miReserva = getMiReserva(ses.id);
-              return (
-                <div key={ses.id} style={{ ...card, borderRadius: 18, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <Link href={`/portal/${slug}/clases/${ses.id}`} style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: t.ink, width: 46 }}>{formatTime(ses.inicio)}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tipo?.nombre ?? 'Clase'}</p>
-                      <p style={{ fontSize: 11.5, color: t.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{instr?.nombre ?? ''}{instr ? ' · ' : ''}{libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''}` : 'Completo'}</p>
-                    </div>
-                  </Link>
-                  {miReserva ? (
-                    <span style={{ fontSize: 11, fontWeight: 800, color: '#3E9B6C', background: 'rgba(62,155,108,0.12)', padding: '8px 12px', borderRadius: 12, textTransform: 'uppercase' }}>Reservada</span>
-                  ) : (
-                    <button onClick={() => session?.socioId && addReserva(ses.id, session.socioId)} disabled={libres <= 0} style={{ fontSize: 12, fontWeight: 800, color: accentInk, background: accentBg, minHeight: 44, padding: '0 16px', borderRadius: 12, textTransform: 'uppercase', opacity: libres <= 0 ? 0.4 : 1 }}>Reservar</button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── Mi bono ── */}
-        {plan && activeSus && (
-          <Link href={`/portal/${slug}/mi-plan`} style={{ ...card, borderColor: bonoCaducado ? 'rgba(239,68,68,0.4)' : t.line, padding: 20, display: 'flex', flexDirection: 'column', gap: 14, textDecoration: 'none' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={microLabel}>Mi bono</span>
-                <span style={{ fontSize: 16, fontWeight: 800, color: t.ink }}>{plan.nombre}</span>
-              </div>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: bonoCaducado ? 'rgba(239,68,68,0.12)' : t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CreditCard size={18} style={{ color: bonoCaducado ? '#B85436' : t.heroAccent }} />
-              </div>
-            </div>
-            {bonoCaducado ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(239,68,68,0.1)', borderRadius: 14, padding: '12px 14px' }}>
-                <AlertCircle size={16} style={{ color: '#B85436', flexShrink: 0 }} />
-                <p style={{ fontSize: 12.5, fontWeight: 700, color: '#B85436', lineHeight: 1.2 }}>Caducado el {new Date(activeSus.fechaFin!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} · renueva con tu instructor</p>
-              </div>
-            ) : activeSus.sesionesRestantes != null && plan.sesiones != null ? (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: t.muted }}><span style={{ fontSize: 22, fontWeight: 800, color: t.ink }}>{activeSus.sesionesRestantes}</span> / {plan.sesiones}</span>
-                  <span style={{ fontSize: 12, color: t.muted }}>sesiones restantes</span>
-                </div>
-                <div style={{ height: 8, background: t.bar, borderRadius: 999, overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min(100, Math.round((activeSus.sesionesRestantes / plan.sesiones) * 100))}%`, height: '100%', borderRadius: 999, background: activeSus.sesionesRestantes > 3 ? 'var(--portal-brand)' : '#B85436' }} />
-                </div>
-              </>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p style={{ fontSize: 13.5, color: t.muted }}>{activeSus.fechaFin ? `Válido hasta el ${new Date(activeSus.fechaFin).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : 'Sesiones ilimitadas'}</p>
-                <ChevronRight size={16} style={{ color: t.muted }} />
-              </div>
+          <Link
+            href={`/portal/${slug}/notificaciones`}
+            aria-label={sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
+            style={{
+              position: 'relative', width: 40, height: 40, flex: '0 0 40px', marginTop: 22,
+              borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+              background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: sombra.circulo, textDecoration: 'none',
+              transition: transicion(['transform']),
+            }}
+          >
+            <span style={{ ...display(17), color: t.ink }}>{sinLeer}</span>
+            {sinLeer > 0 && (
+              <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--portal-brand)' }} />
             )}
           </Link>
-        )}
-
-        {/* ── Acceso rápido ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <span style={microLabel}>Acceso rápido</span>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {[
-              { href: `/portal/${slug}/clases`, icon: Calendar, label: 'Reservar clase' },
-              { href: `/portal/${slug}/reservas`, icon: ListChecks, label: 'Mis reservas' },
-              // VOD congelado (feature-freeze PMF): sin acceso a "Vídeos" en el portal.
-              ...(PORTAL_VIDEOS_CONGELADO ? [] : [{ href: `/portal/${slug}/videos`, icon: Play, label: 'Vídeos' }]),
-              { href: `/portal/${slug}/invitar`, icon: UserPlus, label: 'Invita a una amiga' },
-            ].map(({ href, icon: Icon, label }) => (
-              <Link key={href} href={href} style={{ ...card, borderRadius: 18, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, textDecoration: 'none' }}>
-                <div style={{ width: 42, height: 42, borderRadius: 12, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon size={20} style={{ color: t.heroAccent }} />
-                </div>
-                <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, lineHeight: 1.15 }}>{label}</p>
-              </Link>
-            ))}
-          </div>
         </div>
 
+        <div style={{ height: 32 }} />
+
+        {/* Tarjeta grande.
+            Con foto del estudio, es exactamente el diseño: 476 px de imagen con
+            la tarjeta de cristal flotando abajo. SIN foto —el caso de casi
+            todos los estudios el primer día— esos 476 px eran un vacío de color
+            crema con una tarjeta pegada al fondo. Así que sin foto la tarjeta
+            se queda a su altura natural: la misma pieza, sin el hueco. */}
+        <Link
+          href={tarjeta.href}
+          style={{
+            position: 'relative', display: 'block',
+            height: conFoto ? altura.heroCard : undefined,
+            padding: conFoto ? 0 : 14,
+            borderRadius: radio.heroCard, overflow: 'hidden',
+            background: conFoto ? t.surface2 : t.hero,
+            boxShadow: sombra.heroCard, textDecoration: 'none',
+          }}
+        >
+          {conFoto && (
+            <div ref={fotoRef} style={{ position: 'absolute', left: 0, right: 0, top: -34, bottom: -34, willChange: 'transform' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={studio!.fotoUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            </div>
+          )}
+
+          <div style={{
+            position: conFoto ? 'absolute' : 'relative',
+            top: conFoto ? 18 : undefined, left: conFoto ? 18 : undefined, right: conFoto ? 18 : undefined,
+            display: 'flex', justifyContent: 'space-between', gap: 10, pointerEvents: 'none',
+            padding: conFoto ? 0 : '4px 6px 14px',
+          }}>
+            <span style={{
+              padding: '10px 16px', borderRadius: radio.pill, background: noche ? 'rgba(28,31,23,.62)' : 'rgba(255,255,255,.62)',
+              ...cristal(desenfoque.chip), border: `1px solid ${bordeCristal}`,
+              ...micro(8.5, 0.26, 600), color: t.ink, whiteSpace: 'nowrap',
+            }}>{tarjeta.volanta}</span>
+            {tarjeta.contador && (
+              <span style={{
+                padding: '10px 16px', borderRadius: radio.pill,
+                background: noche ? 'rgba(243,241,233,.72)' : 'rgba(34,38,31,.72)',
+                ...cristal(desenfoque.chip, 100),
+                ...micro(8.5, 0.22, 600), color: noche ? '#12140E' : '#F6F4EF', whiteSpace: 'nowrap',
+              }}>{tarjeta.contador}</span>
+            )}
+          </div>
+
+          <div style={{
+            position: conFoto ? 'absolute' : 'relative',
+            left: conFoto ? 14 : undefined, right: conFoto ? 14 : undefined, bottom: conFoto ? 14 : undefined,
+            borderRadius: radio.card,
+            background: cristalClaro, ...cristal(desenfoque.cardHero, 170),
+            border: `1px solid ${bordeCristal}`, boxShadow: sombra.cardInterna, padding: '22px 20px 20px',
+          }}>
+            <div style={{ ...display(36, true), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {tarjeta.titulo}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+              {tarjeta.meta.map((m, i) => (
+                <span key={m} style={{ display: 'contents' }}>
+                  {i > 0 && <span style={{ width: 1, height: 11, background: lineaSuave }} />}
+                  <span style={{ ...(i === 0 ? texto.metaFuerte : texto.meta), color: i === 0 ? t.ink : t.muted }}>{m}</span>
+                </span>
+              ))}
+            </div>
+            <div style={{
+              height: altura.botonCta, borderRadius: radio.botonCta, background: 'var(--portal-brand)',
+              display: 'flex', alignItems: 'center', padding: '0 24px', marginTop: 18,
+              boxShadow: sombra.cta, transition: transicion(['transform', 'background']),
+            }}>
+              <GlifoAcceso color="var(--portal-brand-foreground)" />
+              <span style={{ flex: 1, ...texto.botonCta, color: 'var(--portal-brand-foreground)', paddingLeft: 14 }}>{tarjeta.cta}</span>
+              <span aria-hidden style={{ fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7 }}>→</span>
+            </div>
+          </div>
+        </Link>
+
+        {/* Esta semana */}
+        {estaSemana.length > 0 && (
+          <>
+            <div style={{ height: 44 }} />
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <h2 style={{ ...display(30), color: t.ink }}>Esta semana</h2>
+              <Link href={`/portal/${slug}/clases`} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
+                Agenda →
+              </Link>
+            </div>
+            {/* Sin `scroll-snap`. Lo añadí de más y se comía la sangría: con
+                `scroll-snap-align: start` en las tarjetas, el navegador ajusta
+                el carrusel a la primera nada más montarlo (scrollLeft = 24) y
+                la deja pegada al borde de la pantalla. El diseño no lleva
+                anclaje, y sin él la sangría de 24 px se respeta. */}
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '22px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
+              {estaSemana.map(({ s, libres }) => {
+                const tipo = tiposClase.find(x => x.id === s.tipoClaseId);
+                return (
+                  <Link
+                    key={s.id}
+                    href={`/portal/${slug}/clases/${s.id}`}
+                    style={{
+                      flex: '0 0 158px', height: 178, borderRadius: radio.card, background: t.surface,
+                      padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                      boxShadow: sombra.cardSemana, textDecoration: 'none',
+                      transition: transicion(['transform', 'box-shadow'], dur.card),
+                    }}
+                  >
+                    <span style={{ ...micro(9, 0.26, 600), color: t.micro }}>{diaCorto(s.inicio)}</span>
+                    <span style={{ ...display(25, false, 1.05), color: t.ink, textWrap: 'pretty' } as React.CSSProperties}>
+                      {tipo?.nombre ?? 'Clase'}
+                    </span>
+                    <span style={{ ...texto.nota, color: t.muted }}>
+                      {hora(s.inicio)} · {libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''}` : 'Completa'}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <div style={{ height: 40 }} />
+
+        {/* Las cuatro filas */}
+        {filas.map((f, i) => (
+          <Link
+            key={f.href}
+            href={f.href}
+            style={{
+              height: altura.fila, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              borderTop: `1px solid ${t.line}`,
+              borderBottom: i === filas.length - 1 ? `1px solid ${t.line}` : undefined,
+              textDecoration: 'none', transition: transicion(['padding-left'], 400),
+            }}
+          >
+            <span style={{ ...display(24), color: t.ink }}>{f.etiqueta}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {f.punto && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--portal-brand)' }} />}
+              <span style={{ ...texto.valor, color: t.muted2 }}>{f.valor}</span>
+              <span aria-hidden style={{ fontSize: 13, color: t.heroAccent }}>→</span>
+            </span>
+          </Link>
+        ))}
+
+        {/* Invita a una amiga */}
+        <div style={{ height: 34 }} />
+        <Link
+          href={`/portal/${slug}/invitar`}
+          style={{
+            position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
+            overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
+            transition: transicion(['transform'], dur.card),
+          }}
+        >
+          {studio?.fotoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={studio.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
+          )}
+          <div aria-hidden style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: noche
+              ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
+              : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
+          }} />
+          <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+            <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>Trae a quien quieras</span>
+            <div>
+              <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
+                La calma se comparte mejor.
+              </div>
+              <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>Invita a una amiga y ganáis las dos</div>
+            </div>
+          </div>
+          <span aria-hidden style={{
+            position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
+            background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
+          }}>→</span>
+        </Link>
       </div>
+
+      {/* El avatar vive en el menú de abajo (pestaña Perfil), como en el diseño.
+          Se deja este bloque fuera de la vista para que los lectores de pantalla
+          sigan anunciando de quién es la sesión al entrar. */}
+      <span className="sr-only">
+        <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
+      </span>
     </div>
   );
 }

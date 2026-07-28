@@ -9,8 +9,7 @@ import { subirFotoPerfil, eliminarFotoPerfil, validarFotoPerfil } from '@/lib/po
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { useModo } from '@/lib/portal-modo';
 import {
-  Camera, Trash2, LogOut, ChevronRight, Bell, SlidersHorizontal, Loader2, Check, Trophy,
-} from 'lucide-react';
+  Camera, Trash2, LogOut, ChevronRight, Bell, SlidersHorizontal, Loader2, Check, Trophy, Sun, Moon } from 'lucide-react';
 import { Card, Input, Button, BottomSheet } from '@/components/portal/ui';
 
 export default function PerfilPage() {
@@ -22,7 +21,7 @@ export default function PerfilPage() {
     socios, updateSocio, preferenciasSocio, upsertPreferenciasSocio,
     reservas, sesiones, nivelSocio, rachaSocio, achievementDefinitions, achievementProgress,
   } = useStudio();
-  const { t } = useModo();
+  const { t, noche, toggle } = useModo();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const socio = socios.find(s => s.id === session?.socioId);
@@ -113,7 +112,7 @@ export default function PerfilPage() {
   const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: t.muted2, display: 'block', marginBottom: 6 };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ minHeight: '100%', background: t.bg }}>
       {/* Header */}
       <div style={{ padding: '24px 20px 32px' }}>
         <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1, marginBottom: 24 }}>Tu perfil</h1>
@@ -291,6 +290,30 @@ export default function PerfilPage() {
             </div>
             <ChevronRight size={16} style={{ color: t.muted, flexShrink: 0 }} />
           </Link>
+        </Card>
+
+        {/* Día / noche.
+            Vivía en el Inicio, en un botón junto al de notificaciones. El
+            rediseño (v2) deja ahí un solo círculo, así que el interruptor se
+            muda al sitio donde ya están el resto de sus preferencias — que es
+            además donde lo habría buscado cualquiera. */}
+        <Card style={{ padding: 0 }}>
+          <button
+            type="button"
+            onClick={toggle}
+            aria-pressed={noche}
+            style={{ width: '100%', padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', textAlign: 'left' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 14, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {noche ? <Sun size={17} style={{ color: t.heroAccent }} /> : <Moon size={17} style={{ color: t.heroAccent }} />}
+              </div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>Modo {noche ? 'noche' : 'día'}</p>
+                <p style={{ fontSize: 12, color: t.muted }}>Toca para cambiar a modo {noche ? 'día' : 'noche'}</p>
+              </div>
+            </div>
+          </button>
         </Card>
 
         {/* Logout */}
