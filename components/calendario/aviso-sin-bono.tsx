@@ -25,6 +25,10 @@ export interface AvisoSinBonoProps {
   socioId: string;
   claseLabel: string;
   precioSuelta: number | null; // null/0 → no hay precio de clase suelta configurado
+  // Permiso de ROL, distinto de `precioSuelta`: una cosa es que haya precio y
+  // otra que quien mira pueda cobrarlo. Una instructora ve el aviso (lo provoca
+  // ella al añadir a la clienta) pero no le corresponde emitir el recibo.
+  permiteCobrar: boolean;
   onCobrarSuelta: () => void;
   onCortesia: () => void;
   onClose: () => void;
@@ -32,9 +36,10 @@ export interface AvisoSinBonoProps {
 
 export function AvisoSinBono({
   open, motivo = 'sin-bono', socioNombre, socioId, claseLabel, precioSuelta,
-  onCobrarSuelta, onCortesia, onClose,
+  permiteCobrar, onCobrarSuelta, onCortesia, onClose,
 }: AvisoSinBonoProps) {
-  const puedeCobrar = precioSuelta != null && precioSuelta > 0;
+  const hayPrecio = precioSuelta != null && precioSuelta > 0;
+  const puedeCobrar = hayPrecio && permiteCobrar;
   const noCubre = motivo === 'tipo-no-cubierto';
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -53,10 +58,14 @@ export function AvisoSinBono({
           {' '}Elige qué hacer — así no se cuela una clase gratis sin que nadie lo decida.
         </p>
         <div className="mt-3 flex flex-col gap-2">
-          <Button onClick={onCobrarSuelta} disabled={!puedeCobrar} className="justify-start">
-            <Ticket size={15} /> Cobrar clase suelta{puedeCobrar ? ` · ${formatEuro(precioSuelta!)}` : ''}
-          </Button>
-          {!puedeCobrar && (
+          {/* Sin permiso no se enseña ni desactivado: un botón apagado y sin
+              explicación se lee como un fallo del programa, no como un límite. */}
+          {permiteCobrar && (
+            <Button onClick={onCobrarSuelta} disabled={!puedeCobrar} className="justify-start">
+              <Ticket size={15} /> Cobrar clase suelta{puedeCobrar ? ` · ${formatEuro(precioSuelta!)}` : ''}
+            </Button>
+          )}
+          {!hayPrecio && permiteCobrar && (
             <p className="-mt-1 text-[11px] text-muted-foreground">
               Configura un precio de «Clase suelta» (un plan de tipo PUNTUAL) para poder cobrarla desde aquí.
             </p>

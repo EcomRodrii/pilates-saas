@@ -5,7 +5,7 @@ import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import { useRol } from '@/lib/permisos';
+import { useRol, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
 import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
 import { cn, formatEuro, formatFechaCorta, formatHoraCorta } from '@/lib/utils';
@@ -104,6 +104,7 @@ interface CitaCardProps {
   onCancelar: (id: string) => void;
   onTogglePagada: (id: string) => void;
   verPrecio: boolean;
+  gestionaCitas: boolean;
 }
 
 function CitaCard({
@@ -117,6 +118,7 @@ function CitaCard({
   onCancelar,
   onTogglePagada,
   verPrecio,
+  gestionaCitas,
 }: CitaCardProps) {
   const [hovered, setHovered] = useState(false);
   const tipoBadge = TIPO_BADGE[cita.tipo];
@@ -198,7 +200,7 @@ function CitaCard({
 
       {/* Status badge or action buttons */}
       <div className="flex items-center gap-2 shrink-0">
-        {isActive && hovered ? (
+        {isActive && hovered && gestionaCitas ? (
           <>
             <button
               onClick={() => onCompletar(cita.id)}
@@ -235,7 +237,11 @@ function CitaCard({
 export default function CitasPage() {
   const { socios, instructores, citas, sesiones, addCita, updateCita, completarCita, cancelarCita } = useStudio();
   const rol = useRol();
-  const verPrecio = rol !== 'INSTRUCTOR';
+  // `rol !== 'INSTRUCTOR'` escrito a mano se equivoca solo en cuanto aparece un
+  // rol nuevo: el MANAGER heredaba el toggle de pagado/pendiente, que es dinero
+  // y es justo lo que su definición le quita. Con los helpers, no.
+  const gestionaCitas = puedeGestionarClientas(rol);
+  const verPrecio = puedeMoverDinero(rol);
   const [tab, setTab] = useState<'proximas' | 'historial'>('proximas');
   const [filterInstructor, setFilterInstructor] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
@@ -434,6 +440,7 @@ export default function CitasPage() {
         title="Citas"
         description={`${upcoming.length} próximas · ${thisMonth.length} este mes`}
         actions={
+          gestionaCitas ? (
           <>
             {/* Migración asistida: traer las citas del programa anterior. */}
             <Link
@@ -451,6 +458,7 @@ export default function CitasPage() {
               Nueva cita
             </button>
           </>
+          ) : null
         }
       />
 
@@ -551,6 +559,7 @@ export default function CitasPage() {
                 onCancelar={handleCancelar}
                 onTogglePagada={handleTogglePagada}
                 verPrecio={verPrecio}
+                gestionaCitas={gestionaCitas}
               />
             );
           })
@@ -564,7 +573,7 @@ export default function CitasPage() {
       )}
 
       {/* Nueva cita modal */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
+      <Dialog open={showModal && gestionaCitas} onOpenChange={setShowModal}>
         <DialogContent className="max-w-lg w-full">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-foreground">Nueva cita</DialogTitle>
