@@ -188,3 +188,62 @@ test.describe('Un bono que solo vale para ciertas clases', () => {
     expect(vinculos).toHaveLength(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Y que se VEA sin abrir la tarifa.
+//
+// La restricción se guardaba bien, pero la lista de tarifas solo tenía Nombre ·
+// Tipo · Precio · Sesiones · Estado: para saber si un bono estaba acotado había
+// que abrirlo uno por uno. Con ocho o diez tarifas, lo único que separa un bono
+// caro de una fuga de ingresos quedaba escondido justo donde irías a auditarlo.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('La cobertura se ve en la lista de tarifas', () => {
+  test('un plan sin acotar dice que sirve para todas', async ({ page }) => {
+    await mockBackend(page, { planesIniciales: [planRow('plan-1', 'Bono 10 sesiones')] });
+    await seedSesionDeDuena(page);
+    await abrirPlanes(page);
+
+    await expect(page.getByRole('cell', { name: 'Todas las clases' })).toBeVisible();
+  });
+
+  test('un plan acotado nombra las clases que cubre, sin tener que abrirlo', async ({ page }) => {
+    await mockBackend(page, {
+      planesIniciales: [planRow('plan-1', 'Bono 10 Reformer')],
+      vinculosIniciales: [{ plan_id: 'plan-1', tipo_clase_id: 'tc-reformer', studio_id: STUDIO_ID }],
+    });
+    await seedSesionDeDuena(page);
+    await abrirPlanes(page);
+
+    await expect(page.getByRole('cell', { name: 'Reformer', exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Todas las clases' })).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El tipo de tarifa se enseñaba con la constante de la base de datos.
+// «PUNTUAL» no es una palabra que use una dueña de estudio: dice «clase suelta».
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('El tipo de tarifa se dice en castellano', () => {
+  test('la insignia de la tabla no enseña la constante en mayúsculas', async ({ page }) => {
+    await mockBackend(page, { planesIniciales: [planRow('plan-1', 'Bono 10 sesiones')] });
+    await seedSesionDeDuena(page);
+    await abrirPlanes(page);
+
+    // Por celda: el mismo texto se pinta también en la ficha de móvil, que está
+    // oculta a este ancho.
+    await expect(page.getByRole('cell', { name: 'Bono de sesiones' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'BONO', exact: true })).toHaveCount(0);
+  });
+
+  test('el desplegable de crear tarifa tampoco', async ({ page }) => {
+    await mockBackend(page);
+    await seedSesionDeDuena(page);
+    await abrirPlanes(page);
+
+    await page.getByRole('button', { name: 'Nuevo plan' }).click();
+    // Por opción: el nombre accesible del <select> arrastra el del InfoTip, así
+    // que getByLabel('Tipo') no basta para leer lo que hay dentro.
+    const opciones = page.getByRole('combobox').first().getByRole('option');
+    await expect(opciones).toHaveText(['Cuota mensual', 'Bono de sesiones', 'Clase suelta']);
+  });
+});
