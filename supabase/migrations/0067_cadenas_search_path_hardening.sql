@@ -1,4 +1,4 @@
--- Hardening: las 3 funciones nuevas de 0062 (propagar_plan_cadena,
+-- Hardening: las 3 funciones nuevas de 0063 (propagar_plan_cadena,
 -- heredar_plan_de_cadena, mis_estudios) se crearon sin `set search_path`,
 -- disparando el advisor "search_path mutable". El resto de funciones
 -- SECURITY DEFINER de este proyecto desde 0021 en adelante ya siguen esta

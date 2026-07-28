@@ -1,4 +1,4 @@
--- Hotfix de 0065: current_rol() perdió el `limit 1` que sí tenía la versión
+-- Hotfix de 0066: current_rol() perdió el `limit 1` que sí tenía la versión
 -- original (0000_base.sql) en su subconsulta de `instructores`. Sin él, un
 -- usuario con dos fichas de `instructores` para el mismo (auth_user_id,
 -- studio_id) —alcanzable hoy con el alta de equipo + self-claim existentes,

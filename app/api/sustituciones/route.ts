@@ -234,7 +234,7 @@ export async function PATCH(req: NextRequest) {
     });
 
     // Misma duración, nuevo hueco. Las exclusion constraints (0048 instructora,
-    // 0071 sala) re-validan el hueco de forma atómica: si choca, 23P01.
+    // 0074 sala) re-validan el hueco de forma atómica: si choca, 23P01.
     const duracionMs = new Date(ses.fin).getTime() - new Date(ses.inicio).getTime();
     const finNuevo = new Date(inicioNuevo.getTime() + duracionMs);
     const upd = await admin.from('sesiones')

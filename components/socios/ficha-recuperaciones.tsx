@@ -34,7 +34,7 @@ const labelCls = 'text-xs font-semibold text-muted-foreground mb-1.5 block';
 
 export function FichaRecuperaciones({ socioId }: { socioId: string }) {
   const { recuperaciones, darRecuperacion, anularRecuperacion } = useStudio();
-  // Conceder o anular una recuperación es una clase gratis: desde la 0117 lo
+  // Conceder o anular una recuperación es una clase gratis: desde la 0122 lo
   // rechaza la base de datos a quien no gestiona clientas. Se ocultan los
   // botones para no ofrecer algo que va a fallar — el mismo error que ya se
   // arregló hoy dos veces.

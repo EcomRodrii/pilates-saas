@@ -1334,12 +1334,12 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('mandatos_sepa').select('*').eq('studio_id', sid),
   ]);
 
-  // Tipos de clase que cubre cada plan (0106): viven en tabla puente, así que
+  // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
   // no llegan en el SELECT. Sin esto, el panel creería que todo bono vale para todo.
   const planesConTiposPanel = await hidratarTiposDePlanes(db as never, sid, (planesTarifaRes.data ?? []).map(mapPlanTarifa));
   return {
     studio: studioRes.data ? mapStudio(studioRes.data) : null,
-    // Política/términos persistidos (0102); null = el cliente aplica el texto por
+    // Política/términos persistidos (0107); null = el cliente aplica el texto por
     // defecto. Antes StudioConfig no se hidrataba nunca y perdía lo que la dueña editó.
     studioConfig: {
       politicaPrivacidad: (studioRes.data as { politica_privacidad?: string | null } | null)?.politica_privacidad ?? null,
@@ -1675,7 +1675,7 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
     admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
   ]);
   const suscripciones = (susRows ?? []).map(mapSuscripcion);
-  // Los tipos que cubre cada plan viven aparte (0106): sin hidratarlos se
+  // Los tipos que cubre cada plan viven aparte (0111): sin hidratarlos se
   // descontaría de un bono que no cubre esta clase.
   const planes = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
   const consumible = bonoConsumible(socioId, suscripciones, planes, undefined, tipoClaseId);
@@ -2077,7 +2077,7 @@ export async function crearReservaPublica(params: {
     ]);
     const hoyISO = new Date().toISOString().slice(0, 10);
     // El tipo de la clase importa: un bono acotado a Reformer no da derecho a
-    // reservar Mat (0106). Se resuelve aquí para poder decirlo con precisión.
+    // reservar Mat (0111). Se resuelve aquí para poder decirlo con precisión.
     const { data: sesGate } = await admin
       .from('sesiones').select('tipo_clase_id').eq('id', params.sesionId).maybeSingle();
     const tipoDeLaClase = sesGate?.tipo_clase_id as string | null | undefined;
@@ -2130,7 +2130,7 @@ export async function crearReservaPublica(params: {
 
   let spotAsignado: string | null = null;
   if (estado === 'CONFIRMADA') {
-    // La clase decide de QUÉ bono se descuenta (0106): con un "Bono Reformer" y
+    // La clase decide de QUÉ bono se descuenta (0111): con un "Bono Reformer" y
     // un "Bono Mat" a la vez, sin esto se quitaría del equivocado.
     await consumirBonoServidor(admin, params.studioId, params.socioId, params.sesionId);
     // Sitio elegido por la socia (I-12): solo para reservas confirmadas (la
@@ -2302,7 +2302,7 @@ export async function cancelarReservaPublica(params: {
   // y se ha cancelado). `cancelar_reserva_plaza` devuelve sin error también cuando
   // la reserva YA estaba CANCELADA (era_confirmada=false); sin este gate, re-llamar
   // a cancelar la misma plaza fija minaba una recuperación nueva cada vez (hasta el
-  // tope de 4) → clases gratis self-service. La RPC además dedup por origen (0098).
+  // tope de 4) → clases gratis self-service. La RPC además dedup por origen (0103).
   let recuperacionCreada = false;
   if (params.reservaId.startsWith('res-pf-') && r.eraConfirmada) {
     const { data } = await admin.rpc('crear_recuperacion', {
@@ -3075,7 +3075,7 @@ function socioToDb(socio: Socio) {
 }
 
 // Los tipos de clase que cubre cada plan viven en la tabla puente
-// `plan_tipos_clase` (0106), así que no vienen en el SELECT de planes_tarifa.
+// `plan_tipos_clase` (0111), así que no vienen en el SELECT de planes_tarifa.
 // Esto los cuelga en `tiposClaseIds`. Sin filas para un plan = cubre todas, que
 // es el comportamiento de siempre: por eso el fallo (una consulta que falle deja
 // los planes tal cual) es abrir, no cerrar.
@@ -4022,7 +4022,7 @@ export async function dbUpdateSesion(id: string, changes: Partial<Sesion>): Prom
   return error ? falloEscritura('[dbUpdateSesion]', error) : ESCRITURA_OK;
 }
 
-// Edita "esta y las siguientes" de una serie en UNA transacción (RPC 0109). Antes
+// Edita "esta y las siguientes" de una serie en UNA transacción (RPC 0114). Antes
 // eran N escrituras no atómicas (lote de campos uniformes + un UPDATE de hora por
 // sesión): si el lote iba bien y una hora fallaba por solape, la BD quedaba a
 // medias y el panel se deshacía entero → divergían hasta recargar. La RPC lo hace
@@ -5156,7 +5156,7 @@ export async function dbReclamarAccesoEquipo(token: string): Promise<number> {
 // persistían: la dueña los editaba, veía "guardado", y el portal de reservas y el
 // registro de aceptación de la clienta seguían usando el texto por defecto
 // (exposición legal). Devuelve ResultadoEscritura porque la UI debe confirmar que
-// quedó guardado antes de decir "guardado" (0102 añadió las columnas).
+// quedó guardado antes de decir "guardado" (0107 añadió las columnas).
 export async function dbUpdateStudioConfig(changes: { politicaPrivacidad?: string; terminosServicio?: string }): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('politicaPrivacidad' in changes) db.politica_privacidad = changes.politicaPrivacidad;

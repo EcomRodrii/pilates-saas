@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 
-// Migración Mágica · lotes reversibles (0075). Los importadores registran aquí
+// Migración Mágica · lotes reversibles (0080). Los importadores registran aquí
 // los IDs que crean cuando la petición trae un batchId; deshacer borra
 // exactamente esos IDs, en orden inverso de dependencias, y nada más.
 

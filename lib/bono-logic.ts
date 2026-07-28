@@ -18,7 +18,7 @@ import type { Suscripcion, PlanTarifa } from '@/lib/types';
 // delante) se responde por el plan, no por la clase: no se puede descartar una
 // cobertura que aún no sabemos si aplica.
 //
-// Misma semántica que `plazas_fijas.tipo_clase_id` (0078), donde null = cualquiera.
+// Misma semántica que `plazas_fijas.tipo_clase_id` (0083), donde null = cualquiera.
 export function planCubreTipoClase(plan: PlanTarifa, tipoClaseId?: string | null): boolean {
   const tipos = plan.tiposClaseIds;
   if (!tipos || tipos.length === 0) return true;
@@ -137,7 +137,7 @@ export function nuevaFechaFinTrasCongelar(fechaFin: string | null, desdeISO: str
 /**
  * ¿Tiene sentido exigir plan para reservar? Solo si el estudio vende alguno.
  *
- * Desde la 0109 el ajuste «exigir plan o bono activo» viene ACTIVADO de fábrica,
+ * Desde la 0114 el ajuste «exigir plan o bono activo» viene ACTIVADO de fábrica,
  * que es lo correcto para un estudio en marcha. Pero un estudio recién creado lo
  * tiene activado y todavía no ha creado ni un plan: su primera clienta vería
  * «necesitas un plan o bono activo» y, al ir a contratarlo, nada que comprar.

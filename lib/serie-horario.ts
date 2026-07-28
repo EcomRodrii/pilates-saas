@@ -16,7 +16,7 @@
 import { fechaLocalDe, horaParedAInstante } from './citas/slots.ts';
 
 // La zona del estudio. Constante en todo el sistema (utils.TZ_ESTUDIO,
-// citas.TZ_CITAS, migraciones 0084/0100/0109): España peninsular.
+// citas.TZ_CITAS, migraciones 0084/0105/0114): España peninsular.
 const TZ_ESTUDIO = 'Europe/Madrid';
 
 /**
@@ -24,7 +24,7 @@ const TZ_ESTUDIO = 'Europe/Madrid';
  * cambiando solo la hora de pared. `horaInicio`/`horaFin` en formato 'HH:MM'.
  *
  * La fecha local se toma de `inicioISO` en Europe/Madrid — no de su día UTC, que
- * en la banda ~22:00–00:00 es el anterior (el bug que arregló 0100).
+ * en la banda ~22:00–00:00 es el anterior (el bug que arregló 0105).
  */
 export function horarioConNuevaHora(
   inicioISO: string,

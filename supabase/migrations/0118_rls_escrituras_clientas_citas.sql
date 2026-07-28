@@ -1,5 +1,5 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Mismo agujero que 0107 (facturación), esta vez en clientas y citas.
+-- Mismo agujero que 0112 (facturación), esta vez en clientas y citas.
 --
 -- Reportado por el usuario mirando el panel con rol INSTRUCTOR: le aparecían
 -- botones para borrar clienta, editar su perfil, dar de alta una nueva, crear
@@ -10,7 +10,7 @@
 --
 --     USING (studio_id = current_studio_id())   -- FOR ALL, a `authenticated`
 --
--- La misma frase que tenía `recibos` antes de 0107: comprueba el estudio,
+-- La misma frase que tenía `recibos` antes de 0112: comprueba el estudio,
 -- nunca el rol. `lib/permisos-reglas.ts` ya tenía la regla correcta
 -- (`puedeGestionarClientas` = PROPIETARIO/RECEPCION/MANAGER) — solo la UI la
 -- aplicaba, nunca la base de datos.
@@ -23,7 +23,7 @@
 -- ALCANCE: se cierran las ESCRITURAS. Las LECTURAS se quedan como están —una
 -- instructora necesita ver a sus alumnas (ficha, salud, contacto) y su propia
 -- agenda de citas; cerrarlo dejaría pantallas en blanco, que es peor que el
--- problema (mismo criterio que 0107 con recibos/suscripciones).
+-- problema (mismo criterio que 0112 con recibos/suscripciones).
 --
 -- Probado EN VIVO tras aplicar esta migración: el mismo INSERT/UPDATE/DELETE
 -- que antes se ejecutaba ahora sale con 42501 (row-level security policy).

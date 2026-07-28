@@ -11,9 +11,9 @@ import { readdirSync } from 'node:fs';
 //
 // No ROMPE nada —producción lleva las migraciones por marca de tiempo, no por
 // este prefijo, y las parejas que colisionaron tocaban objetos distintos—, pero
-// hace ilegible el directorio: con dos `0110` no se sabe cuál se aplicó antes
+// hace ilegible el directorio: con dos `0115` no se sabe cuál se aplicó antes
 // ni cuál falta por aplicar. Y ese "cuál falta por aplicar" ya ha costado caro
-// dos veces (ver 0113 y 0115: mergeadas y sin aplicar durante horas).
+// dos veces (ver 0118 y 0120: mergeadas y sin aplicar durante horas).
 //
 // Un comentario en una guía no lo habría evitado; este test sí, porque falla
 // en CI antes de mergear.

@@ -1,4 +1,4 @@
--- 0091 · F1 (B1-B4) — agregación de ingresos SERVER-SIDE.
+-- 0096 · F1 (B1-B4) — agregación de ingresos SERVER-SIDE.
 --
 -- Los informes de dinero pueden mentir a escala: la app suma `recibos.importe` sobre
 -- el array del CLIENTE, capado a 1000 filas por PostgREST. Un `sum()` en SQL agrega

@@ -1,4 +1,4 @@
--- 0089 · F0 (audit A2 / F0-7) — REVOKE explícito de los grants residuales en las
+-- 0094 · F0 (audit A2 / F0-7) — REVOKE explícito de los grants residuales en las
 -- tablas "deny-by-default" (RLS activo, 0 políticas).
 --
 -- La RLS ya deniega el acceso a anon/authenticated en estas tablas, pero el GRANT

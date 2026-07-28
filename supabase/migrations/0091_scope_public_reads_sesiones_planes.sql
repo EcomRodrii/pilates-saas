@@ -1,4 +1,4 @@
--- 0086 · Pentest L1 — cerrar la lectura anónima cross-tenant de horarios y tarifas.
+-- 0091 · Pentest L1 — cerrar la lectura anónima cross-tenant de horarios y tarifas.
 --
 -- `public_read_sesiones` y `public_read_planes_tarifa` (definidas en 0000_base)
 -- daban SELECT a `anon` con USING (true): cualquiera con la anon key pública

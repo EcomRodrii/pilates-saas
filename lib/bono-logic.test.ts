@@ -182,7 +182,7 @@ test('nuevaFechaFinTrasCongelar: empuja fecha_fin por los días congelados', () 
   assert.equal(nuevaFechaFinTrasCongelar('2026-08-30', '2026-07-01', '2026-07-15'), '2026-09-13');
 });
 
-// ── Bonos acotados a tipos de clase (0106) ───────────────────────────────────
+// ── Bonos acotados a tipos de clase (0111) ───────────────────────────────────
 // "El reformer me cuesta el doble de producir que el mat, y no puedo hacer un
 // Bono 10 Reformer que no sirva para Mat — esto me obliga a cobrar mal."
 
@@ -243,7 +243,7 @@ test('el desempate por caducidad sigue mandando entre bonos que SÍ cubren', () 
 });
 
 // ── Exigir un plan que no se puede comprar ──────────────────────────────────
-// Desde la 0109 el ajuste «exigir plan» viene activado de fábrica. Un estudio
+// Desde la 0114 el ajuste «exigir plan» viene activado de fábrica. Un estudio
 // recién creado lo tiene activado y aún no ha creado ningún plan: su primera
 // clienta vería "necesitas un plan o bono activo" y, al ir a contratarlo, nada
 // que comprar. Medido en prod: 13 de los 15 estudios estaban justo así.

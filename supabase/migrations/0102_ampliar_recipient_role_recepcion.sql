@@ -1,4 +1,4 @@
--- 0096: Notification Engine 1b — RECEPCIÓN como destinatario de notificaciones.
+-- 0101: Notification Engine 1b — RECEPCIÓN como destinatario de notificaciones.
 -- El CHECK de recipient_role solo admitía PROPIETARIO/INSTRUCTOR/SOCIA, así que el
 -- motor no podía crear notificaciones para el staff de mostrador (su campana
 -- quedaba siempre vacía). Se amplía el dominio permitido para incluir RECEPCION.

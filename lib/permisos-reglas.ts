@@ -77,7 +77,7 @@ export function puedeVerFichaClinica(rol: Rol): boolean {
 // estaba en el menú, no en la base de datos).
 //
 // Esto es la barrera de UI y su ÚNICO trabajo es no enseñar un botón que la
-// base de datos va a rechazar. La cerradura está en la RLS (0107).
+// base de datos va a rechazar. La cerradura está en la RLS (0112).
 export function puedeMoverDinero(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'RECEPCION';
 }
@@ -106,7 +106,7 @@ export function puedeGestionarEquipo(rol: Rol): boolean {
 }
 
 // Roles que un rol puede REPARTIR al invitar o editar a alguien. La propietaria
-// reparte todo; el manager solo hacia abajo. Espejo de la policy 0108: si las
+// reparte todo; el manager solo hacia abajo. Espejo de la policy 0113: si las
 // dos dejan de coincidir, la UI ofrece algo que la base de datos rechaza.
 export function rolesQuePuedeAsignar(rol: Rol): Rol[] {
   if (rol === 'PROPIETARIO') return ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'];

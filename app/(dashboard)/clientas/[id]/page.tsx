@@ -199,7 +199,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const { id } = use(params);
   const rol = useRol();
   // Sin esto, una instructora veía «Cobrar» y «Cancelar suscripción»: botones que
-  // desde la 0107 la base de datos rechaza. Enseñar un botón que no funciona es
+  // desde la 0112 la base de datos rechaza. Enseñar un botón que no funciona es
   // peor que no enseñarlo.
   const puedeCobrar = puedeMoverDinero(rol);
   // Alta, edición y baja de clientas: mostrador y manager. La instructora tenía

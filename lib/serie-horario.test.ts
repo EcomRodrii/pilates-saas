@@ -1,7 +1,7 @@
 // Tests de la reconstrucción de hora de una serie recurrente (I-3).
 // Runner nativo de Node (sin dependencias): `npm test` (Node >= 22.6).
 //
-// Esto fija el contrato que la RPC editar_serie_desde (0109) implementa en SQL con
+// Esto fija el contrato que la RPC editar_serie_desde (0114) implementa en SQL con
 // `AT TIME ZONE 'Europe/Madrid'`: mantener la FECHA local de cada sesión y cambiar
 // solo la hora de pared, cruzando el horario de verano correctamente. Si este test
 // y la RPC divergen, el pintado optimista mentiría respecto a lo guardado.
@@ -26,7 +26,7 @@ test('verano (CEST, +2): el mismo cálculo con offset de verano', () => {
 
 test('usa la fecha LOCAL, no el día UTC (banda de medianoche)', () => {
   // 22:30Z del 12-jul es, en Madrid (+2), el lunes 13-jul 00:30. La fecha que
-  // manda es la local (13-jul), no la UTC (12-jul) — el bug que arregló 0100.
+  // manda es la local (13-jul), no la UTC (12-jul) — el bug que arregló 0105.
   const r = horarioConNuevaHora('2026-07-12T22:30:00Z', '07:00', '08:00');
   assert.equal(r.inicio, '2026-07-13T05:00:00.000Z'); // 07:00 del 13-jul, no del 12
   assert.equal(r.fin, '2026-07-13T06:00:00.000Z');

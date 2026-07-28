@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   }
   const rol = ROLES_VALIDOS.has(String(body?.rol)) ? String(body?.rol) : 'INSTRUCTOR';
 
-  // Este endpoint usa service-role, que SE SALTA la RLS: la policy de la 0108 no
+  // Este endpoint usa service-role, que SE SALTA la RLS: la policy de la 0113 no
   // llega hasta aquí. Así que la regla de "solo hacia abajo" hay que aplicarla a
   // mano, o un manager se daría de alta una propietaria y habríamos hecho el
   // trabajo para nada.

@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  // Esta ruta lee facturas e ingresos con service-role (se salta la RLS de 0109)
+  // Esta ruta lee facturas e ingresos con service-role (se salta la RLS de 0114)
   // y los MANDA POR EMAIL a una dirección que llega en el body. Sin este control,
   // cualquiera con sesión de personal —una instructora incluida— podía exfiltrar
   // la contabilidad anual completa a su propio correo. La RLS no cubre esto

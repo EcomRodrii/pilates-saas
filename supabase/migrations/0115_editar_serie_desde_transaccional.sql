@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- 0109 · TENTARE — editar "esta y las siguientes" de una serie, todo-o-nada
+-- 0115 · TENTARE — editar "esta y las siguientes" de una serie, todo-o-nada
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- Follow-up de #415. editarSerieDesde aplicaba el cambio en VARIAS escrituras no
@@ -13,7 +13,7 @@
 --
 -- Esta RPC lo hace en UNA transacción: un único UPDATE sobre todas las sesiones de
 -- la serie desde la origen. Si CUALQUIER fila viola sesiones_instructor_sin_solape
--- (0048) o sesiones_sala_sin_solape (0071), Postgres aborta el statement entero y
+-- (0048) o sesiones_sala_sin_solape (0074), Postgres aborta el statement entero y
 -- la función revienta con 23P01 (exclusion_violation) → rollback completo, cero
 -- estado parcial. El cliente traduce ese 23P01 a "esa sala o instructora ya tiene
 -- una clase a esa hora" (lib/errores.ts) sin tocar nada más.
@@ -24,7 +24,7 @@
 -- se quiere cazar.
 --
 -- La hora se reconstruye anclada a Europe/Madrid, como el resto del sistema
--- (plazas fijas 0079, límite semanal 0100): se toma la FECHA local de cada sesión
+-- (plazas fijas 0084, límite semanal 0105): se toma la FECHA local de cada sesión
 -- y se le pega la nueva hora de pared. `AT TIME ZONE` cruza el horario de verano
 -- correctamente (dos sesiones de la misma serie con la misma hora de pared quedan
 -- con offset distinto si una cae en invierno y otra en verano). El espejo en TS

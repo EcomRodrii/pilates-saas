@@ -159,7 +159,7 @@ export default function Socios() {
     useStudio();
   const rol = useRol();
   const verFichaClinica = puedeVerFichaClinica(rol);
-  // El servidor y la RLS ya rechazan esto a la instructora (migr 0112/0113). Lo
+  // El servidor y la RLS ya rechazan esto a la instructora (migr 0112/0118). Lo
   // que faltaba era no enseñárselo: veía "Nueva clienta", "Importar", editar,
   // dar de baja y cambiar plan, los pulsaba, y se llevaba un error. Un botón que
   // siempre falla no es una funcionalidad, es una trampa.
