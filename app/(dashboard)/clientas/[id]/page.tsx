@@ -16,6 +16,7 @@ import { FichaMandatoSepa } from '@/components/socios/ficha-mandato-sepa';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
+import { ERROR_GENERICO } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
@@ -245,6 +246,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [reservaFilter, setReservaFilter] = useState<'todas' | 'confirmadas' | 'asistidas' | 'canceladas'>('todas');
   const [reservasPage, setReservasPage] = useState(20);
   const [toast, setToast] = useState<string | null>(null);
+  const [cambiandoPlan, setCambiandoPlan] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   // ── AI instructor notes ────────────────────────────────────────────────────
@@ -387,6 +389,24 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       borrandoRef.current = false;
       setBorrando(false);
       setToast('No se ha podido dar de baja. Vuelve a intentarlo.');
+    }
+  }
+
+  // Cambiar el plan es cobrar. El toast «Plan "X" asignado» saltaba antes de que
+  // el servidor hubiera contestado —y saltaba igual cuando contestaba que no—,
+  // así que una instructora sin permiso veía el mismo mensaje de éxito que la
+  // dueña y el plan reaparecía al recargar. Ahora el aviso dice lo que ha pasado.
+  async function cambiarPlan(planId: string | null, nombrePlan?: string) {
+    if (cambiandoPlan) return;
+    setCambiandoPlan(true);
+    try {
+      await assignPlan(id, planId);
+      setShowChangePlan(false);
+      setToast(nombrePlan ? `Plan "${nombrePlan}" asignado` : 'Plan retirado');
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : ERROR_GENERICO);
+    } finally {
+      setCambiandoPlan(false);
     }
   }
 
@@ -628,10 +648,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               </button>
                             )}
                             <button
-                              onClick={() => assignPlan(id, null)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors text-muted-foreground"
+                              onClick={() => cambiarPlan(null)}
+                              disabled={cambiandoPlan}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 disabled:opacity-40 transition-colors text-muted-foreground"
                             >
-                              Cancelar suscripción
+                              {cambiandoPlan ? 'Cancelando…' : 'Cancelar suscripción'}
                             </button>
                           </div>
                           )}
@@ -1438,8 +1459,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
           </DialogHeader>
           <div className="space-y-2 mt-3">
             <button
-              onClick={() => { assignPlan(id, null); setShowChangePlan(false); }}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-muted"
+              onClick={() => cambiarPlan(null)}
+              disabled={cambiandoPlan}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-muted disabled:opacity-40"
               style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
             >
               <span>Sin plan</span>
@@ -1448,8 +1470,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             {planesTarifa.filter(p => p.activo).map(p => (
               <button
                 key={p.id}
-                onClick={() => { assignPlan(id, p.id); setShowChangePlan(false); setToast(`Plan "${p.nombre}" asignado`); }}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-brand/10"
+                onClick={() => cambiarPlan(p.id, p.nombre)}
+                disabled={cambiandoPlan}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-brand/10 disabled:opacity-40"
                 style={{
                   borderColor: suscripcion?.planId === p.id ? 'color-mix(in srgb, var(--info) 12%, var(--card))' : 'var(--border)',
                   backgroundColor: suscripcion?.planId === p.id ? 'color-mix(in srgb, var(--brand) 10%, var(--card))' : 'white',

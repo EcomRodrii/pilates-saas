@@ -234,7 +234,7 @@ interface StudioContextValue {
   removeTagSocio: (socioId: string, tag: string) => void;
 
   // Suscripciones
-  assignPlan: (socioId: string, planId: string | null) => void;
+  assignPlan: (socioId: string, planId: string | null) => Promise<void>;
   pausarSuscripcion: (susId: string, motivo?: string) => void;
   reanudarSuscripcion: (susId: string) => void;
 
@@ -1496,7 +1496,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Suscripciones ────────────────────────────────────────────────────────────
 
-  function assignPlan(socioId: string, planId: string | null) {
+  async function assignPlan(socioId: string, planId: string | null) {
     // Un bono con sesiones sin gastar es DINERO QUE LA CLIENTA YA PAGÓ. Antes,
     // asignarle cualquier otro plan cancelaba TODAS sus suscripciones activas sin
     // mirar si les quedaba algo dentro y sin avisar: venderle un bono de mat de
@@ -1516,7 +1516,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const aDesactivar = suscripciones.filter(
       s => s.socioId === socioId && s.estado === 'ACTIVA' && !conservaSaldo(s),
     );
-    const idsADesactivar = new Set(aDesactivar.map(s => s.id));
     const plan = planId ? planesTarifa.find(p => p.id === planId) : null;
     const nueva: Suscripcion | null = plan ? {
       id: `sus-${uid()}`,
@@ -1529,14 +1528,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       sesionesRestantes: plan.sesiones,
       stripeSubscriptionId: null,
     } : null;
-    setSuscripciones(prev => {
-      const deactivated = prev.map(s =>
-        idsADesactivar.has(s.id) ? { ...s, estado: 'CANCELADA' as const } : s
-      );
-      return nueva ? [...deactivated, nueva] : deactivated;
-    });
-    aDesactivar.forEach(s => dbUpdateSuscripcion(s.id, { estado: 'CANCELADA' }));
-    if (nueva) dbInsertSuscripcion(nueva);
+
+    // Asignar un plan mueve dinero, así que aquí NO se escribe en pantalla y se
+    // reza: se espera a cada respuesta del servidor y solo se refleja lo que ha
+    // quedado guardado de verdad. Antes esta función no era ni `async` — pintaba
+    // el plan nuevo, lanzaba tres escrituras sin mirarlas y el detalle de la
+    // clienta llegaba a decir «Plan "X" asignado» sin que se hubiera guardado
+    // nada. Una instructora, que no tiene permiso, veía exactamente lo mismo que
+    // la dueña: éxito.
+    //
+    // El ORDEN es deliberado: primero se le DA lo que ha pagado, después se le
+    // quita lo viejo. Sin transacción desde el navegador, un fallo a medias es
+    // posible; que la clienta se quede de más y no de menos es la mitad buena.
+    const fallos: string[] = [];
+
+    // 1) El plan nuevo. Si esto falla no se ha tocado nada: se corta aquí.
+    if (nueva) {
+      const res = await dbInsertSuscripcion(nueva);
+      if (!res.ok) throw new Error(res.error);
+    }
 
     // Asignar un plan es una VENTA, y hasta ahora no dejaba rastro de dinero:
     // sólo el alta de socia (addSocio) generaba recibo, y el bono que se vende
@@ -1548,8 +1558,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // pagado, y dar por cobrado lo que no lo está es el mismo error contable al
     // revés. Pendiente aparece en "Quién me debe", donde marcarCobrado ya emite
     // la factura. Un plan de 0 € (invitación, prueba) no genera recibo.
+    //
+    // 2) Si el recibo falla, el plan YA está asignado: fingir que no ha pasado
+    //    nada sería otra mentira. Se sigue adelante y se avisa de qué falta.
+    let reciboPlan: Recibo | null = null;
     if (nueva && plan && plan.precio > 0) {
-      const reciboPlan: Recibo = {
+      const rec: Recibo = {
         id: `rec-${uid()}`,
         studioId: getCurrentStudioId(),
         socioId,
@@ -1562,9 +1576,34 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         fechaDevolucion: null,
         intentosReintento: 0,
       };
-      setRecibos(prev => [...prev, reciboPlan]);
-      dbInsertRecibo(reciboPlan);
+      const res = await dbInsertRecibo(rec);
+      if (res.ok) reciboPlan = rec;
+      else fallos.push(`El plan se ha asignado, pero el cobro de ${plan.precio} € no ha quedado anotado en "Quién me debe": añádelo a mano.`);
     }
+
+    // 3) Y por último, retirar lo viejo. Lo que no se consiga dar de baja sigue
+    //    activo en el servidor, así que tampoco se tacha en pantalla.
+    const desactivadas = new Set<string>();
+    for (const s of aDesactivar) {
+      const res = await dbUpdateSuscripcion(s.id, { estado: 'CANCELADA' });
+      if (res.ok) desactivadas.add(s.id);
+    }
+    const sinDarDeBaja = aDesactivar.length - desactivadas.size;
+    if (sinDarDeBaja > 0) {
+      fallos.push(sinDarDeBaja === 1
+        ? 'El plan anterior no se ha podido dar de baja y sigue activo: revísalo antes de que se vuelva a cobrar.'
+        : `${sinDarDeBaja} planes anteriores no se han podido dar de baja y siguen activos: revísalos antes de que se vuelvan a cobrar.`);
+    }
+
+    // La pantalla, ahora sí, con lo que hay guardado y nada más.
+    setSuscripciones(prev => {
+      const bajas = prev.map(s =>
+        desactivadas.has(s.id) ? { ...s, estado: 'CANCELADA' as const } : s
+      );
+      return nueva ? [...bajas, nueva] : bajas;
+    });
+    const rec = reciboPlan;
+    if (rec) setRecibos(prev => [...prev, rec]);
 
     const socio = socios.find(s => s.id === socioId);
     addActividadReciente(
@@ -1573,6 +1612,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       socioId,
       `/socios/${socioId}`
     );
+
+    // Lo que sí ha quedado guardado ya está en pantalla; lo que no, se cuenta.
+    if (fallos.length > 0) throw new Error(fallos.join(' '));
   }
 
   function pausarSuscripcion(susId: string, motivo?: string) {

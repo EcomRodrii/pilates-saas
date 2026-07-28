@@ -3748,7 +3748,7 @@ export async function dbInsertSuscripcion(sus: Suscripcion): Promise<ResultadoEs
   return error ? falloEscritura('[dbInsertSuscripcion]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateSuscripcion(id: string, changes: Partial<Suscripcion>) {
+export async function dbUpdateSuscripcion(id: string, changes: Partial<Suscripcion>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('planId' in changes) db.plan_id = changes.planId;
@@ -3758,7 +3758,7 @@ export async function dbUpdateSuscripcion(id: string, changes: Partial<Suscripci
   if ('sesionesRestantes' in changes) db.sesiones_restantes = changes.sesionesRestantes;
   if ('stripeSubscriptionId' in changes) db.stripe_subscription_id = changes.stripeSubscriptionId;
   const { error } = await supabase.from('suscripciones').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateSuscripcion]', error);
+  return error ? falloEscritura('[dbUpdateSuscripcion]', error) : ESCRITURA_OK;
 }
 
 // F2 (B2.8): congelar = ventana + estado PAUSADA, atómico en el servidor.
