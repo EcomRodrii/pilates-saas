@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
+import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
 
 export default function LoginPage() {
   const uid = useId();
@@ -17,6 +18,9 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
+  // esto nunca bloquea el envío — mismo comportamiento que hoy.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading || !session || !user) return;
@@ -54,14 +58,14 @@ export default function LoginPage() {
     setSubmitting(true);
 
     if (modo === 'entrar') {
-      const { error } = await signIn(email, password);
+      const { error } = await signIn(email, password, captchaToken ?? undefined);
       if (error) {
         setError('Email o contraseña incorrectos');
         setSubmitting(false);
       }
       // El redirect + reclamo de cuenta lo hace el useEffect al detectar sesión.
     } else {
-      const { error, needsConfirmation } = await signUp(email, password);
+      const { error, needsConfirmation } = await signUp(email, password, undefined, captchaToken ?? undefined);
       if (error) {
         setError(error);
         setSubmitting(false);
@@ -134,9 +138,11 @@ export default function LoginPage() {
               <p className="text-[13px] rounded-lg px-3 py-2" style={{ color: '#22251A', background: '#F1F2EA' }}>{info}</p>
             )}
 
+            <TurnstileWidget onToken={setCaptchaToken} />
+
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || (turnstileConfigurado() && !captchaToken)}
               className="w-full py-3 rounded-full text-[14px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
               style={{ background: 'var(--brand)', color: 'var(--brand-foreground)', boxShadow: '0 10px 22px color-mix(in srgb, var(--brand) 28%, transparent)' }}
             >

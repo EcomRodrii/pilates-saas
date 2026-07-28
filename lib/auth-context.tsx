@@ -17,11 +17,12 @@ type AuthContextType = {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<{ error: string | null }>;
   signUp: (
     email: string,
     password: string,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
+    captchaToken?: string,
   ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
   updateProfile: (datos: { nombre: string; apellidos: string }) => Promise<{ error: string | null }>;
@@ -50,13 +51,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  async function signIn(email: string, password: string, captchaToken?: string) {
+    const { error } = await supabase.auth.signInWithPassword({
+      email, password,
+      ...(captchaToken ? { options: { captchaToken } } : {}),
+    });
     if (error) return { error: error.message };
     return { error: null };
   }
 
-  async function signUp(email: string, password: string, metadata?: Record<string, unknown>) {
+  async function signUp(email: string, password: string, metadata?: Record<string, unknown>, captchaToken?: string) {
     // emailRedirectTo es OBLIGATORIO aquí. Sin él, el enlace de verificación
     // devuelve a la RAÍZ del sitio, y la vinculación de la ficha de instructora
     // (claimInstructorAccount) solo se ejecuta en /login → la cuenta quedaba
@@ -67,7 +71,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { ...(metadata ? { data: metadata } : {}), ...(redirectTo ? { emailRedirectTo: redirectTo } : {}) },
+      options: {
+        ...(metadata ? { data: metadata } : {}),
+        ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
+        ...(captchaToken ? { captchaToken } : {}),
+      },
     });
     if (error) return { error: error.message, needsConfirmation: false };
     return { error: null, needsConfirmation: !data.session };

@@ -6,6 +6,7 @@ import { Building2, User, CheckCircle2, Mail } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
+import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
 
 type StudioTipo = 'Pilates' | 'Yoga' | 'Fitness' | 'CrossFit' | 'Danza' | 'Otro';
 
@@ -34,6 +35,7 @@ export default function CrearEstudioPage() {
   const [creating, setCreating] = useState(false);
   const [needsConfirmEmail, setNeedsConfirmEmail] = useState(false);
   const [nuevoSlug, setNuevoSlug] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   function handleStudioSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,7 +55,7 @@ export default function CrearEstudioPage() {
     // igual al iniciar sesión por primera vez (ver app/login/page.tsx).
     const { error: signUpError, needsConfirmation } = await signUp(owner.email, owner.contrasena, {
       pending_studio: studioFields,
-    });
+    }, captchaToken ?? undefined);
     if (signUpError) {
       setError(signUpError);
       setCreating(false);
@@ -230,6 +232,8 @@ export default function CrearEstudioPage() {
                 <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
               )}
 
+              <TurnstileWidget onToken={setCaptchaToken} />
+
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -240,7 +244,7 @@ export default function CrearEstudioPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={creating}
+                  disabled={creating || (turnstileConfigurado() && !captchaToken)}
                   className="flex-[2] py-3 rounded-xl bg-[#FFC8E2] text-[#171717] font-semibold text-[15px] hover:bg-[#F7B3D2] transition-colors disabled:opacity-60"
                 >
                   {creating ? 'Creando…' : 'Crear estudio →'}
