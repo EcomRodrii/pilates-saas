@@ -1792,8 +1792,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // entrada (calendario) sí comprobaba la cobertura; el descuento no, así que la
   // clase cara se servía contra el bono barato y la restricción de la migr 0111
   // se evaporaba justo en el momento de gastar.
-  async function consumirSesionBono(socioId: string, sesionId?: string | null) {
-    const tipoClaseId = sesionId ? sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null : null;
+  async function consumirSesionBono(socioId: string, sesionId: string) {
+    const tipoClaseId = sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null;
     // bono-logic resuelve el bono consumible (qué suscripción descontar).
     const consumible = bonoConsumible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
     if (!consumible) return;

@@ -1665,10 +1665,8 @@ async function validarSociaPublica(
 // Recibe la SESIÓN, no el tipo de clase: el tipo se resuelve aquí una sola vez
 // (antes lo consultaba cada llamante por su cuenta) y así se le puede pasar la
 // sesión a la RPC, que vuelve a comprobar la cobertura del lado de la BD.
-async function consumirBonoServidor(admin: SupabaseClient, studioId: string, socioId: string, sesionId?: string | null): Promise<boolean> {
-  const { data: ses } = sesionId
-    ? await admin.from('sesiones').select('tipo_clase_id').eq('id', sesionId).maybeSingle()
-    : { data: null };
+async function consumirBonoServidor(admin: SupabaseClient, studioId: string, socioId: string, sesionId: string): Promise<boolean> {
+  const { data: ses } = await admin.from('sesiones').select('tipo_clase_id').eq('id', sesionId).maybeSingle();
   const tipoClaseId = (ses?.tipo_clase_id as string | null) ?? null;
   const [{ data: susRows }, { data: planRows }] = await Promise.all([
     admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
@@ -1691,7 +1689,7 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
     // `bonoConsumible` ya la respeta, así que esto no debería rechazar nunca —
     // y justo por eso vale: si algún día deja de respetarla, salta aquí en vez
     // de servir la clase cara contra el bono barato en silencio.
-    p_sesion_id: sesionId ?? null,
+    p_sesion_id: sesionId,
   });
   if (error) { reportDbError('[consumirBonoServidor]', error); return false; }
   if (nuevoSaldo == null) {
@@ -2246,8 +2244,12 @@ export async function ejecutarCancelacionReserva(
     const promSocioId = row.promovida_socio_id as string;
     // Entra en la MISMA clase que se acaba de liberar, así que su tipo decide de
     // qué bono se le descuenta. Se resuelve aquí porque la consulta de arriba
-    // vive dentro del bloque de la cancelación tardía.
-    const bonoConsumido = await consumirBonoServidor(admin, params.studioId, promSocioId, cancelada?.sesion_id as string | null);
+    // vive dentro del bloque de la cancelación tardía. `sesion_id` es required
+    // en consumirBonoServidor (0132): sin sesión no hay de qué clase decidir la
+    // cobertura, así que sin ella tampoco hay nada que consumir.
+    const bonoConsumido = cancelada?.sesion_id
+      ? await consumirBonoServidor(admin, params.studioId, promSocioId, cancelada.sesion_id as string)
+      : false;
     // Avisar a la socia ascendida de que su plaza está confirmada (indicando si
     // se le ha consumido una sesión del bono — solo si realmente ocurrió).
     // Cierra la mentira "te avisaremos si se libera una plaza". No bloquea.
@@ -4390,15 +4392,16 @@ export async function dbAjustarStock(
 // debe decidir `agotado` (recibo de renovación) sobre este saldo, NO sobre el
 // snapshot local (que puede estar obsoleto). Espejo de consumirBonoServidor.
 export async function dbConsumirSesionBono(
-  suscripcionId: string, studioId: string, sesionId?: string | null,
+  suscripcionId: string, studioId: string, sesionId: string,
 ): Promise<{ ok: true; saldo: number } | { error: string }> {
   // `p_sesion_id` no es decorativo: con él, la BD comprueba que el plan de esa
   // suscripción cubra el tipo de clase (migr 0129) y rechaza con
   // BONO_NO_CUBRE_CLASE. Es la única capa por la que pasan todas las
   // superficies, así que la regla deja de depender de que cada cliente se
-  // acuerde de aplicarla.
+  // acuerde de aplicarla. Obligatorio desde la 0132: un parámetro opcional
+  // era una puerta que ya no usaba nadie pero que seguía abierta.
   const { data, error } = await supabase.rpc('consumir_sesion_bono', {
-    p_suscripcion_id: suscripcionId, p_studio_id: studioId, p_sesion_id: sesionId ?? null,
+    p_suscripcion_id: suscripcionId, p_studio_id: studioId, p_sesion_id: sesionId,
   });
   if (error) {
     reportDbError('[dbConsumirSesionBono]', error);
