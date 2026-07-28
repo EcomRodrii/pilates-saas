@@ -196,6 +196,8 @@ export default function Socios() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState<FormSocia>(emptyForm());
   const [confirmEliminar, setConfirmEliminar] = useState<string | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
 
   // Multi-step "nueva clienta" contract flow
   const [formStep, setFormStep] = useState<1 | 2>(1);
@@ -1256,20 +1258,36 @@ export default function Socios() {
                 Se anonimizan sus datos personales y su ficha de salud. Las facturas y recibos se conservan por obligación fiscal. Esta acción no se puede deshacer.
               </p>
             </div>
+            {errorEliminar && (
+              <p className="w-full text-[12.5px] text-destructive text-center">{errorEliminar}</p>
+            )}
             <div className="flex gap-2 w-full">
               <button
-                onClick={() => setConfirmEliminar(null)}
+                onClick={() => { setConfirmEliminar(null); setErrorEliminar(null); }}
                 className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  if (confirmEliminar) { deleteSocio(confirmEliminar); setConfirmEliminar(null); }
+                disabled={eliminando}
+                onClick={async () => {
+                  if (!confirmEliminar) return;
+                  // Se ESPERA al servidor y solo se cierra el diálogo si la baja
+                  // ha ido bien. Antes se cerraba siempre y la clienta parecía
+                  // borrada aunque el servidor lo hubiera rechazado.
+                  setEliminando(true); setErrorEliminar(null);
+                  try {
+                    await deleteSocio(confirmEliminar);
+                    setConfirmEliminar(null);
+                  } catch (e) {
+                    setErrorEliminar(e instanceof Error ? e.message : 'No se ha podido dar de baja.');
+                  } finally {
+                    setEliminando(false);
+                  }
                 }}
                 className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-destructive hover:bg-destructive transition-colors"
               >
-                Eliminar
+                {eliminando ? 'Dando de baja…' : 'Eliminar'}
               </button>
             </div>
           </div>

@@ -1383,23 +1383,29 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  function deleteSocio(id: string) {
+  async function deleteSocio(id: string) {
     const socio = socios.find(s => s.id === id);
-    // A-3/A-4: baja lógica con anonimización (dbDeleteSocio → /api/socios/eliminar).
-    // Localmente: la socia sale del roster, sus suscripciones quedan CANCELADAS y
-    // se limpian sus datos personales sin base de retención. Los RECIBOS se
-    // CONSERVAN (obligación fiscal); el pago histórico se mostrará como "Socia
-    // eliminada" al no resolver ya el nombre.
+
+    // PRIMERO el servidor, DESPUÉS la pantalla. Antes era al revés: se limpiaba
+    // el estado local y se lanzaba la petición sin mirar el resultado, así que
+    // un rechazo (una instructora, que no tiene permiso) se veía como una baja
+    // consumada — la clienta desaparecía y reaparecía al recargar.
+    // Se hace pesimista en vez de con rollback a propósito: dar de baja es una
+    // acción rara y deliberada, y restaurar cinco trozos de estado a mano es
+    // justo donde se cuelan los bugs.
+    const { error } = await dbDeleteSocio(id);
+    if (error) throw new Error(error);
+
+    // A-3/A-4: baja lógica con anonimización. La socia sale del roster, sus
+    // suscripciones quedan CANCELADAS y se limpian sus datos personales sin base
+    // de retención. Los RECIBOS se CONSERVAN (obligación fiscal); el pago
+    // histórico se mostrará como "Socia eliminada" al no resolver ya el nombre.
     setSocios(prev => prev.filter(s => s.id !== id));
     setSuscripciones(prev => prev.map(s => s.socioId === id ? { ...s, estado: 'CANCELADA' as const } : s));
     setNotasInternas(prev => prev.filter(n => n.socioId !== id));
     setCondicionesSalud(prev => prev.filter(c => c.socioId !== id));
     setRespuestasSesion(prev => prev.filter(r => r.socioId !== id));
     if (socio) addActividadReciente('SOCIA_ELIMINADA', `${actorNombre ?? 'Alguien'} dio de baja a ${socio.nombre} ${socio.apellidos}`);
-    // Devuelve la promesa: la baja pasa por un endpoint (async) y quien redirige
-    // justo después (ficha → window.location) debe ESPERARLA, o la navegación
-    // dura cancela la petición y la socia no llega a anonimizarse.
-    return dbDeleteSocio(id);
   }
 
   function addTagSocio(socioId: string, tag: string) {

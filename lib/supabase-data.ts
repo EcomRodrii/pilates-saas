@@ -3419,16 +3419,26 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
 // obligación fiscal, o fallaba a medias por las FK RESTRICT). Pasa por
 // /api/socios/eliminar, que anonimiza el PII, marca el borrado lógico, conserva
 // el rastro fiscal y elimina los datos personales sin base de retención.
-export async function dbDeleteSocio(id: string) {
+// Devuelve el error en vez de tragárselo. Antes solo lo reportaba, así que
+// quien llamaba no podía distinguir "borrada" de "el servidor dijo que no", y la
+// UI pintaba la baja igualmente: la clienta desaparecía de la lista y reaparecía
+// al recargar. Una instructora (que no tiene permiso) veía exactamente eso.
+export async function dbDeleteSocio(id: string): Promise<{ error: string | null }> {
   try {
     const res = await fetch('/api/socios/eliminar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
       body: JSON.stringify({ socioId: id }),
     });
-    if (!res.ok) reportDbError('[dbDeleteSocio]', await res.json().catch(() => ({ status: res.status })));
+    if (!res.ok) {
+      const cuerpo = await res.json().catch(() => ({ status: res.status }));
+      reportDbError('[dbDeleteSocio]', cuerpo);
+      return { error: (cuerpo as { error?: string }).error || 'No se ha podido dar de baja a la clienta.' };
+    }
+    return { error: null };
   } catch (e) {
     reportDbError('[dbDeleteSocio]', e);
+    return { error: 'No se ha podido dar de baja a la clienta. Revisa tu conexión.' };
   }
 }
 
