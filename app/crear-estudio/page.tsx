@@ -90,11 +90,14 @@ export default function CrearEstudioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center px-4 py-10">
+    <div className="min-h-screen bg-[#EEEEE8] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
+          {/* Dos puntos, no tres: el texto dice «Paso 1 de 2» y el tercer punto
+              era un paso fantasma que hacía parecer que quedaba más camino. El
+              paso 3 no es un paso del alta, es la pantalla de que ya está. */}
           <div className="inline-flex items-center gap-1.5 mb-4">
-            {[1, 2, 3].map(n => (
+            {[1, 2].map(n => (
               <div
                 key={n}
                 className="transition-all duration-300"
@@ -190,14 +193,20 @@ export default function CrearEstudioPage() {
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-[#FFC8E2] text-[#171717] font-semibold text-[15px] hover:bg-[#F7B3D2] transition-colors"
+                className="w-full py-3 rounded-xl bg-[var(--brand)] text-[var(--brand-foreground)] font-semibold text-[15px] hover:brightness-110 transition-all"
               >
                 Continuar →
               </button>
             </form>
           )}
 
-          {step === 2 && (
+          {/* `!needsConfirmEmail`: el aviso de "confirma tu email" se pintaba
+              DEBAJO de este formulario, que seguía entero en pantalla con el
+              botón «Crear estudio» activo. En un portátil el aviso caía fuera de
+              la parte visible, así que parecía que el clic no había ido y se
+              volvía a pulsar — y volver a pulsar en el alta es justo el gesto
+              que duplicaba el estudio. La confirmación SUSTITUYE al formulario. */}
+          {step === 2 && !needsConfirmEmail && (
             <form onSubmit={handleOwnerSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
@@ -264,7 +273,7 @@ export default function CrearEstudioPage() {
                 <button
                   type="submit"
                   disabled={creating || (turnstileConfigurado() && !captchaToken)}
-                  className="flex-[2] py-3 rounded-xl bg-[#FFC8E2] text-[#171717] font-semibold text-[15px] hover:bg-[#F7B3D2] transition-colors disabled:opacity-60"
+                  className="flex-[2] py-3 rounded-xl bg-[var(--brand)] text-[var(--brand-foreground)] font-semibold text-[15px] hover:brightness-110 transition-all disabled:opacity-60"
                 >
                   {creating ? 'Creando…' : 'Crear estudio →'}
                 </button>
@@ -288,7 +297,7 @@ export default function CrearEstudioPage() {
               </div>
               <Link
                 href="/login"
-                className="flex items-center justify-center w-full py-3 rounded-xl bg-[#FFC8E2] text-[#171717] font-semibold text-[15px] hover:bg-[#F7B3D2] transition-colors"
+                className="flex items-center justify-center w-full py-3 rounded-xl bg-[var(--brand)] text-[var(--brand-foreground)] font-semibold text-[15px] hover:brightness-110 transition-all"
               >
                 Ir a iniciar sesión →
               </Link>
@@ -326,7 +335,7 @@ export default function CrearEstudioPage() {
                     keeping whatever it fetched before dbCreateStudio finished. */}
                 <a
                   href="/dashboard"
-                  className="flex items-center justify-center w-full py-3.5 rounded-xl bg-[#FFC8E2] text-[#171717] font-semibold text-[15px] hover:bg-[#F7B3D2] transition-colors"
+                  className="flex items-center justify-center w-full py-3.5 rounded-xl bg-[var(--brand)] text-[var(--brand-foreground)] font-semibold text-[15px] hover:brightness-110 transition-all"
                 >
                   Ir al dashboard →
                 </a>

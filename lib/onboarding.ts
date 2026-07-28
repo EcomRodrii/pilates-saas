@@ -31,7 +31,10 @@ export interface PasoOnboarding {
 export function calcularPasosOnboarding(d: DatosOnboarding): PasoOnboarding[] {
   const base: PasoOnboarding[] = [
     { id: 'estudio', label: 'Configura tu estudio', done: !!d.nif, href: '/configuracion?tab=estudio' },
-    { id: 'instructor', label: 'Añade tu primer instructor', done: d.numInstructores > 0, href: '/equipo' },
+    // Mismo criterio que «clientas»: el panel habla en femenino porque el equipo
+    // de un estudio de Pilates lo es casi siempre. Este paso se quedó en «primer
+    // instructor» y era lo primero que se leía al entrar.
+    { id: 'instructor', label: 'Añade tu primera instructora', done: d.numInstructores > 0, href: '/equipo' },
     { id: 'clase', label: 'Crea tu primera clase', done: d.numTiposClase > 0, href: '/configuracion?tab=clases' },
     { id: 'horario', label: 'Configura tus horarios', done: d.numSesiones > 0, href: '/calendario' },
     { id: 'clientes', label: 'Añade tus primeras clientas', done: d.numSocios > 0, href: '/clientas?nuevo=1' },

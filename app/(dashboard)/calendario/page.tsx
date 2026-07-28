@@ -923,7 +923,12 @@ function ModalClasesRecurrentes({
     diasSemana: [1, 3],
     fechaInicio: today,
     fechaFin: inOneMonth,
-    aforoMaximo: 8,
+    // De la sala preseleccionada, no un 8 fijo. La herencia solo vivía en el
+    // onChange del desplegable de sala, y la sala ya viene elegida — así que
+    // quien no la tocaba (que es lo normal, si ya pone la que quiere) creaba
+    // la clase con aforo 8 en una sala de 12: cuatro plazas sin vender por
+    // clase, en silencio. El importador de CSV ya lo hacía bien.
+    aforoMaximo: salas[0]?.capacidad ?? 8,
   });
 
   const [form, setForm] = useState<RecurringFormData>(emptyForm);
@@ -1502,7 +1507,10 @@ export default function Calendario() {
     horaFin: tiposClase[0]?.duracionMinutos
       ? `${String(9 + Math.floor(tiposClase[0].duracionMinutos / 60)).padStart(2, '0')}:${String(tiposClase[0].duracionMinutos % 60).padStart(2, '0')}`
       : '10:00',
-    aforoMaximo: 8,
+    // Ver el mismo comentario en el formulario de serie: hereda de la sala ya
+    // preseleccionada, porque la herencia del onChange no llega a quien no toca
+    // el desplegable.
+    aforoMaximo: salas[0]?.capacidad ?? 8,
     notas: '',
     repetir: false,
     repetirSemanas: 4,

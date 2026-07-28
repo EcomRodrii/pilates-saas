@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Toast, useToast } from '@/components/ui/toast';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import type { PlanTarifa, TipoClase } from '@/lib/types';
+import { NOMBRE_TIPO_PLAN } from '@/lib/planes/formulario';
 import { PageHeader } from '@/components/ui/page-header';
 
 // Cada pestaña solo se ve una a la vez (activeTab) pero antes se importaban
@@ -200,7 +201,7 @@ export function TipoPlanBadge({ tipo }: { tipo: PlanTarifa['tipo'] }) {
   };
   return (
     <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium', map[tipo])}>
-      {tipo}
+      {NOMBRE_TIPO_PLAN[tipo]}
     </span>
   );
 }
@@ -299,7 +300,7 @@ export default function ConfiguracionPage() {
     <div className="space-y-6">
       <PageHeader
         title="Configuración"
-        description="Gestiona los planes, clases, salas, instructores e integraciones de tu estudio"
+        description="Gestiona los planes, clases, salas, instructoras e integraciones de tu estudio"
       />
 
       {/* Tab nav */}

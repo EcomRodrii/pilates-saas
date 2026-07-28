@@ -12,11 +12,20 @@ import { useEffect, useRef, useState } from 'react';
 // o fuerza bruta contra el login. NO cubre el portal de socias (magic link,
 // riesgo bajo) a propósito — decisión del usuario, alcance acotado.
 //
-// Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
-// `onToken` nunca se llama — el formulario sigue funcionando exactamente
-// igual que hoy (sin captcha), así que local/preview sin la env var no se
-// rompe. `estaConfigurado()` es lo que usan los formularios para saber si
+// Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY el widget no se pinta y `onToken` nunca se
+// llama. `turnstileConfigurado()` es lo que usan los formularios para saber si
 // deben esperar al token antes de dejar enviar.
+//
+// ⚠️ OJO, esto NO quiere decir que local/preview funcione «igual que antes».
+// El captcha se exige en el PROYECTO de Supabase, no aquí: si está activado,
+// gotrue rechaza cualquier alta o login que llegue sin token, venga de donde
+// venga. Así que en todo entorno sin la env var —local y las preview de
+// Vercel— darse de alta es IMPOSIBLE, y el error que devuelve Supabase es
+// «captcha protection: request disallowed (no captcha_token found)».
+// Para trabajar en local hay dos salidas: poner la env var (vale la site key
+// de prueba de Cloudflare, `1x00000000000000000000AA`), o apagar el captcha
+// en Authentication → Settings del proyecto de Supabase.
+// El mensaje que ve la usuaria se traduce en `mensajeDeError` (lib/auth-context).
 declare global {
   interface Window {
     turnstile?: {

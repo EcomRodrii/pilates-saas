@@ -53,7 +53,11 @@ function timeAgo(iso: string, now: Date) {
   return `${Math.floor(diff / 86400)}d`;
 }
 
+// Abreviados: solo para los ejes de las gráficas, donde no cabe más.
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+// En prosa se escribe el mes entero: «a estas alturas de Jun» en mitad de una
+// frase en español canta, y ahí sí hay sitio.
+const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 // La etiqueta (Alta/Baja/…) ya se muestra aparte, así que en la actividad se
 // quita el prefijo verboso "X dio de alta/baja a " y se deja solo el nombre.
@@ -800,9 +804,22 @@ export default function Dashboard() {
                   <TrendIcon /> {pctChange > 0 ? '+' : ''}{pctChange}%
                 </Badge>
               </div>
+              {/* Con 0 € este mes y 0 € el pasado, esto decía «Vas por delante
+                  del mismo día del mes pasado · 0 € a estas alturas de Jun»:
+                  0 no va por delante de 0, y a un estudio recién creado se le
+                  estaba comparando con un pasado que no existe. Cuando no hay
+                  nada con qué comparar, se dice eso y ya. */}
               <p className="mt-2 text-xs text-muted-foreground">
-                {pctChange >= 0 ? 'Vas por delante' : 'Vas por detrás'} del mismo día del mes pasado
-                {' · '}<CifraPrivada inline className="font-semibold text-foreground">{ingresosMTDPrev.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €</CifraPrivada> a estas alturas de {MONTH_LABELS[new Date(now.getFullYear(), now.getMonth() - 1, 1).getMonth()]}
+                {ingresosMes === 0 && ingresosMTDPrev === 0 ? (
+                  'Aún no has cobrado nada este mes.'
+                ) : ingresosMTDPrev === 0 ? (
+                  <>Es tu primer mes con cobros — todavía no hay mes anterior con el que compararlo.</>
+                ) : (
+                  <>
+                    {pctChange > 0 ? 'Vas por delante' : pctChange < 0 ? 'Vas por detrás' : 'Vas igual'} del mismo día del mes pasado
+                    {' · '}<CifraPrivada inline className="font-semibold text-foreground">{ingresosMTDPrev.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €</CifraPrivada> a estas alturas de {MESES_LARGOS[new Date(now.getFullYear(), now.getMonth() - 1, 1).getMonth()]}
+                  </>
+                )}
               </p>
             </div>
             <Link href="/informes" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>

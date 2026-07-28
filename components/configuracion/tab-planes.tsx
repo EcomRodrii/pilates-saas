@@ -6,9 +6,10 @@ import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { InfoTip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import type { PlanTarifa } from '@/lib/types';
+import type { PlanTarifa, TipoClase } from '@/lib/types';
 import {
   planVacio, planAFormulario, formularioAPlan, motivoNoGuardable,
+  NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN,
   type FormularioPlan,
 } from '@/lib/planes/formulario';
 import {
@@ -31,6 +32,31 @@ import {
 type PlanForm = FormularioPlan;
 const emptyPlanForm = planVacio;
 const planToForm = planAFormulario;
+
+// Para qué clases sirve una tarifa. Sin marcar nada cubre todas — es la
+// semántica de `plan_tipos_clase` (migr 0106) y la que han tenido siempre.
+function CoberturaPlan({ plan, tiposClase }: { plan: PlanTarifa; tiposClase: TipoClase[] }) {
+  const ids = plan.tiposClaseIds ?? [];
+  if (ids.length === 0) {
+    return <span className="text-[12px]">Todas las clases</span>;
+  }
+  // Se nombran si caben; si no, el recuento con el detalle al pasar por encima.
+  // Enseñar solo «3 tipos» obligaría a abrir la tarifa, que es el problema que
+  // esto viene a resolver.
+  const nombres = ids
+    .map(id => tiposClase.find(t => t.id === id)?.nombre)
+    .filter((n): n is string => Boolean(n));
+  if (nombres.length === 0) return <span className="text-[12px]">Todas las clases</span>;
+  const resumen = nombres.length <= 2 ? nombres.join(' y ') : `${nombres.length} tipos de clase`;
+  return (
+    <span
+      className="text-[12px] text-foreground underline decoration-dotted underline-offset-2"
+      title={nombres.join(' · ')}
+    >
+      {resumen}
+    </span>
+  );
+}
 
 export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
   const { planesTarifa, tiposClase, addPlan, updatePlan, deletePlan } = useStudio();
@@ -109,7 +135,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
             <table className="w-full text-[13px] hidden sm:table">
               <thead>
                 <tr className="border-b border-border">
-                  {['Nombre', 'Tipo', 'Precio', 'Sesiones', 'Estado', 'Acciones'].map(h => (
+                  {['Nombre', 'Tipo', 'Precio', 'Sesiones', 'Sirve para', 'Estado', 'Acciones'].map(h => (
                     <th
                       key={h}
                       className="text-left px-5 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide"
@@ -135,6 +161,12 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                     <td className="px-5 py-3 font-semibold text-foreground">{plan.precio} €</td>
                     <td className="px-5 py-3 text-muted-foreground">
                       {plan.sesiones !== null ? plan.sesiones : '—'}
+                    </td>
+                    {/* Lo único que separa un bono caro de una fuga de ingresos
+                        era invisible justo donde se audita: había que abrir cada
+                        tarifa para saber si estaba acotada. */}
+                    <td className="px-5 py-3 text-muted-foreground">
+                      <CoberturaPlan plan={plan} tiposClase={tiposClase} />
                     </td>
                     <td className="px-5 py-3">
                       <Toggle
@@ -187,6 +219,8 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                     <p className="text-[13px] text-muted-foreground">
                       <span className="font-semibold text-foreground">{plan.precio} €</span>
                       {plan.sesiones !== null && ` · ${plan.sesiones} sesiones`}
+                      {' · '}
+                      <CoberturaPlan plan={plan} tiposClase={tiposClase} />
                     </p>
                     <Toggle on={plan.activo} onChange={() => toggleActivo(plan.id, plan.activo)} />
                   </div>
@@ -231,13 +265,13 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
             <div className="grid grid-cols-2 gap-3">
               <Field
                 label="Tipo"
-                description="MENSUAL se cobra solo cada mes hasta que se dé de baja. BONO son sesiones sueltas que se van gastando. PUNTUAL es un pago único, sin renovación."
+                description={`${NOMBRE_TIPO_PLAN.MENSUAL}: ${EXPLICACION_TIPO_PLAN.MENSUAL} ${NOMBRE_TIPO_PLAN.BONO}: ${EXPLICACION_TIPO_PLAN.BONO} ${NOMBRE_TIPO_PLAN.PUNTUAL}: ${EXPLICACION_TIPO_PLAN.PUNTUAL}`}
                 hint={
                   <InfoTip label="Cómo elegir el tipo de plan">
-                    Si la clienta viene todas las semanas, MENSUAL: se cobra solo y no
-                    tienes que perseguir el pago. Si viene a temporadas, un BONO de 10
-                    sesiones se ajusta mejor y no se siente atada. PUNTUAL es para clases
-                    sueltas, talleres o una prueba.
+                    Si la clienta viene todas las semanas, una cuota mensual: se cobra
+                    sola y no tienes que perseguir el pago. Si viene a temporadas, un bono
+                    de 10 sesiones se ajusta mejor y no se siente atada. La clase suelta es
+                    para talleres o una prueba.
                   </InfoTip>
                 }
               >
@@ -252,9 +286,9 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                     }))
                   }
                 >
-                  <option value="MENSUAL">MENSUAL</option>
-                  <option value="BONO">BONO</option>
-                  <option value="PUNTUAL">PUNTUAL</option>
+                  <option value="MENSUAL">{NOMBRE_TIPO_PLAN.MENSUAL}</option>
+                  <option value="BONO">{NOMBRE_TIPO_PLAN.BONO}</option>
+                  <option value="PUNTUAL">{NOMBRE_TIPO_PLAN.PUNTUAL}</option>
                 </select>
               </Field>
               <Field

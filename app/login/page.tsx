@@ -73,7 +73,14 @@ export default function LoginPage() {
     if (modo === 'entrar') {
       const { error } = await signIn(email, password, captchaToken ?? undefined);
       if (error) {
-        setError('Email o contraseña incorrectos');
+        // Antes se aplastaba CUALQUIER error a «Email o contraseña incorrectos».
+        // Recién dada de alta, con la contraseña buena, lo que fallaba era que
+        // faltaba confirmar el email — y ese mensaje manda a restablecer la
+        // contraseña en bucle sin que se te ocurra buscar el correo. El
+        // argumento de no revelar si la cuenta existe no aplica aquí: la
+        // pantalla anterior acaba de decirlo. Los mensajes concretos salen de
+        // `mensajeDeError` en auth-context, que sí distingue los casos.
+        setError(error);
         setSubmitting(false);
       }
       // El redirect + reclamo de cuenta lo hace el useEffect al detectar sesión.
