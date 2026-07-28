@@ -45,7 +45,7 @@ test('Eversports: nombre/apellidos/email/teléfono/fecha de alta se mapean bien'
   const m = a.muestra[0] as Record<string, string>;
   assert.equal(m.nombre, 'María');
   assert.equal(m.apellidos, 'Soler');
-  assert.equal(m.email, 'maria.soler@gmail.com');
+  assert.equal(m.email, 'maria.soler@ejemplo.test');
   assert.equal(m.telefono, '+34 600 111 222');
   assert.equal(m.fechaAlta, '2023-03-14'); // ISO preservada
 });

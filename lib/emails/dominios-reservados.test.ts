@@ -13,6 +13,15 @@ test('detecta los dominios de ejemplo que Resend rechaza', () => {
   assert.ok(esDominioReservado('a@invalid'));
 });
 
+test('cubre el dominio al que migramos los datos de demo', () => {
+  // `.test` es un TLD reservado por la RFC 2606: no existe y no se resolverá
+  // nunca. Es el destino de los correos de supabase/seed.sql y de los CSV de
+  // ejemplo de lib/migracion/ejemplos.ts. Si alguien lo sacara de la lista, los
+  // envíos de prueba volverían a salir de verdad — por eso se fija aquí.
+  assert.ok(esDominioReservado('maria.soler@ejemplo.test'));
+  assert.ok(esDominioReservado('hola@pilatesboutique.test'));
+});
+
 test('acepta subdominios de un dominio reservado', () => {
   assert.ok(esDominioReservado('ana@mail.example.com'));
   assert.ok(esDominioReservado('ana@correo.ejemplo.com'));

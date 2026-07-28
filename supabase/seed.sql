@@ -13,19 +13,26 @@ truncate table
 cascade;
 
 -- ─── Studio ──────────────────────────────────────────────────────────────────
+-- TODOS los correos de este archivo (estudio, socias, instructoras) usan dominios
+-- reservados por la RFC 2606: `.test` no existe y nunca se resolverá. Antes eran
+-- `@email.com` y `@pilatesboutique.es` — dominios REALES: cualquier prueba manual
+-- de una cancelación, un recordatorio o un recibo sobre el estudio de demostración
+-- escribía a buzones ajenos desde nuestro dominio de envío, y de paso quemaba su
+-- reputación en Resend. Si añades filas aquí, mantén el criterio.
+-- Ver lib/emails/dominios-reservados.ts.
 insert into studios (id,nombre,nif,razon_social,direccion,ciudad,codigo_postal,email,telefono,color_primario,plan,creado_en) values
-('studio-1','Pilates Boutique','B12345678','Pilates Boutique SL','Calle Larios 12, 2º','Málaga','29005','hola@pilatesboutique.es','+34 951 000 000','#6366f1','ESTUDIO','2024-01-15T10:00:00Z');
+('studio-1','Pilates Boutique','B12345678','Pilates Boutique SL','Calle Larios 12, 2º','Málaga','29005','hola@pilatesboutique.test','+34 951 000 000','#6366f1','ESTUDIO','2024-01-15T10:00:00Z');
 
 -- ─── Socios ───────────────────────────────────────────────────────────────────
 insert into socios (id,studio_id,nombre,apellidos,email,telefono,nif,fecha_alta,activo,aceptacion_fecha,aceptacion_firma,aceptacion_version) values
-('soc-1','studio-1','Laura','Martínez García','laura@email.com','+34 600 111 222','12345678A','2026-01-10T00:00:00Z',true,'2026-01-10T11:32:00Z','Laura Martínez García','v1.0'),
-('soc-2','studio-1','Carmen','López Ruiz','carmen@email.com','+34 600 333 444','23456789B','2026-02-03T00:00:00Z',true,'2026-02-03T10:15:00Z','Carmen López Ruiz','v1.0'),
-('soc-3','studio-1','Ana','Fernández Torres','ana@email.com',null,null,'2026-02-20T00:00:00Z',true,'2026-02-20T09:50:00Z','Ana Fernández Torres','v1.0'),
-('soc-4','studio-1','Isabel','González Díaz','isabel@email.com','+34 600 555 666','45678901D','2026-03-12T00:00:00Z',true,'2026-03-12T18:02:00Z','Isabel González Díaz','v1.1'),
-('soc-5','studio-1','Marta','Sánchez Moreno','marta@email.com','+34 600 777 888',null,'2026-03-28T00:00:00Z',true,'2026-03-28T17:45:00Z','Marta Sánchez Moreno','v1.1'),
-('soc-6','studio-1','Sofía','Ramírez Castro','sofia@email.com',null,'67890123F','2026-04-14T00:00:00Z',false,'2026-04-14T10:30:00Z','Sofía Ramírez Castro','v1.1'),
-('soc-7','studio-1','Elena','Jiménez Navarro','elena@email.com','+34 600 999 000',null,'2026-04-28T00:00:00Z',true,null,null,null),
-('soc-8','studio-1','Patricia','Romero Vega','patricia@email.com','+34 600 111 333','89012345H','2026-05-19T00:00:00Z',true,null,null,null);
+('soc-1','studio-1','Laura','Martínez García','laura@ejemplo.test','+34 600 111 222','12345678A','2026-01-10T00:00:00Z',true,'2026-01-10T11:32:00Z','Laura Martínez García','v1.0'),
+('soc-2','studio-1','Carmen','López Ruiz','carmen@ejemplo.test','+34 600 333 444','23456789B','2026-02-03T00:00:00Z',true,'2026-02-03T10:15:00Z','Carmen López Ruiz','v1.0'),
+('soc-3','studio-1','Ana','Fernández Torres','ana@ejemplo.test',null,null,'2026-02-20T00:00:00Z',true,'2026-02-20T09:50:00Z','Ana Fernández Torres','v1.0'),
+('soc-4','studio-1','Isabel','González Díaz','isabel@ejemplo.test','+34 600 555 666','45678901D','2026-03-12T00:00:00Z',true,'2026-03-12T18:02:00Z','Isabel González Díaz','v1.1'),
+('soc-5','studio-1','Marta','Sánchez Moreno','marta@ejemplo.test','+34 600 777 888',null,'2026-03-28T00:00:00Z',true,'2026-03-28T17:45:00Z','Marta Sánchez Moreno','v1.1'),
+('soc-6','studio-1','Sofía','Ramírez Castro','sofia@ejemplo.test',null,'67890123F','2026-04-14T00:00:00Z',false,'2026-04-14T10:30:00Z','Sofía Ramírez Castro','v1.1'),
+('soc-7','studio-1','Elena','Jiménez Navarro','elena@ejemplo.test','+34 600 999 000',null,'2026-04-28T00:00:00Z',true,null,null,null),
+('soc-8','studio-1','Patricia','Romero Vega','patricia@ejemplo.test','+34 600 111 333','89012345H','2026-05-19T00:00:00Z',true,null,null,null);
 
 -- ─── Planes de tarifa ─────────────────────────────────────────────────────────
 insert into planes_tarifa (id,studio_id,nombre,descripcion,precio,tipo,sesiones,activo) values
@@ -69,8 +76,8 @@ insert into tipos_clase (id,studio_id,nombre,color,duracion_minutos,descripcion,
 
 -- ─── Instructores ─────────────────────────────────────────────────────────────
 insert into instructores (id,studio_id,nombre,email,telefono,color,activo) values
-('ins-1','studio-1','María Soler','maria@pilatesboutique.es','+34 611 000 001','#f59e0b',true),
-('ins-2','studio-1','Julia Ramos','julia@pilatesboutique.es','+34 611 000 002','#ec4899',true);
+('ins-1','studio-1','María Soler','maria@pilatesboutique.test','+34 611 000 001','#f59e0b',true),
+('ins-2','studio-1','Julia Ramos','julia@pilatesboutique.test','+34 611 000 002','#ec4899',true);
 
 -- ─── Sesiones (semana actual: lun 2026-06-29 … sáb 2026-07-04) ───────────────
 insert into sesiones (id,studio_id,tipo_clase_id,sala_id,instructor_id,inicio,fin,aforo_maximo,cancelada) values
