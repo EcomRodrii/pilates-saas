@@ -319,6 +319,14 @@ export default function ReservarPage() {
     ? tieneEntitlementActivo(socia.socioId, suscripciones, planesTarifa, localDate(now), tipoClaseAbierta)
     : false;
 
+  // P2-8: ventana de cancelación por tipo de clase, solo para los que tienen
+  // override propio — el resto hereda la del estudio (ver ReservaCalendario).
+  const ventanaPorTipo = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const tc of tiposClase) if (tc.ventanaCancelacionHoras != null) m[tc.id] = tc.ventanaCancelacionHoras;
+    return m;
+  }, [tiposClase]);
+
   const slots = useMemo<ReservaSlot[]>(() => {
     return sesionesRich
       .filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
@@ -329,6 +337,7 @@ export default function ReservarPage() {
           id: s.id,
           inicio: s.inicio,
           fin: s.fin,
+          tipoClaseId: s.tipoClaseId,
           claseNombre: s.tipo?.nombre ?? 'Clase',
           claseColor: s.tipo?.color ?? 'var(--portal-brand)',
           claseFotoUrl: s.tipo?.fotoUrl ?? null,
@@ -692,6 +701,7 @@ export default function ReservarPage() {
               onReservar={handleReservarCalendario}
               onCancelar={cancelarReserva}
               cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
+              ventanaPorTipo={ventanaPorTipo}
               vacio={{ titulo: 'Sin clases disponibles', cuerpo: 'Prueba con otra semana o cambia el filtro' }}
             />
           </div>
@@ -790,7 +800,7 @@ export default function ReservarPage() {
                             <button onClick={() => {
                               // Aviso de cancelación tardía (C-2): si está dentro de la
                               // ventana y el estudio no devuelve bono, el modal lo advierte.
-                              const ventana = studio?.cancelacionVentanaHoras ?? 0;
+                              const ventana = s.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
                               const tardia = r.estado === 'CONFIRMADA' && esCancelacionTardia(s.inicio, now, ventana);
                               const pierdeBono = tardia && !(studio?.cancelacionDevolverBonoTardia ?? false);
                               setCancelConfirm({ reservaId: r.id, pierdeBono, ventana });
@@ -1139,11 +1149,14 @@ export default function ReservarPage() {
                       Clase llena — te apuntaremos en lista de espera
                     </p>
                   )}
-                  {studio && studio.cancelacionVentanaHoras > 0 && (
-                    <p className="text-[#767670] text-xs mt-2">
-                      Cancela con al menos {studio.cancelacionVentanaHoras}h de antelación para recuperar tu sesión.
-                    </p>
-                  )}
+                  {(() => {
+                    const ventana = bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
+                    return ventana > 0 && (
+                      <p className="text-[#767670] text-xs mt-2">
+                        Cancela con al menos {ventana}h de antelación para recuperar tu sesión.
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* Selección de sitio (I-12): solo si la sala tiene reformers y la

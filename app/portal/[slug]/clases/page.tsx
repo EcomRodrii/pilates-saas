@@ -68,6 +68,14 @@ export default function ClasesPage() {
   // render (Date.now() daría una dependencia nueva siempre).
   const now = useMemo(() => Date.now(), []);
 
+  // P2-8: ventana de cancelación por tipo de clase, solo para los que tienen
+  // override propio — el resto hereda la del estudio (ver ReservaCalendario).
+  const ventanaPorTipo = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const tc of tiposClase) if (tc.ventanaCancelacionHoras != null) m[tc.id] = tc.ventanaCancelacionHoras;
+    return m;
+  }, [tiposClase]);
+
   // Vista-modelo normalizado para el calendario — la lógica de reserva sigue
   // viviendo en useStudio(); aquí solo se proyectan los datos crudos.
   const slots = useMemo<ReservaSlot[]>(() => {
@@ -82,6 +90,7 @@ export default function ClasesPage() {
           id: s.id,
           inicio: s.inicio,
           fin: s.fin,
+          tipoClaseId: s.tipoClaseId,
           claseNombre: tipo?.nombre ?? 'Clase',
           claseColor: tipo?.color ?? 'var(--portal-brand)',
           claseFotoUrl: tipo?.fotoUrl ?? null,
@@ -141,6 +150,7 @@ export default function ClasesPage() {
             onReservar={handleReservar}
             onCancelar={cancelarReserva}
             cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
+            ventanaPorTipo={ventanaPorTipo}
           />
         ) : (
           <ReservaCalendario
@@ -150,6 +160,7 @@ export default function ClasesPage() {
             onReservar={handleReservar}
             onCancelar={cancelarReserva}
             cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
+            ventanaPorTipo={ventanaPorTipo}
             vacio={{ titulo: 'Sin reservas activas', cuerpo: 'Reserva una clase en la pestaña anterior' }}
           />
         )}

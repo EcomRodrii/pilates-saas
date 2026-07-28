@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/nextjs';
+import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
@@ -194,8 +194,8 @@ async function fetchAllRows<T>(
       // "0 filas" en vez de un error. Se reporta para que el fallo sea visible
       // a quien opera, aunque la UI (código existente) siga usando lo que ya
       // se había podido traer.
-      Sentry.captureMessage('fetchAllRows: fallo leyendo una página', {
-        level: 'error', tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
+      capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
+        tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
       });
       return { data: filas, error };
     }
@@ -279,7 +279,7 @@ function reportDbError(tag: string, error: unknown) {
   // pero NO se envían a Sentry (ruido no accionable, no un error de BD).
   if (!esErrorDeRedCliente(error)) {
     try {
-      Sentry.captureException(
+      capturarExcepcion(
         error instanceof Error ? error : new Error(`${tag}: ${typeof error === 'string' ? error : JSON.stringify(error)}`),
         { tags: { area: 'db', studioId: STUDIO_ID || 'desconocido' }, extra: { op: tag } },
       );
@@ -787,6 +787,7 @@ function mapTipoClase(r: RowTiposClase): TipoClase {
     descripcion: r.descripcion ?? null,
     nivel: r.nivel,
     fotoUrl: r.foto_url ?? null,
+    ventanaCancelacionHoras: r.ventana_cancelacion_horas ?? null,
   } as TipoClase;
 }
 
@@ -1992,6 +1993,21 @@ async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
   };
 }
 
+// P2-8: la ventana de cancelación puede acotarse por tipo de clase (reformer
+// necesita más antelación que mat para recolocar la plaza). NULL en
+// tipos_clase.ventana_cancelacion_horas = hereda la del estudio — es el
+// comportamiento de siempre para todo tipo de clase sin override.
+async function resolverVentanaCancelacion(
+  admin: SupabaseClient, studioId: string, tipoClaseId: string | null | undefined, ventanaEstudio: number,
+): Promise<number> {
+  if (!tipoClaseId) return ventanaEstudio;
+  const { data } = await admin
+    .from('tipos_clase').select('ventana_cancelacion_horas')
+    .eq('id', tipoClaseId).eq('studio_id', studioId).maybeSingle();
+  const override = data?.ventana_cancelacion_horas as number | null | undefined;
+  return override ?? ventanaEstudio;
+}
+
 // Crea una reserva respetando aforo/lista de espera (booking-logic) y consume
 // bono si queda CONFIRMADA. Valida identidad de la socia y el derecho a reservar
 // (C-4: plan/bono activo y tope de reservas simultáneas, si el estudio lo exige).
@@ -2179,8 +2195,9 @@ export async function ejecutarCancelacionReserva(
     const { data: ses } = await admin
       .from('sesiones').select('inicio, tipo_clase_id').eq('id', cancelada.sesion_id).maybeSingle();
     const inicio = ses?.inicio as string | undefined;
-    tardia = inicio ? esCancelacionTardia(inicio, new Date(), pol.ventanaHoras) : false;
-    if (inicio && debeDevolverBono(inicio, new Date(), pol.ventanaHoras, pol.devolverBonoTardia)) {
+    const ventana = await resolverVentanaCancelacion(admin, params.studioId, ses?.tipo_clase_id as string | null, pol.ventanaHoras);
+    tardia = inicio ? esCancelacionTardia(inicio, new Date(), ventana) : false;
+    if (inicio && debeDevolverBono(inicio, new Date(), ventana, pol.devolverBonoTardia)) {
       // Se devuelve al bono que cubre esa clase: es del que se descontó.
       await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null);
       bonoDevuelto = true;
@@ -4878,7 +4895,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
   const row = {
     id: t.id, studio_id: t.studioId ?? STUDIO_ID, nombre: t.nombre, color: t.color,
     duracion_minutos: t.duracionMinutos, descripcion: t.descripcion ?? null, nivel: t.nivel,
-    foto_url: t.fotoUrl ?? null,
+    foto_url: t.fotoUrl ?? null, ventana_cancelacion_horas: t.ventanaCancelacionHoras ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -4892,6 +4909,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('nivel' in changes) db.nivel = changes.nivel;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  if ('ventanaCancelacionHoras' in changes) db.ventana_cancelacion_horas = changes.ventanaCancelacionHoras;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateTipoClase]', error);
 }
