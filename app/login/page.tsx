@@ -60,7 +60,14 @@ export default function LoginPage() {
       // router.replace wouldn't remount it, so the dashboard could briefly
       // show the wrong tenant's data. A full reload guarantees a fresh
       // resolution against the now-final state.
-      window.location.href = '/dashboard';
+      //
+      // `?destino=` lo usa el panel interno para volver donde estabas tras
+      // cambiar de cuenta. Se acota a rutas /interno a propósito: aceptar
+      // cualquier destino convertiría el login en un redirector abierto que
+      // se puede usar para phishing con nuestro propio dominio.
+      const destino = new URLSearchParams(window.location.search).get('destino');
+      const seguro = destino === '/interno' || destino?.startsWith('/interno/');
+      window.location.href = seguro ? destino! : '/dashboard';
     });
   }, [session, user, loading, claimInstructorAccount]);
 

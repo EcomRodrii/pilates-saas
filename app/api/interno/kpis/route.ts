@@ -7,15 +7,19 @@ export const runtime = 'nodejs';
 
 // KPIs de la plataforma entera.
 //
-// Principio de esta ruta: **no inventar números**. `studios.plan` NO prueba que
-// nadie pague — hoy 12 de 14 estudios son altas de prueba en BASE y los dos
-// CADENA se pusieron a mano. Sumar el precio de lista de todos los planes daría
-// un MRR de cuatro cifras que no existe, que es justo el tipo de mentira que
-// nos costó una tarde limpiar en la BD del estudio.
+// Principio de esta ruta: **no inventar números**. Ninguna columna de la BD
+// prueba por sí sola que un estudio pague, y comprobarlo dio esta sorpresa:
 //
-// Así que el MRR sale SOLO de los estudios que llegaron a crear un cliente en
-// Stripe, y se devuelve junto al recuento para que la UI pueda decir de dónde
-// sale. La verdad última de cobros vive en Stripe, no aquí.
+//   · `plan`: 12 de 14 son altas de prueba en BASE y los dos CADENA se
+//     pusieron a mano. No es prueba de nada.
+//   · `subscription_status = 'active'`: lo tienen los dos CADENA… que NO tienen
+//     cliente en Stripe. Es acceso concedido a mano, no una suscripción.
+//   · `stripe_customer_id`: lo tiene uno, con subscription_status a null —
+//     empezó el checkout y quizá no lo terminó.
+//
+// Así que "de pago" exige AMBAS cosas: cliente en Stripe y suscripción activa.
+// Hoy eso da 0 € — que es la verdad. Y se cuenta aparte cuántos tienen acceso
+// concedido a mano, porque si no, esos 2 se leerían como clientes.
 export async function GET(req: NextRequest) {
   const g = await exigirPermiso(req, 'studios.read');
   if ('error' in g) return g.error;
@@ -29,7 +33,7 @@ export async function GET(req: NextRequest) {
   const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).toISOString();
 
   const [studios, socios, sesiones, reservas7, reservas30, reservasHoy] = await Promise.all([
-    db.from('studios').select('id, slug, nombre, plan, creado_en, stripe_customer_id'),
+    db.from('studios').select('id, slug, nombre, plan, creado_en, stripe_customer_id, subscription_status, suspendido_en'),
     db.from('socios').select('studio_id'),
     db.from('sesiones').select('studio_id, creado_en'),
     db.from('reservas').select('id', { count: 'exact', head: true }).gte('creado_en', hace7),
@@ -52,7 +56,13 @@ export async function GET(req: NextRequest) {
   const conActividad = filas.filter(
     s => (sociosPorEstudio.get(s.id as string) ?? 0) > 0 || (clasesPorEstudio.get(s.id as string) ?? 0) > 0,
   );
-  const dePago = filas.filter(s => s.stripe_customer_id);
+  // De pago = las dos cosas. Ver el comentario de cabecera: por separado, cada
+  // columna cuenta a alguien que no paga.
+  const dePago = filas.filter(s => s.stripe_customer_id && s.subscription_status === 'active');
+  // Acceso desbloqueado a mano (activo sin cliente en Stripe). No son clientes,
+  // pero conviene saber cuántos hay: son cortesías que alguien concedió.
+  const accesoManual = filas.filter(s => !s.stripe_customer_id && s.subscription_status === 'active');
+  const suspendidos = filas.filter(s => s.suspendido_en);
 
   const mrr = dePago.reduce((total, s) => {
     const info = PLAN_INFO[s.plan as keyof typeof PLAN_INFO];
@@ -72,14 +82,14 @@ export async function GET(req: NextRequest) {
       conActividad: conActividad.length,
       vacios: filas.length - conActividad.length,
       altasUltimos30d: filas.filter(s => String(s.creado_en ?? '') >= hace30).length,
+      suspendidos: suspendidos.length,
     },
     ingresos: {
       mrr,
       arr: mrr * 12,
       estudiosDePago: dePago.length,
-      // Bandera para que la UI no presente como hecho lo que es una estimación.
-      // Si nadie ha pagado todavía, decirlo es más útil que un 0 sin contexto.
-      fuente: 'estudios con cliente de Stripe · el estado real de cada cobro vive en Stripe',
+      accesoManual: accesoManual.length,
+      fuente: 'estudios con cliente en Stripe Y suscripción activa · la verdad de cada cobro está en Stripe',
     },
     actividad: {
       socias: (socios.data ?? []).length,

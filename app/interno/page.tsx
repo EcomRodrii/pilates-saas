@@ -47,8 +47,8 @@ export default function ResumenInterno() {
           <Tarjeta
             titulo="MRR" valor={eur(k.ingresos.mrr)} acento
             pie={k.ingresos.estudiosDePago === 0
-              ? 'Ningún estudio ha llegado a crear una suscripción todavía.'
-              : `De ${k.ingresos.estudiosDePago} estudio(s) con cliente en Stripe.`} />
+              ? `Nadie paga todavía${k.ingresos.accesoManual > 0 ? ` · ${k.ingresos.accesoManual} con acceso concedido a mano` : ''}.`
+              : `De ${k.ingresos.estudiosDePago} estudio(s) con cliente en Stripe y suscripción activa.`} />
           <Tarjeta
             titulo="ARR" valor={eur(k.ingresos.arr)}
             pie="MRR × 12. El estado real de cada cobro está en Stripe." />
@@ -57,7 +57,7 @@ export default function ResumenInterno() {
             pie={`${k.estudios.vacios} altas más sin ninguna socia ni clase.`} />
           <Tarjeta
             titulo="Altas (30 días)" valor={String(k.estudios.altasUltimos30d)}
-            pie={`${k.estudios.total} estudios en total.`} />
+            pie={`${k.estudios.total} estudios en total${k.estudios.suspendidos > 0 ? ` · ${k.estudios.suspendidos} suspendido(s)` : ''}.`} />
         </div>
       </section>
 

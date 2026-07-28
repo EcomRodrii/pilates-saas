@@ -16,7 +16,7 @@ import { accesoProducto, tieneFeature, entitlementsDe, type Entitlements } from 
 export type Denegacion = {
   status: number;
   error: string;
-  code: 'SUSCRIPCION_INACTIVA' | 'PLAN_SIN_FEATURE' | 'LIMITE_SOCIAS';
+  code: 'SUSCRIPCION_INACTIVA' | 'PLAN_SIN_FEATURE' | 'LIMITE_SOCIAS' | 'ESTUDIO_SUSPENDIDO';
   feature?: keyof Entitlements['features'];
   max?: number | null;
 };
@@ -39,8 +39,44 @@ async function cargarBilling(studioId: string): Promise<StudioBilling | null> {
   return { plan: data.plan, subscriptionStatus: data.subscription_status };
 }
 
+/**
+ * Denegación si el equipo de Tentare ha suspendido el estudio a mano.
+ *
+ * A propósito NO mira `billingEnforced()`: suspender es una decisión explícita
+ * (impago persistente, abuso, petición del cliente), no una inferencia de
+ * billing. Si el cobro forzoso está apagado, la suspensión sigue valiendo —
+ * lo contrario haría que apagar una env levantara todos los cortes.
+ *
+ * Sí falla abierto sin service-role, igual que el resto: preferimos dejar pasar
+ * a alguien suspendido que tumbar el producto entero por un fallo de infra.
+ */
+export async function evaluarSuspension(studioId: string): Promise<Denegacion | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data } = await admin
+    .from('studios')
+    .select('suspendido_en, suspendido_motivo')
+    .eq('id', studioId)
+    .maybeSingle();
+  if (!data?.suspendido_en) return null;
+  const motivo = (data.suspendido_motivo as string | null)?.trim();
+  return {
+    status: 403,
+    // El motivo se le enseña al cliente: por eso el panel lo exige por escrito.
+    error: motivo
+      ? `Tu cuenta está suspendida: ${motivo}. Escríbenos a soporte@tentare.app.`
+      : 'Tu cuenta está suspendida. Escríbenos a soporte@tentare.app.',
+    code: 'ESTUDIO_SUSPENDIDO',
+  };
+}
+
 /** Denegación si la suscripción del estudio no está activa. `null` = puede seguir. */
 export async function evaluarSuscripcion(studioId: string): Promise<Denegacion | null> {
+  // La suspensión manda sobre cualquier consideración de billing y se comprueba
+  // primero: un estudio suspendido no opera aunque tenga la suscripción al día.
+  const suspendido = await evaluarSuspension(studioId);
+  if (suspendido) return suspendido;
+
   if (!billingEnforced()) return null;
   const billing = await cargarBilling(studioId);
   if (!billing) return null;
