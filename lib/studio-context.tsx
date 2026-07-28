@@ -833,6 +833,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // Persiste + sella la factura en el servidor (huella Veri*Factu encadenada por
   // estudio) y refresca el estado local con la huella devuelta. Sustituye al
   // insert directo en cliente: el sellado usa node:crypto y debe ir en servidor.
+  // 2.2: NUNCA llamar a esto desde dentro de un updater de setState (React lo
+  // invoca dos veces en StrictMode/reintentos concurrentes, y el servidor
+  // dedupea por reciboId pero solo hasta que la primera inserción commitea —
+  // hay ventana de carrera. Llamar siempre desde el cuerpo de la función, una
+  // sola vez, con el resultado ya calculado).
   async function sellarFacturaYActualizar(fac: Factura) {
     const r = await sellarFactura(fac);
     if (r.ok && r.factura) {
@@ -1254,11 +1259,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // La factura se SELLA (Veri*Factu, cadena de hashes) y no se puede
         // borrar: solo se emite cuando el cobro que la respalda está guardado.
         // Antes se sellaba antes incluso de insertar a la socia.
-        setFacturas(prev => {
-          const fac = buildFactura(reciboCobrado, prev);
-          void sellarFacturaYActualizar(fac);
-          return [...prev, fac];
-        });
+        // 2.2: el sellado (llamada de red) se saca del updater de setFacturas —
+        // ahí dentro debe ser puro, o React lo duplica en StrictMode/reintentos
+        // concurrentes y se sella la misma factura fiscal dos veces.
+        const fac = buildFactura(reciboCobrado, facturas);
+        setFacturas(prev => [...prev, fac]);
+        void sellarFacturaYActualizar(fac);
       }
     }
 
@@ -2115,14 +2121,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
   }
 
-  // Construye y sella la factura de un recibo cobrado si aún no existe (dedup por
-  // reciboId sobre las facturas actuales). Devuelve la factura nueva, o null si ya
-  // había una. La sella (side effect) igual que antes.
+  // Construye la factura de un recibo cobrado si aún no existe (dedup por
+  // reciboId sobre las facturas actuales). Devuelve la factura nueva, o null si
+  // ya había una. PURA a propósito — 2.2: antes sellaba (llamada de red) desde
+  // dentro del updater de setFacturas; el sellado corre ahora fuera, una sola
+  // vez, para que el updater sea puro (ver comentario de sellarFacturaYActualizar).
   function construirFacturaCobro(reciboCobrado: Recibo, facturasActuales: Factura[]): Factura | null {
     if (facturasActuales.some(f => f.reciboId === reciboCobrado.id)) return null;
-    const fac = buildFactura(reciboCobrado, facturasActuales);
-    void sellarFacturaYActualizar(fac);
-    return fac;
+    return buildFactura(reciboCobrado, facturasActuales);
   }
 
   async function marcarCobrado(reciboId: string, metodo?: MetodoCobro): Promise<ResultadoEscritura> {
@@ -2142,13 +2148,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setRecibos(prev => prev.map(r =>
       r.id === reciboId ? { ...r, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? r.metodoCobro ?? null } : r
     ));
-    setFacturas(prev => {
+    // 2.2: construirFacturaCobro es pura; el sellado va fuera del updater.
+    {
       const recibo = recibos.find(r => r.id === reciboId) ??
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
       const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro: new Date().toISOString() };
-      const fac = construirFacturaCobro(updatedRecibo, prev);
-      return fac ? [...prev, fac] : prev;
-    });
+      const fac = construirFacturaCobro(updatedRecibo, facturas);
+      if (fac) {
+        setFacturas(prev => [...prev, fac]);
+        void sellarFacturaYActualizar(fac);
+      }
+    }
     // Refill bono or extend mensual when renewal payment is collected
     const recibo = recibos.find(r => r.id === reciboId);
     if (recibo) aplicarRenovacionSuscripcion(recibo);
@@ -2212,15 +2222,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setRecibos(prev => prev.map(r =>
       idsPendientes.has(r.id) ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
     ));
-    setFacturas(prev => {
-      let current = [...prev];
+    // 2.2: se construye el lote de facturas puro (el acumulador `current` numera
+    // en orden dentro del propio lote), y el sellado —red, uno por factura— va
+    // fuera del updater de setFacturas.
+    const nuevasFacturas: Factura[] = [];
+    {
+      let current = facturas;
       for (const recibo of pendientes) {
         const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
         const fac = construirFacturaCobro(cobrado, current);
-        if (fac) current = [...current, fac];
+        if (fac) { nuevasFacturas.push(fac); current = [...current, fac]; }
       }
-      return current;
-    });
+    }
+    if (nuevasFacturas.length > 0) {
+      setFacturas(prev => [...prev, ...nuevasFacturas]);
+      for (const fac of nuevasFacturas) void sellarFacturaYActualizar(fac);
+    }
     // Refill bonos / extend mensual for every recibo being paid
     for (const recibo of pendientes) {
       aplicarRenovacionSuscripcion(recibo);
@@ -2354,11 +2371,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       };
       setRecibos(prev => [nuevoRecibo, ...prev]);
       dbInsertRecibo(nuevoRecibo);
-      setFacturas(prev => {
-        const fac = buildFactura(nuevoRecibo, prev);
-        void sellarFacturaYActualizar(fac);
-        return [...prev, fac];
-      });
+      // 2.2: sellado fuera del updater (ver comentario en sellarFacturaYActualizar).
+      const fac = buildFactura(nuevoRecibo, facturas);
+      setFacturas(prev => [...prev, fac]);
+      void sellarFacturaYActualizar(fac);
     }
   }
 
