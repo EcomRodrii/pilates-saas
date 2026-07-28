@@ -33,14 +33,21 @@ Desktop: `brew install colima docker && colima start`.
 npx supabase start          # aplica supabase/migrations + seed.sql y levanta el stack
 ```
 
-Apunta `.env.local` a lo que imprima el comando:
+Apunta `.env.local` a lo que imprima el comando, y **comenta la site key de
+Turnstile** si la tienes puesta:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<la ANON_KEY que imprime>
+# NEXT_PUBLIC_TURNSTILE_SITE_KEY=...   ← comentada: en local no hay captcha
 ```
 
-Para volver a producción, deshaz esas dos líneas. `npx supabase stop` apaga los
+Lo de comentarla no es opcional. La Supabase local no pide captcha, pero si la
+variable está puesta el widget se pinta igual y el formulario se queda esperando
+un token que **nunca llega**: el botón de «Crear estudio» no se habilita jamás y
+no hay ningún mensaje que explique por qué.
+
+Para volver a producción, deshaz esas tres líneas. `npx supabase stop` apaga los
 contenedores y `colima stop` la VM.
 
 Los correos no salen a internet: van a Mailpit, en http://127.0.0.1:54324. Ahí ves
