@@ -15,6 +15,8 @@ type ClaseForm = {
   duracionMinutos: string;
   nivel: TipoClase['nivel'];
   descripcion: string;
+  // Vacío = hereda la ventana del estudio (comportamiento de siempre).
+  ventanaCancelacionHoras: string;
 };
 
 const emptyClaseForm = (): ClaseForm => ({
@@ -23,6 +25,7 @@ const emptyClaseForm = (): ClaseForm => ({
   duracionMinutos: '60',
   nivel: 'TODOS',
   descripcion: '',
+  ventanaCancelacionHoras: '',
 });
 
 function claseToForm(t: TipoClase): ClaseForm {
@@ -32,6 +35,7 @@ function claseToForm(t: TipoClase): ClaseForm {
     duracionMinutos: String(t.duracionMinutos),
     nivel: t.nivel,
     descripcion: t.descripcion ?? '',
+    ventanaCancelacionHoras: t.ventanaCancelacionHoras != null ? String(t.ventanaCancelacionHoras) : '',
   };
 }
 
@@ -99,6 +103,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       duracionMinutos: parseInt(form.duracionMinutos, 10) || 60,
       nivel: form.nivel,
       descripcion: form.descripcion.trim() || null,
+      ventanaCancelacionHoras: form.ventanaCancelacionHoras.trim() === '' ? null : Math.max(0, parseInt(form.ventanaCancelacionHoras, 10) || 0),
     };
     if (modal === 'nueva') {
       // Esperamos a la base de datos antes de decir que está creado.
@@ -165,6 +170,11 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 </p>
               )}
             </div>
+            {tc.ventanaCancelacionHoras != null && (
+              <p className="text-[11px] text-muted-foreground">
+                Cancelación: {tc.ventanaCancelacionHoras}h de antelación (propia de este tipo)
+              </p>
+            )}
             {/* Actions */}
             <div className="flex items-center gap-1 pt-1 border-t border-background">
               <button
@@ -271,6 +281,19 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 </select>
               </Field>
             </div>
+            <Field
+              label="Ventana de cancelación (horas, opcional)"
+              description="Antelación mínima para cancelar sin perder la sesión. Vacío = usa la ventana general del estudio."
+            >
+              <input
+                className={inputCls}
+                type="number"
+                min={0}
+                placeholder="Ventana del estudio"
+                value={form.ventanaCancelacionHoras}
+                onChange={e => setForm(f => ({ ...f, ventanaCancelacionHoras: e.target.value }))}
+              />
+            </Field>
             <Field
               label="Color"
               description="Sirve para distinguir este tipo de clase de un vistazo en la agenda."
