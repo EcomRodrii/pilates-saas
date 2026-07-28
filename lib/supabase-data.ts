@@ -15,7 +15,7 @@ import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engin
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
-import { evaluarFeature } from '@/lib/billing/billing-rules';
+import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -2522,6 +2522,19 @@ export async function socioAutenticado(authUserId: string, studioId: string): Pr
 
 // Registra una socia nueva desde el portal/reserva (alta pública). Valida que
 // el estudio existe; el id lo genera el cliente (primera reserva).
+// Socias que cuentan para el tope del plan: activas y no borradas. Mismo
+// criterio que el alta manual y el importador, para que los tres den el mismo
+// número — si divergen, el tope depende de por dónde entres.
+async function contarSociasActivas(admin: SupabaseClient, studioId: string): Promise<number> {
+  const { count } = await admin
+    .from('socios')
+    .select('id', { count: 'exact', head: true })
+    .eq('studio_id', studioId)
+    .eq('activo', true)
+    .is('borrado_en', null);
+  return count ?? 0;
+}
+
 export async function registrarSociaPublica(params: {
   studioId: string; id: string; nombre: string; email: string;
   authUserId?: string;
@@ -2539,6 +2552,18 @@ export async function registrarSociaPublica(params: {
     const yaSocia = await socioAutenticado(params.authUserId, params.studioId);
     if (yaSocia) return { ok: true as const, socioId: yaSocia };
   }
+
+  // Tope de socias del plan. Va AQUÍ, después de la idempotencia y pegado al
+  // insert, y no en la ruta que llama: allí corría ANTES de la salida temprana
+  // de arriba, así que un simple reintento de una socia que YA existe se comía
+  // el bloqueo aunque no fuese a crear ninguna fila. Y ese error lo lee la
+  // CLIENTA, no la dueña — «Tu plan permite hasta N socias, mejóralo» es un
+  // mensaje de facturación que no tiene por qué salir del panel del estudio.
+  //
+  // Separadas, las dos comprobaciones se vuelven a desincronizar; juntas, el
+  // tope solo se aplica cuando de verdad va a entrar una socia nueva.
+  const denegacion = await evaluarLimiteSocias(params.studioId, await contarSociasActivas(admin, params.studioId), 1);
+  if (denegacion) return { error: denegacion.error, code: denegacion.code };
 
   // El referido solo es válido si existe una socia con ese id en el estudio.
   let referido: string | null = null;
