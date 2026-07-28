@@ -571,6 +571,25 @@ export async function importarSocias(rows: FilaSocia[], batchId?: string): Promi
   }
 }
 
+// El alta manual de una socia inserta directo contra Supabase desde el
+// navegador (sin ruta de servidor de por medio): esto comprueba el tope de
+// socias del plan ANTES de ese insert, mismo criterio que ya aplicaba el
+// importador masivo. `null` = se puede seguir; string = motivo del bloqueo.
+export async function verificarLimiteSocias(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/socios/verificar-limite', {
+      method: 'POST',
+      headers: await authHeader(),
+    });
+    if (res.ok) return null;
+    const data = await res.json().catch(() => null);
+    return mensajeSeguro(data?.error, mensajeHttp(res.status));
+  } catch {
+    // Fail-open: un fallo de red no debe impedir dar de alta a una clienta.
+    return null;
+  }
+}
+
 // Importa membresías/bonos (suscripciones). Empareja por email de socia y nombre
 // de plan en el servidor; el studio_id sale del JWT. Misma forma de resultado.
 // F2 (B2.11) rescate: importa las plazas fijas del estudio desde CSV.
