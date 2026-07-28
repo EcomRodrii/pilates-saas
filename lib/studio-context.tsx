@@ -134,10 +134,12 @@ import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+// `debeDevolverBono` ya no se importa aquí: la decisión de devolver la sesión
+// del bono al cancelar la toma la BD (migr 0124) y este contexto la obedece.
+// La función sigue viva en booking-logic para el portal público y sus tests.
 import {
   decidirReservaNueva,
   decidirPremioReferido,
-  debeDevolverBono,
 } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, calcularFechaFinBono } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
@@ -1801,7 +1803,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // (serializada por lock de fila), NO de calcularConsumoBono() sobre el
     // snapshot local —que puede estar obsoleto y provocar un recibo de renovación
     // perdido o duplicado si dos reservas compiten. Espejo de consumirBonoServidor.
-    const res = await dbConsumirSesionBono(sus.id, getCurrentStudioId());
+    // La sesión viaja hasta la RPC: allí se vuelve a comprobar que el plan cubra
+    // el tipo de clase (migr 0124). `bonoConsumible` ya lo respeta arriba, así
+    // que esto no debería rechazar nunca — y por eso mismo es la red: el día que
+    // alguien vuelva a olvidarse del tipo, salta en vez de descontar del bono
+    // equivocado sin que se entere nadie.
+    const res = await dbConsumirSesionBono(sus.id, getCurrentStudioId(), sesionId);
     if (!('ok' in res)) return; // sin sesión que descontar / error → no tocar recibo
     const nuevasRestantes = res.saldo;
     setSuscripciones(prev => prev.map(s =>
@@ -1949,25 +1956,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // bloqueo de fila).
     dbCancelarReservaPlaza(getCurrentStudioId(), reservaId).then(res => {
       if (!res || 'error' in res) return;
-      const { eraConfirmada, promovidaSocioId } = res;
+      const { eraConfirmada, promovidaSocioId, devolverBono } = res;
 
-      // Devolver bono a quien canceló solo si su reserva ocupaba plaza (según la
-      // BD, no el snapshot) Y la política de cancelación del estudio lo permite.
-      if (eraConfirmada && cancelada) {
-        const ses = sesionId ? sesiones.find(s => s.id === sesionId) : undefined;
-        const inicio = ses?.inicio;
-        // La ventana de cancelación puede estar acotada por tipo de clase (migr
-        // 0111). El portal ya la respetaba; esto usaba siempre la global del
-        // estudio, así que la misma cancelación salía tardía por el portal y a
-        // tiempo si la hacía recepción. La política dejaba de ser una política y
-        // pasaba a depender de por dónde entrara la socia.
-        const ventana =
-          tiposClase.find(t => t.id === ses?.tipoClaseId)?.ventanaCancelacionHoras
-          ?? studio?.cancelacionVentanaHoras;
-        const devolver = !inicio || !studio || ventana == null
-          ? true
-          : debeDevolverBono(inicio, new Date(), ventana, studio.cancelacionDevolverBonoTardia);
-        if (devolver) devolverSesionBono(cancelada.socioId, sesionId);
+      // Devolver bono a quien canceló solo si su reserva ocupaba plaza Y la
+      // política de cancelación lo permite. Las DOS cosas las decide ahora la
+      // BD (migr 0124): `devolverBono` ya resuelve la ventana del TIPO de clase
+      // y cae a la del estudio si no la tiene.
+      //
+      // Antes esto se recalculaba aquí, y era el sitio donde se colaba el error:
+      // el panel usaba siempre la ventana global mientras el portal sí miraba la
+      // del tipo, así que la misma cancelación salía tardía o a tiempo según por
+      // dónde entrara la socia. Recalcular una regla en cada superficie es cómo
+      // se llega a eso; ahora hay una sola respuesta y esto la obedece.
+      if (eraConfirmada && cancelada && devolverBono) {
+        devolverSesionBono(cancelada.socioId, sesionId);
       }
 
       if (!promovidaSocioId || !sesionId) return;
