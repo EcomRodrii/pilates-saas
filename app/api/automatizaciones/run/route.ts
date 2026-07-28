@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllStudioData, dbUpdateAutomationRule } from '@/lib/supabase-data';
 import { computeAutomationCandidatos } from '@/lib/engines/automation-engine';
@@ -36,6 +37,19 @@ export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  // Esta ruta corre con service-role, que SE SALTA la RLS: el rol hay que
+  // mirarlo AQUÍ o no lo mira nadie. Y lo que ejecuta no es poca cosa —
+  // manda emails y WhatsApps REALES a las clientas en nombre del estudio.
+  // Sin esto, cualquiera con sesión de staff podía dispararlo desde la consola
+  // del navegador, aunque el Centro de Control esté oculto en su menú.
+  // Mismo criterio que /api/ingresos-manuales y las rutas de decisiones.
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json(
+      { error: 'No tienes permiso para ejecutar automatizaciones.' },
+      { status: 403 },
+    );
+  }
 
   const dry = await req
     .json()
