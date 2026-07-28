@@ -24,6 +24,9 @@ type AuthContextType = {
     metadata?: Record<string, unknown>
   ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
+  updateProfile: (datos: { nombre: string; apellidos: string }) => Promise<{ error: string | null }>;
+  updateEmail: (nuevoEmail: string) => Promise<{ error: string | null; pendiente: boolean }>;
+  updatePassword: (actual: string, nueva: string) => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -71,8 +74,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentStudioId('');
   }
 
+  // Fase 1 del perfil de la propietaria (sin fila en `instructores`, que es
+  // el caso normal): nombre/apellidos no tienen columna propia en ningún
+  // sitio, así que se guardan en auth.users.user_metadata — cero migración,
+  // mismo patrón ya usado en el repo para `pending_studio` (app/login).
+  async function updateProfile(datos: { nombre: string; apellidos: string }) {
+    const { error } = await supabase.auth.updateUser({ data: { nombre: datos.nombre, apellidos: datos.apellidos } });
+    if (error) return { error: error.message };
+    return { error: null };
+  }
+
+  // No se asume si el proyecto exige confirmación doble del cambio de email:
+  // se lee de la propia respuesta de gotrue-js. Si `data.user.email` sigue
+  // siendo el antiguo, el cambio quedó pendiente de confirmación (revisa tu
+  // bandeja); si ya es el nuevo, se aplicó al instante.
+  async function updateEmail(nuevoEmail: string) {
+    const { data, error } = await supabase.auth.updateUser({ email: nuevoEmail });
+    if (error) return { error: error.message, pendiente: false };
+    const pendiente = data.user?.email !== nuevoEmail;
+    return { error: null, pendiente };
+  }
+
+  // Reautenticación defensiva antes de tocar la contraseña: el proyecto tiene
+  // `secure_password_change` desactivado (no lo exige Supabase), así que la
+  // propia app comprueba la contraseña actual antes de aceptar la nueva.
+  async function updatePassword(actual: string, nueva: string) {
+    const email = session?.user?.email;
+    if (!email) return { error: 'No hay sesión activa.' };
+    const { error: reauthError } = await supabase.auth.signInWithPassword({ email, password: actual });
+    if (reauthError) return { error: 'La contraseña actual no es correcta.' };
+    const { error } = await supabase.auth.updateUser({ password: nueva });
+    if (error) return { error: error.message };
+    return { error: null };
+  }
+
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, updateProfile, updateEmail, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );

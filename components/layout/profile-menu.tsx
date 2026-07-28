@@ -25,7 +25,13 @@ export function ProfileMenu() {
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const userInitials = user?.email?.slice(0, 2).toUpperCase() ?? 'TE';
+  // Propietaria sin ficha propia (yo === null): usa el nombre que haya
+  // guardado en Configuración > Mi perfil (auth.users.user_metadata) en vez
+  // de las iniciales del email, si ya lo ha rellenado.
+  const metaNombre = user?.user_metadata?.nombre as string | undefined;
+  const userInitials = !yo && metaNombre
+    ? metaNombre.slice(0, 2).toUpperCase()
+    : (user?.email?.slice(0, 2).toUpperCase() ?? 'TE');
   const userEmail = user?.email ?? 'Modo auditoría';
 
   // Selector de sede (multi-centro / plan CADENA): solo se pinta si el usuario

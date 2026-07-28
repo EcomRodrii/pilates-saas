@@ -9,10 +9,11 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 //     tampoco hay campo de nombre de la propietaria. Esa pestaña son los datos
 //     del ESTUDIO (nombre comercial, NIF, dirección).
 //
-// Lo que este test NO puede comprobar, porque no está arreglado: que pueda poner
-// su nombre. No existe columna para el nombre de la propietaria — es una
-// decisión de modelo, no un cartel. Aquí solo se fija que dejamos de mandarla a
-// buscar algo que no existe.
+// Actualizado (Fase 1 del perfil de la propietaria): el nombre de la
+// propietaria ya no era solo un cartel honesto sobre una limitación — se
+// resolvió de raíz (auth.users.user_metadata) y ahora hay un formulario real
+// de Nombre/Apellidos, así que el segundo test comprueba eso en vez de solo
+// la ausencia de las dos promesas falsas.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -67,14 +68,17 @@ test.describe('Carteles que llevan a donde dicen', () => {
     await expect(enlace).toHaveAttribute('href', '/equipo');
   });
 
-  test('Mi perfil no la manda a buscar un campo que no existe', async ({ page }) => {
+  test('Mi perfil ya deja a la propietaria poner su nombre, no solo un cartel honesto', async ({ page }) => {
     await montar(page, '/configuracion?tab=perfil');
 
-    await expect(page.getByText(/como propietaria del estudio/)).toBeVisible({ timeout: 30_000 });
-
-    // La promesa falsa desaparece…
+    // La promesa falsa nunca vuelve…
     await expect(page.getByText(/Tu nombre y datos de contacto de propietaria se gestionan/)).toHaveCount(0);
-    // …y en su lugar se dice lo que pasa de verdad.
-    await expect(page.getByText(/Todavía no puedes poner tu nombre aquí/)).toBeVisible();
+    // …y el cartel "aún no se puede" (Fase 1 del perfil de la propietaria) ya
+    // quedó obsoleto: ahora hay un formulario real.
+    await expect(page.getByText(/Todavía no puedes poner tu nombre aquí/)).toHaveCount(0);
+
+    await expect(page.getByText('Nombre', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Apellidos', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible();
   });
 });

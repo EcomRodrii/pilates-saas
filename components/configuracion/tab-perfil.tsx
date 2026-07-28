@@ -17,14 +17,16 @@ const ROL_LABEL: Record<string, { label: string; bg: string; text: string }> = {
 
 export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   const { studio, updateAvatarAdmin, updateStudio, instructores, updateInstructor, sesiones } = useStudio();
-  const { user } = useAuth();
+  const { user, updateProfile, updateEmail, updatePassword } = useAuth();
 
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const rol = yo?.rol ?? 'PROPIETARIO';
   const rolInfo = ROL_LABEL[rol];
+  const metaNombre = (user?.user_metadata?.nombre as string | undefined) ?? '';
+  const metaApellidos = (user?.user_metadata?.apellidos as string | undefined) ?? '';
 
   const [form, setForm] = useState({
-    nombre: yo?.nombre ?? 'Propietaria',
+    nombre: yo?.nombre ?? metaNombre ?? 'Propietaria',
     email: yo?.email ?? user?.email ?? '',
     telefono: yo?.telefono ?? '',
   });
@@ -32,6 +34,64 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [errorFoto, setErrorFoto] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fase 1 del perfil de la propietaria (sin fila en `instructores`, el caso
+  // normal): nombre/apellidos viven en auth.users.user_metadata (ver
+  // lib/auth-context.tsx). Formularios separados de email/contraseña porque
+  // cada uno tiene su propio flujo de verificación con Supabase Auth.
+  const [propietariaForm, setPropietariaForm] = useState({ nombre: metaNombre, apellidos: metaApellidos });
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  const [perfilGuardado, setPerfilGuardado] = useState(false);
+
+  const [nuevoEmail, setNuevoEmail] = useState('');
+  const [cambiandoEmail, setCambiandoEmail] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<{ error: boolean; texto: string } | null>(null);
+
+  const [passwordForm, setPasswordForm] = useState({ actual: '', nueva: '', confirmar: '' });
+  const [cambiandoPassword, setCambiandoPassword] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState<{ error: boolean; texto: string } | null>(null);
+
+  async function guardarPerfilPropietaria() {
+    setGuardandoPerfil(true);
+    const { error } = await updateProfile({ nombre: propietariaForm.nombre.trim(), apellidos: propietariaForm.apellidos.trim() });
+    setGuardandoPerfil(false);
+    if (error) { showToast(`Error: ${error}`); return; }
+    setPerfilGuardado(true);
+    showToast('Perfil actualizado');
+    setTimeout(() => setPerfilGuardado(false), 2000);
+  }
+
+  async function cambiarEmail() {
+    if (!nuevoEmail.trim()) return;
+    setCambiandoEmail(true);
+    const { error, pendiente } = await updateEmail(nuevoEmail.trim());
+    setCambiandoEmail(false);
+    if (error) { setEmailMsg({ error: true, texto: error }); return; }
+    setEmailMsg({
+      error: false,
+      texto: pendiente
+        ? 'Te hemos enviado un email de confirmación. El cambio se aplicará cuando lo confirmes.'
+        : 'Email actualizado.',
+    });
+    setNuevoEmail('');
+  }
+
+  async function cambiarPassword() {
+    if (passwordForm.nueva !== passwordForm.confirmar) {
+      setPasswordMsg({ error: true, texto: 'Las contraseñas nuevas no coinciden.' });
+      return;
+    }
+    if (passwordForm.nueva.length < 8) {
+      setPasswordMsg({ error: true, texto: 'La contraseña nueva debe tener al menos 8 caracteres.' });
+      return;
+    }
+    setCambiandoPassword(true);
+    const { error } = await updatePassword(passwordForm.actual, passwordForm.nueva);
+    setCambiandoPassword(false);
+    if (error) { setPasswordMsg({ error: true, texto: error }); return; }
+    setPasswordMsg({ error: false, texto: 'Contraseña actualizada.' });
+    setPasswordForm({ actual: '', nueva: '', confirmar: '' });
+  }
 
   // El avatar/foto es de QUIEN ha iniciado sesión: si es instructora/recepción
   // con ficha propia, se guarda en su propia fila (yo.avatar/yo.fotoUrl), no
@@ -176,20 +236,86 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
             </button>
           </>
         ) : (
-          /* Este cartel mandaba a "Configuración > Estudio" a cambiar el nombre
-             de la propietaria. Allí no hay tal campo: esa pestaña son los datos
-             del ESTUDIO (nombre comercial, NIF, dirección). Hoy la dueña no
-             tiene ficha propia, así que el panel la llama "Propietaria" a secas
-             y no hay dónde cambiarlo. Mejor decirlo que enviarla a buscar algo
-             que no existe. */
-          <div className="text-[12px] text-muted-foreground space-y-1.5">
-            <p>Entras con <span className="font-medium text-foreground">{form.email}</span>, como propietaria del estudio.</p>
-            <p>
-              Todavía no puedes poner tu nombre aquí: por eso en el panel apareces como
-              &quot;Propietaria&quot;. Los datos del estudio —nombre comercial, NIF, dirección, marca—
-              sí se cambian en <span className="font-medium text-foreground">Configuración → Estudio</span>.
-            </p>
-          </div>
+          <>
+            <div className="space-y-3.5">
+              <div>
+                <p className={labelCls}>Nombre</p>
+                <input className={inputCls} value={propietariaForm.nombre} onChange={e => setPropietariaForm(f => ({ ...f, nombre: e.target.value }))} />
+              </div>
+              <div>
+                <p className={labelCls}>Apellidos</p>
+                <input className={inputCls} value={propietariaForm.apellidos} onChange={e => setPropietariaForm(f => ({ ...f, apellidos: e.target.value }))} />
+              </div>
+            </div>
+            <button
+              onClick={guardarPerfilPropietaria}
+              disabled={guardandoPerfil}
+              className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {perfilGuardado && <Check size={13} />}
+              {guardandoPerfil ? 'Guardando…' : perfilGuardado ? 'Guardado' : 'Guardar cambios'}
+            </button>
+
+            <div className="mt-6 pt-6 border-t border-muted">
+              <h4 className="text-[13px] font-semibold text-foreground mb-1">Email</h4>
+              <p className="text-[12px] text-muted-foreground mb-3">
+                Entras con <span className="font-medium text-foreground">{user?.email}</span>.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="email" placeholder="Nuevo email" className={inputCls}
+                  value={nuevoEmail} onChange={e => setNuevoEmail(e.target.value)}
+                />
+                <button
+                  onClick={cambiarEmail}
+                  disabled={cambiandoEmail || !nuevoEmail.trim()}
+                  className="px-4 py-2 rounded-lg bg-card border border-border text-[12px] font-medium hover:bg-background transition-colors disabled:opacity-60 shrink-0"
+                >
+                  {cambiandoEmail ? 'Enviando…' : 'Cambiar email'}
+                </button>
+              </div>
+              {emailMsg && (
+                <p className={cn('text-[11px] mt-2', emailMsg.error ? 'text-destructive' : 'text-success')}>{emailMsg.texto}</p>
+              )}
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-muted">
+              <h4 className="text-[13px] font-semibold text-foreground mb-3">Cambiar contraseña</h4>
+              <div className="space-y-3.5">
+                <div>
+                  <p className={labelCls}>Contraseña actual</p>
+                  <input
+                    type="password" className={inputCls}
+                    value={passwordForm.actual} onChange={e => setPasswordForm(f => ({ ...f, actual: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <p className={labelCls}>Nueva contraseña</p>
+                  <input
+                    type="password" className={inputCls}
+                    value={passwordForm.nueva} onChange={e => setPasswordForm(f => ({ ...f, nueva: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <p className={labelCls}>Confirmar nueva contraseña</p>
+                  <input
+                    type="password" className={inputCls}
+                    value={passwordForm.confirmar} onChange={e => setPasswordForm(f => ({ ...f, confirmar: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={cambiarPassword}
+                disabled={cambiandoPassword || !passwordForm.actual || !passwordForm.nueva || !passwordForm.confirmar}
+                className="mt-4 px-4 py-2 rounded-lg bg-card border border-border text-[12px] font-medium hover:bg-background transition-colors disabled:opacity-60"
+              >
+                {cambiandoPassword ? 'Cambiando…' : 'Cambiar contraseña'}
+              </button>
+              {passwordMsg && (
+                <p className={cn('text-[11px] mt-2', passwordMsg.error ? 'text-destructive' : 'text-success')}>{passwordMsg.texto}</p>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>
