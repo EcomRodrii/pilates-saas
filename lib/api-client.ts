@@ -149,6 +149,28 @@ export async function generarEnlaceDisponibilidad(
   }
 }
 
+// P2-10: pide la disponibilidad a VARIAS instructoras a la vez por email, en
+// vez de copiar y reenviar un enlace una a una. Resultado por instructora
+// (nunca todo-o-nada): ver app/api/sustituciones/pedir-disponibilidad.
+export type ResultadoPeticionDisponibilidad = { id: string; ok: true } | { id: string; ok: false; error: string };
+
+export async function pedirDisponibilidadMasiva(
+  instructorIds: string[],
+): Promise<ResultadoPeticionDisponibilidad[] | { error: string }> {
+  try {
+    const res = await fetch('/api/sustituciones/pedir-disponibilidad', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ instructorIds }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { resultados?: ResultadoPeticionDisponibilidad[]; error?: string };
+    if (!res.ok || !data.resultados) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data.resultados;
+  } catch {
+    return { error: 'No se pudo conectar con el servidor' };
+  }
+}
+
 export interface SustitucionCandidata {
   instructor_id: string;
   nombre: string;

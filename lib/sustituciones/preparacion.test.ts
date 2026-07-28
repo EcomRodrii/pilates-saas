@@ -4,7 +4,7 @@ import {
   equipoIncompleto, listarNombres, avisoEquipoIncompleto, motivoSinCandidatas,
 } from './preparacion.ts';
 
-const ins = (nombre: string) => ({ id: `ins-${nombre}`, nombre });
+const ins = (nombre: string) => ({ id: `ins-${nombre}`, nombre, email: null, emailEnviadoEn: null });
 
 test('equipo entero configurado → no se avisa de nada', () => {
   const d = { total: 5, sinDisponibilidad: [] };
