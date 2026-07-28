@@ -15,8 +15,8 @@ import { estadoBilling } from '@/lib/api-client';
 import { navSections } from '@/lib/nav-config';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
-  const { studio } = useStudio();
+  const { session, loading, user } = useAuth();
+  const { studio, dataLoaded, claimInstructorAccount } = useStudio();
   const { puedeVer } = usePermisos();
   const router = useRouter();
   const pathname = usePathname();
@@ -73,6 +73,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // llega aquí tiene estudio y `studio` acaba cargando; por eso gatear sobre
   // `studio === null` no deja a nadie en un skeleton perpetuo.
   const cargandoDatos = !!session && (studio === null || billingBloqueado !== false);
+
+  // Red de seguridad de la VINCULACIÓN de instructoras.
+  //
+  // La ficha se reclama por coincidencia de email, y hasta ahora eso solo
+  // ocurría en /login. Quien confirmaba el correo desde otro dispositivo —o
+  // simplemente seguía el enlace de verificación, que aterriza donde diga
+  // Supabase— llegaba aquí con sesión y SIN estudio: el gate de arriba lo dejaba
+  // en un skeleton eterno, que es como se veía "todo en blanco", y el panel
+  // seguía diciendo que su cuenta no estaba registrada. Le pasó a dos
+  // instructoras reales y hubo que vincularlas a mano en la base de datos.
+  //
+  // Un solo intento por montaje: si reclama algo, recarga para que el provider
+  // resuelva el estudio ya vinculado. Si no hay ficha con ese email (un alta de
+  // estudio normal), no hace nada y sigue el flujo de siempre.
+  const [intentoVinculo, setIntentoVinculo] = useState(false);
+  useEffect(() => {
+    if (intentoVinculo || loading || !session || !user?.email) return;
+    if (!dataLoaded || studio !== null) return;
+    setIntentoVinculo(true);
+    void claimInstructorAccount(user.email, user.id).then(ficha => {
+      if (ficha) window.location.reload();
+    });
+  }, [intentoVinculo, loading, session, user, dataLoaded, studio, claimInstructorAccount]);
   useEffect(() => {
     if (!loading && session && rolResuelto && !autorizado) router.replace('/dashboard');
   }, [loading, session, rolResuelto, autorizado, router]);
