@@ -77,7 +77,7 @@ function emisorPuedeDarlo(rolFicha: Rol, rolEmisor: Rol | null): boolean {
 //
 // `activo === null` cuenta como activa: solo una baja EXPLÍCITA cierra la
 // puerta. Un nulo accidental no debe dejar fuera a nadie (mismo criterio que el
-// `coalesce(activo, true)` de la 0125).
+// `coalesce(activo, true)` de la 0130).
 //
 // Si la ficha ya es de esta misma cuenta no es un rechazo: es que ya estaba
 // hecho. El endpoint puede llamarse más de una vez con el mismo enlace, así que

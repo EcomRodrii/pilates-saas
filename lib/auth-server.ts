@@ -72,7 +72,7 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
     .eq('auth_user_id', user.id)
     // `neq('activo', false)` y no `eq('activo', true)`: solo una baja EXPLÍCITA
     // revoca. Un nulo accidental no debe dejar a nadie fuera sin que nadie lo
-    // haya decidido — mismo criterio que el `coalesce(activo, true)` de la 0125.
+    // haya decidido — mismo criterio que el `coalesce(activo, true)` de la 0130.
     .neq('activo', false)
     .order('studio_id', { ascending: true })
     .limit(1);

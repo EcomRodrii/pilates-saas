@@ -31,9 +31,9 @@
 
 drop policy if exists self_claim_instructores on public.instructores;
 
--- ── El trigger de 0119, ahora sí ─────────────────────────────────────────────
+-- ── El trigger de 0124, ahora sí ─────────────────────────────────────────────
 --
--- 0119 puso una red para que el gesto de reclamar no pudiera además ascender de
+-- 0124 puso una red para que el gesto de reclamar no pudiera además ascender de
 -- rol ni cambiar de estudio. Su condición incluía `new.auth_user_id = auth.uid()`
 -- porque entonces el UPDATE lo lanzaba el navegador. Ahora lo lanza una ruta de
 -- servidor con service-role, donde `auth.uid()` es NULL — o sea, la red había
