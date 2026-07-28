@@ -47,7 +47,11 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
     .maybeSingle();
   if (activa?.studio_id) {
     const [{ data: comoInstructor }, { data: comoOwner }] = await Promise.all([
-      db.from('instructores').select('rol, nombre').eq('auth_user_id', user.id).eq('studio_id', activa.studio_id).maybeSingle(),
+      // `activo`: dar de baja tiene que revocar el acceso, y aquí importa el
+      // doble — este camino corre con SERVICE-ROLE, que se salta la RLS entera.
+      // Sin este filtro, la migración 0125 cerraría la puerta de la base de
+      // datos y las rutas de API seguirían abriendo la suya.
+      db.from('instructores').select('rol, nombre').eq('auth_user_id', user.id).eq('studio_id', activa.studio_id).neq('activo', false).maybeSingle(),
       db.from('studios').select('nombre').eq('owner_auth_user_id', user.id).eq('id', activa.studio_id).maybeSingle(),
     ]);
     if (comoInstructor) {
@@ -66,6 +70,10 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
     .from('instructores')
     .select('studio_id, rol, nombre')
     .eq('auth_user_id', user.id)
+    // `neq('activo', false)` y no `eq('activo', true)`: solo una baja EXPLÍCITA
+    // revoca. Un nulo accidental no debe dejar a nadie fuera sin que nadie lo
+    // haya decidido — mismo criterio que el `coalesce(activo, true)` de la 0125.
+    .neq('activo', false)
     .order('studio_id', { ascending: true })
     .limit(1);
   const instructor = instructores?.[0];
