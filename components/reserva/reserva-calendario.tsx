@@ -47,6 +47,7 @@ export interface ReservaSlot {
   id: string;                 // id de sesión
   inicio: string;             // ISO
   fin: string;                // ISO
+  tipoClaseId?: string | null; // para resolver ventanaPorTipo (P2-8)
   claseNombre: string;
   claseColor: string;
   claseFotoUrl?: string | null;
@@ -80,8 +81,12 @@ export interface ReservaCalendarioProps {
   onCancelar: (reservaId: string) => void;
   /** 'calendario' (tira de semana) o 'lista' (agrupada por día, para Mis reservas). */
   variant?: 'calendario' | 'lista';
-  /** Horas de antelación para cancelar sin penalización; muestra un aviso en la hoja. */
+  /** Horas de antelación para cancelar sin penalización; muestra un aviso en la hoja.
+   *  Es el valor por defecto del ESTUDIO — `ventanaPorTipo` lo pisa por tipo de clase. */
   cancelacionVentanaHoras?: number;
+  /** Override por tipo de clase (P2-8): tipoClaseId → horas. Un reformer puede
+   *  necesitar más antelación que un mat para recolocar la plaza. */
+  ventanaPorTipo?: Record<string, number>;
   /** Copys de estado vacío. */
   vacio?: { titulo: string; cuerpo: string };
   fontFamily?: string;
@@ -120,7 +125,7 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
 
 export function ReservaCalendario({
   t, slots, onReservar, onCancelar,
-  variant = 'calendario', cancelacionVentanaHoras, vacio, fontFamily = FUENTE,
+  variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, fontFamily = FUENTE,
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
@@ -301,6 +306,7 @@ export function ReservaCalendario({
           onSelectSpot={setSelectedSpot}
           resultado={resultado}
           cancelacionVentanaHoras={cancelacionVentanaHoras}
+          ventanaPorTipo={ventanaPorTipo}
           fontFamily={fontFamily}
           onClose={cerrarHoja}
           onReservar={() => {
@@ -388,7 +394,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
 // ── Hoja inferior (bottom sheet) ─────────────────────────────────────────────
 
 function BookingSheet({
-  t, slot, selectedSpot, onSelectSpot, resultado, cancelacionVentanaHoras,
+  t, slot, selectedSpot, onSelectSpot, resultado, cancelacionVentanaHoras, ventanaPorTipo,
   fontFamily, onClose, onReservar, onCancelar,
 }: {
   t: ModoTokens;
@@ -397,12 +403,18 @@ function BookingSheet({
   onSelectSpot: (id: string | null) => void;
   resultado: EstadoReserva | 'CANCELADA' | null;
   cancelacionVentanaHoras?: number;
+  ventanaPorTipo?: Record<string, number>;
   fontFamily: string;
   onClose: () => void;
   onReservar: () => void;
   onCancelar: () => void;
 }) {
   const titleId = useId();
+  // P2-8: el tipo de esta clase puede tener su propia ventana; sin override,
+  // se hereda la del estudio (comportamiento de siempre).
+  const ventanaEfectiva = (slot.tipoClaseId && ventanaPorTipo?.[slot.tipoClaseId] != null)
+    ? ventanaPorTipo[slot.tipoClaseId]
+    : cancelacionVentanaHoras;
   const libres = Math.max(0, slot.aforoMaximo - slot.ocupadas);
   const lleno = libres <= 0;
   const yaReservada = slot.miEstado === 'CONFIRMADA';
@@ -504,9 +516,9 @@ function BookingSheet({
         {!resultado && yaReservada && <Banner tipo="ok" texto="Ya tienes esta clase reservada." />}
         {!resultado && enEspera && <Banner tipo="warn" texto="Estás en lista de espera para esta clase." />}
 
-        {cancelacionVentanaHoras != null && cancelacionVentanaHoras > 0 && !tieneReserva && !lleno && (
+        {ventanaEfectiva != null && ventanaEfectiva > 0 && !tieneReserva && !lleno && (
           <p style={{ fontSize: 12, color: t.muted }}>
-            Cancela con al menos {cancelacionVentanaHoras}h de antelación para recuperar tu sesión.
+            Cancela con al menos {ventanaEfectiva}h de antelación para recuperar tu sesión.
           </p>
         )}
 

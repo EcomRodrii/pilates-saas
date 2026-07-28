@@ -694,6 +694,7 @@ export interface RowTiposClase {
   descripcion: string | null;
   nivel: string | null;
   foto_url: string | null;
+  ventana_cancelacion_horas: number | null;
 }
 
 export interface RowUsuarios {

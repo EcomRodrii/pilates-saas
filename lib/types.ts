@@ -402,6 +402,9 @@ export interface TipoClase {
   descripcion: string | null;
   nivel: NivelClase;
   fotoUrl: string | null;
+  // Horas de antelación para cancelar sin perder la sesión, propias de este
+  // tipo de clase. null = hereda la del estudio (Studio.cancelacionVentanaHoras).
+  ventanaCancelacionHoras: number | null;
 }
 
 export interface Instructor {
