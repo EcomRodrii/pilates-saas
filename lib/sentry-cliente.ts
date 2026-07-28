@@ -25,34 +25,25 @@
 //     captura en vez de quedarse muerto para siempre.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { CaptureContext, SeverityLevel } from '@sentry/nextjs';
+import { crearCola } from '@/lib/sentry-cola';
 
 type SDK = typeof import('@sentry/nextjs');
-type Llamada = { metodo: keyof SDK; args: unknown[] };
 
 const enNavegador = typeof window !== 'undefined';
 
 let sdk: SDK | null = null;
 let cargando: Promise<SDK | null> | null = null;
 
-// Tope de la cola: si algo entra en bucle de errores antes de que cargue el SDK,
-// no queremos que el buffer se coma la memoria del móvil. 100 sobra para el
-// primer segundo de vida de la página.
-const MAX_COLA = 100;
-const cola: Llamada[] = [];
-let descartadas = 0;
-
-function aplicar(m: SDK, { metodo, args }: Llamada) {
-  const fn = m[metodo];
-  if (typeof fn === 'function') (fn as (...a: unknown[]) => unknown)(...args);
-}
+// La mecánica de guardar-y-volcar vive en `sentry-cola.ts`, que es lógica pura y
+// por tanto se puede probar de verdad (ver sentry-cola.test.ts). Aquí sólo queda
+// lo que no se puede probar sin navegador: cuándo traer el SDK.
+const cola = crearCola();
 
 function encolar(metodo: keyof SDK, args: unknown[]) {
-  if (sdk) { aplicar(sdk, { metodo, args }); return; }
-  if (cola.length < MAX_COLA) cola.push({ metodo, args });
-  else descartadas++;
+  cola.pedir(metodo as string, args);
   // Que haya algo que reportar es razón suficiente para traerlo ya: esperar al
   // idle retrasaría justo los errores del arranque, que son los que importan.
-  void forzarCarga();
+  if (!cola.conectada) void forzarCarga();
 }
 
 /** Trae el SDK ahora mismo (sin esperar al idle) y vuelca la cola. */
@@ -73,11 +64,12 @@ export function forzarCarga(): Promise<SDK | null> {
         });
       }
       sdk = m;
-      for (const ll of cola) aplicar(m, ll);   // el orden importa
-      cola.length = 0;
-      if (descartadas > 0) {
-        m.captureMessage(`Cola de Sentry desbordada: ${descartadas} eventos perdidos antes de cargar`, 'warning');
-        descartadas = 0;
+      const perdidas = cola.descartadas;
+      cola.conectar(m as unknown as Record<string, unknown>);
+      // Si la cola desbordó, se dice. Callarlo dejaría un hueco invisible justo
+      // en el arranque, que es cuando peor viene no saber qué pasó.
+      if (perdidas > 0) {
+        m.captureMessage(`Cola de Sentry desbordada: ${perdidas} eventos perdidos antes de cargar`, 'warning');
       }
       return m;
     })
@@ -115,8 +107,12 @@ export function capturarExcepcion(error: unknown, contexto?: CaptureContext): vo
   encolar('captureException', contexto === undefined ? [error] : [error, contexto]);
 }
 
-export function capturarMensaje(mensaje: string, nivel: SeverityLevel = 'info'): void {
-  encolar('captureMessage', [mensaje, nivel]);
+export function capturarMensaje(
+  mensaje: string,
+  nivel: SeverityLevel = 'info',
+  contexto?: { tags?: Record<string, string>; extra?: Record<string, unknown> },
+): void {
+  encolar('captureMessage', [mensaje, contexto ? { level: nivel, ...contexto } : nivel]);
 }
 
 export function fijarUsuario(usuario: { id: string } | null): void {
