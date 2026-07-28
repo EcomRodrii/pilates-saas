@@ -1733,11 +1733,12 @@ export default function Calendario() {
     const semanas = form.repetir ? form.repetirSemanas : 1;
     setGuardandoSesion(true);
     setErrorSesion(null);
-    let creadas = 0;
-    for (let i = 0; i < semanas; i++) {
+
+    // Una clase por semana, con los mismos datos y la fecha corrida 7 días.
+    const aCrear = Array.from({ length: semanas }, (_, i) => {
       const base = new Date(`${form.fecha}T${form.horaInicio}:00`);
       base.setDate(base.getDate() + i * 7);
-      const res = await addSesion({
+      return {
         tipoClaseId: form.tipoClaseId,
         salaId: form.salaId,
         instructorId: form.instructorId,
@@ -1747,18 +1748,34 @@ export default function Calendario() {
         cancelada: false,
         notas: form.notas || null,
         precioPuntual: null,
-      });
-      if (!res.ok) {
-        setGuardandoSesion(false);
-        // Decimos exactamente cuántas quedaron puestas: media tanda creada en
-        // silencio es peor que el fallo.
-        setErrorSesion(creadas === 0
-          ? res.error
-          : `${res.error} Se habían creado ${creadas} de ${semanas} clases.`);
-        return;
-      }
-      creadas++;
+      };
+    });
+
+    // "Repetir semanalmente" crea una SERIE de verdad, igual que el diálogo de
+    // clases recurrentes. Antes era un bucle de N `addSesion` sueltos, y eso
+    // tenía dos consecuencias que no se veían al crearlas:
+    //
+    //  · Las clases nacían SIN `serie_id`, así que "editar esta y las
+    //    siguientes" y "cancelar la serie" no las alcanzaban nunca. Montabas el
+    //    horario del trimestre por el camino más obvio —la casilla está aquí
+    //    mismo— y te quedabas sin poder cambiarlo en bloque, sin que nada lo
+    //    dijera. En octubre, mover el reformer de los miércoles eran doce
+    //    ediciones a mano.
+    //  · N inserts sin transacción: si el quinto fallaba, quedaban cuatro
+    //    clases creadas. El propio mensaje de error lo admitía ("se habían
+    //    creado 4 de 12"), que es reconocer el problema en vez de resolverlo.
+    //
+    // `addSesionesSerie` comparte un `serie_id` y hace UN solo insert: entran
+    // las N o no entra ninguna.
+    const res = semanas > 1
+      ? await addSesionesSerie(aCrear)
+      : await addSesion(aCrear[0]);
+    if (!res.ok) {
+      setGuardandoSesion(false);
+      setErrorSesion(res.error);
+      return;
     }
+    const creadas = semanas;
     setGuardandoSesion(false);
 
     // Si la clase cae en otra semana, el calendario se mueve hasta ella. Antes
@@ -1769,7 +1786,9 @@ export default function Calendario() {
     const otraSemana = localDate(semanaDeLaClase) !== localDate(semana);
     if (otraSemana) setSemana(semanaDeLaClase);
 
-    const cuantas = form.repetir ? `Se han creado ${creadas} clases` : 'Clase creada';
+    // Se dice "serie", no "N clases": es lo que le permite luego editarlas o
+    // cancelarlas en bloque, y si no se nombra aquí no hay forma de saberlo.
+    const cuantas = semanas > 1 ? `Serie creada · ${creadas} clases` : 'Clase creada';
     setToast(otraSemana
       ? `${cuantas} — te llevo a esa semana`
       : cuantas);
