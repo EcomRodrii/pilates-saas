@@ -5,12 +5,13 @@
 // Existe porque el correo llevaba un `/login` pelado: quien lo abría con otra
 // sesión iniciada acababa en SU panel sin enterarse de que le habían invitado, y
 // quien se registraba con otro correo se creaba una cuenta suelta que no
-// quedaba vinculada a nada. Aquí se dice quién invita, a qué estudio, y con qué
-// email exacto hay que registrarse — que es la condición para que la ficha se
-// reclame sola.
+// quedaba vinculada a nada. Aquí se dice quién invita y a qué estudio, y sobre
+// todo se GUARDA el token: es él, y no el correo que se teclee después, lo que
+// vincula la ficha (app/api/equipo/reclamar).
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { recordarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
 
 interface Invitacion {
   yaVinculada: boolean;
@@ -27,6 +28,11 @@ export default function PaginaInvitacion() {
   const cargar = useCallback(async () => {
     const token = new URLSearchParams(window.location.search).get('token');
     if (!token) { setError('Falta el enlace de invitación.'); return; }
+    // Se guarda ANTES de saber si la invitación es válida: el alta ocurre en
+    // otra pantalla, y sin esto el token se pierde al salir de aquí. Es lo que
+    // permite vincular la ficha aunque la persona se registre con un correo
+    // distinto al que la dueña le puso.
+    recordarTokenInvitacion(token);
     try {
       const res = await fetch(`/api/public/invitacion?token=${encodeURIComponent(token)}`);
       const cuerpo = await res.json();
@@ -98,10 +104,15 @@ export default function PaginaInvitacion() {
 
         {inv.email && (
           <div className="rounded-xl bg-accent px-3.5 py-2.5 text-left">
-            <p className="text-[11.5px] text-muted-foreground">Regístrate con este email exacto:</p>
+            <p className="text-[11.5px] text-muted-foreground">Tu estudio te tiene apuntada como:</p>
             <p className="text-[13.5px] font-bold text-foreground break-all">{inv.email}</p>
+            {/* Antes esto decía "regístrate con este email EXACTO, con otro no
+                quedarás vinculada". Era verdad cuando el enlace se resolvía por
+                coincidencia de correo, y ya no lo es: ahora vincula el propio
+                enlace. Mantener el aviso solo asustaba a quien prefiere entrar
+                con otra cuenta. */}
             <p className="text-[11.5px] text-muted-foreground mt-1">
-              Con otro correo tu cuenta no quedará vinculada al estudio.
+              Puedes crear tu cuenta con este correo o con otro: este enlace te vincula igual.
             </p>
           </div>
         )}

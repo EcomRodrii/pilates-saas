@@ -5098,20 +5098,33 @@ export async function dbUpdateInstructor(id: string, changes: Partial<Instructor
   }
 }
 
-// Vincula la fila de instructor sin reclamar (auth_user_id null) cuyo
-// email coincide con el de la sesión recién creada. La política RLS
-// "self_claim_instructores" es quien realmente impone que solo se
-// pueda reclamar la fila con el email correcto — esto es solo el cliente.
-export async function dbClaimInstructorAccount(email: string, authUserId: string) {
-  const { data, error } = await supabase
-    .from('instructores')
-    .update({ auth_user_id: authUserId })
-    .is('auth_user_id', null)
-    .eq('email', email)
-    .select()
-    .maybeSingle();
-  if (error) { reportDbError('[dbClaimInstructorAccount]', error); return null; }
-  return data ? mapInstructor(data) : null;
+// Vincula la cuenta recién creada con su ficha de equipo.
+//
+// Antes esto era un UPDATE directo desde el navegador apoyado en la policy
+// `self_claim_instructores`, y no vinculaba NUNCA: la RLS aplicaba también las
+// policies de SELECT y una cuenta sin estudio no ve ninguna fila (el detalle,
+// en la migración 0126). Ahora lo resuelve el servidor, que es quien puede mirar
+// una ficha de un estudio al que todavía no perteneces.
+//
+// `token` es el del enlace de invitación y es OBLIGATORIO: vincular por
+// coincidencia de correo dejaba enganchar la cuenta de cualquiera desde un
+// estudio recién creado, sin que la persona aceptara nada (el porqué largo, en
+// lib/equipo/reclamar-reglas.ts). Idempotente: el mismo enlace se puede abrir
+// dos veces y la segunda no hace nada.
+export async function dbReclamarAccesoEquipo(token: string): Promise<number> {
+  try {
+    const res = await fetch('/api/equipo/reclamar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({ token }),
+    });
+    const cuerpo = await res.json().catch(() => null) as { vinculadas?: number } | null;
+    if (!res.ok) { reportDbError('[dbReclamarAccesoEquipo]', cuerpo ?? { status: res.status }); return 0; }
+    return cuerpo?.vinculadas ?? 0;
+  } catch (e) {
+    reportDbError('[dbReclamarAccesoEquipo]', e);
+    return 0;
+  }
 }
 
 // Política de privacidad y términos del estudio (StudioConfig). Antes NO se
