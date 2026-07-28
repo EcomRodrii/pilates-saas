@@ -13,6 +13,7 @@ import {
   puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
 } from '@/lib/sustituciones/recalculo';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 
 // Emite el evento de escalado. Best-effort: si el bus de Inngest falla, el contacto
 // ya se hizo (email enviado) — el escalado es una capa de resiliencia encima, no
@@ -432,22 +433,32 @@ export async function PATCH(req: NextRequest) {
 async function diagnosticarEquipo(
   admin: ReturnType<typeof getSupabaseAdmin> & {},
   studioId: string,
-): Promise<{ total: number; sinDisponibilidad: { id: string; nombre: string }[] }> {
+): Promise<DiagnosticoEquipo> {
   try {
-    const [{ data: activas }, { data: franjas }] = await Promise.all([
+    const [{ data: activas }, { data: franjas }, { data: enlaces }] = await Promise.all([
       // `instructores` es el staff completo: sin excluir a recepción el aviso
       // decía "7 de tus 8 instructoras" contando a quien no da clases.
-      admin.from('instructores').select('id, nombre, rol').eq('studio_id', studioId).eq('activo', true),
+      admin.from('instructores').select('id, nombre, rol, email').eq('studio_id', studioId).eq('activo', true),
       admin.from('instructora_disponibilidad').select('instructor_id').eq('studio_id', studioId),
+      // P2-10: cuándo se le mandó por última vez el email de "pedir
+      // disponibilidad", para poder decir "enviado hace 3 días" en vez de nada.
+      admin.from('instructor_enlaces_vigentes').select('instructor_id, email_enviado_en')
+        .eq('studio_id', studioId).eq('scope', 'disponibilidad'),
     ]);
 
     const conDisponibilidad = new Set((franjas ?? []).map((f) => f.instructor_id as string));
+    const enviadoPorId = new Map((enlaces ?? []).map((e) => [e.instructor_id as string, e.email_enviado_en as string | null]));
     const lista = (activas ?? []).filter(i => imparteClases({ rol: i.rol as string | null }));
     return {
       total: lista.length,
       sinDisponibilidad: lista
         .filter((i) => !conDisponibilidad.has(i.id as string))
-        .map((i) => ({ id: i.id as string, nombre: (i.nombre as string) ?? '' })),
+        .map((i) => ({
+          id: i.id as string,
+          nombre: (i.nombre as string) ?? '',
+          email: (i.email as string | null) ?? null,
+          emailEnviadoEn: enviadoPorId.get(i.id as string) ?? null,
+        })),
     };
   } catch (e) {
     console.error('[sustituciones] no se pudo diagnosticar el equipo', e);

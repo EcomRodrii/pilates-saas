@@ -5,6 +5,7 @@ import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
   cancelarClase, reprogramarClase, setAvisarAlumnas, setModoAutonomia, resumenValoraciones, generarEnlaceDisponibilidad, recalcularCandidatas,
+  pedirDisponibilidadMasiva,
   type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
@@ -903,17 +904,33 @@ function fmtMomento(iso: string): string {
 // Pedir la disponibilidad a quienes no la tienen, SIN salir de Sustituciones.
 // El problema se detecta aquí, así que aquí se arregla: mandar a la propietaria
 // a otra pantalla a buscar un menú ⋮ es la forma más fácil de que no lo haga.
+// P2-10: "hace Xd" en vez de nada — es la única forma de saber si a alguien ya
+// se le pidió y sigue sin contestar, o si nunca se le llegó a pedir.
+function hace(iso: string): string {
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (dias <= 0) return 'hoy';
+  if (dias === 1) return 'hace 1 día';
+  return `hace ${dias} días`;
+}
+
 function PedirDisponibilidadDialog({
   abierto, instructores, onClose,
 }: {
   abierto: boolean;
-  instructores: { id: string; nombre: string }[];
+  instructores: { id: string; nombre: string; email: string | null; emailEnviadoEn: string | null }[];
   onClose: () => void;
 }) {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [copiado, setCopiado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generando, setGenerando] = useState<string | null>(null);
+  // P2-10: envío masivo por email. `enviados` guarda el resultado de la ÚLTIMA
+  // tanda (esta sesión) para poder decir "Enviado" al momento sin esperar a
+  // que el panel recargue equipo.sinDisponibilidad.
+  const [enviandoTodas, setEnviandoTodas] = useState(false);
+  const [enviados, setEnviados] = useState<Record<string, 'ok' | string>>({});
+
+  const conEmail = instructores.filter(i => i.email);
 
   async function enlaceDe(id: string): Promise<string | null> {
     if (urls[id]) return urls[id];
@@ -933,6 +950,21 @@ function PedirDisponibilidadDialog({
     setTimeout(() => setCopiado(c => (c === id ? null : c)), 2500);
   }
 
+  // Enviar a todas de una — el punto de P2-10: "con 18 personas es inviable"
+  // copiar y reenviar un enlace una a una por WhatsApp.
+  async function enviarATodas() {
+    if (conEmail.length === 0) return;
+    setEnviandoTodas(true); setError(null);
+    const r = await pedirDisponibilidadMasiva(conEmail.map(i => i.id));
+    setEnviandoTodas(false);
+    if ('error' in r) { setError(r.error); return; }
+    setEnviados(prev => {
+      const next = { ...prev };
+      for (const item of r) next[item.id] = item.ok ? 'ok' : item.error;
+      return next;
+    });
+  }
+
   return (
     <Dialog open={abierto} onOpenChange={open => !open && onClose()}>
       <DialogContent>
@@ -944,21 +976,45 @@ function PedirDisponibilidadDialog({
           ni crear cuenta. En cuanto lo hagan, podré proponerlas como sustitutas.
         </p>
         {error && <p className="text-sm text-destructive">{error}</p>}
+        {instructores.length > 1 && conEmail.length > 0 && (
+          <button
+            onClick={enviarATodas}
+            disabled={enviandoTodas}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:brightness-95 disabled:opacity-50 transition"
+          >
+            {enviandoTodas ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />}
+            {enviandoTodas ? 'Enviando…' : `Enviar a las ${conEmail.length} por email`}
+          </button>
+        )}
         <ul className="space-y-2 mt-1">
-          {instructores.map(i => (
-            <li key={i.id} className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2.5">
-              <span className="text-[13px] font-medium text-foreground truncate">{i.nombre}</span>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => copiar(i.id)}
-                  disabled={generando === i.id}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
-                >
-                  {copiado === i.id ? <><Check size={12} /> Copiado</> : generando === i.id ? 'Generando…' : 'Copiar enlace'}
-                </button>
-              </div>
-            </li>
-          ))}
+          {instructores.map(i => {
+            const resultado = enviados[i.id];
+            return (
+              <li key={i.id} className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-foreground truncate">{i.nombre}</p>
+                  {resultado === 'ok' ? (
+                    <p className="text-[11px] text-success flex items-center gap-1"><MailCheck size={11} /> Enviado</p>
+                  ) : resultado ? (
+                    <p className="text-[11px] text-destructive">{resultado}</p>
+                  ) : !i.email ? (
+                    <p className="text-[11px] text-muted-foreground">Sin email en su ficha</p>
+                  ) : i.emailEnviadoEn ? (
+                    <p className="text-[11px] text-muted-foreground">Enviado {hace(i.emailEnviadoEn)}</p>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => copiar(i.id)}
+                    disabled={generando === i.id}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-foreground text-[12px] font-bold hover:bg-muted disabled:opacity-50 transition"
+                  >
+                    {copiado === i.id ? <><Check size={12} /> Copiado</> : generando === i.id ? 'Generando…' : 'Copiar enlace'}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
         {urls[instructores[0]?.id ?? ''] && (
           <p className="text-[11px] text-muted-foreground mt-1">

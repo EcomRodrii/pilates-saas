@@ -14,7 +14,13 @@ export interface DiagnosticoEquipo {
   /** Instructoras activas del estudio. */
   total: number;
   /** Las que NO tienen ninguna franja cargada → invisibles para el ranking. */
-  sinDisponibilidad: { id: string; nombre: string }[];
+  sinDisponibilidad: {
+    id: string;
+    nombre: string;
+    email: string | null;
+    /** Última vez que se le mandó el email de "pedir disponibilidad" (P2-10). null = nunca. */
+    emailEnviadoEn: string | null;
+  }[];
 }
 
 /**
