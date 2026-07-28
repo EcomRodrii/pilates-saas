@@ -3,8 +3,6 @@ import { registrarSociaPublica, actualizarSociaPublica, guardarPreferenciasPubli
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing/billing-guard';
 
 // Operaciones de la propia socia desde el portal/reserva. SEGURIDAD: todas
 // exigen sesión real de socia (JWT de Supabase Auth); la identidad se deriva del
@@ -37,29 +35,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Faltan datos de la socia' }, { status: 400 });
       }
 
-      // Mismo tope de socias del plan que ya comprueban el importador masivo
-      // (app/api/socios/import) y el alta manual (app/api/socios/verificar-limite):
-      // el alta pública desde el portal tenía este mismo hueco, y es la más
-      // fácil de disparar sin querer (cualquier walk-in que reserve se auto-registra).
-      if (billingEnforced()) {
-        const admin = getSupabaseAdmin();
-        if (admin) {
-          const { count: activasActuales } = await admin
-            .from('socios')
-            .select('id', { count: 'exact', head: true })
-            .eq('studio_id', body.studioId)
-            .eq('activo', true)
-            .is('borrado_en', null);
-          const bloqueo = await bloqueoPorLimiteSocias(body.studioId, activasActuales ?? 0, 1);
-          if (bloqueo) return bloqueo;
-        }
-      }
-
+      // El tope de socias del plan lo comprueba `registrarSociaPublica`, pegado
+      // al insert y DESPUÉS de su salida temprana por idempotencia. Aquí corría
+      // antes, así que un reintento de una socia que ya existía se llevaba el
+      // bloqueo sin ir a crear nada.
       const r = await registrarSociaPublica({
         studioId: body.studioId, id: body.id, nombre: body.nombre, email: user.email,
         authUserId: user.userId, aceptacion: body.aceptacion, referidoPor: body.referidoPor ?? null,
       });
-      if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 });
+      if ('error' in r) {
+        // 403 para el tope de plan (lo distingue el portal), 400 para el resto.
+        const status = 'code' in r && r.code === 'LIMITE_SOCIAS' ? 403 : 400;
+        return NextResponse.json(r, { status });
+      }
       return NextResponse.json(r);
     }
 
