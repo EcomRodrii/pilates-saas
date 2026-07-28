@@ -22,6 +22,17 @@ const PERMITIDO_INSTRUCTOR = [
   '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria',
 ];
 
+// ⚠️ La lista blanca de arriba se compara POR PREFIJO, así que cada ruta abre
+// también a todas sus hijas. Eso coló seis pantallas de importación enteras a la
+// instructora —/clientas/importar, /citas/importar, /calendario/importar y sus
+// hijas— porque sus padres sí están permitidos. Importar es trabajo de
+// mostrador: mueve el alta masiva de clientas, horario, citas, reservas y bonos.
+// El servidor ya las rechazaba (puedeGestionarClientas / puedeMoverDinero en cada
+// ruta de API); lo que sobraba era la pantalla que llevaba hasta el rechazo.
+const BLOQUEADO_INSTRUCTOR = [
+  '/clientas/importar', '/citas/importar', '/calendario/importar',
+];
+
 // Recepción: todo lo operativo, nada de configuración del negocio,
 // marketing, automatizaciones, informes o gestión del equipo.
 // '/centro-de-control' (Decision OS, MVP): solo PROPIETARIO — la apertura
@@ -41,6 +52,10 @@ const BLOQUEADO_MANAGER = [
   '/centro-de-control',
   '/cobros', '/cierre',
   '/transacciones', '/facturas', '/pagos',
+  // Importar membresías es meter BONOS: dinero cobrado. Su ruta de API ya exige
+  // `puedeMoverDinero` (app/api/suscripciones/import), que deja fuera al manager
+  // igual que la deja fuera de /cobros. El resto de importaciones sí las hace.
+  '/clientas/importar/membresias',
 ];
 
 function coincide(path: string, prefijo: string) {
@@ -105,7 +120,10 @@ export function puedeVer(rol: Rol, path: string): boolean {
   // layout redirija a /dashboard. Reactivar = quitar la ruta de RUTAS_CONGELADAS.
   if (esRutaCongelada(path)) return false;
   if (rol === 'PROPIETARIO') return true;
-  if (rol === 'INSTRUCTOR') return PERMITIDO_INSTRUCTOR.some(p => coincide(path, p));
+  if (rol === 'INSTRUCTOR') {
+    if (BLOQUEADO_INSTRUCTOR.some(p => coincide(path, p))) return false;
+    return PERMITIDO_INSTRUCTOR.some(p => coincide(path, p));
+  }
   if (rol === 'MANAGER') return !BLOQUEADO_MANAGER.some(p => coincide(path, p));
   return !BLOQUEADO_RECEPCION.some(p => coincide(path, p));
 }

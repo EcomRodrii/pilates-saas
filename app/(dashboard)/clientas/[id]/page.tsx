@@ -7,7 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
 import { authHeader, enviarEmailCampana } from '@/lib/api-client';
-import { useRol, puedeVerFichaClinica, puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
@@ -202,6 +202,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // desde la 0107 la base de datos rechaza. Enseñar un botón que no funciona es
   // peor que no enseñarlo.
   const puedeCobrar = puedeMoverDinero(rol);
+  // Alta, edición y baja de clientas: mostrador y manager. La instructora tenía
+  // los tres botones a la vista y los tres terminaban en el rechazo de la RLS.
+  const gestionaClientas = puedeGestionarClientas(rol);
   // Antes era `rol !== 'INSTRUCTOR'`, escrito a mano. Con un rol nuevo esa forma
   // se equivoca sola: el manager habría heredado la vista de facturación sin que
   // nadie lo decidiera. Ahora lo dice una regla con nombre.
@@ -602,6 +605,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                             <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl" style={{ backgroundColor: '#FFF1F2', border: '1.5px solid #FECDD3' }}>
                               <AlertTriangle size={16} className="text-destructive shrink-0" />
                               <span className="text-sm font-bold text-destructive flex-1">Bono agotado — sin sesiones disponibles</span>
+                              {/* El aviso lo ve todo el mundo (a la instructora le
+                                  sirve para saber por qué no puede reservarle);
+                                  el botón, no: abría un diálogo que `verFinanzas`
+                                  ya cerraba, así que no hacía absolutamente nada. */}
+                              {puedeCobrar && (
                               <button
                                 onClick={() => setShowChangePlan(true)}
                                 className="text-xs font-bold px-3.5 py-2 rounded-lg text-white shrink-0"
@@ -609,12 +617,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               >
                                 Renovar bono
                               </button>
+                              )}
                             </div>
                           )}
                           {sesionesRestantes !== null && sesionesRestantes > 0 && sesionesRestantes <= 2 && (
                             <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', border: '1.5px solid #FDE68A' }}>
                               <AlertTriangle size={16} className="text-amber-500 shrink-0" />
                               <span className="text-sm font-semibold text-warning flex-1">Quedan solo {sesionesRestantes} sesiones</span>
+                              {puedeCobrar && (
                               <button
                                 onClick={() => setShowChangePlan(true)}
                                 className="text-xs font-bold px-3.5 py-2 rounded-lg shrink-0"
@@ -622,6 +632,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               >
                                 Renovar
                               </button>
+                              )}
                             </div>
                           )}
 
@@ -660,12 +671,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       ) : (
                         <div className="py-6 text-center">
                           <p className="text-sm font-medium text-muted-foreground">Sin suscripción activa</p>
+                          {puedeCobrar && (
                           <button
                             onClick={() => setShowChangePlan(true)}
                             className="mt-3 text-sm font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                           >
                             Asignar plan
                           </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -680,8 +693,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   {/* Excepciones (F2 · B2.9) */}
                   <FichaExcepciones socioId={id} />
 
-                  {/* Domiciliación SEPA (F2 · B2.10) */}
-                  <FichaMandatoSepa socioId={id} />
+                  {/* Domiciliación SEPA (F2 · B2.10). Es el medio de COBRO de la
+                      clienta: quien no mueve dinero no lo da de alta ni lo quita. */}
+                  {puedeCobrar && <FichaMandatoSepa socioId={id} />}
 
                   {/* Attendance sparkline */}
                   <div className="border border-border rounded-xl p-5">
@@ -1191,6 +1205,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               {/* Etapa del embudo de captación: lo LEE el especialista de Captación
                   del Centro de Control y el embudo de Marketing. Antes no había forma
                   de fijarlo desde la UI → ambos salían siempre vacíos. */}
+              {gestionaClientas && (
               <div className="flex items-center gap-2.5">
                 <Filter size={13} className="text-muted-foreground shrink-0" />
                 <select
@@ -1208,6 +1223,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   <option value="PERDIDA">Perdida</option>
                 </select>
               </div>
+              )}
             </div>
 
             {/* Tags */}
@@ -1241,6 +1257,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               >
                 <Mail size={14} />Enviar email
               </button>
+              {gestionaClientas && (<>
               <button
                 onClick={openEdit}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
@@ -1259,6 +1276,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               >
                 <Trash2 size={14} />Eliminar clienta
               </button>
+              </>)}
             </div>
           </Card>
 
@@ -1313,12 +1331,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               {suscripcion.fechaFin && (
                 <p className="text-xs text-muted-foreground mt-0.5">Expira: {fecha(suscripcion.fechaFin)}</p>
               )}
+              {puedeCobrar && (
               <button
                 onClick={() => setShowChangePlan(true)}
                 className="mt-3 w-full text-xs font-bold py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cambiar plan
               </button>
+              )}
             </Card>
           )}
 
@@ -1400,7 +1420,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       </Dialog>
 
       {/* Edit clienta */}
-      <Dialog open={showEdit} onOpenChange={open => !open && setShowEdit(false)}>
+      <Dialog open={showEdit && gestionaClientas} onOpenChange={open => !open && setShowEdit(false)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-foreground">Editar clienta</DialogTitle>
@@ -1494,7 +1514,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       </Dialog>
 
       {/* Add recibo */}
-      <Dialog open={showAddRecibo} onOpenChange={open => !open && setShowAddRecibo(false)}>
+      <Dialog open={showAddRecibo && puedeCobrar} onOpenChange={open => !open && setShowAddRecibo(false)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-foreground">Nuevo cobro</DialogTitle>
@@ -1587,7 +1607,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       </Dialog>
 
       {/* Confirm delete */}
-      <Dialog open={showConfirmDelete} onOpenChange={open => !open && setShowConfirmDelete(false)}>
+      <Dialog open={showConfirmDelete && gestionaClientas} onOpenChange={open => !open && setShowConfirmDelete(false)}>
         <DialogContent className="max-w-sm">
           <div className="flex flex-col items-center text-center gap-4 py-2">
             <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-destructive/10">

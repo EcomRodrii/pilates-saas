@@ -25,7 +25,7 @@ import type { LayoutConfig } from '@/lib/layout-schema';
 import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
-import { useRol, puedeVerFinanzas, puedeVer } from '@/lib/permisos';
+import { useRol, puedeVerFinanzas, puedeVer, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { Toast, useToast } from '@/components/ui/toast';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
 
@@ -593,6 +593,12 @@ export default function Dashboard() {
   // clic y no es un permiso.
   const rolActual = useRol();
   const verFinanzas = puedeVerFinanzas(rolActual);
+  // Los atajos del inicio llevaban a sitios donde el rol no entra: "Nueva
+  // clienta" a un alta que la RLS rechaza, "Cobrar" y "Sistema autónomo" a
+  // pantallas que el guardia de ruta ya vacía. Un atajo a una puerta cerrada es
+  // peor que no tener atajo.
+  const gestionaClientas = puedeGestionarClientas(rolActual);
+  const mueveDinero = puedeMoverDinero(rolActual);
 
   // ── Pagos pendientes ─────────────────────────────────────────────────────────
   const pendientes = useMemo(
@@ -702,12 +708,14 @@ export default function Dashboard() {
           title={`${saludo} 👋`}
           description={<span className="capitalize">{mesFecha}</span>}
           actions={
+            gestionaClientas ? (
             <>
               <Link href="/clientas?nuevo=1" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
                 <UserPlus /> Nueva clienta
               </Link>
               {/* CONGELADO (feature-freeze PMF): se quitó el botón "Abrir caja" → /pos. */}
             </>
+            ) : null
           }
         />
 
@@ -755,6 +763,11 @@ export default function Dashboard() {
         <div {...wrap('onboarding')}><OnboardingChecklist /></div>
 
         {/* ── Automation briefing ────────────────────────────────────────────── */}
+        {/* /automatizaciones solo lo ve la propietaria (BLOQUEADO_RECEPCION y
+            BLOQUEADO_MANAGER lo incluyen), y ejecutar una regla exige
+            `puedeMoverDinero`. Sin esta comprobación, la tarjeta llevaba a los
+            otros tres roles a una pantalla que el guardia de ruta vacía. */}
+        {puedeVer(rolActual, '/automatizaciones') && (
         <div {...wrap('automatizaciones')}>
         {(() => {
           const { pendingAdmin, ejecutadas, fallidas } = automationBriefing;
@@ -784,6 +797,7 @@ export default function Dashboard() {
           );
         })()}
         </div>
+        )}
 
         {/* ── Revenue card (full width) ──────────────────────────────────────── */}
         {verFinanzas && (
@@ -859,6 +873,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
           <KpiCard label="Reservas hoy" value={reservasHoy} sub={`${clasesHoy.length} clase${clasesHoy.length !== 1 ? 's' : ''} programada${clasesHoy.length !== 1 ? 's' : ''}`} Icon={Calendar} tint="text-brand-secondary" tintBg="bg-brand/10" />
+          {verFinanzas && (
           <KpiCard
             label="Renovaciones 30d"
             value={renovacionesProximas.length}
@@ -867,6 +882,7 @@ export default function Dashboard() {
             tint="text-success"
             tintBg="bg-success/10"
           />
+          )}
         </div>
         </div>
 
@@ -1041,30 +1057,35 @@ export default function Dashboard() {
                 Acciones rápidas
               </p>
               <div className="space-y-2">
+                {gestionaClientas && (
                 <Link
                   href="/clientas?nuevo=1"
                   className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                 >
                   <UserPlus size={14} /> Nueva clienta
                 </Link>
+                )}
                 <Link
                   href="/calendario"
                   className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
                 >
                   <CalendarPlus size={14} /> Nueva reserva
                 </Link>
+                {mueveDinero && (
                 <Link
                   href="/cobros?tab=pendientes"
                   className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
                 >
                   <CreditCard size={14} /> Cobrar
                 </Link>
+                )}
                 {/* CONGELADO (feature-freeze PMF): se quitó el acceso "Punto de venta" → /pos. */}
               </div>
             </div>
 
-            {/* Renovaciones próximas */}
-            {renovacionesProximas.length > 0 && (
+            {/* Renovaciones próximas — lleva el precio de cada clienta, así que es
+                finanzas, no agenda. */}
+            {verFinanzas && renovacionesProximas.length > 0 && (
               <div className="bg-card rounded-xl border border-border">
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-muted">
                   <div className="flex items-center gap-2">

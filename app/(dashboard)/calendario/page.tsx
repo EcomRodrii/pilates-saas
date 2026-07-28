@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElemen
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useStudio } from '@/lib/studio-context';
 import { queImparten } from '@/lib/equipo';
-import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida } from '@/lib/types';
@@ -1411,6 +1411,13 @@ export default function Calendario() {
     addActividadReciente, addRecibo,
   } = useStudio();
 
+  // Importar el horario y cobrar una clase suelta son trabajo de mostrador; el
+  // servidor ya los rechazaba a la instructora (api/clases/import exige
+  // `puedeGestionarClientas`), pero la pantalla seguía ofreciéndoselos.
+  const rolActual = useRol();
+  const gestionaClientas = puedeGestionarClientas(rolActual);
+  const mueveDinero = puedeMoverDinero(rolActual);
+
   // ── Hydration guard ─────────────────────────────────────────────────────────
   // Antes de montar se devuelve null (no se pinta el grid), así que este valor
   // no se renderiza: solo evita new Date() en SSR (mismatch de hidratación). Su
@@ -2153,12 +2160,14 @@ export default function Calendario() {
           {/* Migración asistida: traer el horario del programa anterior. Va aquí
               (y no escondido en Configuración) porque es lo primero que necesita
               un estudio que se acaba de cambiar: sin horario, la agenda va vacía. */}
-          <Link
+{gestionaClientas && (
+                    <Link
             href="/calendario/importar"
             className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <Upload size={14} />Importar horario
           </Link>
+          )}
           {/* Type legend (con indicador +N si hay más tipos que los mostrados) */}
           {tiposClase.length > 0 && (
             <div className="hidden lg:flex items-center gap-3 mr-1">
@@ -2633,6 +2642,7 @@ export default function Calendario() {
           socioId={avisoSinBono.socioId}
           claseLabel={(() => { const ses = sesionesEnriquecidas.find(x => x.id === avisoSinBono.sesionId); const tc = ses ? tiposClase.find(t => t.id === ses.tipoClaseId) : null; return tc?.nombre ?? ''; })()}
           precioSuelta={precioSueltaDe(avisoSinBono.sesionId)}
+          permiteCobrar={mueveDinero}
           onCobrarSuelta={handleCobrarSuelta}
           onCortesia={handleCortesiaSinBono}
           onClose={() => setAvisoSinBono(null)}

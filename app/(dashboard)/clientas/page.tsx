@@ -5,7 +5,7 @@ import { dbStatsClientas } from '@/lib/supabase-data';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useRol, puedeVerFichaClinica } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
 import { textoLegalCompleto } from '@/lib/legal-textos';
@@ -157,7 +157,14 @@ export default function Socios() {
   const router = useRouter();
   const { socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados } =
     useStudio();
-  const verFichaClinica = puedeVerFichaClinica(useRol());
+  const rol = useRol();
+  const verFichaClinica = puedeVerFichaClinica(rol);
+  // El servidor y la RLS ya rechazan esto a la instructora (migr 0107/0113). Lo
+  // que faltaba era no enseñárselo: veía "Nueva clienta", "Importar", editar,
+  // dar de baja y cambiar plan, los pulsaba, y se llevaba un error. Un botón que
+  // siempre falla no es una funcionalidad, es una trampa.
+  const gestionaClientas = puedeGestionarClientas(rol);
+  const mueveDinero = puedeMoverDinero(rol);
 
   // Semáforo de salud por clienta (solo el color; el motivo vive en el detalle).
   // FICHA-CLINICA.md §1, §11 — RECEPCIÓN no ve ni el color.
@@ -219,7 +226,9 @@ export default function Socios() {
   // Auto-open create modal when ?nuevo=1 in URL (linked from dashboard)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('nuevo') === '1') {
+    // `?nuevo=1` abre el alta sin pasar por el botón: si no se comprueba aquí,
+    // basta el enlace del dashboard (o escribir la url) para saltarse la puerta.
+    if (params.get('nuevo') === '1' && gestionaClientas) {
       setForm(emptyForm());
       setShowForm('nueva');
       window.history.replaceState({}, '', '/clientas');
@@ -558,6 +567,7 @@ export default function Socios() {
         title="Clientas"
         description="Gestiona y haz seguimiento de todas tus clientas"
         actions={
+          gestionaClientas ? (
           <>
             <button
               onClick={() => router.push('/clientas/importar')}
@@ -574,6 +584,7 @@ export default function Socios() {
               Nueva clienta
             </button>
           </>
+          ) : null
         }
       />
 
@@ -666,6 +677,7 @@ export default function Socios() {
             <Mail size={12} />
             Enviar email
           </button>
+          {mueveDinero && (
           <button
             onClick={() => { setAsignarPlanId(''); setShowAsignarPlan(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-card/10 hover:bg-card/20 transition-colors"
@@ -673,6 +685,7 @@ export default function Socios() {
             <Tag size={12} />
             Cambiar plan
           </button>
+          )}
           <button
             onClick={() => setSelected(new Set())}
             aria-label="Quitar selección"
@@ -872,6 +885,7 @@ export default function Socios() {
                     {/* Row actions */}
                     <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        {gestionaClientas && (<>
                         <button
                           onClick={(e) => openEdit(s, e)}
                           className="p-1.5 rounded-md hover:bg-muted transition-colors"
@@ -895,6 +909,7 @@ export default function Socios() {
                         >
                           <Trash2 size={13} className="text-destructive" />
                         </button>
+                        </>)}
                       </div>
                     </td>
                   </tr>
@@ -930,6 +945,7 @@ export default function Socios() {
                         </p>
                         <p className="text-[11px] text-muted-foreground truncate">{s.email}</p>
                       </div>
+                      {gestionaClientas && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setConfirmEliminar(s.id); }}
                         className="p-1.5 -mr-1.5 rounded-md hover:bg-destructive/10 shrink-0"
@@ -937,6 +953,7 @@ export default function Socios() {
                       >
                         <Trash2 size={13} className="text-destructive" />
                       </button>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap mt-2">
                       <EstadoBadge s={s} />
@@ -1076,6 +1093,10 @@ export default function Socios() {
                   />
                 </div>
               )}
+              {/* Elegir plan aquí genera la primera factura: es dinero, no alta.
+                  El manager da de alta clientas pero no cobra, así que ve el
+                  formulario sin este campo. */}
+              {mueveDinero && (
               <FF label="Plan / Tarifa" description="Si eliges uno, se le genera la primera factura automáticamente al guardar.">
                 <select
                   className={selectCls}
@@ -1090,6 +1111,7 @@ export default function Socios() {
                   ))}
                 </select>
               </FF>
+              )}
               {form.planId && showForm === 'nueva' && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-success/10 border border-success/20 rounded-lg">
                   <CheckCircle2 size={13} className="text-success shrink-0" />
