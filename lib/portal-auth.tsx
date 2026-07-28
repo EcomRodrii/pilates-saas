@@ -17,10 +17,10 @@ interface PortalAuthContextValue {
   // cuando la socia abre el enlace y vuelve al portal (onAuthStateChange).
   // Se usa SOLO para verificar la propiedad del email (primer acceso o
   // recuperación de contraseña) — el día a día se hace con loginConPassword.
-  enviarEnlace: (email: string) => Promise<{ ok: true } | { error: string }>;
+  enviarEnlace: (email: string, captchaToken?: string) => Promise<{ ok: true } | { error: string }>;
   // Login del día a día. Requiere que la socia ya haya creado su contraseña
   // (vía el flujo de enviarEnlace → establecerPassword).
-  loginConPassword: (email: string, password: string) => Promise<{ ok: true } | { error: string }>;
+  loginConPassword: (email: string, password: string, captchaToken?: string) => Promise<{ ok: true } | { error: string }>;
   // Establece/cambia la contraseña de la sesión YA autenticada (por magic
   // link). Solo tiene efecto si hay una sesión de Supabase activa.
   establecerPassword: (password: string) => Promise<{ ok: true } | { error: string }>;
@@ -87,18 +87,18 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
     return () => sub.subscription.unsubscribe();
   }, [resolver]);
 
-  const enviarEnlace = useCallback(async (email: string): Promise<{ ok: true } | { error: string }> => {
+  const enviarEnlace = useCallback(async (email: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
     const { error } = await supabasePortal.auth.signInWithOtp({
       email: email.trim(),
       // Vuelve a la pantalla de crear/restablecer contraseña, NUNCA directo al
       // home: el magic link solo prueba que la socia controla el email.
-      options: { emailRedirectTo: `${window.location.origin}/portal/${slug}/clave-nueva` },
+      options: { emailRedirectTo: `${window.location.origin}/portal/${slug}/clave-nueva`, captchaToken },
     });
     return error ? { error: error.message } : { ok: true };
   }, [slug]);
 
-  const loginConPassword = useCallback(async (email: string, password: string): Promise<{ ok: true } | { error: string }> => {
-    const { error } = await supabasePortal.auth.signInWithPassword({ email: email.trim(), password });
+  const loginConPassword = useCallback(async (email: string, password: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
+    const { error } = await supabasePortal.auth.signInWithPassword({ email: email.trim(), password, options: { captchaToken } });
     if (!error) return { ok: true };
     const msg = error.message.toLowerCase();
     if (msg.includes('invalid login credentials')) return { error: 'Email o contraseña incorrectos.' };

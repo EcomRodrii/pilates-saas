@@ -7,10 +7,14 @@ import { useEffect, useRef, useState } from 'react';
 // global + un div con data-sitekey y un callback — no hace falta envolverlo
 // para lo que es, en esencia, leer un token.
 //
-// Protege alta de estudio (app/crear-estudio) y login de equipo (app/login),
-// que es donde vivía la preocupación real: creación masiva de estudios falsos
-// o fuerza bruta contra el login. NO cubre el portal de socias (magic link,
-// riesgo bajo) a propósito — decisión del usuario, alcance acotado.
+// Protege alta de estudio (app/crear-estudio), login de equipo (app/login), y
+// el portal/alta de socias (app/portal/[slug]/{login,acceso}, app/reservar/[slug]).
+// Al principio se dejó fuera el portal de socias ("riesgo bajo", decisión de
+// alcance) — pero el captcha se exige a nivel de PROYECTO en Supabase, no por
+// pantalla: en cuanto se activó, cualquier login/alta de socia sin token
+// empezó a fallar con "captcha protection: request disallowed", dejando a
+// las alumnas sin poder entrar al portal. Cubrir solo una parte de las
+// pantallas de auth no es una opción real con este modelo de captcha.
 //
 // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY el widget no se pinta y `onToken` nunca se
 // llama. `turnstileConfigurado()` es lo que usan los formularios para saber si
