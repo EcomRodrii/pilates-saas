@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { cn } from '@/lib/utils';
 import { Plus, X, Ticket } from 'lucide-react';
 import type { Recuperacion } from '@/lib/types';
+import { useRol, puedeGestionarClientas } from '@/lib/permisos';
 
 function isoHoy(): string {
   const n = new Date();
@@ -33,6 +34,11 @@ const labelCls = 'text-xs font-semibold text-muted-foreground mb-1.5 block';
 
 export function FichaRecuperaciones({ socioId }: { socioId: string }) {
   const { recuperaciones, darRecuperacion, anularRecuperacion } = useStudio();
+  // Conceder o anular una recuperación es una clase gratis: desde la 0117 lo
+  // rechaza la base de datos a quien no gestiona clientas. Se ocultan los
+  // botones para no ofrecer algo que va a fallar — el mismo error que ya se
+  // arregló hoy dos veces.
+  const puedeTocar = puedeGestionarClientas(useRol());
   const hoy = isoHoy();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [motivo, setMotivo] = useState('');
@@ -65,12 +71,14 @@ export function FichaRecuperaciones({ socioId }: { socioId: string }) {
           </p>
           <p className="text-xs text-muted-foreground">Clases a recuperar que le has concedido. {vivas} viva(s).</p>
         </div>
+        {puedeTocar && (
         <button
           onClick={() => { setMotivo(''); setAviso(null); setDialogOpen(true); }}
           className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors shrink-0"
         >
           <Plus size={13} /> Dar recuperación
         </button>
+        )}
       </div>
 
       {mias.length === 0 ? (
@@ -85,7 +93,7 @@ export function FichaRecuperaciones({ socioId }: { socioId: string }) {
                   <p className={cn('text-sm font-semibold', st.viva ? 'text-foreground' : 'text-muted-foreground')}>{st.label}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{r.motivo || 'Sin motivo'} · concedida {fechaCorta(r.creadaEn)}</p>
                 </div>
-                {st.viva && (
+                {puedeTocar && st.viva && (
                   <button onClick={() => anularRecuperacion(r.id)} title="Anular recuperación" className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted shrink-0">
                     <X size={14} />
                   </button>

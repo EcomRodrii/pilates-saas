@@ -1,61 +1,41 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- P2-9. Dos decisiones de negocio que nadie tomó, tomadas en silencio por un
--- DEFAULT false de hace meses:
+-- P2-9. Exigir plan o bono activo para reservar, por defecto.
 --
---   · reserva_exigir_plan            → una clienta SIN plan ni bono activo
---                                       podía reservar y ocupar plaza igual.
---   · cancelacion_devolver_bono_tardia → APARCADO. Ver la corrección de abajo:
---                                       el SQL original hacía lo contrario de
---                                       lo que decía este párrafo.
+-- Una clienta SIN plan ni bono activo podía reservar y ocupar plaza igual,
+-- porque el DEFAULT de `reserva_exigir_plan` era `false` desde hacía meses y
+-- NINGUNO de los 15 estudios lo había cambiado nunca. No es que eligieran
+-- dejarlo abierto: es que nadie tomó la decisión. El propio copy de
+-- tab-estudio.tsx ya presentaba la opción protectora como la buena.
 --
--- Las dos costaban dinero de la misma forma que P2-7 (bonos por tipo de
--- clase): el sistema dejaba pasar lo que el negocio no quería. El propio
--- copy de tab-estudio.tsx ya llamaba "(recomendado)" a la opción protectora
--- sin activarla. Ahora el default protege, y quien de verdad quiera dejar
--- pasar reservas sin plan o devolver bonos en tardías lo activa a mano desde
+-- SET DEFAULT true para los estudios nuevos + UPDATE de los existentes: al ser
+-- un boolean sin marca de "tocado a mano", no hay forma de distinguir un
+-- `false` elegido de un `false` heredado — y el reporte que motiva esto es
+-- justo de una dueña con el valor heredado.
+--
+-- Quien de verdad quiera dejar pasar reservas sin plan lo activa a mano desde
 -- Configuración → Estudio.
 --
--- SET DEFAULT true para estudios nuevos + UPDATE de los existentes: al ser
--- boolean sin marca de "tocado a mano", no hay forma de distinguir un false
--- que alguien eligió de un false que nunca se decidió — y el reporte que
--- motiva esto es justo de una dueña con el valor heredado, no elegido.
--- ─────────────────────────────────────────────────────────────────────────────
-
--- ─────────────────────────────────────────────────────────────────────────────
--- CORRECCIÓN (2026-07-27): esta migración se mergeó pero NUNCA llegó a
--- aplicarse en producción, y al ir a aplicarla se vio que su segunda mitad
--- hacía lo CONTRARIO de lo que dice el título del PR y este mismo comentario.
+-- ── LA OTRA MITAD SE CAYÓ, Y CONVIENE SABER POR QUÉ ─────────────────────────
+-- Esta migración se mergeó con una segunda mitad que ponía
+-- `cancelacion_devolver_bono_tardia = true`, y estuvo HORAS mergeada sin
+-- aplicarse. Al ir a aplicarla se vio que hacía lo contrario de lo que decían
+-- su título y su propio comentario:
 --
---   `debeDevolverBono()` (lib/booking-logic.ts:29):
---       if (devolverEnTardia) return true;   ← true = devuelve SIEMPRE
+--     debeDevolverBono()  —  lib/booking-logic.ts
+--       if (devolverEnTardia) return true;   ← true  = devuelve SIEMPRE
 --       return !esCancelacionTardia(...);    ← false = no devuelve si es tardía
 --
--- Es decir, `cancelacion_devolver_bono_tardia = true` es la opción PERMISIVA:
--- con ella la ventana de cancelación deja de penalizar nada. Los 15 estudios de
--- producción estaban ya en `false` (la sesión se pierde si se cancela tarde),
--- así que aplicarla tal cual les habría QUITADO la penalización a todos.
+-- O sea que `true` es la opción PERMISIVA: con ella la ventana de cancelación
+-- deja de penalizar nada. Los 15 estudios estaban ya en `false`, así que
+-- aplicarla les habría quitado la penalización a todos, en silencio.
 --
--- El copy del ajuste en tab-estudio.tsx dice lo mismo que el SQL («Activado
--- (recomendado): la sesión se devuelve aunque sea tardía»), así que la
--- contradicción está entre el enunciado y el código, no dentro del código.
+-- DECISIÓN TOMADA (2026-07-28, el usuario): se queda como está — una
+-- cancelación tardía HACE PERDER la sesión. El código quedó alineado con eso
+-- en #431 (los cinco `?? true` pasaron a `?? false`) y el copy del ajuste en
+-- Configuración dice lo mismo. Base de datos, código y texto coinciden.
 --
--- Se aplica solo la mitad sin ambigüedad —exigir plan— y la política de
--- cancelación se queda como estaba, a la espera de decidirla a propósito y no
--- de arrastre. Decisión del usuario.
--- ─────────────────────────────────────────────────────────────────────────────
-
--- ─────────────────────────────────────────────────────────────────────────────
--- DECISIÓN (2026-07-27): Marco confirma la opción 1 — la clienta PIERDE la
--- sesión del bono si cancela tarde (`cancelacion_devolver_bono_tardia = false`,
--- que es justo el valor con el que ya estaban los 15 estudios de producción).
--- Coherente con el título original de este PR y con el copy de tab-estudio.tsx.
--- Cierra la ambigüedad de la CORRECCIÓN de arriba: no hay una segunda mitad
--- pendiente de aplicar. `false` sigue siendo el DEFAULT de la columna y ningún
--- estudio necesita backfill — no hace falta SQL adicional aquí.
---
--- El código de aplicación (fallbacks + copy) se realineó con este mismo valor
--- en PR #431, que había quedado apuntando a `true` por el mismo malentendido
--- que esta migración.
+-- Si algún día se quiere lo contrario, hace falta una migración nueva y volver
+-- a tocar esos mismos tres sitios. No se deja aquí a medias.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 alter table public.studios
