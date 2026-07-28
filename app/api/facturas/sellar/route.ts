@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sella una factura con su huella Veri*Factu y la persiste. El núcleo vive en
@@ -29,9 +30,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
   // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
-  // comprueba aquí. Las instructoras no emiten facturas — solo dirección y recepción.
-  if (sesion.rol === 'INSTRUCTOR') {
-    return NextResponse.json({ error: 'Las instructoras no pueden emitir facturas' }, { status: 403 });
+  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
+  // mano: `rol === 'INSTRUCTOR'` dejaba al MANAGER emitir y sellar facturas
+  // Veri*Factu, que van encadenadas y numeradas — no se pueden deshacer.
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'Tu rol no puede emitir facturas' }, { status: 403 });
   }
 
   const admin = getSupabaseAdmin();

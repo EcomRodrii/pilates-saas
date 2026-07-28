@@ -31,9 +31,16 @@ const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatiza
 // Manager: lleva una sede. Todo lo operativo de recepción MÁS el equipo, y
 // MENOS el dinero — incluida la pantalla de cobros, que recepción sí ve porque
 // cobra en mostrador y un manager no.
+// ⚠️ Las pantallas del dinero se consolidaron dentro de /cobros y esta lista se
+// quedó apuntando a '/transacciones', que hoy es solo un redirect (ver
+// app/(dashboard)/transacciones/page.tsx). Resultado: el manager tenía /cobros y
+// /cierre abiertos, y en el menú lateral. Se bloquea la pantalla REAL y además
+// los alias, que siguen existiendo porque son urls de retorno vivas de Stripe.
 const BLOQUEADO_MANAGER = [
   '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion',
-  '/centro-de-control', '/transacciones',
+  '/centro-de-control',
+  '/cobros', '/cierre',
+  '/transacciones', '/facturas', '/pagos',
 ];
 
 function coincide(path: string, prefijo: string) {
