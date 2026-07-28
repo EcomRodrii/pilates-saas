@@ -7,6 +7,7 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
 
 export default function PortalLogin() {
   const uid = useId();
@@ -19,12 +20,15 @@ export default function PortalLogin() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
+  // esto nunca bloquea el envío — mismo comportamiento que /login.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const r = await loginConPassword(email, password);
+    const r = await loginConPassword(email, password, captchaToken ?? undefined);
     setLoading(false);
     if ('error' in r) {
       setError(r.error || 'No se pudo iniciar sesión.');
@@ -115,13 +119,15 @@ export default function PortalLogin() {
             </div>
           )}
 
+          <TurnstileWidget onToken={setCaptchaToken} />
+
           <button
             type="submit"
-            disabled={loading || !email || !password}
+            disabled={loading || !email || !password || (turnstileConfigurado() && !captchaToken)}
             style={{
               width: '100%', padding: '14px 0', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
               fontWeight: 800, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
-              opacity: loading || !email || !password ? 0.5 : 1,
+              opacity: loading || !email || !password || (turnstileConfigurado() && !captchaToken) ? 0.5 : 1,
             }}
           >
             {loading ? 'Entrando...' : 'Entrar'}

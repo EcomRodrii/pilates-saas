@@ -2,7 +2,7 @@
 // Ausencias de instructoras (vacaciones / baja médica) — helpers PUROS de UI.
 //
 // La fuente de verdad para el MOTOR de sustituciones son los bloqueos diarios
-// materializados en `instructora_disponibilidad_excepciones` (migr. 0096), que
+// materializados en `instructora_disponibilidad_excepciones` (migr. 0101), que
 // `rankear_candidatas` ya respeta. Esto es lo otro: que la PERSONA que usa el
 // panel vea que alguien está de vacaciones antes de asignarle una clase.
 // ─────────────────────────────────────────────────────────────────────────────

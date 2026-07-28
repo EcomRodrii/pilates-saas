@@ -1050,7 +1050,7 @@ function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
 
 // ─── Vacaciones y bajas de una instructora ───────────────────────────────────
 // Registrar una ausencia bloquea esas fechas en el motor de sustituciones: la
-// instructora deja de aparecer como candidata mientras dure (ver migración 0096,
+// instructora deja de aparecer como candidata mientras dure (ver migración 0101,
 // que materializa un bloqueo por día en instructora_disponibilidad_excepciones).
 const TIPO_AUSENCIA_LABEL: Record<AusenciaInstructora['tipo'], string> = {
   VACACIONES: 'Vacaciones', BAJA_MEDICA: 'Baja médica', OTRO: 'Otra ausencia',

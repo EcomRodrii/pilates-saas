@@ -24,7 +24,7 @@ create table if not exists public.studio_slugs_antiguos (
 );
 
 comment on table public.studio_slugs_antiguos is
-  'Direcciones anteriores de un estudio. Las rutas públicas (/reservar, /portal) redirigen de aquí a la actual, para que un cambio de nombre no rompa los enlaces ya compartidos. Ver migración 0110.';
+  'Direcciones anteriores de un estudio. Las rutas públicas (/reservar, /portal) redirigen de aquí a la actual, para que un cambio de nombre no rompa los enlaces ya compartidos. Ver migración 0115.';
 
 create index if not exists idx_studio_slugs_antiguos_studio
   on public.studio_slugs_antiguos(studio_id);

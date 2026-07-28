@@ -81,7 +81,7 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
 
   if (cadenaId) {
     // `cadenas` es la única fuente de verdad para el billing de una cadena —
-    // el trigger propagar_plan_cadena (migración 0065) hace el fan-out a
+    // el trigger propagar_plan_cadena (migración 0066) hace el fan-out a
     // TODAS sus sedes en la misma transacción. No tocar `studios` aquí.
     const { error } = await admin.from('cadenas').update(update).eq('id', cadenaId);
     if (error) throw new Error(`update cadenas: ${error.message}`);

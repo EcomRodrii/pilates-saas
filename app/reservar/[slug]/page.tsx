@@ -13,6 +13,7 @@ import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserv
 import { CitasPublica } from '@/components/reserva/citas-publica';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { MODO_TOKENS } from '@/lib/portal-modo';
+import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
 import {
   Users, CheckCircle2, X, Calendar,
   CreditCard, FileText, Download, ExternalLink, Mail,
@@ -207,6 +208,9 @@ export default function ReservarPage() {
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [gateError, setGateError] = useState('');
+  // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
+  // esto nunca bloquea el envío — mismo comportamiento que /login.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   // Aceptación del contrato (clickwrap: checkbox + fecha + versión).
   const [terminosAceptados, setTerminosAceptados] = useState(false);
@@ -442,7 +446,7 @@ export default function ReservarPage() {
     setLoginError('');
     // Propaga la clase elegida al enlace mágico (si la hay) para volver directa
     // a su confirmación — evita la fuga de conversión de re-buscar la clase.
-    const r = await enviarEnlace(loginForm.email, bookingSesionId || undefined);
+    const r = await enviarEnlace(loginForm.email, bookingSesionId || undefined, captchaToken ?? undefined);
     if ('error' in r) { setLoginError(r.error); return; }
     setEnlaceEnviado(true);
   }
@@ -1047,7 +1051,10 @@ export default function ReservarPage() {
                       className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#767670] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors mb-3"
                       style={{ backgroundColor: '#F5F5F1' }} />
                     {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
-                    <button onClick={handleEnviarEnlace} disabled={!loginForm.email}
+                    <div className="mb-3">
+                      <TurnstileWidget onToken={setCaptchaToken} />
+                    </div>
+                    <button onClick={handleEnviarEnlace} disabled={!loginForm.email || (turnstileConfigurado() && !captchaToken)}
                       className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                       style={{ backgroundColor: PRIMARY }}>
                       Enviar enlace de acceso →

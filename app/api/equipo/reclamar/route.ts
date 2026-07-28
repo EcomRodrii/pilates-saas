@@ -12,7 +12,7 @@ const ROLES: readonly string[] = ['PROPIETARIO', 'INSTRUCTOR', 'RECEPCION', 'MAN
 
 // POST /api/equipo/reclamar → vincula la cuenta recién creada con su ficha de
 // equipo. Sustituye al self-claim que hacía el navegador contra la RLS y que
-// NUNCA funcionó (el porqué, en la migración 0126).
+// NUNCA funcionó (el porqué, en la migración 0131).
 //
 // Va con service-role a propósito: el punto entero es que quien llama todavía no
 // pertenece a ningún estudio, así que ninguna policy puede verle su fila. Como

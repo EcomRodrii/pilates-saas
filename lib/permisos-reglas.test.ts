@@ -11,7 +11,7 @@ import {
 // la instructora de `studio-1` podía escribir los 22 recibos del estudio.
 //
 // Estas reglas son la barrera de UI. Su único trabajo es no enseñar un botón
-// que la base de datos va a rechazar; la cerradura está en la migración 0107 y
+// que la base de datos va a rechazar; la cerradura está en la migración 0112 y
 // las dos tienen que decir exactamente lo mismo.
 
 test('recepción SÍ mueve dinero: cobra en mostrador y vende bonos', () => {
@@ -119,7 +119,7 @@ test('recepción sigue viendo cobros y el manager no: es la diferencia', () => {
 
 test('un manager NO puede repartir su propio nivel ni el de propietaria', () => {
   // El permiso de dar de alta gente es el que se puede usar para darse permisos.
-  // Esta lista es el espejo en UI de la policy de la migración 0108.
+  // Esta lista es el espejo en UI de la policy de la migración 0113.
   const puede = rolesQuePuedeAsignar('MANAGER');
   assert.deepEqual(puede, ['RECEPCION', 'INSTRUCTOR']);
   assert.equal(puede.includes('PROPIETARIO'), false, 'no se asciende a dueña');

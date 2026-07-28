@@ -43,7 +43,7 @@ Acción de negocio
   (30 días sin venir → aviso a la dueña, lunes). La **clase al 90 %** es
   event-driven (al reservar). Idempotentes por `dedup_key`.
 
-## Tablas y relaciones (migración 0087)
+## Tablas y relaciones (migración 0092)
 
 | Tabla | Qué guarda | Relaciones |
 |---|---|---|

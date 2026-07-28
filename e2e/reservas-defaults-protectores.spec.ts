@@ -44,7 +44,7 @@ async function montar(page: Page) {
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
   await page.route('**/rest/v1/**', route => json(route, []));
   // Fila SIN reserva_exigir_plan ni cancelacion_devolver_bono_tardia: como
-  // cualquier estudio anterior a la migración 0109 que aún no haya recargado
+  // cualquier estudio anterior a la migración 0114 que aún no haya recargado
   // esas columnas, o el tipo antes de que el backfill llegara al cliente.
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));

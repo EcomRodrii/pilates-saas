@@ -4,7 +4,7 @@
 -- los duplicados, el límite semanal y el estudio — pero las dos reglas que
 -- deciden a quién se le cobra qué vivían ENTERAS en el cliente:
 --
---   1. La cobertura del bono por tipo de clase (`plan_tipos_clase`, migr 0106).
+--   1. La cobertura del bono por tipo de clase (`plan_tipos_clase`, migr 0111).
 --      `consumir_sesion_bono` recibe un id de suscripción y lo descuenta a
 --      ciegas: no sabe de qué clase se trata, así que no puede comprobar nada.
 --      Quien decidía era `bonoConsumible` en el navegador. Un olvido allí
@@ -12,7 +12,7 @@
 --      cara contra el bono barato, y ninguna capa de abajo lo veía.
 --
 --   2. Si al cancelar se devuelve la sesión del bono. La ventana de
---      cancelación puede acotarse por tipo de clase (migr 0111), pero
+--      cancelación puede acotarse por tipo de clase (migr 0116), pero
 --      `cancelar_reserva_plaza` no la mira: devolvía un booleano de «era
 --      confirmada» y el cliente decidía. El portal lo hacía bien y el panel
 --      usaba la global — la misma cancelación salía tardía o no según por

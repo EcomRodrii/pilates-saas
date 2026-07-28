@@ -6,7 +6,7 @@ import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/sen
 import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
-// del bono al cancelar es la BD (migr 0124). `esCancelacionTardia` sí sigue,
+// del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
 import { siguienteEnEspera, contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
@@ -1687,7 +1687,7 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
   const { data: nuevoSaldo, error } = await admin.rpc('consumir_sesion_bono', {
     p_suscripcion_id: sus.id,
     p_studio_id: studioId,
-    // La BD vuelve a comprobar la cobertura por tipo de clase (migr 0124). Aquí
+    // La BD vuelve a comprobar la cobertura por tipo de clase (migr 0129). Aquí
     // `bonoConsumible` ya la respeta, así que esto no debería rechazar nunca —
     // y justo por eso vale: si algún día deja de respetarla, salta aquí en vez
     // de servir la clase cara contra el bono barato en silencio.
@@ -2231,7 +2231,7 @@ export async function ejecutarCancelacionReserva(
     // `tardia` se sigue calculando aquí porque decide el TEXTO que se le manda a
     // la socia, no si se le devuelve el bono.
     tardia = inicio ? esCancelacionTardia(inicio, new Date(), ventana) : false;
-    // La DECISIÓN es de la BD (migr 0124): misma respuesta para el portal, el
+    // La DECISIÓN es de la BD (migr 0129): misma respuesta para el portal, el
     // panel y cualquier superficie que venga. Este camino ya la resolvía bien,
     // pero tenerla escrita dos veces es exactamente cómo se desincronizó del
     // panel. `?? true` mantiene lo de siempre si la RPC aún no trae la columna.
@@ -4067,7 +4067,7 @@ export async function dbCancelarReservaPlaza(
   return {
     eraConfirmada: !!row?.era_confirmada,
     promovidaSocioId: row?.promovida_socio_id ?? null,
-    // Quién decide si se devuelve la sesión del bono: la BD (migr 0124), que
+    // Quién decide si se devuelve la sesión del bono: la BD (migr 0129), que
     // resuelve la ventana de cancelación del TIPO de clase y cae a la del
     // estudio si no la tiene. El cliente lo recalculaba, y el panel usaba
     // siempre la global: la misma cancelación salía tardía por el portal y a
@@ -4368,7 +4368,7 @@ export async function dbConsumirSesionBono(
   suscripcionId: string, studioId: string, sesionId?: string | null,
 ): Promise<{ ok: true; saldo: number } | { error: string }> {
   // `p_sesion_id` no es decorativo: con él, la BD comprueba que el plan de esa
-  // suscripción cubra el tipo de clase (migr 0124) y rechaza con
+  // suscripción cubra el tipo de clase (migr 0129) y rechaza con
   // BONO_NO_CUBRE_CLASE. Es la única capa por la que pasan todas las
   // superficies, así que la regla deja de depender de que cada cliente se
   // acuerde de aplicarla.
@@ -4383,7 +4383,7 @@ export async function dbConsumirSesionBono(
   return { ok: true, saldo: data as number };
 }
 
-// F1 (B1-B4): agregación de ingresos SERVER-SIDE (migr 0091). Sustituye al sum()
+// F1 (B1-B4): agregación de ingresos SERVER-SIDE (migr 0096). Sustituye al sum()
 // sobre el array de recibos del cliente (capado a 1000 → mentía a escala). Un sum()
 // en SQL agrega todas las filas; la RLS acota por estudio. `desde` = 'YYYY-MM-DD' o
 // null (todo el histórico).
@@ -4402,7 +4402,7 @@ export async function dbIngresosPorDia(desde: string | null): Promise<{ dia: str
   return ((data ?? []) as { dia: string; total: number }[]).map((r) => ({ dia: r.dia, total: Number(r.total) }));
 }
 
-// F1 (B1): contadores de clientas SERVER-SIDE (migr 0092). Sustituye a los 4 filter/
+// F1 (B1): contadores de clientas SERVER-SIDE (migr 0097). Sustituye a los 4 filter/
 // length sobre el array de socios del cliente (capado a 1000). count() en SQL no se
 // capa; la RLS acota por estudio.
 export async function dbStatsClientas(): Promise<{ total: number; activas: number; conBono: number; inactivas30d: number }> {
@@ -4415,7 +4415,7 @@ export async function dbStatsClientas(): Promise<{ total: number; activas: numbe
   };
 }
 
-// F1 (B4/C2): ocupación por tipo de clase SERVER-SIDE (migr 0093). Sustituye la
+// F1 (B4/C2): ocupación por tipo de clase SERVER-SIDE (migr 0098). Sustituye la
 // iteración del array reservas+sesiones del cliente (capado a 1000).
 export async function dbOcupacionPorTipo(
   desde: string | null,
@@ -5103,7 +5103,7 @@ export async function dbUpdateInstructor(id: string, changes: Partial<Instructor
 // Antes esto era un UPDATE directo desde el navegador apoyado en la policy
 // `self_claim_instructores`, y no vinculaba NUNCA: la RLS aplicaba también las
 // policies de SELECT y una cuenta sin estudio no ve ninguna fila (el detalle,
-// en la migración 0126). Ahora lo resuelve el servidor, que es quien puede mirar
+// en la migración 0131). Ahora lo resuelve el servidor, que es quien puede mirar
 // una ficha de un estudio al que todavía no perteneces.
 //
 // `token` es el del enlace de invitación y es OBLIGATORIO: vincular por
@@ -5468,7 +5468,7 @@ export interface SedeSeleccionable {
 
 // Lista las sedes que el usuario autenticado puede operar (dueño o
 // instructora), para pintar el selector de sede del ProfileMenu. Vía RPC
-// SECURITY DEFINER con columnas whitelisted (mis_estudios(), migración 0065)
+// SECURITY DEFINER con columnas whitelisted (mis_estudios(), migración 0066)
 // — nunca una policy de fila sobre `studios`, que expone columnas sensibles
 // (nif, stripe_customer_id, kiosk_token...) a cualquiera con acceso de fila.
 export async function fetchMisEstudios(): Promise<SedeSeleccionable[]> {

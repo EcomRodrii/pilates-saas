@@ -37,7 +37,7 @@ create or replace function public.puede_gestionar_clientas() returns boolean
   $$;
 
 comment on function public.puede_gestionar_clientas() is
-  'Roles que pueden ESCRIBIR clientas y citas (alta, edición, baja, importación). Espejo de puedeGestionarClientas en lib/permisos-reglas.ts. Ver migración 0113.';
+  'Roles que pueden ESCRIBIR clientas y citas (alta, edición, baja, importación). Espejo de puedeGestionarClientas en lib/permisos-reglas.ts. Ver migración 0118.';
 
 grant execute on function public.puede_gestionar_clientas() to authenticated;
 
