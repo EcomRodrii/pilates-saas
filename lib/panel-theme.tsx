@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { authHeader } from '@/lib/api-client';
 // Directo de wcag-contrast.ts (cero dependencias), NO de theme-runtime.ts: ese
 // módulo importa theme-schema.ts (zod) y PanelThemeProvider está montado en
@@ -9,6 +9,7 @@ import { foregroundParaFondo } from '@/lib/wcag-contrast';
 import type { ThemeConfig } from '@/lib/theme-schema';
 
 const DARK_KEY = 'panel-dark-mode';
+const THEME_CACHE_KEY = 'panel-theme-cache';
 
 interface PanelThemeValue {
   dark: boolean;
@@ -29,6 +30,23 @@ function aplicarMarca(el: HTMLElement, theme: ThemeConfig) {
   el.style.setProperty('--brand-secondary', theme.secondary);
 }
 
+function leerMarcaCacheada(): ThemeConfig | null {
+  try {
+    const raw = localStorage.getItem(THEME_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as ThemeConfig) : null;
+  } catch {
+    return null;
+  }
+}
+
+function guardarMarcaCache(theme: ThemeConfig) {
+  try {
+    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify(theme));
+  } catch {
+    // localStorage lleno/deshabilitado: no rompe nada, solo no hay caché
+  }
+}
+
 // La MARCA del panel proviene del estudio (tema publicado en la DB), no de una
 // preferencia por-usuario. Lo único personal es el modo claro/oscuro
 // (localStorage). Si la carga del tema falla, se mantiene la marca por defecto
@@ -36,6 +54,17 @@ function aplicarMarca(el: HTMLElement, theme: ThemeConfig) {
 export function PanelThemeProvider({ children, className }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [dark, setDarkState] = useState(false);
+
+  // I: el panel mostraba un instante el oliva por defecto de globals.css antes
+  // del tema personalizado del estudio, porque `aplicarMarca` solo corría tras
+  // el fetch de /api/theme (useEffect, después del primer pintado). Se aplica
+  // aquí el último tema cacheado ANTES de que el navegador pinte (useLayoutEffect
+  // es síncrono, a diferencia de useEffect) — el fetch de abajo sigue refrescando
+  // y corrigiendo en segundo plano por si el tema cambió desde la última visita.
+  useLayoutEffect(() => {
+    const cached = leerMarcaCacheada();
+    if (cached && ref.current) aplicarMarca(ref.current, cached);
+  }, []);
 
   useEffect(() => {
     // Lectura de la preferencia personal en el montaje (localStorage no existe
@@ -52,6 +81,7 @@ export function PanelThemeProvider({ children, className }: { children: React.Re
         if (!res.ok || !vivo) return;
         const theme = (await res.json()) as ThemeConfig;
         if (ref.current && vivo) aplicarMarca(ref.current, theme);
+        guardarMarcaCache(theme);
       } catch {
         // sin conexión / sin sesión → marca por defecto
       }
