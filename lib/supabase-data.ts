@@ -171,6 +171,42 @@ export function setCurrentStudioId(id: string) {
 // se acotan aquí: eso rompería los informes; su fix es agregación server-side.
 const RECENT_FEED_LIMIT = 500;
 
+// 2.3: PostgREST devuelve como mucho 1000 filas por consulta y lo trunca EN
+// SILENCIO si no se pagina — no es lentitud, es incorrección: un estudio con
+// más de 1000 reservas/recibos/etc. recibía datos incompletos sin ningún error,
+// y todos los informes/KPIs se calculaban sobre una muestra parcial. A
+// diferencia de RECENT_FEED_LIMIT (que SÍ acota a propósito, son feeds), esto
+// no acota nada: trae la tabla entera, solo que en páginas de 1000. Uso: tablas
+// que se agregan sobre histórico (ver comentario arriba) — reservas, recibos,
+// facturas, ventas_pos, sesiones, credit_transactions.
+const PAGE_SIZE = 1000;
+async function fetchAllRows<T>(
+  studioId: string,
+  tabla: string,
+  pagina: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  const filas: T[] = [];
+  let desde = 0;
+  for (;;) {
+    const { data, error } = await pagina(desde, desde + PAGE_SIZE - 1);
+    if (error) {
+      // 2.4: antes esto se tragaba en silencio (data ?? []) y la app pintaba
+      // "0 filas" en vez de un error. Se reporta para que el fallo sea visible
+      // a quien opera, aunque la UI (código existente) siga usando lo que ya
+      // se había podido traer.
+      Sentry.captureMessage('fetchAllRows: fallo leyendo una página', {
+        level: 'error', tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
+      });
+      return { data: filas, error };
+    }
+    if (!data || data.length === 0) break;
+    filas.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    desde += PAGE_SIZE;
+  }
+  return { data: filas, error: null };
+}
+
 export function getCurrentStudioId() {
   return STUDIO_ID;
 }
@@ -1223,13 +1259,13 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('spots').select('*').eq('studio_id', sid),
     db.from('tipos_clase').select('*').eq('studio_id', sid),
     db.from('instructores').select('*').eq('studio_id', sid),
-    db.from('sesiones').select('*').eq('studio_id', sid),
-    db.from('reservas').select('*').eq('studio_id', sid),
-    db.from('recibos').select('*').eq('studio_id', sid),
-    db.from('facturas').select('*').eq('studio_id', sid),
+    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('*').eq('studio_id', sid).range(from, to)),
     db.from('citas').select('*').eq('studio_id', sid),
     db.from('productos_pos').select('*').eq('studio_id', sid),
-    db.from('ventas_pos').select('*').eq('studio_id', sid),
+    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
     db.from('campanas').select('*').eq('studio_id', sid),
     db.from('automatizaciones').select('*').eq('studio_id', sid),
     db.from('automation_rules').select('*').eq('studio_id', sid),
@@ -1354,9 +1390,11 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
     // fetch). Se cargan acotados a los más recientes en vez de años de filas.
     // credit_transactions NO se acota: alimenta los gráficos del dashboard
-    // (computeSerieGrafico), que sí necesitan la serie completa.
+    // (computeSerieGrafico), que sí necesitan la serie completa. 2.3: por eso
+    // mismo es la que más se beneficia de paginar en vez de recibir el tope de
+    // 1000 filas de PostgREST en silencio.
     db.from('reward_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
-    db.from('credit_transactions').select('*').eq('studio_id', sid),
+    fetchAllRows(sid, 'credit_transactions', (from, to) => db.from('credit_transactions').select('*').eq('studio_id', sid).range(from, to)),
     db.from('achievement_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('challenge_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('notas_progreso').select('*').eq('studio_id', sid),
