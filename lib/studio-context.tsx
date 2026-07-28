@@ -124,7 +124,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura } from '@/lib/api-client';
+import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
@@ -1191,6 +1191,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // ── Socios ────────────────────────────────────────────────────────────────────
 
   async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }): Promise<ResultadoEscritura> {
+    // El insert de más abajo va directo a Supabase desde el navegador (RLS, sin
+    // ruta de servidor de por medio) — el tope de socias del plan se comprueba
+    // aquí, antes, porque si no el alta manual lo saltaba entero (el importador
+    // masivo sí lo comprobaba, este camino no).
+    const motivoBloqueo = await verificarLimiteSocias();
+    if (motivoBloqueo) return { ok: false, error: motivoBloqueo };
+
     const { planId, aceptacionContrato, ...socioFields } = fields;
     const ahora = new Date().toISOString();
     // Si la firma se recogió en el mostrador, se deja constancia de QUIÉN la
