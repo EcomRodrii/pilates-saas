@@ -182,3 +182,38 @@ test('el manager importa clientas pero no bonos: los bonos son dinero', () => {
   assert.equal(puedeVer('MANAGER', '/calendario/importar'), true);
   assert.equal(puedeVer('MANAGER', '/clientas/importar/membresias'), false);
 });
+
+// ── Espejo de la RLS: cada helper de UI contra la función que decide de verdad ─
+// Endurecer la interfaz de más es tan bug como ablandarla: esconde trabajo que
+// la persona SÍ puede hacer, y encima parece que el programa está roto. Pasó con
+// las citas — se gatearon con `puedeMoverDinero` cuando su RLS pide
+// `puede_gestionar_clientas()`, y el manager perdió el estado de cobro.
+//
+// La tabla es la lista de correspondencias UI↔RLS que hay que mantener a mano.
+// Si cambias una policy, cambia aquí también o el desajuste vuelve en silencio.
+test('los helpers de UI reparten igual que las funciones de la RLS', () => {
+  const ROLES = ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const;
+
+  // tabla → (helper de UI, quién dice que sí en la RLS)
+  const ESPEJO = [
+    // citas.*        → puede_gestionar_clientas()
+    { tabla: 'citas', helper: puedeGestionarClientas, rls: ['PROPIETARIO', 'RECEPCION', 'MANAGER'] },
+    // socios.*       → puede_gestionar_clientas()
+    { tabla: 'socios', helper: puedeGestionarClientas, rls: ['PROPIETARIO', 'RECEPCION', 'MANAGER'] },
+    // recibos.*      → puede_mover_dinero()
+    { tabla: 'recibos', helper: puedeMoverDinero, rls: ['PROPIETARIO', 'RECEPCION'] },
+    // suscripciones.* → puede_mover_dinero()
+    { tabla: 'suscripciones', helper: puedeMoverDinero, rls: ['PROPIETARIO', 'RECEPCION'] },
+    // mandatos_sepa.* → puede_mover_dinero()
+    { tabla: 'mandatos_sepa', helper: puedeMoverDinero, rls: ['PROPIETARIO', 'RECEPCION'] },
+  ];
+
+  for (const { tabla, helper, rls } of ESPEJO) {
+    for (const rol of ROLES) {
+      assert.equal(
+        helper(rol), rls.includes(rol),
+        `${tabla}: la UI y la RLS no dicen lo mismo para ${rol}`,
+      );
+    }
+  }
+});
