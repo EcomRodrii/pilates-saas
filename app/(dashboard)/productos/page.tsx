@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { Package, Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Check } from 'lucide-react';
@@ -279,6 +279,14 @@ export default function Productos() {
   // destructiva, dos comportamientos.
   const [borrando, setBorrando] = useState<PlanTarifa | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // El aviso se borra solo a los 4 s. Antes colgaba de `onAnimationEnd` sobre un
+  // elemento SIN animación: el callback no se disparaba nunca y el mensaje se
+  // quedaba fijo en pantalla para siempre, contando algo que ya había pasado.
+  useEffect(() => {
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(null), 4000);
+    return () => clearTimeout(t);
+  }, [aviso]);
   const [posModal, setPosModal] = useState<ProductoPOS | null | 'new'>(null);
 
   // CONGELADO (feature-freeze PMF): oculta la pestaña "Productos POS" mientras POS
@@ -560,7 +568,7 @@ export default function Productos() {
       />
       {aviso && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-foreground text-background text-[13px] font-medium shadow-lg"
-          role="status" onAnimationEnd={() => setAviso(null)}>
+          role="status">
           {aviso}
         </div>
       )}
