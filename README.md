@@ -18,29 +18,37 @@ captcha protection: request disallowed (no captcha_token found)
 ```
 
 Pasa en todo entorno sin `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — local y las preview de Vercel.
-Hay dos caminos, y el primero es el bueno.
+Hay dos caminos. El primero sería el bueno, pero hoy no arranca — así que en la
+práctica toca el segundo.
 
-#### 1. Supabase en local (recomendado)
+#### 1. Supabase en local — HOY NO ARRANCA
 
-No toca nada de producción. En `supabase/config.toml` el captcha está desactivado
+Sería el camino bueno: `supabase/config.toml` ya trae el captcha desactivado
 (`[auth.captcha]` comentado) y las confirmaciones de email también
-(`enable_confirmations = false`), así que el alta funciona de un tirón.
+(`enable_confirmations = false`), así que el alta funcionaría sin tocar nada de
+producción.
 
-Necesita Docker.
+**Pero `npx supabase start` no llega al final.** Hay cinco números de migración
+duplicados —`0061`, `0069`, `0071`, `0072` y `0075`, los mismos que la lista
+`HISTORICAS` de `lib/migraciones.test.ts`— y `schema_migrations.version` es clave
+primaria, así que el segundo de cada par choca y el arranque se revierte entero.
 
-```bash
-npx supabase start          # levanta Postgres + gotrue + PostgREST
-npx supabase db reset       # aplica supabase/migrations + seed.sql
-```
+En producción no se nota: allí están aplicadas con versión de *timestamp*, no con el
+número del fichero. (Corolario: este repo **no usa `supabase db push`**; las
+migraciones se aplican por MCP o dashboard, y el número del fichero es orden y
+documentación, no la versión real.)
 
-Apunta `.env.local` a lo que imprima `supabase start`:
+Lo que ya se descartó al intentar arreglarlo:
 
-```
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<la anon key que imprime el comando>
-```
+- **Sufijos tipo `0075a_`**: el CLI solo reconoce versiones numéricas y **se salta**
+  esos ficheros sin avisar — la migración no se aplica y falla la siguiente que
+  dependa de ella.
+- **Mover el duplicado al final**: no hay huecos libres entre `0058` y el último
+  número, y para el par `0075` ambos miembros tienen dependencias posteriores
+  (`0077` y `0100` necesitan `limite_semanal`; `0089` necesita `migracion_batches`).
 
-Para volver a producción, deshaz esas dos líneas. `npx supabase stop` apaga los contenedores.
+La salida real es renumerar la cola entera, que toca ~50 ficheros y conviene hacer
+con cero ramas abiertas. Hasta entonces, usa el camino 2.
 
 #### 2. Contra la Supabase de producción
 
