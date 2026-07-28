@@ -1,20 +1,67 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
-
-First, run the development server:
+## Desarrollo en local
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000).
+
+### Ojo: el alta y el login NO funcionan contra la Supabase de producción
+
+El captcha (Cloudflare Turnstile) se exige **a nivel de proyecto en Supabase**, no en el cliente.
+Si el navegador no manda token, gotrue rechaza el alta **y el login** con:
+
+```
+captcha protection: request disallowed (no captcha_token found)
+```
+
+Pasa en todo entorno sin `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — local y las preview de Vercel.
+Hay dos caminos, y el primero es el bueno.
+
+#### 1. Supabase en local (recomendado)
+
+No toca nada de producción. En `supabase/config.toml` el captcha está desactivado
+(`[auth.captcha]` comentado) y las confirmaciones de email también
+(`enable_confirmations = false`), así que el alta funciona de un tirón.
+
+Necesita Docker.
+
+```bash
+npx supabase start          # levanta Postgres + gotrue + PostgREST
+npx supabase db reset       # aplica supabase/migrations + seed.sql
+```
+
+Apunta `.env.local` a lo que imprima `supabase start`:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<la anon key que imprime el comando>
+```
+
+Para volver a producción, deshaz esas dos líneas. `npx supabase stop` apaga los contenedores.
+
+#### 2. Contra la Supabase de producción
+
+Solo si necesitas datos reales. Hace falta que el navegador consiga un token válido:
+
+```
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAAD_8wUO3n50mElU0
+```
+
+Es la site key de producción, y es pública (viaja en el bundle). La clave de *prueba* de
+Cloudflare **no sirve**: Supabase valida el token contra el secret real del proyecto.
+
+Y además hay que añadir `localhost` en Cloudflare → Turnstile → el widget → *Hostname
+Management*. Sin eso el widget da error y el botón de enviar se queda deshabilitado aunque la
+variable esté puesta. Ten en cuenta que eso afloja un poco el control anti-bots del alta de
+producción: un token emitido desde `localhost` pasa a ser válido (el desafío hay que resolverlo
+igual).
+
+En las **preview de Vercel** este camino no vale: el hostname es `*.vercel.app` y Turnstile no
+admite comodines de subdominio. Para verificar pantallas con sesión sin pelearse con el captcha,
+usa la suite e2e (`e2e/`), que siembra la sesión y mockea el backend.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
