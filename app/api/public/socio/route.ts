@@ -3,6 +3,8 @@ import { registrarSociaPublica, actualizarSociaPublica, guardarPreferenciasPubli
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing/billing-guard';
 
 // Operaciones de la propia socia desde el portal/reserva. SEGURIDAD: todas
 // exigen sesión real de socia (JWT de Supabase Auth); la identidad se deriva del
@@ -34,6 +36,25 @@ export async function POST(req: NextRequest) {
       if (!body.id || !body.nombre) {
         return NextResponse.json({ error: 'Faltan datos de la socia' }, { status: 400 });
       }
+
+      // Mismo tope de socias del plan que ya comprueban el importador masivo
+      // (app/api/socios/import) y el alta manual (app/api/socios/verificar-limite):
+      // el alta pública desde el portal tenía este mismo hueco, y es la más
+      // fácil de disparar sin querer (cualquier walk-in que reserve se auto-registra).
+      if (billingEnforced()) {
+        const admin = getSupabaseAdmin();
+        if (admin) {
+          const { count: activasActuales } = await admin
+            .from('socios')
+            .select('id', { count: 'exact', head: true })
+            .eq('studio_id', body.studioId)
+            .eq('activo', true)
+            .is('borrado_en', null);
+          const bloqueo = await bloqueoPorLimiteSocias(body.studioId, activasActuales ?? 0, 1);
+          if (bloqueo) return bloqueo;
+        }
+      }
+
       const r = await registrarSociaPublica({
         studioId: body.studioId, id: body.id, nombre: body.nombre, email: user.email,
         authUserId: user.userId, aceptacion: body.aceptacion, referidoPor: body.referidoPor ?? null,
