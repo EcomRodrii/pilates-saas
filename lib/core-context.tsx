@@ -28,7 +28,6 @@ export interface CoreContextValue {
   addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) => void;
   updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => void;
   deleteInstructor: (id: string) => void;
-  claimInstructorAccount: (email: string, authUserId: string) => Promise<Instructor | null>;
   marcarNotificacionLeida: (notiId: string) => void;
   marcarTodasLeidas: () => void;
 }
@@ -46,7 +45,6 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     addInstructor: core.addInstructor,
     updateInstructor: core.updateInstructor,
     deleteInstructor: core.deleteInstructor,
-    claimInstructorAccount: core.claimInstructorAccount,
     marcarNotificacionLeida: core.marcarNotificacionLeida,
     marcarTodasLeidas: core.marcarTodasLeidas,
     // Las funciones se recrean cada render en StudioProvider (no están

@@ -15,12 +15,13 @@ const ROL_LABEL: Record<string, string> = {
   PROPIETARIO: 'propietaria',
   RECEPCION: 'recepción',
   INSTRUCTOR: 'instructora',
+  MANAGER: 'responsable de sede',
 };
 
 // Alta de una persona en el equipo (app/api/equipo/route.ts): antes se creaba
 // la ficha con email pero no se avisaba a nadie — solo se enteraba si alguien
-// se lo decía de palabra. Un solo botón: crear su cuenta con este email vincula
-// automáticamente su acceso a esta ficha (self-claim, ver lib/auth-server.ts).
+// se lo decía de palabra. Un solo botón: el enlace lleva el token que vincula su
+// cuenta con esta ficha (app/api/equipo/reclamar).
 export function InvitacionEquipoEmail({ nombre, propietariaNombre, estudioNombre, logoUrl, colorPrimario, rol, url }: Props) {
   const rolLabel = ROL_LABEL[rol] ?? 'miembro del equipo';
   return (
@@ -31,7 +32,7 @@ export function InvitacionEquipoEmail({ nombre, propietariaNombre, estudioNombre
       </Text>
       <Section style={{ backgroundColor: '#FAFAF7', borderRadius: 10, padding: '16px 20px', marginBottom: 24 }}>
         <Text style={{ color: '#6B7280', fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-          Crea tu cuenta usando <strong>este mismo email</strong> y quedará vinculada automáticamente a tu ficha — no hace falta ningún código.
+          Este enlace es tuyo: al crear tu cuenta desde aquí queda vinculada a tu ficha, uses el correo que uses. No hace falta ningún código.
         </Text>
       </Section>
       <EmailButton href={url} colorPrimario={colorPrimario}>Crear mi cuenta</EmailButton>

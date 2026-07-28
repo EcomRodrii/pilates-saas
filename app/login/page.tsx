@@ -3,15 +3,14 @@
 import { useState, useEffect, useId, useRef } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/lib/auth-context';
-import { useStudio } from '@/lib/studio-context';
 import { supabase } from '@/lib/db/supabase';
-import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
+import { dbCreateStudio, dbReclamarAccesoEquipo, setCurrentStudioId } from '@/lib/supabase-data';
+import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
 import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
 
 export default function LoginPage() {
   const uid = useId();
   const { signIn, signUp, session, user, loading } = useAuth();
-  const { claimInstructorAccount } = useStudio();
   const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,8 +22,7 @@ export default function LoginPage() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   // Este efecto crea el estudio, y crear un estudio NO es idempotente. Sus
   // dependencias cambian de identidad más de una vez por login (`user` es un
-  // objeto nuevo en cada evento de auth; `claimInstructorAccount` se redeclara
-  // en cada render de StudioProvider), y `pending_studio` solo se limpia al
+  // objeto nuevo en cada evento de auth), y `pending_studio` solo se limpia al
   // final del await — así que cada re-disparo veía el alta aún pendiente y
   // creaba OTRO estudio. En producción eso dejó a cinco propietarios con
   // estudios duplicados; a uno, con cuatro en 1,24 s.
@@ -32,6 +30,16 @@ export default function LoginPage() {
   // La guarda va en un ref y no en estado: tiene que cerrar la puerta en el
   // mismo tick, antes del primer await, o dos disparos seguidos se cuelan igual.
   const yaArrancado = useRef(false);
+
+  // `?alta=1` lo pone /invitacion, que ya sabe que esta persona NO tiene cuenta.
+  // Lo mandaba desde el principio y nadie lo leía: la invitada aterrizaba en
+  // "Iniciar sesión" y tenía que encontrar sola el enlace de abajo. En un efecto
+  // y no en el useState inicial para no arriesgar un desajuste de hidratación.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('alta') !== '1') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setModo('crear');
+  }, []);
 
   useEffect(() => {
     if (loading || !session || !user) return;
@@ -52,7 +60,22 @@ export default function LoginPage() {
         if (newStudio) setCurrentStudioId(newStudio.id);
         await supabase.auth.updateUser({ data: { pending_studio: null } });
       }
-      await claimInstructorAccount(user.email ?? '', user.id);
+      // Vincular la cuenta con su ficha de equipo. Solo si viene de un enlace de
+      // invitación: sin él no hay nada que reclamar (el servidor tampoco lo
+      // aceptaría — ver lib/equipo/reclamar-reglas.ts).
+      //
+      // El token viaja en la metadata del usuario por el mismo motivo que
+      // `pending_studio`: sobrevive al rebote de confirmación del email, que
+      // puede abrirse horas después y en otro dispositivo. sessionStorage es el
+      // respaldo para el tramo dentro de la misma pestaña.
+      const token = (user.user_metadata?.[CLAVE_INVITACION] as string | undefined) ?? leerTokenInvitacion();
+      if (token) {
+        await dbReclamarAccesoEquipo(token);
+        olvidarTokenInvitacion();
+        if (user.user_metadata?.[CLAVE_INVITACION]) {
+          await supabase.auth.updateUser({ data: { [CLAVE_INVITACION]: null } });
+        }
+      }
     })().finally(() => {
       // Hard navigation on purpose: StudioProvider (mounted once at the root
       // layout) already resolved/fetched with whatever studio_id was current
@@ -69,7 +92,7 @@ export default function LoginPage() {
       const seguro = destino === '/interno' || destino?.startsWith('/interno/');
       window.location.href = seguro ? destino! : '/dashboard';
     });
-  }, [session, user, loading, claimInstructorAccount]);
+  }, [session, user, loading]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,7 +115,14 @@ export default function LoginPage() {
       }
       // El redirect + reclamo de cuenta lo hace el useEffect al detectar sesión.
     } else {
-      const { error, needsConfirmation } = await signUp(email, password, undefined, captchaToken ?? undefined);
+      // El token de invitación se guarda en la metadata de la cuenta para que
+      // sobreviva al enlace de confirmación del email (ver el efecto de arriba).
+      const invitacion = leerTokenInvitacion();
+      const { error, needsConfirmation } = await signUp(
+        email, password,
+        invitacion ? { [CLAVE_INVITACION]: invitacion } : undefined,
+        captchaToken ?? undefined,
+      );
       if (error) {
         setError(error);
         setSubmitting(false);
@@ -124,7 +154,7 @@ export default function LoginPage() {
 
           {modo === 'crear' && (
             <p className="text-[13px] text-[#8E8E86] mb-4 -mt-2">
-              Usa el email exacto que te haya dado tu propietaria en Equipo — tu rol quedará vinculado automáticamente al iniciar sesión.
+              Tu acceso se activa con el enlace que te haya enviado tu estudio. Si no lo tienes a mano, pídele que te lo reenvíe desde Equipo.
             </p>
           )}
 

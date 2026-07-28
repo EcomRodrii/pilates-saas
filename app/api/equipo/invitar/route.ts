@@ -91,8 +91,13 @@ export async function POST(req: NextRequest) {
       // nadie: quien lo abría con otra sesión abierta acababa en su propio panel
       // sin enterarse de la invitación, y quien se registraba con otro correo se
       // creaba una cuenta suelta que no quedaba vinculada al estudio.
+      // El `ref` guarda QUIÉN invita. Va dentro de la firma, así que al
+      // reclamar el acceso se puede comprobar que quien mandó la invitación
+      // tenía de verdad ese permiso que dar: un manager da de alta a su
+      // recepcionista, pero no le activa el acceso al dinero
+      // (lib/equipo/reclamar-reglas.ts).
       url: `${appUrl()}/invitacion?token=${encodeURIComponent(
-        firmarTokenInstructora(instructor.id as string, sesion.studioId, 'invitacion'),
+        firmarTokenInstructora(instructor.id as string, sesion.studioId, 'invitacion', sesion.rol),
       )}`,
     });
   } catch (e) {

@@ -44,7 +44,7 @@ import {
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbInsertSala, dbUpdateSala, dbDeleteSala,
-  dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor, dbClaimInstructorAccount,
+  dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
   dbUpdateStudio, dbUpdateStudioConfig, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
@@ -428,7 +428,6 @@ interface StudioContextValue {
   addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) => Promise<ResultadoEscritura>;
   updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => void;
   deleteInstructor: (id: string) => void;
-  claimInstructorAccount: (email: string, authUserId: string) => Promise<Instructor | null>;
 
   // Studio config (policy, terms)
   studioConfig: StudioConfig;
@@ -1168,12 +1167,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setInstructores(prev => prev.filter(i => i.id !== id));
     dbDeleteInstructor(id);
     if (instructor) addActividadReciente('EQUIPO_BAJA', `${actorNombre ?? 'Alguien'} eliminó a ${instructor.nombre} del equipo`);
-  }
-
-  async function claimInstructorAccount(email: string, authUserId: string) {
-    const claimed = await dbClaimInstructorAccount(email, authUserId);
-    if (claimed) setInstructores(prev => prev.map(i => i.id === claimed.id ? claimed : i));
-    return claimed;
   }
 
   // ── Datos del estudio ──────────────────────────────────────────────────────────
@@ -3157,7 +3150,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addInstructor,
     updateInstructor,
     deleteInstructor,
-    claimInstructorAccount,
     socios,
     suscripciones,
     sesiones,
@@ -3410,7 +3402,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       addInstructor={addInstructor}
       updateInstructor={updateInstructor}
       deleteInstructor={deleteInstructor}
-      claimInstructorAccount={claimInstructorAccount}
       marcarNotificacionLeida={marcarNotificacionLeida}
       marcarTodasLeidas={marcarTodasLeidas}
     >
