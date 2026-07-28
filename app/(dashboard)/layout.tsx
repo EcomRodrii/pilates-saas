@@ -87,15 +87,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Un solo intento por montaje: si reclama algo, recarga para que el provider
   // resuelva el estudio ya vinculado. Si no hay ficha con ese email (un alta de
   // estudio normal), no hace nada y sigue el flujo de siempre.
-  const [intentoVinculo, setIntentoVinculo] = useState(false);
+  // El candado va en sessionStorage y NO en estado de React: recargar remonta el
+  // componente y un flag en memoria volvería a cero. Si la vinculación no acaba
+  // resolviendo el estudio —una ficha inactiva, por ejemplo— eso sería un bucle
+  // de recargas que deja el panel inservible. (Lo tumbó el E2E entero, que es
+  // exactamente para lo que está.)
   useEffect(() => {
-    if (intentoVinculo || loading || !session || !user?.email) return;
+    if (loading || !session || !user?.email) return;
     if (!dataLoaded || studio !== null) return;
-    setIntentoVinculo(true);
+    if (sessionStorage.getItem('vinculo-intentado') === '1') return;
+    sessionStorage.setItem('vinculo-intentado', '1');
     void claimInstructorAccount(user.email, user.id).then(ficha => {
       if (ficha) window.location.reload();
     });
-  }, [intentoVinculo, loading, session, user, dataLoaded, studio, claimInstructorAccount]);
+  }, [loading, session, user, dataLoaded, studio, claimInstructorAccount]);
   useEffect(() => {
     if (!loading && session && rolResuelto && !autorizado) router.replace('/dashboard');
   }, [loading, session, rolResuelto, autorizado, router]);
