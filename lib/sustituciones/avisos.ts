@@ -25,16 +25,24 @@ export async function avisarAlumnas(
   if (!estudio?.avisar_alumnas) return { avisadas: 0, total: 0, skipped: false, desactivado: true };
 
   const { data: ses } = await admin
-    .from('sesiones').select('inicio, tipo_clase_id').eq('id', params.sesionId).maybeSingle();
+    .from('sesiones').select('inicio, tipo_clase_id, sala_id').eq('id', params.sesionId).maybeSingle();
   const { data: tc } = await admin
     .from('tipos_clase').select('nombre').eq('id', ses?.tipo_clase_id ?? '').maybeSingle();
   const claseNombre = tc?.nombre ?? 'Clase';
   const cuando = ses?.inicio ? cuandoTexto(ses.inicio) : '';
   const estudioNombre = estudio.nombre ?? 'Tu estudio';
 
-  // Notification Engine: la clase cancelada también llega al centro de la socia
-  // (in-app/push), además del email. Respeta el toggle avisar_alumnas (ya filtrado
+  // Notification Engine: el aviso llega también al centro de la socia (in-app y
+  // push), además del email. Respeta el toggle avisar_alumnas (ya filtrado
   // arriba). El motor resuelve las socias apuntadas de la sesión.
+  //
+  // Los TRES casos publican, y eso antes no era así: solo 'cancelada' llegaba al
+  // portal; 'cubierta' y 'reprogramada' se mandaban SOLO por email. O sea que la
+  // mala noticia ("tu clase se cae") tenía dos canales y las que salvan la clase
+  // ("sigue en pie, la da Aina" / "se mueve a las 10:00") solo el más frágil. Si
+  // la alumna no abre el correo se presenta a la hora que no es, o no se presenta
+  // porque cree que se ha caído. Los avisos que evitan el plantón eran justo los
+  // que peor viajaban.
   if (params.tipo === 'cancelada') {
     const { publish } = await import('@/lib/notifications/engine');
     const { EVENTOS } = await import('@/lib/notifications/catalog');
@@ -47,6 +55,24 @@ export async function avisarAlumnas(
       data: { clase: claseNombre, cuando, slug: (estudio.slug as string | null) ?? '', sesionId: params.sesionId },
       resource: { type: 'sesion', id: params.sesionId },
       dedupKey: `clase-cancelada:${params.sesionId}`,
+    });
+  } else {
+    // Cubrir o mover una clase es modificarla: `clase.modificada` ya existe con
+    // la audiencia y la plantilla correctas ("pasa a: {cuando} · {sala}{instructora}"),
+    // y `emitirClaseModificada` ya sabe formatear a la instructora entrante. No
+    // hace falta evento nuevo — hacía falta llamarlo.
+    const { emitirClaseModificada } = await import('@/lib/notifications/emit');
+    const { data: sala } = await admin
+      .from('salas').select('nombre').eq('id', ses?.sala_id ?? '').maybeSingle();
+    await emitirClaseModificada(admin, {
+      studioId: params.studioId,
+      sesionId: params.sesionId,
+      clase: claseNombre,
+      cuando,                                  // ya es el horario NUEVO si se reprogramó
+      sala: (sala?.nombre as string | null) ?? '',
+      // Solo al cubrir: en una reprogramación la instructora no cambia, y
+      // nombrarla haría pensar que sí.
+      instructora: params.tipo === 'cubierta' ? params.sustituta : undefined,
     });
   }
 
