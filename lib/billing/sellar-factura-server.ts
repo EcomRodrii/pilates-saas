@@ -98,8 +98,16 @@ export async function sellarFacturaDeRecibo(
   }
 
   // Número correlativo por estudio y año (A-{año}-{NNNN}), max+1.
-  const fechaEmision = new Date().toISOString();
-  const anio = new Date(fechaEmision).getFullYear();
+  // fecha_emision es un `date` (sin huso) — hay que anclarlo al día natural en
+  // Europe/Madrid, no al de new Date().toISOString() (UTC). Una factura sellada
+  // entre las 22:00 y las 00:59 (invierno) o 23:00-00:59 (verano) en Madrid caía
+  // en el DÍA/AÑO ANTERIOR según UTC: se archivaba en el trimestre/año fiscal
+  // equivocado, y el registro Veri*Factu ante la AEAT quedaba con esa misma
+  // fecha errónea (no es solo un informe descuadrado, es el propio registro legal).
+  const ahora = new Date();
+  const fechaEmisionMadrid = fechaHoraHusoMadrid(ahora);
+  const fechaEmision = fechaEmisionMadrid.slice(0, 10);
+  const anio = Number(fechaEmision.slice(0, 4));
   const { data: delAnio } = await admin
     .from('facturas').select('numero_completo')
     .eq('studio_id', studioId).like('numero_completo', `A-${anio}-%`);
@@ -138,7 +146,7 @@ export async function sellarFacturaDeRecibo(
 
   let salida: Record<string, unknown> = {};
   if (nifEmisor) {
-    const ts = fechaHoraHusoMadrid(new Date());
+    const ts = fechaEmisionMadrid;
     const registro: RegistroAltaVerifactu = {
       idEmisorFactura: nifEmisor,
       numSerieFactura: numeroCompleto,
