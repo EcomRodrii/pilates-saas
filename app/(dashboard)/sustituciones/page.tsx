@@ -106,13 +106,21 @@ export default function SustitucionesPage() {
     if (accion) return;
     setErrorAccion(null);
     setAccion({ id: s.id, que: 'cancelar' });
-    const r = await cancelarClase(s.id);
-    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
-    const a = r.alumnas;
-    setAviso(a && !a.desactivado ? `Clase cancelada. ${a.avisadas} de ${a.total} alumnas avisadas por email.` : 'Clase cancelada.');
-    await recargar();
-    setAccion(null);
-    setTimeout(() => setAviso(null), 6000);
+    try {
+      const r = await cancelarClase(s.id);
+      if ('error' in r) { setErrorAccion(r.error); return; }
+      const a = r.alumnas;
+      setAviso(a && !a.desactivado ? `Clase cancelada. ${a.avisadas} de ${a.total} alumnas avisadas por email.` : 'Clase cancelada.');
+      await recargar();
+      setTimeout(() => setAviso(null), 6000);
+    } catch (e) {
+      // Un fallo aquí (red, timeout del servidor) no debe dejar el botón
+      // girando para siempre — el spinner se queda pillado si nadie limpia
+      // `accion` en este camino.
+      setErrorAccion(e instanceof Error ? e.message : 'No se pudo cancelar la clase. Vuelve a intentarlo.');
+    } finally {
+      setAccion(null);
+    }
   }
 
   async function reprogramar(s: SustitucionPanel, inicioISO: string) {
@@ -121,14 +129,19 @@ export default function SustitucionesPage() {
     if (accion) return;
     setErrorAccion(null);
     setAccion({ id: s.id, que: 'reprogramar' });
-    const r = await reprogramarClase(s.id, inicioISO);
-    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
-    setAReprogramar(null);
-    const a = r.alumnas;
-    setAviso(a && !a.desactivado ? `Clase movida. ${a.avisadas} de ${a.total} alumnas avisadas del cambio por email.` : 'Clase movida de horario.');
-    await recargar();
-    setAccion(null);
-    setTimeout(() => setAviso(null), 6000);
+    try {
+      const r = await reprogramarClase(s.id, inicioISO);
+      if ('error' in r) { setErrorAccion(r.error); return; }
+      setAReprogramar(null);
+      const a = r.alumnas;
+      setAviso(a && !a.desactivado ? `Clase movida. ${a.avisadas} de ${a.total} alumnas avisadas del cambio por email.` : 'Clase movida de horario.');
+      await recargar();
+      setTimeout(() => setAviso(null), 6000);
+    } catch (e) {
+      setErrorAccion(e instanceof Error ? e.message : 'No se pudo reprogramar la clase. Vuelve a intentarlo.');
+    } finally {
+      setAccion(null);
+    }
   }
 
   // Aviso de "tu equipo está a medio configurar". Null → no se pinta nada: una
@@ -161,10 +174,18 @@ export default function SustitucionesPage() {
     if (accion) return;
     setErrorAccion(null);
     setAccion({ id: s.id, que: 'confirmar' });
-    const r = await confirmarSustituta(s.id, instructorId);
-    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
-    await recargar();
-    setAccion(null);
+    try {
+      const r = await confirmarSustituta(s.id, instructorId);
+      if ('error' in r) { setErrorAccion(r.error); return; }
+      await recargar();
+    } catch (e) {
+      // El PATCH puede haber confirmado la sustitución en servidor (p.ej. si
+      // el aviso a alumnas se cuelga después) y aun así llegar aquí: por eso
+      // el mensaje pide comprobar en vez de asumir que no pasó nada.
+      setErrorAccion(e instanceof Error ? e.message : 'La confirmación puede haberse guardado igualmente — recarga para comprobarlo.');
+    } finally {
+      setAccion(null);
+    }
   }
   async function avisarCandidata(s: SustitucionPanel, instructorId: string) {
     // Estas acciones escriben y luego recargan: sin esto, un segundo clic
@@ -172,41 +193,58 @@ export default function SustitucionesPage() {
     if (accion) return;
     setErrorAccion(null);
     setAccion({ id: s.id, que: 'avisar' });
-    const r = await avisarSustituta(s.id, instructorId);
-    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
-    setAviso(r.emailSkipped
-      ? `Marcada como avisada a ${r.candidata} (el email no está configurado — envíaselo tú).`
-      : `Email enviado a ${r.candidata}. Cuando acepte, la clase se reasigna sola.`);
-    await recargar();
-    setAccion(null);
-    setTimeout(() => setAviso(null), 6000);
+    try {
+      const r = await avisarSustituta(s.id, instructorId);
+      if ('error' in r) { setErrorAccion(r.error); return; }
+      setAviso(r.emailSkipped
+        ? `Marcada como avisada a ${r.candidata} (el email no está configurado — envíaselo tú).`
+        : `Email enviado a ${r.candidata}. Cuando acepte, la clase se reasigna sola.`);
+      await recargar();
+      setTimeout(() => setAviso(null), 6000);
+    } catch (e) {
+      setErrorAccion(e instanceof Error ? e.message : 'No se pudo avisar a la candidata. Vuelve a intentarlo.');
+    } finally {
+      setAccion(null);
+    }
   }
   async function volverABuscar(s: SustitucionPanel) {
     // Estas acciones escriben y luego recargan: sin esto, un segundo clic
     // mientras la primera sigue en curso la ejecuta dos veces.
     if (accion) return;
+    setErrorAccion(null);
     setAccion({ id: s.id, que: 'volver-a-buscar' });
-    const r = await recalcularCandidatas(s.id);
-    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
-    setAviso(r.omitidasPorRechazo > 0
-      ? `${r.resumen} (no volvemos a escribir a quien ya dijo que no puede).`
-      : r.resumen);
-    await recargar();
-    setAccion(null);
-    setTimeout(() => setAviso(null), 6000);
+    try {
+      const r = await recalcularCandidatas(s.id);
+      if ('error' in r) { setErrorAccion(r.error); return; }
+      setAviso(r.omitidasPorRechazo > 0
+        ? `${r.resumen} (no volvemos a escribir a quien ya dijo que no puede).`
+        : r.resumen);
+      await recargar();
+      setTimeout(() => setAviso(null), 6000);
+    } catch (e) {
+      setErrorAccion(e instanceof Error ? e.message : 'No se pudo volver a buscar candidatas. Vuelve a intentarlo.');
+    } finally {
+      setAccion(null);
+    }
   }
 
   async function descartar(s: SustitucionPanel) {
     // Estas acciones escriben y luego recargan: sin esto, un segundo clic
     // mientras la primera sigue en curso la ejecuta dos veces.
     if (accion) return;
+    setErrorAccion(null);
     setAccion({ id: s.id, que: 'descartar' });
-    // Antes se ignoraba el resultado: si fallaba, la tarjeta seguía ahí sin
-    // explicación y no había forma de saber si se había guardado o no.
-    const r = await descartarSustitucion(s.id);
-    if ('error' in r) { setErrorAccion(r.error); setAccion(null); return; }
-    await recargar();
-    setAccion(null);
+    try {
+      // Antes se ignoraba el resultado: si fallaba, la tarjeta seguía ahí sin
+      // explicación y no había forma de saber si se había guardado o no.
+      const r = await descartarSustitucion(s.id);
+      if ('error' in r) { setErrorAccion(r.error); return; }
+      await recargar();
+    } catch (e) {
+      setErrorAccion(e instanceof Error ? e.message : 'No se pudo descartar. Vuelve a intentarlo.');
+    } finally {
+      setAccion(null);
+    }
   }
 
   return (

@@ -114,6 +114,7 @@ import type {
   NotaInterna,
   NotaProgreso,
   Notificacion,
+  NivelSemaforo,
   PlanTarifa,
   PostComunidad,
   ComentarioComunidad,
@@ -185,7 +186,7 @@ const RECENT_FEED_LIMIT = 500;
 // que se agregan sobre histórico (ver comentario arriba) — reservas, recibos,
 // facturas, ventas_pos, sesiones, credit_transactions.
 const PAGE_SIZE = 1000;
-async function fetchAllRows<T>(
+export async function fetchAllRows<T>(
   studioId: string,
   tabla: string,
   pagina: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
@@ -1282,7 +1283,11 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('usuarios').select('*').eq('studio_id', sid),
     // A-3/A-4: las socias con baja lógica (borrado_en) no entran al panel; su
     // rastro fiscal (recibos/facturas) sí queda y se muestra como "Socia eliminada".
-    db.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null),
+    // fetchAllRows (no un .select('*') a secas): sin paginar, PostgREST corta en
+    // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
+    // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
+    // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
+    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     db.from('suscripciones').select('*').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
@@ -1619,12 +1624,11 @@ export async function fetchPublicStudioData(
   if (!socioRow || !emailOk) return { ...base, socia: null };
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, facRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes] =
+  const [susRes, resRes, recRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes] =
     await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('recibos').select('*').eq('studio_id', studioId).eq('socio_id', sid),
-      admin.from('facturas').select('*').eq('studio_id', studioId),
       admin.from('preferencias_socio').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('member_credits').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reward_history').select('*').eq('studio_id', studioId).eq('socio_id', sid),
@@ -1635,9 +1639,22 @@ export async function fetchPublicStudioData(
       admin.from('citas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
     ]);
 
-  // Facturas de recibos de la socia (facturas no tiene socio_id directo).
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
-  const misReciboIds = new Set(misRecibos.map(r => r.id));
+  const misReciboIds = misRecibos.map(r => r.id);
+  // Facturas no tiene socio_id directo, pero SÍ recibo_id: antes se traía la
+  // tabla ENTERA del estudio para filtrarla en el cliente por reciboId. Con
+  // PostgREST truncando a 1000 filas por defecto, una socia de un estudio con
+  // más de 1000 facturas históricas podía dejar de ver algunas de las suyas
+  // (auditoría 2026-07-29, hallazgo 2.3) — y de paso se traía miles de filas
+  // ajenas para tirar casi todas. Filtrando por sus propios recibo_id, la
+  // consulta nunca puede rozar ese límite (acotada al historial de UNA socia).
+  // El corto-circuito con longitud 0 no es por corrección (`.in()` con un array
+  // vacío ya devuelve cero filas en PostgREST), es a propósito para no gastar
+  // un viaje de red entero en una socia recién dada de alta que aún no tiene
+  // ningún recibo.
+  const { data: facData } = misReciboIds.length > 0
+    ? await admin.from('facturas').select('*').eq('studio_id', studioId).in('recibo_id', misReciboIds)
+    : { data: [] as RowFacturas[] };
 
   return {
     ...base,
@@ -1646,7 +1663,7 @@ export async function fetchPublicStudioData(
       suscripciones: (susRes.data ?? []).map(mapSuscripcion),
       reservas: (resRes.data ?? []).map(mapReserva),
       recibos: misRecibos,
-      facturas: (facRes.data ?? []).map(mapFactura).filter(f => f.reciboId && misReciboIds.has(f.reciboId)),
+      facturas: (facData ?? []).map(mapFactura),
       preferenciasSocio: (prefRes.data ?? []).map(mapPreferenciasSocio),
       memberCredits: (credRes.data ?? []).map(mapMemberCredits),
       rewardHistory: (histRes.data ?? []).map(mapRewardHistory),
@@ -2573,6 +2590,55 @@ export async function registrarSociaPublica(params: {
     if (yaSocia) return { ok: true as const, socioId: yaSocia };
   }
 
+  // El referido solo es válido si existe una socia con ese id en el estudio.
+  // Se resuelve ANTES de la adopción de ficha fantasma (justo abajo): esa rama
+  // también tiene que poder escribir referido_por, o el premio de quien invitó
+  // se pierde en silencio cada vez que la referida ya tenía una ficha fantasma.
+  let referido: string | null = null;
+  if (params.referidoPor && params.referidoPor !== params.id) {
+    const { data } = await admin.from('socios').select('id').eq('id', params.referidoPor).eq('studio_id', params.studioId).maybeSingle();
+    referido = data ? params.referidoPor : null;
+  }
+
+  // Ficha "fantasma": entregarPlanComprado (compra pública vía Stripe, sin
+  // login previo) puede haber creado ya una socia con este email pero SIN
+  // auth_user_id -- solo pagó, nunca inició sesión. Si no se adopta aquí, este
+  // alta crea una SEGUNDA ficha con id distinto, y el bono ya cobrado queda
+  // invisible para siempre en la fantasma (auditoría 2026-07-29, hallazgo 2.2).
+  // .limit(1) en vez de .maybeSingle(): si dos compras casi simultáneas de un
+  // mismo email sin cuenta llegaran a crear dos fantasmas (carrera infrecuente
+  // en entregarPlanComprado), .maybeSingle() habría devuelto un error de
+  // "more than one row" que este código ignoraba — cayendo al alta normal y
+  // dejando AMBOS bonos huérfanos para siempre. Con .limit(1) siempre se
+  // adopta uno de forma determinista en vez de no adoptar ninguno.
+  const { data: fantasmas } = await admin
+    .from('socios')
+    .select('id')
+    .eq('studio_id', params.studioId)
+    .ilike('email', params.email)
+    .is('auth_user_id', null)
+    .limit(1);
+  const fantasma = fantasmas?.[0];
+  if (fantasma) {
+    const { error } = await admin.from('socios').update({
+      auth_user_id: params.authUserId ?? null,
+      // La ficha fantasma nace de entregarPlanComprado con lo que Stripe haya
+      // recogido (a veces nada más que "Clienta") — se sincroniza con el
+      // nombre real que acaba de escribir en el alta, igual que el alta normal.
+      nombre: params.nombre,
+      apellidos: '',
+      aceptacion_fecha: params.aceptacion?.fecha ?? null,
+      aceptacion_firma: params.aceptacion?.firma ?? null,
+      aceptacion_version: params.aceptacion?.versionTexto ?? null,
+      // Sin esto, revisión de auditoría: la ficha fantasma no traía
+      // referido_por (entregarPlanComprado no acepta código de referido), así
+      // que adoptarla sin escribirlo aquí perdía el premio de quien invitó.
+      ...(referido ? { referido_por: referido } : {}),
+    }).eq('id', fantasma.id);
+    if (error) return { error: error.message };
+    return { ok: true as const, socioId: fantasma.id as string };
+  }
+
   // Tope de socias del plan. Va AQUÍ, después de la idempotencia y pegado al
   // insert, y no en la ruta que llama: allí corría ANTES de la salida temprana
   // de arriba, así que un simple reintento de una socia que YA existe se comía
@@ -2584,13 +2650,6 @@ export async function registrarSociaPublica(params: {
   // tope solo se aplica cuando de verdad va a entrar una socia nueva.
   const denegacion = await evaluarLimiteSocias(params.studioId, await contarSociasActivas(admin, params.studioId), 1);
   if (denegacion) return { error: denegacion.error, code: denegacion.code };
-
-  // El referido solo es válido si existe una socia con ese id en el estudio.
-  let referido: string | null = null;
-  if (params.referidoPor && params.referidoPor !== params.id) {
-    const { data } = await admin.from('socios').select('id').eq('id', params.referidoPor).eq('studio_id', params.studioId).maybeSingle();
-    referido = data ? params.referidoPor : null;
-  }
 
   const { error } = await admin.from('socios').insert({
     id: params.id, studio_id: params.studioId, nombre: params.nombre, apellidos: '',
@@ -2862,9 +2921,14 @@ async function evaluarLogrosServidor(
   const { socio, reservas, sesiones, referidas } = ctx;
 
   const now = new Date();
-  for (const def of definiciones) {
+  // Cada logro es independiente de los demás (progreso/historial/crédito solo
+  // tocan filas propias de ese achievement_id, y reward_actions se protege con
+  // su UNIQUE) — se evalúan en paralelo en vez de un `for` con awaits
+  // secuenciales, que serializaba hasta N×4 round-trips en el hot path de
+  // cada reserva creada.
+  await Promise.all(definiciones.map(async def => {
     const existente = progresos.find(p => p.achievementId === def.id);
-    if (existente?.completado) continue; // ya conseguido, no se re-evalúa
+    if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
     const valor = calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas });
     const completadoAhora = valor >= def.umbral;
@@ -2875,9 +2939,9 @@ async function evaluarLogrosServidor(
       progreso_actual: valor, completado: completadoAhora,
       completado_en: completadoAhora ? now.toISOString() : null,
     }, { onConflict: 'socio_id,achievement_id' });
-    if (progError) { reportDbError('[evaluarLogrosServidor] progreso', progError); continue; }
+    if (progError) { reportDbError('[evaluarLogrosServidor] progreso', progError); return; }
 
-    if (!completadoAhora) continue;
+    if (!completadoAhora) return;
 
     const { error: histError } = await admin.from('achievement_history').insert({
       id: `achh-${uid()}`, studio_id: studioId, socio_id: socioId, achievement_id: def.id,
@@ -2885,7 +2949,7 @@ async function evaluarLogrosServidor(
     });
     if (histError) reportDbError('[evaluarLogrosServidor] historial', histError);
 
-    if (def.creditosRecompensa <= 0) continue;
+    if (def.creditosRecompensa <= 0) return;
     // C-11: la idempotencia real la da el UNIQUE de reward_actions. Dos
     // evaluaciones concurrentes (dos reservas a la vez) no pueden doblar el
     // saldo: la segunda choca con el UNIQUE y sale.
@@ -2893,7 +2957,7 @@ async function evaluarLogrosServidor(
       id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId,
       trigger: 'LOGRO', ref_id: `${socioId}:${def.id}`, creado_en: now.toISOString(),
     });
-    if (claimError) continue; // ya otorgado por otra evaluación
+    if (claimError) return; // ya otorgado por otra evaluación
 
     // P0-20: incremento ATÓMICO del saldo.
     await admin.rpc('ajustar_creditos', {
@@ -2905,7 +2969,7 @@ async function evaluarLogrosServidor(
       creditos: def.creditosRecompensa, descripcion: `Logro desbloqueado: ${def.nombre}`,
       ref_id: def.id, creado_en: now.toISOString(),
     });
-  }
+  }));
 }
 
 // Retos: mismo fallo y mismo arreglo que los logros. La diferencia es que un
@@ -2927,9 +2991,11 @@ async function evaluarRetosServidor(
   const progresos = (progRows ?? []).map(mapChallengeProgress);
   const { socio, reservas, sesiones, referidas } = ctx;
 
-  for (const reto of retos) {
+  // Mismo motivo que evaluarLogrosServidor: cada reto es independiente, se
+  // evalúan en paralelo en vez de serializar N×4 round-trips por reserva.
+  await Promise.all(retos.map(async reto => {
     const existente = progresos.find(p => p.challengeId === reto.id);
-    if (existente?.completado) continue; // ya conseguido, no se re-evalúa
+    if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
     const valor = calcularProgresoReto(reto, reservas, sesiones, socio, referidas, now);
     const completadoAhora = valor >= reto.objetivo;
@@ -2940,9 +3006,9 @@ async function evaluarRetosServidor(
       progreso_actual: valor, completado: completadoAhora,
       completado_en: completadoAhora ? now.toISOString() : null,
     }, { onConflict: 'socio_id,challenge_id' });
-    if (progError) { reportDbError('[evaluarRetosServidor] progreso', progError); continue; }
+    if (progError) { reportDbError('[evaluarRetosServidor] progreso', progError); return; }
 
-    if (!completadoAhora) continue;
+    if (!completadoAhora) return;
 
     const { error: histError } = await admin.from('challenge_history').insert({
       id: `chah-${uid()}`, studio_id: studioId, socio_id: socioId, challenge_id: reto.id,
@@ -2950,13 +3016,13 @@ async function evaluarRetosServidor(
     });
     if (histError) reportDbError('[evaluarRetosServidor] historial', histError);
 
-    if (reto.creditosRecompensa <= 0) continue;
+    if (reto.creditosRecompensa <= 0) return;
     // Mismo UNIQUE de reward_actions que los logros, con trigger 'RETO'.
     const { error: claimError } = await admin.from('reward_actions').insert({
       id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId,
       trigger: 'RETO', ref_id: `${socioId}:${reto.id}`, creado_en: now.toISOString(),
     });
-    if (claimError) continue; // ya otorgado por otra evaluación
+    if (claimError) return; // ya otorgado por otra evaluación
 
     await admin.rpc('ajustar_creditos', {
       p_socio_id: socioId, p_studio_id: studioId,
@@ -2967,7 +3033,7 @@ async function evaluarRetosServidor(
       creditos: reto.creditosRecompensa, descripcion: `Reto completado: ${reto.nombre}`,
       ref_id: reto.id, creado_en: now.toISOString(),
     });
-  }
+  }));
 }
 
 // Punto de entrada único: carga el contexto UNA vez y evalúa ambos sistemas.
@@ -3813,11 +3879,12 @@ export async function dbDeleteProductoPOS(id: string) {
 // dejar pasar el error. Si tras los intentos sigue ausente, se reporta igual: no
 // enmascara una FK realmente rota (solo reintenta ese código+constraint concretos).
 async function conReintentoFK<T extends { error: { code: string; message: string } | null }>(
-  constraint: string,
+  constraint: string | string[],
   insertar: () => PromiseLike<T>,
 ): Promise<T> {
+  const constraints = Array.isArray(constraint) ? constraint : [constraint];
   let res = await insertar();
-  for (let i = 0; i < 3 && res.error?.code === '23503' && res.error.message.includes(constraint); i++) {
+  for (let i = 0; i < 3 && res.error?.code === '23503' && constraints.some(c => res.error!.message.includes(c)); i++) {
     await new Promise((r) => setTimeout(r, 150 * (i + 1)));
     res = await insertar();
   }
@@ -4126,6 +4193,25 @@ export async function dbCancelarReservaPlaza(
   };
 }
 
+// Cancela (marca CANCELADA) todas las reservas activas de un lote de sesiones.
+// Cancelar una serie completa marcaba `sesiones.cancelada=true` pero dejaba las
+// reservas en CONFIRMADA/LISTA_ESPERA apuntando a una sesión cancelada — la
+// socia veía en su portal una plaza "confirmada" para una clase que ya no
+// existe. No devuelve bono (ver comentario en cancelarSerieDesde,
+// studio-context.tsx): eso es una decisión de producto pendiente, no algo que
+// se pueda improvisar aquí sin arriesgar un descuadre de saldo.
+export async function dbCancelarReservasPorSesiones(sesionIds: string[]): Promise<{ ok: true; ids: string[] } | { error: string }> {
+  if (sesionIds.length === 0) return { ok: true, ids: [] };
+  const { data, error } = await supabase
+    .from('reservas')
+    .update({ estado: 'CANCELADA', posicion_espera: null })
+    .in('sesion_id', sesionIds)
+    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA'])
+    .select('id');
+  if (error) { reportDbError('[dbCancelarReservasPorSesiones]', error); return { error: error.message }; }
+  return { ok: true, ids: (data ?? []).map(r => r.id as string) };
+}
+
 export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
   const db: Record<string, unknown> = {};
   if ('sesionId' in changes) db.sesion_id = changes.sesionId;
@@ -4139,7 +4225,13 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
 }
 
 export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
-  const { error } = await conReintentoFK('recibos_socio_id_fkey', () =>
+  // assignPlan() encadena dbInsertSuscripcion + dbInsertRecibo con la suscripción
+  // recién creada: mismo commit-race que socio_id (Sentry NEXTJS-W), pero antes
+  // solo se reintentaba para socio_id — la FK de suscripcion_id fallaba a la primera.
+  // También lo sufre la renovación por bono agotado (consumirSesionBono), que
+  // referencia una suscripción con la misma carrera de visibilidad (Sentry
+  // dbInsertRecibo 23503, recibos_suscripcion_id_fkey, visto en producción).
+  const { error } = await conReintentoFK(['recibos_socio_id_fkey', 'recibos_suscripcion_id_fkey'], () =>
     supabase.from('recibos').insert(reciboToDb(rec)),
   );
   return error ? falloEscritura('[dbInsertRecibo]', error) : ESCRITURA_OK;
@@ -4167,7 +4259,9 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Prom
 // socia) en una sola llamada, en vez de un UPDATE por recibo. Solo para campos
 // uniformes entre todos los recibos del lote (estado + fechaCobro, que es lo
 // que necesita cobrarTodosPendientes).
-export async function dbUpdateRecibosBatch(ids: string[], changes: Partial<Recibo>): Promise<ResultadoEscritura> {
+export async function dbUpdateRecibosBatch(
+  ids: string[], changes: Partial<Recibo>, soloSiEstadoActual?: Recibo['estado'],
+): Promise<ResultadoEscritura> {
   if (ids.length === 0) return ESCRITURA_OK;
   const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
@@ -4175,7 +4269,13 @@ export async function dbUpdateRecibosBatch(ids: string[], changes: Partial<Recib
   if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
   if (Object.keys(db).length === 0) return ESCRITURA_OK;
-  const { error } = await supabase.from('recibos').update(db).in('id', ids);
+  let q = supabase.from('recibos').update(db).in('id', ids);
+  // Sin este filtro, un recibo cobrado por OTRO camino (tarjeta, cobro manual)
+  // entre "preparar la remesa" y este UPDATE se pisaba en silencio de vuelta a
+  // un estado anterior — el mismo patrón de escritura optimista sin comprobar
+  // el resultado real que este repo ya ha corregido varias veces.
+  if (soloSiEstadoActual) q = q.eq('estado', soloSiEstadoActual);
+  const { error } = await q;
   return error ? falloEscritura('[dbUpdateRecibosBatch]', error) : ESCRITURA_OK;
 }
 
@@ -4315,33 +4415,6 @@ export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule
   return error ? falloEscritura('[dbUpdateRewardRule]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertRewardAction(a: RewardAction) {
-  const row = {
-    id: a.id, studio_id: a.studioId ?? STUDIO_ID, socio_id: a.socioId, trigger: a.trigger,
-    ref_id: a.refId ?? null, creado_en: a.creadoEn,
-  };
-  const { error } = await supabase.from('reward_actions').insert(row);
-  if (error) reportDbError('[dbInsertRewardAction]', error);
-  return !error;
-}
-
-// C-11: cerrojo de idempotencia para concesiones de crédito que NO tienen una
-// RewardRule detrás (logros y retos). Inserta una fila-guard en reward_actions;
-// el UNIQUE(studio_id, trigger, ref_id) hace que solo la PRIMERA evaluación gane.
-// Devuelve true si ganó el claim (primera vez → otorgar crédito), false si ya
-// existía o hubo error (→ NO otorgar; el lado seguro es no doblar el saldo).
-// Usar trigger sintético ('LOGRO'/'RETO') y refId = `${socioId}:${defId}` para
-// que sea único por (socia, logro/reto) y no por logro/reto a secas.
-export async function dbClaimRecompensaUnica(
-  studioId: string, socioId: string, trigger: string, refId: string,
-): Promise<boolean> {
-  const { error } = await supabase.from('reward_actions').insert({
-    id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId, trigger, ref_id: refId,
-    creado_en: new Date().toISOString(),
-  });
-  return !error;
-}
-
 export async function dbInsertRewardHistory(h: RewardHistory) {
   const row = {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, rule_id: h.ruleId,
@@ -4360,13 +4433,44 @@ export async function dbInsertCreditTransaction(t: CreditTransaction) {
   if (error) reportDbError('[dbInsertCreditTransaction]', error);
 }
 
-export async function dbUpsertMemberCredits(m: MemberCredits) {
-  const row = {
-    socio_id: m.socioId, studio_id: m.studioId ?? STUDIO_ID, saldo: m.saldo,
-    total_ganado: m.totalGanado, total_canjeado: m.totalCanjeado, actualizado_en: new Date().toISOString(),
-  };
-  const { error } = await supabase.from('member_credits').upsert(row, { onConflict: 'socio_id' });
-  if (error) reportDbError('[dbUpsertMemberCredits]', error);
+// Gamificación — GANANCIA de créditos por un disparador (asistencia, referido,
+// racha, logro, reto...). A diferencia de dbAjustarCreditos (que sigue siendo
+// correcto para el DÉBITO de un canje), aquí el importe de créditos NUNCA lo
+// decide el cliente: la RPC lo recalcula desde la regla/logro/reto activo del
+// propio estudio, y para ASISTENCIA_CLASE/REFERIDO_AMIGO exige que la
+// condición exista de verdad en la BD (una reserva ASISTIDA real) antes de
+// conceder nada. Sin esto, cualquier cuenta de personal autenticada podía
+// otorgarse créditos arbitrarios llamando directo a ajustar_creditos/insertando
+// en reward_actions desde la consola del navegador.
+// Devuelve el saldo tras la operación y si se concedió AHORA (otorgado=true) o
+// ya se había concedido antes para este mismo refId (otorgado=false,
+// no-op idempotente) — el llamante solo debe registrar historial/transacción
+// cuando otorgado=true, si no duplicaría esas filas en un reintento.
+export async function dbOtorgarCreditoDisparador(
+  socioId: string, studioId: string, trigger: string, refId: string, configId?: string,
+): Promise<{ ok: true; saldo: number; otorgado: boolean } | { error: string }> {
+  const { data, error } = await supabase.rpc('otorgar_credito_disparador', {
+    p_socio_id: socioId, p_studio_id: studioId, p_trigger: trigger, p_ref_id: refId,
+    p_config_id: configId ?? null,
+  });
+  if (error) {
+    // CONDICION_NO_CUMPLIDA / SIN_REGLA_ACTIVA no son errores de sistema: son el
+    // resultado esperado cuando el disparador aún no se cumple de verdad.
+    if (!error.message.includes('CONDICION_NO_CUMPLIDA') && !error.message.includes('SIN_REGLA_ACTIVA')) {
+      reportDbError('[dbOtorgarCreditoDisparador]', error);
+    }
+    return { error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  // La RPC siempre devuelve una fila si no hay error, pero un `row` ausente
+  // (PostgREST devolviendo 0 filas sin error, o una futura edición del SQL)
+  // no debe reventar aquí — mismo guard que dbSemaforoSaludEstudio/
+  // dbCancelarReservasPorSesiones ya usan con `data ?? []`.
+  if (!row) {
+    reportDbError('[dbOtorgarCreditoDisparador]', { message: 'La RPC no devolvió ninguna fila' });
+    return { error: 'No se pudo confirmar el crédito' };
+  }
+  return { ok: true, saldo: row.saldo as number, otorgado: row.otorgado as boolean };
 }
 
 // P0-20: ajuste ATÓMICO del saldo por deltas (incremento en la BD, no
@@ -4849,6 +4953,21 @@ export async function dbUpdateCondicion(id: string, changes: Partial<CondicionSa
 export async function dbDeleteCondicion(id: string) {
   const { error } = await supabase.from('condiciones_salud').delete().eq('id', id);
   if (error) reportDbError('[dbDeleteCondicion]', error);
+}
+
+// RECEPCIÓN ve el semáforo de salud (solo el color) pero la RLS de
+// condiciones_salud no le deja leer las filas — `condicionesSalud` en el
+// contexto llega vacío para ese rol, así que ningún cálculo LOCAL puede
+// producir un color. Esta RPC (SECURITY DEFINER) expone el nivel ya
+// calculado en servidor, sin las condiciones ni el motivo.
+export async function dbSemaforoSaludEstudio(studioId: string): Promise<Map<string, NivelSemaforo>> {
+  const { data, error } = await supabase.rpc('semaforo_salud_estudio', { p_studio_id: studioId });
+  if (error) { reportDbError('[dbSemaforoSaludEstudio]', error); return new Map(); }
+  const m = new Map<string, NivelSemaforo>();
+  for (const row of (data ?? []) as { socio_id: string; nivel: string }[]) {
+    m.set(row.socio_id, row.nivel as NivelSemaforo);
+  }
+  return m;
 }
 
 export async function dbInsertRespuestaSesion(r: RespuestaSesionRow) {
