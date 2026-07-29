@@ -62,7 +62,19 @@ export function TurnstileWidget({ onToken }: { onToken: (token: string | null) =
   // dependencias a propósito — tiene que quedarse con la última función.
   useEffect(() => { onTokenRef.current = onToken; });
   const [scriptListo, setScriptListo] = useState(false);
+  // Si el script no carga (bloqueador de contenido, red que corta
+  // challenges.cloudflare.com) o el propio widget de Cloudflare nunca resuelve,
+  // antes el botón de envío se quedaba deshabilitado PARA SIEMPRE sin ningún
+  // aviso: la visitante veía un email válido y un botón muerto, sin saber por
+  // qué (bug real, encontrado probando /portal/[slug]/acceso en producción).
+  const [fallo, setFallo] = useState(false);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+  useEffect(() => {
+    if (!siteKey || scriptListo) return;
+    const t = setTimeout(() => setFallo(true), 10_000);
+    return () => clearTimeout(t);
+  }, [siteKey, scriptListo]);
 
   useEffect(() => {
     if (!scriptListo || !siteKey || !contenedorRef.current || !window.turnstile) return;
@@ -99,8 +111,21 @@ export function TurnstileWidget({ onToken }: { onToken: (token: string | null) =
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"
         strategy="afterInteractive"
         onLoad={() => setScriptListo(true)}
+        onError={() => setFallo(true)}
       />
       <div ref={contenedorRef} />
+      {fallo && (
+        <p style={{ fontSize: 12, color: '#B91C1C' }}>
+          No se ha podido cargar la verificación de seguridad. Recarga la página e inténtalo de nuevo.{' '}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{ fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
+          >
+            Recargar
+          </button>
+        </p>
+      )}
     </>
   );
 }

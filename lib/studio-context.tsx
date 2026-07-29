@@ -242,7 +242,7 @@ interface StudioContextValue {
 
   // Socios
   addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string }) => Promise<ResultadoEscritura>;
-  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<void>;
+  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<ResultadoEscritura>;
   updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
   addTagSocio: (socioId: string, tag: string) => void;
@@ -1348,16 +1348,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     memberPrefsStore.upsertPreferenciasSocio(socioId, changes);
   }
 
-  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }): Promise<void> {
+  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (cpub) {
       // Alta pública vía endpoint (service-role). Se AWAITea para que la reserva
-      // posterior encuentre a la socia ya creada.
-      await postPublico('/api/public/socio', {
+      // posterior encuentre a la socia ya creada. El resultado se PROPAGA: antes
+      // se descartaba y un rechazo del servidor (tope de plan, red, timeout) se
+      // trataba como éxito silencioso — handleConfirm seguía adelante con una
+      // socia que no existía y se quedaba colgado sin ningún aviso.
+      return postPublico('/api/public/socio', {
         accion: 'registrar', studioId: cpub.studioId, id: fields.id, nombre: fields.nombre, email: fields.email,
         aceptacion: fields.aceptacionContrato, referidoPor: fields.referidoPor ?? null,
       });
-      return;
     }
     const nuevaSocia: Socio = {
       id: fields.id,
@@ -1378,6 +1380,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // al que invita NO se otorga aquí: se otorga cuando la referida asiste a
     // su primera clase (ver premiarReferidoSiProcede en checkin). Así una alta
     // falsa o que nunca aparece no genera recompensa.
+    return { ok: true };
   }
 
   async function updateStudioConfig(changes: Partial<StudioConfig>): Promise<ResultadoEscritura> {
