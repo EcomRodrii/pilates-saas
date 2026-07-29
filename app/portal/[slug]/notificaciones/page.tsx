@@ -1,20 +1,41 @@
 'use client';
 
+// AVISOS — pantalla del prototipo navegable de Claude Design.
+//
+// La fuente de datos no cambia: sigue siendo la tabla `notification` del motor
+// de notificaciones vía /api/notifications, acotada por el JWT de la socia, y
+// se siguen marcando todas como leídas al abrir la bandeja.
+//
+// Lo que cambia es la composición. El diseño tira TRES cosas del centro
+// anterior y hay que entender por qué antes de echarlas de menos:
+//
+//  1. Los iconos de colores por categoría. En una bandeja de cuatro líneas, un
+//     círculo rojo y otro ámbar compiten con el titular por la primera mirada;
+//     el diseño deja que hable el texto y reserva el único acento —un punto de
+//     6 px— para lo que de verdad hay que distinguir: lo que aún no has leído.
+//  2. La agrupación Hoy / Esta semana / Anteriores. Con el sello temporal en
+//     cada aviso, la cabecera de grupo repite la misma información dos veces.
+//  3. Las tarjetas. Aquí la lista son filas separadas por hilos, que es lo que
+//     permite bajar el ritmo vertical a 22 px sin que se vea apretado.
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useModo } from '@/lib/portal-modo';
-import { ChevronLeft, CheckCircle2, CreditCard, Bell, CalendarClock, AlertTriangle } from 'lucide-react';
 import { portalAuthHeader } from '@/lib/api-client';
 import { fetchNotificaciones, accionNotificacion, type NotifItem } from '@/lib/notifications/client';
-import { Card, EmptyState } from '@/components/portal/ui';
+import { resumenAvisos, selloTemporal } from '@/lib/avisos-portal';
+import { display, micro, sans, transicion, dur } from '@/lib/portal-design';
 
-// Centro de notificaciones de la socia — lee la tabla `notification` (motor de
-// notificaciones) vía /api/notifications, acotada por su JWT. Sustituye al feed
-// que se derivaba en el navegador de reservas/recibos + estado en localStorage.
-export default function NotificacionesPage() {
+// El diseño apaga los avisos ya leídos bajando título y detalle a la vez. Sale
+// más fiel con una opacidad que con dos colores nuevos: 0,81 sobre el crema deja
+// el titular en #4A5145, que es EXACTAMENTE el del diseño, y además funciona en
+// modo noche, donde un par de grises fijos se verían apagados al revés.
+const APAGADO_LEIDO = 0.81;
+
+export default function AvisosPage() {
   const router = useRouter();
   const { slug } = useParams<{ slug: string }>();
-  const { t } = useModo();
+  const { t, noche } = useModo();
   const [items, setItems] = useState<NotifItem[]>([]);
   const [cargando, setCargando] = useState(true);
 
@@ -28,97 +49,109 @@ export default function NotificacionesPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void cargar(); }, [cargar]);
 
-  // Al abrir la bandeja se marcan todas como leídas (limpia el punto de la campana).
+  // Al abrir la bandeja se marcan todas como leídas (limpia el punto de la
+  // campana). El estado local NO se toca a propósito: los puntos siguen ahí
+  // mientras la pantalla está abierta, que es justo lo que se vino a mirar.
   useEffect(() => {
     if (!cargando && items.some(i => i.readAt == null)) {
       void accionNotificacion(portalAuthHeader, 'read-all');
     }
   }, [cargando, items]);
 
+  const sinLeer = useMemo(() => items.filter(i => i.readAt == null).length, [items]);
+
   async function abrir(n: NotifItem) {
     if (n.readAt == null) await accionNotificacion(portalAuthHeader, 'read', n.id);
     if (n.deepLink) router.push(n.deepLink);
   }
 
-  const grouped = useMemo(() => {
-    const now = new Date();
-    const todayKey = now.toISOString().slice(0, 10);
-    const groups: { label: string; items: NotifItem[] }[] = [];
-    for (const it of items) {
-      const d = new Date(it.createdAt);
-      const dayKey = d.toISOString().slice(0, 10);
-      const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-      const label = dayKey === todayKey ? 'Hoy' : diffDays <= 7 ? 'Esta semana' : 'Anteriores';
-      const last = groups[groups.length - 1];
-      if (last?.label === label) last.items.push(it);
-      else groups.push({ label, items: [it] });
-    }
-    return groups;
-  }, [items]);
-
-  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
-
   return (
-    <div style={{ minHeight: '100%', background: t.bg }}>
-      <div style={{ padding: '24px 20px 16px', background: t.surface, display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 10, borderBottom: `1px solid ${t.line}` }}>
+    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+      <div style={{ padding: '62px 24px 24px' }}>
         <button
           onClick={() => router.push(`/portal/${slug}/home`)}
-          style={{ width: 36, height: 36, borderRadius: 999, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: 'none' }}
+          aria-label="Volver a Inicio"
+          style={{
+            width: 38, height: 38, borderRadius: '50%',
+            border: `1px solid ${t.line}`,
+            background: noche ? 'rgba(36,40,32,.7)' : 'rgba(255,255,255,.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: sans, fontSize: 13, color: t.ink, cursor: 'pointer',
+            transition: transicion(['background'], dur.color),
+          }}
         >
-          <ChevronLeft size={18} style={{ color: t.ink }} />
+          ←
         </button>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: t.ink, letterSpacing: '-0.01em', textTransform: 'uppercase' }}>Notificaciones</h1>
-      </div>
 
-      <div style={{ padding: '16px 16px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {cargando ? (
-          <p style={{ fontSize: 13, color: t.muted, textAlign: 'center', padding: '24px 0' }}>Cargando…</p>
-        ) : grouped.length === 0 ? (
-          <EmptyState icon={<Bell size={18} />} title="Sin novedades por ahora" body="Aquí verás tus reservas, cambios y pagos." />
+        <h1 style={{ ...display(50), color: t.ink, marginTop: 20 }}>Avisos</h1>
+        <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>
+          {cargando ? 'Un momento…' : resumenAvisos(sinLeer)}
+        </p>
+
+        {/* La bandeja vacía usa los mismos hilos que la llena: una fila sola,
+            no un cartel centrado. Y habla en la voz del detalle (sans), no en
+            la de la portada — dos frases seguidas en serif cursiva compiten
+            entre ellas. */}
+        {!cargando && items.length === 0 ? (
+          <div style={{ marginTop: 32, padding: '22px 0', borderTop: `1px solid ${t.line}`, borderBottom: `1px solid ${t.line}` }}>
+            <p style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, textWrap: 'pretty' } as React.CSSProperties}>
+              Aquí aparecerán tus reservas, los cambios de clase y los pagos.
+            </p>
+          </div>
         ) : (
-          grouped.map(group => (
-            <div key={group.label}>
-              <p style={{ ...microLabel, marginBottom: 8, paddingLeft: 4 }}>{group.label}</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {group.items.map(it => (
-                  <Card key={it.id} onClick={() => abrir(it)} style={{ padding: 16, display: 'flex', gap: 12, cursor: it.deepLink ? 'pointer' : 'default', opacity: it.readAt == null ? 1 : 0.72 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: iconoBg(it, t) }}>
-                      {icono(it)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, lineHeight: 1.2 }}>{it.title}</p>
-                      <p style={{ fontSize: 13, color: t.muted2, marginTop: 2, lineHeight: 1.4 }}>{it.body}</p>
-                      <p style={{ fontSize: 11, color: t.muted, marginTop: 6 }}>{formatRelative(it.createdAt)}</p>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          ))
+          <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column' }}>
+            {items.map((it, i) => (
+              <Aviso
+                key={it.id}
+                item={it}
+                ultimo={i === items.length - 1}
+                onAbrir={() => void abrir(it)}
+                t={t}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-function icono(it: NotifItem) {
-  if (it.category === 'pagos') return <CreditCard size={18} style={{ color: '#C0362D' }} />;
-  if (it.category === 'clases' || it.priority === 'ALTA' || it.priority === 'CRITICA') return <AlertTriangle size={18} style={{ color: '#A65A0A' }} />;
-  if (it.eventType.startsWith('reserva.lista_espera')) return <CalendarClock size={18} style={{ color: '#A65A0A' }} />;
-  return <CheckCircle2 size={18} style={{ color: '#3E9B6C' }} />;
-}
-function iconoBg(it: NotifItem, t: { surface2: string }) {
-  if (it.category === 'pagos') return 'rgba(192,54,45,0.12)';
-  if (it.category === 'clases' || it.priority === 'ALTA' || it.priority === 'CRITICA') return 'rgba(166,90,10,0.12)';
-  return it.eventType.startsWith('reserva.confirmada') ? 'rgba(62,155,108,0.14)' : t.surface2;
-}
+type Tokens = ReturnType<typeof useModo>['t'];
 
-function formatRelative(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const h = Math.floor(diffMs / 3_600_000);
-  if (h < 1) return 'hace un momento';
-  if (h < 24) return `hace ${h} h`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `hace ${d} ${d === 1 ? 'día' : 'días'}`;
-  return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+function Aviso({ item, ultimo, onAbrir, t }: {
+  item: NotifItem; ultimo: boolean; onAbrir: () => void; t: Tokens;
+}) {
+  const leido = item.readAt != null;
+  const pulsable = item.deepLink != null;
+
+  return (
+    <div
+      onClick={pulsable ? onAbrir : undefined}
+      role={pulsable ? 'button' : undefined}
+      tabIndex={pulsable ? 0 : undefined}
+      onKeyDown={pulsable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(); } } : undefined}
+      style={{
+        display: 'flex', gap: 14, padding: '22px 0',
+        borderTop: `1px solid ${t.line}`,
+        borderBottom: ultimo ? `1px solid ${t.line}` : undefined,
+        cursor: pulsable ? 'pointer' : 'default',
+      }}
+    >
+      {/* La columna del punto mide 6 px SIEMPRE, esté o no el punto: si se
+          colapsa en los leídos, el texto de esas filas se desalinea con el de
+          las demás y la lista pierde el borde izquierdo común. */}
+      <div style={{ flex: '0 0 6px', paddingTop: leido ? undefined : 8 }}>
+        {!leido && <div style={{ width: 6, height: 6, borderRadius: '50%', background: t.ink }} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, opacity: leido ? APAGADO_LEIDO : 1 }}>
+        <div style={{ ...micro(9, 0.2), color: t.micro }}>{selloTemporal(item.createdAt)}</div>
+        <div style={{ ...display(22, false, 1.1), color: t.ink, marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
+          {item.title}
+        </div>
+        <div style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
+          {item.body}
+        </div>
+      </div>
+    </div>
+  );
 }

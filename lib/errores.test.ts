@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { esMensajeTecnico, mensajeSeguro, mensajeHttp, ERROR_GENERICO } from './errores.ts';
+import { esMensajeTecnico, mensajeSeguro, mensajeHttp, mensajeDeFalloAlGuardar, ERROR_GENERICO } from './errores.ts';
 
 // Los casos de "técnico" salen de fugas REALES que había en producción: cada
 // cadena de aquí llegó a mostrarse tal cual en la pantalla de una dueña de
@@ -71,4 +71,32 @@ test('mensajeHttp no devuelve nunca un código suelto', () => {
     assert.ok(!m.includes(String(s)), `mensajeHttp(${s}) filtra el código: ${m}`);
   }
   assert.equal(mensajeHttp(500), ERROR_GENERICO);
+});
+
+test('un 4xx con una frase para una persona NO se sustituye por el texto genérico', () => {
+  // Regresión: el servidor rechaza la reserva diciendo exactamente qué falta, y
+  // ese motivo acababa en pantalla como «no se ha podido guardar». La socia se
+  // quedaba sin saber que lo único que le faltaba era un bono.
+  assert.equal(
+    mensajeDeFalloAlGuardar({ error: 'Necesitas un plan o bono activo para reservar', status: 400 }),
+    'Necesitas un plan o bono activo para reservar',
+  );
+  assert.equal(
+    mensajeDeFalloAlGuardar({ error: 'Tu bono no incluye este tipo de clase', status: 400 }),
+    'Tu bono no incluye este tipo de clase',
+  );
+});
+
+test('un 4xx sin mensaje aprovechable sigue cayendo al texto por código', () => {
+  const soloCodigo = mensajeDeFalloAlGuardar({ status: 400 });
+  assert.ok(soloCodigo.length > 0);
+  assert.ok(!/400/.test(soloCodigo));
+  // Y la jerga se sigue filtrando aunque venga con un 4xx.
+  const tecnico = mensajeDeFalloAlGuardar({ error: 'duplicate key value violates unique constraint', status: 400 });
+  assert.ok(!/duplicate key/i.test(tecnico));
+});
+
+test('401 y 403 no repiten lo que diga el servidor', () => {
+  const r = mensajeDeFalloAlGuardar({ error: 'socio_id 42 no pertenece al studio', status: 401 });
+  assert.ok(!/socio_id/.test(r));
 });

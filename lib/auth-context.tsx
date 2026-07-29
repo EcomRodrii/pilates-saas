@@ -27,7 +27,10 @@ type AuthContextType = {
   signOut: () => Promise<void>;
   updateProfile: (datos: { nombre: string; apellidos: string }) => Promise<{ error: string | null }>;
   updateEmail: (nuevoEmail: string) => Promise<{ error: string | null; pendiente: boolean }>;
-  updatePassword: (actual: string, nueva: string) => Promise<{ error: string | null }>;
+  updatePassword: (actual: string, nueva: string, captchaToken?: string) => Promise<{ error: string | null }>;
+  recuperarPassword: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
+  establecerPassword: (nueva: string) => Promise<{ error: string | null }>;
+  reenviarConfirmacion: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -141,18 +144,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Reautenticación defensiva antes de tocar la contraseña: el proyecto tiene
   // `secure_password_change` desactivado (no lo exige Supabase), así que la
   // propia app comprueba la contraseña actual antes de aceptar la nueva.
-  async function updatePassword(actual: string, nueva: string) {
+  //
+  // ⚠️ Esa comprobación es un `signInWithPassword`, o sea una llamada de auth
+  // más — y el captcha se exige a nivel de PROYECTO, no por pantalla. Sin
+  // `captchaToken` gotrue la rechaza SIEMPRE con `captcha_failed`, así que en
+  // cuanto se activó Turnstile cambiar la contraseña dejó de ser posible para
+  // todo el mundo. Es exactamente el aviso que ya estaba escrito en
+  // `components/auth/turnstile-widget.tsx`: cubrir solo una parte de las
+  // pantallas de auth no es una opción con este modelo de captcha.
+  async function updatePassword(actual: string, nueva: string, captchaToken?: string) {
     const email = session?.user?.email;
     if (!email) return { error: 'No hay sesión activa.' };
-    const { error: reauthError } = await supabase.auth.signInWithPassword({ email, password: actual });
-    if (reauthError) return { error: 'La contraseña actual no es correcta.' };
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email, password: actual,
+      ...(captchaToken ? { options: { captchaToken } } : {}),
+    });
+    // Antes CUALQUIER fallo aquí se contaba como "la contraseña actual no es
+    // correcta". Con el captcha rechazando la llamada, eso convertía un fallo
+    // de configuración en una acusación falsa: escribías tu contraseña buena y
+    // la aplicación te decía que estaba mal, una y otra vez.
+    if (reauthError) {
+      const m = reauthError.message.toLowerCase();
+      if (m.includes('invalid login credentials')) {
+        return { error: 'La contraseña actual no es correcta.' };
+      }
+      return { error: mensajeDeError(reauthError) };
+    }
     const { error } = await supabase.auth.updateUser({ password: nueva });
-    if (error) return { error: error.message };
+    if (error) return { error: mensajeDeError(error) };
+    return { error: null };
+  }
+
+  // Reenviar el correo de confirmación. El proyecto exige confirmar el email
+  // (se activó para cerrar un account-takeover), y `mensajeDeError` ya decía
+  // "busca nuestro correo, mira también en spam" — pero si el correo nunca
+  // llegó, se borró, o el enlace caducó, no había NADA que hacer desde la
+  // aplicación. Un callejón sin salida en la primera pantalla del producto.
+  async function reenviarConfirmacion(email: string, captchaToken?: string) {
+    const redirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/login` : undefined;
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: {
+        ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
+        ...(captchaToken ? { captchaToken } : {}),
+      },
+    });
+    if (error) return { error: mensajeDeError(error) };
+    return { error: null };
+  }
+
+  // Recuperar la contraseña cuando NO puedes entrar. No existía: `/login` no
+  // ofrecía "he olvidado mi contraseña" y `resetPasswordForEmail` no se
+  // llamaba desde ningún sitio del código. Una propietaria que olvidase su
+  // contraseña se quedaba fuera de su propio negocio, y la única salida era
+  // que alguien le mandase el enlace desde el panel de Supabase.
+  //
+  // `redirectTo` apunta a /clave-nueva, que es la única pantalla que sabe
+  // recoger la sesión de recuperación. Sin él, el enlace deja al usuario en la
+  // raíz del sitio con el token ya gastado y sin dónde escribir la nueva.
+  async function recuperarPassword(email: string, captchaToken?: string) {
+    const redirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/clave-nueva` : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      ...(redirectTo ? { redirectTo } : {}),
+      ...(captchaToken ? { captchaToken } : {}),
+    });
+    if (error) return { error: mensajeDeError(error) };
+    return { error: null };
+  }
+
+  // Fijar la contraseña con la sesión que abre el enlace de recuperación. Aquí
+  // NO se reautentica: quien llega ya ha demostrado que controla el correo, y
+  // pedirle la contraseña actual sería absurdo — no se la sabe, por eso está
+  // aquí.
+  async function establecerPassword(nueva: string) {
+    const { error } = await supabase.auth.updateUser({ password: nueva });
+    if (error) return { error: mensajeDeError(error) };
     return { error: null };
   }
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, updateProfile, updateEmail, updatePassword }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, updateProfile, updateEmail, updatePassword, recuperarPassword, establecerPassword, reenviarConfirmacion }}>
       {children}
     </AuthContext.Provider>
   );

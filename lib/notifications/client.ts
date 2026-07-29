@@ -24,7 +24,11 @@ type Headers = () => Promise<Record<string, string>>;
 export async function fetchNotificaciones(getHeaders: Headers): Promise<{ items: NotifItem[]; unread: number }> {
   const res = await fetch('/api/notifications', { headers: await getHeaders(), cache: 'no-store' });
   if (!res.ok) return { items: [], unread: 0 };
-  return res.json();
+  // Un cuerpo sin `items` (proxy, respuesta recortada) dejaba la lista en
+  // `undefined` y la pantalla se caía al recorrerla. Vacío no es lo mismo que
+  // roto, pero pintar "no hay nada" es mejor que no pintar nada.
+  const body = await res.json();
+  return { items: body?.items ?? [], unread: body?.unread ?? 0 };
 }
 
 export async function accionNotificacion(

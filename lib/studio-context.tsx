@@ -49,6 +49,19 @@ import {
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
+
+/**
+ * Lo que de verdad ha pasado al intentar reservar.
+ *
+ * Antes `addReserva` devolvía un `EstadoReserva` a secas, y en la vía pública
+ * ese estado era una ESTIMACIÓN del navegador: el POST salía sin `await` y sin
+ * mirar la respuesta. Si el servidor decía «necesitas un bono», la pantalla
+ * anunciaba «Reservada» igual — y la reserva no existía en ningún sitio.
+ * Un resultado que puede ser `{ ok: false }` obliga a quien llama a mirar.
+ */
+export type ResultadoReserva =
+  | { ok: true; estado: EstadoReserva }
+  | { ok: false; error: string };
 import { horarioConNuevaHora } from '@/lib/serie-horario';
 import { politicaPrivacidadPorDefecto, terminosServicioPorDefecto, type DatosEstudioLegal } from '@/lib/legal-textos';
 import type {
@@ -264,8 +277,8 @@ interface StudioContextValue {
   cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura>;
 
   // Reservas
-  addReserva: (sesionId: string, socioId: string, spotId?: string | null) => EstadoReserva;
-  cancelarReserva: (reservaId: string) => void;
+  addReserva: (sesionId: string, socioId: string, spotId?: string | null) => Promise<ResultadoReserva>;
+  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura>;
   // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
   bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
@@ -1281,7 +1294,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const m = leerSociaLocal();
     return { studioId: studioIdOverride ?? '', socioId: m?.socioId ?? '', email: m?.email ?? '' };
   }
-  async function postPublico(url: string, body: Record<string, unknown>): Promise<ResultadoEscritura> {
+  async function postPublico(url: string, body: Record<string, unknown>): Promise<ResultadoEscritura & { datos?: unknown }> {
     try {
       // Si hay sesión de socia (portal, magic link) se manda su Bearer: los
       // endpoints que ya exigen sesión real (canje, preferencias) derivan la
@@ -1307,7 +1320,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         const cuerpo = await res.json().catch(() => ({}));
         return { ok: false, error: mensajeDeFalloAlGuardar({ ...cuerpo, status: res.status }) };
       }
-      return { ok: true };
+      // El cuerpo se devuelve porque hay respuestas que dicen algo: la reserva
+      // contesta si quedó CONFIRMADA o en LISTA_ESPERA, y esa decisión la toma
+      // la BD (bloqueando la fila de la sesión), no la estimación del navegador.
+      return { ok: true, datos: await res.json().catch(() => null) };
     } catch (e) {
       return { ok: false, error: mensajeDeFalloAlGuardar(e) };
     } finally {
@@ -1872,7 +1888,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
   }
 
-  function addReserva(sesionId: string, socioId: string, spotId?: string | null): EstadoReserva {
+  async function addReserva(sesionId: string, socioId: string, spotId?: string | null): Promise<ResultadoReserva> {
     const esPrimeraReserva = !reservas.some(r => r.socioId === socioId);
     const sesion = sesiones.find(s => s.id === sesionId);
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
@@ -1880,12 +1896,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     const cpub = ctxPublico();
     if (cpub) {
-      // La creación real (con bono/renovación) la hace el servidor; el estado que
-      // devolvemos es la estimación cliente (misma lógica pura); recargarPublico
-      // sincroniza el estado autoritativo. spotId: el sitio que eligió la socia
-      // (solo se asigna si la reserva queda CONFIRMADA; el servidor lo valida).
-      postPublico('/api/public/reserva', { accion: 'crear', studioId: cpub.studioId, sesionId, socioId, email: cpub.email, spotId: spotId ?? null });
-      return estado;
+      // La creación real (con bono/gate de derechos/aforo) la hace el servidor.
+      // Aquí se ESPERA su respuesta: este endpoint rechaza legítimamente en seis
+      // sitios (sin bono, bono que no cubre el tipo, clase empezada, cancelada,
+      // tope de simultáneas, límite semanal) y antes ninguno de esos rechazos
+      // llegaba a la pantalla — la socia veía «Reservada» y en el panel no había
+      // nada. spotId: el sitio elegido (solo se asigna si queda CONFIRMADA).
+      const r = await postPublico('/api/public/reserva', { accion: 'crear', studioId: cpub.studioId, sesionId, socioId, email: cpub.email, spotId: spotId ?? null });
+      if (!r.ok) return r;
+      // El estado lo decide la BD bloqueando la fila de la sesión, no la
+      // estimación de arriba: con dos socias peleando por la última plaza, la
+      // estimación puede decir CONFIRMADA y la BD LISTA_ESPERA.
+      const dato = (r.datos as { estado?: EstadoReserva } | null)?.estado;
+      return { ok: true, estado: dato ?? estado };
     }
 
     const reservaId = `res-${uid()}`;
@@ -1927,15 +1950,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       evaluarRetosSocio(socioId, reservasFinales);
     });
 
-    return estado;
+    return { ok: true, estado };
   }
 
-  function cancelarReserva(reservaId: string) {
+  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (cpub) {
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r)); // optimista
-      postPublico('/api/public/reserva', { accion: 'cancelar', studioId: cpub.studioId, reservaId, socioId: cpub.socioId, email: cpub.email });
-      return;
+      const r = await postPublico('/api/public/reserva', { accion: 'cancelar', studioId: cpub.studioId, reservaId, socioId: cpub.socioId, email: cpub.email });
+      // Si el servidor la rechaza, `cargarPublico()` (en el finally de
+      // postPublico) devuelve la reserva a su sitio: el optimismo dura lo que
+      // tarda la respuesta, no para siempre.
+      return r.ok ? { ok: true } : r;
     }
 
     const cancelada = reservas.find(r => r.id === reservaId);
@@ -2015,6 +2041,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       }, ...prev]);
       addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, promovidaSocioId, `/socios/${promovidaSocioId}`);
     });
+    // Vía panel: la corrección de estado la hace el `.then` de arriba sobre el
+    // resultado autoritativo de la BD, así que aquí no hay nada que negar.
+    return { ok: true };
   }
 
   // Premia a quien invitó SOLO cuando la referida asiste a su primera clase,
