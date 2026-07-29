@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { fetchKpis, type Kpis } from '@/lib/interno/client';
+import { fetchFacturacion, fetchKpis, SinAcceso, type Facturacion, type Kpis } from '@/lib/interno/client';
 
 function Tarjeta({ titulo, valor, pie, acento }: {
   titulo: string; valor: string; pie?: string; acento?: boolean;
@@ -25,10 +25,30 @@ const eur = (n: number) => `${n.toLocaleString('es-ES')} €`;
 
 export default function ResumenInterno() {
   const [k, setK] = useState<Kpis | null>(null);
+  // El dinero se pide aparte, a Stripe. Si esa llamada falla, el resto de la
+  // pantalla sigue sirviendo: lo que NO se hace es rellenar el hueco con el
+  // precio de lista, que es lo que hacía antes y por eso mentía.
+  const [f, setF] = useState<Facturacion | null>(null);
+  // Por qué no hay cifra de dinero. Son tres motivos muy distintos y el pie de
+  // la tarjeta tiene que decir CUÁL: «no tienes permiso» y «Stripe no contesta»
+  // se arreglan de forma opuesta.
+  const [sinDinero, setSinDinero] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
-    try { setK(await fetchKpis()); } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+    try {
+      const [kpis, fact] = await Promise.all([
+        fetchKpis(),
+        fetchFacturacion().catch((e: unknown) => {
+          setSinDinero(e instanceof SinAcceso
+            ? 'No tienes permiso para ver la facturación.'
+            : 'No se ha podido cargar la facturación.');
+          return null;
+        }),
+      ]);
+      setK(kpis);
+      setF(fact);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
   }, []);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -44,14 +64,19 @@ export default function ResumenInterno() {
       <section>
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Negocio</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Estas dos tarjetas salen de Stripe (ver /interno/facturacion). Si
+              Stripe no contesta se enseña «—», nunca 0 €: un cero se lee como
+              «no cobras nada» y eso es una afirmación que no podemos hacer. */}
           <Tarjeta
-            titulo="MRR" valor={eur(k.ingresos.mrr)} acento
-            pie={k.ingresos.estudiosDePago === 0
-              ? `Nadie paga todavía${k.ingresos.accesoManual > 0 ? ` · ${k.ingresos.accesoManual} con acceso concedido a mano` : ''}.`
-              : `De ${k.ingresos.estudiosDePago} estudio(s) con cliente en Stripe y suscripción activa.`} />
+            titulo="MRR" valor={f?.stripeDisponible ? eur(f.mrrEuros) : '—'} acento
+            pie={!f ? (sinDinero ?? 'No se ha podido cargar la facturación.')
+              : !f.stripeDisponible ? (f.avisoStripe ?? 'Sin respuesta de Stripe.')
+              : f.pagando === 0
+                ? `Ninguna suscripción activa en Stripe${f.descuadres > 0 ? ` · ${f.descuadres} cuenta(s) no cuadran` : ''}.`
+                : `${f.pagando} suscripción(es) cobrando de verdad.`} />
           <Tarjeta
-            titulo="ARR" valor={eur(k.ingresos.arr)}
-            pie="MRR × 12. El estado real de cada cobro está en Stripe." />
+            titulo="ARR" valor={f?.stripeDisponible ? eur(f.mrrEuros * 12) : '—'}
+            pie="MRR × 12, con el importe que Stripe cobra de verdad." />
           <Tarjeta
             titulo="Estudios con actividad" valor={String(k.estudios.conActividad)}
             pie={`${k.estudios.vacios} altas más sin ninguna socia ni clase.`} />

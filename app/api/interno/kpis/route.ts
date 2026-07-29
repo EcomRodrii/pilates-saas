@@ -1,25 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
-import { PLAN_INFO } from '@/lib/billing/entitlements';
 
 export const runtime = 'nodejs';
 
-// KPIs de la plataforma entera.
+// KPIs de uso de la plataforma entera.
 //
 // Principio de esta ruta: **no inventar números**. Ninguna columna de la BD
-// prueba por sí sola que un estudio pague, y comprobarlo dio esta sorpresa:
+// prueba por sí sola que un estudio pague, así que aquí NO se calcula dinero:
+// el MRR y el estado de cobro los sirve `/api/interno/facturacion`, que se lo
+// pregunta a Stripe.
 //
-//   · `plan`: 12 de 14 son altas de prueba en BASE y los dos CADENA se
-//     pusieron a mano. No es prueba de nada.
-//   · `subscription_status = 'active'`: lo tienen los dos CADENA… que NO tienen
-//     cliente en Stripe. Es acceso concedido a mano, no una suscripción.
-//   · `stripe_customer_id`: lo tiene uno, con subscription_status a null —
-//     empezó el checkout y quizá no lo terminó.
-//
-// Así que "de pago" exige AMBAS cosas: cliente en Stripe y suscripción activa.
-// Hoy eso da 0 € — que es la verdad. Y se cuenta aparte cuántos tienen acceso
-// concedido a mano, porque si no, esos 2 se leerían como clientes.
+// Antes esta ruta sumaba el PRECIO DE LISTA de los estudios con
+// `stripe_customer_id` + `subscription_status = 'active'`. Dos motivos para
+// haberlo quitado, no uno:
+//   · el precio de lista no es lo que se cobra (descuentos, precios heredados);
+//   · solo miraba `studios`, y una cadena factura en `cadenas` — sus sedes
+//     heredan `active` sin customer, así que una cadena que pagase habría
+//     salido como N «accesos a mano» y 0 € de MRR.
+// Tener dos sitios que calculan el dinero de forma distinta es peor que tener
+// uno malo: nunca sabes cuál te está mintiendo.
 export async function GET(req: NextRequest) {
   const g = await exigirPermiso(req, 'studios.read');
   if ('error' in g) return g.error;
@@ -56,18 +56,7 @@ export async function GET(req: NextRequest) {
   const conActividad = filas.filter(
     s => (sociosPorEstudio.get(s.id as string) ?? 0) > 0 || (clasesPorEstudio.get(s.id as string) ?? 0) > 0,
   );
-  // De pago = las dos cosas. Ver el comentario de cabecera: por separado, cada
-  // columna cuenta a alguien que no paga.
-  const dePago = filas.filter(s => s.stripe_customer_id && s.subscription_status === 'active');
-  // Acceso desbloqueado a mano (activo sin cliente en Stripe). No son clientes,
-  // pero conviene saber cuántos hay: son cortesías que alguien concedió.
-  const accesoManual = filas.filter(s => !s.stripe_customer_id && s.subscription_status === 'active');
   const suspendidos = filas.filter(s => s.suspendido_en);
-
-  const mrr = dePago.reduce((total, s) => {
-    const info = PLAN_INFO[s.plan as keyof typeof PLAN_INFO];
-    return total + (info?.precioMes ?? 0);
-  }, 0);
 
   // Altas por mes, para el gráfico. Clave 'YYYY-MM'.
   const altasPorMes = new Map<string, number>();
@@ -83,13 +72,6 @@ export async function GET(req: NextRequest) {
       vacios: filas.length - conActividad.length,
       altasUltimos30d: filas.filter(s => String(s.creado_en ?? '') >= hace30).length,
       suspendidos: suspendidos.length,
-    },
-    ingresos: {
-      mrr,
-      arr: mrr * 12,
-      estudiosDePago: dePago.length,
-      accesoManual: accesoManual.length,
-      fuente: 'estudios con cliente en Stripe Y suscripción activa · la verdad de cada cobro está en Stripe',
     },
     actividad: {
       socias: (socios.data ?? []).length,
