@@ -4,6 +4,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { capturar } from '@/lib/analytics';
 import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/billing/stripe-cobros';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // Cobra un recibo pendiente usando la tarjeta ya guardada de la socia, sin
 // que ella tenga que hacer nada. Solo se llama cuando alguien del estudio
@@ -29,9 +30,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
   // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
-  // comprueba aquí. Las instructoras no cobran — solo dirección y recepción.
-  if (sesion.rol === 'INSTRUCTOR') {
-    return NextResponse.json({ error: 'Las instructoras no pueden registrar cobros' }, { status: 403 });
+  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
+  // mano: `rol === 'INSTRUCTOR'` dejaba pasar al MANAGER, que podía cobrar un
+  // recibo off-session igual que ya se corrigió en terminal/cobrar y
+  // facturas/sellar (auditoría 2026-07-29, I-6).
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'Tu rol no puede registrar cobros' }, { status: 403 });
   }
 
   const body = await req.json() as { logId: string; reciboId: string; socioId: string; studioId: string };

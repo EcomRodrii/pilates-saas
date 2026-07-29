@@ -430,7 +430,12 @@ export default function Dashboard() {
   // Hydration fix — avoids server/client mismatch with Date
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const now = mounted ? new Date() : new Date('2026-06-29');
+  // Memoizado en [mounted] (auditoría 2026-07-29, I-4): `new Date()` sin
+  // memoizar crea un objeto NUEVO en cada render, y `now` está en las
+  // dependencias de varios useMemo pesados de abajo (sparkData, ocupación,
+  // MRR, huecos próximos, candidatas) — sin esto, todos ellos recalculaban en
+  // CADA render, incluido uno tan ajeno como abrir un toast.
+  const now = useMemo(() => (mounted ? new Date() : new Date('2026-06-29')), [mounted]);
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -441,6 +446,19 @@ export default function Dashboard() {
   // no hacer sesiones.find() dentro de bucles sobre reservas/socios (cuadrático).
   const sesionById = useMemo(() => new Map(sesiones.map(s => [s.id, s])), [sesiones]);
   const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
+  // Auditoría 2026-07-29, I-5: plazas ocupadas (CONFIRMADA/ASISTIDA) por
+  // sesión, contadas en una sola pasada. ocupacionMedia hacía un
+  // reservas.filter() POR CADA sesión de la semana — cuadrático con estudios
+  // grandes (muchas sesiones × muchas reservas).
+  const ocupadasPorSesion = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of reservas) {
+      if (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA') {
+        m.set(r.sesionId, (m.get(r.sesionId) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [reservas]);
   const sesionesHoyIds = useMemo(
     () => new Set(sesiones.filter(s => localDate(s.inicio) === hoyStr).map(s => s.id)),
     [sesiones, hoyStr],
@@ -525,13 +543,11 @@ export default function Dashboard() {
       // A-16: plazas ocupadas = CONFIRMADA/ASISTIDA. Antes contaba toda reserva
       // no cancelada (incluía LISTA_ESPERA y NO_ASISTIO), inflando la ocupación
       // por encima del 100% y discrepando de Informes.
-      const ocupadas = reservas.filter(
-        r => r.sesionId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')
-      ).length;
+      const ocupadas = ocupadasPorSesion.get(s.id) ?? 0;
       return sum + ocupadas / s.aforoMaximo;
     }, 0);
     return Math.round((total / sessSemana.length) * 100);
-  }, [sesiones, reservas, now]);
+  }, [sesiones, ocupadasPorSesion, now]);
 
   // ── MRR ─────────────────────────────────────────────────────────────────────
   const { renovacionesProximas } = useMemo(() => {
