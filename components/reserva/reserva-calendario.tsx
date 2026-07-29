@@ -361,7 +361,10 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`${slot.claseNombre} a las ${fmtHora(slot.inicio)}${slot.instructorNombre ? `, con ${slot.instructorNombre}` : ''}, ${lleno ? 'completa' : `${libres} plazas`}`}
+      aria-label={`${slot.claseNombre} a las ${fmtHora(slot.inicio)}${slot.instructorNombre ? `, con ${slot.instructorNombre}` : ''}, ${
+        slot.miEstado === 'CONFIRMADA' ? 'ya la tienes reservada'
+        : slot.miEstado === 'LISTA_ESPERA' ? 'estás en lista de espera'
+        : lleno ? 'completa' : `${libres} plazas`}`}
       style={{
         display: 'flex', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none',
         alignItems: 'center', flexWrap: 'wrap', gap: cq(12, 1.8, 24),
