@@ -79,7 +79,7 @@ test('canales: una CRÍTICA ignora la preferencia pero NO se inventa canales', (
 });
 
 test('clase.* no declara EMAIL: el panel ya manda su propio correo a las alumnas', () => {
-  for (const evento of [EVENTOS.CLASE_CANCELADA, EVENTOS.CLASE_MODIFICADA]) {
+  for (const evento of [EVENTOS.CLASE_CANCELADA, EVENTOS.CLASE_MODIFICADA, EVENTOS.CLASE_SUSTITUTA]) {
     assert.equal(REGLAS[evento].canales.includes('EMAIL'), false, `${evento} duplicaría el email`);
   }
 });
@@ -105,6 +105,21 @@ test('cambios de clase: avisan a las alumnas Y a quien la imparte', () => {
   }
   const pl = plantillaDe(EVENTOS.CLASE_CANCELADA, 'INSTRUCTOR')!;
   assert.match(render(pl.body, { clase: 'Reformer', cuando: 'lunes a las 9:00' }), /Reformer.*lunes a las 9:00/);
+});
+
+test('clase cubierta: dice que la clase SIGUE, y con nombre y apellidos', () => {
+  // Solo las alumnas: a quien entra a cubrir ya le llega sustitucion.aceptada.
+  assert.equal(REGLAS[EVENTOS.CLASE_SUSTITUTA].audiencia, 'socias-de-la-sesion');
+  for (const rol of ROLES_POR_AUDIENCIA[REGLAS[EVENTOS.CLASE_SUSTITUTA].audiencia]) {
+    assert.ok(plantillaDe(EVENTOS.CLASE_SUSTITUTA, rol), `falta plantilla ${EVENTOS.CLASE_SUSTITUTA}#${rol}`);
+  }
+  const pl = plantillaDe(EVENTOS.CLASE_SUSTITUTA, 'SOCIA')!;
+  // Lo que NO puede pasar: que se lea como un cambio de horario y la alumna
+  // cancele una clase que sigue exactamente donde estaba.
+  assert.match(pl.title, /sigue en pie/i);
+  const body = render(pl.body, { clase: 'Reformer', cuando: 'lunes a las 9:00', sustituta: 'Aina' });
+  assert.match(body, /Reformer.*lunes a las 9:00.*Aina/);
+  assert.doesNotMatch(body, /pasa a/i);
 });
 
 // Fake del cliente Supabase admin: registra inserts en memoria y simula el choque

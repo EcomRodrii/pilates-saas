@@ -49,6 +49,10 @@ export const EVENTOS = {
   RESERVA_CANCELADA: 'reserva.cancelada',
   CLASE_CANCELADA: 'clase.cancelada',
   CLASE_MODIFICADA: 'clase.modificada',
+  // Cubrir NO es mover: la clase se queda donde está y solo cambia quién la da.
+  // Con `clase.modificada` el aviso decía "tu clase pasa a: <la misma hora>", que
+  // se lee como un cambio de horario y hace que la alumna se replantee si va.
+  CLASE_SUSTITUTA: 'clase.sustituta',
   SUSTITUCION_ACEPTADA: 'sustitucion.aceptada',
   SUSTITUCION_RECHAZADA: 'sustitucion.rechazada',
   PAGO_FALLIDO: 'pago.fallido',
@@ -87,6 +91,8 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // aquí les llegaría el mismo aviso dos veces.
   [EVENTOS.CLASE_CANCELADA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-e-instructora-de-la-sesion' },
   [EVENTOS.CLASE_MODIFICADA]:      { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-e-instructora-de-la-sesion' },
+  // Solo las alumnas: a quien entra a cubrir ya se le avisa por sustitucion.aceptada.
+  [EVENTOS.CLASE_SUSTITUTA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
   [EVENTOS.SUSTITUCION_ACEPTADA]:  { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
   [EVENTOS.SUSTITUCION_RECHAZADA]: { category: 'sustituciones', priority: 'ALTA', canales: [],     audiencia: 'propietaria' },
   // Sin EMAIL: el dunning ya manda su propio correo a la socia (1.er aviso).
@@ -204,6 +210,14 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.CLASE_MODIFICADA}#SOCIA`]: {
     title: 'Tu clase ha cambiado',
     body: 'Tu clase de {clase} pasa a: {cuando} · {sala}{instructora}. Revisa tu reserva.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+  },
+  // Clase cubierta por otra instructora → cada socia apuntada. Lo primero que
+  // tiene que quedar claro es que la clase SIGUE: si el aviso empieza hablando
+  // del cambio, la alumna ya está pensando en cancelar.
+  [`${EVENTOS.CLASE_SUSTITUTA}#SOCIA`]: {
+    title: 'Tu clase sigue en pie',
+    body: 'La clase de {clase} del {cuando} la dará {sustituta}. Tu reserva no cambia.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
   },
   // Los mismos dos eventos, contados desde el lado de quien imparte la clase:
