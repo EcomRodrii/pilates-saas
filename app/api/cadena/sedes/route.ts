@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { generateUniqueSlug } from '@/lib/supabase-data';
+import { slugify } from '@/lib/supabase-data';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { errorInterno } from '@/lib/errores-servidor';
 
@@ -38,9 +38,17 @@ export async function POST(req: NextRequest) {
     // El trigger heredar_plan_de_cadena (migración 0066) rellena plan/
     // subscription_status/current_period_end desde `cadenas` en el propio
     // INSERT — la sede nueva queda operativa sin checkout aparte.
+    //
+    // El slug se genera aquí en local (sin la RPC slug_estudio_disponible: esa
+    // función solo concede EXECUTE a `authenticated` — migración 0054 — y este
+    // endpoint llama con el cliente admin desde el servidor, sin sesión de
+    // usuario, así que la RPC nunca respondía true y el bucle de
+    // generateUniqueSlug giraba para siempre). El propio índice único de
+    // `studios.slug` + el reintento de abajo ante 23505 ya cubre la colisión.
+    const base = slugify(nombre);
     for (let intento = 0; intento < 3; intento++) {
       const id = `studio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const slug = await generateUniqueSlug(nombre);
+      const slug = intento === 0 ? base : `${base}-${intento + 1}`;
       const { error } = await admin.from('studios').insert({
         id,
         nombre,

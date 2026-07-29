@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { fijarEtiqueta } from '@/lib/sentry-cliente';
+import { fijarEtiqueta, capturarMensaje } from '@/lib/sentry-cliente';
 import { CoreProvider } from '@/lib/core-context';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
@@ -242,7 +242,7 @@ interface StudioContextValue {
 
   // Socios
   addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string }) => Promise<ResultadoEscritura>;
-  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<void>;
+  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<ResultadoEscritura>;
   updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
   addTagSocio: (socioId: string, tag: string) => void;
@@ -1348,16 +1348,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     memberPrefsStore.upsertPreferenciasSocio(socioId, changes);
   }
 
-  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }): Promise<void> {
+  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (cpub) {
       // Alta pública vía endpoint (service-role). Se AWAITea para que la reserva
-      // posterior encuentre a la socia ya creada.
-      await postPublico('/api/public/socio', {
+      // posterior encuentre a la socia ya creada. El resultado se PROPAGA: antes
+      // se descartaba y un rechazo del servidor (tope de plan, red, timeout) se
+      // trataba como éxito silencioso — handleConfirm seguía adelante con una
+      // socia que no existía y se quedaba colgado sin ningún aviso.
+      return postPublico('/api/public/socio', {
         accion: 'registrar', studioId: cpub.studioId, id: fields.id, nombre: fields.nombre, email: fields.email,
         aceptacion: fields.aceptacionContrato, referidoPor: fields.referidoPor ?? null,
       });
-      return;
     }
     const nuevaSocia: Socio = {
       id: fields.id,
@@ -1378,6 +1380,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // al que invita NO se otorga aquí: se otorga cuando la referida asiste a
     // su primera clase (ver premiarReferidoSiProcede en checkin). Así una alta
     // falsa o que nunca aparece no genera recompensa.
+    return { ok: true };
   }
 
   async function updateStudioConfig(changes: Partial<StudioConfig>): Promise<ResultadoEscritura> {
@@ -1856,12 +1859,31 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         intentosReintento: 0,
       };
       setRecibos(prev => [reciboRenovacion, ...prev]);
-      dbInsertRecibo(reciboRenovacion);
+      // Se ESPERA y se comprueba: antes se disparaba sin await y su fallo (Sentry
+      // dbInsertRecibo 23503, recibos_suscripcion_id_fkey — visto en producción)
+      // pasaba inadvertido. La pantalla seguía mostrando un recibo de renovación
+      // que nunca llegó a existir en la base de datos, así que el cobro
+      // correspondiente jamás se registraba.
+      const resRecibo = await dbInsertRecibo(reciboRenovacion);
+      const reciboGuardado = resRecibo.ok;
+      if (!reciboGuardado) {
+        setRecibos(prev => prev.filter(r => r.id !== reciboRenovacion.id));
+        capturarMensaje('[consumirSesionBono] no se pudo crear el recibo de renovación', 'error', {
+          extra: { socioId, sesionId, suscripcionId: sus.id, error: resRecibo.error },
+        });
+      }
+      // El bono agotado es un hecho real (la RPC ya lo confirmó arriba) sea o
+      // no se haya podido guardar el recibo automático: avisar a la dueña
+      // SIEMPRE, para que no pierda de vista una renovación pendiente solo
+      // porque el recibo automático falló — antes, ese fallo también se comía
+      // el aviso entero y nadie se enteraba de que había que renovar.
       setNotificaciones(prev => [{
         id: `notif-bono-${uid()}`,
         studioId: getCurrentStudioId(),
         titulo: 'Bono agotado',
-        texto: `${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`,
+        texto: reciboGuardado
+          ? `${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`
+          : `${nombreSocio} ha consumido su último bono de ${plan.nombre}. No se ha podido generar el recibo de renovación automático — créalo a mano.`,
         leida: false,
         tipo: 'AVISO' as const,
         enlace: `/socios/${socioId}`,

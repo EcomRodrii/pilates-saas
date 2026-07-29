@@ -149,6 +149,10 @@ export interface Socio {
   leadStage?: LeadStage;
   tags?: string[];
   aceptacionContrato?: AceptacionContrato;
+  // Art. 9 RGPD: consentimiento específico para tratar datos de salud (aparte
+  // del contrato general). undefined = no lo ha dado — condiciones_salud no
+  // debe recibir ninguna fila para esta socia hasta que exista.
+  consentimientoSalud?: { fecha: string; registradoPor: string };
   avatar?: string | null;
   stripeCustomerId?: string | null;
   stripePaymentMethodId?: string | null;

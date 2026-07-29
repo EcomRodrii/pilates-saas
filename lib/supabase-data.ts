@@ -185,7 +185,7 @@ const RECENT_FEED_LIMIT = 500;
 // que se agregan sobre histórico (ver comentario arriba) — reservas, recibos,
 // facturas, ventas_pos, sesiones, credit_transactions.
 const PAGE_SIZE = 1000;
-async function fetchAllRows<T>(
+export async function fetchAllRows<T>(
   studioId: string,
   tabla: string,
   pagina: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
@@ -415,6 +415,9 @@ export function mapSocio(r: RowSocios): Socio {
           ...(r.aceptacion_por ? { introducidaPor: r.aceptacion_por } : {}),
         }
       : undefined;
+  const consentimientoSalud = r.consentimiento_salud_fecha
+    ? { fecha: r.consentimiento_salud_fecha, registradoPor: r.consentimiento_salud_registrado_por ?? '' }
+    : undefined;
 
   return {
     id: r.id,
@@ -429,6 +432,7 @@ export function mapSocio(r: RowSocios): Socio {
     leadStage: r.lead_stage ?? undefined,
     tags: r.tags ?? undefined,
     aceptacionContrato,
+    consentimientoSalud,
     avatar: r.avatar ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     stripePaymentMethodId: r.stripe_payment_method_id ?? null,
@@ -1615,12 +1619,11 @@ export async function fetchPublicStudioData(
   if (!socioRow || !emailOk) return { ...base, socia: null };
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, facRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes] =
+  const [susRes, resRes, recRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes] =
     await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('recibos').select('*').eq('studio_id', studioId).eq('socio_id', sid),
-      admin.from('facturas').select('*').eq('studio_id', studioId),
       admin.from('preferencias_socio').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('member_credits').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reward_history').select('*').eq('studio_id', studioId).eq('socio_id', sid),
@@ -1631,9 +1634,22 @@ export async function fetchPublicStudioData(
       admin.from('citas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
     ]);
 
-  // Facturas de recibos de la socia (facturas no tiene socio_id directo).
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
-  const misReciboIds = new Set(misRecibos.map(r => r.id));
+  const misReciboIds = misRecibos.map(r => r.id);
+  // Facturas no tiene socio_id directo, pero SÍ recibo_id: antes se traía la
+  // tabla ENTERA del estudio para filtrarla en el cliente por reciboId. Con
+  // PostgREST truncando a 1000 filas por defecto, una socia de un estudio con
+  // más de 1000 facturas históricas podía dejar de ver algunas de las suyas
+  // (auditoría 2026-07-29, hallazgo 2.3) — y de paso se traía miles de filas
+  // ajenas para tirar casi todas. Filtrando por sus propios recibo_id, la
+  // consulta nunca puede rozar ese límite (acotada al historial de UNA socia).
+  // El corto-circuito con longitud 0 no es por corrección (`.in()` con un array
+  // vacío ya devuelve cero filas en PostgREST), es a propósito para no gastar
+  // un viaje de red entero en una socia recién dada de alta que aún no tiene
+  // ningún recibo.
+  const { data: facData } = misReciboIds.length > 0
+    ? await admin.from('facturas').select('*').eq('studio_id', studioId).in('recibo_id', misReciboIds)
+    : { data: [] as RowFacturas[] };
 
   return {
     ...base,
@@ -1642,7 +1658,7 @@ export async function fetchPublicStudioData(
       suscripciones: (susRes.data ?? []).map(mapSuscripcion),
       reservas: (resRes.data ?? []).map(mapReserva),
       recibos: misRecibos,
-      facturas: (facRes.data ?? []).map(mapFactura).filter(f => f.reciboId && misReciboIds.has(f.reciboId)),
+      facturas: (facData ?? []).map(mapFactura),
       preferenciasSocio: (prefRes.data ?? []).map(mapPreferenciasSocio),
       memberCredits: (credRes.data ?? []).map(mapMemberCredits),
       rewardHistory: (histRes.data ?? []).map(mapRewardHistory),
@@ -2569,6 +2585,55 @@ export async function registrarSociaPublica(params: {
     if (yaSocia) return { ok: true as const, socioId: yaSocia };
   }
 
+  // El referido solo es válido si existe una socia con ese id en el estudio.
+  // Se resuelve ANTES de la adopción de ficha fantasma (justo abajo): esa rama
+  // también tiene que poder escribir referido_por, o el premio de quien invitó
+  // se pierde en silencio cada vez que la referida ya tenía una ficha fantasma.
+  let referido: string | null = null;
+  if (params.referidoPor && params.referidoPor !== params.id) {
+    const { data } = await admin.from('socios').select('id').eq('id', params.referidoPor).eq('studio_id', params.studioId).maybeSingle();
+    referido = data ? params.referidoPor : null;
+  }
+
+  // Ficha "fantasma": entregarPlanComprado (compra pública vía Stripe, sin
+  // login previo) puede haber creado ya una socia con este email pero SIN
+  // auth_user_id -- solo pagó, nunca inició sesión. Si no se adopta aquí, este
+  // alta crea una SEGUNDA ficha con id distinto, y el bono ya cobrado queda
+  // invisible para siempre en la fantasma (auditoría 2026-07-29, hallazgo 2.2).
+  // .limit(1) en vez de .maybeSingle(): si dos compras casi simultáneas de un
+  // mismo email sin cuenta llegaran a crear dos fantasmas (carrera infrecuente
+  // en entregarPlanComprado), .maybeSingle() habría devuelto un error de
+  // "more than one row" que este código ignoraba — cayendo al alta normal y
+  // dejando AMBOS bonos huérfanos para siempre. Con .limit(1) siempre se
+  // adopta uno de forma determinista en vez de no adoptar ninguno.
+  const { data: fantasmas } = await admin
+    .from('socios')
+    .select('id')
+    .eq('studio_id', params.studioId)
+    .ilike('email', params.email)
+    .is('auth_user_id', null)
+    .limit(1);
+  const fantasma = fantasmas?.[0];
+  if (fantasma) {
+    const { error } = await admin.from('socios').update({
+      auth_user_id: params.authUserId ?? null,
+      // La ficha fantasma nace de entregarPlanComprado con lo que Stripe haya
+      // recogido (a veces nada más que "Clienta") — se sincroniza con el
+      // nombre real que acaba de escribir en el alta, igual que el alta normal.
+      nombre: params.nombre,
+      apellidos: '',
+      aceptacion_fecha: params.aceptacion?.fecha ?? null,
+      aceptacion_firma: params.aceptacion?.firma ?? null,
+      aceptacion_version: params.aceptacion?.versionTexto ?? null,
+      // Sin esto, revisión de auditoría: la ficha fantasma no traía
+      // referido_por (entregarPlanComprado no acepta código de referido), así
+      // que adoptarla sin escribirlo aquí perdía el premio de quien invitó.
+      ...(referido ? { referido_por: referido } : {}),
+    }).eq('id', fantasma.id);
+    if (error) return { error: error.message };
+    return { ok: true as const, socioId: fantasma.id as string };
+  }
+
   // Tope de socias del plan. Va AQUÍ, después de la idempotencia y pegado al
   // insert, y no en la ruta que llama: allí corría ANTES de la salida temprana
   // de arriba, así que un simple reintento de una socia que YA existe se comía
@@ -2580,13 +2645,6 @@ export async function registrarSociaPublica(params: {
   // tope solo se aplica cuando de verdad va a entrar una socia nueva.
   const denegacion = await evaluarLimiteSocias(params.studioId, await contarSociasActivas(admin, params.studioId), 1);
   if (denegacion) return { error: denegacion.error, code: denegacion.code };
-
-  // El referido solo es válido si existe una socia con ese id en el estudio.
-  let referido: string | null = null;
-  if (params.referidoPor && params.referidoPor !== params.id) {
-    const { data } = await admin.from('socios').select('id').eq('id', params.referidoPor).eq('studio_id', params.studioId).maybeSingle();
-    referido = data ? params.referidoPor : null;
-  }
 
   const { error } = await admin.from('socios').insert({
     id: params.id, studio_id: params.studioId, nombre: params.nombre, apellidos: '',
@@ -3486,6 +3544,10 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
     db.aceptacion_origen = changes.aceptacionContrato?.origen ?? null;
     db.aceptacion_por = changes.aceptacionContrato?.introducidaPor ?? null;
   }
+  if ('consentimientoSalud' in changes) {
+    db.consentimiento_salud_fecha = changes.consentimientoSalud?.fecha ?? null;
+    db.consentimiento_salud_registrado_por = changes.consentimientoSalud?.registradoPor ?? null;
+  }
   const { error } = await supabase.from('socios').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateSocio]', error) : ESCRITURA_OK;
 }
@@ -3805,11 +3867,12 @@ export async function dbDeleteProductoPOS(id: string) {
 // dejar pasar el error. Si tras los intentos sigue ausente, se reporta igual: no
 // enmascara una FK realmente rota (solo reintenta ese código+constraint concretos).
 async function conReintentoFK<T extends { error: { code: string; message: string } | null }>(
-  constraint: string,
+  constraint: string | string[],
   insertar: () => PromiseLike<T>,
 ): Promise<T> {
+  const constraints = Array.isArray(constraint) ? constraint : [constraint];
   let res = await insertar();
-  for (let i = 0; i < 3 && res.error?.code === '23503' && res.error.message.includes(constraint); i++) {
+  for (let i = 0; i < 3 && res.error?.code === '23503' && constraints.some(c => res.error!.message.includes(c)); i++) {
     await new Promise((r) => setTimeout(r, 150 * (i + 1)));
     res = await insertar();
   }
@@ -4131,7 +4194,11 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
 }
 
 export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
-  const { error } = await conReintentoFK('recibos_socio_id_fkey', () =>
+  // También reintenta ante FK de suscripcion_id: la renovación por bono
+  // agotado (consumirSesionBono) referencia una suscripción que puede sufrir
+  // la misma carrera de visibilidad que socio_id (Sentry dbInsertRecibo 23503,
+  // recibos_suscripcion_id_fkey, visto en producción).
+  const { error } = await conReintentoFK(['recibos_socio_id_fkey', 'recibos_suscripcion_id_fkey'], () =>
     supabase.from('recibos').insert(reciboToDb(rec)),
   );
   return error ? falloEscritura('[dbInsertRecibo]', error) : ESCRITURA_OK;
@@ -5411,7 +5478,7 @@ export async function dbGetIntegracionConfig(studioId: string, tipo: TipoIntegra
   return { activo: !!data.activo, config: (data.config as Record<string, string>) ?? {} };
 }
 
-function slugify(nombre: string): string {
+export function slugify(nombre: string): string {
   return nombre
     .normalize('NFD').replace(/[̀-ͯ]/g, '') // quita acentos
     .toLowerCase()
