@@ -20,7 +20,7 @@ import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { enviarEmailCancelacionClase, enviarEmailCambioClase, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
-import { detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
+import { detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
@@ -1651,6 +1651,13 @@ export default function Calendario() {
     return { faltan, sinCrear };
   }, [showForm, form.tipoClaseId, form.salaId, form.instructorId, tiposClase.length, salas.length, instructores.length]);
 
+  // Todas las sesiones en formato SlotSesion, para detectar conflictos y para
+  // elegir sala/instructora libres al proponer los valores por defecto.
+  const existentesSlot = useMemo<SlotSesion[]>(() => sesiones.map(s => ({
+    id: s.id, salaId: s.salaId, instructorId: s.instructorId,
+    inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
+  })), [sesiones]);
+
   // ── Conflictos de sala/instructora (I-1) y aforo (I-2) del formulario abierto ──
   // Se recalcula en vivo con los valores del form para avisar antes de guardar.
   const conflictosForm = useMemo(() => {
@@ -1658,17 +1665,13 @@ export default function Calendario() {
     const inicio = toISO(form.fecha, form.horaInicio);
     const fin = toISO(form.fecha, form.horaFin);
     if (new Date(fin).getTime() <= new Date(inicio).getTime()) return null;
-    const existentes: SlotSesion[] = sesiones.map(s => ({
-      id: s.id, salaId: s.salaId, instructorId: s.instructorId,
-      inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
-    }));
     const c = detectarConflictos(
       { salaId: form.salaId, instructorId: form.instructorId, inicio, fin },
-      existentes,
+      existentesSlot,
       showForm === 'editar' ? sesionId ?? undefined : undefined,
     );
     return hayConflicto(c) ? c : null;
-  }, [showForm, form.fecha, form.horaInicio, form.horaFin, form.salaId, form.instructorId, sesiones, sesionId]);
+  }, [showForm, form.fecha, form.horaInicio, form.horaFin, form.salaId, form.instructorId, existentesSlot, sesionId]);
 
   // I-2: al editar, cuántas confirmadas quedarían fuera si se baja el aforo.
   const aforoSobrante = useMemo(() => {
@@ -1705,7 +1708,22 @@ export default function Calendario() {
   }, []);
 
   function openNueva(prefillFecha?: string) {
-    setForm({ ...emptyForm(), fecha: prefillFecha ?? localDate(now) });
+    const base = emptyForm();
+    const fecha = prefillFecha ?? localDate(now);
+    const inicio = toISO(fecha, base.horaInicio);
+    const fin = toISO(fecha, base.horaFin);
+    // No proponer una sala/instructora ya ocupadas a esa hora: antes se
+    // proponía siempre la primera de la lista, así que una segunda clase (de
+    // OTRO tipo) a la misma hora nacía en conflicto sin que nadie hubiera
+    // elegido nada todavía.
+    const salaId = elegirLibre(salas.map(s => s.id), 'salaId', inicio, fin, existentesSlot);
+    setForm({
+      ...base,
+      fecha,
+      salaId,
+      instructorId: elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot),
+      aforoMaximo: salas.find(s => s.id === salaId)?.capacidad ?? base.aforoMaximo,
+    });
     setErrorSesion(null);
     setShowForm('nueva');
   }
@@ -2338,7 +2356,19 @@ export default function Calendario() {
             onSesionClick={id => setSesionId(prev => prev === id ? null : id)}
             onSlotClick={(fecha, hora) => {
               const base = emptyForm();
-              setForm({ ...base, fecha, horaInicio: hora, horaFin: finSegunDuracion(hora, base.tipoClaseId) });
+              const horaFin = finSegunDuracion(hora, base.tipoClaseId);
+              const inicio = toISO(fecha, hora);
+              const fin = toISO(fecha, horaFin);
+              // Mismo criterio que openNueva(): proponer sala/instructora
+              // libres a esa hora, no siempre la primera de la lista.
+              const salaId = elegirLibre(salas.map(s => s.id), 'salaId', inicio, fin, existentesSlot);
+              setForm({
+                ...base,
+                fecha, horaInicio: hora, horaFin,
+                salaId,
+                instructorId: elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot),
+                aforoMaximo: salas.find(s => s.id === salaId)?.capacidad ?? base.aforoMaximo,
+              });
               setErrorSesion(null);
               setShowForm('nueva');
             }}
