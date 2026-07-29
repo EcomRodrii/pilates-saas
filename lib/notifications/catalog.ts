@@ -57,6 +57,10 @@ export const EVENTOS = {
   SUSTITUCION_RECHAZADA: 'sustitucion.rechazada',
   PAGO_FALLIDO: 'pago.fallido',
   PAGO_REALIZADO: 'pago.realizado',
+  // Disputa/chargeback de Stripe: el dinero ya se cobró y ahora se impugna.
+  // Distinto de PAGO_FALLIDO (ahí nunca llegó a cobrarse) — el estudio tiene
+  // un plazo real de la propia Stripe para responder con evidencia.
+  PAGO_DISPUTADO: 'pago.disputado',
   SISTEMA_ERROR: 'sistema.error',
   // Automatizaciones (cron → publish)
   RECORDATORIO_24H: 'reserva.recordatorio_24h',
@@ -98,6 +102,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Sin EMAIL: el dunning ya manda su propio correo a la socia (1.er aviso).
   [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'mostrador-y-socia' },
   [EVENTOS.PAGO_REALIZADO]:        { category: 'pagos',    priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
+  // Solo al mostrador: quien disputa el cargo es la propia socia, avisarla
+  // de su propia disputa no tiene sentido. EMAIL sí (hay un plazo de Stripe
+  // que responder, no es algo que se pueda dejar para cuando se abra el panel).
+  [EVENTOS.PAGO_DISPUTADO]:        { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   // CRÍTICAS: declaran TODOS sus canales explícitamente. Antes bastaba con ser
   // CRÍTICA para que el motor forzara email/WA/SMS aunque la regla solo pusiera
   // PUSH; ahora que la regla manda, lo que no se declara no sale.
@@ -262,6 +270,16 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_REALIZADO}#SOCIA`]: {
     title: 'Pago recibido',
     body: 'Hemos recibido tu pago de {concepto} ({importe} €). ¡Gracias!',
+  },
+  [`${EVENTOS.PAGO_DISPUTADO}#PROPIETARIO`]: {
+    title: 'Un cargo ha sido disputado',
+    body: '{socia} ha impugnado el cargo de {concepto} ({importe} €) ante su banco. Tienes hasta el {plazo} para responder con evidencia en Stripe.',
+    deepLink: () => `/cobros?tab=pendientes`,
+  },
+  [`${EVENTOS.PAGO_DISPUTADO}#RECEPCION`]: {
+    title: 'Un cargo ha sido disputado',
+    body: '{socia} ha impugnado el cargo de {concepto} ({importe} €) ante su banco. Tienes hasta el {plazo} para responder con evidencia en Stripe.',
+    deepLink: () => `/cobros?tab=pendientes`,
   },
   [`${EVENTOS.SISTEMA_ERROR}#PROPIETARIO`]: {
     title: 'Aviso del sistema',

@@ -4,8 +4,10 @@
 // FICHA-CLINICA.md §3 (timeline), §2 (restricciones), §4 (semáforo), §5 (riesgo).
 // Solo se monta para PROPIETARIO/INSTRUCTOR (el gating vive en la página).
 
-import { useMemo, useState, useId } from 'react';
+import { useMemo, useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
+import { useAuth } from '@/lib/auth-context';
+import { useRol } from '@/lib/permisos';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
@@ -19,6 +21,7 @@ import {
   semaforo, nivelRiesgo, SEMAFORO_META, RIESGO_META, RESPUESTA_META,
   RESTRICCIONES, restriccionesLegibles, revisionVencida, diasDesde,
 } from '@/lib/ficha-clinica';
+import { dbRegistrarLecturaFichaSalud, getCurrentStudioId } from '@/lib/supabase-data';
 
 // ─── Etiquetas de presentación ───────────────────────────────────────────────
 
@@ -301,8 +304,28 @@ function ConsentimientoSaludDialog({
 // ─── Pestaña completa ────────────────────────────────────────────────────────
 
 export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
-  const { socios, condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion, updateSocio } = useStudio();
+  const { socios, condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion, updateSocio, instructores } = useStudio();
+  const { user } = useAuth();
+  const rol = useRol();
   const socio = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
+
+  // Auditoría RGPD de LECTURA (no de escritura): quién abre esta pestaña, de
+  // qué socia, y cuándo. Best-effort — un fallo aquí no debe impedir ver la
+  // ficha. Una vez por montaje (abrir/cerrar y volver a abrir es una lectura
+  // nueva legítima, no hace falta deduplicar).
+  useEffect(() => {
+    if (!user?.id) return;
+    const yo = instructores.find(i => i.authUserId === user.id);
+    const studioId = getCurrentStudioId();
+    if (!studioId) return;
+    dbRegistrarLecturaFichaSalud({
+      studioId, socioId,
+      leidoPorUserId: user.id,
+      leidoPorNombre: yo?.nombre ?? 'Propietaria',
+      leidoPorRol: rol,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socioId, user?.id]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<CondicionSalud | null>(null);
   // Borrar una condición de la ficha clínica es destructivo y sobre dato de
