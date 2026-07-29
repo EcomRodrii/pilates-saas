@@ -20,6 +20,8 @@ type StudioForm = {
   nombre: string; razonSocial: string; nif: string;
   direccion: string; ciudad: string; codigoPostal: string;
   telefono: string; email: string;
+  // Lo que el estudio cuenta de sí mismo en su página pública de reservas.
+  descripcion: string; anioFundacion: string;
   sepaAcreedorId: string; sepaIban: string; sepaTitular: string;
 };
 
@@ -33,6 +35,8 @@ function studioToForm(s: Studio | null): StudioForm {
     codigoPostal: s?.codigoPostal ?? '',
     telefono: s?.telefono ?? '',
     email: s?.email ?? '',
+    descripcion: s?.descripcion ?? '',
+    anioFundacion: s?.anioFundacion ? String(s.anioFundacion) : '',
     sepaAcreedorId: s?.sepaAcreedorId ?? '',
     sepaIban: s?.sepaIban ?? '',
     sepaTitular: s?.sepaTitular ?? '',
@@ -152,7 +156,17 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
 
   function guardarEstudio() {
     if (nifInvalido) { showToast('El NIF/CIF no es válido: revisa la letra o el dígito de control.'); return; }
-    updateStudio(form);
+    // El año va como texto en el formulario (un input vacío es '', no null) y a
+    // la base como número o nada. La migración 0134 lo acota a 1900-2200; aquí
+    // se avisa antes para no gastar un viaje al servidor en un dedazo.
+    const anio = form.anioFundacion.trim();
+    if (anio && !/^\d{4}$/.test(anio)) { showToast('El año de apertura tiene que ser de cuatro cifras.'); return; }
+    const { anioFundacion, descripcion, ...resto } = form;
+    updateStudio({
+      ...resto,
+      descripcion: descripcion.trim() || null,
+      anioFundacion: anio ? Number(anio) : null,
+    });
     showToast('Datos del estudio guardados');
   }
 
@@ -200,6 +214,33 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           <div>
             <p className={labelCls}>Ciudad</p>
             <input className={inputCls} value={form.ciudad} onChange={e => setForm(f => ({ ...f, ciudad: e.target.value }))} />
+          </div>
+          {/* Los dos únicos datos de la página pública de reservas que no se
+              pueden deducir de la operación: los cuenta la dueña o no salen.
+              El horario y el bono más elegido sí se deducen (lib/estudio-publico). */}
+          <div className="sm:col-span-2">
+            <p className={labelCls}>Cómo te presentas</p>
+            <textarea
+              className={`${inputCls} min-h-[76px] resize-y`}
+              value={form.descripcion}
+              maxLength={400}
+              placeholder="Estudio boutique especializado en pilates reformer. Grupos de ocho para que nadie pase desapercibida."
+              onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Sale en tu página de reservas. Si lo dejas vacío, ese bloque no se pinta.
+            </p>
+          </div>
+          <div>
+            <p className={labelCls}>Año de apertura</p>
+            <input
+              className={inputCls}
+              value={form.anioFundacion}
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="2016"
+              onChange={e => setForm(f => ({ ...f, anioFundacion: e.target.value.replace(/\D/g, '') }))}
+            />
           </div>
           <div>
             <p className={labelCls}>Código postal</p>

@@ -613,6 +613,8 @@ export interface RowSpots {
 }
 
 export interface RowStudios {
+  descripcion: string | null;
+  anio_fundacion: number | null;
   id: string;
   nombre: string;
   nif: string | null;

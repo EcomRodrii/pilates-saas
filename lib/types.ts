@@ -20,6 +20,10 @@ export interface Studio {
   direccion: string;
   ciudad: string;
   codigoPostal: string;
+  /** Presentación del estudio en su página pública (migr 0134). Null = no se pinta. */
+  descripcion: string | null;
+  /** Año en que abrió. NO es `creadoEn`, que es el alta en Tentare (migr 0134). */
+  anioFundacion: number | null;
   email: string;
   telefono: string;
   colorPrimario: string;
