@@ -430,12 +430,23 @@ export default function Dashboard() {
   // Hydration fix — avoids server/client mismatch with Date
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  // Memoizado en [mounted] (auditoría 2026-07-29, I-4): `new Date()` sin
-  // memoizar crea un objeto NUEVO en cada render, y `now` está en las
-  // dependencias de varios useMemo pesados de abajo (sparkData, ocupación,
-  // MRR, huecos próximos, candidatas) — sin esto, todos ellos recalculaban en
-  // CADA render, incluido uno tan ajeno como abrir un toast.
-  const now = useMemo(() => (mounted ? new Date() : new Date('2026-06-29')), [mounted]);
+  // Auditoría 2026-07-29, I-4 + M-4: `new Date()` sin memoizar creaba un
+  // objeto NUEVO en cada render, y `now` está en las dependencias de varios
+  // useMemo pesados de abajo (sparkData, ocupación, MRR, huecos próximos,
+  // candidatas) — recalculaban en CADA render, incluido uno tan ajeno como
+  // abrir un toast. Pero congelarlo en un useMemo([mounted]) (la primera
+  // versión de este fix) se pasaba de frenada: `now` quedaba fijo PARA
+  // SIEMPRE tras montar, así que una pestaña abierta hasta medianoche seguía
+  // viendo "hoy" como el día de ayer, y el saludo nunca pasaba de "Buenos
+  // días". El estado + intervalo de abajo actualiza `now` cada minuto (nunca
+  // en cada render) — arregla las dos cosas a la vez.
+  const [now, setNow] = useState(() => new Date('2026-06-29'));
+  useEffect(() => {
+    if (!mounted) return;
+    setNow(new Date());
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, [mounted]);
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -644,16 +655,22 @@ export default function Dashboard() {
   // automationLogs es un log de auditoría acumulativo (motor de notificaciones);
   // estos filtros recorrían el array completo en cada render del Dashboard,
   // incluidos los disparados por estado no relacionado (toasts, confirms).
+  //
+  // M-4 (auditoría 2026-07-29): antes calculaba su propio `today` con
+  // `new Date()` pero solo dependía de `automationLogs` -- si esa lista no
+  // cambiaba, la pestaña seguía contando "hoy" como el día en que se montó,
+  // incluso pasada la medianoche. `hoyStr` viene de `now`, que ahora se
+  // actualiza cada minuto (ver arriba), así que este memo recalcula solo de
+  // verdad cuando el día cambia.
   const automationBriefing = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const todayLogs = automationLogs.filter(l => l.ejecutadoEn.startsWith(today));
+    const todayLogs = automationLogs.filter(l => l.ejecutadoEn.startsWith(hoyStr));
     const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
     const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
     // 'ESPERANDO' nunca lo escribe ningún camino de ejecución: aquí marcaba
     // siempre 0 (P2-4). 'FALLIDO' sí ocurre de verdad.
     const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
     return { pendingAdmin, ejecutadas, fallidas };
-  }, [automationLogs]);
+  }, [automationLogs, hoyStr]);
 
   // ── Radar de ocupación: clases con hueco en las próximas 48h ────────────────
   const huecosProximos = useMemo(
