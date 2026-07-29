@@ -1,7 +1,7 @@
 // Tests de conflictos de calendario (I-1) y aforo (I-2). Runner nativo de Node.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { solapan, detectarConflictos, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from './calendar-logic.ts';
+import { solapan, detectarConflictos, hayConflicto, elegirLibre, plazasSobrantesTrasAforo, type SlotSesion } from './calendar-logic.ts';
 
 const slot = (p: Partial<SlotSesion> & Pick<SlotSesion, 'inicio' | 'fin'>): SlotSesion => ({
   id: 'x', salaId: 'sala-1', instructorId: 'ins-1', cancelada: false, ...p,
@@ -61,6 +61,47 @@ test('salaId/instructorId null en la candidata no genera falsos positivos', () =
   const ex = [slot({ salaId: null, instructorId: null, inicio: '2026-07-13T10:30:00Z', fin: '2026-07-13T11:30:00Z' })];
   const c = detectarConflictos({ salaId: null, instructorId: null, inicio: cand.inicio, fin: cand.fin }, ex);
   assert.equal(hayConflicto(c), false);
+});
+
+// ── elegirLibre ───────────────────────────────────────────────────────────────
+test('elegirLibre: propone la primera candidata si nada choca', () => {
+  const r = elegirLibre(['sala-1', 'sala-2'], 'salaId', cand.inicio, cand.fin, []);
+  assert.equal(r, 'sala-1');
+});
+
+test('elegirLibre: la primera está ocupada → propone la siguiente libre', () => {
+  const ex = [slot({ salaId: 'sala-1', inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' })];
+  const r = elegirLibre(['sala-1', 'sala-2'], 'salaId', cand.inicio, cand.fin, ex);
+  assert.equal(r, 'sala-2');
+});
+
+test('elegirLibre: distinto tipo de clase a la misma hora en otra sala → no choca (el caso reportado)', () => {
+  // Ya hay una clase de Mat en sala-1 a las 10:00-11:00; al proponer sala para
+  // una segunda clase (Reformer) a esa misma hora, sala-2 debe salir libre.
+  const ex = [slot({ salaId: 'sala-1', instructorId: 'ins-1', inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' })];
+  const sala = elegirLibre(['sala-1', 'sala-2'], 'salaId', '2026-07-13T10:00:00Z', '2026-07-13T11:00:00Z', ex);
+  const instructor = elegirLibre(['ins-1', 'ins-2'], 'instructorId', '2026-07-13T10:00:00Z', '2026-07-13T11:00:00Z', ex);
+  assert.equal(sala, 'sala-2');
+  assert.equal(instructor, 'ins-2');
+});
+
+test('elegirLibre: todas ocupadas → devuelve la primera igualmente (deja que el aviso lo explique)', () => {
+  const ex = [
+    slot({ salaId: 'sala-1', inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' }),
+    slot({ salaId: 'sala-2', inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' }),
+  ];
+  const r = elegirLibre(['sala-1', 'sala-2'], 'salaId', cand.inicio, cand.fin, ex);
+  assert.equal(r, 'sala-1');
+});
+
+test('elegirLibre: sin candidatas → cadena vacía', () => {
+  assert.equal(elegirLibre([], 'salaId', cand.inicio, cand.fin, []), '');
+});
+
+test('elegirLibre: ignora canceladas al buscar hueco libre', () => {
+  const ex = [slot({ salaId: 'sala-1', cancelada: true, inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' })];
+  const r = elegirLibre(['sala-1', 'sala-2'], 'salaId', cand.inicio, cand.fin, ex);
+  assert.equal(r, 'sala-1');
 });
 
 // ── plazasSobrantesTrasAforo ──────────────────────────────────────────────────
