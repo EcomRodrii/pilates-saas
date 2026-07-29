@@ -217,14 +217,18 @@ export default function FacturacionInterna() {
                     columnas. Ojo con el 0 €: un impago SÍ tiene cobro, solo que
                     falló — decir "sin cobro" ahí sería confundirlo con una
                     cuenta parada, que es justo lo contrario de lo que hay que
-                    hacer con él. Por eso «sin cobro» se reserva a `manual`. */}
+                    hacer con él. Por eso «sin cobro» se reserva a `manual`.
+                    · El motivo del descuadre NO se repite aquí: ya está, con su
+                      explicación, en el bloque de aviso de arriba, y toda línea
+                      con motivo aparece en ese bloque. Repetirlo en pantalla
+                      estrecha es ruido — y hacía que un test existente no
+                      supiera a cuál de los dos textos se refería. */}
                 <span className="text-[12.5px] sm:text-[13px] text-muted-foreground sm:text-right sm:text-foreground tabular-nums">
                   <span className="sm:hidden">
                     {l.eurosMes > 0 && <span className="font-semibold text-foreground">{eur(l.eurosMes)}</span>}
                     {l.eurosMes > 0 && l.renuevaEl && ' · '}
                     {l.renuevaEl && `renueva el ${fecha(l.renuevaEl)}`}
                     {l.estado === 'manual' && 'Sin cobro y sin acceso concedido'}
-                    {l.motivoDescuadre && l.estado !== 'manual' && l.motivoDescuadre}
                   </span>
                   <span className="hidden sm:inline">{l.eurosMes > 0 ? eur(l.eurosMes) : '—'}</span>
                 </span>
