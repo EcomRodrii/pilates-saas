@@ -10,7 +10,7 @@ import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnsti
 
 export default function LoginPage() {
   const uid = useId();
-  const { signIn, signUp, session, user, loading } = useAuth();
+  const { signIn, signUp, session, user, loading, recuperarPassword } = useAuth();
   const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +20,11 @@ export default function LoginPage() {
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que hoy.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // Recuperar la contraseña no existía en esta pantalla. Quien la olvidaba se
+  // quedaba fuera de su propio negocio: la clienta sí tenía cómo
+  // (/portal/[slug]/acceso), la propietaria no, y la única salida era que
+  // alguien le mandase el enlace desde el panel de Supabase.
+  const [recuperando, setRecuperando] = useState(false);
   // Este efecto crea el estudio, y crear un estudio NO es idempotente. Sus
   // dependencias cambian de identidad más de una vez por login (`user` es un
   // objeto nuevo en cada evento de auth), y `pending_studio` solo se limpia al
@@ -93,6 +98,30 @@ export default function LoginPage() {
       window.location.href = seguro ? destino! : '/dashboard';
     });
   }, [session, user, loading]);
+
+  // El captcha se exige a nivel de PROYECTO en Supabase, así que esta llamada
+  // también lo necesita: sin token, gotrue la rechaza igual que un login.
+  async function pedirEnlaceDeRecuperacion() {
+    setError(''); setInfo('');
+    if (!email.trim()) {
+      setError('Escribe tu email arriba y vuelve a pulsar.');
+      return;
+    }
+    if (turnstileConfigurado() && !captchaToken) {
+      setError('Espera a que termine la verificación de "no soy un robot" y vuelve a pulsar.');
+      return;
+    }
+    setRecuperando(true);
+    const r = await recuperarPassword(email, captchaToken ?? undefined);
+    setRecuperando(false);
+    if (r.error) { setError(r.error); return; }
+    // A propósito NO se dice si ese email tiene cuenta: eso convertiría esta
+    // pantalla en una forma de averiguar quién es cliente de Tentare.
+    setInfo(
+      `Si hay una cuenta con ${email.trim()}, te llega un correo con un enlace. `
+      + 'Es de un solo uso y caduca, así que ábrelo en cuanto lo recibas.',
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -205,6 +234,17 @@ export default function LoginPage() {
             >
               {submitting ? 'Un momento…' : modo === 'entrar' ? 'Entrar' : 'Crear cuenta'}
             </button>
+
+            {modo === 'entrar' && (
+              <button
+                type="button"
+                disabled={recuperando}
+                onClick={() => void pedirEnlaceDeRecuperacion()}
+                className="w-full text-center text-[12.5px] text-[#8E8E86] hover:text-[#3A3A34] hover:underline disabled:opacity-60"
+              >
+                {recuperando ? 'Enviando…' : 'He olvidado mi contraseña'}
+              </button>
+            )}
           </form>
         </div>
 
