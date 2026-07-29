@@ -35,6 +35,11 @@ export interface Kpis {
   estudios: { total: number; conActividad: number; vacios: number; altasUltimos30d: number; suspendidos: number };
   actividad: { socias: number; clases: number; reservasHoy: number; reservas7d: number; reservas30d: number };
   altasPorMes: Array<{ mes: string; altas: number }>;
+  onboarding: {
+    activados: number;
+    totalConActividad: number;
+    pasoMasBloqueante: { id: string; label: string; pendientes: number } | null;
+  };
 }
 
 export interface LineaFacturacionCliente {

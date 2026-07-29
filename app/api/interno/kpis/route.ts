@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
+import { calcularPasosOnboarding, type PasoOnboarding } from '@/lib/onboarding';
 
 export const runtime = 'nodejs';
 
@@ -32,13 +33,15 @@ export async function GET(req: NextRequest) {
   const hace7 = new Date(ahora.getTime() - 7 * 864e5).toISOString();
   const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).toISOString();
 
-  const [studios, socios, sesiones, reservas7, reservas30, reservasHoy] = await Promise.all([
-    db.from('studios').select('id, slug, nombre, plan, creado_en, stripe_customer_id, subscription_status, suspendido_en'),
+  const [studios, socios, sesiones, reservas7, reservas30, reservasHoy, instructores, tiposClase] = await Promise.all([
+    db.from('studios').select('id, slug, nombre, plan, creado_en, stripe_customer_id, subscription_status, suspendido_en, nif, stripe_account_id'),
     db.from('socios').select('studio_id'),
     db.from('sesiones').select('studio_id, creado_en'),
     db.from('reservas').select('id', { count: 'exact', head: true }).gte('creado_en', hace7),
     db.from('reservas').select('id', { count: 'exact', head: true }).gte('creado_en', hace30),
     db.from('reservas').select('id', { count: 'exact', head: true }).gte('creado_en', inicioHoy),
+    db.from('instructores').select('studio_id, activo'),
+    db.from('tipos_clase').select('studio_id'),
   ]);
 
   const filas = studios.data ?? [];
@@ -57,6 +60,46 @@ export async function GET(req: NextRequest) {
     s => (sociosPorEstudio.get(s.id as string) ?? 0) > 0 || (clasesPorEstudio.get(s.id as string) ?? 0) > 0,
   );
   const suspendidos = filas.filter(s => s.suspendido_en);
+
+  // Onboarding: `calcularPasosOnboarding` (lib/onboarding.ts) ya existe y corre
+  // per-estudio en el navegador de cada propietaria; esto la centraliza para
+  // ver el embudo real (dónde se atascan las que ya empezaron a usarlo). Solo
+  // sobre "con actividad" — una alta vacía nunca completó nada, incluirla
+  // mezclaría "no ha llegado" con "no le hace falta".
+  const instructoresActivosPorEstudio = new Map<string, number>();
+  for (const i of instructores.data ?? []) {
+    if (!i.activo) continue;
+    const k = i.studio_id as string;
+    instructoresActivosPorEstudio.set(k, (instructoresActivosPorEstudio.get(k) ?? 0) + 1);
+  }
+  const tiposClasePorEstudio = new Map<string, number>();
+  for (const t of tiposClase.data ?? []) {
+    const k = t.studio_id as string;
+    tiposClasePorEstudio.set(k, (tiposClasePorEstudio.get(k) ?? 0) + 1);
+  }
+  const pasosPorEstudio: PasoOnboarding[][] = conActividad.map(s => {
+    const id = s.id as string;
+    return calcularPasosOnboarding({
+      nif: s.nif as string | null,
+      stripeAccountId: s.stripe_account_id as string | null,
+      slug: s.slug as string | null,
+      numInstructores: instructoresActivosPorEstudio.get(id) ?? 0,
+      numTiposClase: tiposClasePorEstudio.get(id) ?? 0,
+      numSesiones: clasesPorEstudio.get(id) ?? 0,
+      numSocios: sociosPorEstudio.get(id) ?? 0,
+    });
+  });
+  const activados = pasosPorEstudio.filter(pasos => pasos.every(p => p.done)).length;
+  const pendientesPorPaso = new Map<string, { label: string; pendientes: number }>();
+  for (const pasos of pasosPorEstudio) {
+    for (const p of pasos) {
+      if (p.done || p.id === 'reservas') continue; // consecuencia de los demás, no un paso propio que resolver
+      const actual = pendientesPorPaso.get(p.id);
+      pendientesPorPaso.set(p.id, { label: p.label, pendientes: (actual?.pendientes ?? 0) + 1 });
+    }
+  }
+  const pasoMasBloqueante = [...pendientesPorPaso.entries()]
+    .sort((a, b) => b[1].pendientes - a[1].pendientes)[0];
 
   // Altas por mes, para el gráfico. Clave 'YYYY-MM'.
   const altasPorMes = new Map<string, number>();
@@ -81,5 +124,12 @@ export async function GET(req: NextRequest) {
       reservas30d: reservas30.count ?? 0,
     },
     altasPorMes: [...altasPorMes.entries()].sort().map(([mes, n]) => ({ mes, altas: n })),
+    onboarding: {
+      activados,
+      totalConActividad: conActividad.length,
+      pasoMasBloqueante: pasoMasBloqueante
+        ? { id: pasoMasBloqueante[0], label: pasoMasBloqueante[1].label, pendientes: pasoMasBloqueante[1].pendientes }
+        : null,
+    },
   });
 }

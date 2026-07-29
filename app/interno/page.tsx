@@ -87,6 +87,21 @@ export default function ResumenInterno() {
       </section>
 
       <section>
+        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Activación (onboarding)</h2>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+          <Tarjeta
+            titulo="Estudios activados" valor={`${k.onboarding.activados}/${k.onboarding.totalConActividad}`}
+            pie="De los que tienen actividad: completaron los 7 pasos de Primeros pasos." />
+          <Tarjeta
+            titulo="Paso donde más se atascan"
+            valor={k.onboarding.pasoMasBloqueante ? String(k.onboarding.pasoMasBloqueante.pendientes) : '0'}
+            pie={k.onboarding.pasoMasBloqueante
+              ? `"${k.onboarding.pasoMasBloqueante.label}" — pendiente en ${k.onboarding.pasoMasBloqueante.pendientes} estudio(s).`
+              : 'Ninguno: todos los que tienen actividad completaron todos los pasos.'} />
+        </div>
+      </section>
+
+      <section>
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Uso de la plataforma</h2>
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
           <Tarjeta titulo="Reservas hoy" valor={String(k.actividad.reservasHoy)} />
