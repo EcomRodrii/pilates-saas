@@ -500,6 +500,10 @@ export default function Informes() {
       </div>
 
       {/* ── Section 2: Revenue bar chart ────────────────────────────────────── */}
+      {/* Como las tarjetas KPI y el export: CifraPrivada es solo un difuminado
+          contra miradas de reojo (se quita con un clic), no un permiso — se
+          quedó sin el gate real cuando se añadió verFinanzas a esta página. */}
+      {verFinanzas && (
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-start justify-between mb-1">
           <div>
@@ -667,6 +671,7 @@ export default function Informes() {
           </svg>
         </CifraPrivada>
       </div>
+      )}
 
       {/* ── Section 3: 2-col grid ────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

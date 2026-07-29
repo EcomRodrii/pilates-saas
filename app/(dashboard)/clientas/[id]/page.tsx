@@ -238,6 +238,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [semaforoRecepcion, setSemaforoRecepcion] = useState<ReturnType<typeof semaforo> | null>(null);
   useEffect(() => {
     if (rol !== 'RECEPCION') return;
+    // Se limpia ANTES de pedir el nuevo nivel: sin esto, al navegar de una
+    // socia con ROJO a otra sin condiciones, la insignia de riesgo de la
+    // primera se quedaba pintada hasta que la RPC de la segunda resolvía.
+    setSemaforoRecepcion(null);
     let cancel = false;
     dbSemaforoSaludEstudio(getCurrentStudioId()).then(m => { if (!cancel) setSemaforoRecepcion(m.get(id) ?? 'VERDE'); });
     return () => { cancel = true; };

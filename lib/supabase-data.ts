@@ -4184,7 +4184,9 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Prom
 // socia) en una sola llamada, en vez de un UPDATE por recibo. Solo para campos
 // uniformes entre todos los recibos del lote (estado + fechaCobro, que es lo
 // que necesita cobrarTodosPendientes).
-export async function dbUpdateRecibosBatch(ids: string[], changes: Partial<Recibo>): Promise<ResultadoEscritura> {
+export async function dbUpdateRecibosBatch(
+  ids: string[], changes: Partial<Recibo>, soloSiEstadoActual?: Recibo['estado'],
+): Promise<ResultadoEscritura> {
   if (ids.length === 0) return ESCRITURA_OK;
   const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
@@ -4192,7 +4194,13 @@ export async function dbUpdateRecibosBatch(ids: string[], changes: Partial<Recib
   if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
   if (Object.keys(db).length === 0) return ESCRITURA_OK;
-  const { error } = await supabase.from('recibos').update(db).in('id', ids);
+  let q = supabase.from('recibos').update(db).in('id', ids);
+  // Sin este filtro, un recibo cobrado por OTRO camino (tarjeta, cobro manual)
+  // entre "preparar la remesa" y este UPDATE se pisaba en silencio de vuelta a
+  // un estado anterior — el mismo patrón de escritura optimista sin comprobar
+  // el resultado real que este repo ya ha corregido varias veces.
+  if (soloSiEstadoActual) q = q.eq('estado', soloSiEstadoActual);
+  const { error } = await q;
   return error ? falloEscritura('[dbUpdateRecibosBatch]', error) : ESCRITURA_OK;
 }
 

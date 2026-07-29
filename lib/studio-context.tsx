@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { fijarEtiqueta } from '@/lib/sentry-cliente';
+import { fijarEtiqueta, capturarExcepcion } from '@/lib/sentry-cliente';
 import { CoreProvider } from '@/lib/core-context';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
@@ -1684,14 +1684,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  function deleteSesion(id: string) {
+  async function deleteSesion(id: string) {
     // Borrar la sesión CASCADE-borra sus reservas en BD (FK on delete cascade) —
     // antes eso pasaba en silencio: ni email ni aviso in-app a las socias con
-    // plaza, a diferencia de "Cancelar" (que sí avisa). Se manda el mismo
-    // email de cancelación ANTES de borrar, mientras la sesión y las reservas
-    // todavía existen para poder leer sus datos.
+    // plaza, a diferencia de "Cancelar" (que sí avisa). Se manda el email Y el
+    // aviso in-app/push (Notification Engine, igual que cancelarSerieDesde), y
+    // se ESPERA el aviso antes de borrar: avisarClaseCancelada consulta la
+    // sesión en servidor por id, y si el DELETE le gana la carrera ya no
+    // encontraría nada que notificar.
     const sesion = sesiones.find(s => s.id === id);
     if (sesion) notificarCancelacionSesiones([sesion]);
+    await avisarClaseCancelada(id);
     setSesiones(prev => prev.filter(s => s.id !== id));
     setReservas(prev => prev.filter(r => r.sesionId !== id));
     dbDeleteSesion(id);
@@ -1795,6 +1798,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const idsSet = new Set(res.ids);
       if (idsSet.size === 0) return;
       setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+    }).catch(e => {
+      console.error('[cancelarSerieDesde:dbCancelarReservasPorSesiones]', e);
+      capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'calendario', op: 'cancelarSerieDesde' } });
     });
     return { ok: true };
   }
@@ -2089,7 +2095,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (premiar && referidorId) otorgarCreditos(referidorId, 'REFERIDO_AMIGO', socioId);
   }
 
-  function checkin(reservaId: string) {
+  async function checkin(reservaId: string) {
     if (publicSlug) {
       // Kiosk público: el check-in (ASISTIDA + créditos + premio de referido) lo
       // hace el servidor; se re-sincroniza al terminar.
@@ -2102,7 +2108,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       r.id === reservaId ? { ...r, estado: 'ASISTIDA' as const, checkInEn } : r
     );
     setReservas(reservasActualizadas);
-    dbUpdateReserva(reservaId, { estado: 'ASISTIDA', checkInEn });
+    // otorgar_credito_disparador (RPC) exige que la reserva YA esté ASISTIDA
+    // en la BD antes de conceder el crédito de asistencia — sin este await,
+    // la RPC podía llegar antes de que el UPDATE de arriba hubiera hecho
+    // commit y rechazaba la concesión con CONDICION_NO_CUMPLIDA, perdiendo en
+    // silencio el crédito de una asistencia real.
+    await dbUpdateReserva(reservaId, { estado: 'ASISTIDA', checkInEn });
     // Control de acceso: con Kisi conectado, el check-in abre la puerta del
     // estudio. Fire-and-forget — un fallo de la cerradura no debe bloquear el
     // check-in (la recepcionista está delante y puede abrir a mano).
@@ -2353,9 +2364,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   async function marcarRecibosEnviadosAlBanco(ids: string[]): Promise<ResultadoEscritura> {
     if (ids.length === 0) return { ok: true };
     const idsSet = new Set(ids);
-    const res = await dbUpdateRecibosBatch(ids, { estado: 'EN_CURSO' });
+    // Solo si SIGUE pendiente: si otro canal (tarjeta, cobro manual) ya lo
+    // cobró entre preparar la remesa y este UPDATE, no se pisa su estado real.
+    const res = await dbUpdateRecibosBatch(ids, { estado: 'EN_CURSO' }, 'PENDIENTE');
     if (!res.ok) return res;
-    setRecibos(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'EN_CURSO' as const } : r));
+    setRecibos(prev => prev.map(r => idsSet.has(r.id) && r.estado === 'PENDIENTE' ? { ...r, estado: 'EN_CURSO' as const } : r));
     return res;
   }
 
