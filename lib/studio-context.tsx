@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { fijarEtiqueta } from '@/lib/sentry-cliente';
+import { fijarEtiqueta, capturarMensaje } from '@/lib/sentry-cliente';
 import { CoreProvider } from '@/lib/core-context';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
@@ -1859,12 +1859,31 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         intentosReintento: 0,
       };
       setRecibos(prev => [reciboRenovacion, ...prev]);
-      dbInsertRecibo(reciboRenovacion);
+      // Se ESPERA y se comprueba: antes se disparaba sin await y su fallo (Sentry
+      // dbInsertRecibo 23503, recibos_suscripcion_id_fkey — visto en producción)
+      // pasaba inadvertido. La pantalla seguía mostrando un recibo de renovación
+      // que nunca llegó a existir en la base de datos, así que el cobro
+      // correspondiente jamás se registraba.
+      const resRecibo = await dbInsertRecibo(reciboRenovacion);
+      const reciboGuardado = resRecibo.ok;
+      if (!reciboGuardado) {
+        setRecibos(prev => prev.filter(r => r.id !== reciboRenovacion.id));
+        capturarMensaje('[consumirSesionBono] no se pudo crear el recibo de renovación', 'error', {
+          extra: { socioId, sesionId, suscripcionId: sus.id, error: resRecibo.error },
+        });
+      }
+      // El bono agotado es un hecho real (la RPC ya lo confirmó arriba) sea o
+      // no se haya podido guardar el recibo automático: avisar a la dueña
+      // SIEMPRE, para que no pierda de vista una renovación pendiente solo
+      // porque el recibo automático falló — antes, ese fallo también se comía
+      // el aviso entero y nadie se enteraba de que había que renovar.
       setNotificaciones(prev => [{
         id: `notif-bono-${uid()}`,
         studioId: getCurrentStudioId(),
         titulo: 'Bono agotado',
-        texto: `${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`,
+        texto: reciboGuardado
+          ? `${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`
+          : `${nombreSocio} ha consumido su último bono de ${plan.nombre}. No se ha podido generar el recibo de renovación automático — créalo a mano.`,
         leida: false,
         tipo: 'AVISO' as const,
         enlace: `/socios/${socioId}`,
