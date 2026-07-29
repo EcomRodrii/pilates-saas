@@ -13,6 +13,20 @@ function enHoras(h: number, m = 0) {
   return new Date(Date.now() + (h * 60 + m) * 60_000).toISOString();
 }
 
+// Igual que enHoras, pero SIN CRUZAR MEDIANOCHE. ses-1 es "la clase reservada
+// de HOY": varios tests (cuenta atrás, "Ver mi pase") dan por hecho que sigue
+// apareciendo en la vista de hoy sin importar a qué hora corra la suite.
+// "+3h12m desde ahora" cruzaba al día siguiente si la CI arrancaba de noche
+// (la ventana de fallo real: entre las ~20:48 y las 23:59 UTC) — la pantalla
+// de Clases filtra estrictamente por MISMO día, así que la reserva
+// desaparecía de la vista por defecto y "Ver mi pase" dejaba de encontrarse.
+function enHorasHoy(h: number, m = 0) {
+  const ahora = new Date();
+  const minutosHastaMedianoche = (23 - ahora.getHours()) * 60 + (59 - ahora.getMinutes());
+  const minutosDeseados = Math.min(h * 60 + m, Math.max(1, minutosHastaMedianoche));
+  return new Date(ahora.getTime() + minutosDeseados * 60_000).toISOString();
+}
+
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
@@ -27,11 +41,18 @@ const TIPOS = [
   { id: 'tc-3', studioId: STUDIO_ID, nombre: 'Barre Sculpt', color: '#8B8779', duracionMin: 45 },
 ];
 
-const ses = (id: string, tipoClaseId: string, h: number, aforoMaximo: number) => ({
-  id, studioId: STUDIO_ID, tipoClaseId, instructorId: 'ins-1', salaId: 'sala-1',
-  inicio: enHoras(h, id === 'ses-1' ? 12 : 0), fin: enHoras(h + 1),
-  aforoMaximo, cancelada: false, notas: null, precioPuntual: null,
-});
+const ses = (id: string, tipoClaseId: string, h: number, aforoMaximo: number) => {
+  // ses-1 es "la reserva de hoy" (ver enHorasHoy) — el resto usa enHoras a
+  // secas porque su offset (26h/50h/74h) ya está pensado para caer en OTRO
+  // día (navegación entre semanas), no en el de hoy.
+  const inicio = id === 'ses-1' ? enHorasHoy(h, 12) : enHoras(h, 0);
+  const fin = id === 'ses-1' ? new Date(new Date(inicio).getTime() + 55 * 60_000).toISOString() : enHoras(h + 1);
+  return {
+    id, studioId: STUDIO_ID, tipoClaseId, instructorId: 'ins-1', salaId: 'sala-1',
+    inicio, fin,
+    aforoMaximo, cancelada: false, notas: null, precioPuntual: null,
+  };
+};
 
 const SESIONES = [
   ses('ses-1', 'tc-1', 3, 10), ses('ses-2', 'tc-2', 26, 12),
@@ -125,7 +146,7 @@ export async function montarPortal(page: Page, opciones: {
   await page.route('**/api/public/pase', route => json(route, {
     hayPase: true, vigente: true, yaAsistida: false, minutosParaActivarse: 0,
     seActivaA: new Date(Date.now() - 60_000).toISOString(),
-    inicio: enHoras(3, 12),
+    inicio: enHorasHoy(3, 12),
     token: 'eyJyIjoicmVzLTEiLCJzIjoic3R1ZGlvLXRlc3QifQ.firma-de-pruebas-para-el-lienzo',
     codigo: 'A2C4E6',
   }));
