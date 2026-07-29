@@ -89,7 +89,7 @@ La arquitectura elegida (Stripe Connect direct charge + SEPA/Bizum nativos de St
 
 ### Lo que falta / hay que verificar (no desde el código, sino desde el dashboard de Vercel)
 
-`FISKALY_API_KEY` y `FISKALY_API_SECRET` — el propio diseño del código asume que hoy no están puestas (el bloque de firma está envuelto en `if (fiskalyConfigurado())`, con fallback silencioso). **Esto no se puede confirmar desde el repo**: es una acción pendiente del usuario, no del código. Dado que Verifactu es obligatorio para SIF (fabricantes de software) desde el **29-jul-2025** — fecha que **no se aplazó** — y Tentare ya vende el producto, esta es la pieza con mayor urgencia real de las pendientes de configuración externa.
+`FISKALY_API_KEY` y `FISKALY_API_SECRET` — **corrección tras cruzar con la memoria del proyecto**: según registro de 2026-07-26, el usuario ya puso estas env vars en Vercel y forzó un redeploy de producción para que `fiskalyConfigurado()` las recoja. Lo que queda pendiente es más acotado de lo que este documento sugería originalmente: confirmar **extremo a extremo** (no solo que las vars existan) que `FISKALY_ENV` esté en el valor correcto (`test` vs `live`) y que `VERIFACTU_ENTORNO=produccion` esté puesto si es `live` (controla el entorno del QR de la AEAT, independiente de `FISKALY_ENV`) — verificable con `scripts/fiskaly-smoke.ts` o mirando si la próxima factura sellada trae `fiskaly_invoice_id` (+ `verifactu_csv` si es `live`). Dado que Verifactu es obligatorio para SIF desde el 29-jul-2025 (ya pasado), vale la pena esa confirmación puntual, pero no es un "activar desde cero".
 
 ### Recomendación de arquitectura (confirmación, no cambio)
 
@@ -303,7 +303,7 @@ lib/interno/
 - Mostrar en el panel las columnas de estado Fiskaly (`verifactu_csv`/`verifactu_estado`) que hoy se escriben pero nadie ve.
 
 ### Fase 1 — Cumplimiento legal ya vigente, sin margen (semanas)
-- **Verificar/activar `FISKALY_API_KEY`/`FISKALY_API_SECRET` en Vercel** — Verifactu es obligatorio para SIF desde el 29-jul-2025, ya pasado. Esto es lo único de todo el documento con una fecha legal ya vencida.
+- **Confirmar extremo a extremo la transmisión Fiskaly** (`FISKALY_ENV`, `VERIFACTU_ENTORNO`, primera factura con `fiskaly_invoice_id`/`verifactu_csv` reales) — las credenciales ya se pusieron en Vercel el 2026-07-26, pero nunca se verificó end-to-end. Verifactu es obligatorio para SIF desde el 29-jul-2025, ya pasado, así que vale la pena cerrar esta confirmación, aunque el trabajo pesado ya está hecho.
 - Reforzar el consentimiento de salud con `CHECK`/trigger en BD (no solo UI).
 - Handler de `charge.dispute.created` + notificación.
 
