@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { captchaGastado } from './auth/captcha-usado.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { useStudio } from '@/lib/studio-context';
 
@@ -72,6 +73,7 @@ export function useSociaSession(slug: string) {
       email: email.trim(),
       options: { emailRedirectTo: `${window.location.origin}/reservar/${slug}${query}`, captchaToken },
     });
+    if (captchaToken) captchaGastado();
     return error ? { error: error.message } : { ok: true };
   }, [slug]);
 

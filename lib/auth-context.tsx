@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { fijarUsuario } from '@/lib/sentry-cliente';
 import { supabase } from './db/supabase';
+import { captchaGastado } from './auth/captcha-usado.ts';
 import { setCurrentStudioId } from './supabase-data';
 
 // B0.6: identifica al usuario en Sentry para poder medir el impacto real de cada
@@ -87,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email, password,
       ...(captchaToken ? { options: { captchaToken } } : {}),
     });
+    if (captchaToken) captchaGastado();
     if (error) return { error: mensajeDeError(error) };
     return { error: null };
   }
@@ -108,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...(captchaToken ? { captchaToken } : {}),
       },
     });
+    if (captchaToken) captchaGastado();
     if (error) return { error: mensajeDeError(error), needsConfirmation: false };
     return { error: null, needsConfirmation: !data.session };
   }
@@ -159,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email, password: actual,
       ...(captchaToken ? { options: { captchaToken } } : {}),
     });
+    if (captchaToken) captchaGastado();
     // Antes CUALQUIER fallo aquí se contaba como "la contraseña actual no es
     // correcta". Con el captcha rechazando la llamada, eso convertía un fallo
     // de configuración en una acusación falsa: escribías tu contraseña buena y
@@ -191,6 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...(captchaToken ? { captchaToken } : {}),
       },
     });
+    if (captchaToken) captchaGastado();
     if (error) return { error: mensajeDeError(error) };
     return { error: null };
   }
@@ -211,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...(redirectTo ? { redirectTo } : {}),
       ...(captchaToken ? { captchaToken } : {}),
     });
+    if (captchaToken) captchaGastado();
     if (error) return { error: mensajeDeError(error) };
     return { error: null };
   }

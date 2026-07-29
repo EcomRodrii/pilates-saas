@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { captchaGastado } from './auth/captcha-usado.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { useStudio } from '@/lib/studio-context';
 
@@ -94,11 +95,13 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
       // home: el magic link solo prueba que la socia controla el email.
       options: { emailRedirectTo: `${window.location.origin}/portal/${slug}/clave-nueva`, captchaToken },
     });
+    if (captchaToken) captchaGastado();
     return error ? { error: error.message } : { ok: true };
   }, [slug]);
 
   const loginConPassword = useCallback(async (email: string, password: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
     const { error } = await supabasePortal.auth.signInWithPassword({ email: email.trim(), password, options: { captchaToken } });
+    if (captchaToken) captchaGastado();
     if (!error) return { ok: true };
     const msg = error.message.toLowerCase();
     if (msg.includes('invalid login credentials')) return { error: 'Email o contraseña incorrectos.' };
