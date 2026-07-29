@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Volume2, VolumeX } from 'lucide-react';
 import { IconButton } from '@/components/ui/icon-button';
+import { authHeader } from '@/lib/api-client';
 import type { Studio } from '@/lib/types';
 import { useStudio } from '@/lib/studio-context';
 
@@ -349,7 +350,7 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
     if (e) setVals(computeVals(e, performance.now(), nombreEstudio));
   }, [nombreEstudio]);
 
-  const finalizar = useCallback((ans: Respuestas) => {
+  const finalizar = useCallback(async (ans: Respuestas) => {
     if (guardadoRef.current) return;
     guardadoRef.current = true;
     updateStudio({
@@ -361,6 +362,17 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
       onbPrioridad: ans.foco ?? null,
       onbAyudaAlta: ans.ayuda ?? null,
     });
+    // "Quiero una videollamada" / "Configuradlo por mí": antes esto se quedaba
+    // solo en la columna onb_ayuda_alta y nadie del equipo se enteraba de que
+    // alguien había pedido ayuda humana. Best-effort: si falla, la propietaria
+    // ya ha visto su resumen y no hay nada que mostrarle a mitad del onboarding.
+    if (ans.ayuda && ans.ayuda !== 'Lo configuro yo') {
+      fetch('/api/onboarding/ayuda-alta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ ayuda: ans.ayuda, software: ans.software ?? null }),
+      }).catch(() => { /* best-effort */ });
+    }
     if (ans.importar === 'Sí, importadlos') router.push('/migracion');
   }, [updateStudio, router]);
 
