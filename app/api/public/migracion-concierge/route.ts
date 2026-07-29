@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // Concierge de migración (landing): la propietaria deja su email y de qué
-// software viene, y Tentare le hace la migración (48h). Mismo patrón que el
-// waitlist: aviso a soporte@tentare.app vía Resend, degradación sin romper.
+// software viene, y Tentare le hace la migración (48h).
+//
+// ⚠️ Este es el ÚNICO canal de entrada real de leads del producto, y hasta la
+// migración 0136 no guardaba nada: mandaba un correo a soporte@tentare.app y ya.
+// Si `RESEND_API_KEY` no estaba puesta, devolvía `{ok:true, skipped:true}` y el
+// lead se perdía en silencio mientras la visitante leía "Recibido, te
+// escribimos en menos de 24h".
+//
+// Por eso el orden de aquí abajo importa y no es casual: **primero se guarda,
+// después se avisa**. Un correo que no sale se puede reenviar mirando la tabla;
+// un lead que no se guardó no existe.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
@@ -18,28 +28,61 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email no válido' }, { status: 400 });
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || apiKey.startsWith('re_XXXX')) return NextResponse.json({ ok: true, skipped: true });
+  // ── 1. Guardar ────────────────────────────────────────────────────────────
+  let guardado = false;
+  const db = getSupabaseAdmin();
+  if (db) {
+    // `upsert` sobre el email: el formulario es público y recargarlo tres veces
+    // no puede crear tres leads. Si la misma persona vuelve se refresca el
+    // software y la fecha, pero NO se tocan `estado` ni `notas`: alguien pudo
+    // haberlo trabajado ya, y pisarlo lo devolvería a la bandeja de nuevos.
+    const { error } = await db.from('plataforma_lead').upsert(
+      {
+        id: `lead-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        email: email.toLowerCase(),
+        software_actual: software || null,
+        origen: 'CONCIERGE',
+        actualizado_en: new Date().toISOString(),
+      },
+      { onConflict: 'email', ignoreDuplicates: false },
+    );
+    if (error) console.error('[public:migracion-concierge] no se ha podido guardar el lead', error);
+    else guardado = true;
+  }
 
-  try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
-      to: ['soporte@tentare.app'],
-      replyTo: email,
-      subject: `Migración concierge solicitada${software ? ` — viene de ${software}` : ''}`,
-      html:
-        `<p>Una propietaria quiere que le hagamos la migración:</p>` +
-        `<p><strong>${email}</strong>${software ? ` — software actual: <strong>${software.replace(/</g, '&lt;')}</strong>` : ''}</p>` +
-        `<p>Siguiente paso: responderle pidiendo los exports (o acceso) y montarle el estudio con /migracion en menos de 48h.</p>`,
-    });
-    if (error) {
-      console.error('[public:migracion-concierge]', error);
-      return NextResponse.json({ error: 'No se ha podido enviar' }, { status: 502 });
+  // ── 2. Avisar ─────────────────────────────────────────────────────────────
+  const apiKey = process.env.RESEND_API_KEY;
+  const puedeEnviar = Boolean(apiKey) && !apiKey!.startsWith('re_XXXX');
+
+  if (puedeEnviar) {
+    try {
+      const resend = new Resend(apiKey);
+      const { error } = await resend.emails.send({
+        from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+        to: ['soporte@tentare.app'],
+        replyTo: email,
+        subject: `Migración concierge solicitada${software ? ` — viene de ${software}` : ''}`,
+        html:
+          `<p>Una propietaria quiere que le hagamos la migración:</p>` +
+          `<p><strong>${email}</strong>${software ? ` — software actual: <strong>${software.replace(/</g, '&lt;')}</strong>` : ''}</p>` +
+          `<p>Siguiente paso: responderle pidiendo los exports (o acceso) y montarle el estudio con /migracion en menos de 48h.</p>` +
+          `<p>Está en el panel, en <a href="https://tentare.app/interno/crecimiento">Crecimiento</a>.</p>`,
+      });
+      if (error) console.error('[public:migracion-concierge]', error);
+    } catch (err) {
+      console.error('[public:migracion-concierge]', err);
     }
-  } catch (err) {
-    console.error('[public:migracion-concierge]', err);
-    return NextResponse.json({ error: 'No se ha podido enviar' }, { status: 502 });
+  }
+
+  // Que el correo falle ya no es un 502: el lead está guardado y se ve en el
+  // panel, así que la promesa que se le hace a la visitante sigue siendo cierta.
+  // Lo que sí es un error es no haber podido guardar Y no poder avisar — ahí no
+  // lo ha recogido nadie, y decirle "recibido" sería mentirle.
+  if (!guardado && !puedeEnviar) {
+    return NextResponse.json(
+      { error: 'No se ha podido registrar tu solicitud. Escríbenos a hola@tentare.app.' },
+      { status: 503 },
+    );
   }
 
   return NextResponse.json({ ok: true });
