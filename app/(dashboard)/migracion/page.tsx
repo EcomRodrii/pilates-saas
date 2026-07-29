@@ -26,6 +26,7 @@ import {
 import { uid } from '@/lib/utils';
 import type { PlanMigracion, ArchivoAnalizado } from '@/lib/migracion/analizador';
 import type { BatchReciente } from '@/lib/migracion/batches';
+import { planesSinCasar, aplicarMapeoPlanes, normalizarNombrePlan } from '@/lib/migracion/planes';
 // Runtime desde clasificador (client-safe): analizador.ts arrastra el SDK de
 // Anthropic y no puede entrar en un bundle de cliente.
 import {
@@ -119,6 +120,13 @@ export default function MigracionPage() {
   const [deshaciendo, setDeshaciendo] = useState(false);
   const [deshecho, setDeshecho] = useState<Record<string, number> | null>(null);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  // Mapeo "plan del CSV → tarifa mía", por nombre normalizado. El importador
+  // casa por nombre, así que un estudio que YA tiene su catálogo montado no
+  // casaba NADA: Momence dice "10 Class Pack" y aquí la tarifa se llama "Bono
+  // 10 Reformer". Cada fila fallaba y no había dónde decir que son la misma.
+  // '' = "no importar estas filas" (decisión legítima: no todo lo del software
+  // viejo se quiere traer).
+  const [mapeoPlanes, setMapeoPlanes] = useState<Record<string, string>>({});
   // Lotes que aún se pueden deshacer, recuperados del servidor: hacen que el
   // botón de deshacer sobreviva a una recarga (el id ya no vive solo en React).
   const [recientes, setRecientes] = useState<BatchReciente[]>([]);
@@ -179,8 +187,30 @@ export default function MigracionPage() {
       socias: validarFilas, membresias: validarFilasMembresia, clases: validarFilasClase,
       reservas: validarFilasReserva, citas: validarFilasCita,
     }[a.entidad] as (r: string[][], m: Record<string, number>) => { estado: string; datos: unknown }[];
-    return validar(rows, a.mapeo).filter(v => v.estado === 'ok').map(v => v.datos);
+    const filas = validar(rows, a.mapeo).filter(v => v.estado === 'ok').map(v => v.datos);
+    // Las membresías pasan por el mapeo de planes que haya decidido la dueña
+    // antes de salir hacia el servidor: allí se casa por nombre, así que basta
+    // con dejar puesto el nombre real de su tarifa.
+    return a.entidad === 'membresias'
+      ? aplicarMapeoPlanes(filas as { plan?: string | null }[], mapeoPlanes, planesTarifa)
+      : filas;
   }
+
+  // Planes del CSV que no existen en el catálogo y siguen sin decidir. Se
+  // calculan sobre las filas SIN mapear (mapeo vacío) para no esconder los que
+  // ya se resolvieron: `planesSinCasar` los descuenta con el mapeo actual.
+  const filasMembresiaCrudas = (plan?.archivos ?? [])
+    .filter(a => a.entidad === 'membresias')
+    .flatMap(a => {
+      const local = archivos.find(x => x.nombre === (a.origenNombre ?? a.nombre));
+      if (!local || !a.mapeo) return [];
+      const { rows } = parseCsv(local.contenido);
+      return validarFilasMembresia(rows, a.mapeo as Parameters<typeof validarFilasMembresia>[1])
+        .filter(v => v.estado === 'ok')
+        .map(v => v.datos);
+    });
+  const planesPendientes = planesSinCasar(filasMembresiaCrudas, planesTarifa, mapeoPlanes);
+  const planesYaMapeados = Object.entries(mapeoPlanes).length;
 
   async function ejecutar() {
     if (!plan) return;
@@ -518,6 +548,76 @@ export default function MigracionPage() {
             <p className="text-[12px] text-muted-foreground">
               Los archivos sin clasificar no se tocan. Si quieres que los migremos nosotros, escríbenos a soporte@tentare.app con el archivo adjunto.
             </p>
+          )}
+
+          {/* Emparejar los planes del CSV con las tarifas del estudio. Sin esto,
+              un estudio que ya tiene su catálogo montado veía fallar TODAS las
+              filas de bonos con "no existe el plan X" y no tenía dónde decir
+              que X es su Y. */}
+          {(planesPendientes.length > 0 || planesYaMapeados > 0) && (
+            <div className="rounded-2xl border border-warning/40 bg-warning/5 p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5 text-warning" />
+                <div>
+                  <p className="text-[13px] font-bold text-foreground">
+                    {planesPendientes.length > 0
+                      ? `Tus tarifas se llaman distinto que en tu software anterior`
+                      : 'Planes emparejados'}
+                  </p>
+                  <p className="text-[12px] text-muted-foreground mt-0.5">
+                    {planesPendientes.length > 0
+                      ? 'Dinos a qué tarifa tuya corresponde cada una. Las que dejes sin emparejar no se importarán.'
+                      : 'Todo listo: cada plan del archivo tiene su tarifa.'}
+                  </p>
+                </div>
+              </div>
+
+              {planesPendientes.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {planesPendientes.map(p => (
+                    <div key={p.nombre} className="flex flex-wrap items-center gap-2">
+                      <span className="text-[13px] font-semibold text-foreground truncate max-w-[190px]" title={p.nombre}>
+                        {p.nombre}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {p.filas} fila{p.filas === 1 ? '' : 's'}
+                      </span>
+                      <ArrowRight size={13} className="text-muted-foreground shrink-0" />
+                      <select
+                        aria-label={`Tarifa para «${p.nombre}»`}
+                        className="flex-1 min-w-[170px] px-2.5 py-1.5 rounded-lg border border-border bg-background text-[13px] text-foreground"
+                        value=""
+                        onChange={e => {
+                          const v = e.target.value;
+                          if (!v) return;
+                          setMapeoPlanes(m => ({ ...m, [normalizarNombrePlan(p.nombre)]: v === 'NO_IMPORTAR' ? '' : v }));
+                        }}
+                      >
+                        <option value="">Elige una tarifa…</option>
+                        {planesTarifa.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                        <option value="NO_IMPORTAR">— No importar estas filas —</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {planesYaMapeados > 0 && (
+                <button
+                  onClick={() => setMapeoPlanes({})}
+                  className="mt-3 text-[12px] font-semibold text-muted-foreground hover:text-foreground underline underline-offset-2"
+                >
+                  Deshacer los {planesYaMapeados} emparejamiento{planesYaMapeados === 1 ? '' : 's'}
+                </button>
+              )}
+
+              {planesTarifa.length === 0 && (
+                <p className="mt-3 text-[12px] text-muted-foreground">
+                  Todavía no tienes tarifas creadas. Créalas en Configuración → Planes y tarifas y
+                  vuelve aquí: podrás emparejarlas sin volver a subir los archivos.
+                </p>
+              )}
+            </div>
           )}
 
           <div className="flex gap-3">

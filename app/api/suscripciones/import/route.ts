@@ -6,6 +6,7 @@ import { emailValido, parsearFecha, normalizarEstadoMembresia } from '@/lib/csv'
 import { uid } from '@/lib/utils';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
+import { normalizarNombrePlan } from '@/lib/migracion/planes';
 import { catalogo } from '@/lib/migracion/catalogo';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
@@ -30,8 +31,10 @@ interface FilaEntrada {
   estado?: string | null;
 }
 
-const RE_DIACRITICOS = /[̀-ͯ]/g;
-const normPlan = (s: string) => s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '').trim();
+// La normalización vive en lib/migracion/planes.ts: la pantalla de revisión
+// tiene que decidir "esto no casa" con EXACTAMENTE el mismo criterio con el que
+// el servidor lo va a rechazar, o el aviso miente.
+const normPlan = normalizarNombrePlan;
 
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
