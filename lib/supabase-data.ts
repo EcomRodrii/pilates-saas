@@ -415,6 +415,9 @@ export function mapSocio(r: RowSocios): Socio {
           ...(r.aceptacion_por ? { introducidaPor: r.aceptacion_por } : {}),
         }
       : undefined;
+  const consentimientoSalud = r.consentimiento_salud_fecha
+    ? { fecha: r.consentimiento_salud_fecha, registradoPor: r.consentimiento_salud_registrado_por ?? '' }
+    : undefined;
 
   return {
     id: r.id,
@@ -429,6 +432,7 @@ export function mapSocio(r: RowSocios): Socio {
     leadStage: r.lead_stage ?? undefined,
     tags: r.tags ?? undefined,
     aceptacionContrato,
+    consentimientoSalud,
     avatar: r.avatar ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     stripePaymentMethodId: r.stripe_payment_method_id ?? null,
@@ -3485,6 +3489,10 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
     db.aceptacion_version = changes.aceptacionContrato?.versionTexto ?? null;
     db.aceptacion_origen = changes.aceptacionContrato?.origen ?? null;
     db.aceptacion_por = changes.aceptacionContrato?.introducidaPor ?? null;
+  }
+  if ('consentimientoSalud' in changes) {
+    db.consentimiento_salud_fecha = changes.consentimientoSalud?.fecha ?? null;
+    db.consentimiento_salud_registrado_por = changes.consentimientoSalud?.registradoPor ?? null;
   }
   const { error } = await supabase.from('socios').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateSocio]', error) : ESCRITURA_OK;

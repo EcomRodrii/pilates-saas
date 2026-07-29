@@ -576,6 +576,8 @@ export interface RowSocios {
   // mostrador por el estudio es indistinguible de una firmada por la socia.
   aceptacion_origen: string | null;
   aceptacion_por: string | null;
+  consentimiento_salud_fecha: string | null;
+  consentimiento_salud_registrado_por: string | null;
   stripe_customer_id: string | null;
   stripe_payment_method_id: string | null;
   avatar: string | null;
