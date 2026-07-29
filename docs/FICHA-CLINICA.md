@@ -285,5 +285,7 @@ Cada fase: PR propio, tests verdes, revisión antes de la siguiente. **Fase 1 es
 1. **Catálogo de restricciones** por zona (§2) — ¿la lista de arriba es la buena, o hay movimientos propios del reformer que añadir? (Es contenido, se ajusta sin tocar arquitectura.)
 2. **Umbral de "sin revisión"** (§10) — ¿90 días como en el spec, configurable por estudio?
 3. **Diástasis / suelo pélvico** — ¿categoría propia o dentro de POSTPARTO/CRONICA?
-4. **Retención del dato** cuando una socia se da de baja — ¿se conserva el historial o se anonimiza pasado X tiempo? (RGPD, dato de salud.)
+4. **Retención del dato** cuando una socia se da de baja — ¿se conserva el historial o se anonimiza pasado X tiempo? (RGPD, dato de salud.) Sigue abierta: `app/api/socios/eliminar/route.ts` borra la ficha clínica al eliminar la cuenta, pero no hay una política de retención automática (por tiempo) antes de ese punto.
+
+**Actualización (2026-07-29):** el **consentimiento explícito** para tratar datos de salud (art. 9 RGPD) ya está cerrado en el flujo normal de la UI — migración `0138_consentimiento_datos_salud.sql` (PR #511) añade `socios.consentimiento_salud_fecha`/`consentimiento_salud_registrado_por`, y `components/socios/ficha-salud.tsx` exige darlo antes de abrir el formulario de una condición nueva. ⚠️ Es una puerta de UI, no una cerradura de base de datos: no hay `CHECK`/trigger que impida un insert directo en `condiciones_salud` sin ese consentimiento (ver `docs/ARQUITECTURA-LEGAL-PAGOS-FACTURACION.md`, §6).
 ```

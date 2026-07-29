@@ -219,9 +219,10 @@ export function PanelFacturas() {
           <FileText size={15} className="text-brand-medio" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold text-foreground">Verifactu — Próximamente</p>
+          <p className="text-sm font-bold text-foreground">Verifactu — activo</p>
           <p className="text-xs font-medium mt-0.5 text-brand-medio">
-            Integración con AEAT en desarrollo. Las facturas se generan automáticamente al cobrar un recibo.
+            Cada factura se sella automáticamente al cobrar un recibo: huella encadenada y QR de cotejo AEAT.
+            {!entornoProduccion && ' Entorno de pruebas — pendiente de validación con la AEAT y asesor fiscal.'}
           </p>
         </div>
       </div>

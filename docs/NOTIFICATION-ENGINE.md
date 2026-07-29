@@ -8,16 +8,22 @@ directamente.**
 ```
 Acción de negocio
    └─ NotificationEngine.publish(evento)        (lib/notifications/engine.ts)
-        └─ inngest.send('notification/emit')     (cola asíncrona, no bloquea el request)
-             └─ worker procesarNotificacion       (lib/inngest/notifications.ts)
-                  └─ procesarEvento()             (motor)
-                       ├─ REGLAS[evento]          → categoría, prioridad, canales, audiencia
-                       ├─ resolverDestinatarios() → propietaria / instructora / socia(s)
-                       ├─ preferencias por usuario y categoría
-                       ├─ plantilla por rol       → title/body/deep_link
-                       ├─ fila `notification`     (in-app SIEMPRE, salvo preferencia/SILENCIOSA)
-                       └─ `notification_delivery` por canal (INAPP, PUSH, …)
+        ├─ 1) INSERT in-app SÍNCRONO             (crearInApp — garantizado, no depende de nada más)
+        └─ 2) fetch interno best-effort          (/api/notifications/deliver, timeout 10s)
+             └─ procesarEvento()                 (motor)
+                  ├─ REGLAS[evento]              → categoría, prioridad, canales, audiencia
+                  ├─ resolverDestinatarios()      → propietaria / instructora / socia(s)
+                  ├─ preferencias por usuario y categoría
+                  ├─ plantilla por rol            → title/body/deep_link
+                  └─ canales externos             (PUSH, EMAIL, WHATSAPP, SMS)
 ```
+
+**Corrección (2026-07-29): NO pasa por Inngest.** El worker `lib/inngest/notifications.ts`
+y el pipeline `inngest.send('notification/emit')` que este documento describía se
+**borraron** en el commit `c92c912` (#371) — una cola invisible que fallaba en
+silencio dejó sin ninguna notificación en producción, así que el diseño cambió a
+lo de arriba: la escritura in-app es síncrona y garantizada, y los canales
+externos son un fetch interno best-effort, no una cola.
 
 ## Estado por fases
 

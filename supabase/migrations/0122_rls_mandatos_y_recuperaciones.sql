@@ -11,10 +11,11 @@
 -- Un mandato SEPA es la autorización de una clienta para que le carguen en su
 -- cuenta. Cualquiera del personal podía crear o cancelar uno.
 --
--- Cerrarlo no puede romper ningún flujo: `dbUpsertMandatoSepa` y
--- `dbCancelarMandatoSepa` están exportadas y conectadas al contexto, pero HOY
--- NINGUNA PANTALLA las llama (comprobado en app/ y components/). El agujero
--- estaba abierto para una puerta que todavía no existe.
+-- Corrección posterior (2026-07-29): sí hay pantalla — `ficha-mandato-sepa.tsx`
+-- ya llamaba a `ponerMandato`/`quitarMandato` desde el 24-jul, 4 días antes de
+-- escribirse el párrafo original de este comentario, que decía lo contrario.
+-- No cambia la corrección del fix (la RLS estaba abierta y hacía falta
+-- cerrarla), pero el dato de "ninguna pantalla la llama" era falso.
 --
 -- ── `recuperaciones` ────────────────────────────────────────────────────────
 -- Una recuperación es una clase gratis que se le debe a una clienta. Conceder
