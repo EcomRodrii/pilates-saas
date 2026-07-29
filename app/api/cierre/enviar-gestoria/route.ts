@@ -5,6 +5,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { computeCierreAnual, mapFacturaRow, mapIngresoManual } from '@/lib/fiscal/cierre-engine';
 import { enviarCierreAGestoria } from '@/lib/emails/cierre-gestoria-server';
+import { fetchAllRows } from '@/lib/supabase-data';
 import type { RowFacturas, RowIngresosManuales } from '@/lib/db-types';
 
 // Envía el paquete del Cierre de año a la gestoría. El servidor RECOMPUTA el
@@ -36,10 +37,19 @@ export async function POST(req: NextRequest) {
   const sid = sesion.studioId;
   const desde = `${anio}-01-01`, hasta = `${anio}-12-31`;
 
+  // Paginado (fetchAllRows): un .select('*') simple lo trunca PostgREST a 1000
+  // filas en silencio. Un estudio con más de 1000 facturas en el año habría
+  // mandado a su gestoría un cierre fiscal incompleto sin ningún aviso
+  // (auditoría 2026-07-29, hallazgo 2.3 — este endpoint es, literalmente, la
+  // declaración que se envía fuera de Tentare).
   const [studioRes, facRes, manRes] = await Promise.all([
     admin.from('studios').select('nombre, email, color_primario, logo_url').eq('id', sid).maybeSingle(),
-    admin.from('facturas').select('*').eq('studio_id', sid).gte('fecha_emision', desde).lte('fecha_emision', `${hasta}T23:59:59`),
-    admin.from('ingresos_manuales').select('*').eq('studio_id', sid).gte('fecha', desde).lte('fecha', hasta),
+    fetchAllRows<RowFacturas>(sid, 'facturas', (from, to) =>
+      admin.from('facturas').select('*').eq('studio_id', sid)
+        .gte('fecha_emision', desde).lte('fecha_emision', `${hasta}T23:59:59`).range(from, to)),
+    fetchAllRows<RowIngresosManuales>(sid, 'ingresos_manuales', (from, to) =>
+      admin.from('ingresos_manuales').select('*').eq('studio_id', sid)
+        .gte('fecha', desde).lte('fecha', hasta).range(from, to)),
   ]);
 
   // Guarda el email de la gestoría para no volver a pedirlo (no rompe si falla).

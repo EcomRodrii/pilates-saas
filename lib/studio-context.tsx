@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { fijarEtiqueta } from '@/lib/sentry-cliente';
+import { fijarEtiqueta, capturarMensaje } from '@/lib/sentry-cliente';
 import { CoreProvider } from '@/lib/core-context';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
@@ -1859,7 +1859,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         intentosReintento: 0,
       };
       setRecibos(prev => [reciboRenovacion, ...prev]);
-      dbInsertRecibo(reciboRenovacion);
+      // Se ESPERA y se comprueba: antes se disparaba sin await y su fallo (Sentry
+      // dbInsertRecibo 23503, recibos_suscripcion_id_fkey — visto en producción)
+      // pasaba inadvertido. La pantalla seguía mostrando un recibo de renovación
+      // que nunca llegó a existir en la base de datos, así que el cobro
+      // correspondiente jamás se registraba.
+      const resRecibo = await dbInsertRecibo(reciboRenovacion);
+      if (!resRecibo.ok) {
+        setRecibos(prev => prev.filter(r => r.id !== reciboRenovacion.id));
+        capturarMensaje('[consumirSesionBono] no se pudo crear el recibo de renovación', 'error', {
+          extra: { socioId, sesionId, suscripcionId: sus.id, error: resRecibo.error },
+        });
+        return;
+      }
       setNotificaciones(prev => [{
         id: `notif-bono-${uid()}`,
         studioId: getCurrentStudioId(),
