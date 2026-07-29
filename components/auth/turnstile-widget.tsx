@@ -2,6 +2,7 @@
 
 import Script from 'next/script';
 import { useEffect, useRef, useState } from 'react';
+import { alGastarCaptcha } from '@/lib/auth/captcha-usado';
 
 // Cloudflare Turnstile, sin librería de npm: el embed oficial es un <script>
 // global + un div con data-sitekey y un callback — no hace falta envolverlo
@@ -52,6 +53,14 @@ export function turnstileConfigurado(): boolean {
 export function TurnstileWidget({ onToken }: { onToken: (token: string | null) => void }) {
   const contenedorRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
+  // En un ref para que la suscripción se haga UNA vez: los formularios pasan
+  // `setX` de useState, estable, pero alguno podría pasar una función nueva en
+  // cada render y resuscribirse (y perder el widget) en bucle.
+  const onTokenRef = useRef(onToken);
+  // En un efecto, no en el render: escribir un ref durante el render es una
+  // violación de las reglas de React (y lo caza el lint). Sin array de
+  // dependencias a propósito — tiene que quedarse con la última función.
+  useEffect(() => { onTokenRef.current = onToken; });
   const [scriptListo, setScriptListo] = useState(false);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
@@ -68,6 +77,19 @@ export function TurnstileWidget({ onToken }: { onToken: (token: string | null) =
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scriptListo, siteKey]);
+
+  // Un token se gasta al usarlo. Sin esto, el widget emitía uno y no volvía a
+  // emitir nunca: el segundo intento de la misma carga de página fallaba con
+  // `captcha_failed (timeout-or-duplicate)` — un intento por carga, en todas
+  // las pantallas de auth. Ver `lib/auth/captcha-usado.ts`.
+  useEffect(() => alGastarCaptcha(() => {
+    if (!widgetId.current || !window.turnstile) return;
+    // Se invalida ANTES de pedir el nuevo: entre el reset y el callback no hay
+    // token válido, y dejar el viejo puesto haría que un reintento rápido
+    // volviera a mandar el que acaba de gastarse.
+    onTokenRef.current(null);
+    window.turnstile.reset(widgetId.current);
+  }), []);
 
   if (!siteKey) return null;
 
