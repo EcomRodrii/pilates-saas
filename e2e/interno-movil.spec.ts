@@ -42,6 +42,7 @@ async function mockPanel(page: Page) {
     estudios: { total: 11, conActividad: 4, vacios: 7, altasUltimos30d: 3, suspendidos: 0 },
     actividad: { socias: 186, clases: 412, reservasHoy: 12, reservas7d: 64, reservas30d: 210 },
     altasPorMes: [{ mes: '2026-06', altas: 4 }, { mes: '2026-07', altas: 5 }],
+    onboarding: { activados: 2, totalConActividad: 4, pasoMasBloqueante: { id: 'pago', label: 'Activa los métodos de pago', pendientes: 2 } },
   }));
   await page.route('**/api/interno/facturacion**', r => json(r, {
     mrrEuros: 277, mrrEnPruebaEuros: 79, pagando: 3, enPrueba: 1, impagos: 1, manuales: 4,
