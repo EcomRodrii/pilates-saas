@@ -36,9 +36,9 @@ const TONO: Record<EstadoLead, string> = {
 
 function Tarjeta({ titulo, valor, pie }: { titulo: string; valor: string; pie?: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-card px-4 py-3.5">
+    <div className="rounded-2xl border border-border bg-card px-3.5 py-3 sm:px-4 sm:py-3.5">
       <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{titulo}</p>
-      <p className="mt-1 text-[26px] font-bold tabular-nums leading-none text-foreground">{valor}</p>
+      <p className="mt-1 text-[22px] sm:text-[26px] font-bold tabular-nums leading-none text-foreground">{valor}</p>
       {pie && <p className="mt-1.5 text-[11.5px] text-muted-foreground leading-snug">{pie}</p>}
     </div>
   );
@@ -207,7 +207,7 @@ export default function CrecimientoInterno() {
       )}
 
       <section>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
           <Tarjeta titulo="En curso" valor={String(vista.embudo.enCurso)}
             pie="Ni ganados ni perdidos. Son los que se pueden mover." />
           <Tarjeta titulo="Clientes" valor={String(vista.embudo.clientes)} />
@@ -226,56 +226,72 @@ export default function CrecimientoInterno() {
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">
           Embudo
         </h2>
+        {/* Igual que en Facturación: en móvil cada lead es una ficha. Una
+            tabla de cinco columnas en 340px partía los nombres en tres líneas
+            y dejaba «Entró» fuera de la pantalla. */}
         {d.leads.length === 0 ? (
           <p className="rounded-2xl border border-border bg-card px-4 py-3.5 text-[12.5px] text-muted-foreground">
             Todavía no hay ningún lead. Los del formulario de migración de la landing
             entran aquí solos; el resto se apuntan con «Nuevo lead».
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                  <th className="px-3 py-2 text-left font-bold">Lead</th>
-                  <th className="px-3 py-2 text-left font-bold">Estado</th>
-                  <th className="px-3 py-2 text-left font-bold">De dónde</th>
-                  <th className="px-3 py-2 text-left font-bold">Siguiente paso</th>
-                  <th className="px-3 py-2 text-left font-bold">Entró</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.leads.map(l => (
-                  <tr key={l.id} data-testid={`lead-${l.id}`} className="border-b border-border/60 last:border-0">
-                    <td className="px-3 py-2">
-                      <button type="button" onClick={() => setEditando(l)}
-                        className="text-left font-semibold text-foreground hover:underline">
-                        {l.nombre ?? l.email}
-                      </button>
-                      {l.estudio && <span className="ml-1.5 text-[11.5px] text-muted-foreground">{l.estudio}</span>}
-                      {l.softwareActual && (
-                        <span className="ml-1.5 text-[11.5px] text-muted-foreground">· viene de {l.softwareActual}</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={`inline-block rounded-lg px-2 py-0.5 text-[11.5px] font-bold ${TONO[l.estado as EstadoLead]}`}>
-                        {ESTADO_ETIQUETA[l.estado as EstadoLead] ?? l.estado}
-                      </span>
-                      {l.estado === 'PERDIDO' && l.motivoPerdida && (
-                        <span className="ml-1.5 text-[11.5px] text-muted-foreground">{l.motivoPerdida}</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {ORIGEN_ETIQUETA[l.origen as OrigenLead] ?? l.origen}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {l.proximoPaso ?? '—'}
-                      {l.proximaFecha && <span className="ml-1 text-[11.5px]">({fecha(l.proximaFecha)})</span>}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">{fecha(l.creadoEn)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="rounded-2xl border border-border bg-card">
+            <div className="hidden sm:grid grid-cols-[2fr_auto_auto_1fr_auto] gap-x-4 px-4 py-2 border-b border-border text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <span>Lead</span><span>Estado</span><span>De dónde</span><span>Siguiente paso</span><span>Entró</span>
+            </div>
+            {d.leads.map(l => (
+              <div
+                key={l.id} data-testid={`lead-${l.id}`}
+                className="grid sm:grid-cols-[2fr_auto_auto_1fr_auto] gap-x-4 gap-y-1 px-4 py-3 border-b border-border/60 last:border-0"
+              >
+                <div className="flex items-start justify-between gap-2 sm:block">
+                  <span className="min-w-0">
+                    <button type="button" onClick={() => setEditando(l)}
+                      className="text-left font-semibold text-foreground hover:underline">
+                      {l.nombre ?? l.email}
+                    </button>
+                    {l.estudio && <span className="ml-1.5 text-[11.5px] text-muted-foreground">{l.estudio}</span>}
+                    {l.softwareActual && (
+                      <span className="ml-1.5 text-[11.5px] text-muted-foreground">· viene de {l.softwareActual}</span>
+                    )}
+                  </span>
+                  <span className={`sm:hidden shrink-0 rounded-lg px-2 py-0.5 text-[11.5px] font-bold ${TONO[l.estado as EstadoLead]}`}>
+                    {ESTADO_ETIQUETA[l.estado as EstadoLead] ?? l.estado}
+                  </span>
+                </div>
+                <span className="hidden sm:block">
+                  <span className={`inline-block rounded-lg px-2 py-0.5 text-[11.5px] font-bold ${TONO[l.estado as EstadoLead]}`}>
+                    {ESTADO_ETIQUETA[l.estado as EstadoLead] ?? l.estado}
+                  </span>
+                </span>
+                <span className="hidden sm:block text-[13px] text-muted-foreground">
+                  {ORIGEN_ETIQUETA[l.origen as OrigenLead] ?? l.origen}
+                </span>
+                {/* En móvil se juntan origen, siguiente paso y motivo de pérdida
+                    en una línea: por separado eran cuatro filas de una palabra. */}
+                {/* En escritorio esto es la columna "siguiente paso"; en móvil
+                    absorbe origen y fecha de entrada, que por separado eran tres
+                    filas de una palabra. El guión de "sin siguiente paso" solo
+                    se pinta en la rejilla: en la frase de móvil sería ruido. */}
+                <span className="text-[12px] sm:text-[13px] text-muted-foreground">
+                  {(() => {
+                    const paso = l.proximoPaso
+                      ?? (l.estado === 'PERDIDO' && l.motivoPerdida ? l.motivoPerdida : null);
+                    return (
+                      <>
+                        <span className="sm:hidden">
+                          {[ORIGEN_ETIQUETA[l.origen as OrigenLead] ?? l.origen, paso].filter(Boolean).join(' · ')}
+                        </span>
+                        <span className="hidden sm:inline">{paso ?? '—'}</span>
+                        {l.proximaFecha && <span className="ml-1 text-[11.5px]">({fecha(l.proximaFecha)})</span>}
+                        <span className="sm:hidden"> · entró el {fecha(l.creadoEn)}</span>
+                      </>
+                    );
+                  })()}
+                </span>
+                <span className="hidden sm:block text-[13px] text-muted-foreground">{fecha(l.creadoEn)}</span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -324,7 +340,7 @@ export default function CrecimientoInterno() {
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">
           Cómo nos conocieron los estudios que ya están dentro
         </h2>
-        <div className="rounded-2xl border border-border bg-card px-4 py-3.5">
+        <div className="rounded-2xl border border-border bg-card px-3.5 py-3 sm:px-4 sm:py-3.5">
           {vista.origen.canales.length === 0 ? (
             <p className="text-[12.5px] text-muted-foreground">
               Ningún estudio ha respondido de dónde nos conoció.
