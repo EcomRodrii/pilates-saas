@@ -34,9 +34,9 @@ function Tarjeta({ titulo, valor, pie, acento }: {
   titulo: string; valor: string; pie?: string; acento?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card px-4 py-3.5">
+    <div className="rounded-2xl border border-border bg-card px-3.5 py-3 sm:px-4 sm:py-3.5">
       <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{titulo}</p>
-      <p className={`mt-1 text-[26px] font-bold tabular-nums leading-none ${acento ? 'text-brand-medio' : 'text-foreground'}`}>{valor}</p>
+      <p className={`mt-1 text-[22px] sm:text-[26px] font-bold tabular-nums leading-none ${acento ? 'text-brand-medio' : 'text-foreground'}`}>{valor}</p>
       {pie && <p className="mt-1.5 text-[11.5px] text-muted-foreground leading-snug">{pie}</p>}
     </div>
   );
@@ -119,7 +119,7 @@ export default function FacturacionInterna() {
       )}
 
       <section>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
           <Tarjeta
             titulo="MRR real" valor={f.stripeDisponible ? eur(f.mrrEuros) : '—'} acento
             pie={!f.stripeDisponible ? 'Sin respuesta de Stripe.'
@@ -178,54 +178,67 @@ export default function FacturacionInterna() {
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">
           Cuenta por cuenta
         </h2>
-        <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                <th className="px-3 py-2 text-left font-bold">Cuenta</th>
-                <th className="px-3 py-2 text-left font-bold">Estado</th>
-                <th className="px-3 py-2 text-right font-bold">€/mes</th>
-                <th className="px-3 py-2 text-left font-bold">Renueva</th>
-                <th className="px-3 py-2 text-left font-bold">Plan en la base</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lineas.map(l => {
-                const e = ESTADO[l.estado];
-                return (
-                  <tr key={`${l.tipo}-${l.id}`} className="border-b border-border/60 last:border-0">
-                    <td className="px-3 py-2">
-                      {l.tipo === 'estudio' ? (
-                        <Link href={`/interno/estudios/${l.id}`} className="font-semibold text-foreground hover:underline">
-                          {l.nombre}
-                        </Link>
-                      ) : (
-                        <span className="font-semibold text-foreground">{l.nombre}</span>
-                      )}
-                      {l.tipo === 'cadena' && (
-                        <span className="ml-1.5 text-[11.5px] text-muted-foreground">
-                          cadena · {l.sedes} sede(s)
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={`inline-block rounded-lg px-2 py-0.5 text-[11.5px] font-bold ${e.clase}`}>
-                        {e.texto}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground">
-                      {l.eurosMes > 0 ? eur(l.eurosMes) : '—'}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">{fecha(l.renuevaEl)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {l.planEnBd ?? '—'}
-                      {l.estadoEnBd && <span className="text-[11.5px]"> · {l.estadoEnBd}</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        {/* Cinco columnas no caben en un móvil: la última quedaba cortada y
+            los nombres se partían en tres líneas. En pantalla estrecha cada
+            cuenta es una ficha; a partir de `sm` vuelve a ser una rejilla con
+            cabecera. Mismo patrón que /interno/estudios, que ya lo hacía bien. */}
+        <div className="rounded-2xl border border-border bg-card">
+          <div className="hidden sm:grid grid-cols-[2fr_auto_auto_auto_auto] gap-x-4 px-4 py-2 border-b border-border text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <span>Cuenta</span><span>Estado</span><span className="text-right">€/mes</span>
+            <span>Renueva</span><span>Plan en la base</span>
+          </div>
+          {lineas.map(l => {
+            const e = ESTADO[l.estado];
+            const nombre = l.tipo === 'estudio'
+              ? <Link href={`/interno/estudios/${l.id}`} className="font-semibold text-foreground hover:underline">{l.nombre}</Link>
+              : <span className="font-semibold text-foreground">{l.nombre}</span>;
+            return (
+              <div
+                key={`${l.tipo}-${l.id}`}
+                className="grid sm:grid-cols-[2fr_auto_auto_auto_auto] gap-x-4 gap-y-1 px-4 py-3 border-b border-border/60 last:border-0"
+              >
+                <div className="flex items-center justify-between gap-2 sm:block">
+                  <span className="min-w-0">
+                    {nombre}
+                    {l.tipo === 'cadena' && (
+                      <span className="ml-1.5 text-[11.5px] text-muted-foreground">cadena · {l.sedes} sede(s)</span>
+                    )}
+                  </span>
+                  {/* En móvil el estado viaja junto al nombre: es lo primero que
+                      se mira, y en una fila propia obligaba a bajar la vista. */}
+                  <span className={`sm:hidden shrink-0 rounded-lg px-2 py-0.5 text-[11.5px] font-bold ${e.clase}`}>
+                    {e.texto}
+                  </span>
+                </div>
+                <span className="hidden sm:block">
+                  <span className={`inline-block rounded-lg px-2 py-0.5 text-[11.5px] font-bold ${e.clase}`}>{e.texto}</span>
+                </span>
+                {/* En móvil la segunda línea resume lo que en escritorio son tres
+                    columnas. Ojo con el 0 €: un impago SÍ tiene cobro, solo que
+                    falló — decir "sin cobro" ahí sería confundirlo con una
+                    cuenta parada, que es justo lo contrario de lo que hay que
+                    hacer con él. Por eso «sin cobro» se reserva a `manual`.
+                    · El motivo del descuadre NO se repite aquí: ya está, con su
+                      explicación, en el bloque de aviso de arriba, y toda línea
+                      con motivo aparece en ese bloque. Repetirlo en pantalla
+                      estrecha es ruido — y hacía que un test existente no
+                      supiera a cuál de los dos textos se refería. */}
+                <span className="text-[12.5px] sm:text-[13px] text-muted-foreground sm:text-right sm:text-foreground tabular-nums">
+                  <span className="sm:hidden">
+                    {l.eurosMes > 0 && <span className="font-semibold text-foreground">{eur(l.eurosMes)}</span>}
+                    {l.eurosMes > 0 && l.renuevaEl && ' · '}
+                    {l.renuevaEl && `renueva el ${fecha(l.renuevaEl)}`}
+                    {l.estado === 'manual' && 'Sin cobro y sin acceso concedido'}
+                  </span>
+                  <span className="hidden sm:inline">{l.eurosMes > 0 ? eur(l.eurosMes) : '—'}</span>
+                </span>
+                <span className="hidden sm:block text-[13px] text-muted-foreground">{fecha(l.renuevaEl)}</span>
+                <span className="hidden sm:block text-[13px] text-muted-foreground">
+                  {l.planEnBd ?? '—'}{l.estadoEnBd && <span className="text-[11.5px]"> · {l.estadoEnBd}</span>}
+                </span>
+              </div>
+            );
+          })}
         </div>
         <p className="mt-2 text-[11.5px] text-muted-foreground leading-snug">
           Una cadena aparece una sola vez aunque tenga varias sedes: su suscripción
