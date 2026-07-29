@@ -20,6 +20,7 @@ const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
   SIN_STRIPE_CONECTADO: 409,
   CUENTA_NO_LISTA: 409,
   FALLO_COBRO: 402,
+  SUSCRIPCION_PAUSADA: 409,
 };
 
 export async function POST(req: NextRequest) {

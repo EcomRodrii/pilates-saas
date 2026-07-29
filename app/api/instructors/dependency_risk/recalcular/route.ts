@@ -12,6 +12,10 @@ import { calcularDependenciaEstudio } from '@/lib/instructor-dependency';
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Mismo gate que el GET: esta pantalla es solo de PROPIETARIO.
+  if (sesion.rol !== 'PROPIETARIO') {
+    return NextResponse.json({ error: 'Solo la propietaria puede recalcular el riesgo de dependencia por instructora' }, { status: 403 });
+  }
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Service role no configurada' }, { status: 503 });

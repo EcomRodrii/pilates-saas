@@ -6,12 +6,19 @@ import { parseJsonIA } from '@/lib/ai/parse-ia';
 import { FICHA_CLINICA_CLASE_SYSTEM_PROMPT, buildFichaClinicaClaseUserPrompt } from '@/lib/ai/ficha-clinica-clase-prompt';
 import type { ResumenClaseSalud } from '@/lib/ficha-clinica';
 import { errorInterno } from '@/lib/errores-servidor';
+import { enforceRateLimit } from '@/lib/rate-limit';
+import { puedeVerFichaClinica } from '@/lib/permisos-reglas';
 
 const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (!puedeVerFichaClinica(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para ver la ficha clínica' }, { status: 403 });
+  }
+  const limited = await enforceRateLimit(req, 'ai-ficha-clinica-clase', { max: 20, windowSeconds: 60 }, sesion.studioId);
+  if (limited) return limited;
   const bloqueoIA = await bloqueoPorFeature(sesion.studioId, 'ia');
   if (bloqueoIA) return bloqueoIA;
   try {

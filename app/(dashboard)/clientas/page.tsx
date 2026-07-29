@@ -2,10 +2,11 @@
 
 import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
 import { dbStatsClientas } from '@/lib/supabase-data';
+import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useRol, puedeVerFichaClinica, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
+import { useRol, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
 import { textoLegalCompleto } from '@/lib/legal-textos';
@@ -158,7 +159,7 @@ export default function Socios() {
   const { socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados } =
     useStudio();
   const rol = useRol();
-  const verFichaClinica = puedeVerFichaClinica(rol);
+  const verSemaforo = puedeVerSemaforo(rol);
   // El servidor y la RLS ya rechazan esto a la instructora (migr 0112/0118). Lo
   // que faltaba era no enseñárselo: veía "Nueva clienta", "Importar", editar,
   // dar de baja y cambiar plan, los pulsaba, y se llevaba un error. Un botón que
@@ -167,10 +168,11 @@ export default function Socios() {
   const mueveDinero = puedeMoverDinero(rol);
 
   // Semáforo de salud por clienta (solo el color; el motivo vive en el detalle).
-  // FICHA-CLINICA.md §1, §11 — RECEPCIÓN no ve ni el color.
+  // FICHA-CLINICA.md §1, §11 — RECEPCIÓN sí ve el color, pero no el motivo ni
+  // las condiciones (eso lo tapa `puedeVerFichaClinica` en la ficha de detalle).
   const semaforoPorSocio = useMemo(() => {
     const porSocio = new Map<string, NivelSemaforo>();
-    if (!verFichaClinica) return porSocio;
+    if (!verSemaforo) return porSocio;
     const grupos = new Map<string, typeof condicionesSalud>();
     for (const c of condicionesSalud) {
       const arr = grupos.get(c.socioId) ?? [];
@@ -182,7 +184,14 @@ export default function Socios() {
       if (nivel !== 'VERDE') porSocio.set(socioId, nivel);
     }
     return porSocio;
-  }, [condicionesSalud, verFichaClinica]);
+  }, [condicionesSalud, verSemaforo]);
+
+  // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
+  // leer las filas — `condicionesSalud` le llega SIEMPRE vacío, así que el
+  // cálculo de arriba nunca produce nada para ese rol. useSemaforoRecepcion
+  // pide el nivel ya calculado por RPC (sin condiciones ni motivo).
+  const semaforoRecepcion = useSemaforoRecepcion(rol);
+  const semaforoParaMostrar = rol === 'RECEPCION' ? semaforoRecepcion : semaforoPorSocio;
 
   // Filter & sort state
   const [busqueda, setBusqueda] = useState('');
@@ -835,9 +844,9 @@ export default function Socios() {
                         <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarText} size="sm" />
                         <div className="min-w-0">
                           <p className="text-[13px] font-semibold text-foreground truncate flex items-center gap-1.5">
-                            {semaforoPorSocio.has(s.id) && (
-                              <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[semaforoPorSocio.get(s.id)!].label}
-                                style={{ backgroundColor: SEMAFORO_META[semaforoPorSocio.get(s.id)!].color }} />
+                            {semaforoParaMostrar.has(s.id) && (
+                              <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[semaforoParaMostrar.get(s.id)!].label}
+                                style={{ backgroundColor: SEMAFORO_META[semaforoParaMostrar.get(s.id)!].color }} />
                             )}
                             <span className="truncate">{s.nombre} {s.apellidos}</span>
                           </p>
@@ -937,9 +946,9 @@ export default function Socios() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-[13px] font-semibold text-foreground truncate flex items-center gap-1.5">
-                          {semaforoPorSocio.has(s.id) && (
-                            <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[semaforoPorSocio.get(s.id)!].label}
-                              style={{ backgroundColor: SEMAFORO_META[semaforoPorSocio.get(s.id)!].color }} />
+                          {semaforoParaMostrar.has(s.id) && (
+                            <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[semaforoParaMostrar.get(s.id)!].label}
+                              style={{ backgroundColor: SEMAFORO_META[semaforoParaMostrar.get(s.id)!].color }} />
                           )}
                           <span className="truncate">{s.nombre} {s.apellidos}</span>
                         </p>
