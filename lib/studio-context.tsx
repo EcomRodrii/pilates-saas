@@ -18,6 +18,7 @@ import {
   dbPonerExcepcion, dbQuitarExcepcion,
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
+  dbCancelarReservasPorSesiones,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
@@ -1684,6 +1685,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function deleteSesion(id: string) {
+    // Borrar la sesión CASCADE-borra sus reservas en BD (FK on delete cascade) —
+    // antes eso pasaba en silencio: ni email ni aviso in-app a las socias con
+    // plaza, a diferencia de "Cancelar" (que sí avisa). Se manda el mismo
+    // email de cancelación ANTES de borrar, mientras la sesión y las reservas
+    // todavía existen para poder leer sus datos.
+    const sesion = sesiones.find(s => s.id === id);
+    if (sesion) notificarCancelacionSesiones([sesion]);
     setSesiones(prev => prev.filter(s => s.id !== id));
     setReservas(prev => prev.filter(r => r.sesionId !== id));
     dbDeleteSesion(id);
@@ -1773,6 +1781,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // "esta y las siguientes" de una serie solo mandaba email y las socias no
     // recibían ningún aviso in-app/push.
     ids.forEach(id => { void avisarClaseCancelada(id); });
+    // Las reservas de esas sesiones quedaban en CONFIRMADA/LISTA_ESPERA
+    // apuntando a una sesión ya cancelada — la socia veía en su portal una
+    // plaza "confirmada" para una clase que nunca va a pasar. Se marcan
+    // CANCELADA. NO se devuelve el bono aquí a propósito: a diferencia de
+    // cancelar una reserva suelta (con su propia ventana de cancelación por
+    // tipo de clase), cancelar una serie entera es una decisión del estudio,
+    // no de la socia — qué política de reembolso aplica en ese caso es una
+    // decisión de producto pendiente, no algo para improvisar en un fix de
+    // integridad de datos.
+    void dbCancelarReservasPorSesiones(ids).then(res => {
+      if (!('ok' in res)) return;
+      const idsSet = new Set(res.ids);
+      if (idsSet.size === 0) return;
+      setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+    });
     return { ok: true };
   }
 

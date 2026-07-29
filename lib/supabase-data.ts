@@ -4113,6 +4113,25 @@ export async function dbCancelarReservaPlaza(
   };
 }
 
+// Cancela (marca CANCELADA) todas las reservas activas de un lote de sesiones.
+// Cancelar una serie completa marcaba `sesiones.cancelada=true` pero dejaba las
+// reservas en CONFIRMADA/LISTA_ESPERA apuntando a una sesión cancelada — la
+// socia veía en su portal una plaza "confirmada" para una clase que ya no
+// existe. No devuelve bono (ver comentario en cancelarSerieDesde,
+// studio-context.tsx): eso es una decisión de producto pendiente, no algo que
+// se pueda improvisar aquí sin arriesgar un descuadre de saldo.
+export async function dbCancelarReservasPorSesiones(sesionIds: string[]): Promise<{ ok: true; ids: string[] } | { error: string }> {
+  if (sesionIds.length === 0) return { ok: true, ids: [] };
+  const { data, error } = await supabase
+    .from('reservas')
+    .update({ estado: 'CANCELADA', posicion_espera: null })
+    .in('sesion_id', sesionIds)
+    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA'])
+    .select('id');
+  if (error) { reportDbError('[dbCancelarReservasPorSesiones]', error); return { error: error.message }; }
+  return { ok: true, ids: (data ?? []).map(r => r.id as string) };
+}
+
 export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
   const db: Record<string, unknown> = {};
   if ('sesionId' in changes) db.sesion_id = changes.sesionId;
