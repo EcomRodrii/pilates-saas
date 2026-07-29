@@ -5419,7 +5419,7 @@ export async function dbGetIntegracionConfig(studioId: string, tipo: TipoIntegra
   return { activo: !!data.activo, config: (data.config as Record<string, string>) ?? {} };
 }
 
-function slugify(nombre: string): string {
+export function slugify(nombre: string): string {
   return nombre
     .normalize('NFD').replace(/[̀-ͯ]/g, '') // quita acentos
     .toLowerCase()
