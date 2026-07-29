@@ -37,6 +37,9 @@ export default function MisReservasPage() {
   const { t } = useModo();
   const [tab, setTab] = useState<Tab>('PROXIMAS');
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
+  // Cancelar también puede fallar en el servidor. Cerrar la hoja sin mirar dejaba
+  // a la socia creyendo que había cancelado, con la plaza todavía suya.
+  const [aviso, setAviso] = useState<string | null>(null);
   const socioId = session?.socioId;
   const now = new Date();
 
@@ -81,6 +84,14 @@ export default function MisReservasPage() {
       </div>
 
       <div style={{ padding: '0 16px 24px' }}>
+        {aviso && (
+          <p
+            role="status"
+            style={{ fontSize: 13, color: t.ink, background: t.surface2, borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}
+          >
+            {aviso}
+          </p>
+        )}
         <div style={{ marginBottom: 16, marginLeft: -16, marginRight: -16, paddingLeft: 16, paddingRight: 16 }}>
           <Tabs items={TABS} active={tab} onChange={setTab} scroll />
         </div>
@@ -138,7 +149,12 @@ export default function MisReservasPage() {
           <Button variant="secondary" onClick={() => setCancelando(null)} style={{ flex: 1 }}>Volver</Button>
           <Button
             variant="danger"
-            onClick={() => { if (cancelando) { cancelarReserva(cancelando.id); setCancelando(null); } }}
+            onClick={() => {
+              if (!cancelando) return;
+              const id = cancelando.id;
+              setCancelando(null);
+              void cancelarReserva(id).then(r => { if (!r.ok) setAviso(r.error); });
+            }}
             style={{ flex: 1 }}
           >
             Sí, cancelar

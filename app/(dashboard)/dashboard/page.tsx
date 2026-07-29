@@ -362,7 +362,7 @@ function ClaseHoyCard({
                           Check-in
                         </button>
                         <button
-                          onClick={() => cancelarReserva(r.id)}
+                          onClick={() => { void cancelarReserva(r.id); }}
                           className="text-[10px] font-medium px-2 py-1 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                         >
                           ✕

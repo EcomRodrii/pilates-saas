@@ -122,9 +122,17 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
   if (code === '23P01' || /exclusion constraint|conflicting key value/i.test(msg)) {
     return 'Esa sala o instructora ya tiene una clase a esa hora. Elige otro hueco.';
   }
+  // Si el servidor mandó una frase apta para una persona, es mejor que la
+  // nuestra — y eso vale TAMBIÉN con un 4xx. Este `if` estaba antes de la línea
+  // de abajo, así que un 400 que decía «Necesitas un plan o bono activo para
+  // reservar» acababa en pantalla como «no se ha podido guardar»: justo la
+  // información que resuelve el problema era la que se tiraba. Los 401/403 ya
+  // se han resuelto arriba a propósito (ahí no se repite lo que diga el
+  // servidor, por si filtra algo).
+  const delServidor = mensajeSeguro(msg, '');
+  if (delServidor) return delServidor;
   if (status >= 400) return mensajeHttp(status);
-  // Si el servidor mandó una frase apta para una persona, es mejor que la nuestra.
-  return mensajeSeguro(msg, ERROR_GENERICO);
+  return ERROR_GENERICO;
 }
 
 /**

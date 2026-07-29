@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
@@ -19,6 +19,9 @@ export default function ClaseDetallePage() {
   const { session } = usePortalAuth();
   const { sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, addReserva, cancelarReserva } = useStudio();
   const { t } = useModo();
+  // El servidor puede decir que no (sin bono, clase empezada, tope de reservas).
+  // Sin esto, pulsar «Reservar» no hacía nada visible y la reserva no existía.
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const ses = sesiones.find(s => s.id === sesionId);
   const tipo = ses ? tiposClase.find(t2 => t2.id === ses.tipoClaseId) : undefined;
@@ -152,12 +155,31 @@ export default function ClaseDetallePage() {
             descripción media la página no llega a hacer scroll (el root es
             minHeight:100%) y el botón "Reservar" quedaba tapado por el menú. */}
         <div style={{ marginTop: 20, paddingBottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
+          {aviso && (
+            <p style={{ fontSize: 13, color: t.ink, background: t.surface2, borderRadius: 12, padding: '10px 12px', marginBottom: 10 }}>
+              {aviso}
+            </p>
+          )}
           {miReserva ? (
-            <Button variant="danger" onClick={() => cancelarReserva(miReserva.id)} style={{ width: '100%' }}>
+            <Button
+              variant="danger"
+              onClick={() => { void cancelarReserva(miReserva.id).then(r => setAviso(r.ok ? 'Reserva cancelada.' : r.error)); }}
+              style={{ width: '100%' }}
+            >
               Cancelar reserva
             </Button>
           ) : (
-            <Button onClick={() => session?.socioId && addReserva(ses.id, session.socioId)} style={{ width: '100%' }}>
+            <Button
+              onClick={() => {
+                if (!session?.socioId) return;
+                void addReserva(ses.id, session.socioId).then(r => setAviso(
+                  !r.ok ? r.error
+                    : r.estado === 'LISTA_ESPERA' ? 'Estás en la lista de espera. Te avisaremos si se libera una plaza.'
+                    : 'Reservada. Te esperamos.',
+                ));
+              }}
+              style={{ width: '100%' }}
+            >
               {libres > 0
                 ? (cubierta || precioClaseSuelta == null ? 'Reservar' : `Reservar · ${precioClaseSuelta} €`)
                 : 'Unirme a la lista de espera'}

@@ -2123,7 +2123,7 @@ export default function Calendario() {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
     const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
-    addReserva(sesionId, socioId);
+    void addReserva(sesionId, socioId); // vía panel: el estado se corrige solo contra la BD
     setToast(estado === 'LISTA_ESPERA'
       ? `Clase llena — ${nombre} va a lista de espera (nº ${posicionEspera})`
       : `${nombre} añadida a la clase`);

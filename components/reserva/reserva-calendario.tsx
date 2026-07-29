@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { NivelClase, EstadoReserva, Spot } from '@/lib/types';
+import type { ResultadoReserva } from '@/lib/studio-context';
+import type { ResultadoEscritura } from '@/lib/errores';
 import { radius, semantic, sheetBottomPadding } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import {
@@ -75,13 +77,14 @@ export interface ReservaCalendarioProps {
   t: ModoTokens;
   slots: ReservaSlot[];
   /**
-   * Reserva el slot. Si devuelve un EstadoReserva, la hoja lo muestra in situ
-   * (confirmada / lista de espera). Si devuelve void, la hoja entiende que el
-   * flujo se ha derivado a otra superficie (p. ej. el modal de acceso del
-   * widget público) y se cierra ella misma para no quedar apilada detrás.
+   * Reserva el slot. Devuelve el resultado REAL del servidor: la hoja pinta la
+   * confirmación si dice que sí, y el motivo si dice que no. Si devuelve void,
+   * el flujo se ha derivado a otra superficie (p. ej. el modal de acceso del
+   * widget público) y la hoja se cierra sola para no quedar apilada detrás.
    */
-  onReservar: (slot: ReservaSlot, spotId: string | null) => EstadoReserva | void;
-  onCancelar: (reservaId: string) => void;
+  onReservar: (slot: ReservaSlot, spotId: string | null) => ResultadoReserva | void | Promise<ResultadoReserva | void>;
+  /** Cancela. Si devuelve un resultado y es `ok: false`, la hoja dice el motivo. */
+  onCancelar: (reservaId: string) => void | Promise<ResultadoEscritura | void>;
   /** 'calendario' (tira de semana) o 'lista' (agrupada por día, para Mis reservas). */
   variant?: 'calendario' | 'lista';
   /** Horas de antelación para cancelar sin penalización; muestra un aviso en la hoja.
@@ -139,6 +142,10 @@ export function ReservaCalendario({
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
   // Feedback tras una acción, para confirmar visualmente sin cerrar la hoja.
   const [resultado, setResultado] = useState<EstadoReserva | 'CANCELADA' | null>(null);
+  // El servidor rechaza legítimamente en varios sitios (sin bono, clase ya
+  // empezada, tope de reservas...). Antes ese "no" no llegaba nunca a la hoja y
+  // se pintaba «¡Reserva confirmada!» encima de una reserva que no existía.
+  const [errorReserva, setErrorReserva] = useState<string | null>(null);
 
   const semana = useMemo(() => diasSemana(weekAnchor), [weekAnchor]);
   const conteoPorDia = useMemo(() => contarSlotsPorDia(slots), [slots]);
@@ -175,6 +182,7 @@ export function ReservaCalendario({
     setOpenSlotId(null);
     setSelectedSpot(null);
     setResultado(null);
+    setErrorReserva(null);
   }
 
   const microLabel: CSSProperties = {
@@ -308,23 +316,30 @@ export function ReservaCalendario({
           selectedSpot={selectedSpot}
           onSelectSpot={setSelectedSpot}
           resultado={resultado}
+          errorReserva={errorReserva}
           cancelacionVentanaHoras={cancelacionVentanaHoras}
           ventanaPorTipo={ventanaPorTipo}
           fontFamily={fontFamily}
           onClose={cerrarHoja}
-          onReservar={() => {
-            const r = onReservar(openSlot, selectedSpot);
-            // Con estado → confirmación in situ; sin estado → el flujo se ha
-            // derivado a otra superficie (modal de acceso del widget público):
-            // cerramos la hoja para que no quede apilada detrás de ese modal.
-            if (r) setResultado(r);
-            else cerrarHoja();
+          onReservar={async () => {
+            setErrorReserva(null);
+            const r = await onReservar(openSlot, selectedSpot);
+            // Sin resultado → el flujo se ha derivado a otra superficie (modal de
+            // acceso del widget público): cerramos la hoja para que no quede
+            // apilada detrás de ese modal.
+            if (!r) { cerrarHoja(); return; }
+            // Con un "no" del servidor la hoja SE QUEDA ABIERTA y dice por qué:
+            // cerrarla dejaría a la clienta sin plaza y sin explicación.
+            if (!r.ok) { setErrorReserva(r.error); return; }
+            setResultado(r.estado);
           }}
-          onCancelar={() => {
-            if (openSlot.miReservaId) {
-              onCancelar(openSlot.miReservaId);
-              setResultado('CANCELADA');
-            }
+          onCancelar={async () => {
+            if (!openSlot.miReservaId) return;
+            setErrorReserva(null);
+            const r = await onCancelar(openSlot.miReservaId);
+            // `void` = quien lo pasa no informa (vía panel, que se corrige sola).
+            if (r && !r.ok) { setErrorReserva(r.error); return; }
+            setResultado('CANCELADA');
           }}
         />
       )}
@@ -397,7 +412,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
 // ── Hoja inferior (bottom sheet) ─────────────────────────────────────────────
 
 function BookingSheet({
-  t, slot, selectedSpot, onSelectSpot, resultado, cancelacionVentanaHoras, ventanaPorTipo,
+  t, slot, selectedSpot, onSelectSpot, resultado, errorReserva, cancelacionVentanaHoras, ventanaPorTipo,
   fontFamily, onClose, onReservar, onCancelar,
 }: {
   t: ModoTokens;
@@ -405,6 +420,7 @@ function BookingSheet({
   selectedSpot: string | null;
   onSelectSpot: (id: string | null) => void;
   resultado: EstadoReserva | 'CANCELADA' | null;
+  errorReserva: string | null;
   cancelacionVentanaHoras?: number;
   ventanaPorTipo?: Record<string, number>;
   fontFamily: string;
@@ -513,6 +529,7 @@ function BookingSheet({
         )}
 
         {/* Banner de resultado / estado actual */}
+        {errorReserva && <Banner tipo="warn" texto={errorReserva} />}
         {resultado === 'CONFIRMADA' && <Banner tipo="ok" texto="¡Reserva confirmada! Te esperamos en clase." />}
         {resultado === 'LISTA_ESPERA' && <Banner tipo="warn" texto="Estás en lista de espera. Te avisaremos si se libera una plaza." />}
         {resultado === 'CANCELADA' && <Banner tipo="warn" texto="Reserva cancelada." />}

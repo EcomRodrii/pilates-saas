@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { montarPortal, SLUG } from './portal-mock';
+import { montarPortal, abrirHojaDeReserva, SLUG } from './portal-mock';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La pantalla de Clases del prototipo de Claude Design.
@@ -48,8 +48,7 @@ test.describe('Portal — Clases', () => {
   test('la hoja de reserva deja elegir plaza en la sala', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/clases`);
     await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: /jueves/i }).click();
-    await page.getByRole('button', { name: /^Reservar / }).first().click();
+    await abrirHojaDeReserva(page);
 
     const hoja = page.getByRole('dialog', { name: /^Reservar / });
     await expect(hoja).toBeVisible();
@@ -68,8 +67,7 @@ test.describe('Portal — Clases', () => {
     await montarPortal(page, { conSesion: true, sinPlazas: true });
     await page.goto(`/portal/${SLUG}/clases`);
     await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: /jueves/i }).click();
-    await page.getByRole('button', { name: /^Reservar / }).first().click();
+    await abrirHojaDeReserva(page);
 
     const hoja = page.getByRole('dialog', { name: /^Reservar / });
     await expect(hoja.getByText('Elige tu plaza')).toHaveCount(0);
