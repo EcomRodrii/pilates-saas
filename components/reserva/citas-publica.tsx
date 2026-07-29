@@ -116,7 +116,7 @@ export function CitasPublica({
   if (servicios.length === 0) {
     return (
       <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-3 text-center shadow-sm">
-        <Clock size={28} className="text-[#C6C6BE]" />
+        <Clock size={28} className="text-[var(--portal-micro)]" />
         <p className="text-muted-foreground font-medium">Este estudio aún no ofrece citas reservables online</p>
         <p className="text-[#B0B0A8] text-sm max-w-xs">Escríbeles para reservar una sesión individual.</p>
       </div>
@@ -172,7 +172,7 @@ export function CitasPublica({
               <button key={s.id}
                 onClick={() => { setServicioId(s.id); setInstructorId(null); setHuecos(null); }}
                 className="text-left rounded-2xl p-4 border transition-all bg-white flex items-center justify-between gap-3"
-                style={{ borderColor: sel ? primary : '#E7E7E0', boxShadow: sel ? `0 0 0 1px ${primary}` : undefined }}>
+                style={{ borderColor: sel ? primary : 'var(--portal-line)', boxShadow: sel ? `0 0 0 1px ${primary}` : undefined }}>
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color ?? primary }} />
                   <div className="min-w-0">
@@ -202,7 +202,7 @@ export function CitasPublica({
                     className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border transition-all"
                     style={sel
                       ? { backgroundColor: primary, color: primaryFg, borderColor: primary }
-                      : { backgroundColor: 'white', color: '#3A3A34', borderColor: 'var(--border)' }}>
+                      : { backgroundColor: 'white', color: 'var(--portal-ink)', borderColor: 'var(--border)' }}>
                     <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: i.color ?? primary }}>
                       {i.nombre[0]}
                     </span>
@@ -224,7 +224,7 @@ export function CitasPublica({
           <div className="flex items-center justify-between">
             <button onClick={() => setWeekAnchor(addDays(weekAnchor, -7))} aria-label="Semana anterior"
               className="w-9 h-9 rounded-full flex items-center justify-center bg-white border border-border">
-              <ChevronLeft size={16} className="text-[#3A3A34]" />
+              <ChevronLeft size={16} className="text-[var(--portal-ink)]" />
             </button>
             <div className="flex gap-1.5 flex-1 justify-center px-2">
               {semana.map(d => {
@@ -236,7 +236,7 @@ export function CitasPublica({
                     className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl border transition-all disabled:opacity-30"
                     style={sel
                       ? { backgroundColor: primary, color: primaryFg, borderColor: primary }
-                      : { backgroundColor: 'white', color: '#3A3A34', borderColor: 'var(--border)' }}>
+                      : { backgroundColor: 'white', color: 'var(--portal-ink)', borderColor: 'var(--border)' }}>
                     <span className="text-[9px] font-bold">{DOW_CORTO[d.getDay()]}</span>
                     <span className="text-[15px] font-bold leading-none">{d.getDate()}</span>
                   </button>
@@ -245,14 +245,14 @@ export function CitasPublica({
             </div>
             <button onClick={() => setWeekAnchor(addDays(weekAnchor, 7))} aria-label="Semana siguiente"
               className="w-9 h-9 rounded-full flex items-center justify-center bg-white border border-border">
-              <ChevronRight size={16} className="text-[#3A3A34]" />
+              <ChevronRight size={16} className="text-[var(--portal-ink)]" />
             </button>
           </div>
 
           {/* Huecos */}
           {loadingHuecos ? (
             <div className="flex justify-center py-8">
-              <span className="w-5 h-5 border-2 border-[#D9D9D2] border-t-[#1A1A1A] rounded-full animate-spin" />
+              <span className="w-5 h-5 border-2 border-[var(--portal-line)] border-t-[var(--portal-ink)] rounded-full animate-spin" />
             </div>
           ) : (huecos && huecos.length > 0) ? (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -266,7 +266,7 @@ export function CitasPublica({
             </div>
           ) : (
             <div className="bg-white rounded-2xl flex flex-col items-center py-10 gap-2 text-center shadow-sm" style={{ border: '1px solid #F1F3F5' }}>
-              <Calendar size={22} className="text-[#C6C6BE]" />
+              <Calendar size={22} className="text-[var(--portal-micro)]" />
               <p className="text-muted-foreground text-sm">Sin huecos este día. Prueba otro.</p>
             </div>
           )}
@@ -282,7 +282,7 @@ export function CitasPublica({
       >
         {booking && servicio && (
           <>
-            <button onClick={cerrarSheet} aria-label="Cerrar" className="absolute top-4 right-4 text-[#767670] hover:text-[#3A3A34]">
+            <button onClick={cerrarSheet} aria-label="Cerrar" className="absolute top-4 right-4 text-[var(--portal-muted)] hover:text-[var(--portal-ink)]">
               <X size={18} />
             </button>
 
@@ -302,7 +302,7 @@ export function CitasPublica({
             ) : (
               <>
                 <h2 className="text-foreground font-bold text-lg mb-4">Confirmar cita</h2>
-                <div className="rounded-2xl p-4 mb-4 bg-[#F5F5F1] border border-border space-y-1.5">
+                <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-border space-y-1.5">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: servicio.color ?? primary }} />
                     <p className="text-foreground font-bold">{servicio.nombre}</p>
