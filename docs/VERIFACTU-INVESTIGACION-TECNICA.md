@@ -1,6 +1,8 @@
 # Verifactu — investigación técnica exhaustiva y decisión build-vs-buy
 
 > Documento de investigación, sin implementación. Fuentes primarias descargadas y parseadas directamente de `sede.agenciatributaria.gob.es` / `agenciatributaria.es` (PDFs oficiales, XSD, WSDL, catálogo de errores en vivo) — no blogs, salvo que se marque explícitamente lo contrario. Todas las fuentes consultadas el 29-jul-2026. Complementa a [docs/ARQUITECTURA-LEGAL-PAGOS-FACTURACION.md](ARQUITECTURA-LEGAL-PAGOS-FACTURACION.md) (§3 Verifactu), que cubría el estado del código; este documento profundiza en el estándar técnico de la AEAT en sí y en la decisión de construirlo nosotros vs. seguir con un proveedor.
+>
+> ⚠️ **Aviso de alcance en las partes jurídicas (§3.1, §15 y toda referencia a eIDAS/custodia de certificados/control exclusivo):** esas conclusiones son un análisis técnico razonado a partir de fuentes oficiales dispersas (FAQ AEAT, catálogo de errores, comparación con TicketBAI/Izenpe) y de un ejemplo de mercado (FacturaDirecta) — **no son un dictamen legal, ni doctrina administrativa asentada, ni jurisprudencia**. Ninguna fuente oficial de la AEAT confirma ni descarta expresamente el Modelo B. Antes de tratar cualquiera de esas afirmaciones como una conclusión definitiva sobre la que construir producto, hace falta validarlas con un especialista (abogado fiscal/mercantil o un criterio directo de la AEAT vía `comunicacion.sepri@correo.aeat.es`). Esta prudencia aplica a todo el documento, no solo a las secciones donde se repite explícitamente.
 
 ## Resumen ejecutivo (léelo si solo lees una sección)
 
