@@ -18,6 +18,7 @@ import { decidirPremioReferido } from '@/lib/booking-logic';
 import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
+import { planMasElegido } from '@/lib/estudio-publico';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -1540,7 +1541,7 @@ export async function fetchPublicStudioData(
     const [
       tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
       rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
-      citasServiciosRes, citasDisponibilidadRes,
+      citasServiciosRes, citasDisponibilidadRes, susPlanesRes,
     ] = await Promise.all([
       admin.from('tipos_clase').select('*').eq('studio_id', studioId),
       admin.from('salas').select('*').eq('studio_id', studioId),
@@ -1557,6 +1558,11 @@ export async function fetchPublicStudioData(
       // el horario fino. Nada de PII (los huecos se calculan aparte en servidor).
       admin.from('citas_servicios').select('*').eq('studio_id', studioId).eq('activo', true).eq('auto_reservable', true),
       admin.from('citas_disponibilidad').select('*').eq('studio_id', studioId),
+      // Solo `plan_id`: es un RECUENTO para «EL MÁS ELEGIDO», no datos de nadie.
+      // Tiene que salir del estudio ENTERO — calcularlo en el navegador con las
+      // suscripciones que allí hay (las de la socia identificada, y ninguna si
+      // no lo está) convertía su propia compra repetida en prueba social.
+      admin.from('suscripciones').select('plan_id').eq('studio_id', studioId),
     ]);
 
     // Mismo motivo que en el panel: el portal decide con esto si una clase
@@ -1576,6 +1582,10 @@ export async function fetchPublicStudioData(
       challengeDefinitions: (chalDefsRes.data ?? []).map(mapChallengeDefinition),
       citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
+      planMasElegidoId: planMasElegido(
+        planesConTiposPub,
+        (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
+      ),
     };
   });
 

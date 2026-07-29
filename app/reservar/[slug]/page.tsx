@@ -14,7 +14,7 @@ import { CitasPublica } from '@/components/reserva/citas-publica';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
-import { horarioPublico, planMasElegido, precioPorClase } from '@/lib/estudio-publico';
+import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
 import {
   Users, CheckCircle2, X, Calendar,
@@ -184,7 +184,7 @@ export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio,
-    addReserva, updateSocio, cancelarReserva, addSocioFromPortal,
+    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
   const estudioNombre = studio?.nombre ?? 'Tentare';
@@ -211,6 +211,8 @@ export default function ReservarPage() {
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [gateError, setGateError] = useState('');
+  const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
+  const [cancelandoPlaza, setCancelandoPlaza] = useState(false);
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que /login.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -337,11 +339,25 @@ export default function ReservarPage() {
   // Horario real deducido de las clases (lib/estudio-publico.ts) para la
   // pestaña "El estudio" — nunca un texto fijo que mienta en cuanto cambie el
   // calendario.
-  const franjasHorario = useMemo(() => horarioPublico(sesiones), [sesiones]);
+  // OJO con la ventana: el cargador público trae TODAS las sesiones del estudio
+  // (sin límite de fecha), y el docstring de `horarioPublico` avisa de que una
+  // clase suelta de hace un año a las 6:30 ensancharía el horario para siempre.
+  // Se mira de hoy en adelante, que es lo que la clienta puede reservar.
+  const franjasHorario = useMemo(() => {
+    const desde = new Date(); desde.setHours(0, 0, 0, 0);
+    const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 8 * 7);
+    return horarioPublico(sesiones.filter(s => {
+      const t = new Date(s.inicio).getTime();
+      return t >= desde.getTime() && t <= hasta.getTime();
+    }));
+  }, [sesiones]);
 
-  // Bono «EL MÁS ELEGIDO» (pestaña El estudio): solo se destaca si de verdad
-  // ha ganado por votos reales — ver lib/estudio-publico.ts.
-  const planDestacadoId = useMemo(() => planMasElegido(planesTarifa, suscripciones), [planesTarifa, suscripciones]);
+  // Bono «EL MÁS ELEGIDO» (pestaña El estudio). Lo calcula el SERVIDOR sobre
+  // las suscripciones del estudio entero: aquí `suscripciones` son solo las de
+  // la socia identificada (y ninguna si no lo está), así que calcularlo en el
+  // navegador le enseñaba su PROPIA compra repetida como prueba social — y a
+  // una visitante anónima, que es a quien va dirigido, no le salía nunca.
+  const planDestacadoId = planMasElegidoId;
 
   const slots = useMemo<ReservaSlot[]>(() => {
     return sesionesRich
@@ -629,7 +645,7 @@ export default function ReservarPage() {
   const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const;
 
   return (
-    <div style={{ ...containerRoot, width: '100%', background: 'var(--portal-bg)', color: 'var(--portal-ink)', fontFamily: sans, overflow: 'hidden' }}>
+    <div style={{ ...containerRoot, width: '100%', minHeight: '100vh', background: 'var(--portal-bg)', color: 'var(--portal-ink)', fontFamily: sans, overflow: 'hidden' }}>
 
       {/* ── HERO ──────────────────────────────────────────────────────────────
           El mockup pinta una fotografía grande de estudio detrás del titular.
@@ -694,7 +710,7 @@ export default function ReservarPage() {
               style={{
                 flex: '0 0 auto', padding: '0 2px 16px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer',
                 borderBottom: tab === t ? '1.5px solid var(--portal-ink)' : '1.5px solid transparent',
-                fontFamily: serif, fontSize: cq(19, 2.1, 27), color: tab === t ? 'var(--portal-ink)' : 'var(--portal-micro)',
+                fontFamily: serif, fontSize: cq(19, 2.1, 27), color: tab === t ? 'var(--portal-ink)' : 'var(--portal-muted)',
                 whiteSpace: 'nowrap', transition: 'color .35s ease',
               }}>
               {label}
@@ -800,7 +816,7 @@ export default function ReservarPage() {
         {/* ── TAB: MIS RESERVAS ───────────────────────────────────────────── */}
         {tab === 'misreservas' && (
           <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
-            <div style={eyebrow(9)}>{socia ? `${misReservas.length} CONFIRMADA${misReservas.length === 1 ? '' : 'S'}` : 'MIS RESERVAS'}</div>
+            <div style={eyebrow(9)}>{socia ? `${misReservas.length} RESERVA${misReservas.length === 1 ? '' : 'S'}` : 'MIS RESERVAS'}</div>
             <h2 style={{ fontFamily: serif, fontSize: cq(30, 3.6, 44), lineHeight: 1, marginTop: 12 }}>Mis reservas</h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 26 }}>
@@ -845,15 +861,16 @@ export default function ReservarPage() {
                       gap: cq(12, 1.8, 24), boxShadow: isPast ? undefined : SH.card, opacity: isPast ? 0.75 : 1,
                     }}>
                       <div style={{ flex: '0 0 auto' }}>
-                        <div style={{ ...eyebrow(9), color: isFuture ? 'var(--portal-accent)' : 'var(--portal-micro)' }}>
+                        <div style={{ ...eyebrow(9), color: isFuture ? 'var(--portal-accent)' : 'var(--portal-muted)' }}>
                           {r.estado === 'ASISTIDA' ? 'ASISTIDA' : r.estado === 'LISTA_ESPERA' ? 'EN ESPERA' : isPast ? 'FINALIZADA' : 'CONFIRMADA'}
                         </div>
                         <div style={{ fontFamily: serif, fontSize: cq(24, 2.4, 30), lineHeight: 1, marginTop: 8 }}>{fmtTime(s.inicio)}</div>
                       </div>
                       <div style={{ flex: '1 1 150px', minWidth: 0 }}>
                         <div style={{ fontFamily: serif, fontSize: cq(21, 2.2, 27), lineHeight: 1.05 }}>{s.tipo?.nombre}</div>
-                        <div style={{ fontSize: 11.5, color: 'var(--portal-muted-2)', marginTop: 8, textTransform: 'capitalize' }}>
-                          {fechaLarga}{s.sala ? ` · ${s.sala.nombre}` : ''}{s.instructor ? ` · ${s.instructor.nombre}` : ''}
+                        <div style={{ fontSize: 11.5, color: 'var(--portal-muted-2)', marginTop: 8 }}>
+                          <span style={{ textTransform: 'capitalize' }}>{fechaLarga}</span>
+                          {s.sala ? ` · ${s.sala.nombre}` : ''}{s.instructor ? ` · ${s.instructor.nombre}` : ''}
                         </div>
                       </div>
                       <span style={{ flex: '0 0 auto', fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: R.pill, background: estadoBg, color: estadoColor }}>
@@ -879,14 +896,12 @@ export default function ReservarPage() {
                             const pierdeBono = tardia && !(studio?.cancelacionDevolverBonoTardia ?? false);
                             setCancelConfirm({ reservaId: r.id, pierdeBono, ventana });
                           }}
-                            style={{ fontSize: 11.5, color: 'var(--portal-muted)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            style={{ fontSize: 11.5, color: 'var(--portal-muted)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', minHeight: 44, padding: '0 4px' }}>
                             Cancelar
                           </button>
                         </div>
                       )}
-                      {!isFuture && s.instructor && (
-                        <LevelBadge nivel={s.tipo?.nivel} />
-                      )}
+                      {s.tipo?.nivel && <LevelBadge nivel={s.tipo.nivel} />}
                     </div>
                   );
                 })
@@ -937,10 +952,12 @@ export default function ReservarPage() {
                         {destacado && <div style={{ ...eyebrow(8.5), color: `color-mix(in srgb, ${PRIMARY_FG} 65%, transparent)` }}>EL MÁS ELEGIDO</div>}
                         <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, marginTop: destacado ? 9 : 0, color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.nombre}</div>
                         <div style={{ fontSize: 11, marginTop: 7, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 60%, transparent)` : 'var(--portal-muted-2)' }}>
-                          {porClase ?? p.descripcion ?? (p.tipo === 'MENSUAL' ? 'Mensual · sin compromiso' : `Bono ${p.sesiones ?? ''} clases`)}
+                          {p.tipo === 'MENSUAL' ? 'Mensual · sin compromiso' : (porClase ?? p.descripcion ?? `Bono ${p.sesiones ?? ''} clases`)}
                         </div>
                       </div>
-                      <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.precio} €</div>
+                      <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>
+                        {p.precio} €{p.tipo === 'MENSUAL' && <span style={{ fontFamily: sans, fontSize: 12 }}>/mes</span>}
+                      </div>
                       <button onClick={() => handleContratarPlan(p)}
                         disabled={stripeLoading === p.id}
                         style={{
@@ -958,7 +975,7 @@ export default function ReservarPage() {
                   );
                 })}
               </div>
-              <p style={{ fontSize: 10.5, color: 'var(--portal-micro)', marginTop: 14 }}>Pago seguro con Stripe · IVA incluido</p>
+              <p style={{ fontSize: 10.5, color: 'var(--portal-muted)', marginTop: 14 }}>Pago seguro con Stripe · IVA incluido</p>
 
               {/* Class types */}
               <div style={{ ...eyebrow(9), marginTop: 38 }}>TIPOS DE CLASE</div>
@@ -1019,7 +1036,7 @@ export default function ReservarPage() {
                 <div style={{ marginTop: 14, borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
                   <div style={eyebrow(9)}>HORARIO</div>
                   {franjasHorario.map((f, i) => (
-                    <div key={f.dias} style={{ display: 'flex', justifyContent: 'space-between', marginTop: i === 0 ? 16 : 10, fontSize: 12, color: f.horas === 'Cerrado' ? 'var(--portal-micro)' : 'var(--portal-accent)' }}>
+                    <div key={f.dias} style={{ display: 'flex', justifyContent: 'space-between', marginTop: i === 0 ? 16 : 10, fontSize: 12, color: f.horas === 'Cerrado' ? 'var(--portal-muted)' : 'var(--portal-accent)' }}>
                       <span>{f.dias}</span><span>{f.horas}</span>
                     </div>
                   ))}
@@ -1028,7 +1045,7 @@ export default function ReservarPage() {
             </div>
 
             {/* Legal links */}
-            <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 26, paddingTop: 40, fontSize: 11, color: 'var(--portal-micro)' }}>
+            <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 26, paddingTop: 40, fontSize: 11, color: 'var(--portal-muted)' }}>
               {[
                 { label: 'Política de privacidad', text: studioConfig.politicaPrivacidad },
                 { label: 'Términos de servicio', text: studioConfig.terminosServicio },
@@ -1037,7 +1054,7 @@ export default function ReservarPage() {
                   {i > 0 && <span style={{ width: 1, height: 11, background: 'var(--portal-line)' }} />}
                   <button
                     onClick={() => setLegalDoc({ label, text })}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--portal-micro)', cursor: 'pointer', fontSize: 11 }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--portal-muted)', cursor: 'pointer', fontSize: 11 }}>
                     <FileText size={12} />{label}
                   </button>
                 </div>
@@ -1319,7 +1336,7 @@ export default function ReservarPage() {
       </PublicSheet>
 
       {/* ── MODAL CANCELAR PLAZA (sustituye al confirm() nativo) ─────────────── */}
-      <PublicSheet open={cancelConfirm !== null} onClose={() => setCancelConfirm(null)} label="Cancelar tu plaza">
+      <PublicSheet open={cancelConfirm !== null} onClose={() => { setCancelConfirm(null); setErrorCancelar(null); }} label="Cancelar tu plaza">
         {cancelConfirm && (
           <>
             <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">¿Cancelar tu plaza?</h2>
@@ -1328,16 +1345,29 @@ export default function ReservarPage() {
                 ? `Estás cancelando con menos de ${cancelConfirm.ventana}h de antelación: no se te devolverá la sesión del bono.`
                 : 'Liberarás tu plaza para otra persona.'}
             </p>
+            {errorCancelar && (
+              <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">
+                {errorCancelar}
+              </div>
+            )}
             <div className="flex gap-2">
-              <button onClick={() => setCancelConfirm(null)}
+              <button onClick={() => { setCancelConfirm(null); setErrorCancelar(null); }}
                 className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-ink)]/20">
                 Volver
               </button>
               <button onClick={() => {
                 const id = cancelConfirm.reservaId;
-                setCancelConfirm(null);
-                void cancelarReserva(id).then(r => { if (!r.ok) setGateError(r.error); });
+                setCancelandoPlaza(true);
+                void cancelarReserva(id).then(r => {
+                  setCancelandoPlaza(false);
+                  // El modal solo se cierra si de VERDAD se ha cancelado. Si no,
+                  // se queda abierto con el motivo: es la única superficie que
+                  // ella está mirando en ese instante.
+                  if (r.ok) { setCancelConfirm(null); setErrorCancelar(null); return; }
+                  setErrorCancelar(r.error);
+                });
               }}
+                disabled={cancelandoPlaza}
                 className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-rose-500 hover:bg-rose-600 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
                 Cancelar plaza
               </button>

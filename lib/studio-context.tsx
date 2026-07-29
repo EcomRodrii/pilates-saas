@@ -466,6 +466,8 @@ interface StudioContextValue {
 
   // Studio record (propietario) + avatar del admin
   studio: Studio | null;
+  /** Id del plan más contratado del estudio, calculado en servidor. null = no destacar. */
+  planMasElegidoId: string | null;
   updateAvatarAdmin: (avatarId: string | null) => void;
   updateStudio: (changes: Partial<Studio>) => Promise<void>;
 }
@@ -583,6 +585,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
   const [automationLogs, setAutomationLogs] = useState<AutomationLog[]>([]);
   const [studio, setStudio] = useState<Studio | null>(null);
+  // «EL MÁS ELEGIDO» de /reservar: lo calcula el SERVIDOR sobre las
+  // suscripciones del estudio entero. Aquí solo llega el id ganador (o null).
+  const [planMasElegidoId, setPlanMasElegidoId] = useState<string | null>(null);
 
   // B0.6: etiqueta cada error de Sentry con el estudio activo (además del usuario,
   // que se fija en auth-context). Así se puede filtrar "qué estudios sufren X".
@@ -618,6 +623,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     cargarDatosPublicos(publicSlug).then(pub => {
       if (!pub || pub.error) { setDataLoaded(true); return; }
       setStudio(pub.studio ?? null);
+      setPlanMasElegidoId((pub as { planMasElegidoId?: string | null }).planMasElegidoId ?? null);
       // El portal muestra a la clienta la política/términos del estudio y quedan con
       // su aceptación: hay que hidratarlos aquí (antes usaba siempre el texto por defecto).
       setStudioConfig(configLegalDe(
@@ -3334,6 +3340,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dismissLog,
     actualizarLog,
     dataLoaded,
+    planMasElegidoId,
     recargarPublico: cargarPublico,
     studio,
     updateAvatarAdmin,
