@@ -46,8 +46,8 @@ const MI_RESERVA = {
   estado: 'CONFIRMADA', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: '2026-07-20T10:00:00Z',
 };
 
-export async function montarPortal(page: Page, opciones: { conSesion: boolean; fotoUrl?: string | null }) {
-  const { conSesion, fotoUrl = null } = opciones;
+export async function montarPortal(page: Page, opciones: { conSesion: boolean; fotoUrl?: string | null; sinPlazas?: boolean }) {
+  const { conSesion, fotoUrl = null, sinPlazas = false } = opciones;
 
   if (conSesion) {
     await page.addInitScript(([sesion]) => {
@@ -86,7 +86,7 @@ export async function montarPortal(page: Page, opciones: { conSesion: boolean; f
     tiposClase: TIPOS,
     salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala Norte', capacidad: 12 }],
     instructores: [{ id: 'ins-1', studioId: STUDIO_ID, nombre: 'Ana Ferrer', rol: 'INSTRUCTOR', activo: true, color: '#2C352C' }],
-    spots: [], planesTarifa: [], videosOnDemand: [], rewardRules: [], rewardCatalog: [],
+    spots: sinPlazas ? [] : Array.from({ length: 14 }, (_, i) => ({ id: `sp-${i + 1}`, salaId: 'sala-1', studioId: STUDIO_ID, numero: i + 1, nombre: String(i + 1), fila: Math.floor(i / 7), columna: i % 7, tipo: 'REFORMER', activo: true })), planesTarifa: [], videosOnDemand: [], rewardRules: [], rewardCatalog: [],
     levelDefinitions: [], achievementDefinitions: [], challengeDefinitions: [],
     citasServicios: [], citasDisponibilidad: [],
     aforoReservas: conSesion ? [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null }] : [],

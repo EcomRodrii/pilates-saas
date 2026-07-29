@@ -1,28 +1,68 @@
 'use client';
 
+// CLASES — pantalla del prototipo navegable de Claude Design.
+//
+// La preparación de datos es la de siempre (mismos índices en una pasada, misma
+// cobertura de plan, misma ventana de cancelación). Lo que cambia es la
+// composición y, sobre todo, que esta pantalla deja de usar `ReservaCalendario`.
+//
+// POR QUÉ SE DESACOPLA: ese componente lo comparten esta pantalla y
+// `/reservar/[slug]`, y desde el rediseño **tienen diseños distintos** — el
+// portal va por el prototipo y la página pública por `Reservas.dc.html`.
+// Mantenerlo compartido obligaría a un solo componente a servir dos lenguajes
+// visuales, que es como se acaba con props tipo `variant` que nadie entiende.
+// La LÓGICA no se duplica: sigue en `useStudio()` y en `lib/booking-logic`; lo
+// que se separa es la presentación, que es lo que de verdad difiere.
+
 import { useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
+import { esCancelacionTardia } from '@/lib/booking-logic';
 import { useModo } from '@/lib/portal-modo';
-import { Tabs, type TabItem } from '@/components/portal/ui';
-import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
-import type { Reserva } from '@/lib/types';
+import { HojaReserva, type ClaseParaReservar } from '@/components/portal/hoja-reserva';
+import { HojaPase } from '@/components/portal/hoja-pase';
+import { pedirPaseDeAcceso } from '@/lib/api-client';
+import { EASE, dur, transicion, display, micro, texto, radio, sombra } from '@/lib/portal-design';
+import type { Reserva, Spot } from '@/lib/types';
 
-type Tab = 'proximas' | 'mis-reservas';
+type Vista = 'todas' | 'mias';
 
 const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
 const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
+const LETRA_DIA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+
+/** Lunes de la semana de `d`, a las 00:00. */
+function lunesDe(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  // getDay(): 0 = domingo. El domingo pertenece a la semana que TERMINA, así
+  // que retrocede seis días, no cero.
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+
+const claveDia = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export default function ClasesPage() {
+  const { slug } = useParams<{ slug: string }>();
   const { session } = usePortalAuth();
   const {
     sesiones, reservas, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
   } = useStudio();
-  const { t } = useModo();
-  const [tab, setTab] = useState<Tab>('proximas');
+  const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
+
+  const [vista, setVista] = useState<Vista>('todas');
+  const [semana, setSemana] = useState(0);
+  const [diaElegido, setDiaElegido] = useState<number | null>(null);
+  const [tipoElegido, setTipoElegido] = useState<string | null>(null);
+  const [reservando, setReservando] = useState<ClaseParaReservar | null>(null);
+  const [paseAbierto, setPaseAbierto] = useState<{ nombre: string; sub: string } | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
 
@@ -46,15 +86,13 @@ export default function ClasesPage() {
           spotsOcup.set(r.sesionId, arr);
         }
       }
-      if (socioId && r.socioId === socioId && RESERVA_ACTIVA.includes(r.estado)) {
-        mia.set(r.sesionId, r);
-      }
+      if (socioId && r.socioId === socioId && RESERVA_ACTIVA.includes(r.estado)) mia.set(r.sesionId, r);
     }
     return { ocupadasPorSesion: ocupadas, spotsOcupadosPorSesion: spotsOcup, miReservaPorSesion: mia };
   }, [reservas, socioId]);
 
-  const spotsActivosPorSala = useMemo(() => {
-    const m = new Map<string, typeof spots>();
+  const spotsPorSala = useMemo(() => {
+    const m = new Map<string, Spot[]>();
     for (const sp of spots) {
       if (!sp.activo) continue;
       const arr = m.get(sp.salaId) ?? [];
@@ -64,107 +102,352 @@ export default function ClasesPage() {
     return m;
   }, [spots]);
 
-  // Estable durante la vida de la página: evita recalcular `slots` en cada
-  // render (Date.now() daría una dependencia nueva siempre).
-  const now = useMemo(() => Date.now(), []);
+  // Estable durante la vida de la página: con Date.now() la dependencia sería
+  // nueva en cada render y no se memoizaría nada.
+  const ahora = useMemo(() => new Date(), []);
+  const dias = useMemo(() => {
+    const l = lunesDe(ahora);
+    l.setDate(l.getDate() + semana * 7);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(l);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, [ahora, semana]);
 
-  // P2-8: ventana de cancelación por tipo de clase, solo para los que tienen
-  // override propio — el resto hereda la del estudio (ver ReservaCalendario).
-  const ventanaPorTipo = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const tc of tiposClase) if (tc.ventanaCancelacionHoras != null) m[tc.id] = tc.ventanaCancelacionHoras;
-    return m;
-  }, [tiposClase]);
+  // El día activo por defecto: hoy si cae en la semana que se mira, y si no, el
+  // lunes. Sin esto, al pasar de semana quedaba señalado un día fuera de vista.
+  const indiceHoy = dias.findIndex(d => claveDia(d) === claveDia(ahora));
+  const diaActivo = diaElegido ?? (indiceHoy >= 0 ? indiceHoy : 0);
 
-  // Vista-modelo normalizado para el calendario — la lógica de reserva sigue
-  // viviendo en useStudio(); aquí solo se proyectan los datos crudos.
-  const slots = useMemo<ReservaSlot[]>(() => {
+  const decorar = useMemo(() => (s: typeof sesiones[number]) => {
+    const ocupadas = ocupadasPorSesion.get(s.id) ?? 0;
+    return {
+      sesion: s,
+      tipo: tiposClase.find(tc => tc.id === s.tipoClaseId),
+      sala: salas.find(sl => sl.id === s.salaId),
+      instr: instructores.find(i => i.id === s.instructorId),
+      mia: miReservaPorSesion.get(s.id) ?? null,
+      ocupadas,
+      libres: Math.max(0, s.aforoMaximo - ocupadas),
+      pasada: new Date(s.inicio) < ahora,
+    };
+  }, [ocupadasPorSesion, tiposClase, salas, instructores, miReservaPorSesion, ahora]);
+
+  const clases = useMemo(() => {
+    const dia = dias[diaActivo];
+    if (!dia) return [];
+    const clave = claveDia(dia);
     return sesiones
-      .filter(s => !s.cancelada && new Date(s.inicio).getTime() > now)
-      .map(s => {
-        const tipo = tiposClase.find(tc => tc.id === s.tipoClaseId);
-        const sala = salas.find(sl => sl.id === s.salaId);
-        const instr = instructores.find(i => i.id === s.instructorId);
-        const mia = miReservaPorSesion.get(s.id) ?? null;
-        return {
-          id: s.id,
-          inicio: s.inicio,
-          fin: s.fin,
-          tipoClaseId: s.tipoClaseId,
-          claseNombre: tipo?.nombre ?? 'Clase',
-          claseColor: tipo?.color ?? 'var(--portal-brand)',
-          claseFotoUrl: tipo?.fotoUrl ?? null,
-          nivel: tipo?.nivel ?? 'TODOS',
-          descripcion: tipo?.descripcion ?? null,
-          instructorNombre: instr?.nombre ?? null,
-          instructorColor: instr?.color ?? null,
-          instructorRol: instr?.rol ?? null,
-          instructorFotoUrl: instr?.fotoUrl ?? null,
-          salaNombre: sala?.nombre ?? null,
-          aforoMaximo: s.aforoMaximo,
-          ocupadas: ocupadasPorSesion.get(s.id) ?? 0,
-          spots: spotsActivosPorSala.get(s.salaId) ?? [],
-          spotsOcupados: spotsOcupadosPorSesion.get(s.id) ?? [],
-          miReservaId: mia?.id ?? null,
-          miEstado: mia ? (mia.estado as 'CONFIRMADA' | 'LISTA_ESPERA') : null,
-          precio: cubierta ? null : precioClaseSuelta,
-        } satisfies ReservaSlot;
-      });
-  }, [sesiones, now, tiposClase, salas, instructores, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
+      .filter(s => !s.cancelada && s.inicio.slice(0, 10) === clave)
+      .filter(s => !tipoElegido || s.tipoClaseId === tipoElegido)
+      .sort((a, b) => a.inicio.localeCompare(b.inicio))
+      .map(decorar);
+  }, [dias, diaActivo, sesiones, tipoElegido, decorar]);
 
-  const misSlots = useMemo(() => slots.filter(s => s.miReservaId != null), [slots]);
-  const totalConfirmadas = misSlots.filter(s => s.miEstado === 'CONFIRMADA').length;
+  const misClases = useMemo(() =>
+    sesiones
+      .filter(s => !s.cancelada && miReservaPorSesion.has(s.id) && new Date(s.inicio) >= ahora)
+      .sort((a, b) => a.inicio.localeCompare(b.inicio))
+      .map(decorar),
+  [sesiones, miReservaPorSesion, ahora, decorar]);
 
-  function handleReservar(slot: ReservaSlot, spotId: string | null) {
-    if (!socioId) return;
-    return addReserva(slot.id, socioId, spotId);
+  const confirmadas = misClases.filter(c => c.mia?.estado === 'CONFIRMADA').length;
+  const lista = vista === 'todas' ? clases : misClases;
+
+  const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const minutos = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000);
+
+  function abrirReserva(c: typeof clases[number]) {
+    setReservando({
+      id: c.sesion.id, inicio: c.sesion.inicio, fin: c.sesion.fin,
+      nombre: c.tipo?.nombre ?? 'Clase',
+      nivel: c.tipo?.nivel === 'TODOS' ? 'Todos los niveles' : c.tipo?.nivel ?? null,
+      salaNombre: c.sala?.nombre ?? null,
+      instructorNombre: c.instr?.nombre ?? null,
+      aforoMaximo: c.sesion.aforoMaximo,
+      ocupadas: c.ocupadas,
+      spots: spotsPorSala.get(c.sesion.salaId) ?? [],
+      spotsOcupados: spotsOcupadosPorSesion.get(c.sesion.id) ?? [],
+      precio: cubierta ? null : precioClaseSuelta,
+      sesionesTrasReservar: cubierta && activeSus?.sesionesRestantes != null
+        ? Math.max(0, activeSus.sesionesRestantes - 1)
+        : null,
+    });
   }
 
-  return (
-    <div style={{ minHeight: '100%', background: t.bg }}>
-      {/* Header */}
-      <div style={{ padding: '24px 20px 20px' }}>
-        <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1 }}>Clases</h1>
-        <p style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>{totalConfirmadas} reservas activas</p>
+  function confirmar(spotId: string | null) {
+    if (!reservando || !socioId) return;
+    const estado = addReserva(reservando.id, socioId, spotId);
+    setReservando(null);
+    setAviso(estado === 'LISTA_ESPERA'
+      ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
+      : 'Reservada. Te esperamos.');
+  }
 
-        <div style={{ marginTop: 20 }}>
-          <Tabs<Tab>
-            items={[
-              { id: 'proximas', label: 'Todas las clases' },
-              { id: 'mis-reservas', label: 'Mis reservas', count: misSlots.length },
-            ] as TabItem<Tab>[]}
-            active={tab}
-            onChange={setTab}
-            scroll
+  function cancelar(c: { sesion: { inicio: string; tipoClaseId: string }; mia: Reserva | null }) {
+    if (!c.mia) return;
+    const ventana = tiposClase.find(tc => tc.id === c.sesion.tipoClaseId)?.ventanaCancelacionHoras
+      ?? studio?.cancelacionVentanaHoras ?? 0;
+    // Se avisa ANTES, no después: cancelar tarde puede costarle la sesión del
+    // bono, y enterarse al terminar es la peor forma de descubrirlo.
+    if (esCancelacionTardia(c.sesion.inicio, new Date(), ventana)
+        && !window.confirm(`Quedan menos de ${ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión. ¿Cancelas igualmente?`)) return;
+    cancelarReserva(c.mia.id);
+    setAviso('Reserva cancelada.');
+  }
+
+  const circulo: React.CSSProperties = {
+    width: 38, height: 38, borderRadius: '50%',
+    border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+    background: noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 13, color: t.muted2, cursor: 'pointer',
+    transition: transicion(['background'], dur.color),
+  };
+
+  const rangoSemana = `${dias[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} — ${dias[6].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`
+    .replace(/\./g, '').toUpperCase();
+
+  return (
+    <div style={{ minHeight: '100%', background: t.bg, color: t.ink, paddingTop: 62 }}>
+      <div style={{ padding: '0 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ...micro(9.5, 0.28), color: t.micro, whiteSpace: 'nowrap' }}>{rangoSemana}</div>
+            <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>Clases</h1>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
+            <button type="button" aria-label="Semana anterior" onClick={() => { setSemana(s => s - 1); setDiaElegido(0); }} style={circulo}>←</button>
+            <button type="button" aria-label="Semana siguiente" onClick={() => { setSemana(s => s + 1); setDiaElegido(0); }} style={circulo}>→</button>
+          </div>
+        </div>
+
+        <div style={{
+          position: 'relative', display: 'flex', alignItems: 'center', height: 46, marginTop: 22,
+          padding: 5, borderRadius: 23,
+          background: noche ? 'rgba(28,31,23,.6)' : 'rgba(255,255,255,.6)',
+          border: `1px solid ${t.line}`,
+        }}>
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute', left: 5, top: 5, bottom: 5, width: 'calc((100% - 10px) / 2)',
+              borderRadius: 18, background: noche ? t.surface2 : '#FFFFFF', boxShadow: sombra.pastilla,
+              transform: `translateX(${vista === 'todas' ? 0 : 100}%)`,
+              transition: `transform ${dur.tab}ms ${EASE}`, pointerEvents: 'none',
+            }}
           />
+          {([['todas', 'Todas las clases'], ['mias', `Mis reservas · ${confirmadas}`]] as const).map(([id, etiqueta]) => (
+            <button
+              key={id} type="button" onClick={() => setVista(id)} aria-pressed={vista === id}
+              style={{
+                position: 'relative', flex: 1, textAlign: 'center', background: 'none', border: 'none',
+                fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer',
+                color: vista === id ? t.ink : t.muted, transition: 'color 350ms ease',
+              }}
+            >
+              {etiqueta}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Contenido */}
-      <div style={{ padding: '0 16px 24px' }}>
-        {tab === 'proximas' ? (
-          <ReservaCalendario
-            t={t}
-            slots={slots}
-            variant="calendario"
-            onReservar={handleReservar}
-            onCancelar={cancelarReserva}
-            cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
-            ventanaPorTipo={ventanaPorTipo}
-          />
-        ) : (
-          <ReservaCalendario
-            t={t}
-            slots={misSlots}
-            variant="lista"
-            onReservar={handleReservar}
-            onCancelar={cancelarReserva}
-            cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
-            ventanaPorTipo={ventanaPorTipo}
-            vacio={{ titulo: 'Sin reservas activas', cuerpo: 'Reserva una clase en la pestaña anterior' }}
-          />
+      {vista === 'todas' && (
+        <>
+          {tiposClase.length > 1 && (
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '18px 24px 4px', scrollbarWidth: 'none' } as React.CSSProperties}>
+              {[{ id: null as string | null, nombre: 'Todas', color: null as string | null },
+                ...tiposClase.map(tc => ({ id: tc.id, nombre: tc.nombre, color: tc.color }))].map(chip => {
+                const activo = tipoElegido === chip.id;
+                return (
+                  <button
+                    key={chip.id ?? 'todas'} type="button" onClick={() => setTipoElegido(chip.id)} aria-pressed={activo}
+                    style={{
+                      flex: '0 0 auto', height: 36, padding: chip.color ? '0 16px' : '0 18px', borderRadius: 18,
+                      background: activo ? 'var(--portal-brand)' : (noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)'),
+                      color: activo ? 'var(--portal-brand-foreground)' : t.muted2,
+                      border: `1px solid ${activo ? 'transparent' : t.line}`,
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', whiteSpace: 'nowrap', cursor: 'pointer',
+                      transition: transicion(['background', 'color'], 300),
+                    }}
+                  >
+                    {chip.color && !activo && <span style={{ width: 6, height: 6, borderRadius: '50%', background: chip.color }} />}
+                    {chip.nombre}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ position: 'relative', display: 'flex', margin: '20px 24px 0', paddingBottom: 18, borderBottom: `1px solid ${t.line}` }}>
+            <span
+              aria-hidden
+              style={{
+                position: 'absolute', left: 0, top: 0, width: 'calc(100% / 7)', height: 72,
+                display: 'flex', justifyContent: 'center', pointerEvents: 'none',
+                transform: `translateX(${diaActivo * 100}%)`,
+                transition: `transform 550ms ${EASE}`,
+              }}
+            >
+              <span style={{ width: 44, height: 72, borderRadius: 22, background: 'var(--portal-brand)', boxShadow: '0 12px 24px -14px rgba(34,42,30,.6)' }} />
+            </span>
+            {dias.map((d, i) => {
+              const activo = i === diaActivo;
+              const pasado = claveDia(d) < claveDia(ahora);
+              return (
+                <button
+                  key={d.toISOString()} type="button" onClick={() => setDiaElegido(i)} aria-pressed={activo}
+                  aria-label={d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  style={{
+                    position: 'relative', flex: 1, height: 72, display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', gap: 7,
+                    background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  <span style={{ fontSize: 9, fontWeight: 500, letterSpacing: '.16em', color: activo ? 'color-mix(in srgb, var(--portal-brand-foreground) 65%, transparent)' : t.micro }}>
+                    {LETRA_DIA[d.getDay()]}
+                  </span>
+                  <span style={{ ...display(21), color: activo ? 'var(--portal-brand-foreground)' : (pasado ? t.micro : t.ink) }}>
+                    {d.getDate()}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <div style={{ padding: '26px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {lista.length === 0 ? (
+          <p style={{ ...display(16, true), color: t.micro, textAlign: 'center', padding: '22px 0' }}>
+            {vista === 'mias' ? 'Todavía no tienes ninguna clase reservada.' : 'No hay clases este día.'}
+          </p>
+        ) : lista.map(c => {
+          const reservada = !!c.mia;
+          const completa = c.libres <= 0 && !reservada;
+          const pocas = !reservada && c.libres > 0 && c.libres <= 3;
+          const spotMio = c.mia?.spotId ? spots.find(sp => sp.id === c.mia!.spotId) : null;
+
+          return (
+            <div
+              key={c.sesion.id}
+              style={{
+                borderRadius: radio.card, padding: 20, display: 'flex', gap: 18,
+                background: reservada
+                  ? (noche ? t.surface2 : '#EEF0EA')
+                  : (completa || c.pasada ? (noche ? 'rgba(28,31,23,.5)' : 'rgba(255,255,255,.5)') : t.surface),
+                border: `1px solid ${reservada ? (noche ? 'rgba(169,187,160,.22)' : 'rgba(44,53,44,.16)') : 'transparent'}`,
+                boxShadow: reservada || completa || c.pasada ? undefined : '0 14px 32px -24px rgba(34,42,30,.5)',
+                opacity: c.pasada ? 0.6 : 1,
+              }}
+            >
+              <div style={{ flex: '0 0 52px' }}>
+                <div style={{ ...display(26), color: completa || c.pasada ? t.micro : t.ink }}>{hora(c.sesion.inicio)}</div>
+                <div style={{ ...texto.nota, fontSize: 10, color: t.micro, marginTop: 6 }}>{minutos(c.sesion.inicio, c.sesion.fin)} min</div>
+              </div>
+              <div style={{ width: 1, background: t.line }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {reservada && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--portal-brand)' }} />
+                    <span style={{ ...micro(8.5, 0.24, 600), color: t.ink }}>
+                      {c.mia!.estado === 'LISTA_ESPERA'
+                        ? 'En lista de espera'
+                        : spotMio ? `Reservada · plaza ${spotMio.numero}` : 'Reservada'}
+                    </span>
+                  </div>
+                )}
+                <div style={{ ...display(23, reservada, 1.05), color: completa || c.pasada ? t.micro : t.ink, textWrap: 'pretty' } as React.CSSProperties}>
+                  {c.tipo?.nombre ?? 'Clase'}
+                </div>
+                <div style={{ ...texto.nota, color: t.muted, marginTop: 6 }}>
+                  {[c.tipo?.nivel === 'TODOS' ? 'Todos los niveles' : c.tipo?.nivel, c.sala?.nombre, reservada ? c.instr?.nombre : null].filter(Boolean).join(' · ')}
+                </div>
+                {!reservada && c.instr && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 14 }}>
+                    <span style={{ width: 26, height: 26, borderRadius: '50%', flex: '0 0 26px', background: c.instr.color ?? t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#FFFFFF' }}>
+                      {c.instr.nombre.trim()[0]?.toUpperCase()}
+                    </span>
+                    <span style={{ ...texto.metaFuerte, fontSize: 11.5, color: t.muted2 }}>{c.instr.nombre}</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap', color: completa || c.pasada ? t.micro : pocas ? '#A65A0A' : t.heroAccent }}>
+                  {reservada ? '' : completa ? 'Completa' : `${c.libres} libres`}
+                </span>
+                {reservada ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={() => setPaseAbierto({ nombre: c.tipo?.nombre ?? 'Clase', sub: `${hora(c.sesion.inicio)} · ${c.sala?.nombre ?? ''}` })}
+                      style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, color: t.ink, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      Ver mi pase
+                    </button>
+                    <button
+                      type="button" onClick={() => cancelar(c)}
+                      style={{ ...texto.nota, fontSize: 10.5, color: t.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : c.pasada ? null : completa ? (
+                  <button
+                    type="button" onClick={() => abrirReserva(c)}
+                    style={{
+                      height: 34, padding: '0 16px', borderRadius: 17, border: `1px solid ${t.line}`,
+                      background: 'none', fontSize: 10.5, fontWeight: 500, color: t.muted2,
+                      whiteSpace: 'nowrap', cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    Lista de espera
+                  </button>
+                ) : (
+                  <button
+                    type="button" onClick={() => abrirReserva(c)}
+                    aria-label={`Reservar ${c.tipo?.nombre ?? 'clase'} a las ${hora(c.sesion.inicio)}`}
+                    style={{
+                      width: 38, height: 38, borderRadius: '50%', background: 'var(--portal-brand)',
+                      color: 'var(--portal-brand-foreground)', fontSize: 15, border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: transicion(['transform']),
+                    }}
+                  >
+                    →
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* El cierre del diseño: después de la última clase se dice que no hay
+            más, en vez de dejar el scroll muriendo en blanco. Solo con lista y
+            solo en la vista del día. */}
+        {vista === 'todas' && lista.length > 0 && (
+          <p style={{ ...display(16, true), color: t.micro, textAlign: 'center', padding: '22px 0 0' }}>
+            No hay más clases este {dias[diaActivo]?.toLocaleDateString('es-ES', { weekday: 'long' })}.
+          </p>
         )}
       </div>
+
+      {aviso && (
+        <p role="status" style={{ ...texto.pie, color: t.muted, textAlign: 'center', padding: '0 24px 16px' }}>{aviso}</p>
+      )}
+
+      <HojaReserva key={reservando?.id ?? 'ninguna'} clase={reservando} onClose={() => setReservando(null)} onConfirmar={confirmar} />
+      <HojaPase
+        abierta={paseAbierto != null}
+        onClose={() => setPaseAbierto(null)}
+        slug={slug}
+        nombreEstudio={studio?.nombre ?? 'tu estudio'}
+        tituloClase={paseAbierto?.nombre ?? ''}
+        subtitulo={paseAbierto?.sub ?? ''}
+        pedirPase={pedirPaseDeAcceso}
+      />
     </div>
   );
 }
