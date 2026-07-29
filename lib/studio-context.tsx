@@ -296,6 +296,7 @@ interface StudioContextValue {
   reintentar: (reciboId: string) => void;
   deleteRecibo: (id: string) => void;
   cobrarTodosPendientes: (socioId?: string) => Promise<ResultadoEscritura>;
+  marcarRecibosEnviadosAlBanco: (ids: string[]) => Promise<ResultadoEscritura>;
 
   // Citas
   citas: Cita[];
@@ -2320,6 +2321,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbDeleteRecibo(id);
   }
 
+  // F2 (B2.10): tras generar el fichero SEPA, los recibos incluidos pasan a
+  // EN_CURSO ("Enviado al banco"). Antes no se marcaban: pulsar el botón dos
+  // veces metía los mismos recibos PENDIENTE en dos remesas distintas, con
+  // riesgo real de doble cargo en la cuenta de la socia si ambas llegaban al
+  // banco.
+  async function marcarRecibosEnviadosAlBanco(ids: string[]): Promise<ResultadoEscritura> {
+    if (ids.length === 0) return { ok: true };
+    const idsSet = new Set(ids);
+    const res = await dbUpdateRecibosBatch(ids, { estado: 'EN_CURSO' });
+    if (!res.ok) return res;
+    setRecibos(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'EN_CURSO' as const } : r));
+    return res;
+  }
+
   async function cobrarTodosPendientes(socioId?: string): Promise<ResultadoEscritura> {
     // Con socioId, cobra SOLO los pendientes de esa socia (botón de la ficha de
     // socia). Sin él, cobra todos los del estudio (dashboard / página de Pagos).
@@ -3231,6 +3246,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     reintentar,
     deleteRecibo,
     cobrarTodosPendientes,
+    marcarRecibosEnviadosAlBanco,
     citas,
     addCita,
     updateCita,

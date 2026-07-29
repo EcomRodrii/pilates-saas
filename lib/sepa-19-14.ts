@@ -128,7 +128,7 @@ export function construirRemesa(params: {
   mandatosVigentes: { socioId: string; iban: string; refMandato: string; fechaFirma: string }[];
   nombreSocio: (socioId: string) => string;
   msgId: string; creDtTm: string; fechaCobro: string;
-}): { xml: string; nAdeudos: number; sinMandato: number } {
+}): { xml: string; nAdeudos: number; sinMandato: number; idsIncluidos: string[] } {
   const mandatoPorSocio = new Map(params.mandatosVigentes.map(m => [m.socioId, m]));
   const adeudos: AdeudoSEPA[] = [];
   let sinMandato = 0;
@@ -142,5 +142,5 @@ export function construirRemesa(params: {
     });
   }
   const xml = generarRemesaSEPA(params.acreedor, adeudos, { msgId: params.msgId, creDtTm: params.creDtTm, fechaCobro: params.fechaCobro });
-  return { xml, nAdeudos: adeudos.length, sinMandato };
+  return { xml, nAdeudos: adeudos.length, sinMandato, idsIncluidos: adeudos.map(a => a.id) };
 }
