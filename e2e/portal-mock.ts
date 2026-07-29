@@ -67,6 +67,14 @@ export async function montarPortal(page: Page, opciones: { conSesion: boolean; f
   await page.route('**/auth/v1/**', route => json(route, {}));
   await page.route('**/api/theme**', route =>
     json(route, { primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }));
+  // El pase de acceso de Marta para su clase de dentro de 3 h.
+  await page.route('**/api/public/pase', route => json(route, {
+    hayPase: true, vigente: true, yaAsistida: false, minutosParaActivarse: 0,
+    seActivaA: new Date(Date.now() - 60_000).toISOString(),
+    inicio: enHoras(3, 12),
+    token: 'eyJyIjoicmVzLTEiLCJzIjoic3R1ZGlvLXRlc3QifQ.firma-de-pruebas-para-el-lienzo',
+    codigo: 'A2C4E6',
+  }));
   await page.route('**/api/public/session', route =>
     conSesion ? json(route, SOCIA) : json(route, { error: 'no' }, 401));
   await page.route('**/api/public/studio-data', route => json(route, {

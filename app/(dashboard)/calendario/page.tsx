@@ -14,7 +14,7 @@ import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   Search, CalendarDays, CheckCircle2, TrendingUp, ChevronDown,
   Clock, MapPin, Users, UserPlus, UserCheck, Pencil, Trash2,
-  Bot, Loader2, Upload,
+  Bot, Loader2, Upload, QrCode,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
@@ -628,6 +628,15 @@ function SessionSidebar({
             {tab === 'asistentes' ? `Asistentes (${reservas.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length})` : 'Mapa'}
           </button>
         ))}
+        {/* La otra forma de pasar lista: que la clienta enseñe su pase en vez
+            de que la instructora busque su nombre. Va aquí, junto a la lista
+            que sustituye, y no en una sección aparte del menú. */}
+        <Link
+          href="/calendario/pase"
+          className="ml-auto self-center inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground"
+        >
+          <QrCode size={14} />Leer un pase
+        </Link>
       </div>
 
       {/* Tab content */}
