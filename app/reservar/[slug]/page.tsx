@@ -109,7 +109,7 @@ function LevelBadge({ nivel }: { nivel?: string }) {
       Todos los niveles
     </span>
   );
-  const c = NIVEL_COLOR[nivel] ?? { bg: '#F1F1EC', text: '#8E8E86' };
+  const c = NIVEL_COLOR[nivel] ?? { bg: RT.surface2, text: RT.muted2 };
   // Punto de color en vez de emoji (🟢🟡🔴): coherente con el lenguaje visual
   // del resto del producto, que no usa emojis.
   return (
@@ -133,7 +133,7 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
   const columnas = [...new Set(spots.map(s => s.columna))].sort((a, b) => a - b);
   return (
     <div>
-      <div className="rounded-lg py-1.5 text-center text-[9px] font-bold uppercase tracking-widest bg-[#F1F1EC] text-[#767670] mb-2">
+      <div className="rounded-lg py-1.5 text-center text-[9px] font-bold uppercase tracking-widest bg-[var(--portal-surface-2)] text-[var(--portal-muted)] mb-2">
         Parte frontal · Instructora
       </div>
       <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))` }}>
@@ -148,10 +148,10 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
               title={taken ? 'Ocupado' : spot.nombre}
               className="aspect-[3/4] rounded-xl border text-[10px] font-bold flex items-center justify-center transition-all disabled:cursor-not-allowed"
               style={taken
-                ? { backgroundColor: '#F1F1EC', borderColor: '#E7E7E0', color: '#C6C6BE' }
+                ? { backgroundColor: RT.surface2, borderColor: RT.line, color: RT.micro }
                 : isSel
-                ? { backgroundColor: primary, borderColor: primary, color: '#fff' }
-                : { backgroundColor: '#fff', borderColor: '#E5E5EA', color: '#3A3A34' }}>
+                ? { backgroundColor: primary, borderColor: primary, color: RT.surface }
+                : { backgroundColor: RT.surface, borderColor: 'var(--portal-line)', color: RT.ink }}>
               {spot.nombre}
             </button>
           );
@@ -176,6 +176,7 @@ const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 // (fondo hueso, tarjetas blancas, marca --portal-brand). Fuera del componente
 // para no recrearlo en cada render.
 const RESERVAR_TOKENS = MODO_TOKENS.dia;
+const RT = RESERVAR_TOKENS;
 
 export default function ReservarPage() {
   const {
@@ -582,21 +583,21 @@ export default function ReservarPage() {
   // servidor, así que el header se pinta al instante.
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-[#EEEEE8]">
-        <header className="sticky top-0 z-30 bg-white border-b border-[#F1F1EC]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      <div className="min-h-screen bg-[var(--portal-bg)]">
+        <header className="sticky top-0 z-30 bg-white border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div className="max-w-2xl mx-auto px-4">
             <div className="flex items-center gap-3 py-3">
-              <div className="w-9 h-9 rounded-xl bg-[#E7E7E0] shrink-0" />
+              <div className="w-9 h-9 rounded-xl bg-[var(--portal-line)] shrink-0" />
               <div className="space-y-1.5">
-                <div className="h-3 w-28 rounded bg-[#E7E7E0]" />
-                <div className="h-2.5 w-40 rounded bg-[#EFEFEA]" />
+                <div className="h-3 w-28 rounded bg-[var(--portal-line)]" />
+                <div className="h-2.5 w-40 rounded bg-[var(--portal-surface-2)]" />
               </div>
             </div>
           </div>
         </header>
         <div className="max-w-2xl mx-auto px-4 py-16 flex flex-col items-center gap-3 text-center">
-          <span className="w-6 h-6 border-2 border-[#D9D9D2] border-t-[#1A1A1A] rounded-full animate-spin" />
-          <p className="text-[#8E8E86] text-sm">Cargando horario…</p>
+          <span className="w-6 h-6 border-2 border-[var(--portal-line)] border-t-[var(--portal-ink)] rounded-full animate-spin" />
+          <p className="text-[var(--portal-muted-2)] text-sm">Cargando horario…</p>
         </div>
       </div>
     );
@@ -611,10 +612,10 @@ export default function ReservarPage() {
   const PRIMARY_FG = 'var(--portal-brand-foreground)';
 
   return (
-    <div className="min-h-screen bg-[#EEEEE8]">
+    <div className="min-h-screen bg-[var(--portal-bg)]">
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-white border-b border-[#F1F1EC]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      <header className="sticky top-0 z-30 bg-white border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <div className="max-w-2xl mx-auto px-4">
           {/* Studio identity */}
           <div className="flex items-center justify-between py-3">
@@ -628,19 +629,19 @@ export default function ReservarPage() {
                   style={{ backgroundColor: PRIMARY, color: PRIMARY_FG }}>{estudioNombre[0]}</div>
               )}
               <div>
-                <p className="font-bold text-[#1A1A1A] text-sm leading-tight">{estudioNombre}</p>
-                <p className="text-[#767670] text-[11px]">{estudioDireccion}</p>
+                <p className="font-bold text-[var(--portal-ink)] text-sm leading-tight">{estudioNombre}</p>
+                <p className="text-[var(--portal-muted)] text-[11px]">{estudioDireccion}</p>
               </div>
             </div>
             {socia ? (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F5F1] border border-[#E7E7E0]">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
                     style={{ backgroundColor: PRIMARY, color: PRIMARY_FG }}>
                     {socia.nombre[0]}
                   </div>
-                  <span className="text-[#3A3A34] text-sm font-medium">{socia.nombre.split(' ')[0]}</span>
-                  <button onClick={logout} aria-label="Cerrar sesión" className="text-[#767670] hover:text-[#3A3A34] ml-0.5"><X size={12} /></button>
+                  <span className="text-[var(--portal-ink)] text-sm font-medium">{socia.nombre.split(' ')[0]}</span>
+                  <button onClick={logout} aria-label="Cerrar sesión" className="text-[var(--portal-muted)] hover:text-[var(--portal-ink)] ml-0.5"><X size={12} /></button>
                 </div>
               </div>
             ) : (
@@ -660,7 +661,7 @@ export default function ReservarPage() {
                 className="px-4 py-2.5 text-sm font-semibold border-b-2 transition-all"
                 style={tab === t
                   ? { color: PRIMARY, borderColor: PRIMARY }
-                  : { color: '#767670', borderColor: 'transparent' }}>
+                  : { color: RT.muted, borderColor: 'transparent' }}>
                 {label}
               </button>
             ))}
@@ -684,8 +685,8 @@ export default function ReservarPage() {
                   <button key={id || 'all'} onClick={() => setFiltroTipo(id)}
                     className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border"
                     style={active
-                      ? { backgroundColor: tipo?.color ?? PRIMARY, color: tipo?.color ? '#fff' : PRIMARY_FG, borderColor: tipo?.color ?? PRIMARY }
-                      : { backgroundColor: 'white', color: '#8E8E86', borderColor: '#E7E7E0' }}>
+                      ? { backgroundColor: tipo?.color ?? PRIMARY, color: tipo?.color ? RT.surface : PRIMARY_FG, borderColor: tipo?.color ?? PRIMARY }
+                      : { backgroundColor: 'white', color: RT.muted2, borderColor: RT.line }}>
                     {tipo && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: active ? 'rgba(255,255,255,0.7)' : tipo.color }} />}
                     {tipo ? tipo.nombre : 'Todas las clases'}
                   </button>
@@ -737,8 +738,8 @@ export default function ReservarPage() {
                   <Users size={24} style={{ color: PRIMARY }} />
                 </div>
                 <div>
-                  <h2 className="text-[#1A1A1A] font-bold text-lg">Identifícate para ver tus reservas</h2>
-                  <p className="text-[#8E8E86] text-sm mt-1">Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
+                  <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg">Identifícate para ver tus reservas</h2>
+                  <p className="text-[var(--portal-muted-2)] text-sm mt-1">Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
                 </div>
                 <button onClick={() => { setBookingSesionId(''); setLoginStep('login'); }}
                   className="px-6 py-3 rounded-xl font-bold text-white text-sm"
@@ -748,8 +749,8 @@ export default function ReservarPage() {
               </div>
             ) : misReservas.length === 0 ? (
               <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-3 text-center shadow-sm">
-                <Calendar size={28} className="text-[#C6C6BE]" />
-                <p className="text-[#8E8E86] font-medium">No tienes reservas todavía</p>
+                <Calendar size={28} className="text-[var(--portal-micro)]" />
+                <p className="text-[var(--portal-muted-2)] font-medium">No tienes reservas todavía</p>
                 <button onClick={() => setTab('clases')} className="text-sm font-semibold" style={{ color: PRIMARY }}>
                   Explorar clases →
                 </button>
@@ -757,8 +758,8 @@ export default function ReservarPage() {
             ) : (
               <>
                 <div className="flex items-center justify-between px-1 mb-1">
-                  <h2 className="text-[#1A1A1A] font-bold text-base">Mis clases</h2>
-                  <span className="text-[#767670] text-sm">{misReservas.length} reserva{misReservas.length !== 1 ? 's' : ''}</span>
+                  <h2 className="text-[var(--portal-ink)] font-bold text-base">Mis clases</h2>
+                  <span className="text-[var(--portal-muted)] text-sm">{misReservas.length} reserva{misReservas.length !== 1 ? 's' : ''}</span>
                 </div>
                 {misReservas.map(r => {
                   const s = r.sesion!;
@@ -772,33 +773,33 @@ export default function ReservarPage() {
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-3 mb-2">
                           <div>
-                            <p className="font-bold text-[#1A1A1A] text-base leading-tight">{s.tipo?.nombre}</p>
-                            <p className="text-[#8E8E86] text-sm mt-0.5 capitalize">{fechaLarga}</p>
+                            <p className="font-bold text-[var(--portal-ink)] text-base leading-tight">{s.tipo?.nombre}</p>
+                            <p className="text-[var(--portal-muted-2)] text-sm mt-0.5 capitalize">{fechaLarga}</p>
                           </div>
                           <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0"
                             style={r.estado === 'ASISTIDA'
                               ? { backgroundColor: '#D1FAE5', color: '#065F46' }
                               : r.estado === 'LISTA_ESPERA'
                               ? { backgroundColor: '#FEF3C7', color: '#92400E' }
-                              : isPast ? { backgroundColor: '#F1F1EC', color: '#767670' }
+                              : isPast ? { backgroundColor: RT.surface2, color: RT.muted }
                               : { backgroundColor: '#FFF2F7', color: PRIMARY }}>
                             {r.estado === 'ASISTIDA' ? 'Asistida' : r.estado === 'LISTA_ESPERA' ? (r.posicionEspera ? `En espera · nº ${r.posicionEspera}` : 'En espera') : isPast ? 'Finalizada' : 'Confirmada'}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-[#8E8E86]">
-                          <span className="font-bold text-[#1A1A1A] text-xl">{fmtTime(s.inicio)}<span className="text-[#767670] text-sm font-normal ml-1">→ {fmtTime(s.fin)}</span></span>
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--portal-muted-2)]">
+                          <span className="font-[var(--font-display),Georgia,serif] font-normal text-[var(--portal-ink)] text-xl">{fmtTime(s.inicio)}<span className="text-[var(--portal-muted)] text-sm font-normal ml-1">→ {fmtTime(s.fin)}</span></span>
                           {s.instructor && <span>{s.instructor.nombre}</span>}
                           {s.sala && <span>{s.sala.nombre}</span>}
                           <LevelBadge nivel={s.tipo?.nivel} />
                         </div>
                         {isFuture && (
-                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#F1F1EC]">
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--portal-surface-2)]">
                             <a href={makeGoogleCalUrl(s, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#3A3A34] bg-[#F5F5F1] hover:bg-[#F1F1EC] border border-[#E7E7E0] transition-colors">
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] hover:bg-[var(--portal-surface-2)] border border-[var(--portal-line)] transition-colors">
                               <Calendar size={12} /> Añadir al calendario
                             </a>
                             <button onClick={() => downloadICS(s, estudioNombre, estudioDireccion)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#3A3A34] bg-[#F5F5F1] hover:bg-[#F1F1EC] border border-[#E7E7E0] transition-colors">
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] hover:bg-[var(--portal-surface-2)] border border-[var(--portal-line)] transition-colors">
                               <Download size={12} /> .ics
                             </button>
                             <button onClick={() => {
@@ -830,15 +831,15 @@ export default function ReservarPage() {
             <div className="bg-white rounded-2xl shadow-sm p-6 text-center" style={{ border: '1px solid #F1F3F5' }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-lg font-black"
                 style={{ backgroundColor: PRIMARY }}>{estudioNombre[0]}</div>
-              <h2 className="text-[#1A1A1A] text-xl font-extrabold">{estudioNombre}</h2>
-              <p className="text-[#8E8E86] text-sm mt-1">{estudioDireccion}</p>
-              <p className="text-[#8E8E86] text-sm mt-3 max-w-sm mx-auto leading-relaxed">
+              <h2 className="text-[var(--portal-ink)] text-xl font-extrabold">{estudioNombre}</h2>
+              <p className="text-[var(--portal-muted-2)] text-sm mt-1">{estudioDireccion}</p>
+              <p className="text-[var(--portal-muted-2)] text-sm mt-3 max-w-sm mx-auto leading-relaxed">
                 Estudio boutique especializado en pilates reformer. Grupos reducidos para atención personalizada.
               </p>
               <div className="flex items-center justify-center gap-3 mt-4 text-sm">
                 <span className="font-semibold" style={{ color: PRIMARY }}>{estudioEmail}</span>
-                <span className="text-[#C6C6BE]">·</span>
-                <span className="text-[#8E8E86]">{estudioTelefono}</span>
+                <span className="text-[var(--portal-micro)]">·</span>
+                <span className="text-[var(--portal-muted-2)]">{estudioTelefono}</span>
               </div>
             </div>
 
@@ -846,7 +847,7 @@ export default function ReservarPage() {
             <div>
               <div className="flex items-center gap-2 mb-3 px-1">
                 <CreditCard size={16} style={{ color: PRIMARY }} />
-                <h3 className="text-[#1A1A1A] font-bold text-base">Nuestros planes</h3>
+                <h3 className="text-[var(--portal-ink)] font-bold text-base">Nuestros planes</h3>
               </div>
               {stripeError && (
                 <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">
@@ -861,8 +862,8 @@ export default function ReservarPage() {
                   <div key={p.id} className="bg-white rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm"
                     style={{ border: '1px solid #F1F3F5' }}>
                     <div className="min-w-0">
-                      <p className="text-[#1A1A1A] font-bold text-sm">{p.nombre}</p>
-                      {p.descripcion && <p className="text-[#8E8E86] text-xs mt-0.5">{p.descripcion}</p>}
+                      <p className="text-[var(--portal-ink)] font-bold text-sm">{p.nombre}</p>
+                      {p.descripcion && <p className="text-[var(--portal-muted-2)] text-xs mt-0.5">{p.descripcion}</p>}
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                           style={{ backgroundColor: '#FFF2F7', color: PRIMARY }}>
@@ -872,8 +873,8 @@ export default function ReservarPage() {
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
-                        <p className="text-[#1A1A1A] font-extrabold text-xl leading-none">{p.precio}€</p>
-                        {p.tipo === 'MENSUAL' && <p className="text-[#767670] text-[10px]">/mes</p>}
+                        <p className="text-[var(--portal-ink)] font-extrabold text-xl leading-none">{p.precio}€</p>
+                        {p.tipo === 'MENSUAL' && <p className="text-[var(--portal-muted)] text-[10px]">/mes</p>}
                       </div>
                       <button onClick={() => handleContratarPlan(p)}
                         disabled={stripeLoading === p.id}
@@ -887,23 +888,23 @@ export default function ReservarPage() {
                   </div>
                 ))}
               </div>
-              <p className="text-[#767670] text-xs mt-3 text-center">Pago seguro con Stripe · IVA incluido</p>
+              <p className="text-[var(--portal-muted)] text-xs mt-3 text-center">Pago seguro con Stripe · IVA incluido</p>
             </div>
 
             {/* Class types */}
             <div>
-              <h3 className="text-[#1A1A1A] font-bold text-base mb-3 px-1">Tipos de clase</h3>
+              <h3 className="text-[var(--portal-ink)] font-bold text-base mb-3 px-1">Tipos de clase</h3>
               <div className="grid sm:grid-cols-2 gap-3">
                 {tiposClase.map(t => (
                   <div key={t.id} className="bg-white rounded-2xl p-4 shadow-sm"
                     style={{ border: `1.5px solid ${t.color}25` }}>
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                      <p className="text-[#1A1A1A] font-bold text-sm">{t.nombre}</p>
+                      <p className="text-[var(--portal-ink)] font-bold text-sm">{t.nombre}</p>
                     </div>
-                    <p className="text-[#8E8E86] text-xs">{t.descripcion}</p>
+                    <p className="text-[var(--portal-muted-2)] text-xs">{t.descripcion}</p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[10px] text-[#767670]">{t.duracionMinutos} min</span>
+                      <span className="text-[10px] text-[var(--portal-muted)]">{t.duracionMinutos} min</span>
                       <LevelBadge nivel={t.nivel} />
                     </div>
                   </div>
@@ -913,7 +914,7 @@ export default function ReservarPage() {
 
             {/* Instructors */}
             <div>
-              <h3 className="text-[#1A1A1A] font-bold text-base mb-3 px-1">Instructoras</h3>
+              <h3 className="text-[var(--portal-ink)] font-bold text-base mb-3 px-1">Instructoras</h3>
               <div className="grid sm:grid-cols-2 gap-3">
                 {queImparten(instructores).map(i => (
                   <div key={i.id} className="bg-white flex items-center gap-3 rounded-2xl p-4 shadow-sm"
@@ -923,8 +924,8 @@ export default function ReservarPage() {
                       {i.nombre.split(' ').map(n => n[0]).join('')}
                     </div>
                     <div>
-                      <p className="text-[#1A1A1A] font-semibold text-sm">{i.nombre}</p>
-                      {i.email != null && <p className="text-[#767670] text-xs mt-0.5">{i.email}</p>}
+                      <p className="text-[var(--portal-ink)] font-semibold text-sm">{i.nombre}</p>
+                      {i.email != null && <p className="text-[var(--portal-muted)] text-xs mt-0.5">{i.email}</p>}
                     </div>
                   </div>
                 ))}
@@ -939,7 +940,7 @@ export default function ReservarPage() {
               ].map(({ label, text }) => (
                 <button key={label}
                   onClick={() => setLegalDoc({ label, text })}
-                  className="flex items-center gap-1.5 text-xs text-[#767670] hover:text-[#3A3A34] transition-colors">
+                  className="flex items-center gap-1.5 text-xs text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
                   <FileText size={12} />{label}
                 </button>
               ))}
@@ -967,7 +968,7 @@ export default function ReservarPage() {
         {bookingSesionId !== null && (
           <>
             <button onClick={closeBooking} aria-label="Cerrar"
-              className="absolute top-4 right-4 text-[#767670] hover:text-[#3A3A34] transition-colors">
+              className="absolute top-4 right-4 text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
               <X size={18} />
             </button>
 
@@ -978,20 +979,20 @@ export default function ReservarPage() {
                   <CheckCircle2 size={30} style={{ color: '#2F6B4F' }} />
                 </div>
                 <div>
-                  <p className="text-[#1A1A1A] font-extrabold text-xl">¡Reserva confirmada!</p>
-                  <p className="text-[#8E8E86] text-sm mt-1">
+                  <p className="text-[var(--portal-ink)] font-extrabold text-xl">¡Reserva confirmada!</p>
+                  <p className="text-[var(--portal-muted-2)] text-sm mt-1">
                     {bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}
                   </p>
                 </div>
                 <div className="w-full space-y-2.5 mt-1">
-                  <p className="text-[#767670] text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
+                  <p className="text-[var(--portal-muted)] text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
                   <a href={makeGoogleCalUrl(bookingSesion, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-white transition-all"
                     style={{ backgroundColor: '#4285F4' }}>
                     <ExternalLink size={14} />Google Calendar
                   </a>
                   <button onClick={() => downloadICS(bookingSesion, estudioNombre, estudioDireccion)}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all">
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
                     <Download size={14} />Descargar .ics (Apple / Outlook)
                   </button>
                 </div>
@@ -1000,8 +1001,8 @@ export default function ReservarPage() {
                     Se creó por magic link, así que aún no tiene contraseña — por
                     eso el enlace va a /acceso, que se la deja poner, y no a
                     /login, que la rebotaría. */}
-                <div className="w-full pt-3 mt-1 border-t border-[#E7E7E0]">
-                  <p className="text-[#767670] text-xs leading-relaxed text-center">
+                <div className="w-full pt-3 mt-1 border-t border-[var(--portal-line)]">
+                  <p className="text-[var(--portal-muted)] text-xs leading-relaxed text-center">
                     Tus clases y tus bonos están en tu portal.{' '}
                     <a href={`/portal/${slug}/acceso`} className="font-bold underline" style={{ color: PRIMARY }}>
                       Crea tu contraseña
@@ -1009,7 +1010,7 @@ export default function ReservarPage() {
                     y entra cuando quieras.
                   </p>
                 </div>
-                <button onClick={closeBooking} className="text-[#767670] text-sm hover:text-[#3A3A34] transition-colors mt-1">
+                <button onClick={closeBooking} className="text-[var(--portal-muted)] text-sm hover:text-[var(--portal-ink)] transition-colors mt-1">
                   Cerrar
                 </button>
               </div>
@@ -1022,14 +1023,14 @@ export default function ReservarPage() {
                   <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
                 </div>
                 <div>
-                  <p className="text-[#1A1A1A] font-extrabold text-xl">¡En lista de espera!</p>
+                  <p className="text-[var(--portal-ink)] font-extrabold text-xl">¡En lista de espera!</p>
                   {esperaPos && (
-                    <p className="text-[#8E8E86] text-sm mt-1">Eres la <span className="font-bold text-[#1A1A1A]">nº {esperaPos}</span> en la lista.</p>
+                    <p className="text-[var(--portal-muted-2)] text-sm mt-1">Eres la <span className="font-bold text-[var(--portal-ink)]">nº {esperaPos}</span> en la lista.</p>
                   )}
-                  <p className="text-[#8E8E86] text-sm mt-1">Si se libera una plaza, te avisaremos por email.</p>
+                  <p className="text-[var(--portal-muted-2)] text-sm mt-1">Si se libera una plaza, te avisaremos por email.</p>
                 </div>
                 <button onClick={closeBooking}
-                  className="w-full py-3 rounded-2xl text-sm font-bold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all">
+                  className="w-full py-3 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
                   Cerrar
                 </button>
               </div>
@@ -1040,16 +1041,16 @@ export default function ReservarPage() {
               <>
                 {!enlaceEnviado ? (
                   <>
-                    <h2 className="text-[#1A1A1A] font-bold text-lg mb-1">Entra para reservar</h2>
-                    <p className="text-[#8E8E86] text-sm mb-5">Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
+                    <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">Entra para reservar</h2>
+                    <p className="text-[var(--portal-muted-2)] text-sm mb-5">Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
                     <input type="email"
                       placeholder="Tu email"
                       value={loginForm.email}
                       onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setLoginError(''); }}
                       onKeyDown={e => e.key === 'Enter' && handleEnviarEnlace()}
                       autoFocus
-                      className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#767670] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors mb-3"
-                      style={{ backgroundColor: '#F5F5F1' }} />
+                      className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                      style={{ backgroundColor: RT.surface2 }} />
                     {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                     <div className="mb-3">
                       <TurnstileWidget onToken={setCaptchaToken} />
@@ -1066,9 +1067,9 @@ export default function ReservarPage() {
                       <Mail size={28} style={{ color: PRIMARY }} />
                     </div>
                     <div>
-                      <p className="text-[#1A1A1A] font-extrabold text-xl">Revisa tu email</p>
-                      <p className="text-[#8E8E86] text-sm mt-1">
-                        Te enviamos un enlace a <span className="font-semibold text-[#1A1A1A]">{loginForm.email}</span>.
+                      <p className="text-[var(--portal-ink)] font-extrabold text-xl">Revisa tu email</p>
+                      <p className="text-[var(--portal-muted-2)] text-sm mt-1">
+                        Te enviamos un enlace a <span className="font-semibold text-[var(--portal-ink)]">{loginForm.email}</span>.
                         Ábrelo en este dispositivo para entrar y vuelve a reservar tu clase.
                       </p>
                     </div>
@@ -1080,16 +1081,16 @@ export default function ReservarPage() {
             {/* ── REGISTRO (walk-in ya autenticado: nombre) ── */}
             {loginStep === 'registro' && (
               <>
-                <h2 className="text-[#1A1A1A] font-bold text-lg mb-1">¿Cómo te llamas?</h2>
-                <p className="text-[#8E8E86] text-sm mb-5">Completa tu nombre para tu primera reserva.</p>
+                <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">¿Cómo te llamas?</h2>
+                <p className="text-[var(--portal-muted-2)] text-sm mb-5">Completa tu nombre para tu primera reserva.</p>
                 <input type="text"
                   placeholder="Tu nombre completo"
                   value={loginForm.nombre}
                   onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
                   autoFocus
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-[#767670] outline-none border border-[#E7E7E0] focus:border-[#1A1A1A] transition-colors mb-5"
-                  style={{ backgroundColor: '#F5F5F1' }} />
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-5"
+                  style={{ backgroundColor: RT.surface2 }} />
                 <button onClick={handleRegistroNombre} disabled={!loginForm.nombre}
                   className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                   style={{ backgroundColor: PRIMARY }}>
@@ -1103,15 +1104,15 @@ export default function ReservarPage() {
               <>
                 <div className="flex items-center gap-2 mb-1">
                   <FileText size={16} style={{ color: PRIMARY }} className="shrink-0" />
-                  <h2 className="text-[#1A1A1A] font-bold text-lg">Acepta los términos</h2>
+                  <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg">Acepta los términos</h2>
                 </div>
-                <p className="text-[#8E8E86] text-sm mb-4">
+                <p className="text-[var(--portal-muted-2)] text-sm mb-4">
                   Antes de tu primera reserva, lee y acepta las condiciones y la política de privacidad.
                 </p>
                 {/* Se muestran las DOS cosas que dice la casilla. Antes solo salían
                     los términos y la política estaba en un enlace del pie, así que
                     se aceptaba un texto que no se había enseñado. */}
-                <div className="rounded-xl p-3 mb-4 text-[11px] text-[#8E8E86] leading-relaxed overflow-y-auto bg-[#F5F5F1] border border-[#E7E7E0]"
+                <div className="rounded-xl p-3 mb-4 text-[11px] text-[var(--portal-muted-2)] leading-relaxed overflow-y-auto bg-[var(--portal-surface-2)] border border-[var(--portal-line)]"
                   style={{ maxHeight: '160px', whiteSpace: 'pre-wrap' }}>
                   {textoLegalCompleto(studioConfig)}
                 </div>
@@ -1120,15 +1121,15 @@ export default function ReservarPage() {
                     type="checkbox"
                     checked={terminosAceptados}
                     onChange={e => setTerminosAceptados(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-[#1A1A1A]"
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--portal-ink)]"
                   />
-                  <span className="text-[#3A3A34] text-xs leading-relaxed">
+                  <span className="text-[var(--portal-ink)] text-xs leading-relaxed">
                     He leído y acepto los términos de servicio y la política de privacidad.
                   </span>
                 </label>
                 <div className="flex gap-2">
                   <button onClick={() => setLoginStep('login')}
-                    className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all">
+                    className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
                     Volver
                   </button>
                   <button onClick={handleSignContract} disabled={!terminosAceptados}
@@ -1143,14 +1144,14 @@ export default function ReservarPage() {
             {/* ── CONFIRM ── */}
             {loginStep === 'confirm' && bookingSesion && (
               <>
-                <h2 className="text-[#1A1A1A] font-bold text-lg mb-4">Confirmar reserva</h2>
-                <div className="rounded-2xl p-4 mb-4 bg-[#F5F5F1] border border-[#E7E7E0]">
+                <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-4">Confirmar reserva</h2>
+                <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
                   <div className="flex items-center gap-2 mb-1.5">
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: bookingSesion.tipo?.color ?? PRIMARY }} />
-                    <p className="text-[#1A1A1A] font-bold">{bookingSesion.tipo?.nombre}</p>
+                    <p className="text-[var(--portal-ink)] font-bold">{bookingSesion.tipo?.nombre}</p>
                   </div>
-                  <p className="text-[#8E8E86] text-sm">{fmtLong(new Date(bookingSesion.inicio))}</p>
-                  <p className="text-[#8E8E86] text-sm">{fmtTime(bookingSesion.inicio)} · {bookingSesion.instructor?.nombre}</p>
+                  <p className="text-[var(--portal-muted-2)] text-sm">{fmtLong(new Date(bookingSesion.inicio))}</p>
+                  <p className="text-[var(--portal-muted-2)] text-sm">{fmtTime(bookingSesion.inicio)} · {bookingSesion.instructor?.nombre}</p>
                   {bookingSesion.ocupadas >= bookingSesion.aforoMaximo && (
                     <p className="text-warning text-xs font-medium mt-2">
                       Clase llena — te apuntaremos en lista de espera
@@ -1159,7 +1160,7 @@ export default function ReservarPage() {
                   {(() => {
                     const ventana = bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
                     return ventana > 0 && (
-                      <p className="text-[#767670] text-xs mt-2">
+                      <p className="text-[var(--portal-muted)] text-xs mt-2">
                         Cancela con al menos {ventana}h de antelación para recuperar tu sesión.
                       </p>
                     );
@@ -1179,8 +1180,8 @@ export default function ReservarPage() {
                   );
                   return (
                     <div className="mb-4">
-                      <p className="text-[#3A3A34] text-xs font-semibold mb-2">
-                        Elige tu sitio <span className="text-[#767670] font-normal">(opcional)</span>
+                      <p className="text-[var(--portal-ink)] text-xs font-semibold mb-2">
+                        Elige tu sitio <span className="text-[var(--portal-muted)] font-normal">(opcional)</span>
                       </p>
                       <SpotPickerPublico
                         spots={spotsSala}
@@ -1198,8 +1199,8 @@ export default function ReservarPage() {
                     style={{ backgroundColor: PRIMARY }}>
                     {(socia?.nombre ?? loginForm.nombre ?? '·')[0]}
                   </div>
-                  <p className="text-[#8E8E86] text-sm">
-                    <span className="text-[#1A1A1A] font-semibold">{socia?.nombre ?? loginForm.nombre}</span>
+                  <p className="text-[var(--portal-muted-2)] text-sm">
+                    <span className="text-[var(--portal-ink)] font-semibold">{socia?.nombre ?? loginForm.nombre}</span>
                     <span className="mx-1">·</span>{socia?.email ?? usuarioEmail}
                   </p>
                 </div>
@@ -1223,15 +1224,15 @@ export default function ReservarPage() {
       <PublicSheet open={cancelConfirm !== null} onClose={() => setCancelConfirm(null)} label="Cancelar tu plaza">
         {cancelConfirm && (
           <>
-            <h2 className="text-[#1A1A1A] font-bold text-lg mb-1">¿Cancelar tu plaza?</h2>
-            <p className="text-[#6E6E66] text-sm mb-5">
+            <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">¿Cancelar tu plaza?</h2>
+            <p className="text-[var(--portal-muted)] text-sm mb-5">
               {cancelConfirm.pierdeBono
                 ? `Estás cancelando con menos de ${cancelConfirm.ventana}h de antelación: no se te devolverá la sesión del bono.`
                 : 'Liberarás tu plaza para otra persona.'}
             </p>
             <div className="flex gap-2">
               <button onClick={() => setCancelConfirm(null)}
-                className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[#3A3A34] bg-[#F5F5F1] border border-[#E7E7E0] hover:bg-[#F1F1EC] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1A1A]/20">
+                className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-ink)]/20">
                 Volver
               </button>
               <button onClick={() => { cancelarReserva(cancelConfirm.reservaId); setCancelConfirm(null); }}
@@ -1253,15 +1254,15 @@ export default function ReservarPage() {
       >
         {legalDoc && (
           <>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#F1F1EC]">
-              <h2 className="text-[#1A1A1A] font-bold text-base">{legalDoc.label}</h2>
-              <button onClick={() => setLegalDoc(null)} aria-label="Cerrar" className="text-[#767670] hover:text-[#3A3A34] transition-colors">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--portal-surface-2)]">
+              <h2 className="text-[var(--portal-ink)] font-bold text-base">{legalDoc.label}</h2>
+              <button onClick={() => setLegalDoc(null)} aria-label="Cerrar" className="text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
                 <X size={18} />
               </button>
             </div>
             {/* El texto lo edita el dueño del estudio; se renderiza como texto
                 (React escapa), nunca como HTML. */}
-            <div className="px-6 py-5 overflow-y-auto text-[13px] text-[#3A3A34] leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>
+            <div className="px-6 py-5 overflow-y-auto text-[13px] text-[var(--portal-ink)] leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>
               {legalDoc.text}
             </div>
           </>

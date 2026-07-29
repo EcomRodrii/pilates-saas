@@ -30,7 +30,10 @@ import {
   agruparPorDia, etiquetaDia,
 } from '@/lib/reserva-calendario-logic';
 
-const FUENTE = "'Plus Jakarta Sans', sans-serif";
+// La misma familia que el resto del portal (lib/portal-design.ts). Estaba
+// clavada a Jakarta, así que este widget seguía en la tipografía vieja aunque
+// lo embebiera una pantalla ya migrada.
+const FUENTE = "var(--font-ui), 'Instrument Sans', system-ui, sans-serif";
 
 const NIVEL_LABEL: Record<NivelClase, string> = {
   TODOS: 'Todos los niveles', PRINCIPIANTE: 'Iniciación', MEDIO: 'Intermedio', AVANZADO: 'Avanzado',

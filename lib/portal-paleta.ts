@@ -63,3 +63,26 @@ export const FONDOS_CON_TEXTO = ['bg', 'surface'] as const;
 
 /** Tokens de texto que llevan información y por tanto deben pasar AA. */
 export const TEXTO_CON_INFORMACION = ['ink', 'muted', 'muted2', 'heroAccent'] as const;
+
+/**
+ * La paleta como variables CSS, generada DESDE los tokens de arriba.
+ *
+ * Existe porque las páginas públicas (`/reservar`) pintan con utilidades de
+ * Tailwind —`text-[…]`, `bg-[…]`— y desde ahí no se puede leer un objeto de
+ * TypeScript. Copiar los valores a `globals.css` era la alternativa, y este
+ * repo ya arrastra cuatro fuentes de verdad para el color: no hacía falta una
+ * quinta. Se emite en servidor (components/theme-style.tsx), así que llega en
+ * el HTML inicial y no hay parpadeo.
+ *
+ * Solo el modo DÍA: `/reservar` es previo al login y no tiene interruptor.
+ */
+export function paletaPortalCssText(selector = ':root'): string {
+  const t = MODO_TOKENS.dia;
+  const vars: [string, string][] = [
+    ['--portal-bg', t.bg], ['--portal-surface', t.surface], ['--portal-surface-2', t.surface2],
+    ['--portal-line', t.line], ['--portal-ink', t.ink],
+    ['--portal-muted', t.muted], ['--portal-muted-2', t.muted2], ['--portal-micro', t.micro],
+    ['--portal-accent', t.heroAccent],
+  ];
+  return `${selector} { ${vars.map(([k, v]) => `${k}: ${v};`).join(' ')} }`;
+}
