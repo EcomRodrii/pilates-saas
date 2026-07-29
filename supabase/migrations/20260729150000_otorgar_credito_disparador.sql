@@ -110,5 +110,10 @@ begin
 end;
 $function$;
 
-revoke all on function public.otorgar_credito_disparador(text, text, text, text, text) from public;
+-- `revoke ... from public` NO basta: ALTER DEFAULT PRIVILEGES (0000_base.sql)
+-- concede EXECUTE a `anon` de forma DIRECTA (no vía PUBLIC) a toda función
+-- nueva, así que hay que revocárselo explícitamente o queda ejecutable sin
+-- ninguna autenticación (el mismo agujero que reservar_cita, migración
+-- 20260729154500 — se cierra aquí desde el principio).
+revoke all on function public.otorgar_credito_disparador(text, text, text, text, text) from public, anon;
 grant execute on function public.otorgar_credito_disparador(text, text, text, text, text) to authenticated, service_role;

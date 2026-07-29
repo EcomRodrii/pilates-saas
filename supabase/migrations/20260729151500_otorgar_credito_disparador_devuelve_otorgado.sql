@@ -95,5 +95,9 @@ begin
 end;
 $function$;
 
-revoke all on function public.otorgar_credito_disparador(text, text, text, text, text) from public;
+-- El DROP+CREATE de arriba resetea los grants a los privilegios por defecto,
+-- que incluyen EXECUTE directo para `anon` (ALTER DEFAULT PRIVILEGES,
+-- 0000_base.sql) — no basta con revocar de PUBLIC, hay que revocárselo a
+-- `anon` explícitamente o la función queda ejecutable sin autenticación.
+revoke all on function public.otorgar_credito_disparador(text, text, text, text, text) from public, anon;
 grant execute on function public.otorgar_credito_disparador(text, text, text, text, text) to authenticated, service_role;
