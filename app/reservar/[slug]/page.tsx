@@ -14,6 +14,8 @@ import { CitasPublica } from '@/components/reserva/citas-publica';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
+import { horarioPublico, planMasElegido, precioPorClase } from '@/lib/estudio-publico';
+import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
 import {
   Users, CheckCircle2, X, Calendar,
   CreditCard, FileText, Download, ExternalLink, Mail,
@@ -332,6 +334,15 @@ export default function ReservarPage() {
     return m;
   }, [tiposClase]);
 
+  // Horario real deducido de las clases (lib/estudio-publico.ts) para la
+  // pestaña "El estudio" — nunca un texto fijo que mienta en cuanto cambie el
+  // calendario.
+  const franjasHorario = useMemo(() => horarioPublico(sesiones), [sesiones]);
+
+  // Bono «EL MÁS ELEGIDO» (pestaña El estudio): solo se destaca si de verdad
+  // ha ganado por votos reales — ver lib/estudio-publico.ts.
+  const planDestacadoId = useMemo(() => planMasElegido(planesTarifa, suscripciones), [planesTarifa, suscripciones]);
+
   const slots = useMemo<ReservaSlot[]>(() => {
     return sesionesRich
       .filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
@@ -615,338 +626,421 @@ export default function ReservarPage() {
   const PRIMARY = 'var(--portal-brand)';
   const PRIMARY_FG = 'var(--portal-brand-foreground)';
 
-  return (
-    <div className="min-h-screen bg-[var(--portal-bg)]">
+  const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const;
 
-      {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-white border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <div className="max-w-2xl mx-auto px-4">
-          {/* Studio identity */}
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-3">
-              {estudioLogo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={estudioLogo} alt={estudioNombre}
-                  className="w-9 h-9 rounded-xl object-contain bg-white shrink-0" />
-              ) : (
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-black shrink-0"
-                  style={{ backgroundColor: PRIMARY, color: PRIMARY_FG }}>{estudioNombre[0]}</div>
-              )}
-              <div>
-                <p className="font-bold text-[var(--portal-ink)] text-sm leading-tight">{estudioNombre}</p>
-                <p className="text-[var(--portal-muted)] text-[11px]">{estudioDireccion}</p>
-              </div>
-            </div>
+  return (
+    <div style={{ ...containerRoot, width: '100%', background: 'var(--portal-bg)', color: 'var(--portal-ink)', fontFamily: sans, overflow: 'hidden' }}>
+
+      {/* ── HERO ──────────────────────────────────────────────────────────────
+          El mockup pinta una fotografía grande de estudio detrás del titular.
+          El dato no existe hoy en la carga pública (`studioPublico()` no expone
+          `fotoUrl` — solo `logoUrl`), así que en vez de inventar una imagen se
+          usa el mismo degradado de fondo que ya usa el portal privado para su
+          hero (lib/portal-modo.tsx → MODO_TOKENS.dia.hero), coherente con el
+          resto del producto en vez de un valor nuevo sin respaldo. */}
+      <div style={{ position: 'relative', overflow: 'hidden', background: RT.hero }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 14, padding: `${cq(20, 2.4, 30)} ${cq(20, 3.8, 48)}` }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, minWidth: 0 }}>
+            {estudioLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={estudioLogo} alt={estudioNombre} style={{ width: 30, height: 30, borderRadius: 9, objectFit: 'contain', background: '#fff', flexShrink: 0 }} />
+            ) : null}
+            <span style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{estudioNombre}</span>
+            {studio?.ciudad && (
+              <>
+                <span style={{ width: 20, height: 1, background: 'rgba(34,38,31,.3)', flexShrink: 0 }} />
+                <span style={{ ...eyebrow(9), color: 'var(--portal-accent)', whiteSpace: 'nowrap' }}>{studio.ciudad.toUpperCase()}</span>
+              </>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: cq(14, 2, 26) }}>
+            <span style={{ fontSize: 12, color: 'var(--portal-accent)', whiteSpace: 'nowrap' }}>{estudioTelefono}</span>
             {socia ? (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
-                    style={{ backgroundColor: PRIMARY, color: PRIMARY_FG }}>
-                    {socia.nombre[0]}
-                  </div>
-                  <span className="text-[var(--portal-ink)] text-sm font-medium">{socia.nombre.split(' ')[0]}</span>
-                  <button onClick={logout} aria-label="Cerrar sesión" className="text-[var(--portal-muted)] hover:text-[var(--portal-ink)] ml-0.5"><X size={12} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 46, padding: '0 8px 0 8px', borderRadius: 23, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)' }}>
+                <div style={{ width: 24, height: 24, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, background: PRIMARY, color: PRIMARY_FG }}>
+                  {socia.nombre[0]}
                 </div>
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--portal-ink)', whiteSpace: 'nowrap' }}>{socia.nombre.split(' ')[0]}</span>
+                <button onClick={logout} aria-label="Cerrar sesión" style={{ color: 'var(--portal-muted)', display: 'flex', marginLeft: 2 }}><X size={12} /></button>
               </div>
             ) : (
               <button
                 onClick={() => { setBookingSesionId(''); setLoginStep('login'); openBooking(''); }}
-                className="px-4 py-2 rounded-xl text-sm font-bold transition-colors"
-                style={{ backgroundColor: PRIMARY, color: PRIMARY_FG }}>
+                style={{
+                  height: 46, padding: `0 ${cq(18, 2, 26)}`, borderRadius: 23, background: PRIMARY, color: PRIMARY_FG,
+                  display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+                  boxShadow: SH.headerBtn, border: 'none', cursor: 'pointer',
+                }}>
                 Acceder
               </button>
             )}
           </div>
-
-          {/* Tabs */}
-          <div className="flex gap-0">
-            {([['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const).map(([t, label]) => (
-              <button key={t} onClick={() => setTab(t)}
-                className="px-4 py-2.5 text-sm font-semibold border-b-2 transition-all"
-                style={tab === t
-                  ? { color: PRIMARY, borderColor: PRIMARY }
-                  : { color: RT.muted, borderColor: 'transparent' }}>
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
-      </header>
+
+        <div style={{ position: 'relative', padding: `${cq(34, 5, 70)} ${cq(20, 3.8, 48)} 0`, textAlign: 'center' }}>
+          <div style={eyebrow(9)}>RESERVA TU CLASE</div>
+          <h1 style={{ fontFamily: serif, fontSize: cq(38, 6, 76), lineHeight: 1, marginTop: cq(14, 1.8, 22) }}>{estudioNombre}</h1>
+          {studio?.descripcion && (
+            <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: cq(16, 1.7, 22), color: 'var(--portal-muted)', marginTop: 16, maxWidth: 620, marginInline: 'auto' }}>
+              {studio.descripcion}
+            </p>
+          )}
+        </div>
+
+        {/* ── TABS ─────────────────────────────────────────────────────────── */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
+          {tabs.map(([t, label]) => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{
+                flex: '0 0 auto', padding: '0 2px 16px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer',
+                borderBottom: tab === t ? '1.5px solid var(--portal-ink)' : '1.5px solid transparent',
+                fontFamily: serif, fontSize: cq(19, 2.1, 27), color: tab === t ? 'var(--portal-ink)' : 'var(--portal-micro)',
+                whiteSpace: 'nowrap', transition: 'color .35s ease',
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* ── CONTENT ─────────────────────────────────────────────────────────── */}
-      <div className="max-w-2xl mx-auto px-4 py-5">
+      <div style={{ padding: `0 ${cq(20, 3.8, 48)}`, maxWidth: 1280, marginInline: 'auto' }}>
 
         {/* ── TAB: CLASES ─────────────────────────────────────────────────── */}
         {tab === 'clases' && (
-          <div className="space-y-4">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: cq(24, 4, 56), alignItems: 'flex-start', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
+            <div style={{ flex: '1 1 480px', minWidth: 0 }}>
 
-            {/* Filtros por tipo de clase (se aplican a los slots del calendario) */}
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {['', ...tiposClase.map(t => t.id)].map(id => {
-                const tipo = tiposClase.find(t => t.id === id);
-                const active = filtroTipo === id;
-                return (
-                  <button key={id || 'all'} onClick={() => setFiltroTipo(id)}
-                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border"
-                    style={active
-                      ? { backgroundColor: tipo?.color ?? PRIMARY, color: tipo?.color ? RT.surface : PRIMARY_FG, borderColor: tipo?.color ?? PRIMARY }
-                      : { backgroundColor: 'white', color: RT.muted2, borderColor: RT.line }}>
-                    {tipo && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: active ? 'rgba(255,255,255,0.7)' : tipo.color }} />}
-                    {tipo ? tipo.nombre : 'Todas las clases'}
-                  </button>
-                );
-              })}
+              {/* Filtros por tipo de clase (se aplican a los slots del calendario) */}
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                {['', ...tiposClase.map(t => t.id)].map(id => {
+                  const tipo = tiposClase.find(t => t.id === id);
+                  const active = filtroTipo === id;
+                  return (
+                    <button key={id || 'all'} onClick={() => setFiltroTipo(id)}
+                      style={{
+                        flex: '0 0 auto', height: 38, padding: '0 18px', borderRadius: R.pill,
+                        display: 'flex', alignItems: 'center', gap: 9, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                        whiteSpace: 'nowrap', transition: 'background .3s ease, color .3s ease',
+                        border: active ? '1px solid transparent' : '1px solid var(--portal-line)',
+                        background: active ? (tipo?.color ?? PRIMARY) : 'rgba(255,255,255,.7)',
+                        color: active ? (tipo?.color ? '#fff' : PRIMARY_FG) : 'var(--portal-muted-2)',
+                      }}>
+                      {tipo && <span style={{ width: 6, height: 6, borderRadius: 999, background: active ? 'rgba(255,255,255,0.8)' : tipo.color }} />}
+                      {tipo ? tipo.nombre : 'Todas'}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Calendario de reservas — componente compartido (estilo Acuity), el
+                  mismo que usa el portal de socias, re-vestido con el lenguaje
+                  visual de esta pantalla (ver reserva-calendario.tsx). La reserva
+                  se enruta por handleReservarCalendario, que respeta el
+                  step-machine de acceso. */}
+              <div style={{ marginTop: 24 }}>
+                <ReservaCalendario
+                  t={RESERVAR_TOKENS}
+                  slots={slots}
+                  variant="calendario"
+                  onReservar={handleReservarCalendario}
+                  onCancelar={cancelarReserva}
+                  cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
+                  ventanaPorTipo={ventanaPorTipo}
+                  vacio={{ titulo: 'Sin clases disponibles', cuerpo: 'Prueba con otra semana o cambia el filtro' }}
+                />
+              </div>
             </div>
 
-            {/* Calendario de reservas — componente compartido (estilo Acuity), el
-                mismo que usa el portal de socias. Se renderiza sobre el fondo de
-                la página (no en una tarjeta blanca) para que sus tarjetas de
-                horario (surface blanco) contrasten. La reserva se enruta por
-                handleReservarCalendario, que respeta el step-machine de acceso. */}
-            <ReservaCalendario
-              t={RESERVAR_TOKENS}
-              slots={slots}
-              variant="calendario"
-              onReservar={handleReservarCalendario}
-              onCancelar={cancelarReserva}
-              cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
-              ventanaPorTipo={ventanaPorTipo}
-              vacio={{ titulo: 'Sin clases disponibles', cuerpo: 'Prueba con otra semana o cambia el filtro' }}
-            />
+            {/* Columna lateral: explicación del flujo (copy fijo, sin datos que
+                puedan quedar desactualizados). */}
+            <div style={{ flex: '0 1 320px' }}>
+              <div style={{ borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
+                <div style={eyebrow(9)}>CÓMO FUNCIONA</div>
+                {[
+                  'Elige el día y la clase.',
+                  'Reserva tu plaza en la sala.',
+                  studio?.cancelacionVentanaHoras
+                    ? `Cancela gratis hasta ${studio.cancelacionVentanaHoras}h antes.`
+                    : 'Cancela gratis cuando quieras.',
+                ].map((paso, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 14, marginTop: i === 0 ? 18 : 12 }}>
+                    <span style={{ fontFamily: serif, fontSize: 18, color: 'var(--portal-accent)', lineHeight: 1.2 }}>{i + 1}</span>
+                    <span style={{ fontSize: 12, color: 'var(--portal-muted-2)', lineHeight: 1.5 }}>{paso}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
         {/* ── TAB: CITAS 1:1 ──────────────────────────────────────────────── */}
         {tab === 'citas' && (
-          <CitasPublica
-            studioId={studio?.id ?? ''}
-            servicios={citasServicios}
-            instructores={instructores}
-            disponibilidad={citasDisponibilidad}
-            misCitas={misCitas}
-            autenticada={!!socia}
-            onNeedLogin={() => { setBookingSesionId(''); setLoginStep('login'); }}
-            onReservar={(servicioId, instructorId, inicioISO) => reservarCitaPublica({ servicioId, instructorId, inicioISO })}
-            onCancelar={cancelarCita}
-            primary={PRIMARY}
-            primaryFg={PRIMARY_FG}
-          />
+          <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
+            <div style={eyebrow(9)}>UNO A UNO</div>
+            <h2 style={{ fontFamily: serif, fontSize: cq(30, 3.6, 44), lineHeight: 1, marginTop: 12 }}>Citas privadas</h2>
+            <div style={{ marginTop: 24 }}>
+              <CitasPublica
+                studioId={studio?.id ?? ''}
+                servicios={citasServicios}
+                instructores={instructores}
+                disponibilidad={citasDisponibilidad}
+                misCitas={misCitas}
+                autenticada={!!socia}
+                onNeedLogin={() => { setBookingSesionId(''); setLoginStep('login'); }}
+                onReservar={(servicioId, instructorId, inicioISO) => reservarCitaPublica({ servicioId, instructorId, inicioISO })}
+                onCancelar={cancelarCita}
+                primary={PRIMARY}
+                primaryFg={PRIMARY_FG}
+              />
+            </div>
+          </div>
         )}
 
         {/* ── TAB: MIS RESERVAS ───────────────────────────────────────────── */}
         {tab === 'misreservas' && (
-          <div className="space-y-3">
-            {!socia ? (
-              <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-4 text-center shadow-sm">
-                <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFF2F7' }}>
-                  <Users size={24} style={{ color: PRIMARY }} />
+          <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
+            <div style={eyebrow(9)}>{socia ? `${misReservas.length} CONFIRMADA${misReservas.length === 1 ? '' : 'S'}` : 'MIS RESERVAS'}</div>
+            <h2 style={{ fontFamily: serif, fontSize: cq(30, 3.6, 44), lineHeight: 1, marginTop: 12 }}>Mis reservas</h2>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 26 }}>
+              {!socia ? (
+                <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '56px 24px', gap: 16, textAlign: 'center', boxShadow: SH.card }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--portal-surface-2)' }}>
+                    <Users size={24} style={{ color: PRIMARY }} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontFamily: serif, fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tus reservas</h3>
+                    <p style={{ fontSize: 12.5, color: 'var(--portal-muted-2)', marginTop: 6 }}>Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
+                  </div>
+                  <button onClick={() => { setBookingSesionId(''); setLoginStep('login'); }}
+                    style={{ height: 48, padding: '0 26px', borderRadius: R.pillBtnSm, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                    Acceder
+                  </button>
                 </div>
-                <div>
-                  <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg">Identifícate para ver tus reservas</h2>
-                  <p className="text-[var(--portal-muted-2)] text-sm mt-1">Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
+              ) : misReservas.length === 0 ? (
+                <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '56px 24px', gap: 12, textAlign: 'center', boxShadow: SH.card }}>
+                  <Calendar size={28} style={{ color: 'var(--portal-micro)' }} />
+                  <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--portal-muted-2)' }}>No tienes reservas todavía</p>
+                  <button onClick={() => setTab('clases')} style={{ fontSize: 13, fontWeight: 600, color: PRIMARY, background: 'none', border: 'none', cursor: 'pointer' }}>
+                    Explorar clases →
+                  </button>
                 </div>
-                <button onClick={() => { setBookingSesionId(''); setLoginStep('login'); }}
-                  className="px-6 py-3 rounded-xl font-bold text-white text-sm"
-                  style={{ backgroundColor: PRIMARY }}>
-                  Acceder
-                </button>
-              </div>
-            ) : misReservas.length === 0 ? (
-              <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-3 text-center shadow-sm">
-                <Calendar size={28} className="text-[var(--portal-micro)]" />
-                <p className="text-[var(--portal-muted-2)] font-medium">No tienes reservas todavía</p>
-                <button onClick={() => setTab('clases')} className="text-sm font-semibold" style={{ color: PRIMARY }}>
-                  Explorar clases →
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between px-1 mb-1">
-                  <h2 className="text-[var(--portal-ink)] font-bold text-base">Mis clases</h2>
-                  <span className="text-[var(--portal-muted)] text-sm">{misReservas.length} reserva{misReservas.length !== 1 ? 's' : ''}</span>
-                </div>
-                {misReservas.map(r => {
+              ) : (
+                misReservas.map(r => {
                   const s = r.sesion!;
                   const isPast = new Date(s.fin) < now;
                   const isFuture = !isPast && r.estado !== 'ASISTIDA';
                   const fechaLarga = new Date(s.inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+                  const estadoBg = r.estado === 'ASISTIDA' ? '#D1FAE5'
+                    : r.estado === 'LISTA_ESPERA' ? '#FEF3C7'
+                    : isPast ? RT.surface2 : 'rgba(255,255,255,.7)';
+                  const estadoColor = r.estado === 'ASISTIDA' ? '#065F46'
+                    : r.estado === 'LISTA_ESPERA' ? '#92400E'
+                    : isPast ? RT.muted : PRIMARY;
                   return (
-                    <div key={r.id} className="bg-white rounded-2xl shadow-sm overflow-hidden"
-                      style={{ border: isFuture ? `1.5px solid ${s.tipo?.color ?? PRIMARY}40` : '1px solid #F1F3F5', opacity: isPast ? 0.7 : 1 }}>
-                      <div className="h-1" style={{ backgroundColor: s.tipo?.color ?? PRIMARY, opacity: isPast ? 0.4 : 1 }} />
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div>
-                            <p className="font-bold text-[var(--portal-ink)] text-base leading-tight">{s.tipo?.nombre}</p>
-                            <p className="text-[var(--portal-muted-2)] text-sm mt-0.5 capitalize">{fechaLarga}</p>
-                          </div>
-                          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0"
-                            style={r.estado === 'ASISTIDA'
-                              ? { backgroundColor: '#D1FAE5', color: '#065F46' }
-                              : r.estado === 'LISTA_ESPERA'
-                              ? { backgroundColor: '#FEF3C7', color: '#92400E' }
-                              : isPast ? { backgroundColor: RT.surface2, color: RT.muted }
-                              : { backgroundColor: '#FFF2F7', color: PRIMARY }}>
-                            {r.estado === 'ASISTIDA' ? 'Asistida' : r.estado === 'LISTA_ESPERA' ? (r.posicionEspera ? `En espera · nº ${r.posicionEspera}` : 'En espera') : isPast ? 'Finalizada' : 'Confirmada'}
-                          </span>
+                    <div key={r.id} style={{
+                      borderRadius: R.card, background: isPast ? 'rgba(255,255,255,.5)' : 'var(--portal-surface)',
+                      padding: `${cq(20, 2.2, 26)} ${cq(20, 2.6, 30)}`, display: 'flex', alignItems: 'center', flexWrap: 'wrap',
+                      gap: cq(12, 1.8, 24), boxShadow: isPast ? undefined : SH.card, opacity: isPast ? 0.75 : 1,
+                    }}>
+                      <div style={{ flex: '0 0 auto' }}>
+                        <div style={{ ...eyebrow(9), color: isFuture ? 'var(--portal-accent)' : 'var(--portal-micro)' }}>
+                          {r.estado === 'ASISTIDA' ? 'ASISTIDA' : r.estado === 'LISTA_ESPERA' ? 'EN ESPERA' : isPast ? 'FINALIZADA' : 'CONFIRMADA'}
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--portal-muted-2)]">
-                          <span className="font-[var(--font-display),Georgia,serif] font-normal text-[var(--portal-ink)] text-xl">{fmtTime(s.inicio)}<span className="text-[var(--portal-muted)] text-sm font-normal ml-1">→ {fmtTime(s.fin)}</span></span>
-                          {s.instructor && <span>{s.instructor.nombre}</span>}
-                          {s.sala && <span>{s.sala.nombre}</span>}
-                          <LevelBadge nivel={s.tipo?.nivel} />
-                        </div>
-                        {isFuture && (
-                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--portal-surface-2)]">
-                            <a href={makeGoogleCalUrl(s, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] hover:bg-[var(--portal-surface-2)] border border-[var(--portal-line)] transition-colors">
-                              <Calendar size={12} /> Añadir al calendario
-                            </a>
-                            <button onClick={() => downloadICS(s, estudioNombre, estudioDireccion)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] hover:bg-[var(--portal-surface-2)] border border-[var(--portal-line)] transition-colors">
-                              <Download size={12} /> .ics
-                            </button>
-                            <button onClick={() => {
-                              // Aviso de cancelación tardía (C-2): si está dentro de la
-                              // ventana y el estudio no devuelve bono, el modal lo advierte.
-                              const ventana = s.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
-                              const tardia = r.estado === 'CONFIRMADA' && esCancelacionTardia(s.inicio, now, ventana);
-                              const pierdeBono = tardia && !(studio?.cancelacionDevolverBonoTardia ?? false);
-                              setCancelConfirm({ reservaId: r.id, pierdeBono, ventana });
-                            }}
-                              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-destructive bg-destructive/10 hover:bg-destructive/10 border border-destructive/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
-                              <X size={12} /> Cancelar plaza
-                            </button>
-                          </div>
-                        )}
+                        <div style={{ fontFamily: serif, fontSize: cq(24, 2.4, 30), lineHeight: 1, marginTop: 8 }}>{fmtTime(s.inicio)}</div>
                       </div>
+                      <div style={{ flex: '1 1 150px', minWidth: 0 }}>
+                        <div style={{ fontFamily: serif, fontSize: cq(21, 2.2, 27), lineHeight: 1.05 }}>{s.tipo?.nombre}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--portal-muted-2)', marginTop: 8, textTransform: 'capitalize' }}>
+                          {fechaLarga}{s.sala ? ` · ${s.sala.nombre}` : ''}{s.instructor ? ` · ${s.instructor.nombre}` : ''}
+                        </div>
+                      </div>
+                      <span style={{ flex: '0 0 auto', fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: R.pill, background: estadoBg, color: estadoColor }}>
+                        {r.estado === 'ASISTIDA' ? 'Asistida' : r.estado === 'LISTA_ESPERA' ? (r.posicionEspera ? `En espera · nº ${r.posicionEspera}` : 'En espera') : isPast ? 'Finalizada' : 'Confirmada'}
+                      </span>
+                      {isFuture && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
+                          <a href={makeGoogleCalUrl(s, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
+                            aria-label="Añadir al calendario"
+                            style={{ width: 38, height: 38, borderRadius: 999, border: '1px solid var(--portal-line)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--portal-ink)' }}>
+                            <Calendar size={14} />
+                          </a>
+                          <button onClick={() => downloadICS(s, estudioNombre, estudioDireccion)}
+                            aria-label="Descargar .ics"
+                            style={{ width: 38, height: 38, borderRadius: 999, border: '1px solid var(--portal-line)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--portal-ink)', background: 'none', cursor: 'pointer' }}>
+                            <Download size={14} />
+                          </button>
+                          <button onClick={() => {
+                            // Aviso de cancelación tardía (C-2): si está dentro de la
+                            // ventana y el estudio no devuelve bono, el modal lo advierte.
+                            const ventana = s.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
+                            const tardia = r.estado === 'CONFIRMADA' && esCancelacionTardia(s.inicio, now, ventana);
+                            const pierdeBono = tardia && !(studio?.cancelacionDevolverBonoTardia ?? false);
+                            setCancelConfirm({ reservaId: r.id, pierdeBono, ventana });
+                          }}
+                            style={{ fontSize: 11.5, color: 'var(--portal-muted)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            Cancelar
+                          </button>
+                        </div>
+                      )}
+                      {!isFuture && s.instructor && (
+                        <LevelBadge nivel={s.tipo?.nivel} />
+                      )}
                     </div>
                   );
-                })}
-              </>
-            )}
+                })
+              )}
+            </div>
           </div>
         )}
 
         {/* ── TAB: EL ESTUDIO ─────────────────────────────────────────────── */}
         {tab === 'estudio' && (
-          <div className="space-y-6">
-            {/* Studio info */}
-            <div className="bg-white rounded-2xl shadow-sm p-6 text-center" style={{ border: '1px solid #F1F3F5' }}>
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-lg font-black"
-                style={{ backgroundColor: PRIMARY }}>{estudioNombre[0]}</div>
-              <h2 className="text-[var(--portal-ink)] text-xl font-extrabold">{estudioNombre}</h2>
-              <p className="text-[var(--portal-muted-2)] text-sm mt-1">{estudioDireccion}</p>
-              <p className="text-[var(--portal-muted-2)] text-sm mt-3 max-w-sm mx-auto leading-relaxed">
-                Estudio boutique especializado en pilates reformer. Grupos reducidos para atención personalizada.
-              </p>
-              <div className="flex items-center justify-center gap-3 mt-4 text-sm">
-                <span className="font-semibold" style={{ color: PRIMARY }}>{estudioEmail}</span>
-                <span className="text-[var(--portal-micro)]">·</span>
-                <span className="text-[var(--portal-muted-2)]">{estudioTelefono}</span>
-              </div>
-            </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: cq(24, 4, 56), alignItems: 'flex-start', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
+            <div style={{ flex: '1 1 480px', minWidth: 0 }}>
+              <div style={eyebrow(9)}>{studio?.ciudad ? studio.ciudad.toUpperCase() : 'EL ESTUDIO'}{studio?.anioFundacion ? ` · DESDE ${studio.anioFundacion}` : ''}</div>
+              <h2 style={{ fontFamily: serif, fontSize: cq(30, 3.6, 44), lineHeight: 1, marginTop: 12 }}>El estudio</h2>
+              {studio?.descripcion && (
+                <p style={{ fontSize: 13, color: 'var(--portal-accent)', marginTop: 16, maxWidth: 520, lineHeight: 1.65 }}>{studio.descripcion}</p>
+              )}
 
-            {/* Plans + Stripe */}
-            <div>
-              <div className="flex items-center gap-2 mb-3 px-1">
-                <CreditCard size={16} style={{ color: PRIMARY }} />
-                <h3 className="text-[var(--portal-ink)] font-bold text-base">Nuestros planes</h3>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 18, marginTop: 22 }}>
+                <span style={{ fontSize: 12, color: 'var(--portal-ink)' }}>{estudioDireccion}</span>
+                <span style={{ width: 1, height: 12, background: 'var(--portal-line)' }} />
+                <span style={{ fontSize: 12, color: 'var(--portal-ink)' }}>{estudioEmail}</span>
+                <span style={{ width: 1, height: 12, background: 'var(--portal-line)' }} />
+                <span style={{ fontSize: 12, color: 'var(--portal-ink)' }}>{estudioTelefono}</span>
               </div>
+
+              {/* Plans + Stripe */}
+              <div style={{ ...eyebrow(9), marginTop: 38 }}>NUESTROS PLANES</div>
               {stripeError && (
-                <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">
+                <div className="text-destructive bg-destructive/10 border border-destructive/30" style={{ marginTop: 12, padding: '10px 16px', borderRadius: 14, fontSize: 13 }}>
                   {stripeError}
                 </div>
               )}
-              <div className="space-y-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
                 {/* F0 · POR-1: no ofrecer planes a 0€ como contratables en público
                     (cualquiera obtendría clases gratis). El precio > 0 es requisito
                     para el checkout de Stripe igualmente. */}
-                {planesTarifa.filter(p => p.activo && p.precio > 0).map(p => (
-                  <div key={p.id} className="bg-white rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm"
-                    style={{ border: '1px solid #F1F3F5' }}>
-                    <div className="min-w-0">
-                      <p className="text-[var(--portal-ink)] font-bold text-sm">{p.nombre}</p>
-                      {p.descripcion && <p className="text-[var(--portal-muted-2)] text-xs mt-0.5">{p.descripcion}</p>}
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: '#FFF2F7', color: PRIMARY }}>
-                          {p.tipo === 'MENSUAL' ? 'Mensual' : p.tipo === 'BONO' ? `Bono ${p.sesiones} clases` : 'Clase suelta'}
-                        </span>
+                {planesTarifa.filter(p => p.activo && p.precio > 0).map(p => {
+                  const destacado = p.id === planDestacadoId;
+                  const porClase = precioPorClase(p);
+                  return (
+                    <div key={p.id} style={{
+                      borderRadius: R.cardSmall, background: destacado ? PRIMARY : 'var(--portal-surface)',
+                      padding: '22px 26px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 18,
+                      boxShadow: destacado ? SH.ctaOscuroFuerte : SH.planClaro,
+                    }}>
+                      <div style={{ flex: '1 1 180px' }}>
+                        {destacado && <div style={{ ...eyebrow(8.5), color: `color-mix(in srgb, ${PRIMARY_FG} 65%, transparent)` }}>EL MÁS ELEGIDO</div>}
+                        <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, marginTop: destacado ? 9 : 0, color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.nombre}</div>
+                        <div style={{ fontSize: 11, marginTop: 7, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 60%, transparent)` : 'var(--portal-muted-2)' }}>
+                          {porClase ?? p.descripcion ?? (p.tipo === 'MENSUAL' ? 'Mensual · sin compromiso' : `Bono ${p.sesiones ?? ''} clases`)}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <p className="text-[var(--portal-ink)] font-extrabold text-xl leading-none">{p.precio}€</p>
-                        {p.tipo === 'MENSUAL' && <p className="text-[var(--portal-muted)] text-[10px]">/mes</p>}
-                      </div>
+                      <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.precio} €</div>
                       <button onClick={() => handleContratarPlan(p)}
                         disabled={stripeLoading === p.id}
-                        className="px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 flex items-center gap-1.5"
-                        style={{ backgroundColor: PRIMARY }}>
+                        style={{
+                          height: 46, padding: '0 24px', borderRadius: R.pillBtnXs, whiteSpace: 'nowrap', fontSize: 12.5, fontWeight: 500,
+                          display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', opacity: stripeLoading === p.id ? 0.6 : 1,
+                          border: destacado ? 'none' : '1px solid var(--portal-line)',
+                          background: destacado ? 'var(--portal-surface)' : 'transparent',
+                          color: destacado ? 'var(--portal-ink)' : 'var(--portal-ink)',
+                        }}>
                         {stripeLoading === p.id
-                          ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'currentColor', borderRadius: 999, display: 'inline-block' }} className="animate-spin" />
                           : <><CreditCard size={13} />Contratar</>}
                       </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-              <p className="text-[var(--portal-muted)] text-xs mt-3 text-center">Pago seguro con Stripe · IVA incluido</p>
-            </div>
+              <p style={{ fontSize: 10.5, color: 'var(--portal-micro)', marginTop: 14 }}>Pago seguro con Stripe · IVA incluido</p>
 
-            {/* Class types */}
-            <div>
-              <h3 className="text-[var(--portal-ink)] font-bold text-base mb-3 px-1">Tipos de clase</h3>
-              <div className="grid sm:grid-cols-2 gap-3">
+              {/* Class types */}
+              <div style={{ ...eyebrow(9), marginTop: 38 }}>TIPOS DE CLASE</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 16 }}>
                 {tiposClase.map(t => (
-                  <div key={t.id} className="bg-white rounded-2xl p-4 shadow-sm"
-                    style={{ border: `1.5px solid ${t.color}25` }}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                      <p className="text-[var(--portal-ink)] font-bold text-sm">{t.nombre}</p>
+                  <div key={t.id} style={{ borderRadius: R.chipCard, background: 'rgba(255,255,255,.7)', border: `1px solid ${t.color}20`, padding: 22 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: 999, background: t.color, flexShrink: 0 }} />
+                      <span style={{ fontFamily: serif, fontSize: 21 }}>{t.nombre}</span>
                     </div>
-                    <p className="text-[var(--portal-muted-2)] text-xs">{t.descripcion}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[10px] text-[var(--portal-muted)]">{t.duracionMinutos} min</span>
+                    {t.descripcion && (
+                      <div style={{ fontSize: 11, color: 'var(--portal-muted-2)', marginTop: 10, lineHeight: 1.5 }}>
+                        {t.descripcion}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                      <span style={{ fontSize: 10, color: 'var(--portal-muted)' }}>{t.duracionMinutos} min</span>
                       <LevelBadge nivel={t.nivel} />
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
 
-            {/* Instructors */}
-            <div>
-              <h3 className="text-[var(--portal-ink)] font-bold text-base mb-3 px-1">Instructoras</h3>
-              <div className="grid sm:grid-cols-2 gap-3">
+              {/* Instructors */}
+              <div style={{ ...eyebrow(9), marginTop: 38 }}>INSTRUCTORAS</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 16 }}>
                 {queImparten(instructores).map(i => (
-                  <div key={i.id} className="bg-white flex items-center gap-3 rounded-2xl p-4 shadow-sm"
-                    style={{ border: '1px solid #F1F3F5' }}>
-                    <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-                      style={{ backgroundColor: i.color ?? PRIMARY }}>
-                      {i.nombre.split(' ').map(n => n[0]).join('')}
-                    </div>
+                  <div key={i.id} style={{ borderRadius: R.chipCard, background: 'var(--portal-surface)', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: SH.miniCard }}>
+                    {i.fotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={i.fotoUrl} alt={i.nombre} style={{ width: 44, height: 44, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 44, height: 44, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#fff', flexShrink: 0, background: i.color ?? PRIMARY }}>
+                        {i.nombre.split(' ').map(n => n[0]).join('')}
+                      </div>
+                    )}
                     <div>
-                      <p className="text-[var(--portal-ink)] font-semibold text-sm">{i.nombre}</p>
-                      {i.email != null && <p className="text-[var(--portal-muted)] text-xs mt-0.5">{i.email}</p>}
+                      <div style={{ fontFamily: serif, fontSize: 21, lineHeight: 1 }}>{i.nombre}</div>
+                      {i.email != null && <div style={{ fontSize: 10.5, color: 'var(--portal-muted)', marginTop: 6 }}>{i.email}</div>}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
+            <div style={{ flex: '0 1 320px' }}>
+              <div style={{ borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
+                {estudioLogo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={estudioLogo} alt={estudioNombre} style={{ width: 44, height: 44, borderRadius: 14, objectFit: 'contain', background: '#fff' }} />
+                ) : (
+                  <div style={{ width: 44, height: 44, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: PRIMARY_FG, background: PRIMARY }}>{estudioNombre[0]}</div>
+                )}
+                <h3 style={{ fontFamily: serif, fontSize: 24, lineHeight: 1.1, marginTop: 14 }}>{estudioNombre}</h3>
+                <p style={{ fontSize: 11.5, color: 'var(--portal-muted-2)', marginTop: 10 }}>{estudioDireccion}</p>
+              </div>
+              {franjasHorario.length > 0 && (
+                <div style={{ marginTop: 14, borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
+                  <div style={eyebrow(9)}>HORARIO</div>
+                  {franjasHorario.map((f, i) => (
+                    <div key={f.dias} style={{ display: 'flex', justifyContent: 'space-between', marginTop: i === 0 ? 16 : 10, fontSize: 12, color: f.horas === 'Cerrado' ? 'var(--portal-micro)' : 'var(--portal-accent)' }}>
+                      <span>{f.dias}</span><span>{f.horas}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Legal links */}
-            <div className="flex items-center justify-center gap-6 pt-2 pb-4">
+            <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 26, paddingTop: 40, fontSize: 11, color: 'var(--portal-micro)' }}>
               {[
                 { label: 'Política de privacidad', text: studioConfig.politicaPrivacidad },
                 { label: 'Términos de servicio', text: studioConfig.terminosServicio },
-              ].map(({ label, text }) => (
-                <button key={label}
-                  onClick={() => setLegalDoc({ label, text })}
-                  className="flex items-center gap-1.5 text-xs text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
-                  <FileText size={12} />{label}
-                </button>
+              ].map(({ label, text }, i) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 26 }}>
+                  {i > 0 && <span style={{ width: 1, height: 11, background: 'var(--portal-line)' }} />}
+                  <button
+                    onClick={() => setLegalDoc({ label, text })}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--portal-micro)', cursor: 'pointer', fontSize: 11 }}>
+                    <FileText size={12} />{label}
+                  </button>
+                </div>
               ))}
             </div>
           </div>

@@ -25,17 +25,18 @@ import type { ModoTokens } from '@/lib/portal-modo';
 import type { NivelClase, EstadoReserva, Spot } from '@/lib/types';
 import type { ResultadoReserva } from '@/lib/studio-context';
 import type { ResultadoEscritura } from '@/lib/errores';
-import { radius, semantic, sheetBottomPadding } from '@/lib/portal-tokens';
+import { semantic, sheetBottomPadding } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion } from '@/lib/ocupacion';
+import { serif, sans, cq, radius, shadow, EASE } from '@/lib/reservar-publico-tokens';
 import {
   localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
   agruparPorDia, etiquetaDia,
 } from '@/lib/reserva-calendario-logic';
 
-// La misma familia que el resto del portal (lib/portal-design.ts). Estaba
-// clavada a Jakarta, así que este widget seguía en la tipografía vieja aunque
-// lo embebiera una pantalla ya migrada.
-const FUENTE = "var(--font-ui), 'Instrument Sans', system-ui, sans-serif";
+// Instrument Sans, la misma familia sans que el resto de /reservar
+// (lib/reservar-publico-tokens.ts, que a su vez reexporta de portal-design.ts
+// para no duplicar la cadena de fuentes en un tercer sitio).
+const FUENTE = sans;
 
 const NIVEL_LABEL: Record<NivelClase, string> = {
   TODOS: 'Todos los niveles', PRINCIPIANTE: 'Iniciación', MEDIO: 'Intermedio', AVANZADO: 'Avanzado',
@@ -226,7 +227,7 @@ export function ReservaCalendario({
           </div>
 
           {/* ── Tira de días ─────────────────────────────────────────────── */}
-          <div role="tablist" aria-label="Días de la semana" style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+          <div role="tablist" aria-label="Días de la semana" style={{ position: 'relative', display: 'flex', marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${t.line}` }}>
             {semana.map((d, i) => {
               const key = localDayKey(d);
               const isSel = key === selectedDayKey;
@@ -242,30 +243,30 @@ export function ReservaCalendario({
                   aria-label={`${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}, ${n} ${n === 1 ? 'clase' : 'clases'}`}
                   onClick={() => setSelectedDayKey(key)}
                   style={{
-                    flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                    padding: '8px 0 6px', borderRadius: radius.card, cursor: 'pointer',
-                    border: `1px solid ${isSel ? 'var(--portal-brand)' : t.line}`,
-                    background: isSel ? 'var(--portal-brand)' : t.surface,
+                    flex: 1, minWidth: 0, height: cq(72, 6.6, 84), display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', border: 'none',
+                    borderRadius: cq(24, 2.7, 31), background: isSel ? 'var(--portal-brand)' : 'transparent',
+                    boxShadow: isSel ? shadow.headerBtn : undefined,
                     opacity: vacío && !isSel ? 0.55 : 1,
-                    transition: 'transform .12s ease',
+                    transition: `background .5s ${EASE}, box-shadow .5s ${EASE}`,
                   }}
                 >
                   <span style={{
-                    fontSize: 10, fontWeight: 800, letterSpacing: '0.06em',
-                    color: isSel ? 'var(--portal-brand-foreground)' : t.muted,
+                    fontSize: 9, fontWeight: 500, letterSpacing: '0.18em',
+                    color: isSel ? 'color-mix(in srgb, var(--portal-brand-foreground) 60%, transparent)' : t.muted,
                   }}>
                     {DOW_CORTO[i]}
                   </span>
                   <span style={{
-                    fontSize: 17, fontWeight: 800, lineHeight: 1,
+                    fontFamily: serif, fontSize: cq(21, 2.2, 26), lineHeight: 1,
                     color: isSel ? 'var(--portal-brand-foreground)' : (isToday ? 'var(--portal-brand)' : t.ink),
                   }}>
                     {d.getDate()}
                   </span>
-                  {/* Punto/contador de clases */}
+                  {/* Contador de clases del día */}
                   <span style={{
-                    fontSize: 10, fontWeight: 800, minHeight: 14, lineHeight: '14px',
-                    color: isSel ? 'var(--portal-brand-foreground)' : t.muted,
+                    fontSize: 9, fontWeight: 500, minHeight: 12, lineHeight: '12px',
+                    color: isSel ? 'color-mix(in srgb, var(--portal-brand-foreground) 60%, transparent)' : t.muted,
                   }}>
                     {vacío ? '·' : n}
                   </span>
@@ -354,6 +355,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
   const ratio = ratioOcupacion(slot.ocupadas, slot.aforoMaximo);
   const capColor = colorOcupacion(ratio);
   const lleno = libres <= 0;
+  const duracionMin = Math.round((new Date(slot.fin).getTime() - new Date(slot.inicio).getTime()) / 60000);
 
   return (
     <button
@@ -361,50 +363,64 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
       onClick={onOpen}
       aria-label={`${slot.claseNombre} a las ${fmtHora(slot.inicio)}${slot.instructorNombre ? `, con ${slot.instructorNombre}` : ''}, ${lleno ? 'completa' : `${libres} plazas`}`}
       style={{
-        display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-        background: t.hero, borderRadius: 22, padding: 5,
+        display: 'flex', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none',
+        alignItems: 'center', flexWrap: 'wrap', gap: cq(12, 1.8, 24),
+        background: lleno ? 'rgba(255,255,255,.5)' : (slot.miEstado === 'CONFIRMADA' ? 'var(--portal-surface-2)' : t.surface),
+        borderRadius: radius.card, padding: `${cq(20, 2.2, 26)} ${cq(20, 2.6, 30)}`,
+        boxShadow: lleno ? undefined : shadow.card,
       }}
     >
-      <div style={{ background: t.surface, borderRadius: 18, padding: 16, boxShadow: '0 8px 20px rgba(0,0,0,0.05)' }}>
-        {/* Foto de la clase + nombre, hora, nivel */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <RoundPhoto nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} size={52} ring={t.surface2} />
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <p style={{ fontSize: 15.5, fontWeight: 800, color: t.ink, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
-                {slot.claseNombre}
-              </p>
-              {slot.miEstado && <EstadoIcono estado={slot.miEstado} />}
-            </div>
-            <p style={{ fontSize: 12, color: t.muted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {fmtHora(slot.inicio)} – {fmtHora(slot.fin)} · {NIVEL_LABEL[slot.nivel]}
-            </p>
-          </div>
+      {/* Hora + duración */}
+      <div style={{ flex: '0 0 auto' }}>
+        <div style={{ fontFamily: serif, fontSize: cq(24, 2.4, 30), lineHeight: 1, color: lleno ? t.muted : t.ink }}>
+          {fmtHora(slot.inicio)}
         </div>
+        <div style={{ fontSize: 10, color: t.muted, marginTop: 6 }}>{duracionMin} min</div>
+      </div>
 
-        {/* Instructora + plazas */}
-        {slot.instructorNombre && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${t.line}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-              <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={38} ring={t.surface2} />
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 13.5, fontWeight: 700, color: t.ink, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {slot.instructorNombre}
-                </p>
-                <p style={{ fontSize: 11, color: t.muted, lineHeight: 1.2, marginTop: 1 }}>
-                  {slot.instructorRol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}
-                </p>
-              </div>
-            </div>
-            <span style={{
-              fontSize: 11.5, fontWeight: 700, color: capColor, flexShrink: 0, whiteSpace: 'nowrap',
-              background: `color-mix(in srgb, ${capColor} 14%, transparent)`, padding: '5px 11px', borderRadius: 999,
-            }}>
-              {lleno ? 'Completa' : `${libres} ${libres === 1 ? 'libre' : 'libres'}`}
+      {/* Nombre + nivel/instructora */}
+      <div style={{ flex: '1 1 150px', minWidth: 0 }}>
+        {slot.miEstado && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
+            <EstadoIcono estado={slot.miEstado} />
+            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '.2em', color: t.ink }}>
+              {slot.miEstado === 'CONFIRMADA' ? 'RESERVADA' : 'EN LISTA DE ESPERA'}
             </span>
           </div>
         )}
+        <div style={{ fontFamily: serif, fontSize: cq(21, 2.2, 27), lineHeight: 1.05, color: lleno ? t.muted : t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {slot.claseNombre}
+        </div>
+        <div style={{ fontSize: 11.5, color: t.muted, marginTop: 8 }}>
+          {NIVEL_LABEL[slot.nivel]}{slot.salaNombre ? ` · ${slot.salaNombre}` : ''} · {slot.aforoMaximo} plazas
+        </div>
       </div>
+
+      {/* Instructora */}
+      {slot.instructorNombre && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>
+          <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={32} />
+          <span style={{ fontSize: 12, fontWeight: 500, color: t.ink, whiteSpace: 'nowrap' }}>{slot.instructorNombre}</span>
+        </div>
+      )}
+
+      {/* Plazas libres */}
+      <div style={{ flex: '0 0 auto', fontSize: 11.5, fontWeight: 500, color: lleno ? t.muted : capColor, whiteSpace: 'nowrap' }}>
+        {lleno ? 'completa' : `${libres} ${libres === 1 ? 'libre' : 'libres'}`}
+      </div>
+
+      {/* CTA visual (decorativo: toda la fila es el control clicable) */}
+      <span aria-hidden="true" style={{
+        flex: '0 0 auto', height: 44, padding: '0 22px', borderRadius: radius.pillBtnSm - 2,
+        display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+        ...(slot.miEstado === 'CONFIRMADA'
+          ? { border: `1px solid ${t.line}`, color: t.ink }
+          : lleno
+            ? { border: `1px solid ${t.line}`, color: t.ink }
+            : { background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }),
+      }}>
+        {slot.miEstado === 'CONFIRMADA' ? 'Ver reserva' : slot.miEstado === 'LISTA_ESPERA' ? 'En espera' : lleno ? 'Lista de espera' : 'Reservar'}
+      </span>
     </button>
   );
 }
