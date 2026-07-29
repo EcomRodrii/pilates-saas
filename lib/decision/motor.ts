@@ -67,7 +67,18 @@ export function ejecutarAnalisis(input: EntradaAnalisis): ResultadoAnalisis {
   const { snapshot, memoria, pendientesActuales, resueltas90d, nombrePropietario, ventanaMientrasDormiasDesde, now } = input;
 
   // 2 · ESPECIALISTAS — cada uno construye sus propios índices de señales.
-  const candidatasBrutas = ESPECIALISTAS.flatMap(e => e.detectar(snapshot, memoria, now));
+  // Aislados con try/catch: antes, si UNO lanzaba, se perdía el análisis
+  // entero del día para el estudio (incluidas las candidatas de los otros
+  // especialistas, que sí habían funcionado bien). Un especialista roto no
+  // debe tumbar a los que están sanos.
+  const candidatasBrutas = ESPECIALISTAS.flatMap(e => {
+    try {
+      return e.detectar(snapshot, memoria, now);
+    } catch (err) {
+      console.error(`[decision/motor] especialista "${e.id}" falló, se omite su análisis de hoy:`, err);
+      return [];
+    }
+  });
   const nCandidatasGeneradas = candidatasBrutas.length;
 
   // 3 · MEMORY ENGINE — veto y ajuste de canal.
