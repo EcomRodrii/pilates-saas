@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useId } from 'react';
-import { RotateCcw, AlertTriangle, ExternalLink, Calendar as CalendarLinkIcon, Building2, Check, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { RotateCcw, AlertTriangle, ExternalLink, Calendar as CalendarLinkIcon, Building2, Check, Loader2, Palette, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
-import { subirLogoEstudio, eliminarLogoEstudio } from '@/lib/portal-storage';
 import { authHeader } from '@/lib/api-client';
 import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/lib/supabase-data';
 import { CLAVE_CAMBIO_SEDE } from '@/components/layout/sede-activa';
@@ -82,9 +82,6 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   const nifInvalido = form.nif.trim() !== '' && !nifValido(form.nif);
   // Política de reservas/cancelaciones (C-2/C-4). Estado propio, tarjeta aparte.
   const [pol, setPol] = useState(() => studioToPolitica(studio));
-  // Marca (logo) e IVA — Tanda 1.
-  const [subiendoLogo, setSubiendoLogo] = useState(false);
-  const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Añadir sede (plan CADENA — soporte multi-sede). Solo visible con
   // multiCentro activo; el gate real (cadena_id + suscripción vigente) lo
@@ -142,30 +139,6 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
 
   useEffect(() => { setForm(studioToForm(studio)); }, [studio]);
   useEffect(() => { setPol(studioToPolitica(studio)); }, [studio]);
-
-  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !studio) return;
-    if (!file.type.startsWith('image/')) { showToast('Elige un archivo de imagen'); return; }
-    if (file.size > 5 * 1024 * 1024) { showToast('La imagen no puede superar 5 MB'); return; }
-    setSubiendoLogo(true);
-    const result = await subirLogoEstudio(studio.id, file);
-    setSubiendoLogo(false);
-    if ('error' in result) { showToast(result.error); return; }
-    await updateStudio({ logoUrl: result.url });
-    showToast('Logo actualizado');
-  }
-
-  async function handleEliminarLogo() {
-    if (!studio) return;
-    setSubiendoLogo(true);
-    const result = await eliminarLogoEstudio(studio.id);
-    setSubiendoLogo(false);
-    if ('error' in result) { showToast(result.error); return; }
-    await updateStudio({ logoUrl: null });
-    showToast('Logo eliminado');
-  }
 
   function guardarIva(tipo: number) {
     updateStudio({ ivaPorDefecto: tipo });
@@ -335,45 +308,25 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         </div>
       )}
 
-      {/* Marca — logo del estudio */}
+      {/* Marca — antes había aquí un subir-logo propio que duplicaba, sin que
+          nada avisara, al de Apariencia (components/theme/theme-editor.tsx):
+          los dos escribían el mismo studio.logoUrl. Ahora hay un solo sitio
+          para logo, favicon y color — este es solo un enlace hacia allí. */}
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-1">Marca</h3>
         <p className="text-[12px] text-muted-foreground mb-4">
-          Tu logo aparece en la página pública de reservas. El color de la app de
-          clientas se elige desde <span className="font-medium text-foreground">Apariencia</span> (menú de perfil).
+          Logo, favicon y color de la app de clientas se editan desde Apariencia.
         </p>
-        <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
-            {studio?.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={studio.logoUrl} alt="Logo del estudio" className="w-full h-full object-contain" />
-            ) : (
-              <span className="text-[11px] text-muted-foreground text-center px-2">Sin logo</span>
-            )}
-          </div>
-          <div className="flex flex-col gap-2">
-            <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
-            <button
-              type="button"
-              disabled={subiendoLogo}
-              onClick={() => logoInputRef.current?.click()}
-              className={cn(btnSecondary, 'disabled:opacity-40')}
-            >
-              {subiendoLogo ? 'Subiendo…' : studio?.logoUrl ? 'Cambiar logo' : 'Subir logo'}
-            </button>
-            {studio?.logoUrl && (
-              <button
-                type="button"
-                disabled={subiendoLogo}
-                onClick={handleEliminarLogo}
-                className="text-[12px] font-medium text-destructive hover:underline text-left disabled:opacity-40"
-              >
-                Quitar logo
-              </button>
-            )}
-            <p className="text-[11px] text-muted-foreground">PNG o JPG, máx. 5 MB.</p>
-          </div>
-        </div>
+        <Link
+          href="/configuracion/apariencia"
+          className="flex items-center justify-between px-3.5 py-3 rounded-xl border border-border hover:bg-muted transition-colors"
+        >
+          <span className="flex items-center gap-2.5 text-[13px] font-semibold text-foreground">
+            <Palette size={15} className="text-muted-foreground" />
+            Editar marca y apariencia
+          </span>
+          <ChevronRight size={15} className="text-muted-foreground" />
+        </Link>
       </div>
 
       {/* Facturación e impuestos — tipo de IVA general */}
