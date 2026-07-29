@@ -4301,33 +4301,6 @@ export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule
   return error ? falloEscritura('[dbUpdateRewardRule]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertRewardAction(a: RewardAction) {
-  const row = {
-    id: a.id, studio_id: a.studioId ?? STUDIO_ID, socio_id: a.socioId, trigger: a.trigger,
-    ref_id: a.refId ?? null, creado_en: a.creadoEn,
-  };
-  const { error } = await supabase.from('reward_actions').insert(row);
-  if (error) reportDbError('[dbInsertRewardAction]', error);
-  return !error;
-}
-
-// C-11: cerrojo de idempotencia para concesiones de crédito que NO tienen una
-// RewardRule detrás (logros y retos). Inserta una fila-guard en reward_actions;
-// el UNIQUE(studio_id, trigger, ref_id) hace que solo la PRIMERA evaluación gane.
-// Devuelve true si ganó el claim (primera vez → otorgar crédito), false si ya
-// existía o hubo error (→ NO otorgar; el lado seguro es no doblar el saldo).
-// Usar trigger sintético ('LOGRO'/'RETO') y refId = `${socioId}:${defId}` para
-// que sea único por (socia, logro/reto) y no por logro/reto a secas.
-export async function dbClaimRecompensaUnica(
-  studioId: string, socioId: string, trigger: string, refId: string,
-): Promise<boolean> {
-  const { error } = await supabase.from('reward_actions').insert({
-    id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId, trigger, ref_id: refId,
-    creado_en: new Date().toISOString(),
-  });
-  return !error;
-}
-
 export async function dbInsertRewardHistory(h: RewardHistory) {
   const row = {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, rule_id: h.ruleId,
@@ -4346,13 +4319,36 @@ export async function dbInsertCreditTransaction(t: CreditTransaction) {
   if (error) reportDbError('[dbInsertCreditTransaction]', error);
 }
 
-export async function dbUpsertMemberCredits(m: MemberCredits) {
-  const row = {
-    socio_id: m.socioId, studio_id: m.studioId ?? STUDIO_ID, saldo: m.saldo,
-    total_ganado: m.totalGanado, total_canjeado: m.totalCanjeado, actualizado_en: new Date().toISOString(),
-  };
-  const { error } = await supabase.from('member_credits').upsert(row, { onConflict: 'socio_id' });
-  if (error) reportDbError('[dbUpsertMemberCredits]', error);
+// Gamificación — GANANCIA de créditos por un disparador (asistencia, referido,
+// racha, logro, reto...). A diferencia de dbAjustarCreditos (que sigue siendo
+// correcto para el DÉBITO de un canje), aquí el importe de créditos NUNCA lo
+// decide el cliente: la RPC lo recalcula desde la regla/logro/reto activo del
+// propio estudio, y para ASISTENCIA_CLASE/REFERIDO_AMIGO exige que la
+// condición exista de verdad en la BD (una reserva ASISTIDA real) antes de
+// conceder nada. Sin esto, cualquier cuenta de personal autenticada podía
+// otorgarse créditos arbitrarios llamando directo a ajustar_creditos/insertando
+// en reward_actions desde la consola del navegador.
+// Devuelve el saldo tras la operación y si se concedió AHORA (otorgado=true) o
+// ya se había concedido antes para este mismo refId (otorgado=false,
+// no-op idempotente) — el llamante solo debe registrar historial/transacción
+// cuando otorgado=true, si no duplicaría esas filas en un reintento.
+export async function dbOtorgarCreditoDisparador(
+  socioId: string, studioId: string, trigger: string, refId: string, configId?: string,
+): Promise<{ ok: true; saldo: number; otorgado: boolean } | { error: string }> {
+  const { data, error } = await supabase.rpc('otorgar_credito_disparador', {
+    p_socio_id: socioId, p_studio_id: studioId, p_trigger: trigger, p_ref_id: refId,
+    p_config_id: configId ?? null,
+  });
+  if (error) {
+    // CONDICION_NO_CUMPLIDA / SIN_REGLA_ACTIVA no son errores de sistema: son el
+    // resultado esperado cuando el disparador aún no se cumple de verdad.
+    if (!error.message.includes('CONDICION_NO_CUMPLIDA') && !error.message.includes('SIN_REGLA_ACTIVA')) {
+      reportDbError('[dbOtorgarCreditoDisparador]', error);
+    }
+    return { error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: true, saldo: row.saldo as number, otorgado: row.otorgado as boolean };
 }
 
 // P0-20: ajuste ATÓMICO del saldo por deltas (incremento en la BD, no

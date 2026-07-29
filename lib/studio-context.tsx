@@ -27,7 +27,8 @@ import {
   dbInsertActividadReciente,
   dbMarcarNotificacionLeida, dbMarcarNotificacionesLeidas,
   dbInsertRewardRule, dbUpdateRewardRule,
-  dbInsertRewardAction, dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos, dbClaimRecompensaUnica,
+  dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos,
+  dbOtorgarCreditoDisparador,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
   dbConsumirSesionBono,
   dbInsertRewardRedemption, dbUpdateRewardRedemption,
@@ -140,7 +141,7 @@ import type {
 import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
-import { reglaActivaPara, decidirOtorgarCreditos, aplicarGananciaCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
+import { reglaActivaPara, decidirOtorgarCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
@@ -2696,41 +2697,45 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // check es defensa en profundidad para no generar estado local que luego
     // el servidor rechazaría de todos modos.
     if (studio && !tieneFeature(studio, 'gamificacion')) return;
+    if (!refId) return;
     const studioId = getCurrentStudioId();
-    // Decisión pura y testeada (reward-engine): regla activa con créditos > 0 y
-    // no otorgado ya para este refId (idempotencia).
+    // Filtro local rápido (regla activa + no otorgado ya según lo que tenemos
+    // cargado) — solo para no disparar una llamada de más. La fuente de verdad
+    // real es el servidor: dbOtorgarCreditoDisparador recalcula el importe desde
+    // la regla del estudio (nunca confía en `regla.creditos` del cliente) y,
+    // para ASISTENCIA_CLASE/REFERIDO_AMIGO, exige que la condición exista de
+    // verdad en la BD (una reserva ASISTIDA real) antes de conceder nada. Sin
+    // esto, cualquier staff autenticado podía otorgarse créditos arbitrarios
+    // llamando directo a la BD desde la consola del navegador.
     const { otorgar, regla } = decidirOtorgarCreditos(rewardRules, rewardActions, trigger, refId);
     if (!otorgar || !regla) return;
 
-    const now = new Date().toISOString();
-    const action: RewardAction = { id: `rwa-${uid()}`, studioId, socioId, trigger, refId, creadoEn: now };
-    const historyEntry: RewardHistory = {
-      id: `rwh-${uid()}`, studioId, socioId, ruleId: regla.id, actionId: action.id,
-      creditos: regla.creditos, descripcion: descripcionOverride ?? regla.nombre, creadoEn: now,
-    };
-    const transaccion: CreditTransaction = {
-      id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: regla.creditos,
-      descripcion: historyEntry.descripcion, refId, creadoEn: now,
-    };
-
-    setRewardActions(prev => [...prev, action]);
-    setRewardHistory(prev => [historyEntry, ...prev]);
-    setCreditTransactions(prev => [transaccion, ...prev]);
-    setMemberCredits(prev => {
-      const existente = prev.find(m => m.socioId === socioId);
-      const actualizado = aplicarGananciaCreditos(existente, socioId, studioId, regla.creditos, now);
-      return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
-    });
     (async () => {
-      const ok = await dbInsertRewardAction(action);
-      // C3: el UNIQUE (studio_id, trigger, ref_id) es el cerrojo real contra
-      // duplicados. El ajuste de saldo va DESPUÉS de ganarlo —si la inserción
-      // choca con el cerrojo (doble pestaña/kiosko, snapshot obsoleto), NO se
-      // otorga nada. Antes el saldo se incrementaba incondicionalmente y solo se
-      // frenaban history/tx → créditos de fidelidad duplicados. Espejo del servidor.
-      if (!ok) return;
-      // P0-20: incremento atómico en la BD (fuera del updater para no doblarlo).
-      await dbAjustarCreditos(socioId, studioId, regla.creditos, regla.creditos, 0);
+      const res = await dbOtorgarCreditoDisparador(socioId, studioId, trigger, refId);
+      if ('error' in res) return; // condición no cumplida o sin regla activa
+      if (!res.otorgado) return; // ya se había concedido antes para este refId
+
+      const now = new Date().toISOString();
+      const action: RewardAction = { id: `rwa-${uid()}`, studioId, socioId, trigger, refId, creadoEn: now };
+      const historyEntry: RewardHistory = {
+        id: `rwh-${uid()}`, studioId, socioId, ruleId: regla.id, actionId: action.id,
+        creditos: regla.creditos, descripcion: descripcionOverride ?? regla.nombre, creadoEn: now,
+      };
+      const transaccion: CreditTransaction = {
+        id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: regla.creditos,
+        descripcion: historyEntry.descripcion, refId, creadoEn: now,
+      };
+
+      setRewardActions(prev => [...prev, action]);
+      setRewardHistory(prev => [historyEntry, ...prev]);
+      setCreditTransactions(prev => [transaccion, ...prev]);
+      setMemberCredits(prev => {
+        const existente = prev.find(m => m.socioId === socioId);
+        const actualizado: MemberCredits = existente
+          ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + regla.creditos, actualizadoEn: now }
+          : { socioId, studioId, saldo: res.saldo, totalGanado: regla.creditos, totalCanjeado: 0, actualizadoEn: now };
+        return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
+      });
       dbInsertRewardHistory(historyEntry);
       dbInsertCreditTransaction(transaccion);
     })();
@@ -2901,34 +2906,29 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setAchievementHistory(prev => [entry, ...prev]);
       if (!publicSlug) dbInsertAchievementHistory(entry);
 
-      if (def.creditosRecompensa > 0) {
-        const transaccion: CreditTransaction = {
-          id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: def.creditosRecompensa,
-          descripcion: `Logro desbloqueado: ${def.nombre}`, refId: def.id, creadoEn: now.toISOString(),
-        };
-        setCreditTransactions(prev => [transaccion, ...prev]); // optimista (se reconcilia al sincronizar)
-        setMemberCredits(prev => {
-          const existente = prev.find(m => m.socioId === socioId);
-          const actualizado: MemberCredits = existente
-            ? { ...existente, saldo: existente.saldo + def.creditosRecompensa, totalGanado: existente.totalGanado + def.creditosRecompensa, actualizadoEn: now.toISOString() }
-            : { socioId, studioId, saldo: def.creditosRecompensa, totalGanado: def.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
-          return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
-        });
-        // C-11: idempotencia REAL en BD vía el UNIQUE de reward_actions. Sin
-        // esto, dos evaluaciones (doble check-in, o eval antes de sincronizar el
-        // progreso) doblaban el saldo PERSISTIDO — la fila de progreso se
-        // deduplicaba, pero la concesión de crédito no.
-        // En portal esta cadena también la rechazaba RLS (claim, transacción y
-        // ajuste de saldo): la concede el servidor, con el mismo UNIQUE de
-        // reward_actions como garantía de no doblar el saldo.
-        if (!publicSlug) {
-          void (async () => {
-            const primeraVez = await dbClaimRecompensaUnica(studioId, socioId, 'LOGRO', `${socioId}:${def.id}`);
-            if (!primeraVez) return; // otra evaluación ya otorgó este logro
-            dbInsertCreditTransaction(transaccion);
-            dbAjustarCreditos(socioId, studioId, def.creditosRecompensa, def.creditosRecompensa, 0); // P0-20 atómico
-          })();
-        }
+      if (def.creditosRecompensa > 0 && !publicSlug) {
+        // El importe se recalcula en servidor desde achievement_definitions (nunca
+        // se confía en def.creditosRecompensa del cliente) — ver
+        // dbOtorgarCreditoDisparador. En portal la concede el servidor
+        // (evaluarLogrosServidor); aquí solo se llama desde el panel.
+        void (async () => {
+          const res = await dbOtorgarCreditoDisparador(socioId, studioId, 'LOGRO', `${socioId}:${def.id}`, def.id);
+          if ('error' in res) return; // sin regla activa
+          if (!res.otorgado) return; // ya se había otorgado antes
+          const transaccion: CreditTransaction = {
+            id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: def.creditosRecompensa,
+            descripcion: `Logro desbloqueado: ${def.nombre}`, refId: def.id, creadoEn: now.toISOString(),
+          };
+          setCreditTransactions(prev => [transaccion, ...prev]);
+          setMemberCredits(prev => {
+            const existente = prev.find(m => m.socioId === socioId);
+            const actualizado: MemberCredits = existente
+              ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + def.creditosRecompensa, actualizadoEn: now.toISOString() }
+              : { socioId, studioId, saldo: res.saldo, totalGanado: def.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
+            return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
+          });
+          dbInsertCreditTransaction(transaccion);
+        })();
       }
     });
   }
@@ -3014,29 +3014,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         setChallengeHistory(prev => [entry, ...prev]);
         if (!publicSlug) dbInsertChallengeHistory(entry);
 
-        if (reto.creditosRecompensa > 0) {
-          const transaccion: CreditTransaction = {
-            id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: reto.creditosRecompensa,
-            descripcion: `Reto completado: ${reto.nombre}`, refId: reto.id, creadoEn: now.toISOString(),
-          };
-          setCreditTransactions(prev => [transaccion, ...prev]); // optimista (se reconcilia al sincronizar)
-          setMemberCredits(prev => {
-            const existente = prev.find(m => m.socioId === socioId);
-            const actualizado: MemberCredits = existente
-              ? { ...existente, saldo: existente.saldo + reto.creditosRecompensa, totalGanado: existente.totalGanado + reto.creditosRecompensa, actualizadoEn: now.toISOString() }
-              : { socioId, studioId, saldo: reto.creditosRecompensa, totalGanado: reto.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
-            return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
-          });
-          // C-11: idempotencia REAL en BD vía el UNIQUE de reward_actions (ver
-          // el bloque de logros). Evita doblar el saldo persistido ante doble
-          // evaluación del reto.
-          // En portal la concede el servidor, con el mismo UNIQUE de
-          // reward_actions como garantía de no doblar el saldo.
-          if (!publicSlug) void (async () => {
-            const primeraVez = await dbClaimRecompensaUnica(studioId, socioId, 'RETO', `${socioId}:${reto.id}`);
-            if (!primeraVez) return; // otra evaluación ya otorgó este reto
+        if (reto.creditosRecompensa > 0 && !publicSlug) {
+          // El importe se recalcula en servidor desde challenge_definitions (nunca
+          // se confía en reto.creditosRecompensa del cliente) — ver
+          // dbOtorgarCreditoDisparador. En portal la concede el servidor.
+          void (async () => {
+            const res = await dbOtorgarCreditoDisparador(socioId, studioId, 'RETO', `${socioId}:${reto.id}`, reto.id);
+            if ('error' in res) return; // sin regla activa
+          if (!res.otorgado) return; // ya se había otorgado antes
+            const transaccion: CreditTransaction = {
+              id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: reto.creditosRecompensa,
+              descripcion: `Reto completado: ${reto.nombre}`, refId: reto.id, creadoEn: now.toISOString(),
+            };
+            setCreditTransactions(prev => [transaccion, ...prev]);
+            setMemberCredits(prev => {
+              const existente = prev.find(m => m.socioId === socioId);
+              const actualizado: MemberCredits = existente
+                ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + reto.creditosRecompensa, actualizadoEn: now.toISOString() }
+                : { socioId, studioId, saldo: res.saldo, totalGanado: reto.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
+              return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
+            });
             dbInsertCreditTransaction(transaccion);
-            dbAjustarCreditos(socioId, studioId, reto.creditosRecompensa, reto.creditosRecompensa, 0); // P0-20 atómico
           })();
         }
       });
