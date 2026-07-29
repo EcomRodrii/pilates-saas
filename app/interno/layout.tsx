@@ -27,7 +27,7 @@ export const useSesionInterna = (): SesionInterna => {
 const SECCIONES: Array<{ href: string; etiqueta: string; icono: typeof Building2; permisos: Permiso[] }> = [
   { href: '/interno', etiqueta: 'Resumen', icono: LayoutDashboard, permisos: ['studios.read'] },
   { href: '/interno/estudios', etiqueta: 'Estudios', icono: Building2, permisos: ['studios.read'] },
-  { href: '/interno/facturacion', etiqueta: 'Facturación', icono: CreditCard, permisos: ['studios.read'] },
+  { href: '/interno/facturacion', etiqueta: 'Facturación', icono: CreditCard, permisos: ['billing.read'] },
   { href: '/interno/auditoria', etiqueta: 'Auditoría', icono: ScrollText, permisos: ['logs.read'] },
 ];
 

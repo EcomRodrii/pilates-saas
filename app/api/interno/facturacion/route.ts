@@ -21,7 +21,11 @@ export const dynamic = 'force-dynamic';
 // `lib/interno/facturacion-real.ts` para el razonamiento completo.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const g = await exigirPermiso(req, 'studios.read');
+  // `billing.read`, no `studios.read`: hasta ahora ese permiso no cerraba
+  // ninguna puerta (se concedía y no gateaba nada). Esta pantalla es justo lo
+  // que decía proteger, así que aquí pasa a ser real. Quien tiene acceso al
+  // panel pero no a las cuentas —marketing, soporte— deja de ver los ingresos.
+  const g = await exigirPermiso(req, 'billing.read');
   if ('error' in g) return g.error;
 
   const db = getSupabaseAdmin();
