@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recupera tu contraseña</title>
+  </head>
+  <body style="margin:0; padding:40px 0; background-color:#EEEEE8; font-family:'Plus Jakarta Sans', system-ui, 'Segoe UI', Arial, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px; width:100%; background-color:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #E5E1DA;">
+            <tr>
+              <td style="background-color:#343825; padding:28px 32px;">
+                <img src="https://tentare.app/logo-horizontal.png" height="28" alt="Tentare" style="display:block; margin-bottom:10px;" />
+                <h1 style="color:#ffffff; font-size:22px; font-weight:700; margin:6px 0 0; letter-spacing:-0.02em;">Recupera tu contraseña</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 32px;">
+                <p style="color:#1A1A1A; font-size:15px; line-height:1.6; margin:0 0 20px;">
+                  Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en Tentare. Si no has sido tú, puedes ignorar este correo con tranquilidad.
+                </p>
+                <a href="{{ .ConfirmationURL }}" style="display:block; text-align:center; background-color:#343825; color:#ffffff; text-decoration:none; font-size:16px; font-weight:700; padding:14px; border-radius:12px;">
+                  Elegir nueva contraseña
+                </a>
+                <p style="color:#9C9C94; font-size:12.5px; line-height:1.6; margin:20px 0 0;">
+                  Este enlace caduca por tu seguridad. Si te ha caducado, pide uno nuevo desde la pantalla de acceso.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="border-top:1px solid #E5E1DA; padding:20px 32px; background-color:#FAFAF7;">
+                <p style="color:#9C9C94; font-size:12px; margin:0; text-align:center;">Tentare</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

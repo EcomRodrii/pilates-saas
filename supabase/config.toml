@@ -243,6 +243,24 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Plantillas de marca Tentare (mismo lenguaje visual que lib/emails/layout.tsx:
+# oliva #343825, logo de la plataforma) para los correos que Supabase Auth
+# envía directamente y que este repo no puede interceptar con código propio:
+# recuperar contraseña (resetPasswordForEmail, ver app/clave-nueva) y el
+# magic link del portal de socias (signInWithOtp). Sin esto, Supabase usa su
+# plantilla por defecto, sin marca ninguna.
+[auth.email.template.recovery]
+subject = "Recupera tu contraseña en Tentare"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.magic_link]
+subject = "Tu enlace de acceso a Tentare"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.email_change]
+subject = "Confirma tu nuevo email en Tentare"
+content_path = "./supabase/templates/email_change.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"
