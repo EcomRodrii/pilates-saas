@@ -213,6 +213,7 @@ export default function ReservarPage() {
   const [gateError, setGateError] = useState('');
   const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
   const [cancelandoPlaza, setCancelandoPlaza] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que /login.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -504,7 +505,7 @@ export default function ReservarPage() {
   }
 
   async function handleConfirm() {
-    if (!bookingSesionId) return;
+    if (!bookingSesionId || confirmando) return;
     const sesion = sesionesRich.find(s => s.id === bookingSesionId);
     if (!sesion) return;
 
@@ -513,42 +514,54 @@ export default function ReservarPage() {
     const gate = evaluarGate(socia?.socioId, sesion.tipoClaseId);
     if (gate) { setGateError(gate); return; }
 
-    if (!socia) {
-      // Walk-in: alta de la ficha. El servidor la vincula a su auth_user_id a
-      // partir del JWT (magic link) y usa el email del token; el nombre lo puso
-      // en el paso "registro". Se AWAITea para que la reserva la encuentre.
-      const nuevoId = `soc-${Date.now()}`;
-      const referidoValido = refCode && refCode !== nuevoId && socios.some(s => s.id === refCode) ? refCode : null;
-      await addSocioFromPortal({
-        id: nuevoId,
-        nombre: loginForm.nombre.trim(),
-        email: usuarioEmail ?? '',
-        aceptacionContrato: {
-          fecha: new Date().toISOString(),
-          firma: loginForm.nombre.trim(),
-          versionTexto: textoLegalCompleto(studioConfig),
-          origen: 'PORTAL',
-        },
-        referidoPor: referidoValido,
-      });
-      await refrescar(); // re-resuelve la socia recién creada (por auth_user_id)
-    }
+    setGateError('');
+    setConfirmando(true);
+    try {
+      let socioIdParaReserva = socia?.socioId ?? '';
+      if (!socia) {
+        // Walk-in: alta de la ficha. El servidor la vincula a su auth_user_id a
+        // partir del JWT (magic link) y usa el email del token; el nombre lo puso
+        // en el paso "registro". Se AWAITea para que la reserva la encuentre.
+        const nuevoId = `soc-${Date.now()}`;
+        const referidoValido = refCode && refCode !== nuevoId && socios.some(s => s.id === refCode) ? refCode : null;
+        const altaRes = await addSocioFromPortal({
+          id: nuevoId,
+          nombre: loginForm.nombre.trim(),
+          email: usuarioEmail ?? '',
+          aceptacionContrato: {
+            fecha: new Date().toISOString(),
+            firma: loginForm.nombre.trim(),
+            versionTexto: textoLegalCompleto(studioConfig),
+            origen: 'PORTAL',
+          },
+          referidoPor: referidoValido,
+        });
+        // Antes este resultado se descartaba: un rechazo del servidor (tope de
+        // plan, red, timeout) se trataba como éxito silencioso y el flujo se
+        // quedaba colgado con el botón inerte, sin ficha ni aviso alguno.
+        if (!altaRes.ok) { setGateError(altaRes.error); return; }
+        await refrescar(); // re-resuelve la socia recién creada (por auth_user_id)
+        socioIdParaReserva = nuevoId;
+      }
 
-    // El id de la socia lo deriva el servidor del JWT; el que pasamos aquí solo
-    // alimenta la actualización optimista de la UI. El estado (confirmada/espera)
-    // lo decide addReserva según el aforo del momento. El sitio elegido (I-12)
-    // solo se asigna si la reserva queda confirmada (lo valida el servidor).
-    const r = await addReserva(bookingSesionId, socia?.socioId ?? '', selectedSpot);
-    // Si el servidor la rechaza (sin bono, clase empezada, tope de reservas…) se
-    // dice, y el paso se queda donde estaba. Antes se saltaba a «done» siempre y
-    // la clienta se iba convencida de tener plaza.
-    if (!r.ok) { setGateError(r.error); return; }
-    if (r.estado === 'LISTA_ESPERA') {
-      // Posición estimada: nº de personas ya en espera + 1 (I-11).
-      const enEspera = reservas.filter(x => x.sesionId === bookingSesionId && x.estado === 'LISTA_ESPERA').length;
-      setEsperaPos(enEspera + 1);
+      // El id de la socia lo deriva el servidor del JWT; el que pasamos aquí solo
+      // alimenta la actualización optimista de la UI. El estado (confirmada/espera)
+      // lo decide addReserva según el aforo del momento. El sitio elegido (I-12)
+      // solo se asigna si la reserva queda confirmada (lo valida el servidor).
+      const r = await addReserva(bookingSesionId, socioIdParaReserva, selectedSpot);
+      // Si el servidor la rechaza (sin bono, clase empezada, tope de reservas…) se
+      // dice, y el paso se queda donde estaba. Antes se saltaba a «done» siempre y
+      // la clienta se iba convencida de tener plaza.
+      if (!r.ok) { setGateError(r.error); return; }
+      if (r.estado === 'LISTA_ESPERA') {
+        // Posición estimada: nº de personas ya en espera + 1 (I-11).
+        const enEspera = reservas.filter(x => x.sesionId === bookingSesionId && x.estado === 'LISTA_ESPERA').length;
+        setEsperaPos(enEspera + 1);
+      }
+      setLoginStep(r.estado === 'LISTA_ESPERA' ? 'espera' : 'done');
+    } finally {
+      setConfirmando(false);
     }
-    setLoginStep(r.estado === 'LISTA_ESPERA' ? 'espera' : 'done');
   }
 
   // ── Reserva desde el calendario compartido ─────────────────────────────────
@@ -1324,10 +1337,10 @@ export default function ReservarPage() {
                     {gateError}
                   </div>
                 )}
-                <button onClick={handleConfirm}
-                  className="w-full py-3 rounded-2xl font-bold text-white"
+                <button onClick={handleConfirm} disabled={confirmando}
+                  className="w-full py-3 rounded-2xl font-bold text-white disabled:opacity-60"
                   style={{ backgroundColor: PRIMARY }}>
-                  Confirmar reserva
+                  {confirmando ? 'Confirmando…' : 'Confirmar reserva'}
                 </button>
               </>
             )}
