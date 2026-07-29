@@ -2852,9 +2852,14 @@ async function evaluarLogrosServidor(
   const { socio, reservas, sesiones, referidas } = ctx;
 
   const now = new Date();
-  for (const def of definiciones) {
+  // Cada logro es independiente de los demás (progreso/historial/crédito solo
+  // tocan filas propias de ese achievement_id, y reward_actions se protege con
+  // su UNIQUE) — se evalúan en paralelo en vez de un `for` con awaits
+  // secuenciales, que serializaba hasta N×4 round-trips en el hot path de
+  // cada reserva creada.
+  await Promise.all(definiciones.map(async def => {
     const existente = progresos.find(p => p.achievementId === def.id);
-    if (existente?.completado) continue; // ya conseguido, no se re-evalúa
+    if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
     const valor = calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas });
     const completadoAhora = valor >= def.umbral;
@@ -2865,9 +2870,9 @@ async function evaluarLogrosServidor(
       progreso_actual: valor, completado: completadoAhora,
       completado_en: completadoAhora ? now.toISOString() : null,
     }, { onConflict: 'socio_id,achievement_id' });
-    if (progError) { reportDbError('[evaluarLogrosServidor] progreso', progError); continue; }
+    if (progError) { reportDbError('[evaluarLogrosServidor] progreso', progError); return; }
 
-    if (!completadoAhora) continue;
+    if (!completadoAhora) return;
 
     const { error: histError } = await admin.from('achievement_history').insert({
       id: `achh-${uid()}`, studio_id: studioId, socio_id: socioId, achievement_id: def.id,
@@ -2875,7 +2880,7 @@ async function evaluarLogrosServidor(
     });
     if (histError) reportDbError('[evaluarLogrosServidor] historial', histError);
 
-    if (def.creditosRecompensa <= 0) continue;
+    if (def.creditosRecompensa <= 0) return;
     // C-11: la idempotencia real la da el UNIQUE de reward_actions. Dos
     // evaluaciones concurrentes (dos reservas a la vez) no pueden doblar el
     // saldo: la segunda choca con el UNIQUE y sale.
@@ -2883,7 +2888,7 @@ async function evaluarLogrosServidor(
       id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId,
       trigger: 'LOGRO', ref_id: `${socioId}:${def.id}`, creado_en: now.toISOString(),
     });
-    if (claimError) continue; // ya otorgado por otra evaluación
+    if (claimError) return; // ya otorgado por otra evaluación
 
     // P0-20: incremento ATÓMICO del saldo.
     await admin.rpc('ajustar_creditos', {
@@ -2895,7 +2900,7 @@ async function evaluarLogrosServidor(
       creditos: def.creditosRecompensa, descripcion: `Logro desbloqueado: ${def.nombre}`,
       ref_id: def.id, creado_en: now.toISOString(),
     });
-  }
+  }));
 }
 
 // Retos: mismo fallo y mismo arreglo que los logros. La diferencia es que un
@@ -2917,9 +2922,11 @@ async function evaluarRetosServidor(
   const progresos = (progRows ?? []).map(mapChallengeProgress);
   const { socio, reservas, sesiones, referidas } = ctx;
 
-  for (const reto of retos) {
+  // Mismo motivo que evaluarLogrosServidor: cada reto es independiente, se
+  // evalúan en paralelo en vez de serializar N×4 round-trips por reserva.
+  await Promise.all(retos.map(async reto => {
     const existente = progresos.find(p => p.challengeId === reto.id);
-    if (existente?.completado) continue; // ya conseguido, no se re-evalúa
+    if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
     const valor = calcularProgresoReto(reto, reservas, sesiones, socio, referidas, now);
     const completadoAhora = valor >= reto.objetivo;
@@ -2930,9 +2937,9 @@ async function evaluarRetosServidor(
       progreso_actual: valor, completado: completadoAhora,
       completado_en: completadoAhora ? now.toISOString() : null,
     }, { onConflict: 'socio_id,challenge_id' });
-    if (progError) { reportDbError('[evaluarRetosServidor] progreso', progError); continue; }
+    if (progError) { reportDbError('[evaluarRetosServidor] progreso', progError); return; }
 
-    if (!completadoAhora) continue;
+    if (!completadoAhora) return;
 
     const { error: histError } = await admin.from('challenge_history').insert({
       id: `chah-${uid()}`, studio_id: studioId, socio_id: socioId, challenge_id: reto.id,
@@ -2940,13 +2947,13 @@ async function evaluarRetosServidor(
     });
     if (histError) reportDbError('[evaluarRetosServidor] historial', histError);
 
-    if (reto.creditosRecompensa <= 0) continue;
+    if (reto.creditosRecompensa <= 0) return;
     // Mismo UNIQUE de reward_actions que los logros, con trigger 'RETO'.
     const { error: claimError } = await admin.from('reward_actions').insert({
       id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId,
       trigger: 'RETO', ref_id: `${socioId}:${reto.id}`, creado_en: now.toISOString(),
     });
-    if (claimError) continue; // ya otorgado por otra evaluación
+    if (claimError) return; // ya otorgado por otra evaluación
 
     await admin.rpc('ajustar_creditos', {
       p_socio_id: socioId, p_studio_id: studioId,
@@ -2957,7 +2964,7 @@ async function evaluarRetosServidor(
       creditos: reto.creditosRecompensa, descripcion: `Reto completado: ${reto.nombre}`,
       ref_id: reto.id, creado_en: now.toISOString(),
     });
-  }
+  }));
 }
 
 // Punto de entrada único: carga el contexto UNA vez y evalúa ambos sistemas.
