@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
-import { dbStatsClientas, dbSemaforoSaludEstudio, getCurrentStudioId } from '@/lib/supabase-data';
+import { dbStatsClientas } from '@/lib/supabase-data';
+import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
@@ -187,16 +188,9 @@ export default function Socios() {
 
   // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
   // leer las filas — `condicionesSalud` le llega SIEMPRE vacío, así que el
-  // cálculo de arriba nunca produce nada para ese rol. La RPC
-  // semaforo_salud_estudio (SECURITY DEFINER) expone solo el nivel ya
-  // calculado, sin condiciones ni motivo.
-  const [semaforoRecepcion, setSemaforoRecepcion] = useState<Map<string, NivelSemaforo>>(new Map());
-  useEffect(() => {
-    if (rol !== 'RECEPCION') return;
-    let cancel = false;
-    dbSemaforoSaludEstudio(getCurrentStudioId()).then(m => { if (!cancel) setSemaforoRecepcion(m); });
-    return () => { cancel = true; };
-  }, [rol]);
+  // cálculo de arriba nunca produce nada para ese rol. useSemaforoRecepcion
+  // pide el nivel ya calculado por RPC (sin condiciones ni motivo).
+  const semaforoRecepcion = useSemaforoRecepcion(rol);
   const semaforoParaMostrar = rol === 'RECEPCION' ? semaforoRecepcion : semaforoPorSocio;
 
   // Filter & sort state

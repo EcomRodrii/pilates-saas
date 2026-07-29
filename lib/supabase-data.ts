@@ -4387,6 +4387,14 @@ export async function dbOtorgarCreditoDisparador(
     return { error: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;
+  // La RPC siempre devuelve una fila si no hay error, pero un `row` ausente
+  // (PostgREST devolviendo 0 filas sin error, o una futura edición del SQL)
+  // no debe reventar aquí — mismo guard que dbSemaforoSaludEstudio/
+  // dbCancelarReservasPorSesiones ya usan con `data ?? []`.
+  if (!row) {
+    reportDbError('[dbOtorgarCreditoDisparador]', { message: 'La RPC no devolvió ninguna fila' });
+    return { error: 'No se pudo confirmar el crédito' };
+  }
   return { ok: true, saldo: row.saldo as number, otorgado: row.otorgado as boolean };
 }
 

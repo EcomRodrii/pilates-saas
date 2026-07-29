@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useStudio } from '@/lib/studio-context';
-import { dbSemaforoSaludEstudio, getCurrentStudioId } from '@/lib/supabase-data';
+import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { queImparten } from '@/lib/equipo';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
@@ -403,15 +403,9 @@ function SessionSidebar({
 
   // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
   // leer las filas — el mapa de arriba nunca produce nada para ese rol
-  // porque `condicionesSalud` le llega vacío. La RPC semaforo_salud_estudio
-  // (SECURITY DEFINER) expone solo el nivel ya calculado, sin condiciones.
-  const [semaforoRecepcion, setSemaforoRecepcion] = useState<Map<string, ReturnType<typeof semaforo>>>(new Map());
-  useEffect(() => {
-    if (rolCalendario !== 'RECEPCION') return;
-    let cancel = false;
-    dbSemaforoSaludEstudio(getCurrentStudioId()).then(m => { if (!cancel) setSemaforoRecepcion(m); });
-    return () => { cancel = true; };
-  }, [rolCalendario]);
+  // porque `condicionesSalud` le llega vacío. useSemaforoRecepcion pide el
+  // nivel ya calculado por RPC (sin condiciones ni motivo).
+  const semaforoRecepcion = useSemaforoRecepcion(rolCalendario);
   const semaforoParaMostrar = rolCalendario === 'RECEPCION' ? semaforoRecepcion : nivelSemaforoPorSocio;
 
   const alertasClase = useMemo(() => {

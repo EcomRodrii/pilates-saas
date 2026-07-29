@@ -4,7 +4,7 @@ import { use, useState, useEffect, useRef, useMemo, useId } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import { dbSemaforoSaludEstudio, getCurrentStudioId } from '@/lib/supabase-data';
+import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
 import { authHeader, enviarEmailCampana } from '@/lib/api-client';
@@ -232,21 +232,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   );
   // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
   // leer las filas — `condicionesSalud` le llega SIEMPRE vacío, así que el
-  // cálculo local de arriba nunca produce nada para ese rol. La RPC
-  // semaforo_salud_estudio (SECURITY DEFINER) expone solo el nivel ya
-  // calculado, sin condiciones ni motivo.
-  const [semaforoRecepcion, setSemaforoRecepcion] = useState<ReturnType<typeof semaforo> | null>(null);
-  useEffect(() => {
-    if (rol !== 'RECEPCION') return;
-    // Se limpia ANTES de pedir el nuevo nivel: sin esto, al navegar de una
-    // socia con ROJO a otra sin condiciones, la insignia de riesgo de la
-    // primera se quedaba pintada hasta que la RPC de la segunda resolvía.
-    setSemaforoRecepcion(null);
-    let cancel = false;
-    dbSemaforoSaludEstudio(getCurrentStudioId()).then(m => { if (!cancel) setSemaforoRecepcion(m.get(id) ?? 'VERDE'); });
-    return () => { cancel = true; };
-  }, [rol, id]);
-  const semaforoSocio = rol === 'RECEPCION' ? (semaforoRecepcion ?? 'VERDE') : semaforoLocal;
+  // cálculo local de arriba nunca produce nada para ese rol.
+  // useSemaforoRecepcion trae el nivel de TODO el estudio en una sola
+  // llamada; navegar a otra socia solo reindexa el mismo Map por otra
+  // clave (sin re-fetch y sin arrastrar el nivel de la socia anterior).
+  const semaforoRecepcion = useSemaforoRecepcion(rol);
+  const semaforoSocio = rol === 'RECEPCION' ? (semaforoRecepcion.get(id) ?? 'VERDE') : semaforoLocal;
 
   // ── Hydration fix ──────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
