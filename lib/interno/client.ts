@@ -33,9 +33,28 @@ export interface SesionInterna {
 
 export interface Kpis {
   estudios: { total: number; conActividad: number; vacios: number; altasUltimos30d: number; suspendidos: number };
-  ingresos: { mrr: number; arr: number; estudiosDePago: number; accesoManual: number; fuente: string };
   actividad: { socias: number; clases: number; reservasHoy: number; reservas7d: number; reservas30d: number };
   altasPorMes: Array<{ mes: string; altas: number }>;
+}
+
+export interface LineaFacturacionCliente {
+  tipo: 'estudio' | 'cadena';
+  id: string; nombre: string; sedes: number;
+  planEnBd: string | null; estadoEnBd: string | null;
+  estado: 'pagando' | 'en_prueba' | 'impago' | 'cancelado' | 'manual' | 'descuadre';
+  eurosMes: number; renuevaEl: string | null; diasDePrueba: number | null;
+  stripeCustomerId: string | null; motivoDescuadre: string | null;
+}
+
+export interface Facturacion {
+  lineas: LineaFacturacionCliente[];
+  mrrEuros: number; mrrEnPruebaEuros: number;
+  pagando: number; enPrueba: number; impagos: number; manuales: number; descuadres: number;
+  pruebasQueAcaban: LineaFacturacionCliente[];
+  stripeDisponible: boolean;
+  /** Por qué no se pudo preguntar a Stripe. null si se preguntó bien. */
+  avisoStripe: string | null;
+  suscripcionesEnStripe: number;
 }
 
 export interface EstudioFila {
@@ -56,6 +75,7 @@ export interface FichaEstudio {
 
 export const fetchSesionInterna = () => pedir<SesionInterna>('/sesion');
 export const fetchKpis = () => pedir<Kpis>('/kpis');
+export const fetchFacturacion = () => pedir<Facturacion>('/facturacion');
 export const fetchEstudios = (q = '') => pedir<{ estudios: EstudioFila[] }>(`/estudios${q ? `?q=${encodeURIComponent(q)}` : ''}`);
 export const fetchFichaEstudio = (id: string) => pedir<FichaEstudio>(`/estudios/${id}`);
 
