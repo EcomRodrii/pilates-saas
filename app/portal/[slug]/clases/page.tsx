@@ -176,11 +176,16 @@ export default function ClasesPage() {
     });
   }
 
-  function confirmar(spotId: string | null) {
+  async function confirmar(spotId: string | null) {
     if (!reservando || !socioId) return;
-    const estado = addReserva(reservando.id, socioId, spotId);
+    // Se ESPERA al servidor antes de decir nada. Esta pantalla anunciaba
+    // «Reservada. Te esperamos.» pasara lo que pasara: con el estudio exigiendo
+    // bono y la socia sin ninguno, la reserva se rechazaba, el panel seguía a
+    // 0/8 y aquí ponía que estaba hecha.
+    const r = await addReserva(reservando.id, socioId, spotId);
     setReservando(null);
-    setAviso(estado === 'LISTA_ESPERA'
+    if (!r.ok) { setAviso(r.error); return; }
+    setAviso(r.estado === 'LISTA_ESPERA'
       ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
       : 'Reservada. Te esperamos.');
   }
@@ -193,8 +198,9 @@ export default function ClasesPage() {
     // bono, y enterarse al terminar es la peor forma de descubrirlo.
     if (esCancelacionTardia(c.sesion.inicio, new Date(), ventana)
         && !window.confirm(`Quedan menos de ${ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión. ¿Cancelas igualmente?`)) return;
-    cancelarReserva(c.mia.id);
-    setAviso('Reserva cancelada.');
+    void cancelarReserva(c.mia.id).then(r => {
+      setAviso(r.ok ? 'Reserva cancelada.' : r.error);
+    });
   }
 
   const circulo: React.CSSProperties = {

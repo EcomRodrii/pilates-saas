@@ -3,7 +3,7 @@ import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef, useId } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
-import { useStudio } from '@/lib/studio-context';
+import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type EstadoReserva, type Reserva } from '@/lib/types';
@@ -511,13 +511,17 @@ export default function ReservarPage() {
     // alimenta la actualización optimista de la UI. El estado (confirmada/espera)
     // lo decide addReserva según el aforo del momento. El sitio elegido (I-12)
     // solo se asigna si la reserva queda confirmada (lo valida el servidor).
-    const estado = addReserva(bookingSesionId, socia?.socioId ?? '', selectedSpot);
-    if (estado === 'LISTA_ESPERA') {
+    const r = await addReserva(bookingSesionId, socia?.socioId ?? '', selectedSpot);
+    // Si el servidor la rechaza (sin bono, clase empezada, tope de reservas…) se
+    // dice, y el paso se queda donde estaba. Antes se saltaba a «done» siempre y
+    // la clienta se iba convencida de tener plaza.
+    if (!r.ok) { setGateError(r.error); return; }
+    if (r.estado === 'LISTA_ESPERA') {
       // Posición estimada: nº de personas ya en espera + 1 (I-11).
-      const enEspera = reservas.filter(r => r.sesionId === bookingSesionId && r.estado === 'LISTA_ESPERA').length;
+      const enEspera = reservas.filter(x => x.sesionId === bookingSesionId && x.estado === 'LISTA_ESPERA').length;
       setEsperaPos(enEspera + 1);
     }
-    setLoginStep(estado === 'LISTA_ESPERA' ? 'espera' : 'done');
+    setLoginStep(r.estado === 'LISTA_ESPERA' ? 'espera' : 'done');
   }
 
   // ── Reserva desde el calendario compartido ─────────────────────────────────
@@ -530,7 +534,7 @@ export default function ReservarPage() {
   //    (login / registro / contrato / confirm), sin tocar su lógica. El sitio
   //    elegido en la hoja se propaga a ese flujo (openBooking lo resetea primero,
   //    por eso se fija después).
-  function handleReservarCalendario(slot: ReservaSlot, spotId: string | null): EstadoReserva | void {
+  function handleReservarCalendario(slot: ReservaSlot, spotId: string | null): ResultadoReserva | void | Promise<ResultadoReserva | void> {
     if (!autenticado || !socia) {
       openBooking(slot.id);
       if (spotId) setSelectedSpot(spotId);
@@ -1235,7 +1239,11 @@ export default function ReservarPage() {
                 className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-ink)]/20">
                 Volver
               </button>
-              <button onClick={() => { cancelarReserva(cancelConfirm.reservaId); setCancelConfirm(null); }}
+              <button onClick={() => {
+                const id = cancelConfirm.reservaId;
+                setCancelConfirm(null);
+                void cancelarReserva(id).then(r => { if (!r.ok) setGateError(r.error); });
+              }}
                 className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-rose-500 hover:bg-rose-600 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
                 Cancelar plaza
               </button>
