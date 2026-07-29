@@ -30,6 +30,7 @@ type AuthContextType = {
   updatePassword: (actual: string, nueva: string, captchaToken?: string) => Promise<{ error: string | null }>;
   recuperarPassword: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
   establecerPassword: (nueva: string) => Promise<{ error: string | null }>;
+  reenviarConfirmacion: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -174,6 +175,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
+  // Reenviar el correo de confirmación. El proyecto exige confirmar el email
+  // (se activó para cerrar un account-takeover), y `mensajeDeError` ya decía
+  // "busca nuestro correo, mira también en spam" — pero si el correo nunca
+  // llegó, se borró, o el enlace caducó, no había NADA que hacer desde la
+  // aplicación. Un callejón sin salida en la primera pantalla del producto.
+  async function reenviarConfirmacion(email: string, captchaToken?: string) {
+    const redirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/login` : undefined;
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: {
+        ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
+        ...(captchaToken ? { captchaToken } : {}),
+      },
+    });
+    if (error) return { error: mensajeDeError(error) };
+    return { error: null };
+  }
+
   // Recuperar la contraseña cuando NO puedes entrar. No existía: `/login` no
   // ofrecía "he olvidado mi contraseña" y `resetPasswordForEmail` no se
   // llamaba desde ningún sitio del código. Una propietaria que olvidase su
@@ -205,7 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, updateProfile, updateEmail, updatePassword, recuperarPassword, establecerPassword }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, updateProfile, updateEmail, updatePassword, recuperarPassword, establecerPassword, reenviarConfirmacion }}>
       {children}
     </AuthContext.Provider>
   );

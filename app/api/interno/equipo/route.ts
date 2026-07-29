@@ -41,7 +41,18 @@ interface CuerpoAlta {
   nombre?: string;
   cargo?: string;
   permisos?: string[];
+  /**
+   * Contraseña inicial. Solo se usa si ese email NO tiene cuenta todavía: crea
+   * la cuenta con ella para poder entregarle las credenciales a la persona.
+   *
+   * ⚠️ No se guarda, no se devuelve y NO se escribe en la auditoría — solo se
+   * le pasa a gotrue, que la almacena hasheada. Lo que sí queda registrado es
+   * que se creó una cuenta y quién la creó.
+   */
+  password?: string;
 }
+
+const MIN_PASSWORD = 8;
 
 export async function POST(req: NextRequest) {
   const g = await exigirPermiso(req, 'users.create');
@@ -71,15 +82,45 @@ export async function POST(req: NextRequest) {
   const veredicto = puedeDarDeAlta(g.admin, permisos);
   if (!veredicto.ok) return NextResponse.json({ error: veredicto.motivo }, { status: 403 });
 
-  const { data: uid, error: errUid } = await db.rpc('plataforma_uid_por_email', { p_email: email });
+  const password = (cuerpo?.password ?? '').trim();
+
+  const { data: existente, error: errUid } = await db.rpc('plataforma_uid_por_email', { p_email: email });
   if (errUid) return NextResponse.json({ error: 'No se ha podido buscar esa cuenta.' }, { status: 500 });
+
+  let uid = existente as string | null;
+  // Se crea la cuenta desde aquí. Antes había que decirle a la persona que
+  // entrase primero en tentare.app y volver luego, lo que para dar de alta a
+  // alguien de tu propio equipo es un ida y vuelta absurdo.
+  let cuentaCreada = false;
   if (!uid) {
-    // Sin cuenta no hay alta: `plataforma_admin.auth_user_id` apunta a
-    // `auth.users`. Se dice qué hacer en vez de un "no encontrado" a secas.
-    return NextResponse.json({
-      error: `${email} todavía no tiene cuenta en Tentare. Que entre una vez en `
-        + `tentare.app y vuelve a darle de alta aquí.`,
-    }, { status: 404 });
+    if (password.length < MIN_PASSWORD) {
+      return NextResponse.json({
+        error: `${email} no tiene cuenta todavía. Ponle una contraseña inicial de al menos `
+          + `${MIN_PASSWORD} caracteres y se la creamos aquí mismo.`,
+      }, { status: 400 });
+    }
+
+    // `email_confirm: true` porque quien da de alta responde de ese correo: si
+    // no, la persona recibiría un correo de confirmación que no espera y no
+    // podría entrar hasta pulsarlo, que es justo lo que se quiere evitar.
+    const { data: creado, error: errCrear } = await db.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { nombre },
+    });
+    if (errCrear || !creado?.user) {
+      const m = (errCrear?.message ?? '').toLowerCase();
+      if (m.includes('already') || m.includes('registered')) {
+        return NextResponse.json({ error: `Ya existe una cuenta con ${email}.` }, { status: 409 });
+      }
+      return NextResponse.json(
+        { error: errCrear?.message || 'No se ha podido crear la cuenta.' },
+        { status: 500 },
+      );
+    }
+    uid = creado.user.id;
+    cuentaCreada = true;
   }
 
   const equipo = await leerEquipo(db);
@@ -87,9 +128,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `${email} ya está en el equipo interno.` }, { status: 409 });
   }
 
+  // Si algo falla a partir de aquí y la cuenta la acabamos de crear, se
+  // deshace: dejar una cuenta suelta en `auth.users` sin ficha de equipo es
+  // una credencial válida que no aparece en ninguna pantalla.
+  const deshacerCuenta = async () => {
+    if (cuentaCreada && uid) await db.auth.admin.deleteUser(uid);
+  };
+
   const { error: errAlta } = await db.from('plataforma_admin')
     .insert({ auth_user_id: uid, nombre, cargo });
-  if (errAlta) return NextResponse.json({ error: 'No se ha podido dar de alta.' }, { status: 500 });
+  if (errAlta) {
+    await deshacerCuenta();
+    return NextResponse.json({ error: 'No se ha podido dar de alta.' }, { status: 500 });
+  }
 
   const { error: errPerm } = await db.from('plataforma_permiso')
     .insert(permisos.map(p => ({ auth_user_id: uid, permiso: p, concedido_por: g.admin.userId })));
@@ -98,16 +149,20 @@ export async function POST(req: NextRequest) {
     // alguien dado de alta sin permisos: entraría al panel y no vería nada, y
     // el siguiente intento de alta chocaría con un 409 que no se entiende.
     await db.from('plataforma_admin').delete().eq('auth_user_id', uid);
+    await deshacerCuenta();
     return NextResponse.json({ error: 'No se han podido conceder los permisos.' }, { status: 500 });
   }
 
   await registrar(db, req, {
     actor: g.admin,
-    accion: 'equipo.alta',
+    accion: cuentaCreada ? 'equipo.alta.cuenta_creada' : 'equipo.alta',
     objetivoTipo: 'plataforma_admin', objetivoId: uid as string,
-    resumen: `${nombre} (${email}) entra al equipo con: ${permisos.join(', ')}`,
-    antes: null, despues: { nombre, cargo, permisos },
+    resumen: `${nombre} (${email}) entra al equipo con: ${permisos.join(', ')}`
+      + (cuentaCreada ? ' · cuenta creada con contraseña puesta por quien da de alta' : ''),
+    // Nunca la contraseña, ni siquiera enmascarada: la auditoría es de solo
+    // añadir y no se puede limpiar después.
+    antes: null, despues: { nombre, cargo, permisos, cuentaCreada },
   });
 
-  return NextResponse.json({ ok: true, userId: uid });
+  return NextResponse.json({ ok: true, userId: uid, cuentaCreada });
 }

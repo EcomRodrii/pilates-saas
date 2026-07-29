@@ -239,20 +239,57 @@ function Alta({ mis, onCreado }: { mis: readonly string[]; onCreado: () => void 
   const [email, setEmail] = useState('');
   const [nombre, setNombre] = useState('');
   const [cargo, setCargo] = useState('');
+  const [password, setPassword] = useState('');
   const [permisos, setPermisos] = useState<string[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Al crear la cuenta desde aquí hay que ENTREGAR las credenciales, así que la
+  // pantalla no puede limpiarse y decir "hecho": tiene que enseñar qué mandar.
+  const [entregar, setEntregar] = useState<{ email: string; password: string } | null>(null);
 
   const enviar = async () => {
     setGuardando(true); setError(null);
     try {
-      await altaEnEquipo({ email, nombre, cargo, permisos });
-      setEmail(''); setNombre(''); setCargo(''); setPermisos([]); setAbierto(false);
+      const r = await altaEnEquipo({ email, nombre, cargo, password, permisos });
+      const credenciales = r.cuentaCreada ? { email: email.trim().toLowerCase(), password } : null;
+      setEmail(''); setNombre(''); setCargo(''); setPassword(''); setPermisos([]);
+      setAbierto(false);
+      setEntregar(credenciales);
       onCreado();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se ha podido dar de alta.');
     } finally { setGuardando(false); }
   };
+
+  if (entregar) {
+    return (
+      <div data-testid="credenciales" className="rounded-2xl border border-brand-medio/40 bg-card px-4 py-3.5">
+        <p className="text-[14px] font-bold text-foreground">Cuenta creada. Pásale estos datos.</p>
+        <p className="mt-1 text-[12px] text-muted-foreground">
+          Esta contraseña no se puede volver a ver desde aquí: se guarda cifrada. Si se
+          pierde, la persona entra con «He olvidado mi contraseña».
+        </p>
+        <dl className="mt-2.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[13px]">
+          <dt className="text-muted-foreground">Entra en</dt>
+          <dd className="font-mono text-foreground">tentare.app/login</dd>
+          <dt className="text-muted-foreground">Email</dt>
+          <dd className="font-mono text-foreground">{entregar.email}</dd>
+          <dt className="text-muted-foreground">Contraseña</dt>
+          <dd className="font-mono text-foreground">{entregar.password}</dd>
+        </dl>
+        <p className="mt-2.5 text-[12px] text-muted-foreground">
+          Dile que la cambie en Configuración → Perfil en cuanto entre: mientras no lo
+          haga, tú también conoces su contraseña y sus acciones no son del todo suyas.
+        </p>
+        <button
+          type="button" onClick={() => setEntregar(null)}
+          className="mt-3 rounded-xl border border-border px-3 py-1.5 text-[12.5px] font-semibold text-foreground"
+        >
+          Ya se los he pasado
+        </button>
+      </div>
+    );
+  }
 
   if (!abierto) {
     return (
@@ -284,9 +321,16 @@ function Alta({ mis, onCreado }: { mis: readonly string[]; onCreado: () => void 
         <input className={campo} placeholder="Cargo (opcional)" value={cargo}
           onChange={e => setCargo(e.target.value)} autoComplete="off" />
       </div>
+
+      <input
+        className={`${campo} mt-2`} type="text" value={password}
+        onChange={e => setPassword(e.target.value)} autoComplete="off"
+        placeholder="Contraseña inicial (mínimo 8 caracteres)"
+      />
       <p className="mt-1.5 text-[11.5px] text-muted-foreground">
-        Tiene que haber entrado ya alguna vez en Tentare con ese email: el acceso al
-        backoffice se cuelga de su cuenta, no la crea.
+        Se le crea la cuenta con esa contraseña y le pasas los datos para que entre.
+        Si ese email ya tiene cuenta en Tentare, se enlaza la suya y la contraseña
+        se ignora.
       </p>
 
       <div className="mt-3"><Presets mis={mis} onElegir={setPermisos} /></div>

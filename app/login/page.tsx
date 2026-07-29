@@ -10,7 +10,7 @@ import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnsti
 
 export default function LoginPage() {
   const uid = useId();
-  const { signIn, signUp, session, user, loading, recuperarPassword } = useAuth();
+  const { signIn, signUp, session, user, loading, recuperarPassword, reenviarConfirmacion } = useAuth();
   const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,6 +25,10 @@ export default function LoginPage() {
   // (/portal/[slug]/acceso), la propietaria no, y la única salida era que
   // alguien le mandase el enlace desde el panel de Supabase.
   const [recuperando, setRecuperando] = useState(false);
+  // Se enseña solo cuando el error ES el de email sin confirmar: un botón de
+  // "reenviar confirmación" siempre visible invita a pulsarlo a quien no lo
+  // necesita, y cada pulsación gasta el rate limit de correos del proyecto.
+  const [faltaConfirmar, setFaltaConfirmar] = useState(false);
   // Este efecto crea el estudio, y crear un estudio NO es idempotente. Sus
   // dependencias cambian de identidad más de una vez por login (`user` es un
   // objeto nuevo en cada evento de auth), y `pending_studio` solo se limpia al
@@ -101,8 +105,22 @@ export default function LoginPage() {
 
   // El captcha se exige a nivel de PROYECTO en Supabase, así que esta llamada
   // también lo necesita: sin token, gotrue la rechaza igual que un login.
-  async function pedirEnlaceDeRecuperacion() {
+  async function reenviarElCorreoDeConfirmacion() {
     setError(''); setInfo('');
+    if (turnstileConfigurado() && !captchaToken) {
+      setError('Espera a que termine la verificación de "no soy un robot" y vuelve a pulsar.');
+      return;
+    }
+    setRecuperando(true);
+    const r = await reenviarConfirmacion(email, captchaToken ?? undefined);
+    setRecuperando(false);
+    if (r.error) { setError(r.error); return; }
+    setFaltaConfirmar(false);
+    setInfo(`Te hemos reenviado el correo de confirmación a ${email.trim()}. Mira también en spam.`);
+  }
+
+  async function pedirEnlaceDeRecuperacion() {
+    setError(''); setInfo(''); setFaltaConfirmar(false);
     if (!email.trim()) {
       setError('Escribe tu email arriba y vuelve a pulsar.');
       return;
@@ -140,6 +158,10 @@ export default function LoginPage() {
         // pantalla anterior acaba de decirlo. Los mensajes concretos salen de
         // `mensajeDeError` en auth-context, que sí distingue los casos.
         setError(error);
+        // Y ese mensaje decía "busca nuestro correo" sin ofrecer nada más: si
+        // el correo no llegó, se borró, o el enlace caducó, era un callejón sin
+        // salida. Ahora se ofrece reenviarlo, solo en este caso concreto.
+        setFaltaConfirmar(/confirmar tu email/i.test(error));
         setSubmitting(false);
       }
       // El redirect + reclamo de cuenta lo hace el useEffect al detectar sesión.
@@ -158,6 +180,9 @@ export default function LoginPage() {
       } else if (needsConfirmation) {
         setInfo('Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.');
         setModo('entrar');
+        // Nada más crearse es cuando más falla: el correo tarda, cae en spam, o
+        // se escribe mal la dirección. Que el reenvío esté a mano desde ya.
+        setFaltaConfirmar(true);
         setSubmitting(false);
       }
       // Si no requiere confirmación, ya hay sesión y el useEffect se encarga.
@@ -219,6 +244,15 @@ export default function LoginPage() {
 
             {error && (
               <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
+            )}
+            {faltaConfirmar && (
+              <button
+                type="button" disabled={recuperando}
+                onClick={() => void reenviarElCorreoDeConfirmacion()}
+                className="w-full text-center text-[12.5px] font-semibold text-[#3A3A34] hover:underline disabled:opacity-60"
+              >
+                {recuperando ? 'Enviando…' : 'Reenviarme el correo de confirmación'}
+              </button>
             )}
             {info && (
               <p className="text-[13px] rounded-lg px-3 py-2" style={{ color: '#22251A', background: '#F1F2EA' }}>{info}</p>
