@@ -1303,3 +1303,19 @@ export async function enviarPruebaPlantilla(datos: BorradorPlantilla): Promise<{
     return { error: 'No se pudo enviar la prueba' };
   }
 }
+
+// El pase de acceso de la clienta (QR + código corto). Devuelve null si algo
+// falla: la hoja del pase enseña su propio aviso y no rompe el inicio.
+export async function pedirPaseDeAcceso(slug: string) {
+  try {
+    const res = await fetch('/api/public/pase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ slug }),
+    });
+    if (!res.ok) return null;
+    return await res.json() as { hayPase: boolean; vigente?: boolean; yaAsistida?: boolean; minutosParaActivarse?: number; seActivaA?: string | null; inicio?: string; token?: string | null; codigo?: string | null };
+  } catch {
+    return null;
+  }
+}

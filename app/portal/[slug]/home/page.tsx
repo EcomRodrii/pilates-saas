@@ -32,6 +32,8 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext } from '@/lib/portal-home-logic';
 import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
 import { useModo } from '@/lib/portal-modo';
+import { HojaPase } from '@/components/portal/hoja-pase';
+import { pedirPaseDeAcceso } from '@/lib/api-client';
 import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
 } from '@/lib/portal-design';
@@ -56,6 +58,7 @@ export default function PortalHome() {
     tiposClase, salas, instructores, studio,
   } = useStudio();
   const { t, noche } = useModo();
+  const [paseAbierto, setPaseAbierto] = useState(false);
 
   // El reloj vive en estado y arranca en null: el servidor y el navegador no
   // pueden coincidir en "ahora", y una cuenta atrás pintada en el HTML del
@@ -190,8 +193,9 @@ export default function PortalHome() {
             homeCard.instructor?.nombre,
             homeCard.sala?.nombre,
           ].filter(Boolean) as string[],
-          cta: 'Ver mi reserva',
+          cta: 'Ver mi acceso',
           href: `/portal/${slug}/reservas`,
+          abrePase: true,
         };
       }
       case 'ULTIMA_SESION':
@@ -299,15 +303,18 @@ export default function PortalHome() {
             todos los estudios el primer día— esos 476 px eran un vacío de color
             crema con una tarjeta pegada al fondo. Así que sin foto la tarjeta
             se queda a su altura natural: la misma pieza, sin el hueco. */}
-        <Link
-          href={tarjeta.href}
+        <div
+          // Ancla estable para las pruebas de geometría: la tarjeta no tiene rol
+          // ni texto propio con el que localizarla (el titular cambia según el
+          // caso), y colgar el test de su estructura lo rompe al primer div.
+          data-tarjeta="principal"
           style={{
-            position: 'relative', display: 'block',
+            position: 'relative',
             height: conFoto ? altura.heroCard : undefined,
             padding: conFoto ? 0 : 14,
             borderRadius: radio.heroCard, overflow: 'hidden',
             background: conFoto ? t.surface2 : t.hero,
-            boxShadow: sombra.heroCard, textDecoration: 'none',
+            boxShadow: sombra.heroCard,
           }}
         >
           {conFoto && (
@@ -345,9 +352,11 @@ export default function PortalHome() {
             background: cristalClaro, ...cristal(desenfoque.cardHero, 170),
             border: `1px solid ${bordeCristal}`, boxShadow: sombra.cardInterna, padding: '22px 20px 20px',
           }}>
-            <div style={{ ...display(36, true), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {tarjeta.titulo}
-            </div>
+            <Link href={tarjeta.href} style={{ textDecoration: 'none', display: 'block' }}>
+              <div style={{ ...display(36, true), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {tarjeta.titulo}
+              </div>
+            </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
               {tarjeta.meta.map((m, i) => (
                 <span key={m} style={{ display: 'contents' }}>
@@ -356,17 +365,26 @@ export default function PortalHome() {
                 </span>
               ))}
             </div>
-            <div style={{
-              height: altura.botonCta, borderRadius: radio.botonCta, background: 'var(--portal-brand)',
-              display: 'flex', alignItems: 'center', padding: '0 24px', marginTop: 18,
-              boxShadow: sombra.cta, transition: transicion(['transform', 'background']),
-            }}>
-              <GlifoAcceso color="var(--portal-brand-foreground)" />
-              <span style={{ flex: 1, ...texto.botonCta, color: 'var(--portal-brand-foreground)', paddingLeft: 14 }}>{tarjeta.cta}</span>
-              <span aria-hidden style={{ fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7 }}>→</span>
-            </div>
+            {(() => {
+              const estilo: React.CSSProperties = {
+                width: '100%', height: altura.botonCta, borderRadius: radio.botonCta, background: 'var(--portal-brand)',
+                display: 'flex', alignItems: 'center', padding: '0 24px', marginTop: 18, border: 'none',
+                textDecoration: 'none', cursor: 'pointer',
+                boxShadow: sombra.cta, transition: transicion(['transform', 'background']),
+              };
+              const dentro = (
+                <>
+                  <GlifoAcceso color="var(--portal-brand-foreground)" />
+                  <span style={{ flex: 1, ...texto.botonCta, color: 'var(--portal-brand-foreground)', paddingLeft: 14, textAlign: 'left' }}>{tarjeta.cta}</span>
+                  <span aria-hidden style={{ fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7 }}>→</span>
+                </>
+              );
+              return 'abrePase' in tarjeta && tarjeta.abrePase
+                ? <button type="button" onClick={() => setPaseAbierto(true)} style={estilo}>{dentro}</button>
+                : <Link href={tarjeta.href} style={estilo}>{dentro}</Link>;
+            })()}
           </div>
-        </Link>
+        </div>
 
         {/* Esta semana */}
         {estaSemana.length > 0 && (
@@ -472,6 +490,16 @@ export default function PortalHome() {
           }}>→</span>
         </Link>
       </div>
+
+      <HojaPase
+        abierta={paseAbierto}
+        onClose={() => setPaseAbierto(false)}
+        slug={slug}
+        nombreEstudio={studio?.nombre ?? 'tu estudio'}
+        tituloClase={tarjeta.titulo}
+        subtitulo={tarjeta.meta.join(' · ')}
+        pedirPase={pedirPaseDeAcceso}
+      />
 
       {/* El avatar vive en el menú de abajo (pestaña Perfil), como en el diseño.
           Se deja este bloque fuera de la vista para que los lectores de pantalla

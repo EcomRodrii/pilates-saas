@@ -271,3 +271,11 @@ nextjs-portal { display: none !important; }
 @keyframes portal-page-out { from { opacity: 1; } to { opacity: 0; } }
 .portal-page-in { animation: portal-page-in .22s ease both; }
 .portal-page-out { animation: portal-page-out .2s ease both; }
+
+/* El brillo que cruza el pase de acceso (components/portal/hoja-pase.tsx).
+   Solo `transform`: lo resuelve el compositor y no repinta el QR en cada
+   fotograma, que es un SVG de varios cientos de rectángulos. */
+@keyframes paseBrillo {
+  0%   { transform: translateX(-150%) rotate(10deg); }
+  100% { transform: translateX(240%) rotate(10deg); }
+}

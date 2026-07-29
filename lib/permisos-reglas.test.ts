@@ -217,3 +217,17 @@ test('los helpers de UI reparten igual que las funciones de la RLS', () => {
     }
   }
 });
+
+// El lector de pases cuelga de /calendario A PROPÓSITO. La lista blanca se
+// compara por prefijo, así que colgar de ahí se lo da a la instructora sin
+// tocar los permisos — y es lo correcto: hoy ya marca asistencia a mano en la
+// pestaña Asistentes, esto solo le ahorra buscar el nombre.
+//
+// Ese mismo mecanismo de prefijos ya coló seis pantallas de importación donde
+// no debían, así que aquí queda escrito que esta herencia sí se quiere.
+test('la instructora puede leer un pase de acceso', () => {
+  assert.equal(puedeVer('INSTRUCTOR', '/calendario/pase'), true);
+  assert.equal(puedeVer('RECEPCION', '/calendario/pase'), true);
+  assert.equal(puedeVer('MANAGER', '/calendario/pase'), true);
+  assert.equal(puedeVer('PROPIETARIO', '/calendario/pase'), true);
+});

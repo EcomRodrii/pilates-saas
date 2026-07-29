@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { montarPortal, SLUG } from './portal-mock';
+import type { Page } from '@playwright/test';
+
+// La tarjeta grande dejó de ser un enlace cuando el botón «Ver mi acceso» pasó
+// a abrir la hoja del pase: un botón dentro de un enlace no es HTML válido ni
+// se puede recorrer con el teclado. No tiene rol ni texto fijo con el que
+// localizarla —el titular cambia con el estado—, así que lleva un ancla.
+const tarjetaGrande = (page: Page) => page.locator('[data-tarjeta="principal"]');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las dos pantallas del diseño "Tentare App Cliente v2": 01 Acceso y 02 Inicio.
@@ -92,8 +99,7 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
   test('sin foto del estudio la tarjeta no reserva el hueco de la imagen', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/home`);
     await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
-    const tarjeta = page.getByRole('link', { name: /Tu próxima clase/ }).first();
-    const caja = await tarjeta.boundingBox();
+    const caja = await tarjetaGrande(page).boundingBox();
     expect(caja!.height).toBeLessThan(300);
   });
 });
@@ -127,7 +133,7 @@ test.describe('Portal de la clienta — con foto del estudio', () => {
     await montarPortal(page, { conSesion: true, fotoUrl: FOTO });
     await page.goto(`/portal/${SLUG}/home`);
     await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
-    const caja = await page.getByRole('link', { name: /Tu próxima clase/ }).first().boundingBox();
+    const caja = await tarjetaGrande(page).boundingBox();
     expect(Math.round(caja!.height)).toBe(476);
   });
 });
