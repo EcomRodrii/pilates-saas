@@ -41,13 +41,33 @@ const SESIONES = [
 // La reserva de Marta para la clase de dentro de 3 h. Tiene que estar en las
 // DOS listas: `aforoReservas` (que es lo que cuenta plazas para todo el mundo) y
 // `socia.reservas` (la suya, con socioId). El contexto las cruza por id.
+// Doce clases repartidas en las últimas semanas, para que Progreso tenga algo
+// que contar: sin esto solo se ve el estado vacío.
+const HISTORIAL_BASE = Array.from({ length: 12 }, (_, i) => {
+  const dias = [2, 4, 9, 11, 16, 18, 23, 25, 30, 32, 37, 44][i];
+  const inicio = new Date(Date.now() - dias * 24 * 3600_000);
+  inicio.setHours(9, 0, 0, 0);
+  return {
+    ses: {
+      id: `hist-${i}`, studioId: STUDIO_ID, tipoClaseId: i % 3 === 0 ? 'tc-2' : 'tc-1',
+      instructorId: 'ins-1', salaId: 'sala-1',
+      inicio: inicio.toISOString(), fin: new Date(inicio.getTime() + 55 * 60_000).toISOString(),
+      aforoMaximo: 10, cancelada: false, notas: null, precioPuntual: null,
+    },
+    res: {
+      id: `hres-${i}`, studioId: STUDIO_ID, sesionId: `hist-${i}`, socioId: SOCIA.socioId,
+      estado: 'ASISTIDA', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: '',
+    },
+  };
+});
+
 const MI_RESERVA = {
   id: 'res-1', studioId: STUDIO_ID, sesionId: 'ses-1', socioId: SOCIA.socioId,
   estado: 'CONFIRMADA', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: '2026-07-20T10:00:00Z',
 };
 
-export async function montarPortal(page: Page, opciones: { conSesion: boolean; fotoUrl?: string | null; sinPlazas?: boolean }) {
-  const { conSesion, fotoUrl = null, sinPlazas = false } = opciones;
+export async function montarPortal(page: Page, opciones: { conSesion: boolean; fotoUrl?: string | null; sinPlazas?: boolean; sinHistorial?: boolean }) {
+  const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false } = opciones;
 
   if (conSesion) {
     await page.addInitScript(([sesion]) => {
@@ -62,6 +82,8 @@ export async function montarPortal(page: Page, opciones: { conSesion: boolean; f
   }
 
   // Comodines primero: Playwright resuelve las rutas en orden inverso.
+  const HISTORIAL = sinHistorial ? [] : HISTORIAL_BASE;
+
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/auth/v1/**', route => json(route, {}));
@@ -82,17 +104,23 @@ export async function montarPortal(page: Page, opciones: { conSesion: boolean; f
       id: STUDIO_ID, nombre: 'Estudio Alma', ciudad: 'Marbella', slug: SLUG,
       colorPrimario: '#2C352C', temaPortal: 'oliva', logoUrl: null, fotoUrl,
     },
-    sesiones: SESIONES,
+    sesiones: [...SESIONES, ...HISTORIAL.map(h => h.ses)],
     tiposClase: TIPOS,
     salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala Norte', capacidad: 12 }],
     instructores: [{ id: 'ins-1', studioId: STUDIO_ID, nombre: 'Ana Ferrer', rol: 'INSTRUCTOR', activo: true, color: '#2C352C' }],
     spots: sinPlazas ? [] : Array.from({ length: 14 }, (_, i) => ({ id: `sp-${i + 1}`, salaId: 'sala-1', studioId: STUDIO_ID, numero: i + 1, nombre: String(i + 1), fila: Math.floor(i / 7), columna: i % 7, tipo: 'REFORMER', activo: true })), planesTarifa: [], videosOnDemand: [], rewardRules: [], rewardCatalog: [],
     levelDefinitions: [], achievementDefinitions: [], challengeDefinitions: [],
     citasServicios: [], citasDisponibilidad: [],
-    aforoReservas: conSesion ? [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null }] : [],
+    // OJO: studio-context cruza `socia.reservas` con `aforoReservas` POR ID
+    // (`aforo.map(r => miasById.get(r.id) ?? r)`). Una reserva que solo esté en
+    // `socia.reservas` NO llega a la pantalla. Ya me pasó con la primera.
+    aforoReservas: conSesion
+      ? [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null },
+         ...HISTORIAL.map(h => ({ id: h.res.id, sesion_id: h.ses.id, estado: 'ASISTIDA', spot_id: null }))]
+      : [],
     socia: conSesion ? {
       socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
-      reservas: [MI_RESERVA],
+      reservas: [MI_RESERVA, ...HISTORIAL.map(h => h.res)],
       suscripciones: [], recibos: [], facturas: [], preferenciasSocio: [],
       memberCredits: [], rewardHistory: [], rewardRedemptions: [],
       achievementProgress: [], challengeProgress: [], creditTransactions: [], citas: [],

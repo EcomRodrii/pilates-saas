@@ -10,36 +10,26 @@ import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
 import type { NivelInfo } from '@/lib/engines/level-engine';
 import type { EstadoReto, RewardCatalogItem } from '@/lib/types';
 import { useModo, type ModoTokens } from '@/lib/portal-modo';
+import { resumenProgreso, barrasPorSemana, claseFavorita } from '@/lib/progreso-socia';
+import { display, micro, texto } from '@/lib/portal-design';
 import { Coins, Lock, Check, Trophy, Target, Gift } from 'lucide-react';
-import { Tabs, EmptyState, BottomSheet, Button, type TabItem } from '@/components/portal/ui';
-
-type Tab = 'resumen' | 'logros' | 'retos' | 'recompensas';
-
-const TABS: TabItem<Tab>[] = [
-  { id: 'resumen', label: 'Resumen' },
-  { id: 'logros', label: 'Logros' },
-  { id: 'retos', label: 'Retos' },
-  { id: 'recompensas', label: 'Recompensas' },
-];
+import { EmptyState, BottomSheet, Button } from '@/components/portal/ui';
 
 export default function ProgresoPage() {
   const searchParams = useSearchParams();
   const { session } = usePortalAuth();
   const {
-    socios, sesiones, reservas, nivelSocio,
+    socios, sesiones, reservas, tiposClase, instructores, rachaSocio,
     achievementDefinitions, achievementProgress, achievementHistory, evaluarLogrosSocio,
     challengeDefinitions, challengeProgress, evaluarRetosSocio,
     rewardCatalog, rewardRedemptions, rewardHistory, saldoCreditos, canjearRecompensa,
   } = useStudio();
-  const { t } = useModo();
+  const { t, noche } = useModo();
   const socioId = session?.socioId;
-  const now = new Date();
 
-  const [tab, setTab] = useState<Tab>('resumen');
-  useEffect(() => {
-    const t = searchParams.get('tab');
-    if (t && TABS.some(x => x.id === t)) setTab(t as Tab);
-  }, [searchParams]);
+  // Estable durante la vida de la página: con `new Date()` suelto, cada render
+  // daba una dependencia nueva y no se memoizaba nada.
+  const ahora = useMemo(() => new Date(), []);
 
   useEffect(() => {
     if (!socioId) return;
@@ -50,121 +40,145 @@ export default function ProgresoPage() {
 
   const socio = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
   const misReservas = useMemo(() => reservas.filter(r => r.socioId === socioId), [reservas, socioId]);
-  const asistidas = useMemo(() => misReservas.filter(r => r.estado === 'ASISTIDA'), [misReservas]);
-  const noAsistidas = useMemo(() => misReservas.filter(r => r.estado === 'NO_ASISTIO'), [misReservas]);
 
-  const totalAsistidas = asistidas.length;
-  const tasaAsistencia = useMemo(() => {
-    const total = asistidas.length + noAsistidas.length;
-    return total === 0 ? 0 : Math.round((asistidas.length / total) * 100);
-  }, [asistidas, noAsistidas]);
+  const resumen = useMemo(() => resumenProgreso(misReservas, sesiones), [misReservas, sesiones]);
+  const barras = useMemo(() => barrasPorSemana(misReservas, sesiones, ahora), [misReservas, sesiones, ahora]);
+  const favorita = useMemo(
+    () => claseFavorita(misReservas, sesiones, tiposClase, instructores),
+    [misReservas, sesiones, tiposClase, instructores]);
+  const racha = useMemo(
+    () => (socioId ? rachaSocio(socioId) : null),
+    [socioId, reservas, sesiones]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const clasesEsteMes = useMemo(() => {
-    const mes = now.getMonth(); const año = now.getFullYear();
-    return asistidas.filter(r => {
-      const s = sesiones.find(x => x.id === r.sesionId);
-      if (!s) return false;
-      const d = new Date(s.inicio);
-      return d.getMonth() === mes && d.getFullYear() === año;
-    }).length;
-  }, [asistidas, sesiones]);
+  // Las tres secciones de gamificación solo se pintan si el estudio las tiene
+  // configuradas. Medido en producción antes de decidirlo: 0 recompensas en
+  // catálogo y 0 retos activos en los 11 estudios, frente a 24 logros. El
+  // diseño no las dibuja, y enseñar dos pestañas vacías tampoco era la
+  // respuesta — así no se pierde nada y no sobra nada.
+  const hayLogros = achievementDefinitions.some(a => a.activo);
+  const hayRetos = challengeDefinitions.some(c => c.activo);
+  const hayRecompensas = rewardCatalog.some(r => r.activo);
 
-  const racha = useMemo(() => calcularRacha(misReservas, sesiones, now), [misReservas, sesiones]);
+  // `?tab=` lo siguen mandando enlaces del Inicio y de correos antiguos. Ya no
+  // hay pestañas, así que se traduce a un desplazamiento hasta la sección.
+  useEffect(() => {
+    const destino = searchParams.get('tab');
+    if (!destino) return;
+    const el = document.getElementById(`seccion-${destino}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [searchParams]);
 
-  const semanas = useMemo(() => {
-    return Array.from({ length: 4 }, (_, i) => {
-      const start = new Date(now);
-      start.setDate(now.getDate() - now.getDay() + 1 - (3 - i) * 7);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23, 59, 59, 999);
-      const count = asistidas.filter(r => {
-        const s = sesiones.find(x => x.id === r.sesionId);
-        if (!s) return false;
-        const d = new Date(s.inicio);
-        return d >= start && d <= end;
-      }).length;
-      return { label: start.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }), count };
-    });
-  }, [asistidas, sesiones]);
+  const cifra = (valor: string, etiqueta: string, primera: boolean) => (
+    <div key={etiqueta} style={{ flex: 1, padding: primera ? '22px 0' : '22px 0 22px 20px' }}>
+      <div style={{ ...display(38), color: t.ink }}>{valor}</div>
+      <div style={{ ...micro(9, 0.2), color: t.micro, marginTop: 8 }}>{etiqueta}</div>
+    </div>
+  );
 
-  const maxSem = Math.max(...semanas.map(s => s.count), 1);
-  const initials = socio ? `${socio.nombre[0]}${socio.apellidos[0]}`.toUpperCase() : '?';
-  const nivel = socioId ? nivelSocio(socioId) : null;
-
-  if (!socio || !socioId) return null;
+  const encabezado = (id: string, texto1: string) => (
+    <div id={id} style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 40, marginBottom: 18, scrollMarginTop: 70 }}>
+      {texto1}
+    </div>
+  );
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg }}>
-      {/* Header */}
-      <div style={{ padding: '24px 20px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 16, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.ink, fontWeight: 800, fontSize: 16 }}>
-            {initials}
-          </div>
-          <div>
-            <p style={{ color: t.ink, fontWeight: 800, fontSize: 16, lineHeight: 1.1, textTransform: 'uppercase' }}>{socio.nombre} {socio.apellidos}</p>
-            <p style={{ color: t.muted, fontSize: 12 }}>
-              Socia desde {new Date(socio.fechaAlta).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-            </p>
-          </div>
+    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+      <div style={{ padding: '62px 24px 24px' }}>
+        <h1 style={{ ...display(50), color: t.ink }}>Progreso</h1>
+        <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>Tu constancia, en silencio.</p>
+
+        {/* Las tres cifras */}
+        <div style={{ display: 'flex', marginTop: 34, borderTop: `1px solid ${t.line}`, borderBottom: `1px solid ${t.line}` }}>
+          {cifra(String(resumen.clases), 'CLASES', true)}
+          <span style={{ width: 1, background: t.line }} />
+          {cifra(String(racha?.semanas ?? 0), 'SEMANAS', false)}
+          <span style={{ width: 1, background: t.line }} />
+          {cifra(`${resumen.horas} h`, 'EN LA SALA', false)}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          {[
-            { v: totalAsistidas, l: 'Clases' },
-            { v: clasesEsteMes, l: 'Este mes' },
-            { v: `${racha.semanas}w`, l: 'Racha' },
-            { v: `${tasaAsistencia}%`, l: 'Asist.' },
-          ].map(({ v, l }) => (
-            <div key={l} style={{ background: t.surface2, borderRadius: 18, padding: '12px 8px', textAlign: 'center' }}>
-              <p style={{ color: t.ink, fontSize: 20, fontWeight: 800, lineHeight: 1 }}>{v}</p>
-              <p style={{ color: t.muted, fontSize: 9, fontWeight: 800, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</p>
-            </div>
+        {/* Doce semanas */}
+        <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 34 }}>Últimas 12 semanas</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 9, height: 132, marginTop: 20 }}>
+          {barras.map(b => (
+            <div
+              key={b.semana}
+              title={`${b.clases} clase${b.clases === 1 ? '' : 's'}`}
+              style={{
+                flex: 1, borderRadius: 6,
+                // Una semana sin ir deja un hilo, no un hueco: si la barra
+                // desaparece del todo, el gráfico parece que le falta un dato.
+                height: `${Math.max(3, b.altura * 100)}%`,
+                background: b.esteMes ? 'var(--portal-brand)' : (noche ? 'rgba(243,241,233,.18)' : 'rgba(44,53,44,.22)'),
+              }}
+            />
           ))}
         </div>
-      </div>
+        <div style={{ display: 'flex', marginTop: 12 }}>
+          {barras.map(b => (
+            <span key={b.semana} style={{ flex: 1, ...micro(9, 0.16), color: t.micro, textAlign: 'left' }}>
+              {b.mes ?? ''}
+            </span>
+          ))}
+        </div>
 
-      {/* Tabs */}
-      <div style={{ padding: '0 16px' }}>
-        <Tabs items={TABS} active={tab} onChange={setTab} />
-      </div>
+        {/* La clase favorita */}
+        {favorita && (
+          <div style={{ marginTop: 34, borderRadius: 26, background: t.surface, padding: 24, boxShadow: '0 16px 36px -28px rgba(34,42,30,.5)' }}>
+            <div style={{ ...micro(8.5, 0.24, 600), color: t.heroAccent }}>Tu clase favorita</div>
+            <div style={{ ...display(30, true), color: t.ink, marginTop: 12, textWrap: 'pretty' } as React.CSSProperties}>
+              {favorita.nombre}
+            </div>
+            <div style={{ ...texto.valor, fontSize: 11.5, color: t.muted, marginTop: 10 }}>
+              {favorita.veces} de tus {favorita.total} clases
+              {favorita.instructoraFija ? ` · siempre con ${favorita.instructoraFija}` : ''}
+            </div>
+          </div>
+        )}
 
-      <div style={{ padding: '20px 16px 24px' }}>
-        {tab === 'resumen' && (
-          <ResumenTab t={t} nivel={nivel} semanas={semanas} maxSem={maxSem} />
+        {/* Lo que el estudio tenga configurado, y solo eso. */}
+        {hayLogros && socioId && (
+          <>
+            {encabezado('seccion-logros', 'Logros')}
+            <LogrosTab
+              t={t}
+              socioId={socioId}
+              achievementDefinitions={achievementDefinitions}
+              achievementProgress={achievementProgress}
+              achievementHistory={achievementHistory}
+            />
+          </>
         )}
-        {tab === 'logros' && (
-          <LogrosTab
-            t={t}
-            socioId={socioId}
-            achievementDefinitions={achievementDefinitions}
-            achievementProgress={achievementProgress}
-            achievementHistory={achievementHistory}
-          />
+
+        {hayRetos && socioId && socio && (
+          <>
+            {encabezado('seccion-retos', 'Retos')}
+            <RetosTab
+              t={t}
+              socioId={socioId}
+              socio={socio}
+              socios={socios}
+              sesiones={sesiones}
+              misReservas={misReservas}
+              challengeDefinitions={challengeDefinitions}
+              challengeProgress={challengeProgress}
+              now={ahora}
+            />
+          </>
         )}
-        {tab === 'retos' && (
-          <RetosTab
-            t={t}
-            socioId={socioId}
-            socio={socio}
-            socios={socios}
-            sesiones={sesiones}
-            misReservas={misReservas}
-            challengeDefinitions={challengeDefinitions}
-            challengeProgress={challengeProgress}
-            now={now}
-          />
-        )}
-        {tab === 'recompensas' && (
-          <RecompensasTab
-            t={t}
-            socioId={socioId}
-            rewardCatalog={rewardCatalog}
-            rewardRedemptions={rewardRedemptions}
-            rewardHistory={rewardHistory}
-            saldoCreditos={saldoCreditos}
-            canjearRecompensa={canjearRecompensa}
-          />
+
+        {hayRecompensas && socioId && (
+          <>
+            {encabezado('seccion-recompensas', 'Recompensas')}
+            <RecompensasTab
+              t={t}
+              socioId={socioId}
+              rewardCatalog={rewardCatalog}
+              rewardRedemptions={rewardRedemptions}
+              rewardHistory={rewardHistory}
+              saldoCreditos={saldoCreditos}
+              canjearRecompensa={canjearRecompensa}
+            />
+          </>
         )}
       </div>
     </div>
