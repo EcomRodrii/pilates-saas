@@ -1277,7 +1277,11 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('usuarios').select('*').eq('studio_id', sid),
     // A-3/A-4: las socias con baja lógica (borrado_en) no entran al panel; su
     // rastro fiscal (recibos/facturas) sí queda y se muestra como "Socia eliminada".
-    db.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null),
+    // fetchAllRows (no un .select('*') a secas): sin paginar, PostgREST corta en
+    // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
+    // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
+    // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
+    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     db.from('suscripciones').select('*').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
