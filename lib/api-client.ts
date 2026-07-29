@@ -441,6 +441,20 @@ export async function iniciarDomiciliacionSepa(params: {
   return res.json() as Promise<{ url: string } | { error: string }>;
 }
 
+// Comprobación proactiva antes de OFRECER el botón "Domiciliar": sin esto, la
+// socia solo se enteraba de que SEPA no estaba activado en el estudio al
+// volver del Checkout con un error. Fail-open ante cualquier problema de red
+// (devuelve true) — ver app/api/stripe/sepa-disponible/route.ts.
+export async function sepaDisponibleParaEstudio(studioId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/stripe/sepa-disponible?studioId=${encodeURIComponent(studioId)}`);
+    const data = await res.json() as { disponible?: boolean };
+    return data.disponible !== false;
+  } catch {
+    return true;
+  }
+}
+
 // Aprobación de un toque: cobra un recibo pendiente con la tarjeta ya
 // guardada de la socia, sin redirigirla a ningún sitio.
 export async function aprobarCobroAutonomo(params: {

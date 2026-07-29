@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import {
-  Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, Activity, CalendarClock,
+  Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, Activity, CalendarClock, ShieldCheck,
 } from 'lucide-react';
 import type {
   CondicionSalud, CategoriaCondicion, ZonaCorporal, SeveridadCondicion,
@@ -245,15 +245,72 @@ function CondicionCard({ c, now, onEdit, onAlta, onDelete }: {
   );
 }
 
+// ─── Consentimiento de tratamiento de datos de salud (art. 9 RGPD) ───────────
+// Se pide UNA vez, antes de guardar la primera condición de esta socia — no en
+// el alta general, para no pedirlo a quien nunca va a necesitarlo.
+
+function ConsentimientoSaludDialog({
+  open, onClose, onConfirmar, guardando, error,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirmar: (registradoPor: string) => void;
+  guardando: boolean;
+  error: string | null;
+}) {
+  const [nombre, setNombre] = useState('');
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Autorización para tratar datos de salud</DialogTitle></DialogHeader>
+        <div className="space-y-3 text-sm text-foreground">
+          <p className="text-muted-foreground">
+            Vas a registrar lesiones, embarazo u otra condición médica. Es un dato de categoría
+            especial (art. 9 RGPD): antes de guardar el primero, la socia debe autorizar
+            expresamente que el estudio lo trate para adaptar sus clases con seguridad.
+          </p>
+          <div>
+            <label htmlFor="consentimiento-salud-nombre" className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+              Nombre de quien autoriza (la propia socia, delante de ti)
+            </label>
+            <input
+              id="consentimiento-salud-nombre"
+              value={nombre}
+              onChange={e => setNombre(e.target.value)}
+              placeholder="Nombre completo…"
+              className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+        </div>
+        <div className="flex justify-end gap-2 pt-4">
+          <button onClick={onClose} className="text-xs font-semibold px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground">Cancelar</button>
+          <button
+            disabled={!nombre.trim() || guardando}
+            onClick={() => onConfirmar(nombre.trim())}
+            className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ShieldCheck size={14} /> {guardando ? 'Guardando…' : 'Autoriza y continuar'}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Pestaña completa ────────────────────────────────────────────────────────
 
 export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
-  const { condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion } = useStudio();
+  const { socios, condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion, updateSocio } = useStudio();
+  const socio = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<CondicionSalud | null>(null);
   // Borrar una condición de la ficha clínica es destructivo y sobre dato de
   // salud: se confirma en un diálogo accesible, no con el confirm() nativo.
   const [aBorrar, setABorrar] = useState<CondicionSalud | null>(null);
+  const [consentimientoDialogOpen, setConsentimientoDialogOpen] = useState(false);
+  const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false);
+  const [errorConsentimiento, setErrorConsentimiento] = useState<string | null>(null);
 
   const condiciones = useMemo(
     () => condicionesSalud.filter(c => c.socioId === socioId).sort((a, b) => b.inicio.localeCompare(a.inicio)),
@@ -272,8 +329,25 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
   const rmeta = RIESGO_META[riesgo.nivel];
   const activas = condiciones.filter(c => c.estado === 'ACTIVA');
 
-  function abrirNueva() { setEditando(null); setDialogOpen(true); }
+  function abrirNueva() {
+    // Art. 9 RGPD: no se guarda ninguna condición sin el consentimiento
+    // específico de la socia — si aún no consta, se pide antes de nada.
+    if (!socio?.consentimientoSalud) { setConsentimientoDialogOpen(true); return; }
+    setEditando(null);
+    setDialogOpen(true);
+  }
   function abrirEditar(c: CondicionSalud) { setEditando(c); setDialogOpen(true); }
+
+  async function confirmarConsentimiento(registradoPor: string) {
+    setGuardandoConsentimiento(true);
+    setErrorConsentimiento(null);
+    const r = await updateSocio(socioId, { consentimientoSalud: { fecha: new Date().toISOString(), registradoPor } });
+    setGuardandoConsentimiento(false);
+    if (!r.ok) { setErrorConsentimiento(r.error); return; }
+    setConsentimientoDialogOpen(false);
+    setEditando(null);
+    setDialogOpen(true);
+  }
 
   function guardar(f: FormState) {
     const payload = {
@@ -379,6 +453,14 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
       )}
 
       <CondicionDialog open={dialogOpen} onClose={() => { setDialogOpen(false); setEditando(null); }} onSave={guardar} inicial={inicial} />
+
+      <ConsentimientoSaludDialog
+        open={consentimientoDialogOpen}
+        onClose={() => { setConsentimientoDialogOpen(false); setErrorConsentimiento(null); }}
+        onConfirmar={confirmarConsentimiento}
+        guardando={guardandoConsentimiento}
+        error={errorConsentimiento}
+      />
 
       <ConfirmDialog
         open={aBorrar !== null}

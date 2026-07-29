@@ -18,6 +18,16 @@ export function useDialogA11y({
   onClose: () => void;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
+  // Ref para la versión más reciente de onClose: el efecto de abajo NO puede
+  // depender del valor de `onClose` directamente. Casi todos los que llaman a
+  // este hook pasan un callback inline (`onClose={() => setX(false)}`), que
+  // cambia de identidad en CADA render del padre — incluida cada tecla
+  // pulsada en un input de dentro del diálogo. Con `onClose` en el array de
+  // dependencias, cada pulsación desmontaba y remontaba este efecto, y el
+  // cleanup (línea de abajo) devolvía el foco a `disparador`, cerrando el
+  // teclado virtual en móvil tras cada carácter (alta pública /reservar).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   // Inicializador perezoso: cubre el caso — el más común en este código base —
   // en que el propio padre MONTA el diálogo condicionalmente
   // (`{cond && <Modal open .../>}`) en vez de mantenerlo montado y alternar
@@ -56,7 +66,7 @@ export function useDialogA11y({
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab' || !sheet) return;
@@ -80,7 +90,7 @@ export function useDialogA11y({
       document.removeEventListener('keydown', onKeyDown);
       disparador?.focus();
     };
-  }, [open, onClose, disparador]);
+  }, [open, disparador]);
 
   return { sheetRef };
 }

@@ -13,9 +13,9 @@ function Tarjeta({ titulo, valor, pie, acento }: {
   titulo: string; valor: string; pie?: string; acento?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card px-4 py-3.5">
+    <div className="rounded-2xl border border-border bg-card px-3.5 py-3 sm:px-4 sm:py-3.5">
       <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{titulo}</p>
-      <p className={`mt-1 text-[26px] font-bold tabular-nums leading-none ${acento ? 'text-brand-medio' : 'text-foreground'}`}>{valor}</p>
+      <p className={`mt-1 text-[22px] sm:text-[26px] font-bold tabular-nums leading-none ${acento ? 'text-brand-medio' : 'text-foreground'}`}>{valor}</p>
       {pie && <p className="mt-1.5 text-[11.5px] text-muted-foreground leading-snug">{pie}</p>}
     </div>
   );
@@ -63,7 +63,7 @@ export default function ResumenInterno() {
     <div className="flex flex-col gap-6">
       <section>
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Negocio</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
           {/* Estas dos tarjetas salen de Stripe (ver /interno/facturacion). Si
               Stripe no contesta se enseña «—», nunca 0 €: un cero se lee como
               «no cobras nada» y eso es una afirmación que no podemos hacer. */}
@@ -87,8 +87,23 @@ export default function ResumenInterno() {
       </section>
 
       <section>
+        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Activación (onboarding)</h2>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+          <Tarjeta
+            titulo="Estudios activados" valor={`${k.onboarding.activados}/${k.onboarding.totalConActividad}`}
+            pie="De los que tienen actividad: completaron los 7 pasos de Primeros pasos." />
+          <Tarjeta
+            titulo="Paso donde más se atascan"
+            valor={k.onboarding.pasoMasBloqueante ? String(k.onboarding.pasoMasBloqueante.pendientes) : '0'}
+            pie={k.onboarding.pasoMasBloqueante
+              ? `"${k.onboarding.pasoMasBloqueante.label}" — pendiente en ${k.onboarding.pasoMasBloqueante.pendientes} estudio(s).`
+              : 'Ninguno: todos los que tienen actividad completaron todos los pasos.'} />
+        </div>
+      </section>
+
+      <section>
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Uso de la plataforma</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
           <Tarjeta titulo="Reservas hoy" valor={String(k.actividad.reservasHoy)} />
           <Tarjeta titulo="Reservas (7 días)" valor={String(k.actividad.reservas7d)} />
           <Tarjeta titulo="Socias" valor={String(k.actividad.socias)} pie="Sumando todos los estudios." />
@@ -104,9 +119,15 @@ export default function ResumenInterno() {
           ) : (
             <div className="flex items-end gap-2 h-32">
               {k.altasPorMes.map(a => (
-                <div key={a.mes} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+                // `h-full` en la columna y un hueco `flex-1` para la barra: la
+                // altura en % necesita un padre con altura REAL. Antes colgaba
+                // de una columna de altura automática, así que resolvía a cero
+                // y el gráfico se pintaba vacío — números y meses, sin barras.
+                <div key={a.mes} className="flex-1 h-full flex flex-col items-center gap-1.5 min-w-0">
                   <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">{a.altas}</span>
-                  <div className="w-full rounded-t bg-brand/80" style={{ height: `${(a.altas / maxAltas) * 100}%` }} />
+                  <div className="w-full flex-1 flex items-end">
+                    <div className="w-full rounded-t bg-brand/80" style={{ height: `${(a.altas / maxAltas) * 100}%` }} />
+                  </div>
                   <span className="text-[10.5px] text-muted-foreground truncate w-full text-center">{a.mes}</span>
                 </div>
               ))}

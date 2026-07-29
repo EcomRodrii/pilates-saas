@@ -48,6 +48,28 @@ export function hayConflicto(c: { sala: SlotSesion[]; instructor: SlotSesion[] }
   return c.sala.length > 0 || c.instructor.length > 0;
 }
 
+// Al abrir "nueva clase" para una fecha/hora concreta, el formulario proponía
+// siempre la primera sala y la primera instructora de la lista — si esa hora
+// ya tenía una clase (de OTRO tipo) en esa misma sala/instructora, la segunda
+// clase nacía en conflicto por defecto, sin que la propietaria hubiera elegido
+// nada todavía. De una lista de candidatas en orden de preferencia, devuelve
+// la primera que esté libre en ese hueco; si todas están ocupadas, la primera
+// de todas igualmente (mismo comportamiento que antes: el aviso de conflicto
+// ya explica el motivo, no se deja el desplegable vacío).
+export function elegirLibre(
+  candidatas: string[],
+  campo: 'salaId' | 'instructorId',
+  inicio: string,
+  fin: string,
+  existentes: SlotSesion[],
+): string {
+  if (candidatas.length === 0) return '';
+  const libre = candidatas.find(id => !existentes.some(s =>
+    !s.cancelada && s[campo] === id && solapan(inicio, fin, s.inicio, s.fin),
+  ));
+  return libre ?? candidatas[0];
+}
+
 // I-2: ¿bajar el aforo a `nuevoAforo` deja plazas confirmadas fuera? Devuelve
 // cuántas confirmadas exceden el nuevo aforo (0 = sin problema).
 export function plazasSobrantesTrasAforo(confirmadas: number, nuevoAforo: number): number {

@@ -1,13 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { CheckCircle2, Clock, XCircle, CreditCard, AlertCircle, Landmark } from 'lucide-react';
 import { formatFechaLarga as formatDate } from '@/lib/utils';
-import { iniciarDomiciliacionSepa, crearCheckoutStripe, prepararRenovacionPlan } from '@/lib/api-client';
+import { iniciarDomiciliacionSepa, sepaDisponibleParaEstudio, crearCheckoutStripe, prepararRenovacionPlan } from '@/lib/api-client';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
 import { Card, Pill, Button, EmptyState } from '@/components/portal/ui';
 import { semantic } from '@/lib/portal-tokens';
@@ -28,6 +28,18 @@ export default function MiPlanPage() {
 
   const socia = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
   const sepaActiva = socia?.metodoPagoPreferido === 'SEPA' && !!socia?.sepaMandateId;
+
+  // Comprobación proactiva: antes bastaba con clicar "Domiciliar" para
+  // enterarse (ya en Stripe Checkout) de que el estudio no tenía SEPA
+  // activado. `null` = aún sin comprobar (se asume disponible, sin bloquear
+  // el botón mientras llega la respuesta).
+  const [sepaDisponible, setSepaDisponible] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!studio?.id || sepaActiva) return;
+    let vivo = true;
+    sepaDisponibleParaEstudio(studio.id).then(d => { if (vivo) setSepaDisponible(d); });
+    return () => { vivo = false; };
+  }, [studio?.id, sepaActiva]);
 
   // Antes este historial solo mostraba recibos pendientes; no había forma de
   // pagarlos desde el portal (Stripe Connect ya funcionaba en /reservar, pero
@@ -248,19 +260,23 @@ export default function MiPlanPage() {
             <p style={{ fontSize: 12, color: t.muted, marginTop: 2, lineHeight: 1.3 }}>
               {sepaActiva
                 ? 'Tus recibos se cobran automáticamente de tu cuenta bancaria.'
-                : 'Autoriza el adeudo SEPA y olvídate de pagar cada mes.'}
+                : sepaDisponible === false
+                  ? 'Todavía no disponible en este estudio. Puedes pagar con tarjeta mientras tanto.'
+                  : 'Autoriza el adeudo SEPA y olvídate de pagar cada mes.'}
               {sepaError && <span style={{ color: '#A8442A', display: 'block', marginTop: 4 }}>{sepaError}</span>}
             </p>
           </div>
-          <Button
-            variant={sepaActiva ? 'secondary' : 'primary'}
-            size="small"
-            onClick={handleDomiciliar}
-            disabled={sepaLoading}
-            style={{ flexShrink: 0 }}
-          >
-            {sepaLoading ? 'Abriendo…' : sepaActiva ? 'Cambiar' : 'Domiciliar'}
-          </Button>
+          {(sepaActiva || sepaDisponible !== false) && (
+            <Button
+              variant={sepaActiva ? 'secondary' : 'primary'}
+              size="small"
+              onClick={handleDomiciliar}
+              disabled={sepaLoading}
+              style={{ flexShrink: 0 }}
+            >
+              {sepaLoading ? 'Abriendo…' : sepaActiva ? 'Cambiar' : 'Domiciliar'}
+            </Button>
+          )}
         </Card>
 
         {/* Historial */}

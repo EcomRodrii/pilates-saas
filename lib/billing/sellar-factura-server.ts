@@ -12,12 +12,29 @@ import { fiskalyConfigurado, asegurarEmisor, firmarFactura } from '@/lib/billing
 // aporta studioId + reciboId + un id de factura.
 //
 // Idempotente por id o recibo_id: llamarlo dos veces sobre el mismo recibo no
-// duplica la factura ni bifurca la cadena.
+// duplica la factura ni bifurca la cadena. Distingue "reservada pero
+// incompleta" (crash entre la reserva atómica y el UPDATE final con la huella)
+// de "verdaderamente sellada": en el primer caso retoma el cálculo de la
+// huella/Fiskaly con los datos YA reservados, sin pedir un número nuevo.
 //
-// ⚠️ Follow-up C-5 (preexistente): la lectura del extremo de la cadena + inserción
-// no es atómica; bajo dos sellados simultáneos del MISMO estudio puede
-// bifurcarse. Endurecer con UNIQUE(studio_id, verifactu_seq/numero_completo) +
-// advisory lock. No se agrava aquí (misma idempotencia por recibo_id).
+// ── C-5 (cerrado) ───────────────────────────────────────────────────────────
+// La reserva de numero_completo/verifactu_seq/verifactu_prev_hash pasa por la
+// RPC reservar_numero_factura (SECURITY DEFINER, solo service_role — ver
+// supabase/migrations/20260729152338_facturas_numeracion_atomica.sql), que
+// toma un pg_advisory_xact_lock por estudio antes de leer el extremo de la
+// cadena e insertar la fila base: serializa dos sellados simultáneos del
+// MISMO estudio (p. ej. webhook de Stripe por un cobro SEPA + sellado manual
+// desde el panel) y cierra el hueco de bifurcación que antes existía por leer
+// el extremo de la cadena + insertar en llamadas SEPARADAS de supabase-js sin
+// transacción compartida. Además, UNIQUE(studio_id, verifactu_seq) y
+// UNIQUE(studio_id, numero_completo) actúan como red de seguridad dura.
+//
+// La huella (calcularHuellaAlta, función pura) y la firma Fiskaly (llamada
+// HTTP externa) se calculan DESPUÉS de la reserva, fuera del lock — no lo
+// necesitan — y terminan en un UPDATE por id (sin condición de carrera:
+// acotado además a verifactu_hash IS NULL, así que si otra llamada
+// concurrente para la MISMA factura ya la completó mientras tanto, se
+// devuelve SU resultado en vez de pisarlo).
 
 export interface ResultadoSellado {
   ok: boolean;
@@ -27,6 +44,24 @@ export interface ResultadoSellado {
   aviso?: string | null;
   factura?: Record<string, unknown>;
 }
+
+interface FilaFacturaReservada {
+  id: string;
+  verifactu_hash: string | null;
+  verifactu_prev_hash: string | null;
+  verifactu_ts: string | null;
+  verifactu_seq: number | null;
+  numero_completo: string;
+  fecha_emision: string;
+  receptor_nombre: string | null;
+  receptor_nif: string | null;
+  base_imponible: number | string | null;
+  tipo_iva: number | string | null;
+  cuota_iva: number | string | null;
+  total: number | string | null;
+}
+
+const COLS_SELLO = 'id, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total';
 
 export async function sellarFacturaDeRecibo(
   admin: SupabaseClient,
@@ -45,17 +80,26 @@ export async function sellarFacturaDeRecibo(
     return { ok: false, error: 'Identificadores inválidos' };
   }
 
-  // Idempotencia: si ya existe (mismo id o mismo recibo) no re-sellar ni duplicar.
-  const COLS_SELLO = 'id, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq';
-  const { data: porId } = await admin
-    .from('facturas').select(COLS_SELLO)
-    .eq('id', facturaId).eq('studio_id', studioId)
-    .limit(1).maybeSingle();
-  const existente = porId ?? (await admin
-    .from('facturas').select(COLS_SELLO)
-    .eq('recibo_id', reciboId).eq('studio_id', studioId)
-    .limit(1).maybeSingle()).data;
-  if (existente) {
+  const cargarExistente = async (): Promise<FilaFacturaReservada | null> => {
+    const { data: porId } = await admin
+      .from('facturas').select(COLS_SELLO)
+      .eq('id', facturaId).eq('studio_id', studioId)
+      .limit(1).maybeSingle();
+    if (porId) return porId as FilaFacturaReservada;
+    const { data: porRecibo } = await admin
+      .from('facturas').select(COLS_SELLO)
+      .eq('recibo_id', reciboId).eq('studio_id', studioId)
+      .limit(1).maybeSingle();
+    return (porRecibo as FilaFacturaReservada | null) ?? null;
+  };
+
+  // Idempotencia: si ya existe (mismo id o mismo recibo) Y ya tiene huella,
+  // está verdaderamente sellada — no re-sellar ni duplicar. Si existe pero
+  // verifactu_hash es NULL, es una reserva incompleta (crash entre el insert
+  // atómico y el update final): se retoma más abajo con los datos YA
+  // reservados, sin pedir número nuevo.
+  let existente = await cargarExistente();
+  if (existente && existente.verifactu_hash) {
     return { ok: true, yaExistia: true, factura: mapSalida(existente) };
   }
 
@@ -72,168 +116,235 @@ export async function sellarFacturaDeRecibo(
     return { ok: false, error: 'Configura un NIF fiscal válido en Configuración → Mi estudio antes de emitir facturas (el actual está vacío o es de relleno).' };
   }
 
-  const { data: recibo } = await admin
-    .from('recibos').select('importe, socio_id')
-    .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
-  if (!recibo) {
-    return { ok: false, error: 'Recibo no encontrado' };
-  }
+  let numeroCompleto: string;
+  let fechaEmision: string;
+  let receptorNombre: string;
+  let receptorNIF: string | null;
+  let baseImponible: number;
+  let tipoIVA: number;
+  let cuotaIVA: number;
+  let total: number;
+  let huellaAnterior: string;
+  let seq: number;
 
-  // El importe del recibo es IVA INCLUIDO; el tipo solo reparte total → base+cuota.
-  const tipoIVA = Number(studio?.iva_por_defecto ?? 21);
-  const divisor = 1 + tipoIVA / 100;
-  const total = Math.round(Number(recibo.importe) * 100) / 100;
-  const baseImponible = Math.round((total / divisor) * 100) / 100;
-  const cuotaIVA = Math.round((total - baseImponible) * 100) / 100;
-
-  let receptorNombre = 'Cliente de mostrador';
-  let receptorNIF: string | null = null;
-  if (recibo.socio_id) {
-    const { data: socio } = await admin
-      .from('socios').select('nombre, apellidos, nif').eq('id', recibo.socio_id).maybeSingle();
-    if (socio) {
-      receptorNombre = `${socio.nombre ?? ''} ${socio.apellidos ?? ''}`.trim() || 'Cliente';
-      receptorNIF = (socio.nif as string | null) ?? null;
+  if (existente) {
+    // Retoma la reserva incompleta: numeroCompleto/seq/prev_hash YA están en
+    // la fila (los puso reservar_numero_factura); solo falta la huella/Fiskaly.
+    numeroCompleto = existente.numero_completo;
+    fechaEmision = existente.fecha_emision;
+    receptorNombre = existente.receptor_nombre ?? 'Cliente';
+    receptorNIF = existente.receptor_nif;
+    baseImponible = Number(existente.base_imponible);
+    tipoIVA = Number(existente.tipo_iva);
+    cuotaIVA = Number(existente.cuota_iva);
+    total = Number(existente.total);
+    huellaAnterior = existente.verifactu_prev_hash ?? '';
+    seq = Number(existente.verifactu_seq);
+  } else {
+    const { data: recibo } = await admin
+      .from('recibos').select('importe, socio_id')
+      .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
+    if (!recibo) {
+      return { ok: false, error: 'Recibo no encontrado' };
     }
-  }
 
-  // Número correlativo por estudio y año (A-{año}-{NNNN}), max+1.
-  // fecha_emision es un `date` (sin huso) — hay que anclarlo al día natural en
-  // Europe/Madrid, no al de new Date().toISOString() (UTC). Una factura sellada
-  // entre las 22:00 y las 00:59 (invierno) o 23:00-00:59 (verano) en Madrid caía
-  // en el DÍA/AÑO ANTERIOR según UTC: se archivaba en el trimestre/año fiscal
-  // equivocado, y el registro Veri*Factu ante la AEAT quedaba con esa misma
-  // fecha errónea (no es solo un informe descuadrado, es el propio registro legal).
-  const ahora = new Date();
-  const fechaEmisionMadrid = fechaHoraHusoMadrid(ahora);
-  const fechaEmision = fechaEmisionMadrid.slice(0, 10);
-  const anio = Number(fechaEmision.slice(0, 4));
-  const { data: delAnio } = await admin
-    .from('facturas').select('numero_completo')
-    .eq('studio_id', studioId).like('numero_completo', `A-${anio}-%`);
-  let maxN = 0;
-  for (const row of delAnio ?? []) {
-    const m = /A-\d{4}-(\d+)/.exec((row.numero_completo as string | null) ?? '');
-    if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
-  }
-  const numeroCompleto = `A-${anio}-${String(maxN + 1).padStart(4, '0')}`;
+    // El importe del recibo es IVA INCLUIDO; el tipo solo reparte total → base+cuota.
+    const tipoIVAStudio = Number(studio?.iva_por_defecto ?? 21);
+    const divisor = 1 + tipoIVAStudio / 100;
+    const totalCalc = Math.round(Number(recibo.importe) * 100) / 100;
+    const baseCalc = Math.round((totalCalc / divisor) * 100) / 100;
+    const cuotaCalc = Math.round((totalCalc - baseCalc) * 100) / 100;
 
-  // Extremo actual de la cadena del estudio.
-  const { data: tip } = await admin
-    .from('facturas')
-    .select('verifactu_hash, verifactu_seq')
-    .eq('studio_id', studioId)
-    .not('verifactu_seq', 'is', null)
-    .order('verifactu_seq', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const huellaAnterior = tip?.verifactu_hash ?? '';
-  const seq = (tip?.verifactu_seq ?? 0) + 1;
-
-  const fila: Record<string, unknown> = {
-    id: facturaId,
-    studio_id: studioId,
-    recibo_id: reciboId,
-    numero_completo: numeroCompleto,
-    fecha_emision: fechaEmision,
-    receptor_nombre: receptorNombre,
-    receptor_nif: receptorNIF,
-    base_imponible: baseImponible,
-    tipo_iva: tipoIVA,
-    cuota_iva: cuotaIVA,
-    total,
-  };
-
-  let salida: Record<string, unknown> = {};
-  if (nifEmisor) {
-    const ts = fechaEmisionMadrid;
-    const registro: RegistroAltaVerifactu = {
-      idEmisorFactura: nifEmisor,
-      numSerieFactura: numeroCompleto,
-      fechaExpedicionFactura: fechaExpedicionDesdeISO(fechaEmision),
-      tipoFactura: receptorNIF ? 'F1' : 'F2',
-      cuotaTotal: cuotaIVA,
-      importeTotal: total,
-      fechaHoraHusoGenRegistro: ts,
-    };
-    const huella = calcularHuellaAlta(registro, huellaAnterior);
-    const produccion = process.env.VERIFACTU_ENTORNO === 'produccion';
-    const qrUrl = urlQrVerifactu(
-      { nif: nifEmisor, numSerie: numeroCompleto, fecha: registro.fechaExpedicionFactura, importeTotal: total },
-      { produccion },
-    );
-    fila.verifactu_hash = huella;
-    fila.verifactu_prev_hash = huellaAnterior;
-    fila.verifactu_ts = ts;
-    fila.verifactu_seq = seq;
-    salida = {
-      verifactuHash: huella, verifactuPrevHash: huellaAnterior, verifactuTs: ts, verifactuSeq: seq,
-      qrUrl, entorno: produccion ? 'produccion' : 'pruebas',
-    };
-
-    // Firma + transmisión a la AEAT vía Fiskaly, SOLO si está configurado (creds
-    // en entorno). Si algo falla, la factura mantiene la huella propia de arriba:
-    // no se pierde ninguna factura por un fallo de Fiskaly.
-    if (fiskalyConfigurado()) {
-      try {
-        let signerId = studio?.fiskaly_signer_id as string | null;
-        let clientId = studio?.fiskaly_client_id as string | null;
-        if (!signerId || !clientId) {
-          const nuevos = await asegurarEmisor(
-            {
-              legalName: (studio?.razon_social as string | null) || (studio?.nombre as string | null) || 'Estudio',
-              nif: nifEmisor,
-              direccion: (studio?.direccion as string | null) || undefined,
-              ciudad: (studio?.ciudad as string | null) || undefined,
-              codigoPostal: (studio?.codigo_postal as string | null) || undefined,
-              email: (studio?.email as string | null) || undefined,
-            },
-            signerId || randomUUID(),
-            clientId || randomUUID(),
-          );
-          signerId = nuevos.signerId;
-          clientId = nuevos.clientId;
-          await admin.from('studios')
-            .update({ fiskaly_signer_id: signerId, fiskaly_client_id: clientId })
-            .eq('id', studioId);
-        }
-
-        const fiskalyInvoiceId = randomUUID();
-        const res = await firmarFactura({
-          clientId,
-          invoiceId: fiskalyInvoiceId,
-          numero: numeroCompleto,
-          simplificada: !receptorNIF,
-          concepto: `Servicios de ${(studio?.nombre as string | null) || 'estudio'}`,
-          totalConIva: total,
-          lineas: [{ texto: 'Servicios prestados', base: baseImponible, total, tipoIva: tipoIVA }],
-          receptor: receptorNIF
-            ? { nombre: receptorNombre, nif: receptorNIF, direccion: 'España', codigoPostal: '00000' }
-            : undefined,
-        });
-        fila.fiskaly_invoice_id = res.id;
-        fila.verifactu_qr_url = res.qrUrl;
-        fila.verifactu_qr_imagen = res.qrImagen;
-        fila.verifactu_estado = res.transmision;
-        fila.verifactu_csv = res.csv;
-        salida = { ...salida, fiskaly: { estado: res.estado, transmision: res.transmision, csv: res.csv, qrUrl: res.qrUrl } };
-      } catch (e) {
-        console.error('[sellarFacturaDeRecibo] Fiskaly:', e instanceof Error ? e.message : e);
-        // Se sigue con la huella propia; queda registro en logs para revisar.
+    let receptorNombreCalc = 'Cliente de mostrador';
+    let receptorNIFCalc: string | null = null;
+    if (recibo.socio_id) {
+      const { data: socio } = await admin
+        .from('socios').select('nombre, apellidos, nif').eq('id', recibo.socio_id).maybeSingle();
+      if (socio) {
+        receptorNombreCalc = `${socio.nombre ?? ''} ${socio.apellidos ?? ''}`.trim() || 'Cliente';
+        receptorNIFCalc = (socio.nif as string | null) ?? null;
       }
     }
+
+    // fecha_emision es un `date` (sin huso) — hay que anclarlo al día natural en
+    // Europe/Madrid, no al de new Date().toISOString() (UTC). Una factura sellada
+    // entre las 22:00 y las 00:59 (invierno) o 23:00-00:59 (verano) en Madrid caía
+    // en el DÍA/AÑO ANTERIOR según UTC: se archivaba en el trimestre/año fiscal
+    // equivocado, y el registro Veri*Factu ante la AEAT quedaba con esa misma
+    // fecha errónea (no es solo un informe descuadrado, es el propio registro legal).
+    const fechaEmisionCalc = fechaHoraHusoMadrid(new Date()).slice(0, 10);
+
+    // Reserva atómica: numero_completo + verifactu_seq + verifactu_prev_hash +
+    // el INSERT inicial, todo dentro de la RPC (advisory lock por estudio).
+    const { data: reserva, error: errorReserva } = await admin
+      .rpc('reservar_numero_factura', {
+        p_factura_id: facturaId,
+        p_studio_id: studioId,
+        p_recibo_id: reciboId,
+        p_fecha_emision: fechaEmisionCalc,
+        p_receptor_nombre: receptorNombreCalc,
+        p_receptor_nif: receptorNIFCalc,
+        p_base_imponible: baseCalc,
+        p_tipo_iva: tipoIVAStudio,
+        p_cuota_iva: cuotaCalc,
+        p_total: totalCalc,
+      })
+      .single<{ numero_completo: string; verifactu_seq: number; verifactu_prev_hash: string }>();
+
+    if (errorReserva) {
+      // Reintento del mismo recibo/factura llegando justo cuando otra llamada
+      // ya está reservando (mismo id → choca con la PK dentro de la RPC): no
+      // es un fallo real, es la MISMA factura — se retoma como existente.
+      if (errorReserva.code === '23505') {
+        existente = await cargarExistente();
+      }
+      if (!existente) {
+        console.error('[sellarFacturaDeRecibo] reservar_numero_factura:', errorReserva.message);
+        return { ok: false, error: 'No se ha podido reservar el número de factura.' };
+      }
+      if (existente.verifactu_hash) {
+        return { ok: true, yaExistia: true, factura: mapSalida(existente) };
+      }
+      numeroCompleto = existente.numero_completo;
+      fechaEmision = existente.fecha_emision;
+      receptorNombre = existente.receptor_nombre ?? 'Cliente';
+      receptorNIF = existente.receptor_nif;
+      baseImponible = Number(existente.base_imponible);
+      tipoIVA = Number(existente.tipo_iva);
+      cuotaIVA = Number(existente.cuota_iva);
+      total = Number(existente.total);
+      huellaAnterior = existente.verifactu_prev_hash ?? '';
+      seq = Number(existente.verifactu_seq);
+    } else {
+      numeroCompleto = reserva.numero_completo;
+      seq = Number(reserva.verifactu_seq);
+      huellaAnterior = reserva.verifactu_prev_hash ?? '';
+      fechaEmision = fechaEmisionCalc;
+      receptorNombre = receptorNombreCalc;
+      receptorNIF = receptorNIFCalc;
+      baseImponible = baseCalc;
+      tipoIVA = tipoIVAStudio;
+      cuotaIVA = cuotaCalc;
+      total = totalCalc;
+    }
   }
 
-  const { error } = await admin.from('facturas').insert(fila);
-  if (error) {
-    console.error('[sellarFacturaDeRecibo]', error.message);
+  // A partir de aquí numeroCompleto/seq/huellaAnterior ya están reservados
+  // (atómicamente, por la RPC, o recuperados de una reserva previa
+  // incompleta) — el resto es cálculo puro + firma opcional, sin condición de
+  // carrera posible sobre la NUMERACIÓN.
+  const ts = fechaHoraHusoMadrid(new Date());
+  const registro: RegistroAltaVerifactu = {
+    idEmisorFactura: nifEmisor,
+    numSerieFactura: numeroCompleto,
+    fechaExpedicionFactura: fechaExpedicionDesdeISO(fechaEmision),
+    tipoFactura: receptorNIF ? 'F1' : 'F2',
+    cuotaTotal: cuotaIVA,
+    importeTotal: total,
+    fechaHoraHusoGenRegistro: ts,
+  };
+  const huella = calcularHuellaAlta(registro, huellaAnterior);
+  const produccion = process.env.VERIFACTU_ENTORNO === 'produccion';
+  const qrUrl = urlQrVerifactu(
+    { nif: nifEmisor, numSerie: numeroCompleto, fecha: registro.fechaExpedicionFactura, importeTotal: total },
+    { produccion },
+  );
+
+  const camposFinales: Record<string, unknown> = {
+    verifactu_hash: huella,
+    verifactu_prev_hash: huellaAnterior,
+    verifactu_ts: ts,
+    verifactu_seq: seq,
+  };
+  let salida: Record<string, unknown> = {
+    verifactuHash: huella, verifactuPrevHash: huellaAnterior, verifactuTs: ts, verifactuSeq: seq,
+    qrUrl, entorno: produccion ? 'produccion' : 'pruebas',
+  };
+
+  // Firma + transmisión a la AEAT vía Fiskaly, SOLO si está configurado (creds
+  // en entorno). Si algo falla, la factura mantiene la huella propia de arriba:
+  // no se pierde ninguna factura por un fallo de Fiskaly.
+  if (fiskalyConfigurado()) {
+    try {
+      let signerId = studio?.fiskaly_signer_id as string | null;
+      let clientId = studio?.fiskaly_client_id as string | null;
+      if (!signerId || !clientId) {
+        const nuevos = await asegurarEmisor(
+          {
+            legalName: (studio?.razon_social as string | null) || (studio?.nombre as string | null) || 'Estudio',
+            nif: nifEmisor,
+            direccion: (studio?.direccion as string | null) || undefined,
+            ciudad: (studio?.ciudad as string | null) || undefined,
+            codigoPostal: (studio?.codigo_postal as string | null) || undefined,
+            email: (studio?.email as string | null) || undefined,
+          },
+          signerId || randomUUID(),
+          clientId || randomUUID(),
+        );
+        signerId = nuevos.signerId;
+        clientId = nuevos.clientId;
+        await admin.from('studios')
+          .update({ fiskaly_signer_id: signerId, fiskaly_client_id: clientId })
+          .eq('id', studioId);
+      }
+
+      const fiskalyInvoiceId = randomUUID();
+      const res = await firmarFactura({
+        clientId,
+        invoiceId: fiskalyInvoiceId,
+        numero: numeroCompleto,
+        simplificada: !receptorNIF,
+        concepto: `Servicios de ${(studio?.nombre as string | null) || 'estudio'}`,
+        totalConIva: total,
+        lineas: [{ texto: 'Servicios prestados', base: baseImponible, total, tipoIva: tipoIVA }],
+        receptor: receptorNIF
+          ? { nombre: receptorNombre, nif: receptorNIF, direccion: 'España', codigoPostal: '00000' }
+          : undefined,
+      });
+      camposFinales.fiskaly_invoice_id = res.id;
+      camposFinales.verifactu_qr_url = res.qrUrl;
+      camposFinales.verifactu_qr_imagen = res.qrImagen;
+      camposFinales.verifactu_estado = res.transmision;
+      camposFinales.verifactu_csv = res.csv;
+      salida = { ...salida, fiskaly: { estado: res.estado, transmision: res.transmision, csv: res.csv, qrUrl: res.qrUrl } };
+    } catch (e) {
+      console.error('[sellarFacturaDeRecibo] Fiskaly:', e instanceof Error ? e.message : e);
+      // Se sigue con la huella propia; queda registro en logs para revisar.
+    }
+  }
+
+  // UPDATE por id (PK, sin condición de carrera posible ahí) — acotado además
+  // a verifactu_hash IS NULL: si otra llamada concurrente para esta MISMA
+  // factura ya completó el sellado mientras se calculaba la huella aquí
+  // (dos reintentos casi simultáneos del webhook, p. ej.), no se pisa su
+  // resultado ya persistido — se devuelve el suyo.
+  const { data: actualizada, error: errorUpdate } = await admin
+    .from('facturas')
+    .update(camposFinales)
+    .eq('id', facturaId)
+    .eq('studio_id', studioId)
+    .is('verifactu_hash', null)
+    .select(COLS_SELLO)
+    .maybeSingle();
+
+  if (errorUpdate) {
+    console.error('[sellarFacturaDeRecibo]', errorUpdate.message);
     return { ok: false, error: 'No se ha podido guardar la factura sellada.' };
+  }
+
+  if (!actualizada) {
+    const final = await cargarExistente();
+    if (final?.verifactu_hash) {
+      return { ok: true, yaExistia: true, factura: mapSalida(final) };
+    }
+    console.error('[sellarFacturaDeRecibo] el UPDATE no afectó ninguna fila y no se encontró un sellado final para', facturaId);
+    return { ok: false, error: 'No se ha podido confirmar el sellado de la factura.' };
   }
 
   return {
     ok: true,
-    sellada: Boolean(nifEmisor),
-    aviso: nifEmisor ? null : 'La factura se guardó sin huella Veri*Factu: falta el NIF fiscal del estudio.',
+    sellada: true,
+    aviso: null,
     factura: { ...salida, numeroCompleto, fechaEmision, receptorNombre, receptorNIF, baseImponible, cuotaIVA, total },
   };
 }
