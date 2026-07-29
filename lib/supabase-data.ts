@@ -3795,11 +3795,12 @@ export async function dbDeleteProductoPOS(id: string) {
 // dejar pasar el error. Si tras los intentos sigue ausente, se reporta igual: no
 // enmascara una FK realmente rota (solo reintenta ese código+constraint concretos).
 async function conReintentoFK<T extends { error: { code: string; message: string } | null }>(
-  constraint: string,
+  constraint: string | string[],
   insertar: () => PromiseLike<T>,
 ): Promise<T> {
+  const constraints = Array.isArray(constraint) ? constraint : [constraint];
   let res = await insertar();
-  for (let i = 0; i < 3 && res.error?.code === '23503' && res.error.message.includes(constraint); i++) {
+  for (let i = 0; i < 3 && res.error?.code === '23503' && constraints.some(c => res.error!.message.includes(c)); i++) {
     await new Promise((r) => setTimeout(r, 150 * (i + 1)));
     res = await insertar();
   }
@@ -4121,7 +4122,10 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
 }
 
 export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
-  const { error } = await conReintentoFK('recibos_socio_id_fkey', () =>
+  // assignPlan() encadena dbInsertSuscripcion + dbInsertRecibo con la suscripción
+  // recién creada: mismo commit-race que socio_id (Sentry NEXTJS-W), pero antes
+  // solo se reintentaba para socio_id — la FK de suscripcion_id fallaba a la primera.
+  const { error } = await conReintentoFK(['recibos_socio_id_fkey', 'recibos_suscripcion_id_fkey'], () =>
     supabase.from('recibos').insert(reciboToDb(rec)),
   );
   return error ? falloEscritura('[dbInsertRecibo]', error) : ESCRITURA_OK;
