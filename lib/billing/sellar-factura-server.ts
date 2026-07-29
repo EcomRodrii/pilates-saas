@@ -166,7 +166,13 @@ export async function sellarFacturaDeRecibo(
       }
     }
 
-    const fechaEmisionCalc = new Date().toISOString();
+    // fecha_emision es un `date` (sin huso) — hay que anclarlo al día natural en
+    // Europe/Madrid, no al de new Date().toISOString() (UTC). Una factura sellada
+    // entre las 22:00 y las 00:59 (invierno) o 23:00-00:59 (verano) en Madrid caía
+    // en el DÍA/AÑO ANTERIOR según UTC: se archivaba en el trimestre/año fiscal
+    // equivocado, y el registro Veri*Factu ante la AEAT quedaba con esa misma
+    // fecha errónea (no es solo un informe descuadrado, es el propio registro legal).
+    const fechaEmisionCalc = fechaHoraHusoMadrid(new Date()).slice(0, 10);
 
     // Reserva atómica: numero_completo + verifactu_seq + verifactu_prev_hash +
     // el INSERT inicial, todo dentro de la RPC (advisory lock por estudio).

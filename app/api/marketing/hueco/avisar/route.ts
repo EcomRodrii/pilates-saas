@@ -60,8 +60,17 @@ export async function POST(req: NextRequest) {
 
     // Confirma que sigue siendo una sesión futura por debajo del umbral —
     // protege contra un doble clic sobre datos ya obsoletos.
+    //
+    // El aforo usado aquí tiene que ser el EFECTIVO (descontando máquinas
+    // averiadas en bloqueos_maquina, igual que aforo_efectivo() en la BD y
+    // reservar_plaza), no el aforoMaximo en bruto: si no, el radar podía avisar
+    // por WhatsApp de un hueco que en realidad no existe porque la sala tiene
+    // reformers de baja, y la socia llegaba a una clase ya llena.
+    const { data: aforoEfectivo } = await admin.rpc('aforo_efectivo', { p_sesion_id: sesionId });
+    const sesionParaRadar = typeof aforoEfectivo === 'number' ? { ...sesionObj, aforoMaximo: aforoEfectivo } : sesionObj;
+
     const ahora = new Date();
-    const huecos = clasesConHuecoProximas({ sesiones: [sesionObj], reservas, ahora });
+    const huecos = clasesConHuecoProximas({ sesiones: [sesionParaRadar], reservas, ahora });
     if (huecos.length === 0) {
       return NextResponse.json({ error: 'Esta clase ya no tiene hueco (o ya no está en la ventana de aviso)' }, { status: 409 });
     }

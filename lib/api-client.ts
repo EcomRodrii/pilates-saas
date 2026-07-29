@@ -1059,12 +1059,18 @@ export async function borrarAusencia(id: string): Promise<boolean> {
 
 // Avisa (in-app/push) a las socias apuntadas de que su clase se ha cancelado.
 // El email lo manda aparte el panel; esto dispara el Notification Engine.
+// deleteSesion (studio-context.tsx) ESPERA esta llamada antes de borrar la
+// sesión — sin timeout, una conexión colgada dejaba la clase visible
+// indefinidamente mientras el resto de la UI seguía como si ya estuviera
+// borrada. Mismo AbortSignal.timeout que entregarExternos() en
+// lib/notifications/engine.ts.
 export async function avisarClaseCancelada(sesionId: string): Promise<void> {
   try {
     await fetch('/api/clases/avisar-cancelada', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ sesionId }),
+      signal: AbortSignal.timeout(10_000),
     });
   } catch { /* best-effort: no bloquea la cancelación */ }
 }
