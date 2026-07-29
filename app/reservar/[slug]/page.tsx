@@ -206,6 +206,14 @@ export default function ReservarPage() {
 
   // Booking flow
   const [bookingSesionId, setBookingSesionId] = useState<string | null>(null);
+  // Anti doble-reserva: handleConfirm es async (alta de walk-in `soc-…` + reserva).
+  // `confirmando` da el feedback visual (botón deshabilitado/"Confirmando…");
+  // `confirmandoRef` es el cerrojo real — sincrónico, así que cierra la ventana
+  // que el estado de React (asíncrono/por lotes) deja abierta ante un doble clic
+  // muy rápido, donde ambas pulsaciones podrían leer `confirmando` como false
+  // antes de que el primer render se confirme.
+  const [confirmando, setConfirmando] = useState(false);
+  const confirmandoRef = useRef(false);
   const [loginForm, setLoginForm] = useState({ nombre: '', email: '' });
   const [loginStep, setLoginStep] = useState<Step>('login');
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
@@ -213,7 +221,6 @@ export default function ReservarPage() {
   const [gateError, setGateError] = useState('');
   const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
   const [cancelandoPlaza, setCancelandoPlaza] = useState(false);
-  const [confirmando, setConfirmando] = useState(false);
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que /login.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -505,7 +512,9 @@ export default function ReservarPage() {
   }
 
   async function handleConfirm() {
-    if (!bookingSesionId || confirmando) return;
+    // `confirmando` (estado) + `confirmandoRef` (sincrónico): ver comentario
+    // en su declaración. Cualquiera de los dos ya en marcha aborta.
+    if (!bookingSesionId || confirmando || confirmandoRef.current) return;
     const sesion = sesionesRich.find(s => s.id === bookingSesionId);
     if (!sesion) return;
 
@@ -515,6 +524,7 @@ export default function ReservarPage() {
     if (gate) { setGateError(gate); return; }
 
     setGateError('');
+    confirmandoRef.current = true;
     setConfirmando(true);
     try {
       let socioIdParaReserva = socia?.socioId ?? '';
@@ -560,6 +570,7 @@ export default function ReservarPage() {
       }
       setLoginStep(r.estado === 'LISTA_ESPERA' ? 'espera' : 'done');
     } finally {
+      confirmandoRef.current = false;
       setConfirmando(false);
     }
   }
@@ -1338,7 +1349,7 @@ export default function ReservarPage() {
                   </div>
                 )}
                 <button onClick={handleConfirm} disabled={confirmando}
-                  className="w-full py-3 rounded-2xl font-bold text-white disabled:opacity-60"
+                  className="w-full py-3 rounded-2xl font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ backgroundColor: PRIMARY }}>
                   {confirmando ? 'Confirmando…' : 'Confirmar reserva'}
                 </button>

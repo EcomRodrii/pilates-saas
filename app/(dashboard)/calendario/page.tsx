@@ -1872,7 +1872,12 @@ export default function Calendario() {
   }
 
   async function editarSesion() {
-    if (!sesionId || horaInvalida) return;
+    // Guard anti doble-guardado: el botón se apoya en `guardandoSesion` pero
+    // esta función nunca lo activaba → doble clic reescribía dos veces y
+    // reenviaba el aviso de "clase modificada" a todas las apuntadas.
+    if (!sesionId || horaInvalida || guardandoSesion) return;
+    setGuardandoSesion(true);
+    try {
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
     // Comparar INSTANTES, no cadenas. Postgres devuelve la marca de tiempo como
     // "2026-08-08T13:00:00+00:00" y `toISO` produce "2026-08-08T13:00:00.000Z":
@@ -1932,6 +1937,9 @@ export default function Calendario() {
     }
     setShowForm(null);
     setToast('Clase actualizada');
+    } finally {
+      setGuardandoSesion(false);
+    }
   }
 
   // Sustitución de instructora (avisa que no puede dar la clase, típicamente
@@ -1989,7 +1997,9 @@ export default function Calendario() {
   // aforo/notas y la hora (manteniendo la fecha de cada sesión). La fecha del
   // form no se propaga —cada sesión conserva su día—, solo la hora.
   async function editarSerie() {
-    if (!sesionId || horaInvalida) return;
+    if (!sesionId || horaInvalida || guardandoSesion) return;
+    setGuardandoSesion(true);
+    try {
     const n = sesionesEnriquecidas.filter(s => {
       const base = sesionesEnriquecidas.find(x => x.id === sesionId);
       return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio;
@@ -2028,6 +2038,9 @@ export default function Calendario() {
     }
     setShowForm(null);
     setToast(`Serie actualizada · ${n} clases`);
+    } finally {
+      setGuardandoSesion(false);
+    }
   }
 
   async function cancelarSesion() {

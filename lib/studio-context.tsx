@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { fijarEtiqueta, capturarMensaje } from '@/lib/sentry-cliente';
 import { CoreProvider } from '@/lib/core-context';
@@ -537,6 +537,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [recibos, setRecibos] = useState<Recibo[]>([]);
   const [facturas, setFacturas] = useState<Factura[]>([]);
+  // Cerrojo de re-entrada por recibo: dos clics rapidísimos en "Cobrar" (mismo
+  // recibo) capturan el mismo estado obsoleto y sellan DOS facturas fiscales
+  // para un único cobro. El Set bloquea el segundo disparo del MISMO recibo;
+  // ids distintos (cobro masivo) siguen corriendo en paralelo sin trabas.
+  const cobrosEnCursoRef = useRef<Set<string>>(new Set());
   const [notasInternas, setNotasInternas] = useState<NotaInterna[]>([]);
   const [condicionesSalud, setCondicionesSalud] = useState<CondicionSalud[]>([]);
   const [respuestasSesion, setRespuestasSesion] = useState<RespuestaSesionRow[]>([]);
@@ -2276,6 +2281,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function marcarCobrado(reciboId: string, metodo?: MetodoCobro): Promise<ResultadoEscritura> {
+    // Re-entrada: si este recibo ya se está cobrando (doble clic), no se repite
+    // el sellado de factura ni la renovación del bono. Se responde ok para no
+    // marcar como fallido el segundo intento del mismo recibo en el cobro masivo.
+    if (cobrosEnCursoRef.current.has(reciboId)) return { ok: true };
+    cobrosEnCursoRef.current.add(reciboId);
+    try {
     const fechaCobro = new Date().toISOString();
     // F2 (B2.6): cobro sin pasarela de primera clase. La dueña marca cómo cobró de
     // verdad (Bizum/efectivo/transferencia…), no solo "cobrado". La suscripción vive
@@ -2319,6 +2330,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       }
     }
     return res;
+    } finally {
+      cobrosEnCursoRef.current.delete(reciboId);
+    }
   }
 
   async function marcarDevuelto(reciboId: string): Promise<ResultadoEscritura> {
