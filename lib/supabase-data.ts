@@ -113,6 +113,7 @@ import type {
   NotaInterna,
   NotaProgreso,
   Notificacion,
+  NivelSemaforo,
   PlanTarifa,
   PostComunidad,
   ComentarioComunidad,
@@ -4861,6 +4862,21 @@ export async function dbUpdateCondicion(id: string, changes: Partial<CondicionSa
 export async function dbDeleteCondicion(id: string) {
   const { error } = await supabase.from('condiciones_salud').delete().eq('id', id);
   if (error) reportDbError('[dbDeleteCondicion]', error);
+}
+
+// RECEPCIÓN ve el semáforo de salud (solo el color) pero la RLS de
+// condiciones_salud no le deja leer las filas — `condicionesSalud` en el
+// contexto llega vacío para ese rol, así que ningún cálculo LOCAL puede
+// producir un color. Esta RPC (SECURITY DEFINER) expone el nivel ya
+// calculado en servidor, sin las condiciones ni el motivo.
+export async function dbSemaforoSaludEstudio(studioId: string): Promise<Map<string, NivelSemaforo>> {
+  const { data, error } = await supabase.rpc('semaforo_salud_estudio', { p_studio_id: studioId });
+  if (error) { reportDbError('[dbSemaforoSaludEstudio]', error); return new Map(); }
+  const m = new Map<string, NivelSemaforo>();
+  for (const row of (data ?? []) as { socio_id: string; nivel: string }[]) {
+    m.set(row.socio_id, row.nivel as NivelSemaforo);
+  }
+  return m;
 }
 
 export async function dbInsertRespuestaSesion(r: RespuestaSesionRow) {

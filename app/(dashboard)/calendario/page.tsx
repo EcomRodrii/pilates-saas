@@ -3,8 +3,9 @@
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useStudio } from '@/lib/studio-context';
+import { dbSemaforoSaludEstudio, getCurrentStudioId } from '@/lib/supabase-data';
 import { queImparten } from '@/lib/equipo';
-import { useRol, puedeVerFichaClinica, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida } from '@/lib/types';
@@ -359,7 +360,9 @@ function SessionSidebar({
   onAsignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
 }) {
   const { studio, condicionesSalud, respuestasSesion, registrarRespuestaSesion } = useStudio();
-  const verFichaClinica = puedeVerFichaClinica(useRol());
+  const rolCalendario = useRol();
+  const verFichaClinica = puedeVerFichaClinica(rolCalendario);
+  const verSemaforo = puedeVerSemaforo(rolCalendario);
   const [buscarSocia, setBuscarSocia] = useState('');
   const [showAnadir, setShowAnadir] = useState(false);
   const [showConfirm, setShowConfirm] = useState<'cancelar' | 'eliminar' | null>(null);
@@ -369,7 +372,10 @@ function SessionSidebar({
   const [prepIAError, setPrepIAError] = useState(false);
 
   // Ficha clínica: condiciones por socia + alertas antes de la clase (§4, §7).
-  // Solo PROPIETARIO/INSTRUCTOR; RECEPCIÓN no ve semáforo ni motivo (§11).
+  // Solo PROPIETARIO/INSTRUCTOR ven el motivo/detalle; RECEPCIÓN solo el
+  // semáforo (§11) — por eso `condicionesPorSocio` (detalle completo) sigue
+  // detrás de `verFichaClinica`, y el color del semáforo vive en un mapa
+  // aparte más ligero (solo nivel, sin condiciones) para RECEPCIÓN.
   const hoy = useMemo(() => new Date(), []);
   const condicionesPorSocio = useMemo(() => {
     const m = new Map<string, typeof condicionesSalud>();
@@ -381,6 +387,32 @@ function SessionSidebar({
     }
     return m;
   }, [condicionesSalud, verFichaClinica]);
+
+  const nivelSemaforoPorSocio = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof semaforo>>();
+    if (!verSemaforo) return m;
+    const grupos = new Map<string, typeof condicionesSalud>();
+    for (const c of condicionesSalud) {
+      const arr = grupos.get(c.socioId) ?? [];
+      arr.push(c);
+      grupos.set(c.socioId, arr);
+    }
+    for (const [socioId, conds] of grupos) m.set(socioId, semaforo(conds));
+    return m;
+  }, [condicionesSalud, verSemaforo]);
+
+  // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
+  // leer las filas — el mapa de arriba nunca produce nada para ese rol
+  // porque `condicionesSalud` le llega vacío. La RPC semaforo_salud_estudio
+  // (SECURITY DEFINER) expone solo el nivel ya calculado, sin condiciones.
+  const [semaforoRecepcion, setSemaforoRecepcion] = useState<Map<string, ReturnType<typeof semaforo>>>(new Map());
+  useEffect(() => {
+    if (rolCalendario !== 'RECEPCION') return;
+    let cancel = false;
+    dbSemaforoSaludEstudio(getCurrentStudioId()).then(m => { if (!cancel) setSemaforoRecepcion(m); });
+    return () => { cancel = true; };
+  }, [rolCalendario]);
+  const semaforoParaMostrar = rolCalendario === 'RECEPCION' ? semaforoRecepcion : nivelSemaforoPorSocio;
 
   const alertasClase = useMemo(() => {
     if (!verFichaClinica) return [] as string[];
@@ -781,8 +813,7 @@ function SessionSidebar({
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate flex items-center gap-1.5">
                         {(() => {
-                          const conds = condicionesPorSocio.get(r.socioId);
-                          const nivel = conds ? semaforo(conds) : 'VERDE';
+                          const nivel = semaforoParaMostrar.get(r.socioId) ?? 'VERDE';
                           return nivel !== 'VERDE' ? (
                             <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[nivel].label} style={{ backgroundColor: SEMAFORO_META[nivel].color }} />
                           ) : null;
