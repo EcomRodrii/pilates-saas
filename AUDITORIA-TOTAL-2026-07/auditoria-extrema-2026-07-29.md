@@ -36,6 +36,16 @@
 **Solución:** o quitar la pista en pantallas táctiles/sin teclado físico detectado, o cambiarla por algo más útil para todos ("Elige una opción").
 **Prioridad:** 🟢 Baja — cosmético.
 
+**Estado:** arreglados los 3 (404 en español, fogonazo con `useLayoutEffect` en `components/landing/Reveal.tsx`, y esta pista cambiada a "Elige una opción" en `components/onboarding/pantalla-bienvenida.tsx`).
+
+### 8. (NUEVO, encontrado al verificar el arreglo del #2 — SIN ARREGLAR, necesita más investigación) Cargar la landing directamente en una URL con ancla (`/#precio`, `/#faq`) se queda completamente en blanco
+**Dónde:** `tentare.app/#precio` (o cualquier ancla) cargado en frío, es decir, pegando esa URL directamente en el navegador o abriendo un enlace que la lleve — no navegando desde dentro de la web.
+**Cómo lo encontré:** verificando en navegador que mi arreglo del hallazgo #2 (el fogonazo de contraste) funcionaba, encontré algo peor: cargar `/#precio` directamente deja la página en blanco de forma **permanente** (esperé más de 10s, no 1-2s como el fogonazo original). Confirmé con `getBoundingClientRect()` por JS que el contenido de la sección "Precio" sigue ahí en el DOM, con el texto correcto, pero nunca se pinta.
+**Aislado:** deshice temporalmente mi cambio en `Reveal.tsx` (`git stash`) y el blanco **persistía igual** — así que no lo causé yo, ya estaba ahí. Cargar la home sin ancla (`/`) funciona perfectamente y al instante. El problema es específico de aterrizar con un `#ancla` ya en la URL en la primera carga.
+**Lo que NO llegué a confirmar:** la causa raíz exacta. Sospecho de la interacción entre el scroll nativo del navegador a la sección ancla y algún componente de la propia página (vi un `<div class="tnt-intro">` con `opacity:0` y `display:grid` en el árbol, que podría ser un resto de una animación de introducción a pantalla completa que no se hace bien en frío) — pero no lo verifiqué hasta el fondo por respeto al alcance de este encargo (arreglar 3 cosas ya diagnosticadas, no abrir una investigación nueva sin límite).
+**Impacto potencial:** cualquier enlace compartido a una sección concreta de la landing (por ejemplo, un anuncio o email que enlace directo a `/#precio`) dejaría a quien lo abre con una pantalla en blanco. Alto si se confirma, pero **lo marco como no confirmado del todo** a propósito — ver [[verificar-antes-de-afirmar-impacto]].
+**Prioridad:** 🟠 Alta si se confirma — recomiendo abrirlo como tarea aparte con tiempo dedicado, no colarlo en este mismo commit de arreglos pequeños.
+
 ---
 
 ## Lo que funciona bien (para no perder de vista el conjunto)
