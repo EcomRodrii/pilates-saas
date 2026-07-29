@@ -86,8 +86,11 @@ export interface MiembroEquipo {
 
 export const fetchEquipo = () => pedir<{ equipo: MiembroEquipo[]; yo: string }>('/equipo');
 
-export const altaEnEquipo = (cuerpo: { email: string; nombre: string; cargo: string; permisos: string[] }) =>
-  pedir<{ ok: true; userId: string }>('/equipo', { method: 'POST', body: JSON.stringify(cuerpo) });
+export const altaEnEquipo = (
+  cuerpo: { email: string; nombre: string; cargo: string; permisos: string[]; password?: string },
+) => pedir<{ ok: true; userId: string; cuentaCreada: boolean }>('/equipo', {
+  method: 'POST', body: JSON.stringify(cuerpo),
+});
 
 export const cambiarMiembro = (userId: string, cuerpo: { activo?: boolean; permisos?: string[]; cargo?: string | null }) =>
   pedir<{ ok: true; sinCambios: boolean }>(`/equipo/${userId}`, { method: 'PATCH', body: JSON.stringify(cuerpo) });
