@@ -52,6 +52,19 @@ export async function POST(req: NextRequest) {
         .gte('fecha', desde).lte('fecha', hasta).range(from, to)),
   ]);
 
+  // fetchAllRows puede devolver datos PARCIALES + error si una página falla a
+  // media paginación (ya reintenta cada página, esto es tras agotar eso). Sin
+  // esta comprobación, un cierre truncado a medias se habría mandado igual —
+  // exactamente el fallo que este endpoint existe para evitar, solo que por
+  // otra vía (un fallo de red, no el límite de 1000 filas de PostgREST).
+  if (facRes.error || manRes.error) {
+    return errorInterno(
+      'cierre:enviar-gestoria:fetch',
+      facRes.error ?? manRes.error,
+      'No se han podido leer todas las facturas/ingresos de este año. Inténtalo de nuevo antes de enviar el cierre.',
+    );
+  }
+
   // Guarda el email de la gestoría para no volver a pedirlo (no rompe si falla).
   await admin.from('studios').update({ gestoria_email: email }).eq('id', sid);
 

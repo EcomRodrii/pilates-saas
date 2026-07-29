@@ -1865,18 +1865,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // que nunca llegó a existir en la base de datos, así que el cobro
       // correspondiente jamás se registraba.
       const resRecibo = await dbInsertRecibo(reciboRenovacion);
-      if (!resRecibo.ok) {
+      const reciboGuardado = resRecibo.ok;
+      if (!reciboGuardado) {
         setRecibos(prev => prev.filter(r => r.id !== reciboRenovacion.id));
         capturarMensaje('[consumirSesionBono] no se pudo crear el recibo de renovación', 'error', {
           extra: { socioId, sesionId, suscripcionId: sus.id, error: resRecibo.error },
         });
-        return;
       }
+      // El bono agotado es un hecho real (la RPC ya lo confirmó arriba) sea o
+      // no se haya podido guardar el recibo automático: avisar a la dueña
+      // SIEMPRE, para que no pierda de vista una renovación pendiente solo
+      // porque el recibo automático falló — antes, ese fallo también se comía
+      // el aviso entero y nadie se enteraba de que había que renovar.
       setNotificaciones(prev => [{
         id: `notif-bono-${uid()}`,
         studioId: getCurrentStudioId(),
         titulo: 'Bono agotado',
-        texto: `${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`,
+        texto: reciboGuardado
+          ? `${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`
+          : `${nombreSocio} ha consumido su último bono de ${plan.nombre}. No se ha podido generar el recibo de renovación automático — créalo a mano.`,
         leida: false,
         tipo: 'AVISO' as const,
         enlace: `/socios/${socioId}`,

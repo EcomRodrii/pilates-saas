@@ -1643,6 +1643,10 @@ export async function fetchPublicStudioData(
   // (auditoría 2026-07-29, hallazgo 2.3) — y de paso se traía miles de filas
   // ajenas para tirar casi todas. Filtrando por sus propios recibo_id, la
   // consulta nunca puede rozar ese límite (acotada al historial de UNA socia).
+  // El corto-circuito con longitud 0 no es por corrección (`.in()` con un array
+  // vacío ya devuelve cero filas en PostgREST), es a propósito para no gastar
+  // un viaje de red entero en una socia recién dada de alta que aún no tiene
+  // ningún recibo.
   const { data: facData } = misReciboIds.length > 0
     ? await admin.from('facturas').select('*').eq('studio_id', studioId).in('recibo_id', misReciboIds)
     : { data: [] as RowFacturas[] };
@@ -2581,24 +2585,50 @@ export async function registrarSociaPublica(params: {
     if (yaSocia) return { ok: true as const, socioId: yaSocia };
   }
 
+  // El referido solo es válido si existe una socia con ese id en el estudio.
+  // Se resuelve ANTES de la adopción de ficha fantasma (justo abajo): esa rama
+  // también tiene que poder escribir referido_por, o el premio de quien invitó
+  // se pierde en silencio cada vez que la referida ya tenía una ficha fantasma.
+  let referido: string | null = null;
+  if (params.referidoPor && params.referidoPor !== params.id) {
+    const { data } = await admin.from('socios').select('id').eq('id', params.referidoPor).eq('studio_id', params.studioId).maybeSingle();
+    referido = data ? params.referidoPor : null;
+  }
+
   // Ficha "fantasma": entregarPlanComprado (compra pública vía Stripe, sin
   // login previo) puede haber creado ya una socia con este email pero SIN
   // auth_user_id -- solo pagó, nunca inició sesión. Si no se adopta aquí, este
   // alta crea una SEGUNDA ficha con id distinto, y el bono ya cobrado queda
   // invisible para siempre en la fantasma (auditoría 2026-07-29, hallazgo 2.2).
-  const { data: fantasma } = await admin
+  // .limit(1) en vez de .maybeSingle(): si dos compras casi simultáneas de un
+  // mismo email sin cuenta llegaran a crear dos fantasmas (carrera infrecuente
+  // en entregarPlanComprado), .maybeSingle() habría devuelto un error de
+  // "more than one row" que este código ignoraba — cayendo al alta normal y
+  // dejando AMBOS bonos huérfanos para siempre. Con .limit(1) siempre se
+  // adopta uno de forma determinista en vez de no adoptar ninguno.
+  const { data: fantasmas } = await admin
     .from('socios')
     .select('id')
     .eq('studio_id', params.studioId)
     .ilike('email', params.email)
     .is('auth_user_id', null)
-    .maybeSingle();
+    .limit(1);
+  const fantasma = fantasmas?.[0];
   if (fantasma) {
     const { error } = await admin.from('socios').update({
       auth_user_id: params.authUserId ?? null,
+      // La ficha fantasma nace de entregarPlanComprado con lo que Stripe haya
+      // recogido (a veces nada más que "Clienta") — se sincroniza con el
+      // nombre real que acaba de escribir en el alta, igual que el alta normal.
+      nombre: params.nombre,
+      apellidos: '',
       aceptacion_fecha: params.aceptacion?.fecha ?? null,
       aceptacion_firma: params.aceptacion?.firma ?? null,
       aceptacion_version: params.aceptacion?.versionTexto ?? null,
+      // Sin esto, revisión de auditoría: la ficha fantasma no traía
+      // referido_por (entregarPlanComprado no acepta código de referido), así
+      // que adoptarla sin escribirlo aquí perdía el premio de quien invitó.
+      ...(referido ? { referido_por: referido } : {}),
     }).eq('id', fantasma.id);
     if (error) return { error: error.message };
     return { ok: true as const, socioId: fantasma.id as string };
@@ -2615,13 +2645,6 @@ export async function registrarSociaPublica(params: {
   // tope solo se aplica cuando de verdad va a entrar una socia nueva.
   const denegacion = await evaluarLimiteSocias(params.studioId, await contarSociasActivas(admin, params.studioId), 1);
   if (denegacion) return { error: denegacion.error, code: denegacion.code };
-
-  // El referido solo es válido si existe una socia con ese id en el estudio.
-  let referido: string | null = null;
-  if (params.referidoPor && params.referidoPor !== params.id) {
-    const { data } = await admin.from('socios').select('id').eq('id', params.referidoPor).eq('studio_id', params.studioId).maybeSingle();
-    referido = data ? params.referidoPor : null;
-  }
 
   const { error } = await admin.from('socios').insert({
     id: params.id, studio_id: params.studioId, nombre: params.nombre, apellidos: '',
