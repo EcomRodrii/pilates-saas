@@ -157,7 +157,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   function guardarEstudio() {
     if (nifInvalido) { showToast('El NIF/CIF no es válido: revisa la letra o el dígito de control.'); return; }
     // El año va como texto en el formulario (un input vacío es '', no null) y a
-    // la base como número o nada. La migración 0133 lo acota a 1900-2200; aquí
+    // la base como número o nada. La migración 0134 lo acota a 1900-2200; aquí
     // se avisa antes para no gastar un viaje al servidor en un dedazo.
     const anio = form.anioFundacion.trim();
     if (anio && !/^\d{4}$/.test(anio)) { showToast('El año de apertura tiene que ser de cuatro cifras.'); return; }
