@@ -97,6 +97,11 @@ async function mockBackend(page: Page, opts: { tarifas?: typeof TARIFAS } = {}) 
   await page.route('**/rest/v1/planes_tarifa**', route => json(route, opts.tarifas ?? TARIFAS));
 }
 
+/** El panel del emparejador. Acotar es obligatorio: los mismos nombres de plan
+ *  salen también en la tabla de muestra del archivo, y sin ámbito Playwright
+ *  encuentra dos elementos y falla por strict mode. Lo descubrió CI. */
+const panel = (page: Page) => page.getByTestId('mapeo-planes');
+
 async function subirYRevisar(page: Page, csv = CSV_MOMENCE) {
   await page.goto('/migracion');
   await expect(page.getByRole('button', { name: /Analizar|Subir|arrastra/i }).first())
@@ -114,12 +119,12 @@ test.describe('Emparejar los planes del CSV con las tarifas del estudio', () => 
     await seedSesionDeDuena(page);
     await subirYRevisar(page);
 
-    await expect(page.getByText('Tus tarifas se llaman distinto que en tu software anterior')).toBeVisible();
+    await expect(panel(page).getByText('Tus tarifas se llaman distinto que en tu software anterior')).toBeVisible();
     // Los tres nombres ingleses, y el que arrastra 2 filas va primero.
-    await expect(page.getByText('10 Class Pack')).toBeVisible();
-    await expect(page.getByText('Monthly Unlimited')).toBeVisible();
-    await expect(page.getByText('Drop-in')).toBeVisible();
-    await expect(page.getByText('2 filas')).toBeVisible();
+    await expect(panel(page).getByText('10 Class Pack')).toBeVisible();
+    await expect(panel(page).getByText('Monthly Unlimited')).toBeVisible();
+    await expect(panel(page).getByText('Drop-in')).toBeVisible();
+    await expect(panel(page).getByText('2 filas')).toBeVisible();
   });
 
   test('elegir una tarifa lo saca de pendientes', async ({ page }) => {
@@ -128,9 +133,9 @@ test.describe('Emparejar los planes del CSV con las tarifas del estudio', () => 
     await subirYRevisar(page);
 
     await page.getByLabel('Tarifa para «10 Class Pack»').selectOption('pt-ref');
-    await expect(page.getByText('10 Class Pack')).toHaveCount(0);
+    await expect(panel(page).getByText('10 Class Pack')).toHaveCount(0);
     // Los otros dos siguen ahí: se resuelve uno a uno.
-    await expect(page.getByText('Monthly Unlimited')).toBeVisible();
+    await expect(panel(page).getByText('Monthly Unlimited')).toBeVisible();
   });
 
   test('"no importar" también es una decisión y también lo cierra', async ({ page }) => {
@@ -141,7 +146,7 @@ test.describe('Emparejar los planes del CSV con las tarifas del estudio', () => 
     await subirYRevisar(page);
 
     await page.getByLabel('Tarifa para «Drop-in»').selectOption('NO_IMPORTAR');
-    await expect(page.getByText('Drop-in')).toHaveCount(0);
+    await expect(panel(page).getByText('Drop-in')).toHaveCount(0);
   });
 
   test('resueltos los tres, el panel deja de pedir nada', async ({ page }) => {
@@ -153,8 +158,8 @@ test.describe('Emparejar los planes del CSV con las tarifas del estudio', () => 
     await page.getByLabel('Tarifa para «Monthly Unlimited»').selectOption('pt-mes');
     await page.getByLabel('Tarifa para «Drop-in»').selectOption('NO_IMPORTAR');
 
-    await expect(page.getByText('Planes emparejados')).toBeVisible();
-    await expect(page.getByText('Todo listo: cada plan del archivo tiene su tarifa.')).toBeVisible();
+    await expect(panel(page).getByText('Planes emparejados')).toBeVisible();
+    await expect(panel(page).getByText('Todo listo: cada plan del archivo tiene su tarifa.')).toBeVisible();
     await expect(page.getByRole('button', { name: /Deshacer los 3 emparejamientos/ })).toBeVisible();
   });
 
@@ -163,8 +168,8 @@ test.describe('Emparejar los planes del CSV con las tarifas del estudio', () => 
     await seedSesionDeDuena(page);
     await subirYRevisar(page);
 
-    await expect(page.getByText(/Todavía no tienes tarifas creadas/)).toBeVisible();
-    await expect(page.getByText(/Configuración → Planes y tarifas/)).toBeVisible();
+    await expect(panel(page).getByText(/Todavía no tienes tarifas creadas/)).toBeVisible();
+    await expect(panel(page).getByText(/Configuración → Planes y tarifas/)).toBeVisible();
   });
 
   test('si los planes YA casan, no se molesta con el panel', async ({ page }) => {
@@ -177,6 +182,6 @@ test.describe('Emparejar los planes del CSV con las tarifas del estudio', () => 
       'bego@example.com,Mensual ilimitado,',
     ].join('\n'));
 
-    await expect(page.getByText('Tus tarifas se llaman distinto que en tu software anterior')).toHaveCount(0);
+    await expect(panel(page)).toHaveCount(0);
   });
 });

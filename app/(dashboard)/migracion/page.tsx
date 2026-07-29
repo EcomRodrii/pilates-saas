@@ -555,7 +555,7 @@ export default function MigracionPage() {
               filas de bonos con "no existe el plan X" y no tenía dónde decir
               que X es su Y. */}
           {(planesPendientes.length > 0 || planesYaMapeados > 0) && (
-            <div className="rounded-2xl border border-warning/40 bg-warning/5 p-4">
+            <div data-testid="mapeo-planes" className="rounded-2xl border border-warning/40 bg-warning/5 p-4">
               <div className="flex items-start gap-2">
                 <AlertTriangle size={15} className="shrink-0 mt-0.5 text-warning" />
                 <div>
