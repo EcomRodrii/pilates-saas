@@ -79,6 +79,19 @@ export const fetchFacturacion = () => pedir<Facturacion>('/facturacion');
 export const fetchEstudios = (q = '') => pedir<{ estudios: EstudioFila[] }>(`/estudios${q ? `?q=${encodeURIComponent(q)}` : ''}`);
 export const fetchFichaEstudio = (id: string) => pedir<FichaEstudio>(`/estudios/${id}`);
 
+export interface MiembroEquipo {
+  userId: string; email: string | null; nombre: string; cargo: string | null;
+  activo: boolean; creadoEn: string; ultimoAcceso: string | null; permisos: string[];
+}
+
+export const fetchEquipo = () => pedir<{ equipo: MiembroEquipo[]; yo: string }>('/equipo');
+
+export const altaEnEquipo = (cuerpo: { email: string; nombre: string; cargo: string; permisos: string[] }) =>
+  pedir<{ ok: true; userId: string }>('/equipo', { method: 'POST', body: JSON.stringify(cuerpo) });
+
+export const cambiarMiembro = (userId: string, cuerpo: { activo?: boolean; permisos?: string[]; cargo?: string | null }) =>
+  pedir<{ ok: true; sinCambios: boolean }>(`/equipo/${userId}`, { method: 'PATCH', body: JSON.stringify(cuerpo) });
+
 export interface EntradaAuditoria {
   id: number; ocurrido_en: string; actor_nombre: string; accion: string;
   objetivo_tipo: string | null; objetivo_id: string | null; resumen: string;
