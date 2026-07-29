@@ -56,11 +56,10 @@ export async function avisarAlumnas(
       resource: { type: 'sesion', id: params.sesionId },
       dedupKey: `clase-cancelada:${params.sesionId}`,
     });
-  } else {
-    // Cubrir o mover una clase es modificarla: `clase.modificada` ya existe con
-    // la audiencia y la plantilla correctas ("pasa a: {cuando} · {sala}{instructora}"),
-    // y `emitirClaseModificada` ya sabe formatear a la instructora entrante. No
-    // hace falta evento nuevo — hacía falta llamarlo.
+  } else if (params.tipo === 'reprogramada') {
+    // Mover una clase es modificarla: `clase.modificada` ya existe con la
+    // audiencia y la plantilla correctas, y `emitirClaseModificada` ya sabe
+    // formatearla. No hacía falta evento nuevo — hacía falta llamarlo.
     const { emitirClaseModificada } = await import('@/lib/notifications/emit');
     const { data: sala } = await admin
       .from('salas').select('nombre').eq('id', ses?.sala_id ?? '').maybeSingle();
@@ -68,11 +67,27 @@ export async function avisarAlumnas(
       studioId: params.studioId,
       sesionId: params.sesionId,
       clase: claseNombre,
-      cuando,                                  // ya es el horario NUEVO si se reprogramó
+      cuando,                                  // aquí `cuando` ya es el horario NUEVO
       sala: (sala?.nombre as string | null) ?? '',
-      // Solo al cubrir: en una reprogramación la instructora no cambia, y
-      // nombrarla haría pensar que sí.
-      instructora: params.tipo === 'cubierta' ? params.sustituta : undefined,
+      // La instructora no cambia al reprogramar; nombrarla haría pensar que sí.
+    });
+  } else {
+    // Cubrir NO es mover. Con `clase.modificada` el aviso decía "tu clase pasa a:
+    // <la misma hora de siempre>", que se lee como un cambio de horario: la
+    // alumna abre el móvil, cree que ya no le encaja y se plantea cancelar una
+    // clase que sigue exactamente donde estaba. De ahí su propio evento.
+    const { publish } = await import('@/lib/notifications/engine');
+    const { EVENTOS } = await import('@/lib/notifications/catalog');
+    await publish({
+      type: EVENTOS.CLASE_SUSTITUTA, studioId: params.studioId,
+      data: {
+        clase: claseNombre, cuando, slug: (estudio.slug as string | null) ?? '',
+        sesionId: params.sesionId,
+        // Con nombre y todo: "la da otra persona" es justo lo que no tranquiliza.
+        sustituta: params.sustituta ?? 'otra instructora',
+      },
+      resource: { type: 'sesion', id: params.sesionId },
+      dedupKey: `clase-cubierta:${params.sesionId}:${params.sustituta ?? ''}`,
     });
   }
 
