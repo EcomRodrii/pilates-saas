@@ -15,7 +15,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { verificarUsuarioSupabase } from '../auth-server.ts';
-import { tienePermiso, type Permiso } from './permisos.ts';
+import { tieneAlguno, tienePermiso, type Permiso } from './permisos.ts';
 
 export interface AdminInterno {
   userId: string;
@@ -75,6 +75,28 @@ export async function exigirPermiso(
     return {
       error: NextResponse.json(
         { error: `Te falta el permiso "${permiso}" para hacer esto.` },
+        { status: 403 },
+      ),
+    };
+  }
+  return { admin };
+}
+
+// Igual que `exigirPermiso` pero basta con UNO de los de la lista. Existe para
+// las pantallas que sirven a dos trabajos distintos: la lista del equipo la
+// necesita quien da de alta (`users.create`) y quien da de baja
+// (`users.delete`), y exigir los dos dejaría fuera a media plantilla.
+export async function exigirAlguno(
+  req: NextRequest, permisos: readonly Permiso[],
+): Promise<{ admin: AdminInterno } | { error: NextResponse }> {
+  const admin = await verificarAdminInterno(req);
+  if (!admin) {
+    return { error: NextResponse.json({ error: 'No autorizado' }, { status: 401 }) };
+  }
+  if (!tieneAlguno(admin.permisos, permisos)) {
+    return {
+      error: NextResponse.json(
+        { error: `Necesitas uno de estos permisos: ${permisos.join(', ')}.` },
         { status: 403 },
       ),
     };
