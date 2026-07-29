@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Clock, ChevronLeft, ChevronRight, X, CheckCircle2, Calendar, User } from 'lucide-react';
 import type { ServicioCita, DisponibilidadCita, Instructor } from '@/lib/types';
 import { PublicSheet } from '@/components/ui/public-sheet';
+import { serif, cq, radius, shadow } from '@/lib/reservar-publico-tokens';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reserva pública de citas 1:1 (widget /reservar). Flujo: servicio → instructora
@@ -165,22 +166,25 @@ export function CitasPublica({
       {/* 1) Servicio */}
       <div className="space-y-2">
         <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground px-1">1 · Elige el servicio</p>
-        <div className="grid gap-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {servicios.map(s => {
             const sel = s.id === servicioId;
             return (
               <button key={s.id}
                 onClick={() => { setServicioId(s.id); setInstructorId(null); setHuecos(null); }}
-                className="text-left rounded-2xl p-4 border transition-all bg-white flex items-center justify-between gap-3"
-                style={{ borderColor: sel ? primary : 'var(--portal-line)', boxShadow: sel ? `0 0 0 1px ${primary}` : undefined }}>
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color ?? primary }} />
-                  <div className="min-w-0">
-                    <p className="font-bold text-foreground text-sm truncate">{s.nombre}</p>
-                    <p className="text-muted-foreground text-xs">{s.duracionMin} min{s.precio != null ? ` · ${s.precio} €` : ''}</p>
-                  </div>
+                style={{
+                  textAlign: 'left', borderRadius: radius.card, padding: `${cq(20, 2.2, 26)} ${cq(20, 2.6, 30)}`,
+                  border: `1.5px solid ${sel ? primary : 'transparent'}`, background: 'var(--portal-surface)',
+                  display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 18, cursor: 'pointer',
+                  boxShadow: shadow.card, transition: 'border-color .35s ease, transform .5s cubic-bezier(.16,1,.3,1)',
+                }}>
+                <div style={{ flex: '1 1 150px', minWidth: 0 }}>
+                  <div style={{ fontFamily: serif, fontSize: cq(21, 2.2, 27), lineHeight: 1.05, color: 'var(--portal-ink)' }}>{s.nombre}</div>
+                  {s.descripcion && <p style={{ fontSize: 11.5, color: 'var(--portal-muted-2)', marginTop: 8 }}>{s.descripcion}</p>}
                 </div>
-                {sel && <CheckCircle2 size={18} style={{ color: primary }} className="shrink-0" />}
+                <div style={{ fontSize: 11, color: 'var(--portal-muted)', whiteSpace: 'nowrap' }}>{s.duracionMin} min</div>
+                {s.precio != null && <div style={{ fontFamily: serif, fontSize: cq(21, 2.2, 27), whiteSpace: 'nowrap', color: 'var(--portal-ink)' }}>{s.precio} €</div>}
+                {sel && <CheckCircle2 size={18} style={{ color: primary, flexShrink: 0 }} />}
               </button>
             );
           })}
@@ -233,12 +237,15 @@ export function CitasPublica({
                 const pasado = localDate(d) < localDate(hoy);
                 return (
                   <button key={key} disabled={pasado} onClick={() => setSelectedDay(key)}
-                    className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl border transition-all disabled:opacity-30"
-                    style={sel
-                      ? { backgroundColor: primary, color: primaryFg, borderColor: primary }
-                      : { backgroundColor: 'white', color: 'var(--portal-ink)', borderColor: 'var(--border)' }}>
-                    <span className="text-[9px] font-bold">{DOW_CORTO[d.getDay()]}</span>
-                    <span className="text-[15px] font-bold leading-none">{d.getDate()}</span>
+                    className="flex flex-col items-center gap-1 px-2 py-2 transition-all disabled:opacity-30"
+                    style={{
+                      borderRadius: radius.hour, border: 'none',
+                      ...(sel
+                        ? { backgroundColor: primary, color: primaryFg }
+                        : { backgroundColor: 'var(--portal-surface)', color: 'var(--portal-ink)' }),
+                    }}>
+                    <span style={{ fontSize: 9, fontWeight: 500, letterSpacing: '.1em' }}>{DOW_CORTO[d.getDay()]}</span>
+                    <span style={{ fontFamily: serif, fontSize: 17, lineHeight: 1 }}>{d.getDate()}</span>
                   </button>
                 );
               })}
@@ -255,11 +262,14 @@ export function CitasPublica({
               <span className="w-5 h-5 border-2 border-[var(--portal-line)] border-t-[var(--portal-ink)] rounded-full animate-spin" />
             </div>
           ) : (huecos && huecos.length > 0) ? (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 10 }}>
               {huecos.map(h => (
                 <button key={h.inicio} onClick={() => { setBooking(h); setResultado(null); }}
-                  className="py-2.5 rounded-xl text-sm font-bold border bg-white text-foreground hover:border-foreground transition-colors"
-                  style={{ borderColor: 'var(--border)' }}>
+                  style={{
+                    height: 54, borderRadius: radius.hour, background: 'var(--portal-surface)', border: '1.5px solid transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 500,
+                    color: 'var(--portal-ink)', cursor: 'pointer', transition: 'border-color .3s ease, transform .4s cubic-bezier(.16,1,.3,1)',
+                  }}>
                   {fmtHora(h.inicio)}
                 </button>
               ))}
