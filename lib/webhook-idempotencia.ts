@@ -1,31 +1,50 @@
-// M10 · Idempotencia de webhooks por event.id (tabla webhook_events, migr. 0032).
-// Stripe puede re-entregar el mismo evento; esto evita reprocesar uno que YA se
-// completó con éxito. Se marca DESPUÉS de procesar OK (nunca antes), así un fallo
-// (5xx) deja el evento sin marcar y el reintento de Stripe lo reprocesa.
+// M10 · Idempotencia de webhooks por event.id (tabla webhook_events, migr. 0032;
+// reclamación atómica añadida en 20260730109000).
 //
-// FAIL-OPEN en la lectura: ante un error consultando, devolvemos "no procesado"
-// (procesar). Los handlers son idempotentes a nivel de operación, así que
-// reprocesar es seguro; SALTARSE un pago no lo sería.
+// reclamarWebhookEvent hace el check-y-marca en UNA sola sentencia SQL (RPC
+// reclamar_webhook_event, UPSERT condicional) — cierra la carrera que tenía el
+// patrón anterior SELECT-then-INSERT, donde dos entregas concurrentes del
+// mismo event.id podían pasar ambas el SELECT en "no procesado" antes de que
+// ninguna hubiera insertado.
+//
+// No hay liberación explícita de la reclamación en los ~15 puntos de retorno
+// de fallo de los webhooks, A PROPÓSITO: la reclamación EXPIRA sola pasados
+// expiraSegundos si nadie llama a marcarWebhookProcesado. Un fallo real (5xx,
+// timeout de función) deja el evento reclamable de nuevo mucho antes del
+// siguiente reintento de Stripe — nunca queda enmascarado como "procesado"
+// para siempre. Ver comentario largo en la migración 20260730109000.
+//
+// FAIL-OPEN ante un error de RPC: devolvemos "reclamado" (procesar). Los
+// handlers son idempotentes a nivel de operación, así que reprocesar es
+// seguro; SALTARSE un pago no lo sería.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export async function webhookYaProcesado(admin: SupabaseClient, eventId: string): Promise<boolean> {
+export async function reclamarWebhookEvent(
+  admin: SupabaseClient,
+  eventId: string,
+  tipo: string,
+  expiraSegundos = 120,
+): Promise<boolean> {
   try {
-    const { data, error } = await admin
-      .from('webhook_events').select('id').eq('id', eventId).maybeSingle();
-    if (error) return false;
-    return !!data;
+    const { data, error } = await admin.rpc('reclamar_webhook_event', {
+      p_event_id: eventId,
+      p_tipo: tipo,
+      p_expira_segundos: expiraSegundos,
+    });
+    if (error) return true;
+    return data === true;
   } catch {
-    return false;
+    return true;
   }
 }
 
-// Marca el evento como procesado con éxito. Best-effort: si falla, NO rompemos el
-// 200 (peor caso, un reintento reprocesa idempotentemente). `on conflict` implícito
-// por la PK: si ya existía, el insert choca y lo ignoramos.
-export async function marcarWebhookProcesado(admin: SupabaseClient, eventId: string, tipo: string): Promise<void> {
+// Marca la reclamación como completada. Best-effort: si falla, NO rompemos el
+// 200 (peor caso, la reclamación expira sola y un reintento reprocesa
+// idempotentemente).
+export async function marcarWebhookProcesado(admin: SupabaseClient, eventId: string): Promise<void> {
   try {
-    await admin.from('webhook_events').insert({ id: eventId, tipo });
+    await admin.rpc('completar_webhook_event', { p_event_id: eventId });
   } catch {
     /* no-op */
   }
