@@ -67,11 +67,11 @@ export function CierreGestoriaEmail({ estudioNombre, logoUrl, colorPrimario, ani
       </table>
 
       <Text style={{ color: '#6B7280', fontSize: 12.5, margin: '0 0 4px' }}>
-        Incluye {totales.numFacturas} factura(s) emitida(s) en Tentare{totales.numManuales ? ` y ${totales.numManuales} ingreso(s) añadido(s) a mano (cobrados fuera de la plataforma)` : ''}.
+        Incluye {totales.numFacturas} factura(s) emitida(s) en Tentare Manager{totales.numManuales ? ` y ${totales.numManuales} ingreso(s) añadido(s) a mano (cobrados fuera de la plataforma)` : ''}.
       </Text>
       <Hr style={{ borderColor: '#E5E1DA', margin: '16px 0' }} />
       <Text style={{ color: '#9C9C94', fontSize: 12, margin: 0, lineHeight: 1.55 }}>
-        Este resumen recopila ingresos y el IVA repercutido a partir de las facturas del estudio. No incluye gastos ni IVA soportado, y no sustituye la presentación de impuestos. Enviado desde Tentare por {remitente}; puedes responder a este correo para contactar con el estudio.
+        Este resumen recopila ingresos y el IVA repercutido a partir de las facturas del estudio. No incluye gastos ni IVA soportado, y no sustituye la presentación de impuestos. Enviado desde Tentare Manager por {remitente}; puedes responder a este correo para contactar con el estudio.
       </Text>
     </EmailLayout>
   );

@@ -1,6 +1,9 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { InvitacionEquipoEmail } from '@/lib/emails/invitacion-equipo-template';
+import { remitentePorMarca } from '@/lib/emails/remitente';
+import { nombreAppPorRol } from '@/lib/permisos-reglas';
+import type { Rol } from '@/lib/types';
 
 // Envío del email de invitación al dar de alta a alguien en el equipo
 // (app/api/equipo/route.ts). Antes la ficha se creaba con email pero nadie se
@@ -22,11 +25,12 @@ export async function enviarEmailInvitacionEquipo(params: {
 
   try {
     const html = await render(InvitacionEquipoEmail(params));
+    const marca = nombreAppPorRol((params.rol as Rol) ?? 'INSTRUCTOR');
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+      from: remitentePorMarca(marca),
       to: [params.to],
-      subject: `${params.propietariaNombre} te ha invitado a ${params.estudioNombre} en Tentare`,
+      subject: `${params.propietariaNombre} te ha invitado a ${params.estudioNombre} en ${marca}`,
       html,
     });
     if (error) { console.error('[invitacion-equipo-server]', error); return { ok: false, error: error.message }; }

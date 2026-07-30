@@ -10,6 +10,7 @@ import type { Rol } from './types';
 export {
   puedeVer, puedeVerFichaClinica, puedeMoverDinero, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar,
+  nombreAppPorRol,
 } from './permisos-reglas';
 
 // A-2 (fail-closed): antes cualquier usuario autenticado SIN ficha de instructora

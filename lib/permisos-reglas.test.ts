@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
-  puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar,
+  puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -230,4 +230,12 @@ test('la instructora puede leer un pase de acceso', () => {
   assert.equal(puedeVer('RECEPCION', '/calendario/pase'), true);
   assert.equal(puedeVer('MANAGER', '/calendario/pase'), true);
   assert.equal(puedeVer('PROPIETARIO', '/calendario/pase'), true);
+});
+
+// ── Arquitectura de marca: Tentare Manager / Tentare Core ──────────────────
+test('la instructora ve Tentare Core, el resto Tentare Manager', () => {
+  assert.equal(nombreAppPorRol('INSTRUCTOR'), 'Tentare Core');
+  assert.equal(nombreAppPorRol('PROPIETARIO'), 'Tentare Manager');
+  assert.equal(nombreAppPorRol('MANAGER'), 'Tentare Manager');
+  assert.equal(nombreAppPorRol('RECEPCION'), 'Tentare Manager');
 });

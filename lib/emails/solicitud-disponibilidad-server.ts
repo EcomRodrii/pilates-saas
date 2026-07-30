@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { SolicitudDisponibilidadEmail } from '@/lib/emails/solicitud-disponibilidad-template';
+import { remitentePorMarca } from '@/lib/emails/remitente';
 
 // Envío del email de "pedir disponibilidad" (P2-10, app/api/sustituciones/pedir-disponibilidad).
 // Mismo patrón best-effort que invitacion-equipo-server.ts: si falla, el
@@ -23,7 +24,7 @@ export async function enviarEmailSolicitudDisponibilidad(params: {
     const html = await render(SolicitudDisponibilidadEmail(params));
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+      from: remitentePorMarca('Tentare Core'),
       to: [params.to],
       subject: `${params.propietariaNombre} te pide tu disponibilidad — ${params.estudioNombre}`,
       html,

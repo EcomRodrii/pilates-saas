@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { usePermisos } from '@/lib/permisos';
+import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { fetchLayout } from '@/lib/api-client';
 import { filtrarItemsMenu } from '@/lib/layout-runtime';
@@ -190,7 +190,16 @@ export function Sidebar() {
   // la propietaria: si es una instructora/recepción con ficha propia, se usa
   // la suya (avatar y foto reales), igual que en Configuración > Mi perfil.
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
-  const { puedeVer } = usePermisos();
+  const { rol, puedeVer } = usePermisos();
+  const marca = nombreAppPorRol(rol);
+  // Solo hay lockup horizontal por rol (icono + wordmark en fila); el logo
+  // colapsado (solo icono) y el de /login siguen siendo el genérico Tentare
+  // hasta que exista un export real de diseño en esos formatos. Dimensiones
+  // reales del PNG recortado (no las de logo-horizontal.png): son más anchas,
+  // así que van con su propio width/height o next/image las deja con letterbox.
+  const logoHorizontal = rol === 'INSTRUCTOR'
+    ? { src: '/logo-horizontal-core.png', width: 1348, height: 317 }
+    : { src: '/logo-horizontal-manager.png', width: 1450, height: 296 };
   const router = useRouter();
   const { mode: navMode, setNavMode } = useNavMode();
 
@@ -260,7 +269,7 @@ export function Sidebar() {
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
         style={{ backgroundColor: '#ffffff', borderColor: 'var(--border)' }}
       >
-        <Image src="/logo-horizontal.png" alt="Tentare" width={100} height={69} className="h-9 w-auto object-contain" />
+        <Image src={logoHorizontal.src} alt={marca} width={logoHorizontal.width} height={logoHorizontal.height} className="h-9 w-auto object-contain" />
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
@@ -294,9 +303,9 @@ export function Sidebar() {
         )}
       >
         {collapsed ? (
-          <Image src="/logo-icon.png" alt="Tentare" width={56} height={56} className="w-14 h-14 object-contain" />
+          <Image src="/logo-icon.png" alt={marca} width={56} height={56} className="w-14 h-14 object-contain" />
         ) : (
-          <Image src="/logo-horizontal.png" alt="Tentare" width={260} height={120} className="h-16 w-auto object-contain" />
+          <Image src={logoHorizontal.src} alt={marca} width={logoHorizontal.width} height={logoHorizontal.height} className="h-16 w-auto object-contain" />
         )}
       </div>
 

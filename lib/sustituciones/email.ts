@@ -5,6 +5,7 @@ import {
   ContactoSustitutaEmail, AlertaPropietariaEmail, AlumnaClaseCubiertaEmail, AlumnaClaseCanceladaEmail,
   AlumnaClaseReprogramadaEmail,
 } from '@/lib/emails/sustitucion-template';
+import { remitentePorMarca } from '@/lib/emails/remitente';
 
 // Emails del módulo de sustituciones, con la plantilla premium compartida
 // (lib/emails/layout.tsx) — marca del estudio (logo + colorPrimario) igual
@@ -30,7 +31,7 @@ export async function enviarEmailContactoSustituta(params: Marca & {
   const asunto = recordatorio
     ? `Recordatorio: ¿puedes cubrir ${claseNombre}? — ${estudioNombre}`
     : `¿Puedes cubrir ${claseNombre}? — ${estudioNombre}`;
-  return enviar(to, asunto, html);
+  return enviar(to, asunto, html, 'Tentare Core');
 }
 
 // Alerta a la propietaria: nadie responde ('sin_respuesta') o se agotó el ranking
@@ -55,7 +56,7 @@ export async function enviarEmailAlertaPropietaria(params: Marca & {
     : agotada
       ? `⚠️ Sin sustituta para ${claseNombre} — necesita tu decisión`
       : `${candidataNombre ?? 'La candidata'} no responde — ${claseNombre}`;
-  return enviar(to, asunto, html);
+  return enviar(to, asunto, html, 'Tentare Manager');
 }
 
 // ── Avisos a las alumnas apuntadas ──────────────────────────────────────────
@@ -65,7 +66,7 @@ export async function enviarEmailAlumnaClaseCubierta(params: Marca & {
   to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; sustituta: string;
 }): Promise<EnvioResultado> {
   const html = await render(AlumnaClaseCubiertaEmail(params));
-  return enviar(params.to, `Tu clase sigue en pie — ${params.claseNombre}`, html);
+  return enviar(params.to, `Tu clase sigue en pie — ${params.claseNombre}`, html, 'Tentare');
 }
 
 // No hay sustituta: la clase se cancela (que se entere por ti, no en la puerta).
@@ -74,26 +75,30 @@ export async function enviarEmailAlumnaClaseReprogramada(params: Marca & {
   to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; cuandoNuevo: string;
 }): Promise<EnvioResultado> {
   const html = await render(AlumnaClaseReprogramadaEmail(params));
-  return enviar(params.to, `Cambio de horario — ${params.claseNombre}`, html);
+  return enviar(params.to, `Cambio de horario — ${params.claseNombre}`, html, 'Tentare');
 }
 
 export async function enviarEmailAlumnaClaseCancelada(params: Marca & {
   to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string;
 }): Promise<EnvioResultado> {
   const html = await render(AlumnaClaseCanceladaEmail(params));
-  return enviar(params.to, `Clase cancelada — ${params.claseNombre}`, html);
+  return enviar(params.to, `Clase cancelada — ${params.claseNombre}`, html, 'Tentare');
 }
 
 type EnvioResultado = { ok: true; id?: string } | { ok: false; skipped: true } | { ok: false; error: string };
 
-async function enviar(to: string, subject: string, html: string): Promise<EnvioResultado> {
+// `marca`: nombre de producto mostrado como remitente. 'Tentare Core' para
+// instructoras, 'Tentare Manager' para propietaria/gerencia, 'Tentare' (marca
+// paraguas) para alumnas — a ellas los nombres de producto interno no les
+// dicen nada.
+async function enviar(to: string, subject: string, html: string, marca: string): Promise<EnvioResultado> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
   if (!to) return { ok: false, error: 'Sin destinatario' };
   try {
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+      from: remitentePorMarca(marca),
       to: [to], subject, html,
     });
     if (error) { console.error('[sustituciones/email]', error); return { ok: false, error: error.message }; }

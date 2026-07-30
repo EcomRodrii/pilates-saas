@@ -80,6 +80,7 @@ export function AceptarForm({
         </button>
         {estado === 'error' && <p className="mt-3 text-center text-sm text-destructive">No se pudo enviar. Inténtalo otra vez.</p>}
       </div>
+      <p className="mt-6 text-center text-[11px] text-slate-300">Tentare Core</p>
     </main>
   );
 }

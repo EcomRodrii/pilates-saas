@@ -114,6 +114,15 @@ export function rolesQuePuedeAsignar(rol: Rol): Rol[] {
   return [];
 }
 
+// Arquitectura de marca: el panel es una sola app role-gateada, pero se
+// percibe como dos productos — Tentare Core para instructoras, Tentare
+// Manager para propietaria/manager/recepción. Fuente de verdad única del
+// mapeo; todo lo que muestre el nombre del producto (título de página, logo,
+// emails al equipo) pasa por aquí en vez de repetir el `rol === 'INSTRUCTOR'`.
+export function nombreAppPorRol(rol: Rol): 'Tentare Core' | 'Tentare Manager' {
+  return rol === 'INSTRUCTOR' ? 'Tentare Core' : 'Tentare Manager';
+}
+
 export function puedeVer(rol: Rol, path: string): boolean {
   // Feature-freeze PMF: los módulos congelados no son visibles para NINGÚN rol.
   // Esto los saca a la vez del menú, del buscador ⌘K y hace que el guardia del

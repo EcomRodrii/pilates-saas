@@ -1,5 +1,7 @@
 import { Text, Section } from '@react-email/components';
 import { EmailLayout, EmailButton } from '@/lib/emails/layout';
+import { nombreAppPorRol } from '@/lib/permisos-reglas';
+import type { Rol } from '@/lib/types';
 
 interface Props {
   nombre: string;
@@ -24,11 +26,12 @@ const ROL_LABEL: Record<string, string> = {
 // cuenta con esta ficha (app/api/equipo/reclamar).
 export function InvitacionEquipoEmail({ nombre, propietariaNombre, estudioNombre, logoUrl, colorPrimario, rol, url }: Props) {
   const rolLabel = ROL_LABEL[rol] ?? 'miembro del equipo';
+  const marca = nombreAppPorRol((rol as Rol) ?? 'INSTRUCTOR');
   return (
     <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} titulo="Te han invitado al equipo" preview={`${propietariaNombre} te ha invitado a ${estudioNombre}`}>
       <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 12px' }}>Hola <strong>{nombre}</strong>,</Text>
       <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.6, margin: '0 0 20px' }}>
-        <strong>{propietariaNombre}</strong> te ha dado de alta como <strong>{rolLabel}</strong> en el equipo de <strong>{estudioNombre}</strong> en Tentare.
+        <strong>{propietariaNombre}</strong> te ha dado de alta como <strong>{rolLabel}</strong> en el equipo de <strong>{estudioNombre}</strong> en {marca}.
       </Text>
       <Section style={{ backgroundColor: '#FAFAF7', borderRadius: 10, padding: '16px 20px', marginBottom: 24 }}>
         <Text style={{ color: '#6B7280', fontSize: 13, lineHeight: 1.6, margin: 0 }}>

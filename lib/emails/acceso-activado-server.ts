@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { AccesoActivadoEmail } from '@/lib/emails/acceso-activado-template';
+import { remitentePorMarca } from '@/lib/emails/remitente';
 
 // Aviso al estudio cuando alguien del equipo activa su acceso
 // (app/api/equipo/reclamar). Best-effort como el resto de envíos: la
@@ -22,7 +23,7 @@ export async function enviarEmailAccesoActivado(params: {
     const html = await render(AccesoActivadoEmail(params));
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+      from: remitentePorMarca('Tentare Manager'),
       to: [params.to],
       subject: `${params.nombre} ya tiene acceso a ${params.estudioNombre}`,
       html,
