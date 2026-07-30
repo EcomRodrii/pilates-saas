@@ -179,3 +179,18 @@ Repasadas las tres pantallas que quedaban del panel de "Marta Pilates Studio". S
 - **Citas** (1:1, `/citas`): resumen con ingresos/citas/asistencia/no-shows del mes, filtro por instructora, y las acciones ("Completar"/"Cancelar") aparecen en línea en la propia fila al interactuar con ella, sin abrir un modal aparte — un patrón distinto al resto del panel pero consistente en sí mismo, no roto. No completé ni cancelé la cita real que había.
 
 **Nota metodológica de esta pasada:** el bug del hallazgo #9 (sesión de staff contaminada por el magic-link de clienta) tuvo una consecuencia práctica real — mi propia sesión de staff en el navegador quedó sobrescrita con mi email de prueba, sin acceso a ningún estudio. La recuperé cerrando sesión y volviendo a entrar (Chrome tenía guardadas las credenciales de la propietaria original vía autofill). Sirve como demostración de primera mano del propio hallazgo #9: el bug no es solo teórico.
+
+---
+
+## Cuarta pasada — Planes y tarifas, Gamificación, Sustituciones (pantalla principal), Automatizaciones IA
+
+Últimas pantallas del panel que quedaban sin repasar. Sin hallazgos nuevos:
+
+- **Planes y tarifas**: tabla clara de los 3 planes del estudio (bonos + cuota mensual), con estado activo/inactivo por fila.
+- **Gamificación**: sistema completo (créditos por acción, catálogo de recompensas, niveles, retos) con copy tranquilizador ("nunca están fijos en el código") y una regla de producto bien pensada — el nivel se calcula sobre el total histórico de créditos, así que canjear una recompensa nunca hace bajar de nivel a la clienta.
+- **Sustituciones** (pantalla principal, no solo el modal visto en la primera pasada): esta es la función estrella del producto y está a la altura. Muestra en una sola vista el caso sin cubrir (con opciones claras: volver a buscar, reprogramar, cancelar y avisar) y el caso resuelto ("Sustituta ideal encontrada" con % de compatibilidad y los factores en texto llano: "está disponible · no ha impartido antes este tipo de clase · hace semanas que no sustituye"), más un registro de avisos enviados con hora exacta. También detecta y avisa activamente cuando faltan datos necesarios (2 de 3 instructoras sin disponibilidad cargada) con una acción directa para pedirla.
+- **Automatizaciones IA**: registro de acciones del sistema autónomo, con filtros por estado y estado vacío bien resuelto.
+
+**Nota:** en esta pasada estuve a punto de reportar como bug que las sub-pestañas de Gamificación no respondían al clic — resultó ser que el viewport real (1800px) no coincidía con el que asumía por el tamaño de captura (1568px), así que mis coordenadas de clic caían fuera del botón. Confirmado con `read_page`/`find` antes de escribir nada; otro falso positivo evitado a tiempo por verificar en vez de asumir.
+
+Con esto queda cubierto prácticamente todo el panel de gestión con datos reales. Lo que falta, si se quiere seguir: Productos (módulo POS, congelado a propósito — no tocar), Informes, Cierre de año, Libreta de clientas, Traer mis datos (migración), y las demás personas (recepcionista, instructora, gerente de cadena) recorriendo el mismo producto desde su propio rol.
