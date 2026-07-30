@@ -26,17 +26,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!loading && !session) router.replace('/login');
   }, [loading, session, router]);
 
+  // El rol solo está resuelto cuando el ESTUDIO del usuario ya cargó (ver el
+  // comentario largo más abajo, junto a `rolResuelto`). Se calcula aquí arriba
+  // porque el título de pestaña lo necesita antes que el resto.
+  const rolResuelto = studio !== null;
+
   // Título de la pestaña por sección. Por defecto heredaba el de la web comercial
   // (app/layout) en TODAS las pantallas del panel → con varias pestañas abiertas
   // ninguna se distinguía (P4). Lo derivamos del propio menú.
+  //
+  // Mientras el rol no está resuelto, `useRol()` cae al mínimo (INSTRUCTOR,
+  // fail-closed de A-2) — con el rebranding por rol eso se veía como un
+  // parpadeo real ("Tentare Core" un instante, luego "Tentare Manager" al
+  // cargar el estudio de una propietaria). Con "Tentare" a secas mientras
+  // carga no se afirma un rol que aún no se conoce.
   useEffect(() => {
     const item = navSections
       .flatMap(s => s.items)
       .filter(i => pathname === i.href || pathname.startsWith(i.href + '/'))
       .sort((a, b) => b.href.length - a.href.length)[0];
-    const marca = nombreAppPorRol(rol);
+    const marca = rolResuelto ? nombreAppPorRol(rol) : 'Tentare';
     document.title = item ? `${marca} · ${item.label}` : marca;
-  }, [pathname, rol]);
+  }, [pathname, rol, rolResuelto]);
 
   // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
   // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción
@@ -56,14 +67,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => { vivo = false; };
   }, [loading, session, router]);
 
-  // El rol solo está resuelto cuando el ESTUDIO del usuario ya cargó. Ojo: no
-  // vale `dataLoaded`, porque el provider hace un primer fetch con la sesión aún
-  // sin resolver (authUserId nulo) que deja `studio` a null pero `dataLoaded` a
-  // true; decidir ahí veía el rol mínimo (fail-closed de A-2) y rebotaba a
+  // `rolResuelto` (arriba, junto al título de pestaña): no vale `dataLoaded`,
+  // porque el provider hace un primer fetch con la sesión aún sin resolver
+  // (authUserId nulo) que deja `studio` a null pero `dataLoaded` a true;
+  // decidir ahí vería el rol mínimo (fail-closed de A-2) y rebotaría a
   // /dashboard al REFRESCAR una página solo-PROPIETARIO. Con `studio !== null`
   // esperamos a que useRol tenga el dato del dueño. El servidor ya protege cada
   // endpoint, así que renderizar el marco mientras carga no expone datos.
-  const rolResuelto = studio !== null;
   const autorizado = puedeVer(pathname);
   // I3: mientras el estudio (y con él todos los slices de datos, que se setean a la
   // vez que `studio` al terminar fetchCriticalStudioData) aún no ha cargado,
