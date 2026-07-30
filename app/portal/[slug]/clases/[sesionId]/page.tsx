@@ -6,7 +6,7 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { useModo } from '@/lib/portal-modo';
-import { ChevronLeft, Clock, Users, MapPin, BarChart2, CheckCircle, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Clock, Users, MapPin, BarChart2, Star, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/portal/ui';
 
 const NIVEL_LABEL: Record<string, string> = {
@@ -17,7 +17,7 @@ export default function ClaseDetallePage() {
   const router = useRouter();
   const { slug, sesionId } = useParams<{ slug: string; sesionId: string }>();
   const { session } = usePortalAuth();
-  const { sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, addReserva, cancelarReserva } = useStudio();
+  const { sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, addReserva, cancelarReserva, favoritos, toggleFavorito } = useStudio();
   const { t } = useModo();
   // El servidor puede decir que no (sin bono, clase empezada, tope de reservas).
   // Sin esto, pulsar «Reservar» no hacía nada visible y la reserva no existía.
@@ -28,6 +28,7 @@ export default function ClaseDetallePage() {
   const sala = ses ? salas.find(s => s.id === ses.salaId) : undefined;
   const instr = ses ? instructores.find(i => i.id === ses.instructorId) : undefined;
   const color = tipo?.color ?? 'var(--portal-brand)';
+  const esFavorita = tipo ? favoritos.some(f => f.tipoClaseId === tipo.id) : false;
 
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
   const activeSus = useMemo(() =>
@@ -68,16 +69,36 @@ export default function ClaseDetallePage() {
   return (
     <div style={{ minHeight: '100%', background: t.bg }}>
       {/* Header */}
-      <div style={{ padding: '24px 20px 40px', position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ padding: '24px 20px 40px', position: 'relative', overflow: 'hidden', background: tipo?.fotoUrl ? undefined : `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
+        {tipo?.fotoUrl && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={tipo.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div aria-hidden style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${color}ee, ${color}66)` }} />
+          </>
+        )}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <button
             onClick={() => router.back()}
             style={{ width: 36, height: 36, borderRadius: 999, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}
           >
             <ChevronLeft size={18} style={{ color: '#fff' }} />
           </button>
-          <div style={{ width: 36, height: 36, borderRadius: 999, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <BarChart2 size={16} style={{ color: '#fff' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {session?.socioId && tipo && (
+              <button
+                type="button"
+                aria-label={esFavorita ? `Quitar ${tipo.nombre} de favoritas` : `Marcar ${tipo.nombre} como favorita`}
+                aria-pressed={esFavorita}
+                onClick={() => void toggleFavorito(tipo.id, esFavorita ? 'desmarcar' : 'marcar')}
+                style={{ width: 36, height: 36, borderRadius: 999, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}
+              >
+                <Star size={16} style={{ color: '#fff' }} fill={esFavorita ? '#fff' : 'none'} />
+              </button>
+            )}
+            <div style={{ width: 36, height: 36, borderRadius: 999, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BarChart2 size={16} style={{ color: '#fff' }} />
+            </div>
           </div>
         </div>
         <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.8)', background: 'rgba(255,255,255,0.15)', borderRadius: 999, padding: '4px 12px', marginBottom: 12 }}>

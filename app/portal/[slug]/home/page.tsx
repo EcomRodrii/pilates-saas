@@ -37,6 +37,29 @@ import { pedirPaseDeAcceso } from '@/lib/api-client';
 import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
 } from '@/lib/portal-design';
+import type { BannerPortal } from '@/lib/types';
+
+// Un banner "de home" está listo para mostrarse si sigue activo y, si tiene
+// ventana de fechas, "hoy" cae dentro. El filtro de ubicación/activo ya lo
+// hizo la query del servidor (fetchPublicStudioData) — esto solo resuelve la
+// fecha, que depende del momento de carga, no de cuándo se rellenó el caché.
+function bannerVigente(b: BannerPortal, hoyISO: string): boolean {
+  if (b.fechaInicio && hoyISO < b.fechaInicio) return false;
+  if (b.fechaFin && hoyISO > b.fechaFin) return false;
+  return true;
+}
+
+// No basta con validar en el editor: el dato viene de la BD (que un manager
+// pudo guardar sin pasar por esa validación, o que cambió por fuera). Un link
+// externo que no sea http(s) — `javascript:`, `data:`… — no se enlaza.
+function hrefExternoSeguro(valor: string): string | null {
+  try {
+    const u = new URL(valor);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? valor : null;
+  } catch {
+    return null;
+  }
+}
 
 /** El glifo del botón de acceso: 3×3 celdas de 4 px, como un código en miniatura. */
 function GlifoAcceso({ color }: { color: string }) {
@@ -55,7 +78,7 @@ export default function PortalHome() {
   const { session } = usePortalAuth();
   const {
     socios, suscripciones, planesTarifa, sesiones, reservas, recibos,
-    tiposClase, salas, instructores, studio,
+    tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal,
   } = useStudio();
   const { t, noche } = useModo();
   const [paseAbierto, setPaseAbierto] = useState(false);
@@ -77,6 +100,14 @@ export default function PortalHome() {
     return () => clearInterval(id);
   }, []);
   const now = ahora ?? new Date();
+  const bannersVigentes = useMemo(() => {
+    // Fecha LOCAL, no toISOString() (UTC): con un estudio en España, la hora
+    // siguiente a medianoche local todavía cae en el día UTC anterior, y un
+    // banner con fecha de inicio/fin de hoy aparecía/desaparecía con 1-2 h de
+    // desfase.
+    const hoyISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return bannersPortal.filter(b => bannerVigente(b, hoyISO)).sort((a, b) => a.orden - b.orden);
+  }, [bannersPortal, now]);
 
   const raizRef = useRef<HTMLDivElement>(null);
   const topBarRef = useRef<HTMLDivElement>(null);
@@ -489,6 +520,66 @@ export default function PortalHome() {
             fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
           }}>→</span>
         </Link>
+
+        {/* Contenido editable del estudio (mensaje destacado + banners). Añadido
+            DESPUÉS de "Invita a una amiga" a propósito: no toca ninguna pieza ya
+            cerrada del diseño, y no aparece nada aquí para un estudio que no haya
+            configurado contenido — misma pantalla de siempre. */}
+        {contenidoPortal?.mensajeDestacado && (
+          <>
+            <div style={{ height: 20 }} />
+            <div style={{
+              borderRadius: radio.card, padding: '16px 18px',
+              background: noche ? t.surface2 : '#EEF0EA',
+              border: `1px solid ${noche ? 'rgba(169,187,160,.22)' : 'rgba(44,53,44,.16)'}`,
+            }}>
+              <p style={{ ...texto.nota, color: t.muted2, lineHeight: 1.5 }}>{contenidoPortal.mensajeDestacado}</p>
+            </div>
+          </>
+        )}
+        {bannersVigentes.map(b => {
+          const contenido = (
+            <>
+              {b.imagenUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={b.imagenUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
+              )}
+              <div aria-hidden style={{
+                position: 'absolute', inset: 0, pointerEvents: 'none',
+                background: noche
+                  ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
+                  : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
+              }} />
+              <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
+                {b.titulo && <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
+                {b.texto && <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>{b.texto}</div>}
+              </div>
+              <span aria-hidden style={{
+                position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
+                background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
+              }}>→</span>
+            </>
+          );
+          const estiloBanner: React.CSSProperties = {
+            position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
+            overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
+            transition: transicion(['transform'], dur.card),
+          };
+          if (b.linkTipo === 'interno' && !b.linkValor.startsWith('/')) return null;
+          const hrefExterno = b.linkTipo === 'externo' ? hrefExternoSeguro(b.linkValor) : null;
+          if (b.linkTipo === 'externo' && !hrefExterno) return null;
+          return (
+            <div key={b.id}>
+              <div style={{ height: 18 }} />
+              {b.linkTipo === 'interno'
+                ? <Link href={`/portal/${slug}${b.linkValor}`} style={estiloBanner}>{contenido}</Link>
+                : <a href={hrefExterno!} target="_blank" rel="noopener noreferrer" style={estiloBanner}>{contenido}</a>}
+            </div>
+          );
+        })}
       </div>
 
       <HojaPase
