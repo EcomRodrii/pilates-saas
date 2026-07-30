@@ -7,7 +7,7 @@ import { Topbar } from '@/components/layout/topbar';
 import { AvisoCambioDeSede } from '@/components/layout/sede-activa';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
-import { usePermisos } from '@/lib/permisos';
+import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
@@ -18,7 +18,7 @@ import { navSections } from '@/lib/nav-config';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
   const { studio } = useStudio();
-  const { puedeVer } = usePermisos();
+  const { rol, puedeVer } = usePermisos();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -34,8 +34,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .flatMap(s => s.items)
       .filter(i => pathname === i.href || pathname.startsWith(i.href + '/'))
       .sort((a, b) => b.href.length - a.href.length)[0];
-    document.title = item ? `Tentare · ${item.label}` : 'Tentare';
-  }, [pathname]);
+    const marca = nombreAppPorRol(rol);
+    document.title = item ? `${marca} · ${item.label}` : marca;
+  }, [pathname, rol]);
 
   // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
   // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción

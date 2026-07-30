@@ -45,6 +45,28 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
 - El menú de una cadena es por cadena, no por sede (migración 0103) — no reintroducir el
   toggle antiguo.
 
+## Arquitectura de marca: Tentare Manager / Tentare Core
+
+Tentare se percibe como dos productos, no un panel único con roles:
+- **Tentare Manager** → propietaria, gerencia (`MANAGER`), recepción (`RECEPCION`).
+- **Tentare Core** → instructoras (`INSTRUCTOR`).
+
+Esto es un **rebranding sobre una sola app role-gateada** (`app/(dashboard)/` +
+`lib/permisos-reglas.ts`), NO un split estructural — no hay `app/manager/` ni
+`app/core/`, y no se debe "terminar" ese split por iniciativa propia sin que se pida
+expresamente. Fuente de verdad del nombre por rol: `nombreAppPorRol()` en
+`lib/permisos-reglas.ts`. Los emails al equipo del estudio usan
+`remitentePorMarca()` (`lib/emails/remitente.ts`) para que el nombre de producto se
+vea también en el remitente aunque `RESEND_FROM` esté configurado.
+
+Queda fuera a propósito (no tocar sin pedirlo): `/login` y `app/manifest.ts` (el rol
+solo se conoce tras autenticar, así que se quedan con la marca paraguas "Tentare");
+`components/landing/*` (copy nuevo, no un renombrado); `app/interno` ("Tentare
+Internal", backoffice de Tentare-empresa, no relacionado); `app/portal/[slug]`
+(marca blanca por estudio, tercer contexto de marca ya separado); los emails a
+socias/clientas (sin marca de producto interno, solo la marca del estudio); el logo
+colapsado del sidebar y el de `/login` (solo hay lockup horizontal por rol todavía).
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),

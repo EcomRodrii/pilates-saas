@@ -3,6 +3,7 @@ import { render } from '@react-email/render';
 import { CierreGestoriaEmail } from '@/lib/emails/cierre-gestoria-template';
 import { serializeCsv } from '@/lib/csv';
 import { cierreLibroCsvData, type CierreAnual } from '@/lib/fiscal/cierre-engine';
+import { remitentePorMarca } from '@/lib/emails/remitente';
 
 // Envía a la gestoría el paquete del Cierre de año: resumen HTML + el libro de
 // facturas emitidas como adjunto CSV. `replyTo` = email del estudio, para que
@@ -40,7 +41,7 @@ export async function enviarCierreAGestoria(params: {
 
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+      from: remitentePorMarca('Tentare Manager'),
       to: [to],
       ...(estudioEmail ? { replyTo: estudioEmail } : {}),
       subject: `Cierre de año ${anio} — ${estudioNombre}`,
