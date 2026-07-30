@@ -1,14 +1,57 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { montarPortal, SLUG } from './portal-mock';
 
 // AVISOS — pantalla del prototipo. Lo que se comprueba aquí no es el pixel
 // (para eso están las capturas), sino lo que la pantalla PROMETE: que el
 // subtítulo cuenta lo que de verdad hay sin leer, que los leídos se distinguen
 // de los nuevos, y que una bandeja vacía no se queda en blanco.
+//
+// selloTemporal() mide "hace 2 h" contra la hora REAL del navegador en el
+// instante de pintar, no contra un reloj de mentira — así que si generamos
+// "hace 2 h" con el Date.now() del proceso de Node al cargar el módulo
+// (portal-mock.ts), en la ventana peligrosa de la CI (las 2 primeras horas
+// tras medianoche UTC) esas "2 horas antes" caen en el día anterior de
+// verdad, y la pantalla — correctamente — deja de decir "hace 2 h" para
+// decir "ayer". No es un bug de selloTemporal, es que el fixture asumía que
+// esa resta nunca cruzaba el corte de día. Se fija el reloj del navegador
+// (solo Date, los timers siguen corriendo de verdad) a un mediodía UTC y se
+// generan los avisos contra ESE MISMO instante, para que mock y pantalla
+// midan "ahora" de forma idéntica pase lo que pase con la hora real de la
+// máquina que ejecuta la CI.
+function mediodiaSeguro(): Date {
+  const d = new Date();
+  d.setUTCHours(12, 0, 0, 0);
+  return d;
+}
+
+async function conAvisosDeterministas(page: Page) {
+  const ahora = mediodiaSeguro();
+  await page.clock.setFixedTime(ahora);
+  const haceHoras = (h: number) => new Date(ahora.getTime() - h * 3600_000).toISOString();
+  const items = [
+    { id: 'n-1', title: 'Tu clase de hoy sigue en pie', body: 'Reformer Flow, 18:30 con Ana Ferrer. Te esperamos en la Sala Norte.',
+      deepLink: null, category: 'clases', priority: 'ALTA', eventType: 'clase.sustituida',
+      resourceType: null, resourceId: null, readAt: null, createdAt: haceHoras(2) },
+    { id: 'n-2', title: 'María Soler cubre el viernes', body: 'Tu Barre Sculpt del 31 de julio mantiene hora y sala.',
+      deepLink: null, category: 'clases', priority: 'NORMAL', eventType: 'clase.sustituida',
+      resourceType: null, resourceId: null, readAt: null, createdAt: haceHoras(26) },
+    { id: 'n-3', title: 'Te quedan 8 sesiones', body: 'Tu Bono 10 caduca el 30 de septiembre.',
+      deepLink: null, category: 'pagos', priority: 'NORMAL', eventType: 'bono.por_agotarse',
+      resourceType: null, resourceId: null, readAt: haceHoras(40), createdAt: haceHoras(50) },
+    { id: 'n-4', title: 'Nuevo taller el 12 de agosto', body: 'El descanso también es entrenamiento. 8 plazas.',
+      deepLink: null, category: 'general', priority: 'BAJA', eventType: 'estudio.aviso',
+      resourceType: null, resourceId: null, readAt: haceHoras(60), createdAt: haceHoras(122) },
+  ];
+  await page.route('**/api/notifications', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ items, unread: items.filter(a => a.readAt == null).length }),
+  }));
+}
 
 test.describe('Avisos', () => {
   test('el subtítulo cuenta lo nuevo y la lista trae los cuatro avisos', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
+    await conAvisosDeterministas(page);
     await page.goto(`/portal/${SLUG}/notificaciones`);
 
     await expect(page.getByRole('heading', { name: 'Avisos' })).toBeVisible();
@@ -22,16 +65,8 @@ test.describe('Avisos', () => {
   });
 
   test('el sello temporal se escribe en palabras, no en fecha ISO', async ({ page }) => {
-    // Reloj congelado a mediodía UTC, lejos de cualquier medianoche: sin esto,
-    // "hace 2 h" se calculaba contra la hora REAL de ejecución, y entre las
-    // 00:00 y las ~02:00 (hora del runner) esas 2 horas atrás caían en el DÍA
-    // DE AYER — selloTemporal() corta por día natural, no por horas — y la
-    // pantalla decía "ayer" en vez de "hace 2 h". Mismo instante en el reloj
-    // del navegador y en el mock (montarPortal `ahora`), para que los dos
-    // lados calculen "hace N h" contra el mismo punto de referencia.
-    const ahora = new Date('2026-07-15T12:00:00Z');
-    await page.clock.setFixedTime(ahora);
-    await montarPortal(page, { conSesion: true, ahora });
+    await montarPortal(page, { conSesion: true });
+    await conAvisosDeterministas(page);
     await page.goto(`/portal/${SLUG}/notificaciones`);
 
     // En el DOM va en minúscula; las versalitas son CSS. Se comprueban las dos
@@ -45,6 +80,7 @@ test.describe('Avisos', () => {
 
   test('lo ya leído se apaga y pierde el punto', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
+    await conAvisosDeterministas(page);
     await page.goto(`/portal/${SLUG}/notificaciones`);
 
     const nuevo = page.getByText('Tu clase de hoy sigue en pie').locator('..');
