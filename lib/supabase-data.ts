@@ -738,6 +738,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? null,
     requiereAprobacion: r.requiere_aprobacion ?? null,
+    listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? null,
   } as TipoClase;
 }
 
@@ -769,6 +770,7 @@ export function mapReserva(r: RowReservas): Reserva {
     estado: r.estado,
     spotId: r.spot_id ?? null,
     posicionEspera: r.posicion_espera ?? null,
+    ofertaExpiraEn: r.oferta_expira_en ?? null,
     checkInEn: r.check_in_en ?? null,
     creadoEn: r.creado_en,
   } as Reserva;
@@ -1213,6 +1215,7 @@ function reservaToDb(res: Reserva) {
     estado: res.estado,
     spot_id: res.spotId ?? null,
     posicion_espera: res.posicionEspera ?? null,
+    oferta_expira_en: res.ofertaExpiraEn ?? null,
     check_in_en: res.checkInEn ?? null,
     creado_en: res.creadoEn,
   };
@@ -2149,7 +2152,14 @@ export async function dbReservarPlaza(
 // Cancelación + promoción de lista de espera ATÓMICAS desde el panel.
 export async function dbCancelarReservaPlaza(
   studioId: string, reservaId: string,
-): Promise<{ eraConfirmada: boolean; promovidaSocioId: string | null; devolverBono: boolean } | { error: string }> {
+): Promise<{
+  eraConfirmada: boolean; promovidaSocioId: string | null; devolverBono: boolean;
+  // Fase 2b (migr 20260731130500): mutuamente excluyente con promovidaSocioId
+  // — solo relleno si el estudio/tipo de clase exige plazo de aceptación
+  // (lista_espera_plazo_aceptacion_minutos > 0), en cuyo caso NO se confirmó
+  // sola, se le abrió una oferta con ese plazo.
+  ofertaSocioId: string | null; ofertaExpiraEn: string | null;
+} | { error: string }> {
   const { data, error } = await supabase.rpc('cancelar_reserva_plaza', {
     p_studio_id: studioId, p_reserva_id: reservaId, p_socio_id: null,
   });
@@ -2165,6 +2175,8 @@ export async function dbCancelarReservaPlaza(
     // tiempo por recepción. `?? true` conserva el comportamiento de siempre
     // (devolver) si la RPC aún no trae la columna a medio despliegue.
     devolverBono: row?.devolver_bono ?? true,
+    ofertaSocioId: row?.oferta_socio_id ?? null,
+    ofertaExpiraEn: row?.oferta_expira_en ?? null,
   };
 }
 
@@ -3098,6 +3110,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     reserva_antelacion_maxima_dias: t.reservaAntelacionMaximaDias ?? null,
     permite_lista_espera: t.permiteListaEspera ?? null,
     requiere_aprobacion: t.requiereAprobacion ?? null,
+    lista_espera_plazo_aceptacion_minutos: t.listaEsperaPlazoAceptacionMinutos ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -3117,6 +3130,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('reservaAntelacionMaximaDias' in changes) db.reserva_antelacion_maxima_dias = changes.reservaAntelacionMaximaDias;
   if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
   if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
+  if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateTipoClase]', error);
 }
@@ -3316,6 +3330,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('reservaAntelacionMaximaDias' in changes) db.reserva_antelacion_maxima_dias = changes.reservaAntelacionMaximaDias;
   if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
   if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
+  if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
   // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
@@ -3536,6 +3551,7 @@ function mapStudio(r: RowStudios): Studio {
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? true,
     requiereAprobacion: r.requiere_aprobacion ?? false,
+    listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? 0,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
     onboardingDescartadoEn: r.onboarding_descartado_en ?? null,

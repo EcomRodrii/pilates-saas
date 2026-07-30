@@ -215,10 +215,58 @@ PUBLIC` + `GRANT ... TO authenticated, service_role, postgres` explícito.
 Verificar siempre con `has_function_privilege('anon', '<función>'::regproc,
 'EXECUTE')` tras cambiar la firma de cualquier RPC ya endurecida.
 
-Quedan sin tocar, a propósito: **plazo para aceptar plaza de lista de
-espera** (Fase 2b — hoy la promoción sigue siendo automática e instantánea) y
-**mínimo de asistentes para confirmar la clase** (Fase 2c); Fase 3
-(penalización económica) sigue esperando diseño con `tentare-stripe`.
+### Fase 2b — plazo para aceptar una plaza de lista de espera (completa)
+
+Segunda pieza de Fase 2. Antes, `cancelar_reserva_plaza` promocionaba
+**instantáneamente** a la primera de `LISTA_ESPERA` cuando se liberaba un
+hueco. Con esta regla activa (`studios.lista_espera_plazo_aceptacion_minutos`
+default `0` + `tipos_clase.lista_espera_plazo_aceptacion_minutos` nullable =
+hereda, migr `20260731130000`), en vez de confirmar directo le abre una
+**oferta** con plazo (metadata `reservas.oferta_expira_en`, sin estado nuevo
+— mismo principio que `0059_confirmacion_riesgo_planton`: la reserva sigue en
+`LISTA_ESPERA`). Si no la acepta a tiempo, **pierde el sitio entero**
+(`CANCELADA`, decisión de producto — no se reordena "al final de la cola") y
+se ofrece a la siguiente.
+
+⚠️ **El override se resuelve en SQL directo, no con `heredaOverride()` en
+TS** — a diferencia de Fase 1/2a. Motivo: `cancelar_reserva_plaza` es
+ejecutable directo por `authenticated` desde el cliente
+(`dbCancelarReservaPlaza`, `lib/supabase-data.ts`, sin pasar nunca por
+`cargarPoliticaEstudio`), así que la resolución en TS simplemente no vería el
+plazo en ese camino. Mismo criterio que ya usa `ventana_cancelacion_horas`.
+
+Lógica de promoción extraída a un helper compartido
+(`promocionar_siguiente_espera`, `SECURITY INVOKER`, nunca expuesto directo a
+`authenticated`/`anon`) reutilizado por `cancelar_reserva_plaza` (al liberarse
+un hueco) y por la nueva RPC `expirar_oferta_lista_espera` (al caducar una
+oferta, para intentarlo con la siguiente) — mismo patrón de extracción que
+`*_usa_helpers.sql` en el resto del repo. `aceptar_oferta_lista_espera`
+consume el bono en TS al confirmar (no en la RPC), mismo criterio que
+`resolver_reserva_pendiente`/Fase 2a.
+
+**Regla de negocio, no de reloj** (mismo patrón que Fase 2a): el cron
+`lib/inngest/lista-espera-ofertas.ts` corre cada 5 min (no cada minuto como
+Fase 2a — aquí no hay una regla de seguridad de "clase ya empezada" en juego,
+solo UX de cuánto tarda en enterarse la siguiente persona de la cola).
+
+⚠️ **Gotcha nuevo, distinto del de grants**: cuando una función PL/pgSQL usa
+`RETURNS TABLE(...)`, Postgres expone esas columnas como VARIABLES dentro del
+cuerpo — si luego se hace `SELECT <col> INTO ... FROM otra_función(...)` y esa
+otra función devuelve una columna con el MISMO NOMBRE, o si el propio cuerpo
+filtra `WHERE <col> = ...` sobre una tabla con una columna que coincide con
+una de sus propias `RETURNS TABLE`, Postgres lo rechaza como ambiguo
+(`42702: column reference "X" is ambiguous`) — pasó tres veces en esta fase
+(`cancelar_reserva_plaza`/`expirar_oferta_lista_espera` llamando al helper, y
+`aceptar_oferta_lista_espera` filtrando por `estado` teniendo `estado` como
+columna de su propio `RETURNS TABLE`). Se detectó con la verificación en vivo
+(`execute_sql` + `ROLLBACK`) antes de abrir PR — se arregla calificando SIEMPRE
+con alias de tabla (`reservas AS r`, `r.estado`) cualquier columna que
+coincida en nombre con una salida de `RETURNS TABLE`, migr
+`20260731132000`.
+
+Quedan sin tocar, a propósito: **mínimo de asistentes para confirmar la
+clase** (Fase 2c); Fase 3 (penalización económica) sigue esperando diseño con
+`tentare-stripe`.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 

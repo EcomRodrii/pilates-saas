@@ -43,7 +43,7 @@ test('FINANZAS: bono con 5 sesiones o plan MENSUAL → no dispara', () => {
 test('MARKETING: 5+ inactivas (asistieron y pararon 30d+) → PREPARAR_CAMPANA; menos → nada', () => {
   const inactivas = Array.from({ length: 5 }, (_, i) => socio({ id: `i${i}` }));
   const reserva = (socioId: string): Reserva =>
-    ({ id: `r-${++n}`, studioId: 'e1', socioId, sesionId: 's', estado: 'ASISTIDA', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: diasAntes(40) });
+    ({ id: `r-${++n}`, studioId: 'e1', socioId, sesionId: 's', estado: 'ASISTIDA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(40) });
   const reservas = inactivas.map(x => reserva(x.id));
   const c = marketing.detectar(snap({ socios: inactivas, reservas }), M, NOW);
   assert.equal(c.length, 1);

@@ -15,7 +15,7 @@ const auto = (trigger: Automatizacion['trigger'], p: Partial<Automatizacion> = {
 const sus = (socioId: string, p: Partial<Suscripcion> = {}): Suscripcion =>
   ({ id: `sus-${++n}`, studioId: 'e1', socioId, planId: 'p', estado: 'ACTIVA', fechaInicio: diasAntes(30), fechaFin: null, sesionesRestantes: null, stripeSubscriptionId: null, ...p });
 const reserva = (socioId: string, estado: Reserva['estado'], creadoEn: string): Reserva =>
-  ({ id: `r-${++n}`, studioId: 'e1', socioId, sesionId: 's', estado, spotId: null, posicionEspera: null, checkInEn: null, creadoEn });
+  ({ id: `r-${++n}`, studioId: 'e1', socioId, sesionId: 's', estado, spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn });
 // S-2: el log de marketing lleva el id en `automatizacionId`, su columna propia.
 // Antes iba en `ruleId`, que tenía FK a automation_rules y rechazaba el insert.
 const log = (automatizacionId: string, socioId: string, ejecutadoEn: string): AutomationLog =>

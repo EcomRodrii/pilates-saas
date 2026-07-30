@@ -28,6 +28,7 @@ function res(p: Partial<Reserva> & Pick<Reserva, 'sesionId' | 'socioId' | 'estad
     studioId: 'estudio-1',
     spotId: null,
     posicionEspera: null,
+    ofertaExpiraEn: null,
     checkInEn: null,
     creadoEn: '2026-01-01T10:00:00.000Z',
     ...p,

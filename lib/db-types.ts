@@ -12,6 +12,7 @@ export interface RowReservas {
   posicion_espera: number | null;
   check_in_en: string | null;
   creado_en: string | null;
+  oferta_expira_en: string | null;
 }
 
 export interface RowAchievementDefinitions {
@@ -649,6 +650,7 @@ export interface RowStudios {
   reserva_antelacion_maxima_dias: number | null;
   permite_lista_espera: boolean | null;
   requiere_aprobacion: boolean | null;
+  lista_espera_plazo_aceptacion_minutos: number | null;
   stripe_customer_id: string | null;
   subscription_id: string | null;
   subscription_status: string | null;
@@ -715,6 +717,7 @@ export interface RowTiposClase {
   reserva_antelacion_maxima_dias: number | null;
   permite_lista_espera: boolean | null;
   requiere_aprobacion: boolean | null;
+  lista_espera_plazo_aceptacion_minutos: number | null;
 }
 
 export interface RowUsuarios {

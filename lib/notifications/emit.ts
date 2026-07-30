@@ -72,10 +72,12 @@ export async function emitirReserva(
 // `motivo`: por defecto la cancelación normal (texto de siempre, sin
 // añadido). Fase 2a reutiliza este mismo evento para el resultado de una
 // aprobación pendiente en vez de crear uno nuevo — mismo hecho (la reserva no
-// sigue adelante), solo cambia por qué se lo explicamos.
+// sigue adelante), solo cambia por qué se lo explicamos. Fase 2b añade
+// 'oferta_caducada' — historia de negocio DISTINTA de 'expirada' (esa es "la
+// clase ya ha empezado", esta es "no aceptaste la plaza liberada a tiempo").
 export async function emitirReservaCancelada(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' },
+  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
@@ -83,7 +85,9 @@ export async function emitirReservaCancelada(
       ? ' La propietaria no ha podido confirmarla.'
       : p.motivo === 'expirada'
         ? ' No se aprobó a tiempo: la clase ya ha empezado.'
-        : '';
+        : p.motivo === 'oferta_caducada'
+          ? ' No aceptaste la plaza a tiempo y se ha ofrecido a la siguiente en la lista.'
+          : '';
     await publish({
       type: EVENTOS.RESERVA_CANCELADA, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, motivoTexto },
@@ -128,6 +132,26 @@ export async function emitirPlazaLiberada(
     });
   } catch (e) {
     console.error('[notifications] emitirPlazaLiberada:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Fase 2b: oferta de plaza de lista de espera — avisa a la socia que le toca
+// (mismo turno que hoy sería confirmación instantánea si el estudio no
+// exigiera plazo) que tiene hasta `expiraEn` para aceptar.
+export async function emitirOfertaListaEspera(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string; expiraEn: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const hora = new Date(p.expiraEn).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+    await publish({
+      type: EVENTOS.RESERVA_OFERTA_LISTA_ESPERA, studioId: p.studioId,
+      data: { ...ctx, socioId: p.socioId, hora },
+      resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `oferta-espera:${p.sesionId}:${p.socioId}:${p.expiraEn}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirOfertaListaEspera:', e instanceof Error ? e.message : e);
   }
 }
 

@@ -12,7 +12,7 @@ function socio(p: Partial<Socio> & Pick<Socio, 'id'>): Socio {
   return { studioId: 'e1', nombre: 'Ana', apellidos: 'B', email: 'a@b.c', telefono: null, nif: null, fechaAlta: '2025-01-01', activo: true, ...p };
 }
 function reserva(p: Partial<Reserva> & Pick<Reserva, 'socioId' | 'estado'>): Reserva {
-  return { id: `res-${++n}`, studioId: 'e1', sesionId: 'ses-1', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: diasAntes(1), ...p };
+  return { id: `res-${++n}`, studioId: 'e1', sesionId: 'ses-1', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(1), ...p };
 }
 function suscripcion(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
   return { id: `sus-${++n}`, studioId: 'e1', estado: 'ACTIVA', fechaInicio: '2025-01-01', fechaFin: null, sesionesRestantes: null, stripeSubscriptionId: null, ...p };

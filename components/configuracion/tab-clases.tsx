@@ -32,6 +32,10 @@ type ClaseForm = {
   permiteListaEspera: TriEstado;
   // Fase 2a (migr 20260730192445): mismo patrón de override.
   requiereAprobacion: TriEstado;
+  // Fase 2b (migr 20260731130000): override NUMÉRICO — vacío = null = hereda,
+  // mismo patrón que reservaVentanaMinimaMinutos/reservaAntelacionMaximaDias
+  // (no tri-estado, que es solo para booleanos).
+  listaEsperaPlazoAceptacionMinutos: string;
 };
 
 const emptyClaseForm = (): ClaseForm => ({
@@ -46,6 +50,7 @@ const emptyClaseForm = (): ClaseForm => ({
   reservaAntelacionMaximaDias: '',
   permiteListaEspera: 'hereda',
   requiereAprobacion: 'hereda',
+  listaEsperaPlazoAceptacionMinutos: '',
 });
 
 function claseToForm(t: TipoClase): ClaseForm {
@@ -61,6 +66,7 @@ function claseToForm(t: TipoClase): ClaseForm {
     reservaAntelacionMaximaDias: t.reservaAntelacionMaximaDias != null ? String(t.reservaAntelacionMaximaDias) : '',
     permiteListaEspera: boolATri(t.permiteListaEspera),
     requiereAprobacion: boolATri(t.requiereAprobacion),
+    listaEsperaPlazoAceptacionMinutos: t.listaEsperaPlazoAceptacionMinutos != null ? String(t.listaEsperaPlazoAceptacionMinutos) : '',
   };
 }
 
@@ -134,6 +140,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       reservaAntelacionMaximaDias: form.reservaAntelacionMaximaDias.trim() === '' ? null : Math.max(0, parseInt(form.reservaAntelacionMaximaDias, 10) || 0),
       permiteListaEspera: triABool(form.permiteListaEspera),
       requiereAprobacion: triABool(form.requiereAprobacion),
+      listaEsperaPlazoAceptacionMinutos: form.listaEsperaPlazoAceptacionMinutos.trim() === '' ? null : Math.max(0, parseInt(form.listaEsperaPlazoAceptacionMinutos, 10) || 0),
     };
     if (modal === 'nueva') {
       // Esperamos a la base de datos antes de decir que está creado.
@@ -395,6 +402,19 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 <option value="si">Sí, requerir aprobación</option>
                 <option value="no">No requerir</option>
               </select>
+            </Field>
+            <Field
+              label="Plazo para aceptar una plaza liberada (minutos)"
+              description="Con un plazo, la socia debe aceptar antes de que caduque o se ofrece a la siguiente. Vacío = usa el ajuste general del estudio."
+            >
+              <input
+                className={inputCls}
+                type="number"
+                min={0}
+                placeholder="Ajuste del estudio"
+                value={form.listaEsperaPlazoAceptacionMinutos}
+                onChange={e => setForm(f => ({ ...f, listaEsperaPlazoAceptacionMinutos: e.target.value }))}
+              />
             </Field>
             <Field
               label="Color"

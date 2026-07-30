@@ -15,7 +15,7 @@ let n = 0;
 const socio = (p: Partial<Socio> & Pick<Socio, 'id'>): Socio =>
   ({ studioId: 'e1', nombre: 'Socia', apellidos: 'B', email: 'a@b.c', telefono: null, nif: null, fechaAlta: '2025-01-01', activo: true, ...p });
 const reserva = (p: Partial<Reserva> & Pick<Reserva, 'socioId' | 'estado' | 'sesionId'>): Reserva =>
-  ({ id: `res-${++n}`, studioId: 'e1', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: diasAntes(1), ...p });
+  ({ id: `res-${++n}`, studioId: 'e1', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(1), ...p });
 const asistencias = (socioId: string, cadaDias: number, cuantas: number, offset: number): Reserva[] =>
   Array.from({ length: cuantas }, (_, i) => reserva({ socioId, estado: 'ASISTIDA', sesionId: 'hist', creadoEn: diasAntes(offset + i * cadaDias) }));
 const suscripcion = (p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion =>

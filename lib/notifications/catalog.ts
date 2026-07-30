@@ -54,6 +54,11 @@ export const EVENTOS = {
   // equivalente ya existente: alguien tiene que enterarse de que hay algo que
   // revisar, y RESERVA_CREADA (prioridad BAJA, sin canales) no vale para eso.
   RESERVA_PENDIENTE_APROBACION: 'reserva.pendiente_aprobacion',
+  // Fase 2b (migr 20260731130000): plazo para aceptar una plaza de lista de
+  // espera. Único evento nuevo de esta feature — aceptar reutiliza
+  // RESERVA_CONFIRMADA (emitirReserva) y la caducidad de la oferta reutiliza
+  // RESERVA_CANCELADA (emitirReservaCancelada, motivo 'oferta_caducada').
+  RESERVA_OFERTA_LISTA_ESPERA: 'reserva.oferta_lista_espera',
   CLASE_CANCELADA: 'clase.cancelada',
   CLASE_MODIFICADA: 'clase.modificada',
   // Cubrir NO es mover: la clase se queda donde está y solo cambia quién la da.
@@ -104,6 +109,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // esta requiere una acción de la propietaria/mostrador antes de que empiece
   // la clase.
   [EVENTOS.RESERVA_PENDIENTE_APROBACION]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'mostrador' },
+  // ALTA + PUSH: la socia tiene un plazo real para aceptar antes de que se
+  // ofrezca a la siguiente — mismo criterio que RESERVA_PLAZA_LIBERADA, pero
+  // aquí SÍ hace falta que actúe (no basta con enterarse).
+  [EVENTOS.RESERVA_OFERTA_LISTA_ESPERA]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // clase.*: SIN EMAIL a propósito. El panel ya manda su propio correo a cada
   // alumna con plaza (enviarEmailCancelacionClase / avisarAlumnas) → declararlo
   // aquí les llegaría el mismo aviso dos veces.
@@ -218,6 +227,14 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: '¡Se ha liberado tu plaza!',
     body: 'Ha quedado sitio en {clase} del {cuando} y ya tienes plaza confirmada.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+  },
+  // Fase 2b: a diferencia de RESERVA_PLAZA_LIBERADA (ya confirmada), esta se
+  // dispara cuando el estudio exige plazo de aceptación — la socia tiene que
+  // ACTUAR antes de {hora} o pierde el sitio.
+  [`${EVENTOS.RESERVA_OFERTA_LISTA_ESPERA}#SOCIA`]: {
+    title: 'Se ha liberado una plaza',
+    body: 'Tienes hasta las {hora} para aceptar tu plaza en {clase} ({cuando}).',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservas?tab=ESPERA`,
   },
   // {motivoTexto}: vacío en la cancelación normal (mismo texto de siempre);
   // rellena cuando la cancela el rechazo/expiración de una aprobación

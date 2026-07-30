@@ -14,7 +14,7 @@ const suscripcion = (socioId: string): Suscripcion =>
   ({ id: `sus-${++n}`, studioId: 'e1', socioId, planId: 'm', estado: 'ACTIVA', fechaInicio: '2025-01-01', fechaFin: null, sesionesRestantes: null, stripeSubscriptionId: null });
 const plan = (): PlanTarifa => ({ id: 'm', studioId: 'e1', nombre: 'Mensual', descripcion: null, precio: 89, tipo: 'MENSUAL', sesiones: null, activo: true });
 const reserva = (socioId: string, sesionId: string): Reserva =>
-  ({ id: `res-${++n}`, studioId: 'e1', socioId, sesionId, estado: 'ASISTIDA', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: NOW.toISOString() });
+  ({ id: `res-${++n}`, studioId: 'e1', socioId, sesionId, estado: 'ASISTIDA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: NOW.toISOString() });
 
 // Clase pasada `diasAtras` días, a una hora variable (para que NO formen franja
 // recurrente y así aislar A2 de A1).

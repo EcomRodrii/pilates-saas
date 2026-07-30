@@ -17,7 +17,7 @@ function socio(p: Partial<Socio> & Pick<Socio, 'id'>): Socio {
   return { studioId: 'e1', nombre: 'Socia', apellidos: 'B', email: 'a@b.c', telefono: null, nif: null, fechaAlta: '2025-01-01', activo: true, ...p };
 }
 function reserva(p: Partial<Reserva> & Pick<Reserva, 'socioId' | 'estado' | 'sesionId'>): Reserva {
-  return { id: `res-${++n}`, studioId: 'e1', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: diasAntes(1), ...p };
+  return { id: `res-${++n}`, studioId: 'e1', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(1), ...p };
 }
 function asistencias(socioId: string, cadaDias: number, cuantas: number, offsetDias: number): Reserva[] {
   return Array.from({ length: cuantas }, (_, i) => reserva({ socioId, estado: 'ASISTIDA', sesionId: 'historica', creadoEn: diasAntes(offsetDias + i * cadaDias) }));

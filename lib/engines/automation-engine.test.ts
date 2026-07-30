@@ -14,12 +14,12 @@ function socio(p: Partial<Socio> & Pick<Socio, 'id'>): Socio {
   return { studioId: 'e1', nombre: 'A', apellidos: 'B', email: 'a@b.c', telefono: null, nif: null, fechaAlta: '2026-01-01', activo: true, ...p };
 }
 function reserva(p: Partial<Reserva> & Pick<Reserva, 'socioId' | 'sesionId' | 'estado'>): Reserva {
-  return { id: `res-${++n}`, studioId: 'e1', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: diasAntes(1), ...p };
+  return { id: `res-${++n}`, studioId: 'e1', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(1), ...p };
 }
 function sesion(p: Partial<Sesion> & Pick<Sesion, 'id' | 'inicio'>): Sesion {
   return { studioId: 'e1', tipoClaseId: 'tc1', salaId: 's1', instructorId: 'i1', fin: p.inicio, aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null, ...p };
 }
-const tipo: TipoClase = { id: 'tc1', studioId: 'e1', nombre: 'Reformer', color: '#000', duracionMinutos: 60, descripcion: '', nivel: 'TODOS', fotoUrl: null, ventanaCancelacionHoras: null, reservaExigirPlan: null, reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null, permiteListaEspera: null, requiereAprobacion: null };
+const tipo: TipoClase = { id: 'tc1', studioId: 'e1', nombre: 'Reformer', color: '#000', duracionMinutos: 60, descripcion: '', nivel: 'TODOS', fotoUrl: null, ventanaCancelacionHoras: null, reservaExigirPlan: null, reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null, permiteListaEspera: null, requiereAprobacion: null, listaEsperaPlazoAceptacionMinutos: null };
 function rule(p: Partial<AutomationRule> & Pick<AutomationRule, 'trigger'>): AutomationRule {
   return { id: `rule-${p.trigger}`, studioId: 'e1', nombre: 'R', descripcion: '', icono: '', condicion: {}, pasos: [], activa: true, ejecutadaVeces: 0, ultimaEjecucion: null, creadaEn: '2026-01-01', ...p };
 }

@@ -856,7 +856,9 @@ function SessionSidebar({
                       </p>
                       <p className="text-[10px] text-muted-foreground">
                         {r.estado === 'LISTA_ESPERA'
-                          ? `Espera #${r.posicionEspera}`
+                          ? (r.ofertaExpiraEn
+                              ? `Oferta viva · caduca ${horaEstudio(r.ofertaExpiraEn)}`
+                              : `Espera #${r.posicionEspera}`)
                           : r.estado === 'PENDIENTE_APROBACION'
                           ? 'Pendiente de aprobar'
                           : r.estado === 'ASISTIDA'

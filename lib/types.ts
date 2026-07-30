@@ -75,6 +75,15 @@ export interface Studio {
   // Fase 2a (migr 20260730192445): default de estudio, tipos_clase puede
   // sobrescribirlo con NULL = hereda (mismo patrón que el resto de arriba).
   requiereAprobacion: boolean;
+  // Fase 2b (migr 20260731130000): minutos para aceptar una plaza liberada
+  // de lista de espera antes de que se ofrezca a la siguiente. 0 =
+  // confirmación instantánea (comportamiento clásico). tipos_clase puede
+  // sobrescribirlo con NULL = hereda, mismo patrón que el resto de arriba —
+  // pero OJO, este override se resuelve en SQL directo dentro de
+  // cancelar_reserva_plaza, no con heredaOverride() en TS (ver comentario en
+  // esa migración: la RPC es ejecutable directo por `authenticated` desde el
+  // cliente, sin pasar por cargarPoliticaEstudio).
+  listaEsperaPlazoAceptacionMinutos: number;
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
   stripeTerminalLocationId: string | null;
@@ -444,6 +453,9 @@ export interface TipoClase {
   permiteListaEspera: boolean | null;
   // Fase 2a (migr 20260730192445): mismo patrón de override.
   requiereAprobacion: boolean | null;
+  // Fase 2b (migr 20260731130000): mismo patrón de override. Resuelto en SQL
+  // directo, no con heredaOverride() — ver comentario en Studio.
+  listaEsperaPlazoAceptacionMinutos: number | null;
 }
 
 export interface Instructor {
@@ -486,6 +498,10 @@ export interface Reserva {
   estado: EstadoReserva;
   spotId: string | null;
   posicionEspera: number | null;
+  // Fase 2b (migr 20260731130000): si no es null y estado='LISTA_ESPERA', hay
+  // una oferta de plaza viva hasta esta hora — debe aceptarla o pierde el
+  // sitio (cron lib/inngest/lista-espera-ofertas.ts).
+  ofertaExpiraEn: string | null;
   checkInEn: string | null;
   creadoEn: string;
 }

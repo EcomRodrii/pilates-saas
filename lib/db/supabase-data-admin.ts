@@ -1143,6 +1143,70 @@ export async function expirarReservaPendiente(params: {
   });
 }
 
+// Fase 2b: la socia acepta su oferta de plaza de lista de espera dentro del
+// plazo. El bono se consume AQUÍ (no en la RPC) — mismo criterio que
+// resolverReservaPendiente: la reserva no ocupa plaza real hasta que se
+// confirma de verdad.
+export async function aceptarOfertaListaEspera(params: {
+  studioId: string; reservaId: string; socioId: string;
+}): Promise<{ ok: true; estado: string } | { error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const { data, error } = await admin.rpc('aceptar_oferta_lista_espera', {
+    p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
+  });
+  if (error) {
+    if (error.message.includes('OFERTA_CADUCADA')) return { error: 'Esta oferta ya ha caducado' };
+    if (error.message.includes('OFERTA_NO_ENCONTRADA')) return { error: 'Esta reserva ya no está en lista de espera' };
+    if (error.message.includes('SIN_OFERTA_ACTIVA')) return { error: 'No hay ninguna oferta activa para esta reserva' };
+    if (error.message.includes('NO_AUTORIZADO')) return { error: 'No autorizado' };
+    return { error: error.message };
+  }
+
+  const { data: res } = await admin.from('reservas').select('sesion_id').eq('id', params.reservaId).maybeSingle();
+  const sesionId = res?.sesion_id as string | undefined;
+  if (sesionId) {
+    await consumirBonoServidor(admin, params.studioId, params.socioId, sesionId);
+    const { emitirReserva } = await import('@/lib/notifications/emit');
+    await emitirReserva(admin, { studioId: params.studioId, sesionId, socioId: params.socioId, estado: 'CONFIRMADA' });
+  }
+  return { ok: true, estado: 'CONFIRMADA' };
+}
+
+// Fase 2b: cancela (pierde el sitio) la reserva cuya oferta caducó sin
+// aceptar y reutiliza promocionar_siguiente_espera (dentro de la RPC) para
+// ofrecerla a la siguiente en la cola. Llamado solo por el cron
+// (lib/inngest/lista-espera-ofertas.ts), sin sesión de usuario detrás — mismo
+// criterio que expirarReservaPendiente.
+export async function expirarOfertaListaEspera(params: {
+  studioId: string; reservaId: string; sesionId: string; socioId: string;
+}): Promise<void> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { data, error } = await admin.rpc('expirar_oferta_lista_espera', {
+    p_studio_id: params.studioId, p_reserva_id: params.reservaId,
+  });
+  if (error) {
+    console.error('[expirarOfertaListaEspera]', error.message);
+    return;
+  }
+  const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
+  await emitirReservaCancelada(admin, {
+    studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId,
+    reservaId: params.reservaId, motivo: 'oferta_caducada',
+  });
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (row?.oferta_socio_id) {
+    const { emitirOfertaListaEspera } = await import('@/lib/notifications/emit');
+    await emitirOfertaListaEspera(admin, {
+      studioId: params.studioId, sesionId: params.sesionId,
+      socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string,
+    });
+  }
+}
+
 // Asigna un spot a una reserva confirmada validando que el sitio pertenece a la
 // sala de la sesión, está activo y libre. El índice único uq_reserva_spot_activo
 // es el backstop atómico ante reservas concurrentes del mismo sitio: si dos van
@@ -1251,6 +1315,16 @@ export async function ejecutarCancelacionReserva(
       const { emitirPlazaLiberada } = await import('@/lib/notifications/emit');
       await emitirPlazaLiberada(admin, { studioId: params.studioId, sesionId: cancelada.sesion_id as string, socioId: promSocioId });
     }
+  } else if (row?.oferta_socio_id && cancelada?.sesion_id) {
+    // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
+    // confirma sola (sin consumir bono ni asignar spot todavía, eso pasa al
+    // aceptar, ver aceptarOfertaListaEspera), solo se le avisa que tiene una
+    // oferta viva hasta oferta_expira_en.
+    const { emitirOfertaListaEspera } = await import('@/lib/notifications/emit');
+    await emitirOfertaListaEspera(admin, {
+      studioId: params.studioId, sesionId: cancelada.sesion_id as string,
+      socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string,
+    });
   }
   // Notification Engine: confirmación a la socia de que su plaza ya no está.
   // Clave cuando lo dispara el SISTEMA (corte por riesgo de plantón): si no, se

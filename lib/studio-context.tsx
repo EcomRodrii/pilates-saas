@@ -281,6 +281,10 @@ interface StudioContextValue {
   // Reservas
   addReserva: (sesionId: string, socioId: string, spotId?: string | null) => Promise<ResultadoReserva>;
   cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura>;
+  // Fase 2b: acepta una oferta de plaza de lista de espera dentro de su plazo.
+  // Solo tiene sentido desde el portal (socia con sesión iniciada) — ver
+  // app/api/reservas/aceptar-oferta-espera/route.ts.
+  aceptarOfertaEspera: (reservaId: string) => Promise<ResultadoEscritura>;
   // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
   bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
@@ -1993,6 +1997,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       estado,
       spotId: null,
       posicionEspera,
+      ofertaExpiraEn: null,
       checkInEn: null,
       creadoEn: new Date().toISOString(),
     };
@@ -2055,7 +2060,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // bloqueo de fila).
     dbCancelarReservaPlaza(getCurrentStudioId(), reservaId).then(res => {
       if (!res || 'error' in res) return;
-      const { eraConfirmada, promovidaSocioId, devolverBono } = res;
+      const { eraConfirmada, promovidaSocioId, devolverBono, ofertaSocioId, ofertaExpiraEn } = res;
 
       // Devolver bono a quien canceló solo si su reserva ocupaba plaza Y la
       // política de cancelación lo permite. Las DOS cosas las decide ahora la
@@ -2069,6 +2074,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // se llega a eso; ahora hay una sola respuesta y esto la obedece.
       if (eraConfirmada && cancelada && devolverBono) {
         devolverSesionBono(cancelada.socioId, sesionId);
+      }
+
+      // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
+      // confirma sola. Refleja en el estado local la oferta que la BD acaba de
+      // abrir (sigue en LISTA_ESPERA, sin consumir bono todavía; eso pasa al
+      // aceptar, desde el portal). El aviso a la socia lo manda el server
+      // (emitirOfertaListaEspera, disparado por el camino admin/público) — este
+      // camino cliente-directo no pasa por ahí, así que solo se informa al
+      // panel de que hay una oferta viva.
+      if (ofertaSocioId && sesionId) {
+        setReservas(prev => prev.map(r =>
+          (r.sesionId === sesionId && r.socioId === ofertaSocioId && r.estado === 'LISTA_ESPERA')
+            ? { ...r, ofertaExpiraEn: ofertaExpiraEn ?? null } : r));
+        return;
       }
 
       if (!promovidaSocioId || !sesionId) return;
@@ -2117,6 +2136,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Vía panel: la corrección de estado la hace el `.then` de arriba sobre el
     // resultado autoritativo de la BD, así que aquí no hay nada que negar.
     return { ok: true };
+  }
+
+  // Fase 2b: acepta una oferta de plaza de lista de espera. Solo tiene sentido
+  // desde el portal (socia con sesión iniciada, ctxPublico() presente) — el
+  // panel de staff nunca acepta en nombre de la socia (decisión de producto).
+  async function aceptarOfertaEspera(reservaId: string): Promise<ResultadoEscritura> {
+    const cpub = ctxPublico();
+    if (!cpub) return { ok: false, error: 'No autorizado' };
+    const r = await postPublico('/api/reservas/aceptar-oferta-espera', { studioId: cpub.studioId, reservaId });
+    return r.ok ? { ok: true } : r;
   }
 
   // Premia a quien invitó SOLO cuando la referida asiste a su primera clase,
@@ -3330,6 +3359,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     cancelarSerieDesde,
     addReserva,
     cancelarReserva,
+    aceptarOfertaEspera,
     bajaConRecuperacion,
     checkin,
     deshacerCheckin,
