@@ -194,12 +194,12 @@ export function Sidebar() {
   const marca = nombreAppPorRol(rol);
   // Solo hay lockup horizontal por rol (icono + wordmark en fila); el logo
   // colapsado (solo icono) y el de /login siguen siendo el genérico Tentare
-  // hasta que exista un export real de diseño en esos formatos. Dimensiones
-  // reales del PNG recortado (no las de logo-horizontal.png): son más anchas,
-  // así que van con su propio width/height o next/image las deja con letterbox.
+  // hasta que haya un caso de uso que lo pida — el rol no se conoce antes de
+  // autenticar. Export real de diseño (mismo lienzo 1508×1043 que
+  // logo-horizontal.png, con alfa real).
   const logoHorizontal = rol === 'INSTRUCTOR'
-    ? { src: '/logo-horizontal-core.png', width: 1348, height: 317 }
-    : { src: '/logo-horizontal-manager.png', width: 1450, height: 296 };
+    ? { src: '/logo-horizontal-core.png', width: 1508, height: 1043 }
+    : { src: '/logo-horizontal-manager.png', width: 1508, height: 1043 };
   const router = useRouter();
   const { mode: navMode, setNavMode } = useNavMode();
 

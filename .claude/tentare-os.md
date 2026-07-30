@@ -65,7 +65,11 @@ solo se conoce tras autenticar, así que se quedan con la marca paraguas "Tentar
 Internal", backoffice de Tentare-empresa, no relacionado); `app/portal/[slug]`
 (marca blanca por estudio, tercer contexto de marca ya separado); los emails a
 socias/clientas (sin marca de producto interno, solo la marca del estudio); el logo
-colapsado del sidebar y el de `/login` (solo hay lockup horizontal por rol todavía).
+colapsado del sidebar (el icono "T" es el mismo en las tres marcas, sin texto que
+distinguir) y el de `/login` (aunque ya existen `logo-stacked-core.png`/
+`-manager.png` con export real de diseño, `/login` sigue sin poder usarlos porque el
+rol no se conoce antes de autenticar — no es un hueco de asset, es la misma
+limitación de siempre).
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
