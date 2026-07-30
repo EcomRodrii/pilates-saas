@@ -67,6 +67,12 @@ export default function ClasesPage() {
   // tendría que sincronizarse con él.
   const FAVORITAS = '__favoritas__';
   const idsFavoritos = useMemo(() => new Set(favoritos.map(f => f.tipoClaseId)), [favoritos]);
+  // Derivado, no estado: si se queda sin favoritos con el filtro puesto (p.ej.
+  // desmarca su última favorita), el chip "Favoritas" desaparece de la fila —
+  // sin esto el listado se quedaba vacío sin ningún control visible para
+  // volver a "Todas". Tratarlo como valor derivado (en vez de sincronizarlo
+  // con un efecto que llama a setTipoElegido) evita un render en cascada.
+  const tipoEfectivo = tipoElegido === FAVORITAS && idsFavoritos.size === 0 ? null : tipoElegido;
   const [reservando, setReservando] = useState<ClaseParaReservar | null>(null);
   const [paseAbierto, setPaseAbierto] = useState<{ nombre: string; sub: string } | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -147,10 +153,10 @@ export default function ClasesPage() {
     const clave = claveDia(dia);
     return sesiones
       .filter(s => !s.cancelada && s.inicio.slice(0, 10) === clave)
-      .filter(s => tipoElegido === FAVORITAS ? idsFavoritos.has(s.tipoClaseId) : (!tipoElegido || s.tipoClaseId === tipoElegido))
+      .filter(s => tipoEfectivo === FAVORITAS ? idsFavoritos.has(s.tipoClaseId) : (!tipoEfectivo || s.tipoClaseId === tipoEfectivo))
       .sort((a, b) => a.inicio.localeCompare(b.inicio))
       .map(decorar);
-  }, [dias, diaActivo, sesiones, tipoElegido, idsFavoritos, decorar]);
+  }, [dias, diaActivo, sesiones, tipoEfectivo, idsFavoritos, decorar]);
 
   const misClases = useMemo(() =>
     sesiones
@@ -273,7 +279,7 @@ export default function ClasesPage() {
               {[{ id: null as string | null, nombre: 'Todas', color: null as string | null },
                 ...(idsFavoritos.size > 0 ? [{ id: FAVORITAS, nombre: 'Favoritas', color: null as string | null }] : []),
                 ...tiposClase.map(tc => ({ id: tc.id, nombre: tc.nombre, color: tc.color }))].map(chip => {
-                const activo = tipoElegido === chip.id;
+                const activo = tipoEfectivo === chip.id;
                 return (
                   <button
                     key={chip.id ?? 'todas'} type="button" onClick={() => setTipoElegido(chip.id)} aria-pressed={activo}

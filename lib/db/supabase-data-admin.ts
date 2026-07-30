@@ -1454,6 +1454,13 @@ export async function toggleFavoritoPublico(params: {
 }): Promise<{ ok: true } | { error: string }> {
   const admin = getSupabaseAdmin();
   if (!admin) return { error: 'Service role no configurada' };
+  // El id de tipo de clase llega del body: sin esta comprobación, una socia
+  // podía marcar como favorito un tipo_clase de OTRO estudio (el FK solo prueba
+  // que la fila existe en algún sitio, no que sea de este estudio) — corrupción
+  // de datos cross-tenant. Mismo criterio que socioAutenticado con studioId.
+  const { data: tipo } = await admin.from('tipos_clase').select('id')
+    .eq('id', params.tipoClaseId).eq('studio_id', params.studioId).maybeSingle();
+  if (!tipo) return { error: 'Ese tipo de clase no existe en este estudio.' };
   if (params.accion === 'marcar') {
     const { error } = await admin.from('favoritos_clase').upsert(
       { studio_id: params.studioId, socio_id: params.socioId, tipo_clase_id: params.tipoClaseId },

@@ -101,7 +101,11 @@ export default function PortalHome() {
   }, []);
   const now = ahora ?? new Date();
   const bannersVigentes = useMemo(() => {
-    const hoyISO = now.toISOString().slice(0, 10);
+    // Fecha LOCAL, no toISOString() (UTC): con un estudio en España, la hora
+    // siguiente a medianoche local todavía cae en el día UTC anterior, y un
+    // banner con fecha de inicio/fin de hoy aparecía/desaparecía con 1-2 h de
+    // desfase.
+    const hoyISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     return bannersPortal.filter(b => bannerVigente(b, hoyISO)).sort((a, b) => a.orden - b.orden);
   }, [bannersPortal, now]);
 

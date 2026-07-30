@@ -49,6 +49,13 @@ function BannerRow({ banner, onToast }: { banner: BannerPortal; onToast: (m: str
     if (!res.ok) onToast(res.error);
   }
 
+  // Guardado de campo suelto: sin esto, un fallo de red/RLS al teclear se
+  // perdía en silencio (updateBannerPortal sin await ni comprobar el
+  // resultado) y el manager creía que se había guardado.
+  function guardarCampo(changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) {
+    void updateBannerPortal(banner.id, changes).then(res => { if (!res.ok) onToast(res.error); });
+  }
+
   return (
     <div className={cn(cardCls, 'p-4 space-y-3')}>
       <div className="flex items-start gap-3">
@@ -69,17 +76,17 @@ function BannerRow({ banner, onToast }: { banner: BannerPortal; onToast: (m: str
             className={inputCls}
             value={banner.titulo ?? ''}
             placeholder="Título del banner"
-            onChange={e => updateBannerPortal(banner.id, { titulo: e.target.value || null })}
+            onChange={e => guardarCampo({ titulo: e.target.value || null })}
           />
           <input
             className={inputCls}
             value={banner.texto ?? ''}
             placeholder="Texto corto (opcional)"
-            onChange={e => updateBannerPortal(banner.id, { texto: e.target.value || null })}
+            onChange={e => guardarCampo({ texto: e.target.value || null })}
           />
         </div>
         <div className="flex flex-col items-center gap-2 shrink-0">
-          <Toggle on={banner.activo} onChange={v => updateBannerPortal(banner.id, { activo: v })} />
+          <Toggle on={banner.activo} onChange={v => guardarCampo({ activo: v })} />
           <button type="button" onClick={() => setConfirmDel(true)} className="text-muted-foreground hover:text-destructive" aria-label="Eliminar banner">
             <Trash2 size={16} />
           </button>
@@ -92,7 +99,7 @@ function BannerRow({ banner, onToast }: { banner: BannerPortal; onToast: (m: str
             <select
               className={inputCls}
               value={banner.linkTipo}
-              onChange={e => updateBannerPortal(banner.id, { linkTipo: e.target.value as BannerPortal['linkTipo'] })}
+              onChange={e => guardarCampo({ linkTipo: e.target.value as BannerPortal['linkTipo'] })}
             >
               <option value="interno">Página interna</option>
               <option value="externo">URL externa</option>
@@ -101,7 +108,7 @@ function BannerRow({ banner, onToast }: { banner: BannerPortal; onToast: (m: str
               className={inputCls}
               value={banner.linkValor}
               placeholder={banner.linkTipo === 'interno' ? '/bonos' : 'https://…'}
-              onChange={e => updateBannerPortal(banner.id, { linkValor: e.target.value })}
+              onChange={e => guardarCampo({ linkValor: e.target.value })}
             />
           </div>
         </Field>
@@ -110,14 +117,14 @@ function BannerRow({ banner, onToast }: { banner: BannerPortal; onToast: (m: str
             <input
               type="date" className={inputCls}
               value={banner.fechaInicio ?? ''}
-              onChange={e => updateBannerPortal(banner.id, { fechaInicio: e.target.value || null })}
+              onChange={e => guardarCampo({ fechaInicio: e.target.value || null })}
             />
           </Field>
           <Field label="Hasta (opcional)">
             <input
               type="date" className={inputCls}
               value={banner.fechaFin ?? ''}
-              onChange={e => updateBannerPortal(banner.id, { fechaFin: e.target.value || null })}
+              onChange={e => guardarCampo({ fechaFin: e.target.value || null })}
             />
           </Field>
         </div>

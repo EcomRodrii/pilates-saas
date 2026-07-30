@@ -1152,7 +1152,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
   async function addBannerPortal(fields: Omit<BannerPortal, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
-    const nuevo: BannerPortal = { ...fields, id: `bp-${uid()}`, studioId: getCurrentStudioId() };
+    // `contenido_portal_banners.id` es `uuid` de verdad (no `text` como el resto
+    // de entidades de esta app) — el id de cliente tiene que ser un UUID válido,
+    // no el `bp-${uid()}` habitual, o Postgres lo rechaza con 22P02. Además el
+    // storage de la imagen del banner necesita este id YA creado en BD antes de
+    // subir (la RLS del bucket lo valida contra la fila), así que no vale con
+    // dejar que Postgres lo genere y leerlo después: se genera aquí.
+    const nuevo: BannerPortal = { ...fields, id: crypto.randomUUID(), studioId: getCurrentStudioId() };
     const res = await dbInsertBannerPortal(nuevo);
     if (!res.ok) return res;
     setBannersPortal(prev => [...prev, nuevo]);
