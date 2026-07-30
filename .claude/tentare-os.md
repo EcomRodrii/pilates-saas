@@ -36,8 +36,12 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
 - No trocear los "god files" (`lib/supabase-data.ts`, `studio-context.tsx`...) — propuesto y
   rechazado dos veces.
 - Feature-freeze activo sobre Kiosko/POS/VOD/Comunidad (`lib/frozen-features.ts`).
-- `suscripciones` con RLS abierta a todo el personal, y `sesiones`/`reservas` sin cerrar del
-  todo, son decisiones de producto deliberadas, no agujeros pendientes.
+- `suscripciones` con RLS abierta a todo el personal es decisión de producto deliberada, no
+  agujero pendiente. `sesiones`/`reservas` **YA NO** son "sin cerrar del todo" — probando en
+  persona la cuenta de una instructora se vio que podía crear/editar/cancelar CUALQUIER clase
+  y añadir clientas a cualquier reserva (migr `20260730109000`/`20260730110000`): INSTRUCTOR
+  ahora solo puede UPDATE en sus propias clases (sin INSERT/DELETE); PROPIETARIO/MANAGER/
+  RECEPCION mantienen control total, sin cambios.
 - El menú de una cadena es por cadena, no por sede (migración 0103) — no reintroducir el
   toggle antiguo.
 
