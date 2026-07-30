@@ -2,7 +2,7 @@
 // texto — pensado para la URL de cotejo Veri*Factu. Cliente-seguro (sin
 // node:crypto). Devuelve una cadena <svg> lista para inyectar en el PDF de
 // impresión o en la preview (dangerouslySetInnerHTML).
-import { QrCode, Ecc } from './vendor/qrcodegen';
+import { QrCode, Ecc } from './vendor/qrcodegen.ts';
 
 export function qrSvgMarkup(text: string, opciones?: { margen?: number }): string {
   const qr = QrCode.encodeText(text, Ecc.MEDIUM);

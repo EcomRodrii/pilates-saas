@@ -3,9 +3,9 @@
 // que lo usan tanto el panel (app/(dashboard)/facturas) como el portal de
 // socias (app/portal/[slug]/mi-plan), donde antes el badge "· Factura" era
 // texto inerte sin forma de obtener el documento.
-import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
-import { qrSvgMarkup } from '@/lib/qr-svg';
-import type { Factura } from '@/lib/types';
+import { urlQrVerifactu, fechaExpedicionDesdeISO } from './verifactu-qr.ts';
+import { qrSvgMarkup } from './qr-svg.ts';
+import type { Factura } from './types.ts';
 
 export interface EmisorFactura {
   nombre: string;
@@ -20,6 +20,16 @@ export interface ReceptorFactura {
 
 function fecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// Esto se inyecta con document.write en una ventana que hereda el origen del
+// opener (la app autenticada) — un nombre/NIF/teléfono con <script> o
+// onerror= de una socia o del propio estudio se ejecutaría con acceso a
+// window.opener al abrir "Descargar factura". Nada de esto es HTML de
+// verdad: son campos de texto libre (nombre, NIF, teléfono, email), así que
+// escapar siempre es correcto, nunca rompe el documento.
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 export function generarFacturaHTML(
@@ -84,24 +94,24 @@ export function generarFacturaHTML(
     <div class="numero">${f.numeroCompleto}</div>
   </div>
   <div style="text-align:right">
-    <div style="font-weight:700">${emisor.nombre}</div>
-    <div style="color:#8E8E86">${emisor.nif}</div>
-    <div style="color:#8E8E86">${emisor.direccion}</div>
+    <div style="font-weight:700">${esc(emisor.nombre)}</div>
+    <div style="color:#8E8E86">${esc(emisor.nif)}</div>
+    <div style="color:#8E8E86">${esc(emisor.direccion)}</div>
   </div>
 </div>
 <div class="parties">
   <div>
     <div class="party-label">Emisor</div>
-    <div class="party-name">${emisor.nombre}</div>
-    <div class="party-detail">${emisor.nif}</div>
-    <div class="party-detail">${emisor.direccion}</div>
+    <div class="party-name">${esc(emisor.nombre)}</div>
+    <div class="party-detail">${esc(emisor.nif)}</div>
+    <div class="party-detail">${esc(emisor.direccion)}</div>
   </div>
   <div>
     <div class="party-label">Receptor</div>
-    <div class="party-name">${f.receptorNombre}</div>
-    ${f.receptorNIF ? `<div class="party-detail">${f.receptorNIF}</div>` : ''}
-    ${receptor?.telefono ? `<div class="party-detail">${receptor.telefono}</div>` : ''}
-    ${receptor?.email ? `<div class="party-detail">${receptor.email}</div>` : ''}
+    <div class="party-name">${esc(f.receptorNombre)}</div>
+    ${f.receptorNIF ? `<div class="party-detail">${esc(f.receptorNIF)}</div>` : ''}
+    ${receptor?.telefono ? `<div class="party-detail">${esc(receptor.telefono)}</div>` : ''}
+    ${receptor?.email ? `<div class="party-detail">${esc(receptor.email)}</div>` : ''}
   </div>
 </div>
 <div class="meta">Fecha de emisión: <strong>${fecha(f.fechaEmision)}</strong></div>
@@ -123,7 +133,7 @@ export function generarFacturaHTML(
   </tfoot>
 </table>
 ${bloqueVerifactu}
-<div class="footer">Documento generado el ${new Date().toLocaleDateString('es-ES')} · ${emisor.nombre} · ${emisor.nif}</div>
+<div class="footer">Documento generado el ${new Date().toLocaleDateString('es-ES')} · ${esc(emisor.nombre)} · ${esc(emisor.nif)}</div>
 <script>window.onload = function(){ window.print(); }<\/script>
 </body></html>`;
 }
