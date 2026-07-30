@@ -305,6 +305,13 @@ export function ThemeEditor() {
             )}
             <input ref={logoRef} type="file" accept="image/*" hidden onChange={handleLogo} />
           </div>
+          {/* Este mismo logo sale también en el icono de tus notificaciones
+              push a clientas (antes salía siempre el genérico de Tentare) y
+              en el icono de tu app instalada — cuadrado y sin márgenes es lo
+              que mejor se ve en los dos sitios. */}
+          <p className="text-[11px] text-muted-foreground -mt-1.5">
+            Recomendado: 512×512 px, cuadrado, fondo transparente o sólido (sin márgenes de sobra).
+          </p>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
               {draft.faviconUrl ? (

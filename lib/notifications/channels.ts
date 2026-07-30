@@ -53,11 +53,19 @@ const push: Canal = {
       .select('id, endpoint, p256dh, auth').eq('user_id', destinatario.userId);
     if (!subs || subs.length === 0) return { status: 'SKIPPED', error: 'sin suscripción push' };
 
+    // El icono mostraba SIEMPRE el logo genérico de Tentare (hardcodeado en
+    // public/sw.js), aunque cada estudio ya puede subir el suyo desde
+    // Apariencia (mismo studio.logoUrl que usa el manifest del portal y los
+    // emails). Se manda en el payload; si no hay logo, el service worker cae
+    // al icono genérico — mismo criterio que el resto de superficies con
+    // marca del estudio.
+    const { data: st } = await admin.from('studios').select('logo_url').eq('id', notificacion.studioId).maybeSingle();
     const webpush = (await import('web-push')).default;
     webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:soporte@tentare.app', publicKey, privateKey);
     const payload = JSON.stringify({
       title: notificacion.title, body: notificacion.body,
       url: notificacion.deepLink || '/', tag: notificacion.eventType,
+      icon: (st?.logo_url as string | null) || undefined,
     });
 
     let enviados = 0;
