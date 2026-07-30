@@ -914,6 +914,12 @@ function SessionSidebar({
                           <RefreshCw size={11} />Deshacer
                         </button>
                       )}
+                      {/* Quitar reserva es la otra cara de "Añadir clienta": mismo
+                          permiso (gestionaClientas), no esPropiaClase — gestionar el
+                          listado de asistentes no es trabajo de instructora en NINGUNA
+                          clase, ni siquiera la suya (cancelar_reserva_plaza en servidor
+                          exige lo mismo). */}
+                      {gestionaClientas && (
                       <button
                         onClick={() => onCancelarReserva(r.id)}
                         aria-label="Quitar reserva"
@@ -921,6 +927,7 @@ function SessionSidebar({
                       >
                         <X size={12} />
                       </button>
+                      )}
                     </div>
                   </div>
                 ))
