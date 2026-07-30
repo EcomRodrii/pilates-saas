@@ -64,3 +64,26 @@ test('registros curados coherentes', () => {
     ['sharp', 'rounded', 'pill'],
   );
 });
+
+test('themeConfigSchema: buttonStyle/cardStyle ausentes → default solid/flat (tema guardado antes de esta fase)', () => {
+  const sinEstilos: Record<string, unknown> = { ...DEFAULT_THEME };
+  delete sinEstilos.buttonStyle;
+  delete sinEstilos.cardStyle;
+  const r = themeConfigSchema.safeParse(sinEstilos);
+  assert.equal(r.success, true);
+  if (r.success) {
+    assert.equal(r.data.buttonStyle, 'solid');
+    assert.equal(r.data.cardStyle, 'flat');
+  }
+});
+
+test('themeConfigSchema rechaza buttonStyle/cardStyle fuera del set curado', () => {
+  assert.equal(themeConfigSchema.safeParse({ ...DEFAULT_THEME, buttonStyle: 'glow' }).success, false);
+  assert.equal(themeConfigSchema.safeParse({ ...DEFAULT_THEME, cardStyle: 'glass' }).success, false);
+});
+
+test('resolveTheme: buttonStyle/cardStyle inválidos caen a solid/flat', () => {
+  const r = resolveTheme({ buttonStyle: 'glow', cardStyle: 'glass' });
+  assert.equal(r.buttonStyle, 'solid');
+  assert.equal(r.cardStyle, 'flat');
+});

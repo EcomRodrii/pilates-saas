@@ -20,7 +20,14 @@ export function Button({ variant = 'primary', size = 'default', style, disabled,
   const small = size === 'small';
 
   const variants: Record<ButtonVariant, React.CSSProperties> = {
-    primary: { background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' },
+    // Las 3 vars --portal-btn-* las calcula lib/theme-runtime.ts según
+    // buttonStyle (solid/outline/soft) del tema del estudio; el fallback
+    // reproduce el look de siempre si el tema no las declara.
+    primary: {
+      background: 'var(--portal-btn-bg, var(--portal-brand))',
+      color: 'var(--portal-btn-fg, var(--portal-brand-foreground))',
+      border: 'var(--portal-btn-border, none)',
+    },
     secondary: { background: t.surface2, color: t.ink, border: `1px solid ${t.line}` },
     ghost: { background: 'transparent', color: t.muted },
     danger: { background: semantic.danger.soft, color: semantic.danger.text },

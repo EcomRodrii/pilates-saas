@@ -15,7 +15,7 @@ import {
   subirFaviconEstudio,
   eliminarFaviconEstudio,
 } from '@/lib/portal-storage';
-import { DEFAULT_THEME, FUENTES, RADIOS, type ThemeConfig } from '@/lib/theme-schema';
+import { DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, type ThemeConfig } from '@/lib/theme-schema';
 import { validarContrasteTheme } from '@/lib/theme-runtime';
 import { derivarPaleta } from '@/lib/color-utils';
 import { ThemePreview } from './theme-preview';
@@ -278,6 +278,42 @@ export function ThemeEditor() {
                 }`}
               >
                 {r.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Botón */}
+        <section className="space-y-2">
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Botón principal</p>
+          <div className="flex gap-2">
+            {ESTILOS_BOTON.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => setCampo('buttonStyle', b.id)}
+                className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
+                  draft.buttonStyle === b.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+                }`}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Tarjetas */}
+        <section className="space-y-2">
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tarjetas</p>
+          <div className="flex gap-2">
+            {ESTILOS_TARJETA.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setCampo('cardStyle', c.id)}
+                className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
+                  draft.cardStyle === c.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+                }`}
+              >
+                {c.label}
               </button>
             ))}
           </div>
