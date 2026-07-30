@@ -21,6 +21,14 @@ test('no depende de espacios ni mayúsculas: el doble envío suele venir igual p
   const base = idEstudioDe('uuid-1', 'Cloe Pilates');
   assert.equal(idEstudioDe('uuid-1', '  Cloe Pilates  '), base);
   assert.equal(idEstudioDe('uuid-1', 'cloe pilates'), base);
+  assert.equal(idEstudioDe('uuid-1', 'Cloe  Pilates'), base); // doble espacio interno
+  assert.equal(idEstudioDe('uuid-1', 'Cloe\tPilates'), base); // tab, no solo espacio
+});
+
+test('no depende de la forma Unicode del acento (NFC vs NFD)', () => {
+  const nfc = idEstudioDe('uuid-1', 'Café Pilates'.normalize('NFC'));
+  const nfd = idEstudioDe('uuid-1', 'Café Pilates'.normalize('NFD'));
+  assert.equal(nfc, nfd);
 });
 
 test('dos propietarias distintas con el MISMO nombre no comparten id', () => {
