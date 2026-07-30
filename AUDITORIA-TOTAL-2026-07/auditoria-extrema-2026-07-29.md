@@ -161,3 +161,15 @@ No completé ninguna acción con efecto real en esta pasada (no asigné la susti
 
 ## Siguiente paso recomendado
 Dado que el arranque (landing → alta → onboarding) está en buen estado, el valor real de continuar esta auditoría está en las pantallas con datos reales: calendario con clases, cobros, sustituciones, y sobre todo el portal de la clienta final — que es donde tu propio historial de auditorías (Carmen, Cloe, feedback P2) ha encontrado la mayoría de problemas reales hasta ahora. Puedo continuar con esa pasada si quieres, usando una cuenta con datos ya cargados en vez de un estudio recién creado.
+
+---
+
+## Tercera pasada — resto del panel: Integraciones, Campos de clienta, Citas
+
+Repasadas las tres pantallas que quedaban del panel de "Marta Pilates Studio". Sin hallazgos nuevos — las tres están bien resueltas:
+
+- **Integraciones** (`/configuracion?tab=integraciones`): tarjetas claras por cada integración (Stripe, Resend, Google Calendar, WhatsApp Business, Gmail, Exportar a Excel), todas "No conectado", cada una explicando en una frase qué hace y aclarando explícitamente "no necesitas pegar ninguna clave" — nada de jerga técnica (API key, OAuth, webhook) expuesta a la propietaria. No conecté nada real (habría concedido permisos OAuth de verdad).
+- **Campos de clienta**: formulario simple para campos personalizados (nombre, tipo, obligatorio u opcional) con placeholder de ejemplo ("Lesiones o limitaciones"). Sin fricción.
+- **Citas** (1:1, `/citas`): resumen con ingresos/citas/asistencia/no-shows del mes, filtro por instructora, y las acciones ("Completar"/"Cancelar") aparecen en línea en la propia fila al interactuar con ella, sin abrir un modal aparte — un patrón distinto al resto del panel pero consistente en sí mismo, no roto. No completé ni cancelé la cita real que había.
+
+**Nota metodológica de esta pasada:** el bug del hallazgo #9 (sesión de staff contaminada por el magic-link de clienta) tuvo una consecuencia práctica real — mi propia sesión de staff en el navegador quedó sobrescrita con mi email de prueba, sin acceso a ningún estudio. La recuperé cerrando sesión y volviendo a entrar (Chrome tenía guardadas las credenciales de la propietaria original vía autofill). Sirve como demostración de primera mano del propio hallazgo #9: el bug no es solo teórico.
