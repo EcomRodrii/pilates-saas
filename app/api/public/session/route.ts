@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
-import { resolverSociaAutenticada } from '@/lib/supabase-data';
+import { resolverSociaAutenticada } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 

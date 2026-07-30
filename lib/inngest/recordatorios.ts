@@ -10,7 +10,7 @@
 // propios y concurrencia acotada — hallazgo M-5 de la auditoría 2026-07-29.
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { enviarRecordatoriosClasesProximas } from '@/lib/supabase-data';
+import { enviarRecordatoriosClasesProximas } from '@/lib/db/supabase-data-admin';
 
 // Dispatcher: diario a las 08:00 UTC (misma hora que tenía el Vercel Cron, ver
 // vercel.json antes de este cambio). La ventana de 24h se calcula UNA vez para

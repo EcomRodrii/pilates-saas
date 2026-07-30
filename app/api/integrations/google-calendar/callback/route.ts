@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForTokens, getGoogleAccountEmail, isGoogleCalendarConfigurado } from '@/lib/google-calendar';
-import { dbSetGoogleCalendarEmail, dbSaveGoogleCalendarCredenciales } from '@/lib/supabase-data';
+import { dbSetGoogleCalendarEmail, dbSaveGoogleCalendarCredenciales } from '@/lib/db/supabase-data-admin';
 import { verificarEstadoOAuth } from '@/lib/oauth-state';
 
 // Vuelta del OAuth de Google Calendar (botón "Conectar con Google" en

@@ -24,7 +24,7 @@ import { join } from 'node:path';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RAIZ = join(import.meta.dirname, '..');
-const DATOS = readFileSync(join(RAIZ, 'lib/supabase-data.ts'), 'utf8');
+const DATOS = readFileSync(join(RAIZ, 'lib/db/supabase-data-admin.ts'), 'utf8');
 const RUTA = readFileSync(join(RAIZ, 'app/api/public/socio/route.ts'), 'utf8');
 
 function cuerpoDeRegistrarSociaPublica(): string {

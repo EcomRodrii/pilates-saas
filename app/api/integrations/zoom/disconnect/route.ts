@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { dbSetZoomEmail, dbDeleteZoomCredenciales, dbGetZoomCredenciales } from '@/lib/supabase-data';
+import { dbSetZoomEmail, dbDeleteZoomCredenciales, dbGetZoomCredenciales } from '@/lib/db/supabase-data-admin';
 import { revocarToken } from '@/lib/zoom';
 
 // Mismo patrón que app/api/integrations/google-calendar/disconnect: borra el

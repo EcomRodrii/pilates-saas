@@ -17,7 +17,7 @@ import {
   dbGetZoomCredenciales,
   dbSaveZoomCredenciales,
   type ZoomCredenciales,
-} from '@/lib/supabase-data';
+} from '@/lib/db/supabase-data-admin';
 import { fetchExterno } from '@/lib/fetch-externo';
 
 const TOKEN_URL = 'https://zoom.us/oauth/token';

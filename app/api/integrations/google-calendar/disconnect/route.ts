@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { dbSetGoogleCalendarEmail, dbDeleteGoogleCalendarCredenciales, dbGetGoogleCalendarCredenciales } from '@/lib/supabase-data';
+import { dbSetGoogleCalendarEmail, dbDeleteGoogleCalendarCredenciales, dbGetGoogleCalendarCredenciales } from '@/lib/db/supabase-data-admin';
 import { revocarToken } from '@/lib/google-calendar';
 
 // A diferencia del "desconectar" de Stripe (que solo borra el estado local
