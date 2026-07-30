@@ -153,6 +153,7 @@ import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 // `debeDevolverBono` ya no se importa aquí: la decisión de devolver la sesión
 // del bono al cancelar la toma la BD (migr 0129) y este contexto la obedece.
 // La función sigue viva en booking-logic para el portal público y sus tests.
@@ -226,6 +227,11 @@ interface StudioContextValue {
   addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateBannerPortal: (id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteBannerPortal: (id: string) => Promise<ResultadoEscritura>;
+  // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del editor
+  // de temas). Solo lectura aquí — se edita desde el dashboard
+  // (components/theme/portal-home-editor.tsx), que llama a fetchLayout()/
+  // guardarLayoutApi() directamente, no a través de este contexto.
+  portalHome: OrdenVisibilidad;
   instructores: Instructor[];
   spots: Spot[];
   bloqueosMaquina: BloqueoMaquina[];
@@ -544,6 +550,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [tiposClase, setTiposClase] = useState<TipoClase[]>([]);
   const [contenidoPortal, setContenidoPortal] = useState<ContenidoPortal | null>(null);
   const [bannersPortal, setBannersPortal] = useState<BannerPortal[]>([]);
+  const [portalHome, setPortalHome] = useState<OrdenVisibilidad>(DEFAULT_LAYOUT.portalHome);
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
@@ -676,6 +683,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setCitasDisponibilidad(pub.citasDisponibilidad ?? []);
       setContenidoPortal(pub.contenidoPortal ?? null);
       setBannersPortal(pub.bannersPortal ?? []);
+      setPortalHome(pub.portalHome ?? DEFAULT_LAYOUT.portalHome);
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -3367,6 +3375,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     tiposClase,
     contenidoPortal,
     bannersPortal,
+    portalHome,
     favoritos,
     toggleFavorito,
     updateMensajeDestacado,
@@ -3569,7 +3578,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, favoritos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, favoritos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,

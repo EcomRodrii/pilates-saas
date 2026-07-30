@@ -38,6 +38,8 @@ import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
 } from '@/lib/portal-design';
 import type { BannerPortal } from '@/lib/types';
+import { aplicarLayout } from '@/lib/layout-runtime';
+import { PORTAL_HOME_SECCIONES } from '@/lib/portal-home-sections';
 
 // Un banner "de home" está listo para mostrarse si sigue activo y, si tiene
 // ventana de fechas, "hoy" cae dentro. El filtro de ubicación/activo ya lo
@@ -78,7 +80,7 @@ export default function PortalHome() {
   const { session } = usePortalAuth();
   const {
     socios, suscripciones, planesTarifa, sesiones, reservas, recibos,
-    tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal,
+    tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal, portalHome,
   } = useStudio();
   const { t, noche } = useModo();
   const [paseAbierto, setPaseAbierto] = useState(false);
@@ -108,6 +110,19 @@ export default function PortalHome() {
     const hoyISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     return bannersPortal.filter(b => bannerVigente(b, hoyISO)).sort((a, b) => a.orden - b.orden);
   }, [bannersPortal, now]);
+
+  // Orden/visibilidad de los módulos de Inicio (Fase 2 del editor de temas) —
+  // mismo patrón que app/(dashboard)/dashboard/page.tsx: se reordena por CSS
+  // `order` sin mover el DOM, así que el saludo/tarjeta grande (fuera de este
+  // sistema) y los efectos de scroll que dependen de ellos no se ven afectados.
+  const modulosVisibles = useMemo(
+    () => aplicarLayout(PORTAL_HOME_SECCIONES.map(s => s.id), portalHome),
+    [portalHome],
+  );
+  const wrap = (id: string) => {
+    const i = modulosVisibles.indexOf(id);
+    return { style: { order: i === -1 ? 0 : i }, hidden: i === -1 };
+  };
 
   const raizRef = useRef<HTMLDivElement>(null);
   const topBarRef = useRef<HTMLDivElement>(null);
@@ -417,132 +432,96 @@ export default function PortalHome() {
           </div>
         </div>
 
-        {/* Esta semana */}
-        {estaSemana.length > 0 && (
-          <>
-            <div style={{ height: 44 }} />
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-              <h2 style={{ ...display(30), color: t.ink }}>Esta semana</h2>
-              <Link href={`/portal/${slug}/clases`} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
-                Agenda →
-              </Link>
-            </div>
-            {/* Sin `scroll-snap`. Lo añadí de más y se comía la sangría: con
-                `scroll-snap-align: start` en las tarjetas, el navegador ajusta
-                el carrusel a la primera nada más montarlo (scrollLeft = 24) y
-                la deja pegada al borde de la pantalla. El diseño no lleva
-                anclaje, y sin él la sangría de 24 px se respeta. */}
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '22px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
-              {estaSemana.map(({ s, libres }) => {
-                const tipo = tiposClase.find(x => x.id === s.tipoClaseId);
-                return (
-                  <Link
-                    key={s.id}
-                    href={`/portal/${slug}/clases/${s.id}`}
-                    style={{
-                      flex: '0 0 158px', height: 178, borderRadius: radio.card, background: t.surface,
-                      padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                      boxShadow: sombra.cardSemana, textDecoration: 'none',
-                      transition: transicion(['transform', 'box-shadow'], dur.card),
-                    }}
-                  >
-                    <span style={{ ...micro(9, 0.26, 600), color: t.micro }}>{diaCorto(s.inicio)}</span>
-                    <span style={{ ...display(25, false, 1.05), color: t.ink, textWrap: 'pretty' } as React.CSSProperties}>
-                      {tipo?.nombre ?? 'Clase'}
-                    </span>
-                    <span style={{ ...texto.nota, color: t.muted }}>
-                      {hora(s.inicio)} · {libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''}` : 'Completa'}
-                    </span>
+        {/* Zona reordenable de Inicio (Fase 2 del editor de temas): cada
+            módulo se ordena por CSS `order` sin mover el DOM, así que ningún
+            efecto de scroll/parallax de arriba (que solo dependen del saludo
+            y la tarjeta grande, fuera de este sistema) se ve afectado. Con
+            `portalHome` vacío (ningún estudio lo ha configurado) el orden es
+            0/1/2/3 = el orden de siempre, píxel a píxel. */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* Esta semana */}
+          <div {...wrap('estaSemana')}>
+            {estaSemana.length > 0 && (
+              <>
+                <div style={{ height: 44 }} />
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                  <h2 style={{ ...display(30), color: t.ink }}>Esta semana</h2>
+                  <Link href={`/portal/${slug}/clases`} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
+                    Agenda →
                   </Link>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        <div style={{ height: 40 }} />
-
-        {/* Las cuatro filas */}
-        {filas.map((f, i) => (
-          <Link
-            key={f.href}
-            href={f.href}
-            style={{
-              height: altura.fila, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-              borderTop: `1px solid ${t.line}`,
-              borderBottom: i === filas.length - 1 ? `1px solid ${t.line}` : undefined,
-              textDecoration: 'none', transition: transicion(['padding-left'], 400),
-            }}
-          >
-            <span style={{ ...display(24), color: t.ink }}>{f.etiqueta}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              {f.punto && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--portal-brand)' }} />}
-              <span style={{ ...texto.valor, color: t.muted2 }}>{f.valor}</span>
-              <span aria-hidden style={{ fontSize: 13, color: t.heroAccent }}>→</span>
-            </span>
-          </Link>
-        ))}
-
-        {/* Invita a una amiga */}
-        <div style={{ height: 34 }} />
-        <Link
-          href={`/portal/${slug}/invitar`}
-          style={{
-            position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
-            overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
-            transition: transicion(['transform'], dur.card),
-          }}
-        >
-          {studio?.fotoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={studio.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
-          )}
-          <div aria-hidden style={{
-            position: 'absolute', inset: 0, pointerEvents: 'none',
-            background: noche
-              ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
-              : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
-          }} />
-          <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
-            <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>Trae a quien quieras</span>
-            <div>
-              <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
-                La calma se comparte mejor.
-              </div>
-              <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>Invita a una amiga y ganáis las dos</div>
-            </div>
+                </div>
+                {/* Sin `scroll-snap`. Lo añadí de más y se comía la sangría: con
+                    `scroll-snap-align: start` en las tarjetas, el navegador ajusta
+                    el carrusel a la primera nada más montarlo (scrollLeft = 24) y
+                    la deja pegada al borde de la pantalla. El diseño no lleva
+                    anclaje, y sin él la sangría de 24 px se respeta. */}
+                <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '22px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
+                  {estaSemana.map(({ s, libres }) => {
+                    const tipo = tiposClase.find(x => x.id === s.tipoClaseId);
+                    return (
+                      <Link
+                        key={s.id}
+                        href={`/portal/${slug}/clases/${s.id}`}
+                        style={{
+                          flex: '0 0 158px', height: 178, borderRadius: radio.card, background: t.surface,
+                          padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                          boxShadow: sombra.cardSemana, textDecoration: 'none',
+                          transition: transicion(['transform', 'box-shadow'], dur.card),
+                        }}
+                      >
+                        <span style={{ ...micro(9, 0.26, 600), color: t.micro }}>{diaCorto(s.inicio)}</span>
+                        <span style={{ ...display(25, false, 1.05), color: t.ink, textWrap: 'pretty' } as React.CSSProperties}>
+                          {tipo?.nombre ?? 'Clase'}
+                        </span>
+                        <span style={{ ...texto.nota, color: t.muted }}>
+                          {hora(s.inicio)} · {libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''}` : 'Completa'}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
-          <span aria-hidden style={{
-            position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
-            background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
-          }}>→</span>
-        </Link>
 
-        {/* Contenido editable del estudio (mensaje destacado + banners). Añadido
-            DESPUÉS de "Invita a una amiga" a propósito: no toca ninguna pieza ya
-            cerrada del diseño, y no aparece nada aquí para un estudio que no haya
-            configurado contenido — misma pantalla de siempre. */}
-        {contenidoPortal?.mensajeDestacado && (
-          <>
-            <div style={{ height: 20 }} />
-            <div style={{
-              borderRadius: radio.card, padding: '16px 18px',
-              background: noche ? t.surface2 : '#EEF0EA',
-              border: `1px solid ${noche ? 'rgba(169,187,160,.22)' : 'rgba(44,53,44,.16)'}`,
-            }}>
-              <p style={{ ...texto.nota, color: t.muted2, lineHeight: 1.5 }}>{contenidoPortal.mensajeDestacado}</p>
-            </div>
-          </>
-        )}
-        {bannersVigentes.map(b => {
-          const contenido = (
-            <>
-              {b.imagenUrl ? (
+          {/* Accesos rápidos: las cuatro filas */}
+          <div {...wrap('accesosRapidos')}>
+            <div style={{ height: 40 }} />
+            {filas.map((f, i) => (
+              <Link
+                key={f.href}
+                href={f.href}
+                style={{
+                  height: altura.fila, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                  borderTop: `1px solid ${t.line}`,
+                  borderBottom: i === filas.length - 1 ? `1px solid ${t.line}` : undefined,
+                  textDecoration: 'none', transition: transicion(['padding-left'], 400),
+                }}
+              >
+                <span style={{ ...display(24), color: t.ink }}>{f.etiqueta}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  {f.punto && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--portal-brand)' }} />}
+                  <span style={{ ...texto.valor, color: t.muted2 }}>{f.valor}</span>
+                  <span aria-hidden style={{ fontSize: 13, color: t.heroAccent }}>→</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+
+          {/* Invita a una amiga */}
+          <div {...wrap('invitarAmiga')}>
+            <div style={{ height: 34 }} />
+            <Link
+              href={`/portal/${slug}/invitar`}
+              style={{
+                position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
+                overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
+                transition: transicion(['transform'], dur.card),
+              }}
+            >
+              {studio?.fotoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={b.imagenUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={studio.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
               )}
@@ -552,34 +531,85 @@ export default function PortalHome() {
                   ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
                   : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
               }} />
-              <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-                {b.titulo && <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
-                {b.texto && <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>{b.texto}</div>}
+              <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+                <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>Trae a quien quieras</span>
+                <div>
+                  <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
+                    La calma se comparte mejor.
+                  </div>
+                  <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>Invita a una amiga y ganáis las dos</div>
+                </div>
               </div>
               <span aria-hidden style={{
                 position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
                 background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
               }}>→</span>
-            </>
-          );
-          const estiloBanner: React.CSSProperties = {
-            position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
-            overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
-            transition: transicion(['transform'], dur.card),
-          };
-          if (b.linkTipo === 'interno' && !b.linkValor.startsWith('/')) return null;
-          const hrefExterno = b.linkTipo === 'externo' ? hrefExternoSeguro(b.linkValor) : null;
-          if (b.linkTipo === 'externo' && !hrefExterno) return null;
-          return (
-            <div key={b.id}>
-              <div style={{ height: 18 }} />
-              {b.linkTipo === 'interno'
-                ? <Link href={`/portal/${slug}${b.linkValor}`} style={estiloBanner}>{contenido}</Link>
-                : <a href={hrefExterno!} target="_blank" rel="noopener noreferrer" style={estiloBanner}>{contenido}</a>}
-            </div>
-          );
-        })}
+            </Link>
+          </div>
+
+          {/* Contenido editable del estudio (mensaje destacado + banners). Añadido
+              DESPUÉS de "Invita a una amiga" a propósito: no toca ninguna pieza ya
+              cerrada del diseño, y no aparece nada aquí para un estudio que no haya
+              configurado contenido — misma pantalla de siempre. */}
+          <div {...wrap('contenidoEstudio')}>
+            {contenidoPortal?.mensajeDestacado && (
+              <>
+                <div style={{ height: 20 }} />
+                <div style={{
+                  borderRadius: radio.card, padding: '16px 18px',
+                  background: noche ? t.surface2 : '#EEF0EA',
+                  border: `1px solid ${noche ? 'rgba(169,187,160,.22)' : 'rgba(44,53,44,.16)'}`,
+                }}>
+                  <p style={{ ...texto.nota, color: t.muted2, lineHeight: 1.5 }}>{contenidoPortal.mensajeDestacado}</p>
+                </div>
+              </>
+            )}
+            {bannersVigentes.map(b => {
+              const contenido = (
+                <>
+                  {b.imagenUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={b.imagenUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
+                  )}
+                  <div aria-hidden style={{
+                    position: 'absolute', inset: 0, pointerEvents: 'none',
+                    background: noche
+                      ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
+                      : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
+                  }} />
+                  <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
+                    {b.titulo && <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
+                    {b.texto && <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>{b.texto}</div>}
+                  </div>
+                  <span aria-hidden style={{
+                    position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
+                    background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
+                  }}>→</span>
+                </>
+              );
+              const estiloBanner: React.CSSProperties = {
+                position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
+                overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
+                transition: transicion(['transform'], dur.card),
+              };
+              if (b.linkTipo === 'interno' && !b.linkValor.startsWith('/')) return null;
+              const hrefExterno = b.linkTipo === 'externo' ? hrefExternoSeguro(b.linkValor) : null;
+              if (b.linkTipo === 'externo' && !hrefExterno) return null;
+              return (
+                <div key={b.id}>
+                  <div style={{ height: 18 }} />
+                  {b.linkTipo === 'interno'
+                    ? <Link href={`/portal/${slug}${b.linkValor}`} style={estiloBanner}>{contenido}</Link>
+                    : <a href={hrefExterno!} target="_blank" rel="noopener noreferrer" style={estiloBanner}>{contenido}</a>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <HojaPase

@@ -145,9 +145,14 @@ export async function montarPortal(page: Page, opciones: {
   entraTrasPeticiones?: number;
   /** Id del plan que el SERVIDOR marca como «el más elegido». */
   planMasElegidoId?: string | null;
+  /** Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del editor
+   *  de temas). Sin esto, `aplicarLayout` cae al orden por defecto (todo
+   *  visible, en el orden de siempre) — mismo comportamiento que hoy. */
+  portalHome?: { orden: string[]; ocultos: string[] };
 }) {
   const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
-          sinBono = false, planMasElegidoId = null, entraTrasPeticiones } = opciones;
+          sinBono = false, planMasElegidoId = null, entraTrasPeticiones,
+          portalHome = { orden: [], ocultos: [] } } = opciones;
 
   if (conSesion) {
     await page.addInitScript(([sesion]) => {
@@ -207,6 +212,7 @@ export async function montarPortal(page: Page, opciones: {
     levelDefinitions: [], achievementDefinitions: [], challengeDefinitions: [],
     citasServicios: [], citasDisponibilidad: [],
     planMasElegidoId,
+    portalHome,
     // OJO: studio-context cruza `socia.reservas` con `aforoReservas` POR ID
     // (`aforo.map(r => miasById.get(r.id) ?? r)`). Una reserva que solo esté en
     // `socia.reservas` NO llega a la pantalla. Ya me pasó con la primera.

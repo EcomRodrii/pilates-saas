@@ -27,6 +27,8 @@ export const layoutConfigSchema = z
     menuPosition: z.enum(MENU_POSICIONES),
     // Orden/visibilidad de las secciones de la home del dashboard.
     home: z.object({ orden: z.array(z.string()), ocultos: z.array(z.string()) }),
+    // Orden/visibilidad de los módulos de Inicio del PORTAL cliente (Fase 2).
+    portalHome: z.object({ orden: z.array(z.string()), ocultos: z.array(z.string()) }),
   })
   .strict();
 

@@ -17,13 +17,23 @@ test('resolveLayout: filtra tipos inválidos por campo', () => {
 
 test('resolveLayout: config válida se respeta', () => {
   const r = resolveLayout({ orden: ['/x'], ocultos: ['/y'], menuPosition: 'superior' });
-  assert.deepEqual(r, { orden: ['/x'], ocultos: ['/y'], menuPosition: 'superior', home: { orden: [], ocultos: [] } });
+  assert.deepEqual(r, {
+    orden: ['/x'], ocultos: ['/y'], menuPosition: 'superior',
+    home: { orden: [], ocultos: [] },
+    portalHome: { orden: [], ocultos: [] },
+  });
 });
 
 test('resolveLayout: resuelve la config de la home', () => {
   const r = resolveLayout({ home: { orden: ['ingresos', 'kpis'], ocultos: ['graficos'] } });
   assert.deepEqual(r.home, { orden: ['ingresos', 'kpis'], ocultos: ['graficos'] });
   assert.deepEqual(resolveLayout({ home: 'basura' }).home, { orden: [], ocultos: [] });
+});
+
+test('resolveLayout: resuelve la config de portalHome (Inicio del portal cliente)', () => {
+  const r = resolveLayout({ portalHome: { orden: ['estaSemana', 'invitarAmiga'], ocultos: ['accesosRapidos'] } });
+  assert.deepEqual(r.portalHome, { orden: ['estaSemana', 'invitarAmiga'], ocultos: ['accesosRapidos'] });
+  assert.deepEqual(resolveLayout({ portalHome: 'basura' }).portalHome, { orden: [], ocultos: [] });
 });
 
 const TODOS = ['/dashboard', '/calendario', '/socios', '/pagos', '/pos'];

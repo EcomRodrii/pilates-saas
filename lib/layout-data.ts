@@ -80,6 +80,7 @@ export async function guardarLayout(studioId: string, parche: LayoutDraft): Prom
     ...actual,
     ...validado,
     home: { ...actual.home, ...(validado.home ?? {}) },
+    portalHome: { ...actual.portalHome, ...(validado.portalHome ?? {}) },
   });
 
   if (alcance.tipo === 'cadena') {
