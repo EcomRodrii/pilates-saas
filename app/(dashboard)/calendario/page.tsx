@@ -26,6 +26,7 @@ import { detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
+import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
@@ -335,6 +336,7 @@ function SessionSidebar({
   onAddReserva,
   onOpenEdit,
   onOpenCobertura,
+  onOpenNoPuedoAsistir,
   onCancelarSesion,
   onCancelarSerie,
   onEliminarSesion,
@@ -354,6 +356,7 @@ function SessionSidebar({
   onAddReserva: (sesionId: string, socioId: string) => void;
   onOpenEdit: () => void;
   onOpenCobertura: () => void;
+  onOpenNoPuedoAsistir: () => void;
   onCancelarSesion: () => void;
   onCancelarSerie: () => void;
   onEliminarSesion: () => void;
@@ -573,12 +576,21 @@ function SessionSidebar({
         >
           <Pencil size={12} />Editar
         </button>
+        {esInstructor ? (
+        <button
+          onClick={onOpenNoPuedoAsistir}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors"
+        >
+          <UserCheck size={12} />No puedo asistir
+        </button>
+        ) : (
         <button
           onClick={onOpenCobertura}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors"
         >
           <UserCheck size={12} />Buscar sustituta
         </button>
+        )}
         <button
           onClick={() => setShowConfirm('cancelar')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors"
@@ -1509,6 +1521,7 @@ export default function Calendario() {
   const [showRecurrentes, setShowRecurrentes] = useState(false);
   const [showNuevaMenu, setShowNuevaMenu] = useState(false);
   const [showCobertura, setShowCobertura] = useState(false);
+  const [showNoPuedoAsistir, setShowNoPuedoAsistir] = useState(false);
   // Ausencias del equipo: para avisar en el selector de que alguien está de
   // vacaciones/baja ese día (el motor de sustituciones ya las respeta aparte).
   const [ausencias, setAusencias] = useState<AusenciaInstructora[]>([]);
@@ -2468,6 +2481,7 @@ export default function Calendario() {
             onAddReserva={handleAddReserva}
             onOpenEdit={openEdit}
             onOpenCobertura={() => setShowCobertura(true)}
+            onOpenNoPuedoAsistir={() => setShowNoPuedoAsistir(true)}
             onCancelarSesion={cancelarSesion}
             onCancelarSerie={cancelarSerie}
             onEliminarSesion={eliminarSesion}
@@ -2486,6 +2500,12 @@ export default function Calendario() {
         instructores={instructoresActivos}
         ausencias={ausencias}
         onAsignar={asignarSustituta}
+      />
+
+      <NoPuedoAsistirDialog
+        open={showNoPuedoAsistir}
+        onOpenChange={setShowNoPuedoAsistir}
+        sesion={sesionActual}
       />
 
       {/* ── Panel lateral crear / editar ────────────────────────────────────────── */}

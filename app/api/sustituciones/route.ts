@@ -31,6 +31,12 @@ async function emitirEscalado(data: { sustitucionId: string; studioId: string; i
 // vive en lib/sustituciones/baja.ts, compartido con la vía pública por la que
 // la propia instructora se da de baja desde el móvil. Aquí solo queda el
 // control de acceso: quién puede pedirlo.
+//
+// Es la MISMA ruta para la propietaria (desde el panel de Sustituciones) y
+// para la instructora (botón "No puedo asistir" en su calendario/dashboard):
+// el origen y el acotamiento a su propia clase se resuelven aquí según el rol
+// de la sesión, no en el cliente — un body manipulado no puede hacerse pasar
+// por 'panel' para saltarse `soloSiInstructorEs`.
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
@@ -42,25 +48,47 @@ export async function POST(req: NextRequest) {
   const sesionId = typeof body?.sesionId === 'string' ? body.sesionId : null;
   if (!sesionId) return NextResponse.json({ error: 'Falta la clase (sesionId)' }, { status: 400 });
 
+  let soloSiInstructorEs: string | undefined;
+  if (sesion.rol === 'INSTRUCTOR') {
+    // limit(1) en vez de maybeSingle(): no hay UNIQUE(auth_user_id, studio_id)
+    // en `instructores` (ver 0068 y lib/auth-server.ts) — una ficha duplicada
+    // rompería maybeSingle() y dejaría a una instructora legítima con 401.
+    const { data: yo } = await admin
+      .from('instructores').select('id')
+      .eq('auth_user_id', sesion.userId).eq('studio_id', sesion.studioId)
+      .neq('activo', false).order('id', { ascending: true }).limit(1);
+    if (!yo?.[0]) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    soloSiInstructorEs = yo[0].id as string;
+  }
+
   const r = await crearBaja(admin, {
     studioId: sesion.studioId,
     sesionId,
     motivo: body?.motivo ?? null,
-    origen: 'panel',
+    origen: sesion.rol === 'INSTRUCTOR' ? 'instructora' : 'panel',
+    soloSiInstructorEs,
   });
 
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+
+  // A la instructora no le devolvemos la sustitución entera: lleva el ranking
+  // con nombres de compañeras y motivos de scoring — no es asunto suyo quién
+  // la va a cubrir. Mismo recorte que ya hace app/api/public/baja.
+  if (sesion.rol === 'INSTRUCTOR') return NextResponse.json({ ok: true, yaAvisada: r.yaExistia });
   return NextResponse.json({ sustitucion: r.sustitucion, yaExistia: r.yaExistia });
 }
 
 // GET /api/sustituciones — lista las sustituciones del estudio (activas +
 // resueltas recientes) con el ranking y los datos de la clase, para el panel.
+// Panel de gestión completo: fuera del alcance de INSTRUCTOR (ella solo marca
+// su propia baja vía POST, nunca ve candidatas ni traza de otras clases).
 export async function GET(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (sesion.rol === 'INSTRUCTOR') return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
 
   const { data, error } = await admin
     .from('sustituciones')
@@ -123,13 +151,16 @@ export async function GET(req: NextRequest) {
 }
 
 // PATCH /api/sustituciones — confirmar una candidata (aceptación atómica) o
-// descartar la sustitución ("resuelto fuera del sistema").
+// descartar la sustitución ("resuelto fuera del sistema"). Ninguna de estas
+// acciones es cosa de la instructora: gestionar candidatas de una sustitución
+// (suya o ajena) es trabajo de propietaria/manager/recepción.
 export async function PATCH(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (sesion.rol === 'INSTRUCTOR') return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
 
   const body = (await req.json().catch(() => null)) as
     { sustitucionId?: string; action?: string; instructorId?: string; avisar?: boolean; inicio?: string; modo?: string } | null;
