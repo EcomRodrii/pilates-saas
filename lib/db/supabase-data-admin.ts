@@ -10,7 +10,10 @@ import { uid } from '@/lib/utils';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
-import { siguienteEnEspera, contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
+import {
+  siguienteEnEspera, contarReservasActivasFuturas, esCancelacionTardia,
+  heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
+} from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import { idEstudioDe } from '@/lib/id-estudio';
 import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
@@ -270,6 +273,9 @@ function studioPublico(r: RowStudios) {
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
+    reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
+    reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
+    permiteListaEspera: r.permite_lista_espera ?? true,
   };
 }
 
@@ -848,13 +854,42 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
 async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
   const { data } = await admin
     .from('studios')
-    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas')
+    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, permite_lista_espera')
     .eq('id', studioId).maybeSingle();
   return {
     ventanaHoras: (data?.cancelacion_ventana_horas ?? 12) as number,
     devolverBonoTardia: (data?.cancelacion_devolver_bono_tardia ?? false) as boolean,
     exigirPlan: (data?.reserva_exigir_plan ?? true) as boolean,
     maxSimultaneas: (data?.reserva_max_simultaneas ?? null) as number | null,
+    ventanaMinimaMinutos: (data?.reserva_ventana_minima_minutos ?? 0) as number,
+    antelacionMaximaDias: (data?.reserva_antelacion_maxima_dias ?? null) as number | null,
+    permiteListaEspera: (data?.permite_lista_espera ?? true) as boolean,
+  };
+}
+
+// Fase 1 de reglas por tipo de clase (migr 20260730152516): mismo patrón que
+// resolverVentanaCancelacion — NULL en tipos_clase = hereda el default del
+// estudio. Una sola query trae las 4 columnas de override a la vez.
+async function cargarReglasReservaTipoClase(
+  admin: SupabaseClient, studioId: string, tipoClaseId: string | null | undefined,
+) {
+  const vacio = {
+    exigirPlan: null as boolean | null,
+    ventanaMinimaMinutos: null as number | null,
+    antelacionMaximaDias: null as number | null,
+    permiteListaEspera: null as boolean | null,
+  };
+  if (!tipoClaseId) return vacio;
+  const { data } = await admin
+    .from('tipos_clase')
+    .select('reserva_exigir_plan, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, permite_lista_espera')
+    .eq('id', tipoClaseId).eq('studio_id', studioId).maybeSingle();
+  if (!data) return vacio;
+  return {
+    exigirPlan: data.reserva_exigir_plan as boolean | null,
+    ventanaMinimaMinutos: data.reserva_ventana_minima_minutos as number | null,
+    antelacionMaximaDias: data.reserva_antelacion_maxima_dias as number | null,
+    permiteListaEspera: data.permite_lista_espera as boolean | null,
   };
 }
 
@@ -888,20 +923,42 @@ export async function crearReservaPublica(params: {
 
   // No se puede reservar una clase ya empezada/pasada (I-17). La UI lo bloquea,
   // pero la API también debe: evita datos basura y gamificación explotable.
+  let tipoClaseId: string | null | undefined;
+  let inicioISO: string;
   {
     const { data: ses } = await admin
-      .from('sesiones').select('inicio, cancelada').eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
+      .from('sesiones').select('inicio, cancelada, tipo_clase_id')
+      .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
     if (!ses) return { error: 'Sesión no encontrada' as const };
     if (ses.cancelada) return { error: 'Esta clase está cancelada' as const };
     if (new Date(ses.inicio as string).getTime() <= Date.now()) {
       return { error: 'Esta clase ya ha empezado' as const };
     }
+    tipoClaseId = ses.tipo_clase_id as string | null | undefined;
+    inicioISO = ses.inicio as string;
   }
 
   // Gate de derechos (C-4): autoritativo en servidor. Solo aplica a la reserva
   // self-service; el panel (recepción) puede añadir a cualquiera sin plan.
   const pol = await cargarPoliticaEstudio(admin, params.studioId);
-  if (pol.exigirPlan || pol.maxSimultaneas != null) {
+  // Fase 1 de reglas por tipo de clase: cada regla puede sobrescribirse en
+  // tipos_clase (NULL = hereda el default del estudio, resuelto con heredaOverride).
+  const reglasTipo = await cargarReglasReservaTipoClase(admin, params.studioId, tipoClaseId);
+  const exigirPlanResuelto = heredaOverride(reglasTipo.exigirPlan, pol.exigirPlan);
+  const permiteListaEsperaResuelto = heredaOverride(reglasTipo.permiteListaEspera, pol.permiteListaEspera);
+
+  {
+    const ventanaMinima = heredaOverride(reglasTipo.ventanaMinimaMinutos, pol.ventanaMinimaMinutos);
+    if (!puedeReservarPorVentanaMinima(inicioISO, new Date(), ventanaMinima)) {
+      return { error: 'Ya no se puede reservar esta clase: hace falta reservar con más antelación' as const };
+    }
+    const antelacionMaxima = heredaOverride(reglasTipo.antelacionMaximaDias, pol.antelacionMaximaDias);
+    if (!puedeReservarPorAntelacionMaxima(inicioISO, new Date(), antelacionMaxima)) {
+      return { error: 'Todavía no se puede reservar esta clase' as const };
+    }
+  }
+
+  if (exigirPlanResuelto || pol.maxSimultaneas != null) {
     const [{ data: susRows }, { data: planRows }, { data: resRows }, { data: sesRows }] = await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
       admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
@@ -910,15 +967,13 @@ export async function crearReservaPublica(params: {
     ]);
     const hoyISO = new Date().toISOString().slice(0, 10);
     // El tipo de la clase importa: un bono acotado a Reformer no da derecho a
-    // reservar Mat (0111). Se resuelve aquí para poder decirlo con precisión.
-    const { data: sesGate } = await admin
-      .from('sesiones').select('tipo_clase_id').eq('id', params.sesionId).maybeSingle();
-    const tipoDeLaClase = sesGate?.tipo_clase_id as string | null | undefined;
+    // reservar Mat (0111). Ya se resolvió arriba (tipoClaseId), sin repetir la query.
+    const tipoDeLaClase = tipoClaseId;
     const planesGate = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
     // Si el estudio no vende ningún plan, exigirlo solo deja a la clienta en un
     // callejón: el mensaje le pide contratar algo que no existe.
     const seVendeAlgo = hayAlgoQueContratar(planesGate);
-    if (pol.exigirPlan && seVendeAlgo && !tieneEntitlementActivo(
+    if (exigirPlanResuelto && seVendeAlgo && !tieneEntitlementActivo(
       params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyISO, tipoDeLaClase,
     )) {
       // Se distingue "no tienes bono" de "tu bono no vale para esta clase":
@@ -947,15 +1002,19 @@ export async function crearReservaPublica(params: {
   // Aforo transaccional: la decisión (CONFIRMADA vs LISTA_ESPERA) y la inserción
   // ocurren atómicamente en la BD (SELECT ... FOR UPDATE en la sesión), no en
   // JS — evita la sobreventa por reservas concurrentes de la última plaza.
+  // p_permite_lista_espera: si la clase está llena y el tipo/estudio no admite
+  // lista de espera, la RPC rechaza en vez de insertar en LISTA_ESPERA.
   const reservaId = `res-${uid()}`;
   const { data, error } = await admin.rpc('reservar_plaza', {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: reservaId,
+    p_permite_lista_espera: permiteListaEsperaResuelto,
   });
   if (error) {
     if (error.message.includes('YA_RESERVADA')) return { error: 'Ya tienes una reserva en esta clase' as const };
     if (error.message.includes('SESION_NO_ENCONTRADA')) return { error: 'Sesión no encontrada' as const };
     if (error.message.includes('LIMITE_SEMANAL')) return { error: 'Has alcanzado el máximo de clases por semana de tu plan' as const };
+    if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) return { error: 'Esta clase está completa' as const };
     return { error: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;

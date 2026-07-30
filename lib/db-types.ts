@@ -645,6 +645,9 @@ export interface RowStudios {
   reserva_exigir_plan: boolean | null;
   compra_publica_modo: string | null;
   reserva_max_simultaneas: number | null;
+  reserva_ventana_minima_minutos: number | null;
+  reserva_antelacion_maxima_dias: number | null;
+  permite_lista_espera: boolean | null;
   stripe_customer_id: string | null;
   subscription_id: string | null;
   subscription_status: string | null;
@@ -706,6 +709,10 @@ export interface RowTiposClase {
   nivel: string | null;
   foto_url: string | null;
   ventana_cancelacion_horas: number | null;
+  reserva_exigir_plan: boolean | null;
+  reserva_ventana_minima_minutos: number | null;
+  reserva_antelacion_maxima_dias: number | null;
+  permite_lista_espera: boolean | null;
 }
 
 export interface RowUsuarios {

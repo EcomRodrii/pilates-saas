@@ -49,6 +49,11 @@ type PoliticaForm = {
   reservaExigirPlan: boolean;
   reservaMaxSimultaneas: number | null;
   compraPublicaModo: 'EXIGIR_REGISTRO' | 'CREAR_FICHA';
+  // Fase 1 de reglas por tipo de clase (migr 20260730152516): estos son los
+  // DEFAULTS de estudio; cada tipo de clase puede sobrescribirlos.
+  reservaVentanaMinimaMinutos: number;
+  reservaAntelacionMaximaDias: number | null;
+  permiteListaEspera: boolean;
 };
 
 function studioToPolitica(s: Studio | null): PoliticaForm {
@@ -58,6 +63,9 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     reservaExigirPlan: s?.reservaExigirPlan ?? true,
     reservaMaxSimultaneas: s?.reservaMaxSimultaneas ?? null,
     compraPublicaModo: s?.compraPublicaModo ?? 'EXIGIR_REGISTRO',
+    reservaVentanaMinimaMinutos: s?.reservaVentanaMinimaMinutos ?? 0,
+    reservaAntelacionMaximaDias: s?.reservaAntelacionMaximaDias ?? null,
+    permiteListaEspera: s?.permiteListaEspera ?? true,
   };
 }
 
@@ -473,6 +481,39 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
               Reservas activas en clases futuras. Vacío = sin límite.
             </p>
           </div>
+          {/* Fase 1 de reglas por tipo de clase (migr 20260730152516): estos son
+              los defaults del estudio; cada tipo de clase los puede sobrescribir
+              desde Clases → editar tipo de clase. */}
+          <div>
+            <p className={labelCls}>Antelación mínima para reservar (minutos)</p>
+            <input
+              type="number" min={0} className={inputCls}
+              value={pol.reservaVentanaMinimaMinutos}
+              onChange={e => setPol(p => ({ ...p, reservaVentanaMinimaMinutos: Math.max(0, Number(e.target.value)) }))}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Se cierra la reserva con esta antelación. 0 = se puede reservar hasta el mismo inicio de la clase.
+            </p>
+          </div>
+          <div>
+            <p className={labelCls}>Antelación máxima para reservar (días)</p>
+            <input
+              type="number" min={0} className={inputCls}
+              placeholder="Sin límite"
+              value={pol.reservaAntelacionMaximaDias ?? ''}
+              onChange={e => setPol(p => ({ ...p, reservaAntelacionMaximaDias: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) }))}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              No se puede reservar con más antelación que esta. Vacío = sin límite.
+            </p>
+          </div>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-[13px] text-foreground">
+              Permitir lista de espera
+              <span className="block text-[11px] text-muted-foreground">Con la clase llena, ¿se puede apuntar a la lista de espera?</span>
+            </span>
+            <Toggle on={pol.permiteListaEspera} onChange={v => setPol(p => ({ ...p, permiteListaEspera: v }))} />
+          </label>
         </div>
         <button onClick={guardarPolitica} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
           Guardar política de reservas

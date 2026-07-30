@@ -120,6 +120,30 @@ abrir a INSTRUCTOR una vía que ya existía para el resto de roles (RLS acotada 
 Cada tramo pasó por diseño (`tentare-arquitecto`) y revisión de seguridad
 (`tentare-seguridad`, sin bloqueantes en ninguno) antes de mergear.
 
+## Reglas de reserva/cancelación por tipo de clase — Fase 1
+
+Cada `tipo_clase` puede sobrescribir 4 reglas que antes eran solo del estudio:
+exigir plan/bono activo, antelación mínima para reservar, antelación máxima
+para reservar, permitir lista de espera. Mismo patrón que
+`tipos_clase.ventana_cancelacion_horas` (migr `0116`): columna nullable en
+`tipos_clase`, `NULL` = hereda el default del estudio. Fuente de verdad de la
+resolución: `heredaOverride()` en `lib/booking-logic.ts`, aplicada en
+`crearReservaPublica` (`lib/db/supabase-data-admin.ts`) y en la RPC
+`reservar_plaza` (migr `20260730152516`, parámetro `p_permite_lista_espera`).
+
+Esto es la **Fase 1** de un pedido más grande (13 reglas). Quedan fuera a
+propósito, confirmado con el usuario — no "completar" por iniciativa propia:
+- **Fase 2** (lógica/estado nuevo, sin tocar dinero): mínimo de asistentes
+  para confirmar la clase, aprobación manual de reserva, plazo para aceptar
+  una plaza de lista de espera (hoy la promoción es automática e instantánea).
+- **Fase 3** (dinero real, tarjeta guardada): penalización económica por
+  cancelación tardía o no-show. Necesita diseño propio con `tentare-stripe` —
+  no es una extensión trivial del patrón de Fase 1.
+- **Sin plantillas reutilizables**: cada tipo de clase edita sus reglas
+  directamente, igual que ya funcionaba con la ventana de cancelación. No hay
+  ningún patrón de "plantilla asignable a varios tipos de clase" en el repo;
+  si se quiere, es una entidad nueva de verdad, no un campo más.
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),

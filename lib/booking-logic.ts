@@ -33,6 +33,38 @@ export function debeDevolverBono(
   return !esCancelacionTardia(inicioISO, ahora, ventanaHoras);
 }
 
+// Fase 1 de reglas por tipo de clase (migr 20260730152516): NULL en un campo
+// override de tipos_clase = hereda el default del estudio. Misma lógica pura
+// para las 4 reglas nuevas (exigir plan, ventana mínima, antelación máxima,
+// permitir lista de espera) — evita repetir "override ?? valorEstudio" cuatro
+// veces con la oportunidad de que una copia se desincronice de las demás.
+export function heredaOverride<T>(override: T | null | undefined, valorEstudio: T): T {
+  return override ?? valorEstudio;
+}
+
+// ¿Se puede reservar ya, o falta para que se abra la reserva? antelacionMaximaDias
+// null = sin límite (siempre se puede reservar, por adelantado que sea).
+export function puedeReservarPorAntelacionMaxima(
+  inicioISO: string, ahora: Date, antelacionMaximaDias: number | null,
+): boolean {
+  if (antelacionMaximaDias == null) return true;
+  const inicio = new Date(inicioISO).getTime();
+  const abreEl = inicio - antelacionMaximaDias * 86_400_000;
+  return ahora.getTime() >= abreEl;
+}
+
+// ¿Todavía se puede reservar, o ya estamos dentro de la ventana mínima previa
+// al inicio? ventanaMinimaMinutos <= 0 desactiva el límite (se puede reservar
+// hasta el mismo instante de inicio, que ya bloquea el check de "ya empezado").
+export function puedeReservarPorVentanaMinima(
+  inicioISO: string, ahora: Date, ventanaMinimaMinutos: number,
+): boolean {
+  if (!ventanaMinimaMinutos || ventanaMinimaMinutos <= 0) return true;
+  const inicio = new Date(inicioISO).getTime();
+  const cierraEl = inicio - ventanaMinimaMinutos * 60_000;
+  return ahora.getTime() < cierraEl;
+}
+
 // Nº de reservas activas de la socia en clases aún por empezar. Cuentan para el
 // tope de reservas simultáneas (C-4): CONFIRMADA y LISTA_ESPERA ocupan cupo.
 export function contarReservasActivasFuturas(
