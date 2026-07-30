@@ -80,7 +80,17 @@ export const procesarValoracionesEstudio = inngest.createFunction(
     let clasesPedidas = 0, emailsEnviados = 0;
 
     for (const c of clases as { id: string; inicio: string; tipo_clase_id: string | null; instructor_id: string }[]) {
-      const res = await step.run(`pedir-${c.id}`, async () => {
+      // I-2 (auditoría 2026-07-29): antes, marcar la clase como "pedida" y
+      // mandar el email a CADA alumna vivían en el mismo step.run.
+      // enviarEmailPedirValoracion nunca lanza (siempre resuelve {ok:false} en
+      // vez de rechazar), así que un fallo de envío no hacía fallar el step:
+      // Inngest lo memoizaba como éxito para siempre y esa alumna nunca
+      // recibía la petición ni había reintento posible. Ahora el marcado +
+      // recopilar destinatarias sigue en un único step (compare-and-set), pero
+      // cada envío es SU PROPIO step con clave por alumna: si una falla de
+      // verdad, Inngest reintenta SOLO esa, sin volver a mandar a las que ya
+      // salieron bien.
+      const pedida = await step.run(`pedir-${c.id}`, async () => {
         const admin = getSupabaseAdmin();
         if (!admin) throw new Error('Service role no configurada');
 
@@ -91,7 +101,7 @@ export const procesarValoracionesEstudio = inngest.createFunction(
           .update({ valoracion_pedida_en: nowISO })
           .eq('id', c.id).eq('studio_id', studioId).is('valoracion_pedida_en', null)
           .select('id');
-        if (!marcada || marcada.length === 0) return { enviados: 0, pedida: false };
+        if (!marcada || marcada.length === 0) return { pedida: false, lista: [], datos: null };
 
         const [{ data: tipo }, { data: instructora }, { data: estudio }] = await Promise.all([
           admin.from('tipos_clase').select('nombre').eq('id', c.tipo_clase_id ?? '').maybeSingle(),
@@ -101,26 +111,46 @@ export const procesarValoracionesEstudio = inngest.createFunction(
 
         const { data: alumnas } = await admin.rpc('alumnas_apuntadas', { p_sesion_id: c.id });
         const lista = (alumnas ?? []) as { socio_id: string; nombre: string; email: string | null }[];
-
-        let enviados = 0;
-        for (const a of lista) {
-          if (!a.email) continue;
-          const token = firmarTokenValoracion(studioId, a.socio_id, c.id);
-          const r = await enviarEmailPedirValoracion({
-            to: a.email,
-            toName: a.nombre,
-            estudioNombre: estudio?.nombre ?? 'Tu estudio',
-            colorPrimario: estudio?.color_primario,
-            logoUrl: estudio?.logo_url,
+        return {
+          pedida: true, lista,
+          datos: {
             claseNombre: tipo?.nombre ?? 'tu clase',
-            cuando: cuandoTexto(c.inicio),
             instructorNombre: instructora?.nombre ?? '',
-            url: `${appUrl()}/valorar/${token}`,
-          });
-          if ('ok' in r && r.ok) enviados++;
-        }
-        return { enviados, pedida: true };
+            estudioNombre: estudio?.nombre ?? 'Tu estudio',
+            colorPrimario: estudio?.color_primario as string | null | undefined,
+            logoUrl: estudio?.logo_url as string | null | undefined,
+          },
+        };
       });
+
+      let enviados = 0;
+      if (pedida.pedida && pedida.datos) {
+        const datos = pedida.datos;
+        for (const a of pedida.lista) {
+          if (!a.email) continue;
+          const enviado = await step.run(`valorar-${c.id}-${a.socio_id}`, async () => {
+            const token = firmarTokenValoracion(studioId, a.socio_id, c.id);
+            const r = await enviarEmailPedirValoracion({
+              to: a.email as string,
+              toName: a.nombre,
+              estudioNombre: datos.estudioNombre,
+              colorPrimario: datos.colorPrimario,
+              logoUrl: datos.logoUrl,
+              claseNombre: datos.claseNombre,
+              cuando: cuandoTexto(c.inicio),
+              instructorNombre: datos.instructorNombre,
+              url: `${appUrl()}/valorar/${token}`,
+            });
+            if ('ok' in r && r.ok) return true;
+            // `skipped` (Resend sin configurar) no se reintenta; un `error`
+            // real sí, lanzando para que Inngest reintente solo este step.
+            if ('skipped' in r && r.skipped) return false;
+            throw new Error(`enviarEmailPedirValoracion: ${'error' in r ? r.error : 'fallo desconocido'}`);
+          });
+          if (enviado) enviados++;
+        }
+      }
+      const res = { pedida: pedida.pedida, enviados };
       if (res.pedida) clasesPedidas++;
       emailsEnviados += res.enviados;
     }

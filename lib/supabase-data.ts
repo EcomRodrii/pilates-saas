@@ -109,6 +109,7 @@ import type {
   MemberCredits,
   MensajeEquipo,
   CanalEquipo,
+  MetodoCobro,
   CondicionSalud,
   RespuestaSesionRow,
   NotaInterna,
@@ -4237,6 +4238,33 @@ export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
   return error ? falloEscritura('[dbInsertRecibo]', error) : ESCRITURA_OK;
 }
 
+// Marca un recibo como COBRADO de forma condicional (auditoría 2026-07-29,
+// M-2): dbUpdateRecibo hace un UPDATE incondicional, sin comprobar el estado
+// actual. El cerrojo de re-entrada en marcarCobrado (studio-context.tsx) frena
+// el doble clic en la MISMA pestaña, pero dos pestañas/dispositivos distintos
+// cobrando el mismo recibo a la vez pasarían igual las dos, sellando DOS
+// facturas fiscales para un único cobro. `WHERE estado = 'PENDIENTE'` hace que
+// solo la primera escritura tenga efecto; `.select('id')` dice si de verdad
+// tocó algo.
+export async function dbMarcarCobrado(
+  id: string,
+  changes: { fechaCobro: string; metodoCobro?: MetodoCobro },
+): Promise<ResultadoEscritura & { yaEstaba?: boolean }> {
+  const db: Record<string, unknown> = { estado: 'COBRADO', fecha_cobro: changes.fechaCobro };
+  if (changes.metodoCobro) db.metodo_cobro = changes.metodoCobro;
+  const { data, error } = await supabase
+    .from('recibos')
+    .update(db)
+    .eq('id', id)
+    .eq('estado', 'PENDIENTE')
+    .select('id');
+  if (error) return falloEscritura('[dbMarcarCobrado]', error);
+  if (!data || data.length === 0) {
+    return { ok: false, error: 'Este recibo ya no está pendiente (puede que ya se haya cobrado).', yaEstaba: true };
+  }
+  return ESCRITURA_OK;
+}
+
 export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
@@ -4256,27 +4284,35 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Prom
 }
 
 // Aplica los mismos cambios a varios recibos (cobro masivo desde Pagos/ficha de
-// socia) en una sola llamada, en vez de un UPDATE por recibo. Solo para campos
-// uniformes entre todos los recibos del lote (estado + fechaCobro, que es lo
-// que necesita cobrarTodosPendientes).
+// socia, o marcarlos EN_CURSO tras generar una remesa SEPA) en una sola
+// llamada, en vez de un UPDATE por recibo.
+//
+// `soloSiEstadoActual` (F2 B2.10): sin él, un recibo cobrado por OTRO camino
+// (tarjeta, cobro manual) entre "preparar la remesa" y este UPDATE se pisaba
+// en silencio de vuelta a un estado anterior. Al cobrar (estado === 'COBRADO')
+// se aplica el mismo filtro por PENDIENTE aunque el llamante no lo pida
+// explícitamente (auditoría 2026-07-29, M-2): sin esto, dos cobros masivos
+// solapados (dos pestañas, o esta función y un cobro individual del mismo
+// recibo) sellarían factura dos veces para el mismo dinero.
+// `idsActualizados` es la lista real de recibos que el UPDATE SÍ tocó: el
+// resto ya estaba en otro estado (otra sesión se adelantó) y no debe generar
+// una factura duplicada en el llamante.
 export async function dbUpdateRecibosBatch(
   ids: string[], changes: Partial<Recibo>, soloSiEstadoActual?: Recibo['estado'],
-): Promise<ResultadoEscritura> {
-  if (ids.length === 0) return ESCRITURA_OK;
+): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
+  if (ids.length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
   if ('fechaCobro' in changes) db.fecha_cobro = changes.fechaCobro;
   if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
-  if (Object.keys(db).length === 0) return ESCRITURA_OK;
+  if (Object.keys(db).length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   let q = supabase.from('recibos').update(db).in('id', ids);
-  // Sin este filtro, un recibo cobrado por OTRO camino (tarjeta, cobro manual)
-  // entre "preparar la remesa" y este UPDATE se pisaba en silencio de vuelta a
-  // un estado anterior — el mismo patrón de escritura optimista sin comprobar
-  // el resultado real que este repo ya ha corregido varias veces.
-  if (soloSiEstadoActual) q = q.eq('estado', soloSiEstadoActual);
-  const { error } = await q;
-  return error ? falloEscritura('[dbUpdateRecibosBatch]', error) : ESCRITURA_OK;
+  const filtroEstado = soloSiEstadoActual ?? (changes.estado === 'COBRADO' ? 'PENDIENTE' : undefined);
+  if (filtroEstado) q = q.eq('estado', filtroEstado);
+  const { data, error } = await q.select('id');
+  if (error) return falloEscritura('[dbUpdateRecibosBatch]', error);
+  return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string) };
 }
 
 export async function dbDeleteRecibo(id: string) {

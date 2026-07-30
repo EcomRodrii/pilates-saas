@@ -9,15 +9,21 @@ export interface RateLimitOptions {
   windowSeconds: number;
 }
 
-// Deriva la IP del cliente de las cabeceras de proxy (Vercel pone la IP real en
-// x-forwarded-for). Se toma la PRIMERA de la lista (el cliente original). Si no
-// hay ninguna, cae a 'unknown' → todas esas peticiones comparten cubo (más
-// estricto, nunca menos), que es el lado seguro.
+// Deriva la IP del cliente de las cabeceras de proxy. x-forwarded-for es una
+// lista que cada proxy va AÑADIENDO por el final con la IP que él vio — el
+// cliente puede escribir lo que quiera en la cabecera que él mismo envía, así
+// que la ÚNICA entrada de la que Vercel responde es la ÚLTIMA (la que su
+// propio borde añadió al recibir la conexión TCP real). Tomar la primera
+// entrada (como hacía antes) deja que un atacante rote una IP falsa distinta
+// en cada petición y vacíe el límite por completo. Si no hay ninguna, cae a
+// 'unknown' → todas esas peticiones comparten cubo (más estricto, nunca
+// menos), que es el lado seguro.
 export function clientIp(req: Request): string {
   const xff = req.headers.get('x-forwarded-for');
   if (xff) {
-    const first = xff.split(',')[0]?.trim();
-    if (first) return first;
+    const partes = xff.split(',').map(p => p.trim()).filter(Boolean);
+    const last = partes[partes.length - 1];
+    if (last) return last;
   }
   const real = req.headers.get('x-real-ip')?.trim();
   return real || 'unknown';
