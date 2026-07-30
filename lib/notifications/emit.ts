@@ -126,6 +126,38 @@ export async function emitirPagoFallido(
   }
 }
 
+// Disputa/chargeback de Stripe: el cargo ya se había cobrado y ahora la
+// socia lo impugna ante su banco. `plazoUnix` es evidence_details.due_by de
+// Stripe (segundos epoch, puede venir null si Stripe aún no lo ha fijado).
+export async function emitirPagoDisputado(
+  admin: SupabaseClient, p: { studioId: string; reciboId: string; plazoUnix: number | null },
+): Promise<void> {
+  try {
+    const { data: recibo } = await admin.from('recibos')
+      .select('concepto, importe, socio_id').eq('id', p.reciboId).maybeSingle();
+    if (!recibo) return;
+    const { data: socio } = recibo.socio_id
+      ? await admin.from('socios').select('nombre, apellidos').eq('id', recibo.socio_id).maybeSingle()
+      : { data: null };
+    const plazo = p.plazoUnix
+      ? new Date(p.plazoUnix * 1000).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })
+      : 'la fecha que indique Stripe';
+    await publish({
+      type: EVENTOS.PAGO_DISPUTADO, studioId: p.studioId,
+      data: {
+        concepto: recibo.concepto ?? 'una cuota', importe: recibo.importe,
+        socia: `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'una clienta',
+        socioId: recibo.socio_id, plazo,
+      },
+      resource: { type: 'recibo', id: p.reciboId },
+      // Una disputa por recibo (Stripe no reabre la misma dos veces).
+      dedupKey: `pago-disputado:${p.reciboId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPagoDisputado:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Clase casi llena (≥90% del aforo): a la propietaria. Dirigido por evento (al
 // crear una reserva), no por cron. Dedup por sesión → un aviso por clase.
 export async function emitirClaseCasiLlena(

@@ -4970,6 +4970,24 @@ export async function dbInsertCondicion(c: CondicionSalud) {
   if (error) reportDbError('[dbInsertCondicion]', error);
 }
 
+// Auditoría de LECTURA de la ficha de salud (RGPD art. 5.2/24, trazabilidad de
+// categoría especial) — no de escritura, de quién simplemente ABRE la pestaña.
+// Best-effort a propósito, sin reportDbError: un fallo al registrar la lectura
+// no debe disparar el banner global de errores sobre una pantalla que, para
+// quien la mira, cargó bien.
+export async function dbRegistrarLecturaFichaSalud(p: {
+  studioId: string; socioId: string; leidoPorUserId: string; leidoPorNombre: string; leidoPorRol: string;
+}) {
+  const { error } = await supabase.from('lecturas_ficha_salud').insert({
+    studio_id: p.studioId,
+    socio_id: p.socioId,
+    leido_por_user_id: p.leidoPorUserId,
+    leido_por_nombre: p.leidoPorNombre,
+    leido_por_rol: p.leidoPorRol,
+  });
+  if (error) console.error('[dbRegistrarLecturaFichaSalud]', error);
+}
+
 export async function dbUpdateCondicion(id: string, changes: Partial<CondicionSalud>) {
   const parcial = condicionSaludToDb({ id, ...changes } as CondicionSalud);
   // Solo enviamos las columnas realmente presentes en `changes` (+ actualizado_en).

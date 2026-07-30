@@ -460,6 +460,81 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Fase 1 (docs/ARQUITECTURA-LEGAL-PAGOS-FACTURACION.md) — disputa/chargeback:
+  // el cargo ya se había cobrado y la socia lo impugna ante su banco. Antes esto
+  // era invisible para Tentare (solo se veía entrando a Stripe directamente).
+  // Los datos de metadata viven en el PaymentIntent (no en la disputa), igual
+  // que en charge.refunded.
+  if (event.type === 'charge.dispute.created') {
+    const dispute = event.data.object as Stripe.Dispute;
+    const piId = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id;
+    if (piId) {
+      const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
+      const reciboId = pi.metadata?.reciboId;
+      const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
+      if (reciboId && esRecibo) {
+        const admin = getSupabaseAdmin();
+        if (!admin) {
+          console.error('[stripe webhook] service role no configurada (dispute created)');
+          return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+        }
+        const studioId = await studioDeCuentaConnect(admin, event.account);
+        if (!studioId) {
+          Sentry.captureMessage('[stripe webhook] disputa de una cuenta Connect no reconocida', {
+            level: 'error', extra: { reciboId, eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        }
+        const { error } = await admin.from('recibos')
+          .update({ disputa_estado: dispute.status, disputa_stripe_id: dispute.id })
+          .eq('id', reciboId).eq('studio_id', studioId);
+        if (error) {
+          console.error('[stripe webhook] no se pudo registrar la disputa', reciboId, error);
+          return NextResponse.json({ error: 'Fallo al registrar la disputa' }, { status: 500 });
+        }
+        const { emitirPagoDisputado } = await import('@/lib/notifications/emit');
+        await emitirPagoDisputado(admin, { studioId, reciboId, plazoUnix: dispute.evidence_details?.due_by ?? null });
+      }
+    }
+  }
+
+  // Cierre de la disputa: `lost` es un chargeback real (el dinero se revierte,
+  // igual que un reembolso total) — `won`/`warning_closed` no tocan el recibo,
+  // solo el estado para que quede constancia de que se resolvió.
+  if (event.type === 'charge.dispute.closed') {
+    const dispute = event.data.object as Stripe.Dispute;
+    const piId = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id;
+    if (piId) {
+      const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
+      const reciboId = pi.metadata?.reciboId;
+      const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
+      if (reciboId && esRecibo) {
+        const admin = getSupabaseAdmin();
+        if (!admin) {
+          console.error('[stripe webhook] service role no configurada (dispute closed)');
+          return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+        }
+        const studioId = await studioDeCuentaConnect(admin, event.account);
+        if (!studioId) {
+          Sentry.captureMessage('[stripe webhook] cierre de disputa de una cuenta Connect no reconocida', {
+            level: 'error', extra: { reciboId, eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        }
+        const update: Record<string, string> = { disputa_estado: dispute.status };
+        if (dispute.status === 'lost') {
+          update.estado = 'DEVUELTO';
+          update.fecha_devolucion = new Date().toISOString();
+        }
+        const { error } = await admin.from('recibos').update(update).eq('id', reciboId).eq('studio_id', studioId);
+        if (error) {
+          console.error('[stripe webhook] no se pudo cerrar la disputa', reciboId, error);
+          return NextResponse.json({ error: 'Fallo al cerrar la disputa' }, { status: 500 });
+        }
+      }
+    }
+  }
+
   // Stripe Connect: el estudio revocó el acceso desde SU panel de Stripe (o Stripe
   // desconectó la cuenta). Limpiamos el binding `stripe_account_id` para que la app
   // deje de intentar cobrar sobre una cuenta ya no conectada y la UI muestre "no
