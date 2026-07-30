@@ -73,8 +73,9 @@ export const confirmacionRiesgoAskDispatcher = inngest.createFunction(
   async ({ step }) => {
     const nowISO = await step.run('now', async () => new Date().toISOString());
     const studios = await step.run('list-studios', async () => {
-      const admin = requireSupabaseAdmin();
-      const { data, error } = await admin.from('studios').select('id').eq('pedir_confirmacion_riesgo', true);
+      // `suspendido_en`: un estudio suspendido no debe seguir pidiendo
+      // confirmación de riesgo de plantón a sus socias.
+      const { data, error } = await requireSupabaseAdmin().from('studios').select('id').eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null);
       if (error) throw new Error(error.message);
       return data ?? [];
     });
@@ -178,8 +179,9 @@ export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
   async ({ step }) => {
     const nowISO = await step.run('now', async () => new Date().toISOString());
     const studios = await step.run('list-studios', async () => {
-      const admin = requireSupabaseAdmin();
-      const { data, error } = await admin.from('studios').select('id').eq('pedir_confirmacion_riesgo', true);
+      // `suspendido_en`: un estudio suspendido no debe seguir cortando
+      // reservas de riesgo (esa gestión ya no le corresponde).
+      const { data, error } = await requireSupabaseAdmin().from('studios').select('id').eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null);
       if (error) throw new Error(error.message);
       return data ?? [];
     });

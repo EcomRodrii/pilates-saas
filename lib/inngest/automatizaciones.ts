@@ -333,7 +333,9 @@ export const automatizacionesDispatcher = inngest.createFunction(
     // así que con el cliente anónimo RLS devolvería CERO estudios y el cron
     // "completaría" sin procesar a nadie — en silencio y para todos los tenants.
     const studios = await step.run('list-studios', async () => {
-      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre, color_primario, logo_url');
+      // `suspendido_en`: un estudio suspendido por impago/abuso no debe seguir
+      // recibiendo mensajes automáticos con IA a nombre del negocio.
+      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre, color_primario, logo_url').is('suspendido_en', null);
       if (error) throw new Error(error.message);
       return data ?? [];
     });

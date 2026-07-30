@@ -20,7 +20,9 @@ export const revisionesSaludDispatcher = inngest.createFunction(
     const studios = await step.run('list-studios', async () => {
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
-      const { data, error } = await admin.from('studios').select('id');
+      // `suspendido_en`: un estudio suspendido no necesita revisiones de
+      // ficha de salud nuevas.
+      const { data, error } = await admin.from('studios').select('id').is('suspendido_en', null);
       if (error) throw new Error(error.message);
       return data ?? [];
     });

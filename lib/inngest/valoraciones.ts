@@ -29,7 +29,9 @@ export const valoracionesDispatcher = inngest.createFunction(
     const studios = await step.run('list-studios', async () => {
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
-      const { data, error } = await admin.from('studios').select('id');
+      // `suspendido_en`: un estudio suspendido no debe seguir pidiendo
+      // valoraciones a sus socias en su nombre.
+      const { data, error } = await admin.from('studios').select('id').is('suspendido_en', null);
       if (error) throw new Error(error.message);
       return data ?? [];
     });

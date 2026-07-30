@@ -26,7 +26,9 @@ export const renovacionesDispatcher = inngest.createFunction(
       if (!admin) throw new Error('Service role no configurada');
       // TODOS los estudios, tengan o no Stripe: el recibo debe existir también
       // para cobro manual — el dunning ya filtra por Stripe conectado al cobrar.
-      const { data, error } = await admin.from('studios').select('id');
+      // `suspendido_en`: un estudio suspendido no debe seguir generando
+      // recibos de renovación en su nombre.
+      const { data, error } = await admin.from('studios').select('id').is('suspendido_en', null);
       if (error) throw new Error(error.message);
       return data ?? [];
     });
