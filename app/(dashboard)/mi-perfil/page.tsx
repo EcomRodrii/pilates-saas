@@ -13,6 +13,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { TabPerfil } from '@/components/configuracion/tab-perfil';
 import { TabMiDisponibilidad } from '@/components/mi-perfil/tab-mi-disponibilidad';
 import { TabMiAusencia } from '@/components/mi-perfil/tab-mi-ausencia';
+import { TabMisEstudios } from '@/components/mi-perfil/tab-mis-estudios';
 import { useRol } from '@/lib/permisos';
 
 export default function MiPerfilPage() {
@@ -28,6 +29,7 @@ export default function MiPerfilPage() {
       <TabPerfil showToast={showToast} />
       {esInstructor && <TabMiDisponibilidad showToast={showToast} />}
       {esInstructor && <TabMiAusencia showToast={showToast} />}
+      {esInstructor && <TabMisEstudios />}
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   );

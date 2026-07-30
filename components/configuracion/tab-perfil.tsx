@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, Check, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { subirFotoAdmin, eliminarFotoAdmin, subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
+import { fetchTarifasEquipo } from '@/lib/api-client';
 import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
 
@@ -54,6 +55,19 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   const [passwordForm, setPasswordForm] = useState({ actual: '', nueva: '', confirmar: '' });
   const [cambiandoPassword, setCambiandoPassword] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState<{ error: boolean; texto: string } | null>(null);
+
+  // Tarifa por hora: dato salarial, solo la propia instructora la ve (y solo
+  // la suya — el servidor filtra por rol, no confiamos en el cliente).
+  const [tarifaHora, setTarifaHora] = useState<number | null>(null);
+  useEffect(() => {
+    if (rol !== 'INSTRUCTOR' || !yo) return;
+    let vivo = true;
+    fetchTarifasEquipo().then(r => { if (vivo) setTarifaHora(r[0]?.tarifaHora ?? null); });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `yo` es un objeto
+    // recalculado cada render (instructores.find); depender de yo.id evita
+    // repetir el fetch en cada tecleo del formulario de más abajo.
+  }, [rol, yo?.id]);
 
   async function guardarPerfilPropietaria() {
     setGuardandoPerfil(true);
@@ -213,6 +227,20 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
               <p className="text-[10px] font-bold text-muted-foreground mt-1.5 uppercase tracking-wider">{l}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Solo lectura: la tarifa la fija quien gestiona el equipo, no la
+          propia instructora. Ve la suya, nunca la de sus compañeras — el
+          servidor ya filtra por rol, esto solo pinta lo que llegó. */}
+      {rol === 'INSTRUCTOR' && yo && (
+        <div className={cn(cardCls, 'p-6')}>
+          <h3 className="text-[14px] font-semibold text-foreground mb-1">Tu tarifa por hora</h3>
+          <p className="text-[13px] text-muted-foreground">
+            {tarifaHora != null
+              ? `${tarifaHora.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/h`
+              : 'Tu estudio todavía no te ha asignado una tarifa.'}
+          </p>
         </div>
       )}
 
