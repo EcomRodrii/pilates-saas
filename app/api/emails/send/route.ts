@@ -109,9 +109,13 @@ export async function POST(req: NextRequest) {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; instructorAnterior?: string; estudioNombre?: string;
+      cambioHora?: boolean; cambioSala?: boolean;
     };
     html = await render(CambioClaseEmail({ socioNombre: body.toName, intro: introCustom, ...marca, ...d }));
-    subject = asuntoCustom ?? `Cambio de instructora — ${d.claseNombre}`;
+    // Asunto según qué cambió de verdad — antes siempre decía "instructora"
+    // aunque el motivo fuera mover la clase de hora/sala.
+    const motivoAsunto = d.cambioHora || d.cambioSala ? 'Cambio de horario' : 'Cambio de instructora';
+    subject = asuntoCustom ?? `${motivoAsunto} — ${d.claseNombre}`;
   } else if (body.tipo === 'recordatorio') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
