@@ -73,6 +73,14 @@ export const EVENTOS = {
   // Distinto de PAGO_FALLIDO (ahí nunca llegó a cobrarse) — el estudio tiene
   // un plazo real de la propia Stripe para responder con evidencia.
   PAGO_DISPUTADO: 'pago.disputado',
+  // Fase 3: cobro de penalización por cancelación tardía/no-show ya realizado
+  // con la tarjeta guardada — a la socia. Reutiliza el email genérico de
+  // recibo (ReciboEmail), no una plantilla nueva.
+  PAGO_PENALIZACION: 'pago.penalizacion',
+  // Fase 3: el guard de consentimiento bloqueó un cobro de penalización — a
+  // la propietaria, es accionable por su parte (pedir que la socia acepte el
+  // contrato actualizado), a diferencia de "sin tarjeta" que es silencioso.
+  PAGO_PENALIZACION_BLOQUEADA: 'pago.penalizacion_bloqueada',
   SISTEMA_ERROR: 'sistema.error',
   // Automatizaciones (cron → publish)
   RECORDATORIO_24H: 'reserva.recordatorio_24h',
@@ -125,6 +133,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Sin EMAIL: el dunning ya manda su propio correo a la socia (1.er aviso).
   [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'mostrador-y-socia' },
   [EVENTOS.PAGO_REALIZADO]:        { category: 'pagos',    priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
+  // Sin EMAIL: el recibo (ReciboEmail) ya se manda por separado.
+  [EVENTOS.PAGO_PENALIZACION]:     { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  // Solo in-app, sin push: es accionable pero no urgente de interrumpir.
+  [EVENTOS.PAGO_PENALIZACION_BLOQUEADA]: { category: 'pagos', priority: 'MEDIA', canales: [], audiencia: 'propietaria' },
   // Solo al mostrador: quien disputa el cargo es la propia socia, avisarla
   // de su propia disputa no tiene sentido. EMAIL sí (hay un plazo de Stripe
   // que responder, no es algo que se pueda dejar para cuando se abra el panel).
@@ -321,6 +333,17 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_REALIZADO}#SOCIA`]: {
     title: 'Pago recibido',
     body: 'Hemos recibido tu pago de {concepto} ({importe} €). ¡Gracias!',
+  },
+  [`${EVENTOS.PAGO_PENALIZACION}#SOCIA`]: {
+    title: 'Cargo por cancelación tardía',
+    body: 'Se te ha cobrado {importe} € por cancelar dentro de la ventana permitida o no presentarte a la clase.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
+  },
+  // audiencia: 'propietaria' resuelve solo a PROPIETARIO (ROLES_POR_AUDIENCIA) —
+  // una única plantilla basta.
+  [`${EVENTOS.PAGO_PENALIZACION_BLOQUEADA}#PROPIETARIO`]: {
+    title: 'Penalización sin cobrar',
+    body: 'Una penalización de {importe} € no se ha podido cobrar porque la socia no ha aceptado el contrato con la cláusula actualizada.',
   },
   [`${EVENTOS.PAGO_DISPUTADO}#PROPIETARIO`]: {
     title: 'Un cargo ha sido disputado',

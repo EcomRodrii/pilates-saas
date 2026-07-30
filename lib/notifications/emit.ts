@@ -182,6 +182,42 @@ export async function emitirPagoFallido(
   }
 }
 
+// Fase 3: cargo de penalización ya cobrado — a la socia. Sin EMAIL en el
+// catálogo a propósito: el recibo (ReciboEmail) ya se manda por separado con
+// el mismo concepto/importe.
+export async function emitirPagoPenalizacion(
+  admin: SupabaseClient, p: { studioId: string; socioId: string; importe: number; penalizacionId: string },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.PAGO_PENALIZACION, studioId: p.studioId,
+      data: { importe: p.importe, socioId: p.socioId, slug: (studio?.slug as string | null) ?? '' },
+      resource: { type: 'socio', id: p.socioId },
+      dedupKey: `pago-penalizacion:${p.penalizacionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPagoPenalizacion:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Fase 3: el guard de consentimiento (o cualquier otro motivo futuro) bloqueó
+// un cobro de penalización — a la propietaria, accionable por su parte.
+export async function emitirPenalizacionBloqueada(
+  admin: SupabaseClient, p: { studioId: string; socioId: string; motivo: 'consentimiento'; importe?: number; penalizacionId: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.PAGO_PENALIZACION_BLOQUEADA, studioId: p.studioId,
+      data: { socioId: p.socioId, importe: p.importe ?? 0 },
+      resource: { type: 'socio', id: p.socioId },
+      dedupKey: `pago-penalizacion-bloqueada:${p.penalizacionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPenalizacionBloqueada:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Disputa/chargeback de Stripe: el cargo ya se había cobrado y ahora la
 // socia lo impugna ante su banco. `plazoUnix` es evidence_details.due_by de
 // Stripe (segundos epoch, puede venir null si Stripe aún no lo ha fijado).

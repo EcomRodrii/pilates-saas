@@ -30,6 +30,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
 import { useAuth } from '@/lib/auth-context';
 import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
+import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -870,6 +871,11 @@ export default function Dashboard() {
         })()}
         </div>
         )}
+
+        {/* ── Penalizaciones pendientes de aprobar (Fase 3) ──────────────────── */}
+        {/* Sin `wrap()`: no es una sección del layout personalizable (HOME_SECCIONES),
+            solo se pinta si hay algo pendiente — se oculta sola (ver el componente). */}
+        {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
 
         {/* ── Revenue card (full width) ──────────────────────────────────────── */}
         {verFinanzas && (

@@ -52,6 +52,7 @@ import {
 import { expirarReservasPendientesDispatcher } from '@/lib/inngest/reservas-pendientes';
 import { listaEsperaOfertasExpirarDispatcher } from '@/lib/inngest/lista-espera-ofertas';
 import { minimoAsistentesDispatcher } from '@/lib/inngest/minimo-asistentes';
+import { penalizacionesDispatcher } from '@/lib/inngest/penalizaciones';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -91,5 +92,6 @@ export const { GET, POST, PUT } = serve({
     expirarReservasPendientesDispatcher,
     listaEsperaOfertasExpirarDispatcher,
     minimoAsistentesDispatcher,
+    penalizacionesDispatcher,
   ],
 });

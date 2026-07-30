@@ -4,7 +4,11 @@
 // fijas, averías) — no un panel nuevo pesado, un widget que LEE.
 //
 // Reglas del informe:
-//  · Penalizaciones apagadas: nada punitivo, es un recordatorio amable.
+//  · Este widget nunca lista un cobro económico como aviso "para hoy": es un
+//    recordatorio amable, no una decisión de cobro. El cobro real de
+//    penalizaciones por cancelación tardía/no-show (Fase 3) vive en
+//    lib/inngest/penalizaciones.ts y en la aprobación manual del panel —
+//    deliberadamente fuera de esta bandeja.
 //  · Respeta socio_excepciones: una socia exenta de recordatorio de cobro NO
 //    aparece por un cobro pendiente.
 //  · Jamás propone auto-cancelar: la avería que deja gente fuera es una DECISIÓN

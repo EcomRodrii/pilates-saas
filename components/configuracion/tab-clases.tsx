@@ -38,6 +38,8 @@ type ClaseForm = {
   listaEsperaPlazoAceptacionMinutos: string;
   // Fase 2c (migr 20260731140000): mismo patrón, vacío = null = hereda.
   minimoAsistentesPorClase: string;
+  // Fase 3 (migr 20260730225253): mismo patrón, vacío = null = hereda.
+  penalizacionImporteEur: string;
 };
 
 const emptyClaseForm = (): ClaseForm => ({
@@ -54,6 +56,7 @@ const emptyClaseForm = (): ClaseForm => ({
   requiereAprobacion: 'hereda',
   listaEsperaPlazoAceptacionMinutos: '',
   minimoAsistentesPorClase: '',
+  penalizacionImporteEur: '',
 });
 
 function claseToForm(t: TipoClase): ClaseForm {
@@ -71,6 +74,7 @@ function claseToForm(t: TipoClase): ClaseForm {
     requiereAprobacion: boolATri(t.requiereAprobacion),
     listaEsperaPlazoAceptacionMinutos: t.listaEsperaPlazoAceptacionMinutos != null ? String(t.listaEsperaPlazoAceptacionMinutos) : '',
     minimoAsistentesPorClase: t.minimoAsistentesPorClase != null ? String(t.minimoAsistentesPorClase) : '',
+    penalizacionImporteEur: t.penalizacionImporteEur != null ? String(t.penalizacionImporteEur) : '',
   };
 }
 
@@ -146,6 +150,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       requiereAprobacion: triABool(form.requiereAprobacion),
       listaEsperaPlazoAceptacionMinutos: form.listaEsperaPlazoAceptacionMinutos.trim() === '' ? null : Math.max(0, parseInt(form.listaEsperaPlazoAceptacionMinutos, 10) || 0),
       minimoAsistentesPorClase: form.minimoAsistentesPorClase.trim() === '' ? null : Math.max(0, parseInt(form.minimoAsistentesPorClase, 10) || 0),
+      penalizacionImporteEur: form.penalizacionImporteEur.trim() === '' ? null : Math.max(0, Number(form.penalizacionImporteEur) || 0),
     };
     if (modal === 'nueva') {
       // Esperamos a la base de datos antes de decir que está creado.
@@ -432,6 +437,20 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 placeholder="Ajuste del estudio"
                 value={form.minimoAsistentesPorClase}
                 onChange={e => setForm(f => ({ ...f, minimoAsistentesPorClase: e.target.value }))}
+              />
+            </Field>
+            <Field
+              label="Penalización por cancelación tardía o no-show (€)"
+              description="Vacío = usa el ajuste general del estudio."
+            >
+              <input
+                className={inputCls}
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="Ajuste del estudio"
+                value={form.penalizacionImporteEur}
+                onChange={e => setForm(f => ({ ...f, penalizacionImporteEur: e.target.value }))}
               />
             </Field>
             <Field
