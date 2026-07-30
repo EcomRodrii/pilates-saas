@@ -30,6 +30,12 @@ Responde SIEMPRE con un JSON válido, sin texto adicional, con esta estructura e
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // /contenido (la pantalla que llama a esto) está fuera de la lista blanca de
+  // instructora/recepción/manager en permisos-reglas.ts — mismo alcance que
+  // /api/mensajes/send, que ya tuvo este mismo hueco.
+  if (sesion.rol !== 'PROPIETARIO') {
+    return NextResponse.json({ error: 'Solo la propietaria puede generar contenido' }, { status: 403 });
+  }
   const limited = await enforceRateLimit(req, 'ai-guion', { max: 20, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;
   const bloqueoIA = await bloqueoPorFeature(sesion.studioId, 'ia');
