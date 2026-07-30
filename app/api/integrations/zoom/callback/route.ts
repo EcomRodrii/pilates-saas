@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForTokens, getZoomAccountEmail, isZoomConfigurado } from '@/lib/zoom';
-import { dbSetZoomEmail, dbSaveZoomCredenciales } from '@/lib/supabase-data';
+import { dbSetZoomEmail, dbSaveZoomCredenciales } from '@/lib/db/supabase-data-admin';
 import { verificarEstadoOAuth } from '@/lib/oauth-state';
 
 // Vuelta del OAuth de Zoom (botón "Conectar cuenta de Zoom" en Configuración

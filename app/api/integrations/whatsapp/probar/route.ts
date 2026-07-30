@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { dbGetIntegracionConfig } from '@/lib/supabase-data';
+import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { probarWhatsApp } from '@/lib/whatsapp';
 
 // Botón "Probar conexión" de WhatsApp Business en Configuración →

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dbUpdateAutomationLog } from '@/lib/supabase-data';
+import { dbUpdateAutomationLog } from '@/lib/db/supabase-data-admin';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { capturar } from '@/lib/analytics';

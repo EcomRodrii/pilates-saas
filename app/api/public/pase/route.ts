@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { resolveStudioIdBySlug, socioAutenticado } from '@/lib/supabase-data';
+import { resolveStudioIdBySlug } from '@/lib/supabase-data';
+import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { firmarPase, codigoCorto, paseVigente, minutosParaActivarse, ventanaDelPase } from '@/lib/pase-acceso';

@@ -8,7 +8,7 @@
 // hallazgo M-5 de la auditoría 2026-07-29.
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { generarRecordatoriosRevision } from '@/lib/supabase-data';
+import { generarRecordatoriosRevision } from '@/lib/db/supabase-data-admin';
 
 // Dispatcher: diario a las 07:00 UTC (misma hora que tenía el Vercel Cron, ver
 // vercel.json antes de este cambio).

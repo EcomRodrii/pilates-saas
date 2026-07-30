@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { dbSetStripeAccountId } from '@/lib/supabase-data';
+import { dbSetStripeAccountId } from '@/lib/db/supabase-data-admin';
 import { verificarEstadoOAuth } from '@/lib/oauth-state';
 
 // Vuelta del OAuth de Stripe Connect (ver el botón "Conectar con Stripe" en
