@@ -457,7 +457,7 @@ interface StudioContextValue {
   addAutomationRule: (fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>) => void;
   addAutomationLog: (log: Omit<AutomationLog, 'id' | 'studioId'>) => void;
   runAutomation: () => Promise<AutomationLog[]>;
-  addNotaProgreso: (nota: Omit<NotaProgreso, 'id' | 'studioId' | 'creadaEn'>) => void;
+  addNotaProgreso: (nota: Omit<NotaProgreso, 'id' | 'studioId' | 'creadaEn'>) => Promise<ResultadoEscritura>;
   dismissLog: (id: string) => void;
   actualizarLog: (id: string, changes: Partial<Pick<AutomationLog, 'resultado' | 'detalle'>>) => void;
 
