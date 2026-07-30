@@ -76,6 +76,31 @@ export async function eliminarFotoClase(tipoClaseId: string): Promise<{ ok: true
   return { ok: true };
 }
 
+// Imagen de un banner del contenido editable del portal — mismo bucket
+// público, prefijo propio. El banner (fila en contenido_portal_banners) tiene
+// que existir YA con este `bannerId` antes de subir: la RLS de storage
+// (avatars_path_autorizado) valida el path consultando esa tabla, así que
+// subir antes de crear la fila lo rechaza.
+export async function subirBannerEstudio(bannerId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const invalido = validarImagenMarca(file, LOGO_MAX_BYTES);
+  if (invalido) return { error: invalido };
+  const path = `banner-${bannerId}`;
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+export async function eliminarBannerEstudio(bannerId: string): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([`banner-${bannerId}`]);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
 // Foto de perfil de la propietaria — mismo bucket público, prefijo propio
 // para no colisionar con el path de socias (que no llevan prefijo).
 export async function subirFotoAdmin(studioId: string, file: File): Promise<{ url: string } | { error: string }> {

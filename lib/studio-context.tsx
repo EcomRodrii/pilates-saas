@@ -45,6 +45,7 @@ import {
   dbInsertAutomatizacion, dbUpdateAutomatizacion, dbDeleteAutomatizacion,
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
+  dbUpsertContenidoPortal, dbInsertBannerPortal, dbUpdateBannerPortal, dbDeleteBannerPortal,
   dbInsertSala, dbUpdateSala, dbDeleteSala,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
   dbUpdateStudio, dbUpdateStudioConfig, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
@@ -88,6 +89,9 @@ import type {
   SocioExcepcion,
   MandatoSEPA,
   TipoClase,
+  ContenidoPortal,
+  BannerPortal,
+  FavoritoClase,
   Instructor,
   Spot,
   NotaInterna,
@@ -211,6 +215,17 @@ interface StudioContextValue {
   planesTarifa: PlanTarifa[];
   salas: Sala[];
   tiposClase: TipoClase[];
+  // Contenido editable del portal cliente (mensaje destacado + banners) y
+  // favoritos de clase de la socia en sesión. Se cargan en bloque con el resto
+  // del catálogo público (cargarPublico), no con un fetch aparte.
+  contenidoPortal: ContenidoPortal | null;
+  bannersPortal: BannerPortal[];
+  favoritos: FavoritoClase[];
+  toggleFavorito: (tipoClaseId: string, accion: 'marcar' | 'desmarcar') => Promise<ResultadoEscritura>;
+  updateMensajeDestacado: (mensaje: string | null) => Promise<ResultadoEscritura>;
+  addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  updateBannerPortal: (id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteBannerPortal: (id: string) => Promise<ResultadoEscritura>;
   instructores: Instructor[];
   spots: Spot[];
   bloqueosMaquina: BloqueoMaquina[];
@@ -523,6 +538,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [planesTarifa, setPlanesTarifa] = useState<PlanTarifa[]>([]);
   const [salas, setSalas] = useState<Sala[]>([]);
   const [tiposClase, setTiposClase] = useState<TipoClase[]>([]);
+  const [contenidoPortal, setContenidoPortal] = useState<ContenidoPortal | null>(null);
+  const [bannersPortal, setBannersPortal] = useState<BannerPortal[]>([]);
+  const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
   const [dependencySnapshots, setDependencySnapshots] = useState<InstructorDependencySnapshot[]>([]);
@@ -652,6 +670,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setChallengeDefinitions(pub.challengeDefinitions ?? []);
       setCitasServicios(pub.citasServicios ?? []);
       setCitasDisponibilidad(pub.citasDisponibilidad ?? []);
+      setContenidoPortal(pub.contenidoPortal ?? null);
+      setBannersPortal(pub.bannersPortal ?? []);
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -674,6 +694,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setChallengeProgress(socia?.challengeProgress ?? []);
       setCreditTransactions(socia?.creditTransactions ?? []);
       setCitas(socia?.citas ?? []);
+      setFavoritos(socia?.favoritos ?? []);
       setDataLoaded(true);
     }).catch(err => { console.error('Error cargando datos públicos:', err); setDataLoaded(true); });
   }
@@ -749,6 +770,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setPlanesTarifa(data.planesTarifa);
       setSalas(data.salas);
       setTiposClase(data.tiposClase);
+      setContenidoPortal(data.contenidoPortal);
+      setBannersPortal(data.bannersPortal);
       setInstructores(data.instructores);
       setSpots(data.spots);
       setBloqueosMaquina(data.bloqueosMaquina);
@@ -1116,6 +1139,35 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbDeleteTipoClase(id);
     if (!res.ok) return res;
     setTiposClase(prev => prev.filter(t => t.id !== id));
+    return res;
+  }
+
+  // ── Contenido editable del portal (mensaje destacado + banners) ────────────
+
+  async function updateMensajeDestacado(mensaje: string | null): Promise<ResultadoEscritura> {
+    const studioId = getCurrentStudioId();
+    const res = await dbUpsertContenidoPortal(studioId, mensaje);
+    if (!res.ok) return res;
+    setContenidoPortal({ studioId, mensajeDestacado: mensaje });
+    return res;
+  }
+  async function addBannerPortal(fields: Omit<BannerPortal, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+    const nuevo: BannerPortal = { ...fields, id: `bp-${uid()}`, studioId: getCurrentStudioId() };
+    const res = await dbInsertBannerPortal(nuevo);
+    if (!res.ok) return res;
+    setBannersPortal(prev => [...prev, nuevo]);
+    return res;
+  }
+  async function updateBannerPortal(id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateBannerPortal(id, changes);
+    if (!res.ok) return res;
+    setBannersPortal(prev => prev.map(b => b.id === id ? { ...b, ...changes } : b));
+    return res;
+  }
+  async function deleteBannerPortal(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteBannerPortal(id);
+    if (!res.ok) return res;
+    setBannersPortal(prev => prev.filter(b => b.id !== id));
     return res;
   }
 
@@ -2024,6 +2076,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     });
 
     return { ok: true, estado };
+  }
+
+  // Favorito por TIPO de clase (catálogo), no por sesión puntual — así una
+  // socia lo marca una vez y le sirve para cualquier horario de esa clase.
+  // Solo tiene sentido en ruta pública (la socia se identifica por su JWT);
+  // fuera de ahí (dashboard) no hace nada.
+  async function toggleFavorito(tipoClaseId: string, accion: 'marcar' | 'desmarcar'): Promise<ResultadoEscritura> {
+    const cpub = ctxPublico();
+    if (!cpub) return { ok: false, error: 'No disponible' };
+    // Optimista: se ve al instante, pero `postPublico` re-sincroniza desde el
+    // servidor en su `finally` (cargarPublico), así que un rechazo se corrige solo.
+    setFavoritos(prev => accion === 'marcar'
+      ? (prev.some(f => f.tipoClaseId === tipoClaseId)
+          ? prev
+          : [...prev, { id: `fav-${uid()}`, studioId: cpub.studioId, socioId: cpub.socioId, tipoClaseId, creadoEn: new Date().toISOString() }])
+      : prev.filter(f => f.tipoClaseId !== tipoClaseId));
+    return postPublico('/api/public/favoritos', { studioId: cpub.studioId, tipoClaseId, accion });
   }
 
   async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura> {
@@ -3261,6 +3330,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     planesTarifa,
     salas,
     tiposClase,
+    contenidoPortal,
+    bannersPortal,
+    favoritos,
+    toggleFavorito,
+    updateMensajeDestacado,
+    addBannerPortal,
+    updateBannerPortal,
+    deleteBannerPortal,
     instructores,
     spots,
     bloqueosMaquina,
@@ -3456,7 +3533,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.
   }), [
-    planesTarifa, salas, tiposClase, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, favoritos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,

@@ -715,6 +715,38 @@ export interface RowTiposClase {
   permite_lista_espera: boolean | null;
 }
 
+export interface RowFavoritosClase {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  tipo_clase_id: string;
+  created_at: string;
+}
+
+export interface RowContenidoPortal {
+  studio_id: string;
+  mensaje_destacado: string | null;
+  updated_at: string;
+}
+
+export interface RowContenidoPortalBanners {
+  id: string;
+  studio_id: string;
+  imagen_url: string;
+  titulo: string | null;
+  texto: string | null;
+  link_tipo: string;
+  link_valor: string;
+  ubicacion: string[];
+  activo: boolean;
+  orden: number;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RowUsuarios {
   id: string;
   studio_id: string | null;

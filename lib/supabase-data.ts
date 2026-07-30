@@ -78,6 +78,9 @@ import type {
   RowMandatosSepa,
   RowSuscripciones,
   RowTiposClase,
+  RowFavoritosClase,
+  RowContenidoPortal,
+  RowContenidoPortalBanners,
   RowUsuarios,
   RowVentasPos,
   RowVideosOnDemand,
@@ -145,6 +148,10 @@ import type {
   MandatoSEPA,
   Suscripcion,
   TipoClase,
+  FavoritoClase,
+  ContenidoPortal,
+  BannerPortal,
+  UbicacionBannerPortal,
   Usuario,
   VentaPOS,
   VideoOnDemand,
@@ -738,6 +745,40 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? null,
   } as TipoClase;
+}
+
+export function mapFavoritoClase(r: RowFavoritosClase): FavoritoClase {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    tipoClaseId: r.tipo_clase_id,
+    creadoEn: r.created_at,
+  };
+}
+
+export function mapContenidoPortal(r: RowContenidoPortal): ContenidoPortal {
+  return {
+    studioId: r.studio_id,
+    mensajeDestacado: r.mensaje_destacado ?? null,
+  };
+}
+
+export function mapBannerPortal(r: RowContenidoPortalBanners): BannerPortal {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    imagenUrl: r.imagen_url,
+    titulo: r.titulo ?? null,
+    texto: r.texto ?? null,
+    linkTipo: r.link_tipo as BannerPortal['linkTipo'],
+    linkValor: r.link_valor,
+    ubicacion: (r.ubicacion ?? []) as UbicacionBannerPortal[],
+    activo: r.activo,
+    orden: r.orden,
+    fechaInicio: r.fecha_inicio ?? null,
+    fechaFin: r.fecha_fin ?? null,
+  };
 }
 
 
@@ -3137,6 +3178,54 @@ export async function dbDeleteTipoClase(id: string): Promise<ResultadoEscritura>
   return falloEscritura('[dbDeleteTipoClase]', error);
 }
 
+// ─── Contenido editable del portal (mensaje destacado + banners) ────────────
+// Escritura directa bajo la RLS admin_contenido_portal(_banners) — solo
+// PROPIETARIO/MANAGER (comprobado en la propia policy, no solo en la UI).
+// El banner tiene que existir en BD ANTES de subir su imagen: la RLS de
+// storage (avatars_path_autorizado) valida el path `banner-<id>` consultando
+// esta tabla, así que el flujo del editor es insertar primero (con imagen_url
+// vacía) y actualizar después con la URL real.
+
+export async function dbUpsertContenidoPortal(studioId: string, mensajeDestacado: string | null): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('contenido_portal')
+    .upsert({ studio_id: studioId, mensaje_destacado: mensajeDestacado }, { onConflict: 'studio_id' });
+  return error ? falloEscritura('[dbUpsertContenidoPortal]', error) : ESCRITURA_OK;
+}
+
+function bannerPortalToDb(b: BannerPortal) {
+  return {
+    id: b.id, studio_id: b.studioId, imagen_url: b.imagenUrl, titulo: b.titulo,
+    texto: b.texto, link_tipo: b.linkTipo, link_valor: b.linkValor, ubicacion: b.ubicacion,
+    activo: b.activo, orden: b.orden, fecha_inicio: b.fechaInicio, fecha_fin: b.fechaFin,
+  };
+}
+
+export async function dbInsertBannerPortal(b: BannerPortal): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('contenido_portal_banners').insert(bannerPortalToDb(b));
+  return error ? falloEscritura('[dbInsertBannerPortal]', error) : ESCRITURA_OK;
+}
+
+export async function dbUpdateBannerPortal(id: string, changes: Partial<BannerPortal>): Promise<ResultadoEscritura> {
+  const db: Record<string, unknown> = {};
+  if ('imagenUrl' in changes) db.imagen_url = changes.imagenUrl;
+  if ('titulo' in changes) db.titulo = changes.titulo;
+  if ('texto' in changes) db.texto = changes.texto;
+  if ('linkTipo' in changes) db.link_tipo = changes.linkTipo;
+  if ('linkValor' in changes) db.link_valor = changes.linkValor;
+  if ('ubicacion' in changes) db.ubicacion = changes.ubicacion;
+  if ('activo' in changes) db.activo = changes.activo;
+  if ('orden' in changes) db.orden = changes.orden;
+  if ('fechaInicio' in changes) db.fecha_inicio = changes.fechaInicio;
+  if ('fechaFin' in changes) db.fecha_fin = changes.fechaFin;
+  const { error } = await supabase.from('contenido_portal_banners').update(db).eq('id', id);
+  return error ? falloEscritura('[dbUpdateBannerPortal]', error) : ESCRITURA_OK;
+}
+
+export async function dbDeleteBannerPortal(id: string): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('contenido_portal_banners').delete().eq('id', id);
+  return error ? falloEscritura('[dbDeleteBannerPortal]', error) : ESCRITURA_OK;
+}
+
 // ─── Salas ───────────────────────────────────────────────────────────────────
 // Hasta ahora las salas SOLO se leían: `addSala`/`updateSala`/`deleteSala` del
 // contexto mutaban el estado local y no existía ninguna escritura en todo el
@@ -3646,6 +3735,8 @@ export async function fetchCriticalStudioData(studioId?: string) {
     recuperacionesRes,
     socioExcepcionesRes,
     mandatosSepaRes,
+    contenidoPortalRes,
+    bannersPortalRes,
   ] = await Promise.all([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('usuarios').select('*').eq('studio_id', sid),
@@ -3715,6 +3806,12 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('recuperaciones').select('*').eq('studio_id', sid),
     db.from('socio_excepciones').select('*').eq('studio_id', sid),
     db.from('mandatos_sepa').select('*').eq('studio_id', sid),
+    db.from('contenido_portal').select('*').eq('studio_id', sid).maybeSingle(),
+    // Sin filtrar por activo/ubicación: el editor del dashboard necesita ver
+    // TODOS los banners (incluidos inactivos/de otras pantallas) para poder
+    // gestionarlos — el filtro para lo que se muestra en el portal vive en
+    // fetchPublicStudioData.
+    db.from('contenido_portal_banners').select('*').eq('studio_id', sid).order('orden', { ascending: true }),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
@@ -3735,6 +3832,8 @@ export async function fetchCriticalStudioData(studioId?: string) {
     salas: (salasRes.data ?? []).map(mapSala),
     spots: (spotsRes.data ?? []).map(mapSpot),
     tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
+    contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
+    bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
     instructores: (instructoresRes.data ?? []).map(mapInstructor),
     sesiones: (sesionesRes.data ?? []).map(mapSesion),
     reservas: (reservasRes.data ?? []).map(mapReserva),

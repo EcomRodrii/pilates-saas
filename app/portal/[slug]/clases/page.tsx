@@ -16,6 +16,7 @@
 
 import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { Star } from 'lucide-react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
@@ -52,6 +53,7 @@ export default function ClasesPage() {
   const {
     sesiones, reservas, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
+    favoritos, toggleFavorito,
   } = useStudio();
   const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
@@ -60,6 +62,11 @@ export default function ClasesPage() {
   const [semana, setSemana] = useState(0);
   const [diaElegido, setDiaElegido] = useState<number | null>(null);
   const [tipoElegido, setTipoElegido] = useState<string | null>(null);
+  // 'favoritas' es un valor especial de `tipoElegido`: reutiliza el mismo
+  // estado que ya filtra por tipo de clase, en vez de un segundo booleano que
+  // tendría que sincronizarse con él.
+  const FAVORITAS = '__favoritas__';
+  const idsFavoritos = useMemo(() => new Set(favoritos.map(f => f.tipoClaseId)), [favoritos]);
   const [reservando, setReservando] = useState<ClaseParaReservar | null>(null);
   const [paseAbierto, setPaseAbierto] = useState<{ nombre: string; sub: string } | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -140,10 +147,10 @@ export default function ClasesPage() {
     const clave = claveDia(dia);
     return sesiones
       .filter(s => !s.cancelada && s.inicio.slice(0, 10) === clave)
-      .filter(s => !tipoElegido || s.tipoClaseId === tipoElegido)
+      .filter(s => tipoElegido === FAVORITAS ? idsFavoritos.has(s.tipoClaseId) : (!tipoElegido || s.tipoClaseId === tipoElegido))
       .sort((a, b) => a.inicio.localeCompare(b.inicio))
       .map(decorar);
-  }, [dias, diaActivo, sesiones, tipoElegido, decorar]);
+  }, [dias, diaActivo, sesiones, tipoElegido, idsFavoritos, decorar]);
 
   const misClases = useMemo(() =>
     sesiones
@@ -261,9 +268,10 @@ export default function ClasesPage() {
 
       {vista === 'todas' && (
         <>
-          {tiposClase.length > 1 && (
+          {(tiposClase.length > 1 || idsFavoritos.size > 0) && (
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '18px 24px 4px', scrollbarWidth: 'none' } as React.CSSProperties}>
               {[{ id: null as string | null, nombre: 'Todas', color: null as string | null },
+                ...(idsFavoritos.size > 0 ? [{ id: FAVORITAS, nombre: 'Favoritas', color: null as string | null }] : []),
                 ...tiposClase.map(tc => ({ id: tc.id, nombre: tc.nombre, color: tc.color }))].map(chip => {
                 const activo = tipoElegido === chip.id;
                 return (
@@ -279,6 +287,7 @@ export default function ClasesPage() {
                       transition: transicion(['background', 'color'], 300),
                     }}
                   >
+                    {chip.id === FAVORITAS && <Star size={12} fill={activo ? 'currentColor' : 'none'} />}
                     {chip.color && !activo && <span style={{ width: 6, height: 6, borderRadius: '50%', background: chip.color }} />}
                     {chip.nombre}
                   </button>
@@ -335,11 +344,13 @@ export default function ClasesPage() {
           const completa = c.libres <= 0 && !reservada;
           const pocas = !reservada && c.libres > 0 && c.libres <= 3;
           const spotMio = c.mia?.spotId ? spots.find(sp => sp.id === c.mia!.spotId) : null;
+          const esFavorita = idsFavoritos.has(c.sesion.tipoClaseId);
 
           return (
             <div
               key={c.sesion.id}
               style={{
+                position: 'relative',
                 borderRadius: radio.card, padding: 20, display: 'flex', gap: 18,
                 background: reservada
                   ? (noche ? t.surface2 : '#EEF0EA')
@@ -380,6 +391,12 @@ export default function ClasesPage() {
                   </div>
                 )}
               </div>
+              {c.tipo?.fotoUrl && (
+                <div style={{ flex: '0 0 52px', width: 52, height: 52, borderRadius: 14, overflow: 'hidden', alignSelf: 'center' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={c.tipo.fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: completa || c.pasada ? 0.6 : 1 }} />
+                </div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
                 <span style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap', color: completa || c.pasada ? t.muted2 : pocas ? '#A65A0A' : t.heroAccent }}>
                   {reservada ? '' : completa ? 'Completa' : `${c.libres} libres`}
@@ -426,6 +443,22 @@ export default function ClasesPage() {
                   </button>
                 )}
               </div>
+              {socioId && c.tipo && (
+                <button
+                  type="button"
+                  aria-label={esFavorita ? `Quitar ${c.tipo.nombre} de favoritas` : `Marcar ${c.tipo.nombre} como favorita`}
+                  aria-pressed={esFavorita}
+                  onClick={() => void toggleFavorito(c.sesion.tipoClaseId, esFavorita ? 'desmarcar' : 'marcar')}
+                  style={{
+                    position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: '50%',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: esFavorita ? t.heroAccent : t.muted2,
+                  }}
+                >
+                  <Star size={15} fill={esFavorita ? 'currentColor' : 'none'} />
+                </button>
+              )}
             </div>
           );
         })}

@@ -42,6 +42,9 @@ import type {
   RowCitas,
   RowCitasServicios,
   RowCitasDisponibilidad,
+  RowFavoritosClase,
+  RowContenidoPortal,
+  RowContenidoPortalBanners,
   RowCodigosDescuento,
   RowCreditTransactions,
   RowDashboardCharts,
@@ -211,6 +214,9 @@ import {
   mapRewardRedemption,
   mapRewardRule,
   mapSala,
+  mapFavoritoClase,
+  mapContenidoPortal,
+  mapBannerPortal,
   mapServicioCita,
   mapSocioExcepcion,
   mapSpot,
@@ -339,6 +345,7 @@ export async function fetchPublicStudioData(
       tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
       rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
       citasServiciosRes, citasDisponibilidadRes, susPlanesRes,
+      contenidoPortalRes, bannersPortalRes,
     ] = await Promise.all([
       admin.from('tipos_clase').select('*').eq('studio_id', studioId),
       admin.from('salas').select('*').eq('studio_id', studioId),
@@ -360,6 +367,14 @@ export async function fetchPublicStudioData(
       // suscripciones que allí hay (las de la socia identificada, y ninguna si
       // no lo está) convertía su propia compra repetida en prueba social.
       admin.from('suscripciones').select('plan_id').eq('studio_id', studioId),
+      admin.from('contenido_portal').select('*').eq('studio_id', studioId).maybeSingle(),
+      // Filtrado en SQL (activo + ubicación 'home'), no en el cliente — es lo
+      // que gana la tabla normalizada frente a un jsonb. La ventana de fechas se
+      // filtra en el cliente: "hoy" depende del momento de carga, no de cuándo
+      // se rellenó este caché de hasta 60s.
+      admin.from('contenido_portal_banners').select('*')
+        .eq('studio_id', studioId).eq('activo', true).contains('ubicacion', ['home'])
+        .order('orden', { ascending: true }),
     ]);
 
     // Mismo motivo que en el panel: el portal decide con esto si una clase
@@ -379,6 +394,8 @@ export async function fetchPublicStudioData(
       challengeDefinitions: (chalDefsRes.data ?? []).map(mapChallengeDefinition),
       citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
+      contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
+      bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
@@ -412,7 +429,7 @@ export async function fetchPublicStudioData(
   if (!socioRow || !emailOk) return { ...base, socia: null };
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes] =
+  const [susRes, resRes, recRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes] =
     await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
@@ -429,6 +446,7 @@ export async function fetchPublicStudioData(
       // «PLAZA FIJA» del portal no se habría pintado nunca — ni con la plaza
       // contratada y pagada.
       admin.from('plazas_fijas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('favoritos_clase').select('*').eq('studio_id', studioId).eq('socio_id', sid),
     ]);
 
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
@@ -465,6 +483,7 @@ export async function fetchPublicStudioData(
       creditTransactions: (txRes.data ?? []).map(mapCreditTransaction),
       citas: (citasRes.data ?? []).map(mapCita),
       plazasFijas: (plazasRes.data ?? []).map(mapPlazaFija),
+      favoritos: (favRes.data ?? []).map((r) => mapFavoritoClase(r as RowFavoritosClase)),
     },
   };
 }
@@ -1424,6 +1443,29 @@ export async function socioAutenticado(authUserId: string, studioId: string): Pr
     .from('socios').select('id')
     .eq('auth_user_id', authUserId).eq('studio_id', studioId).maybeSingle();
   return data?.id ?? null;
+}
+
+// Marca/desmarca un tipo de clase como favorito de la socia autenticada.
+// `socioId` sale de `socioAutenticado`, nunca del body — mismo criterio que
+// crear/cancelar reserva. `unique(socio_id, tipo_clase_id)` en la tabla hace
+// el "marcar" idempotente sin necesidad de comprobar antes si ya existía.
+export async function toggleFavoritoPublico(params: {
+  studioId: string; socioId: string; tipoClaseId: string; accion: 'marcar' | 'desmarcar';
+}): Promise<{ ok: true } | { error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return { error: 'Service role no configurada' };
+  if (params.accion === 'marcar') {
+    const { error } = await admin.from('favoritos_clase').upsert(
+      { studio_id: params.studioId, socio_id: params.socioId, tipo_clase_id: params.tipoClaseId },
+      { onConflict: 'socio_id,tipo_clase_id', ignoreDuplicates: true },
+    );
+    if (error) return { error: 'No se ha podido guardar el favorito.' };
+    return { ok: true };
+  }
+  const { error } = await admin.from('favoritos_clase').delete()
+    .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('tipo_clase_id', params.tipoClaseId);
+  if (error) return { error: 'No se ha podido quitar el favorito.' };
+  return { ok: true };
 }
 
 // Registra una socia nueva desde el portal/reserva (alta pública). Valida que

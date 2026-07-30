@@ -30,7 +30,7 @@ import { PushPrompt } from './push-prompt';
 
 const ALL_NAV = [
   { seg: 'home', label: 'Inicio' },
-  { seg: 'clases', label: 'Agenda' },
+  { seg: 'clases', label: 'Clases' },
   { seg: 'bonos', label: 'Bonos' },
   { seg: 'videos', label: 'Vídeos' },
   { seg: 'perfil', label: 'Perfil' },

@@ -439,6 +439,39 @@ export interface TipoClase {
   permiteListaEspera: boolean | null;
 }
 
+export interface FavoritoClase {
+  id: string;
+  studioId: string;
+  socioId: string;
+  tipoClaseId: string;
+  creadoEn: string;
+}
+
+// Valores cerrados a propósito: evita que aparezcan variantes libres tipo
+// "inicio"/"Home"/"homepage" en la BD. Solo 'home' se usa por ahora — el resto
+// deja el editor preparado para reutilizarse en otras pantallas sin migrar.
+export type UbicacionBannerPortal = 'home' | 'clases' | 'perfil' | 'reservas' | 'checkin' | 'bonos' | 'progreso' | 'eventos';
+
+export interface ContenidoPortal {
+  studioId: string;
+  mensajeDestacado: string | null;
+}
+
+export interface BannerPortal {
+  id: string;
+  studioId: string;
+  imagenUrl: string;
+  titulo: string | null;
+  texto: string | null;
+  linkTipo: 'interno' | 'externo';
+  linkValor: string;
+  ubicacion: UbicacionBannerPortal[];
+  activo: boolean;
+  orden: number;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+}
+
 export interface Instructor {
   id: string;
   studioId: string;
