@@ -20,7 +20,7 @@ import {
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
   dbCancelarReservasPorSesiones,
   dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
-  dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbDeleteRecibo,
+  dbInsertRecibo, dbUpdateRecibo, dbMarcarCobrado, dbUpdateRecibosBatch, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
   dbInsertVentaPOS,
@@ -2322,7 +2322,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // recibo salía como COBRADO, se emitía una factura con número fiscal y se
     // renovaba el bono... con la base de datos intacta. En el cobro masivo eso
     // pasaba con N recibos y la pantalla decía "listo" igualmente.
-    const res = await dbUpdateRecibo(reciboId, { estado: 'COBRADO', fechaCobro, ...(metodo ? { metodoCobro: metodo } : {}) });
+    //
+    // dbMarcarCobrado (no dbUpdateRecibo): auditoría 2026-07-29, M-2. Sin
+    // cerrojo alguno, dos pestañas o dispositivos cobrando el MISMO recibo a
+    // la vez pasarían las dos con un UPDATE incondicional -- dos facturas
+    // fiscales selladas para un único cobro. dbMarcarCobrado exige
+    // `estado = 'PENDIENTE'` en el propio UPDATE: solo la primera tiene efecto.
+    const res = await dbMarcarCobrado(reciboId, { fechaCobro, ...(metodo ? { metodoCobro: metodo } : {}) });
     if (!res.ok) return res;
 
     setRecibos(prev => prev.map(r =>
@@ -2406,7 +2412,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Antes ignoraba cualquier filtro y desde la ficha cobraba —y sellaba una
     // factura irreversible de— TODO el estudio (hallazgo C-3).
     const pendientes = recibos.filter(r => r.estado === 'PENDIENTE' && (!socioId || r.socioId === socioId));
-    const idsPendientes = new Set(pendientes.map(r => r.id));
     const fechaCobro = new Date().toISOString();
     // Un solo UPDATE en lote (antes: un dbUpdateRecibo por recibo — hasta ~120
     // round-trips secuenciales para cobrar 40 recibos pendientes).
@@ -2415,8 +2420,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbUpdateRecibosBatch(pendientes.map(r => r.id), { estado: 'COBRADO', fechaCobro });
     if (!res.ok) return res;
 
+    // M-2 (auditoría 2026-07-29): dbUpdateRecibosBatch ahora exige
+    // `estado = 'PENDIENTE'` en el propio UPDATE, así que `idsActualizados`
+    // solo trae los que ESTA llamada cobró de verdad -- los que otra sesión ya
+    // hubiera cobrado en paralelo no vuelven a facturarse aquí.
+    const idsCobrados = new Set(res.idsActualizados ?? pendientes.map(r => r.id));
+    const cobradosAhora = pendientes.filter(r => idsCobrados.has(r.id));
+
     setRecibos(prev => prev.map(r =>
-      idsPendientes.has(r.id) ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
+      idsCobrados.has(r.id) ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
     ));
     // 2.2: se construye el lote de facturas puro (el acumulador `current` numera
     // en orden dentro del propio lote), y el sellado —red, uno por factura— va
@@ -2424,7 +2436,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const nuevasFacturas: Factura[] = [];
     {
       let current = facturas;
-      for (const recibo of pendientes) {
+      for (const recibo of cobradosAhora) {
         const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
         const fac = construirFacturaCobro(cobrado, current);
         if (fac) { nuevasFacturas.push(fac); current = [...current, fac]; }
@@ -2435,7 +2447,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       for (const fac of nuevasFacturas) void sellarFacturaYActualizar(fac);
     }
     // Refill bonos / extend mensual for every recibo being paid
-    for (const recibo of pendientes) {
+    for (const recibo of cobradosAhora) {
       aplicarRenovacionSuscripcion(recibo);
     }
     return res;

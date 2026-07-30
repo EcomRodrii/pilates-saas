@@ -466,8 +466,19 @@ export function computeAutomationCandidatos(
     // sin aprobación, a diferencia de las acciones comerciales de arriba.
     if (rule.trigger === 'RENOVACION_COBRADA') {
       const hitoMeses = (rule.condicion.hitoMeses as number) ?? 6;
+      // Ventana de recencia (auditoría 2026-07-29, hallazgo I-1): a diferencia
+      // de AUSENCIA_DIAS/PAGO_PENDIENTE_DIAS (acotadas por su propia condición
+      // — días sin venir, días de retraso), aquí el único filtro era
+      // `estado === 'COBRADO'`, sin fecha. La primera vez que un estudio
+      // activaba esta regla, mandaba "Renovación confirmada" por CADA recibo
+      // cobrado de toda su historia. 3 días de margen sobre el cron diario
+      // (0 7 * * *) cubre un día de cron perdido sin reabrir el histórico.
+      const diasRecencia = 3;
       recibos
-        .filter(r => r.estado === 'COBRADO' && r.suscripcionId)
+        .filter(r =>
+          r.estado === 'COBRADO' && r.suscripcionId && r.fechaCobro &&
+          (now.getTime() - new Date(r.fechaCobro).getTime()) < diasRecencia * 86400000,
+        )
         .forEach(recibo => {
           const socio = recibo.socioId ? socioById.get(recibo.socioId) : undefined;
           if (!socio) return;
