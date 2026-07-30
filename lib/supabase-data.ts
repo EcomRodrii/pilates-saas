@@ -1827,13 +1827,13 @@ async function notificarPromocionEspera(
 // (regla pura `recordatoriosRevision`) crea un aviso en `notificaciones`. Dedup:
 // no re-avisa la misma condición si ya hay un aviso suyo en los últimos 30 días
 // (marca en el enlace `?rev=<condicionId>`). Lo dispara /api/cron/revisiones-salud.
-export async function generarRecordatoriosRevision(nowISO: string, umbralDias = 90) {
+export async function generarRecordatoriosRevision(studioId: string, nowISO: string, umbralDias = 90) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
   const hoy = new Date(nowISO);
 
   const { data: condsRaw, error } = await admin
-    .from('condiciones_salud').select('*').eq('estado', 'ACTIVA');
+    .from('condiciones_salud').select('*').eq('estado', 'ACTIVA').eq('studio_id', studioId);
   if (error) throw new Error(error.message);
   const condiciones = (condsRaw ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud));
 
@@ -1916,7 +1916,7 @@ export async function barrerNoShows(nowISO: string) {
 // Recordatorios de clase: para cada sesión no cancelada cuyo inicio cae en la
 // ventana [desdeISO, hastaISO), envía un email a cada socia CONFIRMADA/ASISTIDA.
 // Lo dispara un cron (ver /api/cron/recordatorios). Devuelve un resumen.
-export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaISO: string) {
+export async function enviarRecordatoriosClasesProximas(studioId: string, desdeISO: string, hastaISO: string) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
@@ -1928,6 +1928,7 @@ export async function enviarRecordatoriosClasesProximas(desdeISO: string, hastaI
   const { data: sesionesRaw, error } = await admin
     .from('sesiones')
     .select('id, studio_id, inicio, tipo_clase_id, sala_id, instructor_id')
+    .eq('studio_id', studioId)
     .eq('cancelada', false)
     .gte('inicio', desdeISO)
     .lt('inicio', hastaISO);
