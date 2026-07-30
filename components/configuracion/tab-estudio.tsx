@@ -56,6 +56,9 @@ type PoliticaForm = {
   permiteListaEspera: boolean;
   // Fase 2a (migr 20260730192445): mismo criterio, default de estudio.
   requiereAprobacion: boolean;
+  // Fase 2b (migr 20260731130000): minutos para aceptar una plaza liberada.
+  // 0 = confirmación instantánea (comportamiento clásico).
+  listaEsperaPlazoAceptacionMinutos: number;
 };
 
 function studioToPolitica(s: Studio | null): PoliticaForm {
@@ -69,6 +72,7 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     reservaAntelacionMaximaDias: s?.reservaAntelacionMaximaDias ?? null,
     permiteListaEspera: s?.permiteListaEspera ?? true,
     requiereAprobacion: s?.requiereAprobacion ?? false,
+    listaEsperaPlazoAceptacionMinutos: s?.listaEsperaPlazoAceptacionMinutos ?? 0,
   };
 }
 
@@ -517,6 +521,18 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
             </span>
             <Toggle on={pol.permiteListaEspera} onChange={v => setPol(p => ({ ...p, permiteListaEspera: v }))} />
           </label>
+          <div>
+            <p className={labelCls}>Plazo para aceptar una plaza liberada (minutos)</p>
+            <input
+              type="number" min={0} className={inputCls}
+              placeholder="Confirmación instantánea"
+              value={pol.listaEsperaPlazoAceptacionMinutos || ''}
+              onChange={e => setPol(p => ({ ...p, listaEsperaPlazoAceptacionMinutos: Math.max(0, Number(e.target.value) || 0) }))}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Con un plazo, la socia debe aceptar antes de que caduque o se ofrece a la siguiente. Vacío o 0 = se confirma sola, como hasta ahora.
+            </p>
+          </div>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               Requerir aprobación manual

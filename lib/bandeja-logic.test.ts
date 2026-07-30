@@ -23,7 +23,7 @@ function sesion(p: Partial<Sesion> & Pick<Sesion, 'id' | 'salaId' | 'inicio' | '
   return { studioId: 'e1', tipoClaseId: 't1', instructorId: 'i1', aforoMaximo: 6, cancelada: false, notas: null, precioPuntual: null, ...p };
 }
 function reserva(p: Partial<Reserva> & Pick<Reserva, 'id' | 'sesionId' | 'socioId'>): Reserva {
-  return { studioId: 'e1', estado: 'CONFIRMADA', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: '2026-07-01T00:00:00Z', ...p };
+  return { studioId: 'e1', estado: 'CONFIRMADA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: '2026-07-01T00:00:00Z', ...p };
 }
 function bloqueo(p: Partial<BloqueoMaquina> & Pick<BloqueoMaquina, 'id' | 'salaId' | 'desde'>): BloqueoMaquina {
   return { studioId: 'e1', spotId: null, hasta: null, motivo: null, creadoEn: '2026-07-01T00:00:00Z', ...p };

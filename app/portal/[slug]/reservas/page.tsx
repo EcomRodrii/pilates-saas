@@ -33,10 +33,11 @@ export default function MisReservasPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const { session } = usePortalAuth();
-  const { reservas, sesiones, tiposClase, salas, instructores, cancelarReserva } = useStudio();
+  const { reservas, sesiones, tiposClase, salas, instructores, cancelarReserva, aceptarOfertaEspera } = useStudio();
   const { t } = useModo();
   const [tab, setTab] = useState<Tab>('PROXIMAS');
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
+  const [aceptandoId, setAceptandoId] = useState<string | null>(null);
   // Cancelar también puede fallar en el servidor. Cerrar la hoja sin mirar dejaba
   // a la socia creyendo que había cancelado, con la plaza todavía suya.
   const [aviso, setAviso] = useState<string | null>(null);
@@ -67,6 +68,13 @@ export default function MisReservasPage() {
   }, [misReservas, now]);
 
   const lista = porTab[tab];
+
+  async function aceptarOferta(reservaId: string) {
+    setAceptandoId(reservaId);
+    const r = await aceptarOfertaEspera(reservaId);
+    setAceptandoId(null);
+    if (!r.ok) setAviso(r.error);
+  }
 
   const TABS: TabItem<Tab>[] = [
     { id: 'PROXIMAS', label: 'Próximas', count: porTab.PROXIMAS.length },
@@ -126,6 +134,20 @@ export default function MisReservasPage() {
                     {instr && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><UserIcon size={11} />{instr.nombre}</span>}
                     {sala && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={11} />{sala.nombre}</span>}
                   </div>
+                  {r.estado === 'LISTA_ESPERA' && r.ofertaExpiraEn && (
+                    <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 10, background: t.surface2 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: t.ink, marginBottom: 8 }}>
+                        ¡Se ha liberado una plaza! Tienes hasta las {formatHora(r.ofertaExpiraEn)} para aceptarla.
+                      </p>
+                      <Button
+                        variant="primary" size="small" style={{ width: '100%' }}
+                        disabled={aceptandoId === r.id}
+                        onClick={() => aceptarOferta(r.id)}
+                      >
+                        {aceptandoId === r.id ? 'Aceptando…' : 'Aceptar plaza'}
+                      </Button>
+                    </div>
+                  )}
                   {puedeCancel && (
                     <Button variant="danger" size="small" onClick={() => setCancelando(r)} style={{ marginTop: 12, width: '100%' }}>
                       Cancelar reserva

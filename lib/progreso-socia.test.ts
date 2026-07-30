@@ -11,7 +11,7 @@ const ses = (id: string, inicio: string, minutos: number, tipoClaseId = 'tc-1', 
 });
 const res = (sesionId: string, estado: Reserva['estado'] = 'ASISTIDA'): Reserva => ({
   id: `r${++n}`, studioId: 'st', sesionId, socioId: 'soc', estado,
-  spotId: null, posicionEspera: null, checkInEn: null, creadoEn: '',
+  spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: '',
 });
 const tipo = (id: string, nombre: string) => ({ id, nombre } as TipoClase);
 const instr = (id: string, nombre: string) => ({ id, nombre } as Instructor);
