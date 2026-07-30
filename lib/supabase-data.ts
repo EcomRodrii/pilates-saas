@@ -733,6 +733,10 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     nivel: r.nivel,
     fotoUrl: r.foto_url ?? null,
     ventanaCancelacionHoras: r.ventana_cancelacion_horas ?? null,
+    reservaExigirPlan: r.reserva_exigir_plan ?? null,
+    reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? null,
+    reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
+    permiteListaEspera: r.permite_lista_espera ?? null,
   } as TipoClase;
 }
 
@@ -3088,6 +3092,10 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     id: t.id, studio_id: t.studioId ?? STUDIO_ID, nombre: t.nombre, color: t.color,
     duracion_minutos: t.duracionMinutos, descripcion: t.descripcion ?? null, nivel: t.nivel,
     foto_url: t.fotoUrl ?? null, ventana_cancelacion_horas: t.ventanaCancelacionHoras ?? null,
+    reserva_exigir_plan: t.reservaExigirPlan ?? null,
+    reserva_ventana_minima_minutos: t.reservaVentanaMinimaMinutos ?? null,
+    reserva_antelacion_maxima_dias: t.reservaAntelacionMaximaDias ?? null,
+    permite_lista_espera: t.permiteListaEspera ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -3102,6 +3110,10 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('nivel' in changes) db.nivel = changes.nivel;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
   if ('ventanaCancelacionHoras' in changes) db.ventana_cancelacion_horas = changes.ventanaCancelacionHoras;
+  if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
+  if ('reservaVentanaMinimaMinutos' in changes) db.reserva_ventana_minima_minutos = changes.reservaVentanaMinimaMinutos;
+  if ('reservaAntelacionMaximaDias' in changes) db.reserva_antelacion_maxima_dias = changes.reservaAntelacionMaximaDias;
+  if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateTipoClase]', error);
 }
@@ -3297,6 +3309,9 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
   if ('compraPublicaModo' in changes) db.compra_publica_modo = changes.compraPublicaModo;
   if ('reservaMaxSimultaneas' in changes) db.reserva_max_simultaneas = changes.reservaMaxSimultaneas;
+  if ('reservaVentanaMinimaMinutos' in changes) db.reserva_ventana_minima_minutos = changes.reservaVentanaMinimaMinutos;
+  if ('reservaAntelacionMaximaDias' in changes) db.reserva_antelacion_maxima_dias = changes.reservaAntelacionMaximaDias;
+  if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
   // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
@@ -3513,6 +3528,9 @@ function mapStudio(r: RowStudios): Studio {
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
+    reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
+    reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
+    permiteListaEspera: r.permite_lista_espera ?? true,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
     onboardingDescartadoEn: r.onboarding_descartado_en ?? null,
