@@ -21,6 +21,14 @@ import {
 
 const RENUEVA_MS = 75_000;
 
+// Mientras el pase está PENDIENTE se pregunta cada pocos segundos, no cada 75.
+// Probándolo en vivo (2026-07-30) el usuario tuvo que RECARGAR la página: la
+// recepción escaneó, y su pantalla siguió enseñando el mismo QR hasta un minuto
+// y cuarto después, sin ninguna señal de que ya estaba dentro. Quien acaba de
+// enseñar el móvil está mirándolo fijamente: ese es justo el momento en el que
+// no se puede tardar. En cuanto entra, se deja de preguntar.
+const ESPERANDO_MS = 4_000;
+
 export interface DatosPase {
   hayPase: boolean;
   vigente?: boolean;
@@ -47,6 +55,7 @@ export function HojaPase({
   const [pase, setPase] = useState<DatosPase | null>(null);
   const [fallo, setFallo] = useState(false);
   const vivo = useRef(false);
+  const yaDentro = pase?.yaAsistida === true;
 
   const cargar = useCallback(async () => {
     const d = await pedirPase(slug);
@@ -66,9 +75,9 @@ export function HojaPase({
     // de tenerlo antes de que exista la intención de mirarlo.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void cargar();
-    const id = setInterval(() => void cargar(), RENUEVA_MS);
+    const id = setInterval(() => void cargar(), yaDentro ? RENUEVA_MS : ESPERANDO_MS);
     return () => { vivo.current = false; clearInterval(id); };
-  }, [abierta, cargar]);
+  }, [abierta, cargar, yaDentro]);
 
   const hoja: React.CSSProperties = {
     position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 21,
@@ -113,11 +122,18 @@ export function HojaPase({
 
         <span style={{ width: 24, height: 1, background: t.line, margin: '20px 0' }} />
 
-        <p style={{ ...texto.pie, color: t.muted2, textAlign: 'center', lineHeight: 1.5 }}>
-          {pase?.yaAsistida
-            ? 'Ya estás dentro. Que vaya muy bien.'
-            : 'Enséñaselo a tu instructora al entrar.'}
-        </p>
+        {/* Entrar es un CAMBIO DE ESTADO, no un matiz: antes esto era un
+            renglón de gris pequeño en el mismo hueco donde ponía «enséñaselo»,
+            con el QR intacto al lado. Nadie se enteraba. */}
+        {yaDentro ? (
+          <p style={{ ...display(21, true), color: t.heroAccent, textAlign: 'center', marginTop: 4 }}>
+            Que vaya muy bien.
+          </p>
+        ) : (
+          <p style={{ ...texto.pie, color: t.muted2, textAlign: 'center', lineHeight: 1.5 }}>
+            Enséñaselo a tu instructora al entrar.
+          </p>
+        )}
 
         <button
           type="button" onClick={onClose}
@@ -159,6 +175,27 @@ function Contenido({
       ? new Date(pase.seActivaA).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
       : null;
     return aviso('Tu pase se abre a las ' + (hora ?? 'su hora'), 'Una hora antes de empezar');
+  }
+
+  // Ya dentro: el QR SE VA. Dejarlo puesto era lo que hacía que nadie se
+  // enterara — la pantalla seguía pidiendo que lo enseñaras cuando ya no hacía
+  // falta, y el único cambio era un renglón gris debajo.
+  if (pase.yaAsistida) {
+    return (
+      <div style={{
+        ...caja,
+        background: 'var(--portal-brand)',
+        flexDirection: 'column', gap: 10, padding: 28,
+      }}>
+        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path d="M4 12.5l5.2 5.2L20 7" stroke={t.accentInk} strokeWidth="1.6"
+            strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span style={{ ...display(26, true), color: t.accentInk, textAlign: 'center', lineHeight: 1.15 }}>
+          Ya estás dentro
+        </span>
+      </div>
+    );
   }
 
   return (
