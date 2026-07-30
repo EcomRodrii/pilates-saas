@@ -7,7 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { useModo } from '@/lib/portal-modo';
 import { ChevronLeft, Clock, Users, MapPin, BarChart2, Star, CheckCircle, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/portal/ui';
+import { Button, BottomSheet } from '@/components/portal/ui';
 
 const NIVEL_LABEL: Record<string, string> = {
   TODOS: 'Todos los niveles', PRINCIPIANTE: 'Iniciación', MEDIO: 'Intermedio', AVANZADO: 'Avanzado',
@@ -22,6 +22,10 @@ export default function ClaseDetallePage() {
   // El servidor puede decir que no (sin bono, clase empezada, tope de reservas).
   // Sin esto, pulsar «Reservar» no hacía nada visible y la reserva no existía.
   const [aviso, setAviso] = useState<string | null>(null);
+  // "Cancelar reserva" cancelaba directo en el onClick, sin confirmar — un
+  // toque accidental con el pulgar (scrolleando en móvil) perdía la plaza sin
+  // poder deshacerlo. Mismo patrón de confirmación que /reservas.
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
 
   const ses = sesiones.find(s => s.id === sesionId);
   const tipo = ses ? tiposClase.find(t2 => t2.id === ses.tipoClaseId) : undefined;
@@ -184,7 +188,7 @@ export default function ClaseDetallePage() {
           {miReserva ? (
             <Button
               variant="danger"
-              onClick={() => { void cancelarReserva(miReserva.id).then(r => setAviso(r.ok ? 'Reserva cancelada.' : r.error)); }}
+              onClick={() => setConfirmandoCancelar(true)}
               style={{ width: '100%' }}
             >
               Cancelar reserva
@@ -208,6 +212,27 @@ export default function ClaseDetallePage() {
           )}
         </div>
       </div>
+
+      <BottomSheet open={confirmandoCancelar} onClose={() => setConfirmandoCancelar(false)}>
+        <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Cancelar esta clase?</h2>
+        <p style={{ fontSize: 13, color: t.muted }}>
+          Perderás tu plaza y liberarás el hueco para otra socia.
+        </p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button variant="secondary" onClick={() => setConfirmandoCancelar(false)} style={{ flex: 1 }}>Volver</Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              setConfirmandoCancelar(false);
+              if (!miReserva) return;
+              void cancelarReserva(miReserva.id).then(r => setAviso(r.ok ? 'Reserva cancelada.' : r.error));
+            }}
+            style={{ flex: 1 }}
+          >
+            Sí, cancelar
+          </Button>
+        </div>
+      </BottomSheet>
     </div>
   );
 }

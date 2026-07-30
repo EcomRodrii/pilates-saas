@@ -14,11 +14,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type TipoAutomacion = 'recordatorios' | 'bonos' | 'inactivas';
 
-// Ids de todos los estudios (para el fan-out).
+// Ids de todos los estudios activos (para el fan-out). `suspendido_en`: un
+// estudio suspendido no debe seguir mandando recordatorios/avisos a sus socias.
 async function estudiosIds(): Promise<string[]> {
   const admin = getSupabaseAdmin();
   if (!admin) return [];
-  const { data } = await admin.from('studios').select('id');
+  const { data } = await admin.from('studios').select('id').is('suspendido_en', null);
   return (data ?? []).map((s) => s.id as string);
 }
 const fanOutPayload = (studios: string[], tipo: TipoAutomacion) =>

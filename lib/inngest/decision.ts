@@ -46,7 +46,9 @@ export const decisionDispatcher = inngest.createFunction(
     const nowISO = await step.run('now', async () => new Date().toISOString());
 
     const estudios = await step.run('list-estudios-elegibles', async () => {
-      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre, plan, subscription_status');
+      // `suspendido_en`: un estudio suspendido no debe seguir generando/
+      // ejecutando decisiones autónomas.
+      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre, plan, subscription_status').is('suspendido_en', null);
       if (error) throw new Error(error.message);
       const conPlan = (data ?? []).filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
       if (conPlan.length === 0) return [];

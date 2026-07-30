@@ -22,10 +22,13 @@ export const dunningDispatcher = inngest.createFunction(
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
       // Solo estudios con Stripe conectado: sin cuenta conectada no hay cobro posible.
+      // `suspendido_en`: un estudio suspendido no debe seguir persiguiendo
+      // cobros de sus socias en su nombre.
       const { data, error } = await admin
         .from('studios')
         .select('id')
-        .not('stripe_account_id', 'is', null);
+        .not('stripe_account_id', 'is', null)
+        .is('suspendido_en', null);
       if (error) throw new Error(error.message);
       return data ?? [];
     });

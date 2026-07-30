@@ -31,6 +31,11 @@ export const backupsDispatcher = inngest.createFunction(
     const studios = await step.run('list-studios', async () => {
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
+      // A diferencia del resto de dispatchers, este NO filtra `suspendido_en`
+      // a propósito: los backups son continuidad de datos, no comunicación
+      // con las socias — un estudio suspendido por impago puede reactivarse,
+      // y frenar sus backups cambia el perfil de riesgo de pérdida de datos
+      // sin relación con el motivo real de la suspensión.
       const { data, error } = await admin.from('studios').select('id');
       if (error) throw new Error(error.message);
       return data ?? [];

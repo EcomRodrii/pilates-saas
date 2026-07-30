@@ -4,7 +4,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { priceIdDe } from '@/lib/billing/billing';
-import { PLANES, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
+import { PLANES, TRIAL_DIAS, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
 import { errorInterno } from '@/lib/errores-servidor';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
@@ -128,6 +128,23 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json({ url: session.url });
+    }
+
+    // No crear una segunda suscripción en paralelo: el control de "ya está
+    // activo" antes vivía solo en la UI (el botón de contratar se ocultaba si
+    // ya había plan). Una llamada directa a este endpoint (bug de frontend,
+    // doble clic con caché desincronizada, replay) creaba un segundo
+    // checkout.sessions.create sobre el MISMO customer — doble suscripción,
+    // doble cobro real. Se comprueba en servidor, no solo en cliente.
+    //
+    // `suscripcionActiva()` (no una comparación manual): incluye 'past_due'
+    // a propósito — Stripe sigue reintentando el cobro, la suscripción
+    // sigue viva. Dejarla pasar reabriría el mismo bug para ese estado.
+    if (studio.subscription_id && suscripcionActiva(studio.subscription_status)) {
+      return NextResponse.json(
+        { error: 'Ya tienes una suscripción activa. Gestiónala desde Configuración → Facturación.' },
+        { status: 409 },
+      );
     }
 
     // Prueba gratuita solo en la PRIMERA suscripción: si el estudio nunca ha tenido
