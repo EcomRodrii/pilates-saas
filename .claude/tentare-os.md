@@ -16,6 +16,13 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   Los imports relativos dentro de `lib/` necesitan la extensión `.ts` explícita
   (`tsconfig.json` tiene `allowImportingTsExtensions` justo para esto) — sin ella, pasa en
   local pero rompe en CI.
+  ⚠️ **Dos puntos ciegos que la suite NO ve, por diseño, y que ya han costado bugs en prod:**
+  (1) `page.route` mockea la red, así que **ningún test ve nunca un 4xx** — una pantalla que
+  escribe puede anunciar éxito con el servidor diciendo que no (#500, #505, #560);
+  (2) los e2e corren **solo en Chromium**, así que una API que Chrome tiene y Safari no
+  (`BarcodeDetector`) pasa verde y falla en el iPad de recepción (#565). Lo que dependa de
+  una respuesta real del servidor o de un navegador concreto **hay que mirarlo, no
+  testearlo**.
 - **Commits**: Conventional Commits con scope en español que refleja el área de negocio
   (`fix(seguridad):`, `feat(alta):`, `chore(migraciones):`, `perf(panel):`...) y número de
   PR entre paréntesis cuando exista. El tono puede ser narrativo/autocrítico, no hace falta
@@ -23,7 +30,11 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
 - **Migraciones**: numeradas correlativas en `supabase/migrations/`. Comprueba siempre el
   último número existente antes de crear una (`list_migrations` o `ls`) — este repo ha
   colisionado números más de una vez. Mergear un PR **no** aplica su migración: verifica que
-  quedó aplicada de verdad, no solo mergeada en git.
+  quedó aplicada de verdad, no solo mergeada en git. ⚠️ Para esa verificación **cruza por
+  NOMBRE, nunca por número**: las aplicadas con `apply_migration` se sellan con la marca de
+  tiempo del momento de aplicarlas, no con la del fichero (`20260731102000_ausencias_…`
+  figura como versión `20260730141838`). Filtrar por número devuelve cero y parece que falta
+  media tanda — casi se reporta un agujero de RLS inexistente por esto (2026-07-30).
 - **Seguridad**: la RLS es la cerradura real, la UI nunca es el límite de seguridad — regla
   explícita y repetida en `lib/permisos-reglas.ts`. Cualquier permiso nuevo se implementa en
   ambos sitios o no está terminado.
