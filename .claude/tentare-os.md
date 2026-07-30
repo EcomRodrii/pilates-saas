@@ -59,8 +59,11 @@ expresamente. Fuente de verdad del nombre por rol: `nombreAppPorRol()` en
 `remitentePorMarca()` (`lib/emails/remitente.ts`) para que el nombre de producto se
 vea también en el remitente aunque `RESEND_FROM` esté configurado.
 
-Queda fuera a propósito (no tocar sin pedirlo): `/login` y `app/manifest.ts` (el rol
-solo se conoce tras autenticar, así que se quedan con la marca paraguas "Tentare");
+Queda fuera a propósito (no tocar sin pedirlo): `/login`, `app/manifest.ts` (landing)
+y `app/panel.webmanifest` (el manifest PWA del panel, `app/(dashboard)/layout.tsx`,
+apunta ahí para que "Añadir a pantalla de inicio" instale el panel de verdad y no la
+landing — ver el comentario en ese layout) — el rol solo se conoce tras autenticar,
+así que se quedan con la marca paraguas "Tentare";
 `components/landing/*` (copy nuevo, no un renombrado); `app/interno` ("Tentare
 Internal", backoffice de Tentare-empresa, no relacionado); `app/portal/[slug]`
 (marca blanca por estudio, tercer contexto de marca ya separado); los emails a
