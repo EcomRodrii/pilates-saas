@@ -20,6 +20,9 @@ export interface LayoutConfigShape {
   ocultos: string[];
   menuPosition: MenuPosicion;
   home: OrdenVisibilidad;
+  // Orden/visibilidad de los módulos de Inicio del PORTAL cliente (Fase 2 del
+  // editor de temas) — distinto de `home`, que es la home del DASHBOARD.
+  portalHome: OrdenVisibilidad;
 }
 
 export const DEFAULT_LAYOUT: LayoutConfigShape = {
@@ -27,6 +30,7 @@ export const DEFAULT_LAYOUT: LayoutConfigShape = {
   ocultos: [],
   menuPosition: 'lateral',
   home: { orden: [], ocultos: [] },
+  portalHome: { orden: [], ocultos: [] },
 };
 
 function resolveOrdenVis(raw: unknown): OrdenVisibilidad {
@@ -44,7 +48,11 @@ export function resolveLayout(raw: unknown): LayoutConfigShape {
   const menuPosition = (MENU_POSICIONES as readonly string[]).includes(obj.menuPosition as string)
     ? (obj.menuPosition as MenuPosicion)
     : 'lateral';
-  return { orden, ocultos, menuPosition, home: resolveOrdenVis(obj.home) };
+  return {
+    orden, ocultos, menuPosition,
+    home: resolveOrdenVis(obj.home),
+    portalHome: resolveOrdenVis(obj.portalHome),
+  };
 }
 
 /**

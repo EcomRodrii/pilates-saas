@@ -4,6 +4,7 @@ import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
+import { getLayout } from '@/lib/layout-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
@@ -345,7 +346,7 @@ export async function fetchPublicStudioData(
       tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
       rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
       citasServiciosRes, citasDisponibilidadRes, susPlanesRes,
-      contenidoPortalRes, bannersPortalRes,
+      contenidoPortalRes, bannersPortalRes, layout,
     ] = await Promise.all([
       admin.from('tipos_clase').select('*').eq('studio_id', studioId),
       admin.from('salas').select('*').eq('studio_id', studioId),
@@ -375,6 +376,11 @@ export async function fetchPublicStudioData(
       admin.from('contenido_portal_banners').select('*')
         .eq('studio_id', studioId).eq('activo', true).contains('ubicacion', ['home'])
         .order('orden', { ascending: true }),
+      // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del
+      // editor de temas) — getLayout ya es una función pública sin auth
+      // (service-role, cacheada con React cache), así que se llama tal cual,
+      // sin RLS/endpoint nuevo.
+      getLayout(studioId),
     ]);
 
     // Mismo motivo que en el panel: el portal decide con esto si una clase
@@ -396,6 +402,7 @@ export async function fetchPublicStudioData(
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
       contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
       bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
+      portalHome: layout.portalHome,
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
