@@ -1,16 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/recordatorios",
-      "schedule": "0 8 * * *"
-    },
-    {
       "path": "/api/cron/no-shows",
       "schedule": "0 23 * * *"
-    },
-    {
-      "path": "/api/cron/revisiones-salud",
-      "schedule": "0 7 * * *"
     },
     {
       "path": "/api/cron/dependency-risk",
