@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { queImparten } from '@/lib/equipo';
-import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias } from '@/lib/permisos';
 import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida } from '@/lib/types';
@@ -1487,6 +1487,7 @@ export default function Calendario() {
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
     addActividadReciente, addRecibo,
   } = useStudio();
+  const { user } = useAuth();
 
   // Importar el horario y cobrar una clase suelta son trabajo de mostrador; el
   // servidor ya los rechazaba a la instructora (api/clases/import exige
@@ -1494,6 +1495,12 @@ export default function Calendario() {
   const rolActual = useRol();
   const gestionaClientas = puedeGestionarClientas(rolActual);
   const mueveDinero = puedeMoverDinero(rolActual);
+  // Crear una clase ASIGNADA A UNO MISMO (migración 20260731100000): distinto
+  // de `gestionaClientas`, que sigue siendo "crear/tocar la de cualquiera, en
+  // cualquier sala, con instructora libre". La instructora entra aquí, no ahí.
+  const creaClasesPropias = puedeCrearClasesPropias(rolActual);
+  const esInstructorTop = rolActual === 'INSTRUCTOR';
+  const yoTop = instructores.find(i => i.authUserId === user?.id) ?? null;
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
   // Antes de montar se devuelve null (no se pinta el grid), así que este valor
@@ -1790,7 +1797,9 @@ export default function Calendario() {
       ...base,
       fecha,
       salaId,
-      instructorId: elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot),
+      // Una instructora crea SU clase: fijada a sí misma, no se le ofrece
+      // elegir (la RLS de la 20260731100000 la rechazaría igual si lo hiciera).
+      instructorId: esInstructorTop && yoTop ? yoTop.id : elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot),
       aforoMaximo: salas.find(s => s.id === salaId)?.capacidad ?? base.aforoMaximo,
     });
     setErrorSesion(null);
@@ -2337,10 +2346,12 @@ export default function Calendario() {
             </button>
           </div>
 
-          {/* Nueva clase dropdown — crear clases no es trabajo de instructora
-              (mismo permiso que "Añadir clienta"/"Importar horario": RLS de
-              insert en `sesiones` ya lo exige en servidor). */}
-          {gestionaClientas && (
+          {/* Nueva clase — quien gestiona el calendario ve el desplegable
+              completo (clase única o recurrente, para cualquier instructora).
+              Una instructora solo puede crear SU propia clase puntual (RLS
+              20260731100000): botón directo, sin menú ni recurrencia — eso
+              sigue siendo trabajo de mostrador (editar_serie_desde, 0110). */}
+          {gestionaClientas ? (
           <div className="relative">
             <div className="flex rounded-xl overflow-hidden bg-primary">
               <button
@@ -2377,6 +2388,13 @@ export default function Calendario() {
               </>
             )}
           </div>
+          ) : creaClasesPropias && (
+            <button
+              onClick={() => openNueva()}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-card/10 transition-colors"
+            >
+              <Plus size={15} />Nueva clase
+            </button>
           )}
         </div>
         }
@@ -2443,7 +2461,7 @@ export default function Calendario() {
             onSlotClick={(fecha, hora) => {
               // Clicar un hueco vacío es OTRA vía de crear una clase: mismo
               // guard que el botón "Nueva clase".
-              if (!gestionaClientas) return;
+              if (!creaClasesPropias) return;
               const base = emptyForm();
               const horaFin = finSegunDuracion(hora, base.tipoClaseId);
               const inicio = toISO(fecha, hora);
@@ -2455,7 +2473,7 @@ export default function Calendario() {
                 ...base,
                 fecha, horaInicio: hora, horaFin,
                 salaId,
-                instructorId: elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot),
+                instructorId: esInstructorTop && yoTop ? yoTop.id : elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot),
                 aforoMaximo: salas.find(s => s.id === salaId)?.capacidad ?? base.aforoMaximo,
               });
               setErrorSesion(null);
@@ -2560,6 +2578,11 @@ export default function Calendario() {
                   </select>
                 </FormField>
               </div>
+              {/* Una instructora crea su PROPIA clase: no se le ofrece elegir
+                  (la RLS 20260731100000 la rechazaría si lo intentara). Solo
+                  aplica al alta — al editar su clase ya existente el campo
+                  no es relevante porque tampoco puede reasignarla. */}
+              {!(esInstructorTop && showForm === 'nueva') && (
               <FormField label="Instructora">
                 <select className={selectCls} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
                   {!form.instructorId && (
@@ -2568,6 +2591,7 @@ export default function Calendario() {
                   {instructoresForm.map(i => { const au = ausenciaEnFecha(ausencias, i.id, form.fecha || new Date()); return <option key={i.id} value={i.id}>{i.nombre}{i.activo ? '' : ' · ya no está en el equipo'}{sufijoAusencia(au)}</option>; })}
                 </select>
               </FormField>
+              )}
               <FormField label="Fecha">
                 <input type="date" className={inputCls} value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} />
               </FormField>
@@ -2588,15 +2612,28 @@ export default function Calendario() {
                   <input type="time" className={inputCls} value={form.horaFin} onChange={e => setForm(f => ({ ...f, horaFin: e.target.value }))} />
                 </FormField>
               </div>
-              <FormField label="Aforo máximo" description="Al llenarse, las siguientes reservas entran en lista de espera; no se bloquean.">
-                <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo}
-                  onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value), aforoTocado: true }))} />
-              </FormField>
+              {esInstructorTop && showForm === 'nueva' ? (
+                // Aforo fijado a la capacidad de la sala, no editable: evita
+                // que se infle el aforo por error o a propósito — la BD no
+                // ata `aforo_maximo` a `salas.capacidad` a propósito (0129,
+                // para permitir talleres con menos plazas que la sala), así
+                // que la barrera para este rol vive aquí, en la UI.
+                <FormField label="Aforo máximo" description="Es el de la sala elegida.">
+                  <input type="number" className={inputCls + ' opacity-60'} value={form.aforoMaximo} disabled readOnly />
+                </FormField>
+              ) : (
+                <FormField label="Aforo máximo" description="Al llenarse, las siguientes reservas entran en lista de espera; no se bloquean.">
+                  <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo}
+                    onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value), aforoTocado: true }))} />
+                </FormField>
+              )}
               <AvisoAforoSala salas={salas} salaId={form.salaId} aforo={form.aforoMaximo} />
               {/* Era un <span onClick> dentro de un <label>: no lo alcanzaba el
                   tabulador ni lo anunciaba ningún lector. Ahora todo el bloque
-                  es el botón, así que sigue siendo pulsable entero. */}
-              {showForm === 'nueva' && (
+                  es el botón, así que sigue siendo pulsable entero. Recurrencia
+                  (series) fuera de alcance para INSTRUCTOR: gestionar series
+                  sigue siendo territorio de mostrador (editar_serie_desde, 0110). */}
+              {showForm === 'nueva' && !esInstructorTop && (
                 <button
                   type="button"
                   role="switch"

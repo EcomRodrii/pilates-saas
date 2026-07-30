@@ -185,6 +185,28 @@ export async function emitirClaseCasiLlena(
   }
 }
 
+// Autoservicio de instructora (20260731100000): se ha creado a sí misma una
+// clase nueva. Solo informativa para la propietaria — sin push/email
+// (declarado así en el catálogo), visible en su centro de notificaciones.
+export async function emitirClaseCreadaPorInstructor(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; instructorId: string },
+): Promise<void> {
+  try {
+    const [ctx, { data: instructora }] = await Promise.all([
+      ctxSesion(admin, p.studioId, p.sesionId),
+      admin.from('instructores').select('nombre').eq('id', p.instructorId).maybeSingle(),
+    ]);
+    await publish({
+      type: EVENTOS.CLASE_CREADA_POR_INSTRUCTOR, studioId: p.studioId,
+      data: { ...ctx, instructora: (instructora?.nombre as string | null) ?? 'Una instructora' },
+      resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `clase-creada-instructor:${p.sesionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirClaseCreadaPorInstructor:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Clase cancelada: a cada socia apuntada. Lo usa la cancelación desde el
 // calendario (vía ruta), además del flujo de sustituciones (avisarAlumnas).
 export async function emitirClaseCancelada(
