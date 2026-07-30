@@ -116,6 +116,14 @@ abrir a INSTRUCTOR una vía que ya existía para el resto de roles (RLS acotada 
    estaba bien, era solo un hueco de UI encima. **No reabrir "valorar alumna"
    como feature nueva sin que se pida expresamente** — ya se evaluó y se
    descartó por duplicar `notas_progreso`.
+6. **#562 — Tarifa por hora + Mis Estudios**: `instructor_tarifas`, tabla
+   aparte de `instructores` (no una columna) porque la RLS de `instructores`
+   da todas las columnas a todo el estudio sin distinción de fila — un campo
+   salarial ahí se filtraría en el JSON crudo a cualquier compañera, mismo
+   motivo que ya separó `mandatos_sepa`. PROPIETARIO/MANAGER fijan la tarifa;
+   la instructora solo la lee (nunca escritura sobre la suya). "Mis Estudios"
+   reutiliza `mis_estudios()` (RPC ya existente) de solo lectura, sin
+   migración/endpoint nuevo.
 
 Cada tramo pasó por diseño (`tentare-arquitecto`) y revisión de seguridad
 (`tentare-seguridad`, sin bloqueantes en ninguno) antes de mergear.
