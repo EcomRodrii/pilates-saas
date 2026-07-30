@@ -648,6 +648,7 @@ export interface RowStudios {
   reserva_ventana_minima_minutos: number | null;
   reserva_antelacion_maxima_dias: number | null;
   permite_lista_espera: boolean | null;
+  requiere_aprobacion: boolean | null;
   stripe_customer_id: string | null;
   subscription_id: string | null;
   subscription_status: string | null;
@@ -713,6 +714,7 @@ export interface RowTiposClase {
   reserva_ventana_minima_minutos: number | null;
   reserva_antelacion_maxima_dias: number | null;
   permite_lista_espera: boolean | null;
+  requiere_aprobacion: boolean | null;
 }
 
 export interface RowUsuarios {

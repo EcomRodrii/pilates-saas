@@ -737,6 +737,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? null,
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? null,
+    requiereAprobacion: r.requiere_aprobacion ?? null,
   } as TipoClase;
 }
 
@@ -3096,6 +3097,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     reserva_ventana_minima_minutos: t.reservaVentanaMinimaMinutos ?? null,
     reserva_antelacion_maxima_dias: t.reservaAntelacionMaximaDias ?? null,
     permite_lista_espera: t.permiteListaEspera ?? null,
+    requiere_aprobacion: t.requiereAprobacion ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -3114,6 +3116,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('reservaVentanaMinimaMinutos' in changes) db.reserva_ventana_minima_minutos = changes.reservaVentanaMinimaMinutos;
   if ('reservaAntelacionMaximaDias' in changes) db.reserva_antelacion_maxima_dias = changes.reservaAntelacionMaximaDias;
   if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
+  if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateTipoClase]', error);
 }
@@ -3312,6 +3315,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('reservaVentanaMinimaMinutos' in changes) db.reserva_ventana_minima_minutos = changes.reservaVentanaMinimaMinutos;
   if ('reservaAntelacionMaximaDias' in changes) db.reserva_antelacion_maxima_dias = changes.reservaAntelacionMaximaDias;
   if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
+  if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
   // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
@@ -3531,6 +3535,7 @@ function mapStudio(r: RowStudios): Studio {
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? true,
+    requiereAprobacion: r.requiere_aprobacion ?? false,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
     onboardingDescartadoEn: r.onboarding_descartado_en ?? null,

@@ -30,6 +30,7 @@ import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-d
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
+import { Toast, useToast } from '@/components/ui/toast';
 import type { Socio, Spot } from '@/lib/types';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -342,6 +343,7 @@ function SessionSidebar({
   onEliminarSesion,
   onLiberarSpot,
   onAsignarSpot,
+  onResolverPendiente,
 }: {
   sesion: SesionEnr | null;
   reservas: ReservaEnriquecida[];
@@ -362,6 +364,8 @@ function SessionSidebar({
   onEliminarSesion: () => void;
   onLiberarSpot: (reservaId: string) => void;
   onAsignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
+  // Fase 2a (migr 20260730192445): aprobar/rechazar una reserva pendiente.
+  onResolverPendiente: (reservaId: string, aprobar: boolean) => void;
 }) {
   const { studio, instructores, condicionesSalud, respuestasSesion, registrarRespuestaSesion } = useStudio();
   const { user } = useAuth();
@@ -831,7 +835,7 @@ function SessionSidebar({
                       style={
                         r.estado === 'ASISTIDA'
                           ? { backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }
-                          : r.estado === 'LISTA_ESPERA'
+                          : r.estado === 'LISTA_ESPERA' || r.estado === 'PENDIENTE_APROBACION'
                           ? { backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)' }
                           : r.estado === 'NO_ASISTIO'
                           ? { backgroundColor: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }
@@ -853,6 +857,8 @@ function SessionSidebar({
                       <p className="text-[10px] text-muted-foreground">
                         {r.estado === 'LISTA_ESPERA'
                           ? `Espera #${r.posicionEspera}`
+                          : r.estado === 'PENDIENTE_APROBACION'
+                          ? 'Pendiente de aprobar'
                           : r.estado === 'ASISTIDA'
                           ? 'Asistida'
                           : r.estado === 'NO_ASISTIO'
@@ -883,6 +889,24 @@ function SessionSidebar({
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      {r.estado === 'PENDIENTE_APROBACION' && (
+                        <>
+                          <button
+                            onClick={() => onResolverPendiente(r.id, true)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                            style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
+                          >
+                            Aprobar
+                          </button>
+                          <button
+                            onClick={() => onResolverPendiente(r.id, false)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                            style={{ backgroundColor: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}
+                          >
+                            Rechazar
+                          </button>
+                        </>
+                      )}
                       {r.estado === 'CONFIRMADA' && (
                         <>
                           <button
@@ -1485,9 +1509,35 @@ export default function Calendario() {
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
-    addActividadReciente, addRecibo,
+    addActividadReciente, addRecibo, resetDatosPilates,
   } = useStudio();
   const { user } = useAuth();
+  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+
+  // Fase 2a (migr 20260730192445): aprobar/rechazar va por la RPC transaccional
+  // en servidor (service-role), no por el cliente RLS como el resto de acciones
+  // de esta pantalla — la aprobación tiene que re-comprobar aforo de forma
+  // atómica, con lock, igual que reservar_plaza. `resetDatosPilates()` refresca
+  // la lista de reservas tras la respuesta (no hay realtime en `reservas`).
+  const resolverPendiente = useCallback(async (reservaId: string, aprobar: boolean) => {
+    try {
+      const res = await fetch('/api/reservas/resolver-pendiente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ reservaId, aprobar }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showToast(data?.error ?? 'No se pudo procesar la reserva'); return; }
+      if (data?.motivoUI === 'clase_ya_empezada') {
+        showToast('La clase ya ha comenzado. Esta reserva se ha cancelado automáticamente y ya no puede aprobarse.');
+      } else {
+        showToast(aprobar ? 'Reserva aprobada' : 'Reserva rechazada');
+      }
+      resetDatosPilates();
+    } catch {
+      showToast('No se pudo procesar la reserva. Revisa tu conexión.');
+    }
+  }, [showToast, resetDatosPilates]);
 
   // Importar el horario y cobrar una clase suelta son trabajo de mostrador; el
   // servidor ya los rechazaba a la instructora (api/clases/import exige
@@ -2505,10 +2555,13 @@ export default function Calendario() {
             onEliminarSesion={eliminarSesion}
             onLiberarSpot={liberarSpot}
             onAsignarSpot={asignarSpot}
+            onResolverPendiente={resolverPendiente}
           />
         )}
       </div>
     </div>
+
+      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
 
       <CoberturaDialog
         open={showCobertura}

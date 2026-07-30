@@ -169,7 +169,10 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio';
-type Step = 'login' | 'registro' | 'contrato' | 'confirm' | 'done' | 'espera';
+// 'pendiente' (Fase 2a, migr 20260730192445): la clase exige aprobación
+// manual — la reserva no queda confirmada ni en lista de espera, se avisa a
+// la socia por separado cuando la propietaria decida.
+type Step = 'login' | 'registro' | 'contrato' | 'confirm' | 'done' | 'espera' | 'pendiente';
 
 // Criterios de estado (mismos que el portal): qué reservas ocupan plaza y cuáles
 // cuentan como reserva activa de la propia socia.
@@ -586,7 +589,7 @@ export default function ReservarPage() {
         const enEspera = reservas.filter(x => x.sesionId === bookingSesionId && x.estado === 'LISTA_ESPERA').length;
         setEsperaPos(enEspera + 1);
       }
-      setLoginStep(r.estado === 'LISTA_ESPERA' ? 'espera' : 'done');
+      setLoginStep(r.estado === 'LISTA_ESPERA' ? 'espera' : r.estado === 'PENDIENTE_APROBACION' ? 'pendiente' : 'done');
     } finally {
       confirmandoRef.current = false;
       setConfirmando(false);
@@ -1113,6 +1116,7 @@ export default function ReservarPage() {
         label={
           loginStep === 'done' ? '¡Reserva confirmada!'
           : loginStep === 'espera' ? '¡En lista de espera!'
+          : loginStep === 'pendiente' ? 'Pendiente de aprobación'
           : loginStep === 'login' ? (enlaceEnviado ? 'Revisa tu email' : 'Entra para reservar')
           : loginStep === 'registro' ? '¿Cómo te llamas?'
           : loginStep === 'contrato' ? 'Acepta los términos'
@@ -1184,6 +1188,23 @@ export default function ReservarPage() {
                     <p className="text-[var(--portal-muted-2)] text-sm mt-1">Eres la <span className="font-bold text-[var(--portal-ink)]">nº {esperaPos}</span> en la lista.</p>
                   )}
                   <p className="text-[var(--portal-muted-2)] text-sm mt-1">Si se libera una plaza, te avisaremos por email.</p>
+                </div>
+                <button onClick={closeBooking}
+                  className="w-full py-3 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
+                  Cerrar
+                </button>
+              </div>
+            )}
+
+            {/* ── PENDIENTE DE APROBACIÓN (Fase 2a) ── */}
+            {loginStep === 'pendiente' && (
+              <div className="flex flex-col items-center text-center py-4 gap-4">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
+                  <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
+                </div>
+                <div>
+                  <p className="text-[var(--portal-ink)] font-extrabold text-xl">Solicitud enviada</p>
+                  <p className="text-[var(--portal-muted-2)] text-sm mt-1">Tu reserva está pendiente de aprobación. Te avisaremos en cuanto se confirme.</p>
                 </div>
                 <button onClick={closeBooking}
                   className="w-full py-3 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">

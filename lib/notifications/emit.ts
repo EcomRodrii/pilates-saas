@@ -65,21 +65,53 @@ export async function emitirReserva(
 }
 
 // Reserva cancelada: confirmación a la socia. Importa sobre todo cuando la
-// cancela el SISTEMA (corte por no confirmar riesgo de plantón): si no, se
-// encuentra sin plaza sin saber por qué. Prioridad BAJA y solo in-app.
+// cancela el SISTEMA (corte por no confirmar riesgo de plantón, o Fase 2a:
+// rechazo/expiración de una aprobación pendiente): si no, se encuentra sin
+// plaza sin saber por qué. Prioridad BAJA y solo in-app.
+//
+// `motivo`: por defecto la cancelación normal (texto de siempre, sin
+// añadido). Fase 2a reutiliza este mismo evento para el resultado de una
+// aprobación pendiente en vez de crear uno nuevo — mismo hecho (la reserva no
+// sigue adelante), solo cambia por qué se lo explicamos.
 export async function emitirReservaCancelada(
-  admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string; reservaId: string },
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const motivoTexto = p.motivo === 'rechazada'
+      ? ' La propietaria no ha podido confirmarla.'
+      : p.motivo === 'expirada'
+        ? ' No se aprobó a tiempo: la clase ya ha empezado.'
+        : '';
     await publish({
       type: EVENTOS.RESERVA_CANCELADA, studioId: p.studioId,
-      data: { ...ctx, socioId: p.socioId },
+      data: { ...ctx, socioId: p.socioId, motivoTexto },
       resource: { type: 'sesion', id: p.sesionId },
       dedupKey: `reserva-cancelada:${p.reservaId}`,
     });
   } catch (e) {
     console.error('[notifications] emitirReservaCancelada:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Reserva pendiente de aprobar: avisa al mostrador (propietaria/manager/
+// recepción) de que hace falta decidir antes de que empiece la clase.
+export async function emitirReservaPendienteAprobacion(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle();
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    await publish({
+      type: EVENTOS.RESERVA_PENDIENTE_APROBACION, studioId: p.studioId,
+      data: { ...ctx, socioId: p.socioId, socia },
+      resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `reserva-pendiente:${p.sesionId}:${p.socioId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirReservaPendienteAprobacion:', e instanceof Error ? e.message : e);
   }
 }
 

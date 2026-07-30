@@ -49,6 +49,7 @@ import {
   revisionesSaludDispatcher,
   procesarRevisionesSaludEstudio,
 } from '@/lib/inngest/revisiones-salud';
+import { expirarReservasPendientesDispatcher } from '@/lib/inngest/reservas-pendientes';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -85,5 +86,6 @@ export const { GET, POST, PUT } = serve({
     procesarRecordatoriosEstudio,
     revisionesSaludDispatcher,
     procesarRevisionesSaludEstudio,
+    expirarReservasPendientesDispatcher,
   ],
 });

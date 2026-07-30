@@ -100,6 +100,15 @@ export function puedeVerFinanzas(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'RECEPCION';
 }
 
+// Aprobar/rechazar una reserva pendiente de aprobación (Fase 2a). Espejo TS
+// de `puede_gestionar_calendario()` en SQL (`resolver_reserva_pendiente`,
+// migr 20260730192445) — el mismo criterio en los dos sitios, como manda la
+// regla de este repo: la UI no es la cerradura, pero tiene que decir lo mismo
+// que ella o enseña un botón que la BD va a rechazar.
+export function puedeGestionarCalendario(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER' || rol === 'RECEPCION';
+}
+
 // Dar de alta, importar, editar y dar de baja CLIENTAS. Es el trabajo de
 // mostrador, y el manager lo hace.
 export function puedeGestionarClientas(rol: Rol): boolean {
