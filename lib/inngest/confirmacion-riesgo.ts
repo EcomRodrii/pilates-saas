@@ -290,6 +290,15 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
 
     let liberadas = 0;
     for (const p of pendientes) {
+      // I-2 (auditoría 2026-07-29): la cancelación y el email vivían en el
+      // MISMO step.run. enviarEmailPlazaLiberada nunca lanza (siempre resuelve
+      // {ok:false} en vez de rechazar), así que un fallo de envío no hacía
+      // fallar el step -- Inngest lo daba por bueno y memoizaba el resultado
+      // para siempre. La socia se quedaba sin plaza y sin ningún aviso, sin
+      // reintento posible. Separado en dos steps: la cancelación (idempotente,
+      // vía compare-and-set en ejecutarCancelacionReserva) queda memoizada tal
+      // cual, y el envío lanza de verdad ante un fallo real -- así Inngest
+      // reintenta SOLO ese step, sin repetir la cancelación.
       const r = await step.run(`liberar-${p.id}`, async () => {
         const admin = requireSupabaseAdmin();
         // Doble comprobación de estado dentro del propio paso: si confirmó o la
@@ -298,17 +307,24 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
         // el filtro, pero SÍ evitar mandar el email si no llegó a liberarse.
         const datos = await datosParaEmail(admin, studioId, p.socio_id, p.sesion_id);
         const res = await ejecutarCancelacionReserva(admin, { studioId, reservaId: p.id, socioId: null });
-        if ('error' in res) return { liberada: false };
-        if (datos) {
-          await enviarEmailPlazaLiberada({
+        if ('error' in res) return { liberada: false, datos: null };
+        return { liberada: true, datos };
+      });
+      if (r.liberada) liberadas++;
+      if (r.liberada && r.datos) {
+        const datos = r.datos;
+        await step.run(`avisar-liberada-${p.id}`, async () => {
+          const res = await enviarEmailPlazaLiberada({
             to: datos.socioEmail, toName: datos.socioNombre, estudioNombre: datos.estudioNombre,
             colorPrimario: datos.colorPrimario, logoUrl: datos.logoUrl,
             claseNombre: datos.claseNombre, cuando: datos.cuando,
           });
-        }
-        return { liberada: true };
-      });
-      if (r.liberada) liberadas++;
+          // `skipped` (Resend sin configurar) no es un fallo transitorio -- no
+          // tiene sentido reintentarlo. Un `error` real sí: se lanza para que
+          // Inngest reintente este step (no la cancelación, ya memoizada).
+          if (!res.ok && !('skipped' in res)) throw new Error(`enviarEmailPlazaLiberada: ${res.error}`);
+        });
+      }
     }
     return {
       studioId,

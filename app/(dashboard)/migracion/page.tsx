@@ -89,6 +89,14 @@ async function xlsxACsv(file: File): Promise<ArchivoLocal[]> {
 export default function MigracionPage() {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  // Cerrojo síncrono (auditoría 2026-07-29, I-3): el botón de "Importar" solo
+  // se deshabilitaba por `totalOk === 0`, no por estar ya ejecutando. `paso`
+  // pasa a 'ejecutando' dentro de ejecutar(), pero ese cambio de estado no se
+  // aplica hasta el siguiente render — un doble clic MUY rápido puede invocar
+  // ejecutar() dos veces antes de que React desmonte el botón, con batchId
+  // distintos en cada llamada = altas duplicadas. Un ref se lee/escribe al
+  // instante, sin esperar a ningún render.
+  const ejecutandoRef = useRef(false);
   // Tras importar (o deshacer) hay que refrescar el estado global del panel:
   // si no, las clientas/reservas recién creadas NO aparecen en sus listados
   // hasta recargar la página a mano. resetDatosPilates re-lee todo del servidor.
@@ -213,7 +221,16 @@ export default function MigracionPage() {
   const planesYaMapeados = Object.entries(mapeoPlanes).length;
 
   async function ejecutar() {
-    if (!plan) return;
+    if (!plan || ejecutandoRef.current) return;
+    ejecutandoRef.current = true;
+    try {
+      await ejecutarInterno();
+    } finally {
+      ejecutandoRef.current = false;
+    }
+  }
+
+  async function ejecutarInterno() {
     const id = `mig-${uid()}`;
     setBatchId(id);
     setPaso('ejecutando');
