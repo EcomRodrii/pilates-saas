@@ -1,55 +1,75 @@
 'use client';
 
-import { useMemo, useRef, useState, useId } from 'react';
-import Link from 'next/link';
+// PERFIL — última pantalla del prototipo navegable de Claude Design.
+//
+// El diseño convierte un formulario largo en un ÍNDICE: cabecera de identidad,
+// dos chips con lo que tiene contratado, y filas que llevan a cada cosa. Lo que
+// antes se editaba en línea (nombre, contacto, dirección) vive ahora en una hoja
+// que abre la fila «Mis datos» — el mismo patrón de hoja que ya usan la reserva
+// y el pase. No se pierde nada; cambia dónde vive.
+//
+// CUATRO DECISIONES QUE SE APARTAN DEL LIENZO, y por qué:
+//
+//  1. **No hay «Ficha de salud»**. El diseño la pone; el portal no tiene ese
+//     dato y guardarlo es una decisión de producto y de privacidad, no de
+//     maquetación. Decidido dejarla fuera.
+//  2. **Sí hay interruptor día/noche**. El prototipo no lo dibuja en ninguna
+//     pantalla, pero existe desde #478 y vive justo aquí. Quitarlo por fidelidad
+//     sería quitarle a la socia algo que ya usa.
+//  3. **«El estudio» no lleva flecha**: en el lienzo la tiene y no navega a
+//     ningún sitio, y en el portal no hay pantalla de estudio. Una flecha que no
+//     va a ninguna parte es un botón muerto; se queda como fila informativa.
+//  4. **El pie lleva el nombre del ESTUDIO, no «TENTARE»**. Este portal es marca
+//     blanca: la clienta entra a su estudio, no a nosotros.
+
+import { useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
+import { useModo } from '@/lib/portal-modo';
 import { subirFotoPerfil, eliminarFotoPerfil, validarFotoPerfil } from '@/lib/portal-storage';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
-import { useModo } from '@/lib/portal-modo';
-import {
-  Camera, Trash2, LogOut, ChevronRight, Bell, SlidersHorizontal, Loader2, Check, Trophy, Sun, Moon } from 'lucide-react';
-import { Card, Input, Button, BottomSheet } from '@/components/portal/ui';
+import { BottomSheet, Input, Button } from '@/components/portal/ui';
+import { bonoActivo } from '@/lib/bonos-portal';
+import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
+
+const DIAS_CORTO = ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'];
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+/** «Socia desde marzo de 2024» — la antigüedad, no la fecha exacta. */
+function desdeCuando(fechaAlta: string | null | undefined): string | null {
+  if (!fechaAlta) return null;
+  const [a, m] = fechaAlta.slice(0, 10).split('-').map(Number);
+  if (!a || !m) return null;
+  return `Socia desde ${MESES[m - 1]} de ${a}`;
+}
 
 export default function PerfilPage() {
-  const uid = useId();
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const { session, logout } = usePortalAuth();
   const {
-    socios, updateSocio, preferenciasSocio, upsertPreferenciasSocio,
-    reservas, sesiones, nivelSocio, rachaSocio, achievementDefinitions, achievementProgress,
+    studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, plazasFijas,
   } = useStudio();
   const { t, noche, toggle } = useModo();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const socio = socios.find(s => s.id === session?.socioId);
-  const prefs = preferenciasSocio.find(p => p.socioId === session?.socioId);
+  const socioId = session?.socioId ?? null;
 
-  const misReservas = useMemo(() => reservas.filter(r => r.socioId === session?.socioId), [reservas, session?.socioId]);
-  const asistidas = useMemo(() => misReservas.filter(r => r.estado === 'ASISTIDA'), [misReservas]);
-  const clasesEsteMes = useMemo(() => {
-    const now = new Date();
-    return asistidas.filter(r => {
-      const s = sesiones.find(x => x.id === r.sesionId);
-      if (!s) return false;
-      const d = new Date(s.inicio);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    }).length;
-  }, [asistidas, sesiones]);
-  const racha = session ? rachaSocio(session.socioId) : null;
-  const nivel = session ? nivelSocio(session.socioId) : null;
+  const bono = useMemo(
+    () => bonoActivo(suscripciones, planesTarifa, tiposClase, socioId),
+    [suscripciones, planesTarifa, tiposClase, socioId],
+  );
+  const plaza = useMemo(() => {
+    const p = plazasFijas.find(x => x.socioId === socioId && x.estado === 'ACTIVA');
+    return p ? DIAS_CORTO[p.diaSemana] ?? null : null;
+  }, [plazasFijas, socioId]);
 
-  const logrosPreview = useMemo(() => {
-    if (!session) return [];
-    return achievementDefinitions
-      .filter(a => a.activo)
-      .map(def => ({ def, completado: achievementProgress.some(p => p.socioId === session.socioId && p.achievementId === def.id && p.completado) }))
-      .sort((a, b) => (b.completado ? 1 : 0) - (a.completado ? 1 : 0))
-      .slice(0, 4);
-  }, [achievementDefinitions, achievementProgress, session]);
-
+  const [hoja, setHoja] = useState<null | 'datos' | 'avatar'>(null);
   const [form, setForm] = useState({
     nombre: socio?.nombre ?? '',
     apellidos: socio?.apellidos ?? '',
@@ -58,17 +78,21 @@ export default function PerfilPage() {
     fechaNacimiento: socio?.fechaNacimiento ?? '',
     direccion: socio?.direccion ?? '',
   });
+  const [guardando, setGuardando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [guardado, setGuardado] = useState(false);
-  const [error, setError] = useState('');
 
   if (!socio || !session) return null;
 
-  function handleGuardar(e?: React.FormEvent) {
+  // Antes esto llamaba a `updateSocio` SIN esperarlo y ponía «Guardado» pasara
+  // lo que pasara — el mismo patrón que hizo que una reserva rechazada se
+  // anunciara como hecha (#500). Ahora se espera y se dice la verdad.
+  async function guardarDatos(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!socio) return;
-    updateSocio(socio.id, {
+    if (!socio || guardando) return;
+    setGuardando(true);
+    setAviso(null);
+    const r = await updateSocio(socio.id, {
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
       email: form.email.trim(),
@@ -76,258 +100,212 @@ export default function PerfilPage() {
       fechaNacimiento: form.fechaNacimiento || null,
       direccion: form.direccion.trim() || null,
     });
-    setGuardado(true);
-    setTimeout(() => setGuardado(false), 2000);
+    setGuardando(false);
+    if (!r.ok) { setAviso(r.error); return; }
+    setHoja(null);
+    setAviso('Datos guardados.');
   }
 
-  async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !socio) return;
     const invalido = validarFotoPerfil(file);
-    if (invalido) { setError(invalido); return; }
-    setError('');
+    if (invalido) { setAviso(invalido); return; }
+    setAviso(null);
     setSubiendoFoto(true);
     const result = await subirFotoPerfil(socio.id, file);
     setSubiendoFoto(false);
-    if ('error' in result) { setError(result.error); return; }
-    updateSocio(socio.id, { fotoUrl: result.url });
+    if ('error' in result) { setAviso(result.error); return; }
+    void updateSocio(socio.id, { fotoUrl: result.url });
+    setHoja(null);
   }
 
-  async function handleEliminarFoto() {
+  async function quitarFoto() {
     if (!socio) return;
     setSubiendoFoto(true);
     const result = await eliminarFotoPerfil(socio.id);
     setSubiendoFoto(false);
-    if ('error' in result) { setError(result.error); return; }
-    updateSocio(socio.id, { fotoUrl: null });
+    if ('error' in result) { setAviso(result.error); return; }
+    void updateSocio(socio.id, { fotoUrl: null });
+    setHoja(null);
   }
 
-  function handleLogout() {
-    logout();
-    router.replace(`/portal/${slug}/login`);
-  }
+  const chip = (texto1: string, fuerte: boolean) => (
+    <span
+      key={texto1}
+      style={{
+        ...micro(8.5, 0.2, 600),
+        color: fuerte ? t.ink : t.muted,
+        background: fuerte ? (noche ? t.surface2 : '#EEF0EA') : t.surface,
+        border: `1px solid ${fuerte ? (noche ? t.line : 'rgba(44,53,44,.14)') : t.line}`,
+        borderRadius: 999, padding: '9px 14px', whiteSpace: 'nowrap',
+      }}
+    >
+      {texto1}
+    </span>
+  );
 
-  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
-  const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: t.muted2, display: 'block', marginBottom: 6 };
+  const fila = (
+    titulo: string,
+    valor: string | null,
+    onClick: (() => void) | null,
+    ultima = false,
+    interruptor?: boolean,
+  ) => {
+    const contenido = (
+      <>
+        <span style={{ ...display(23), color: t.ink }}>{titulo}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {valor && <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted }}>{valor}</span>}
+          {/* Sin destino no hay flecha: prometería un sitio al que no se va.
+              Vale igual para el interruptor, que no lleva a ninguna parte —
+              cambia algo aquí mismo, y lo que hay que ver es su estado. */}
+          {onClick && !interruptor && <span style={{ fontFamily: sans, fontSize: 13, color: t.heroAccent }}>→</span>}
+        </span>
+      </>
+    );
+    const estilo: React.CSSProperties = {
+      height: 66, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      gap: 12, background: 'none', border: 'none', textAlign: 'left',
+      borderTop: `1px solid ${t.line}`,
+      borderBottom: ultima ? `1px solid ${t.line}` : undefined,
+      transition: `padding-left ${dur.control}ms ${EASE}`,
+    };
+    return onClick
+      ? (
+        <button
+          key={titulo}
+          type="button"
+          onClick={onClick}
+          role={interruptor ? 'switch' : undefined}
+          aria-checked={interruptor ? noche : undefined}
+          style={{ ...estilo, cursor: 'pointer' }}
+        >
+          {contenido}
+        </button>
+      )
+      : <div key={titulo} style={estilo}>{contenido}</div>;
+  };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg }}>
-      {/* Header */}
-      <div style={{ padding: '24px 20px 32px' }}>
-        <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1, marginBottom: 24 }}>Tu perfil</h1>
-
-        {/* Foto */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <div style={{ position: 'relative' }}>
-            <ProfileAvatar avatarId={socio.avatar} fotoUrl={socio.fotoUrl} nombre={socio.nombre} apellidos={socio.apellidos} size="xl" />
-            {subiendoFoto && (
-              <div style={{ position: 'absolute', inset: 0, borderRadius: 999, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Loader2 size={20} style={{ color: '#fff' }} className="animate-spin" />
-              </div>
-            )}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              style={{ position: 'absolute', bottom: -4, right: -4, width: 32, height: 32, borderRadius: 999, background: t.surface, border: `1px solid ${t.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Camera size={14} style={{ color: t.ink }} />
-            </button>
-          </div>
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoChange} style={{ display: 'none' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={() => setShowAvatarPicker(true)} style={{ color: t.muted, fontSize: 12, fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none' }}>
-              Elegir avatar
-            </button>
-            {socio.fotoUrl && (
-              <button onClick={handleEliminarFoto} style={{ color: t.muted, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none' }}>
-                <Trash2 size={12} />Quitar foto
-              </button>
-            )}
-          </div>
-          <p style={{ color: t.ink, fontWeight: 800, fontSize: 16, marginTop: 4, textTransform: 'uppercase' }}>{socio.nombre} {socio.apellidos}</p>
-          <p style={{ color: t.muted, fontSize: 12 }}>{socio.email}</p>
-          {nivel?.actual && (
-            <span
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800, backgroundColor: `${nivel.actual.color}33`, color: t.ink }}
-            >
-              {nivel.actual.icono} Nivel {nivel.actual.nombre}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div style={{ padding: '0 16px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          {[
-            { v: clasesEsteMes, l: 'Este mes' },
-            { v: racha?.semanas ?? 0, l: 'Racha 🔥' },
-            { v: asistidas.length, l: 'Total clases' },
-          ].map(({ v, l }) => (
-            <Card key={l} style={{ padding: '12px 8px', textAlign: 'center' }}>
-              <p style={{ fontSize: 20, fontWeight: 800, color: t.ink, lineHeight: 1 }}>{v}</p>
-              <p style={{ fontSize: 9, fontWeight: 800, color: t.muted, marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</p>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {logrosPreview.length > 0 && (
-        <div style={{ padding: '16px 16px 0' }}>
-          <Link href={`/portal/${slug}/progreso?tab=logros`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, textDecoration: 'none' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Trophy size={13} style={{ color: t.muted }} />
-              <p style={microLabel}>Logros</p>
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: t.heroAccent, display: 'flex', alignItems: 'center', gap: 2 }}>Ver todos <ChevronRight size={12} /></span>
-          </Link>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-            {logrosPreview.map(({ def, completado }) => (
-              <div
-                key={def.id}
-                style={{ borderRadius: 18, padding: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textAlign: 'center', backgroundColor: completado ? 'color-mix(in srgb, var(--portal-brand) 12%, transparent)' : t.surface2, opacity: completado ? 1 : 0.45 }}
-              >
-                <span style={{ fontSize: 22, lineHeight: 1 }}>{def.icono}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div style={{ padding: '20px 16px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {error && (
-          <div style={{ background: 'rgba(239,68,68,0.1)', color: '#B85436', fontSize: 13, fontWeight: 600, borderRadius: 16, padding: '12px 16px' }}>{error}</div>
+    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+      <div style={{ padding: '62px 24px 24px' }}>
+        {/* ── Identidad ────────────────────────────────────────────────────── */}
+        <button
+          type="button"
+          onClick={() => setHoja('avatar')}
+          aria-label="Cambiar tu foto"
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'block' }}
+        >
+          <ProfileAvatar
+            avatarId={socio.avatar}
+            fotoUrl={socio.fotoUrl}
+            nombre={socio.nombre}
+            apellidos={socio.apellidos}
+            size="xl"
+          />
+        </button>
+        <h1 style={{ ...display(34), color: t.ink, marginTop: 18 }}>
+          {socio.nombre} {socio.apellidos}
+        </h1>
+        {desdeCuando(socio.fechaAlta) && (
+          <p style={{ ...display(17, true), color: t.muted, marginTop: 8 }}>{desdeCuando(socio.fechaAlta)}</p>
         )}
 
-        {/* Datos personales */}
-        <Card style={{ padding: 20 }}>
-          <form onSubmit={handleGuardar}>
-            <p style={{ ...microLabel, marginBottom: 16 }}>Datos personales</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label htmlFor={`${uid}-1`} style={labelStyle}>Nombre</label>
-                  <Input id={`${uid}-1`} autoComplete="given-name" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
-                </div>
-                <div>
-                  <label htmlFor={`${uid}-2`} style={labelStyle}>Apellidos</label>
-                  <Input id={`${uid}-2`} autoComplete="family-name" value={form.apellidos} onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
-                </div>
-              </div>
-              <div>
-                <label htmlFor={`${uid}-3`} style={labelStyle}>Email</label>
-                <Input id={`${uid}-3`} type="email" autoComplete="email" inputMode="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-              </div>
-              <div>
-                <label htmlFor={`${uid}-4`} style={labelStyle}>Teléfono</label>
-                <Input id={`${uid}-4`} type="tel" autoComplete="tel" inputMode="tel" placeholder="+34 600 000 000" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
-              </div>
-              <div>
-                <label htmlFor={`${uid}-5`} style={labelStyle}>Fecha de nacimiento</label>
-                <Input id={`${uid}-5`} type="date" value={form.fechaNacimiento} onChange={e => setForm(f => ({ ...f, fechaNacimiento: e.target.value }))} />
-              </div>
-              <div>
-                <label htmlFor={`${uid}-6`} style={labelStyle}>Dirección</label>
-                <Input id={`${uid}-6`} autoComplete="street-address" placeholder="Calle, número, ciudad" value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
-              </div>
-            </div>
-            <Button type="submit" style={{ width: '100%', marginTop: 20 }}>
-              {guardado ? <><Check size={15} />Guardado</> : 'Guardar cambios'}
-            </Button>
-          </form>
-        </Card>
-
-        {/* Notificaciones */}
-        <Card style={{ padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <Bell size={15} style={{ color: t.muted }} />
-            <p style={microLabel}>Notificaciones</p>
+        {(plaza || bono) && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 18 }}>
+            {plaza && chip(`Plaza fija · ${plaza}`, true)}
+            {bono && chip(`${bono.nombre} activo`, false)}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {([
-              { key: 'notifEmail' as const, label: 'Recordatorios por email' },
-              { key: 'notifWhatsapp' as const, label: 'Recordatorios por WhatsApp' },
-            ]).map(({ key, label }) => {
-              const activo = prefs ? prefs[key] : true;
-              return (
-                // El área táctil es la fila entera (min 44px de alto), no solo el
-                // interruptor de 24px — antes solo el propio <button> respondía,
-                // aunque visualmente parecía que toda la fila era interactiva.
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => upsertPreferenciasSocio(socio.id, { [key]: !activo })}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 44, padding: '4px 0', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}
-                >
-                  <span style={{ fontSize: 14, color: t.ink }}>{label}</span>
-                  <span
-                    aria-hidden
-                    style={{ width: 44, height: 24, borderRadius: 999, position: 'relative', flexShrink: 0, backgroundColor: activo ? 'var(--portal-brand)' : t.surface2 }}
-                  >
-                    <span
-                      style={{ position: 'absolute', top: 2, width: 20, height: 20, borderRadius: 999, background: t.surface, transition: 'transform 0.15s', transform: activo ? 'translateX(22px)' : 'translateX(2px)' }}
-                    />
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </Card>
+        )}
 
-        {/* Link a preferencias / disponibilidad */}
-        <Card style={{ padding: 0 }}>
-          <Link
-            href={`/portal/${slug}/preferencias`}
-            style={{ padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 14, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <SlidersHorizontal size={17} style={{ color: t.heroAccent }} />
-              </div>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>Disponibilidad y preferencias</p>
-                <p style={{ fontSize: 12, color: t.muted }}>Instructor favorito, tipo de clase, horarios…</p>
-              </div>
-            </div>
-            <ChevronRight size={16} style={{ color: t.muted, flexShrink: 0 }} />
-          </Link>
-        </Card>
+        {aviso && (
+          <p role="status" style={{
+            fontFamily: sans, fontSize: 12.5, color: t.ink, background: t.surface2,
+            borderRadius: 14, padding: '11px 14px', marginTop: 20,
+          }}>
+            {aviso}
+          </p>
+        )}
 
-        {/* Día / noche.
-            Vivía en el Inicio, en un botón junto al de notificaciones. El
-            rediseño (v2) deja ahí un solo círculo, así que el interruptor se
-            muda al sitio donde ya están el resto de sus preferencias — que es
-            además donde lo habría buscado cualquiera. */}
-        <Card style={{ padding: 0 }}>
-          <button
-            type="button"
-            onClick={toggle}
-            aria-pressed={noche}
-            style={{ width: '100%', padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', textAlign: 'left' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 14, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {noche ? <Sun size={17} style={{ color: t.heroAccent }} /> : <Moon size={17} style={{ color: t.heroAccent }} />}
-              </div>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>Modo {noche ? 'noche' : 'día'}</p>
-                <p style={{ fontSize: 12, color: t.muted }}>Toca para cambiar a modo {noche ? 'día' : 'noche'}</p>
-              </div>
-            </div>
-          </button>
-        </Card>
+        {/* ── Filas ────────────────────────────────────────────────────────── */}
+        <div style={{ height: 34 }} />
+        {fila('Mis datos', null, () => setHoja('datos'))}
+        {fila(
+          'Métodos de pago',
+          socio.metodoPagoPreferido === 'SEPA' && socio.sepaMandateId ? 'Domiciliado' : null,
+          () => router.push(`/portal/${slug}/compras`),
+        )}
+        {fila('Avisos', null, () => router.push(`/portal/${slug}/preferencias`))}
+        {fila('Aspecto', noche ? 'Noche' : 'Día', toggle, false, true)}
+        {fila(
+          'El estudio',
+          [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || null,
+          null,
+          true,
+        )}
 
-        {/* Logout */}
-        <Button variant="secondary" onClick={handleLogout} style={{ width: '100%', color: '#B85436' }}>
-          <LogOut size={15} />Cerrar sesión
-        </Button>
+        <button
+          type="button"
+          onClick={() => { logout(); router.replace(`/portal/${slug}/login`); }}
+          style={{
+            height: 54, width: '100%', marginTop: 26, borderRadius: radio.botonAlto - 6,
+            border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
+            background: 'none', color: t.muted, ...texto.boton, fontSize: 13.5, cursor: 'pointer',
+            transition: transicion(['background', 'color'], dur.color),
+          }}
+        >
+          Cerrar sesión
+        </button>
+
+        {/* Marca blanca: el pie es del estudio, no nuestro. */}
+        <div style={{ ...micro(9, 0.34), color: t.micro, textAlign: 'center', marginTop: 40 }}>
+          {studio?.nombre ?? ''}
+        </div>
       </div>
 
-      <BottomSheet open={showAvatarPicker} onClose={() => setShowAvatarPicker(false)}>
-        <p style={{ fontSize: 15, fontWeight: 800, color: t.ink }}>Elige tu avatar</p>
-        <AvatarPicker
-          value={socio.avatar ?? null}
-          onChange={id => { updateSocio(socio.id, { avatar: id }); setShowAvatarPicker(false); }}
-        />
+      {/* ── Hoja: mis datos ────────────────────────────────────────────────── */}
+      <BottomSheet open={hoja === 'datos'} onClose={() => setHoja(null)}>
+        <h2 style={{ ...display(26), color: t.ink, marginBottom: 18 }}>Mis datos</h2>
+        <form onSubmit={guardarDatos} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Input placeholder="Nombre" autoComplete="given-name" value={form.nombre}
+            onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+          <Input placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
+            onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
+          <Input placeholder="Email" type="email" autoComplete="email" value={form.email}
+            onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+          <Input placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
+            onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+          <Input placeholder="Fecha de nacimiento" type="date" value={form.fechaNacimiento}
+            onChange={e => setForm(f => ({ ...f, fechaNacimiento: e.target.value }))} />
+          <Input placeholder="Calle, número, ciudad" autoComplete="street-address" value={form.direccion}
+            onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
+          <Button type="submit" disabled={guardando} style={{ width: '100%', marginTop: 6 }}>
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </form>
+      </BottomSheet>
+
+      {/* ── Hoja: foto ─────────────────────────────────────────────────────── */}
+      <BottomSheet open={hoja === 'avatar'} onClose={() => setHoja(null)}>
+        <h2 style={{ ...display(26), color: t.ink, marginBottom: 18 }}>Tu foto</h2>
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={subirFoto} style={{ display: 'none' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Button onClick={() => fileInputRef.current?.click()} disabled={subiendoFoto} style={{ width: '100%' }}>
+            {subiendoFoto ? 'Subiendo…' : 'Subir una foto'}
+          </Button>
+          {socio.fotoUrl && (
+            <Button variant="secondary" onClick={quitarFoto} disabled={subiendoFoto} style={{ width: '100%' }}>
+              Quitar la foto
+            </Button>
+          )}
+          <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 14 }}>O elige un avatar</div>
+          <AvatarPicker
+            value={socio.avatar ?? null}
+            onChange={id => { void updateSocio(socio.id, { avatar: id }); setHoja(null); }}
+          />
+        </div>
       </BottomSheet>
     </div>
   );
