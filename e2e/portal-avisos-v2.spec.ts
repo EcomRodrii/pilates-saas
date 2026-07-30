@@ -22,7 +22,16 @@ test.describe('Avisos', () => {
   });
 
   test('el sello temporal se escribe en palabras, no en fecha ISO', async ({ page }) => {
-    await montarPortal(page, { conSesion: true });
+    // Reloj congelado a mediodía UTC, lejos de cualquier medianoche: sin esto,
+    // "hace 2 h" se calculaba contra la hora REAL de ejecución, y entre las
+    // 00:00 y las ~02:00 (hora del runner) esas 2 horas atrás caían en el DÍA
+    // DE AYER — selloTemporal() corta por día natural, no por horas — y la
+    // pantalla decía "ayer" en vez de "hace 2 h". Mismo instante en el reloj
+    // del navegador y en el mock (montarPortal `ahora`), para que los dos
+    // lados calculen "hace N h" contra el mismo punto de referencia.
+    const ahora = new Date('2026-07-15T12:00:00Z');
+    await page.clock.setFixedTime(ahora);
+    await montarPortal(page, { conSesion: true, ahora });
     await page.goto(`/portal/${SLUG}/notificaciones`);
 
     // En el DOM va en minúscula; las versalitas son CSS. Se comprueban las dos

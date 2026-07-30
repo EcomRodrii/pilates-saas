@@ -88,28 +88,44 @@ const MI_RESERVA = {
 };
 
 // Cuatro avisos como los del diseño: dos sin leer arriba, dos ya leídos abajo.
-const haceHoras = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
-const AVISOS_BASE = [
-  { id: 'n-1', title: 'Tu clase de hoy sigue en pie', body: 'Reformer Flow, 18:30 con Ana Ferrer. Te esperamos en la Sala Norte.',
-    deepLink: null, category: 'clases', priority: 'ALTA', eventType: 'clase.sustituida',
-    resourceType: null, resourceId: null, readAt: null, createdAt: haceHoras(2) },
-  { id: 'n-2', title: 'María Soler cubre el viernes', body: 'Tu Barre Sculpt del 31 de julio mantiene hora y sala.',
-    deepLink: null, category: 'clases', priority: 'NORMAL', eventType: 'clase.sustituida',
-    resourceType: null, resourceId: null, readAt: null, createdAt: haceHoras(26) },
-  { id: 'n-3', title: 'Te quedan 8 sesiones', body: 'Tu Bono 10 caduca el 30 de septiembre.',
-    deepLink: null, category: 'pagos', priority: 'NORMAL', eventType: 'bono.por_agotarse',
-    resourceType: null, resourceId: null, readAt: haceHoras(40), createdAt: haceHoras(50) },
-  { id: 'n-4', title: 'Nuevo taller el 12 de agosto', body: 'El descanso también es entrenamiento. 8 plazas.',
-    deepLink: null, category: 'general', priority: 'BAJA', eventType: 'estudio.aviso',
-    resourceType: null, resourceId: null, readAt: haceHoras(60), createdAt: haceHoras(122) },
-];
+//
+// Los "hace N h" se calculan relativos a `ahora` (parámetro), NO a Date.now()
+// real: portal-avisos-v2.spec.ts comprueba el sello "hace 2 h" comparando con
+// selloTemporal(), que corta por DÍA NATURAL (lib/avisos-portal.ts). Si esto
+// se calculaba con la hora real de ejecución, "hace 2 h" caía en el día de
+// AYER cada vez que el test corría entre las 00:00 y las ~02:00 (hora del
+// runner, UTC) — la fecha resultante quedaba antes de medianoche aunque solo
+// hubieran pasado 2 horas, y la pantalla decía "ayer" en vez de "hace 2 h".
+// Con `ahora` fijado por el test (mismo instante que congela page.clock), el
+// resultado es determinista sin importar a qué hora real corra el CI.
+function construirAvisos(ahora: Date) {
+  const haceHoras = (h: number) => new Date(ahora.getTime() - h * 3600_000).toISOString();
+  return [
+    { id: 'n-1', title: 'Tu clase de hoy sigue en pie', body: 'Reformer Flow, 18:30 con Ana Ferrer. Te esperamos en la Sala Norte.',
+      deepLink: null, category: 'clases', priority: 'ALTA', eventType: 'clase.sustituida',
+      resourceType: null, resourceId: null, readAt: null, createdAt: haceHoras(2) },
+    { id: 'n-2', title: 'María Soler cubre el viernes', body: 'Tu Barre Sculpt del 31 de julio mantiene hora y sala.',
+      deepLink: null, category: 'clases', priority: 'NORMAL', eventType: 'clase.sustituida',
+      resourceType: null, resourceId: null, readAt: null, createdAt: haceHoras(26) },
+    { id: 'n-3', title: 'Te quedan 8 sesiones', body: 'Tu Bono 10 caduca el 30 de septiembre.',
+      deepLink: null, category: 'pagos', priority: 'NORMAL', eventType: 'bono.por_agotarse',
+      resourceType: null, resourceId: null, readAt: haceHoras(40), createdAt: haceHoras(50) },
+    { id: 'n-4', title: 'Nuevo taller el 12 de agosto', body: 'El descanso también es entrenamiento. 8 plazas.',
+      deepLink: null, category: 'general', priority: 'BAJA', eventType: 'estudio.aviso',
+      resourceType: null, resourceId: null, readAt: haceHoras(60), createdAt: haceHoras(122) },
+  ];
+}
 
 export async function montarPortal(page: Page, opciones: {
   conSesion: boolean; fotoUrl?: string | null; sinPlazas?: boolean; sinHistorial?: boolean; sinAvisos?: boolean;
   /** Motivo con el que el servidor RECHAZA la reserva (400). Sin esto, acepta. */
   reservaRechazada?: string;
+  /** Instante contra el que se calculan los "hace N h" de los avisos — pásalo
+   * junto a page.clock.setFixedTime() con el MISMO valor cuando el test
+   * compruebe el sello temporal, para que no dependa de la hora real. */
+  ahora?: Date;
 }) {
-  const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada } = opciones;
+  const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada, ahora = new Date() } = opciones;
 
   if (conSesion) {
     await page.addInitScript(([sesion]) => {
@@ -139,7 +155,7 @@ export async function montarPortal(page: Page, opciones: {
       ? json(route, { error: reservaRechazada }, 400)
       : json(route, { estado: 'CONFIRMADA', reservaId: 'res-nueva' }));
   await page.route('**/api/notifications', route => {
-    const items = sinAvisos ? [] : AVISOS_BASE;
+    const items = sinAvisos ? [] : construirAvisos(ahora);
     return json(route, { items, unread: items.filter(a => a.readAt == null).length });
   });
   // El pase de acceso de Marta para su clase de dentro de 3 h.
