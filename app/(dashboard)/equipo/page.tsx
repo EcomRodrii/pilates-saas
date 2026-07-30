@@ -8,7 +8,7 @@ import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldChe
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora, uid as generarId } from '@/lib/utils';
 import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
-import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia, type EquipoStats, type ValoracionDetalle, type AusenciaInstructora } from '@/lib/api-client';
+import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia, fetchTarifasEquipo, actualizarTarifaInstructor, type EquipoStats, type ValoracionDetalle, type AusenciaInstructora } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
@@ -103,11 +103,19 @@ export default function EquipoPage() {
   const [verAusencias, setVerAusencias] = useState<Instructor | null>(null);
   // Ausencias vigentes del estudio → distintivo "De vacaciones/De baja" en la lista.
   const [ausencias, setAusencias] = useState<AusenciaInstructora[]>([]);
+  // Tarifa por hora — tabla aparte de `instructores` (dato salarial), el
+  // servidor decide qué filas devuelve según el rol de quien la pide.
+  const [tarifas, setTarifas] = useState<Record<string, number | null>>({});
+  const [tarifaHoraInput, setTarifaHoraInput] = useState('');
 
   useEffect(() => {
     let vivo = true;
     equipoStats().then(r => { if (vivo) setStats(r); });
     listarAusencias().then(r => { if (vivo) setAusencias(r); });
+    fetchTarifasEquipo().then(r => {
+      if (!vivo) return;
+      setTarifas(Object.fromEntries(r.map(t => [t.instructorId, t.tarifaHora])));
+    });
     return () => { vivo = false; };
   }, []);
 
@@ -175,6 +183,10 @@ export default function EquipoPage() {
   function openEditar(i: Instructor) {
     setForm({ tempId: i.id, nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, fotoUrl: i.fotoUrl ?? null, activo: i.activo, rol: i.rol });
     setEditId(i.id);
+    // La tarifa vive en su propia tabla (instructor_tarifas), no en `Instructor`
+    // — se fija solo al editar, nunca en el alta.
+    const tarifaActual = tarifas[i.id];
+    setTarifaHoraInput(tarifaActual == null ? '' : String(tarifaActual));
     setModal('editar');
   }
   // Enviar la invitación a alguien que ya está dado de alta.
@@ -218,7 +230,17 @@ export default function EquipoPage() {
       }
     } else if (editId) {
       updateInstructor(editId, fields);
-      showToast('Cambios guardados');
+      // La tarifa vive en su propia tabla — solo se toca si de verdad cambió,
+      // para no disparar un PATCH extra en cada guardado.
+      const tarifaAnterior = tarifas[editId] ?? null;
+      const tarifaNueva = tarifaHoraInput.trim() === '' ? null : Number(tarifaHoraInput);
+      let mensaje = 'Cambios guardados';
+      if (tarifaNueva !== tarifaAnterior) {
+        const r = await actualizarTarifaInstructor(editId, tarifaNueva);
+        if (r.ok) setTarifas(prev => ({ ...prev, [editId]: tarifaNueva }));
+        else mensaje = `Cambios guardados, pero la tarifa no se pudo actualizar: ${r.error ?? ''}`;
+      }
+      showToast(mensaje);
     }
     setModal(null);
   }
@@ -351,7 +373,7 @@ export default function EquipoPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {listaVisible.map(i => (
             <InstructorCard
-              key={i.id} i={i} carga={cargaPorInstructor.get(i.id) ?? 0}
+              key={i.id} i={i} carga={cargaPorInstructor.get(i.id) ?? 0} tarifa={tarifas[i.id] ?? null}
               prox={proximaClase.get(i.id) ?? null} val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
               menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
               onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
@@ -483,6 +505,24 @@ export default function EquipoPage() {
               <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} className="w-4 h-4 rounded accent-brand" />
               <span className="text-sm font-medium text-foreground">Miembro activo (puede recibir clases y citas)</span>
             </label>
+
+            {/* Solo al editar, nunca en el alta: es un dato que normalmente se
+                decide con calma, no en el momento de dar de alta a alguien.
+                Dato salarial — solo esta persona lo edita, la propia
+                instructora solo la ve en su perfil. */}
+            {modal === 'editar' && (
+              <div>
+                <label htmlFor={`${uid}-tarifa`} className={labelCls}>Tarifa por hora (opcional)</label>
+                <div className="relative">
+                  <input
+                    id={`${uid}-tarifa`} type="number" min={0} max={999.99} step={0.01}
+                    className={inputCls + ' pr-8'} value={tarifaHoraInput} placeholder="Sin asignar"
+                    onChange={e => setTarifaHoraInput(e.target.value)}
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">€/h</span>
+                </div>
+              </div>
+            )}
 
             {/* Solo al dar de alta y solo si hay email. Viene apagada: guardar la
                 ficha no debe disparar un correo. Si no la marca, la invitación
@@ -703,9 +743,9 @@ function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoracio
   );
 }
 
-function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvitar, ...acc }: {
+function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvitar, tarifa, ...acc }: {
   i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
-  invitando?: boolean; onInvitar?: () => void;
+  invitando?: boolean; onInvitar?: () => void; tarifa?: number | null;
 } & AccProps) {
   return (
     <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
@@ -724,6 +764,7 @@ function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvit
         {i.email && <p className="flex items-center gap-2 text-[13px] text-muted-foreground truncate"><Mail size={13} className="shrink-0" />{i.email}</p>}
         {i.telefono && <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Phone size={13} className="shrink-0" />{i.telefono}</p>}
         {!i.email && !i.telefono && <p className="text-[12px] text-muted-foreground italic">Sin datos de contacto</p>}
+        {tarifa != null && <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Clock size={13} className="shrink-0" />{tarifa.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/h</p>}
 
         {/* `authUserId` a null = todavía no ha reclamado su acceso. Antes esto no
             se veía en ninguna parte: el correo salía solo al guardar y, si se

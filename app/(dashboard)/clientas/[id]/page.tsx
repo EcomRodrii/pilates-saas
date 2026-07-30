@@ -4,6 +4,7 @@ import { use, useState, useEffect, useRef, useMemo, useId } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
+import { useAuth } from '@/lib/auth-context';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
@@ -215,6 +216,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // Salud) no. Antes el badge entero estaba detrás de `verFichaClinica`, así
   // que RECEPCIÓN no veía ni el aviso de riesgo.
   const verSemaforo = puedeVerSemaforo(rol);
+  const { user } = useAuth();
 
   const {
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
@@ -225,6 +227,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     notasProgreso, addNotaProgreso,
     condicionesSalud, camposPersonalizados,
   } = useStudio();
+
+  // Ficha de instructora del usuario logueado — la nota de progreso debe
+  // quedar a nombre de quien la escribe de verdad, no de `instructores[0]`
+  // (que colaba a la primera del equipo, dada de baja o no, como autora).
+  const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
 
   const semaforoLocal = useMemo(
     () => semaforo(condicionesSalud.filter(c => c.socioId === id)),
@@ -456,7 +463,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
         body: JSON.stringify({
           texto: aiNoteText,
           socioId: id,
-          instructorId: instructores[0]?.id ?? 'inst-1',
+          instructorId: yo?.id ?? instructores[0]?.id ?? '',
         }),
       });
       const data = await res.json();
@@ -474,11 +481,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     }
   }
 
-  function handleSaveAiNote() {
+  async function handleSaveAiNote() {
     if (!aiResult) return;
-    addNotaProgreso({
+    const res = await addNotaProgreso({
       socioId: id,
-      instructorId: instructores[0]?.id ?? 'inst-1',
+      instructorId: yo?.id ?? instructores[0]?.id ?? '',
       sesionId: null,
       textoLibre: aiNoteText,
       progreso: aiResult.progreso,
@@ -486,6 +493,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       planProximaSesion: aiResult.planProximaSesion,
       ejerciciosCasa: aiResult.ejerciciosCasa,
     });
+    if (!res.ok) { setToast('No se ha podido guardar la nota. Inténtalo de nuevo.'); return; }
     setAiNoteText('');
     setAiResult(null);
     setToast('Nota guardada');
@@ -833,7 +841,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     )}
                   </div>
 
-                  {/* AI Instructor Notes */}
+                  {/* AI Instructor Notes — dato de seguimiento/salud de la
+                      socia (progreso, alertas, ejercicios): mismo criterio que
+                      la ficha clínica (verFichaClinica), no el de "gestiona
+                      clientas". Antes se veía en el resumen general sin mirar
+                      el rol — RECEPCIÓN podía leer y crear notas clínicas. */}
+                  {verFichaClinica && (
                   <div className="border border-border rounded-xl p-5">
                     <div className="flex items-center gap-2 mb-4">
                       <Bot size={15} className="text-muted-foreground" />
@@ -920,6 +933,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               )}
 

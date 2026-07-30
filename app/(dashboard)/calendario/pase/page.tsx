@@ -14,6 +14,7 @@
 // caracteres no es el plan B: es la mitad del plan.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import jsQR from 'jsqr';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Camera, CheckCircle2, AlertCircle, DoorOpen } from 'lucide-react';
@@ -41,7 +42,10 @@ declare global {
 export default function LeerPasePage() {
   useParams();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [camara, setCamara] = useState<'apagada' | 'pidiendo' | 'activa' | 'sin-permiso' | 'sin-soporte'>('apagada');
+  // Ya no hay estado «sin-soporte»: con el respaldo de jsQR la cámara lee en
+  // cualquier navegador con `getUserMedia`. Lo único que puede faltar ahora es
+  // el PERMISO, que sí es cosa de quien mira.
+  const [camara, setCamara] = useState<'apagada' | 'pidiendo' | 'activa' | 'sin-permiso'>('apagada');
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [codigo, setCodigo] = useState('');
@@ -65,7 +69,6 @@ export default function LeerPasePage() {
   }, []);
 
   const encender = useCallback(async () => {
-    if (!window.BarcodeDetector) { setCamara('sin-soporte'); return; }
     setCamara('pidiendo');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -82,10 +85,31 @@ export default function LeerPasePage() {
   // Bucle de lectura. Va con `requestAnimationFrame` y un detector reutilizado:
   // crear uno por fotograma es lo que convierte esto en un calentador de móvil.
   useEffect(() => {
-    if (camara !== 'activa' || !window.BarcodeDetector) return;
-    const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+    if (camara !== 'activa') return;
+    // Nativo donde existe; donde no, jsQR sobre un canvas. NO es un capricho de
+    // dependencia: Safari no implementa `BarcodeDetector` en NINGUNA versión y
+    // en iOS todos los navegadores son WebKit, así que sin esto la cámara no
+    // lee en iPhone ni en iPad — y el mostrador de un estudio suele ser un
+    // iPad. Verificado en vivo el 2026-07-30: el lector se rendía y mandaba a
+    // teclear el código a mano.
+    const detector = window.BarcodeDetector ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
+    const lienzo = detector ? null : document.createElement('canvas');
+    const ctx = lienzo ? lienzo.getContext('2d', { willReadFrequently: true }) : null;
     let vivo = true;
     let ultimo = 0;
+
+    const leerConJsQR = (video: HTMLVideoElement): string | null => {
+      if (!lienzo || !ctx) return null;
+      // Se decodifica a 480 px de ancho como mucho: a resolución completa el
+      // bucle se come la CPU de una tablet y baja de 8 lecturas por segundo.
+      const escala = Math.min(1, 480 / (video.videoWidth || 480));
+      lienzo.width = Math.round(video.videoWidth * escala);
+      lienzo.height = Math.round(video.videoHeight * escala);
+      if (!lienzo.width || !lienzo.height) return null;
+      ctx.drawImage(video, 0, 0, lienzo.width, lienzo.height);
+      const datos = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
+      return jsQR(datos.data, datos.width, datos.height, { inversionAttempts: 'dontInvert' })?.data ?? null;
+    };
 
     const mirar = async (ts: number) => {
       if (!vivo) return;
@@ -94,8 +118,9 @@ export default function LeerPasePage() {
       if (ts - ultimo > 125 && videoRef.current && videoRef.current.readyState >= 2) {
         ultimo = ts;
         try {
-          const encontrados = await detector.detect(videoRef.current);
-          const valor = encontrados[0]?.rawValue;
+          const valor = detector
+            ? (await detector.detect(videoRef.current))[0]?.rawValue
+            : leerConJsQR(videoRef.current);
           // El mismo QR sigue delante de la cámara muchos fotogramas seguidos:
           // sin esta guarda se dispararían decenas de peticiones por lectura.
           if (valor && valor !== ultimoLeido.current) {
@@ -136,7 +161,6 @@ export default function LeerPasePage() {
           {camara !== 'activa' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6" style={{ background: 'var(--muted, #F1F1EC)' }}>
               <Camera size={26} className="opacity-60" />
-              {camara === 'sin-soporte' && <p className="text-sm opacity-70">Este navegador no puede leer códigos. Usa el código de abajo.</p>}
               {camara === 'sin-permiso' && <p className="text-sm opacity-70">No nos has dado permiso para la cámara. Usa el código de abajo.</p>}
               {camara === 'apagada' && (
                 <button type="button" onClick={encender} className="px-4 py-2.5 rounded-xl text-sm font-bold" style={{ background: 'var(--brand)', color: 'var(--brand-foreground)' }}>

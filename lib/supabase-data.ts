@@ -2846,9 +2846,9 @@ export async function dbInsertAutomationRule(r: AutomationRule) {
   if (error) reportDbError('[dbInsertAutomationRule]', error);
 }
 
-export async function dbInsertNotaProgreso(nota: NotaProgreso) {
+export async function dbInsertNotaProgreso(nota: NotaProgreso): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('notas_progreso').insert(notaProgresoToDb(nota));
-  if (error) reportDbError('[dbInsertNotaProgreso]', error);
+  return error ? falloEscritura('[dbInsertNotaProgreso]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertCodigoDescuento(c: CodigoDescuento) {

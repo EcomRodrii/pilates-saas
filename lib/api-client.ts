@@ -1338,6 +1338,42 @@ export async function enviarPruebaPlantilla(datos: BorradorPlantilla): Promise<{
   }
 }
 
+// Tarifa por hora de una instructora — tabla aparte de `instructores`
+// (ver migración 20260731110000_instructor_tarifas.sql). El servidor decide
+// qué filas devuelve según el rol de la sesión: PROPIETARIO/MANAGER ven todo
+// el equipo, una INSTRUCTOR solo la suya.
+export interface TarifaInstructor {
+  instructorId: string;
+  tarifaHora: number | null;
+}
+
+export async function fetchTarifasEquipo(): Promise<TarifaInstructor[]> {
+  try {
+    const res = await fetch('/api/equipo/tarifas', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { items?: TarifaInstructor[] };
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function actualizarTarifaInstructor(
+  instructorId: string, tarifaHora: number | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/equipo/tarifas', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ instructorId, tarifaHora }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar la tarifa' };
+  }
+}
+
 // El pase de acceso de la clienta (QR + código corto). Devuelve null si algo
 // falla: la hoja del pase enseña su propio aviso y no rompe el inicio.
 export async function pedirPaseDeAcceso(slug: string) {
