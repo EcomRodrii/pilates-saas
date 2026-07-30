@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { planDePriceId } from '@/lib/billing/billing';
 import { capturar } from '@/lib/analytics';
-import { webhookYaProcesado, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
+import { reclamarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Webhook de Stripe Billing (suscripción del estudio al SaaS). Distinto del
@@ -30,8 +30,9 @@ export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
-  // M10: idempotencia por event.id — saltar si ya se procesó con éxito.
-  if (await webhookYaProcesado(admin, event.id)) {
+  // M10: idempotencia por event.id — reclamación atómica: saltar si ya se
+  // procesó con éxito o hay otra entrega en vuelo dentro de la ventana.
+  if (!await reclamarWebhookEvent(admin, event.id, event.type)) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   }
 
   // M10: marcar procesado solo si llegó aquí sin error (el catch devuelve 500 antes).
-  await marcarWebhookProcesado(admin, event.id, event.type);
+  await marcarWebhookProcesado(admin, event.id);
   return NextResponse.json({ received: true });
 }
 

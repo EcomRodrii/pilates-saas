@@ -430,7 +430,23 @@ export default function Dashboard() {
   // Hydration fix — avoids server/client mismatch with Date
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const now = mounted ? new Date() : new Date('2026-06-29');
+  // Auditoría 2026-07-29, I-4 + M-4: `new Date()` sin memoizar creaba un
+  // objeto NUEVO en cada render, y `now` está en las dependencias de varios
+  // useMemo pesados de abajo (sparkData, ocupación, MRR, huecos próximos,
+  // candidatas) — recalculaban en CADA render, incluido uno tan ajeno como
+  // abrir un toast. Pero congelarlo en un useMemo([mounted]) (la primera
+  // versión de este fix) se pasaba de frenada: `now` quedaba fijo PARA
+  // SIEMPRE tras montar, así que una pestaña abierta hasta medianoche seguía
+  // viendo "hoy" como el día de ayer, y el saludo nunca pasaba de "Buenos
+  // días". El estado + intervalo de abajo actualiza `now` cada minuto (nunca
+  // en cada render) — arregla las dos cosas a la vez.
+  const [now, setNow] = useState(() => new Date('2026-06-29'));
+  useEffect(() => {
+    if (!mounted) return;
+    setNow(new Date());
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, [mounted]);
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -441,6 +457,20 @@ export default function Dashboard() {
   // no hacer sesiones.find() dentro de bucles sobre reservas/socios (cuadrático).
   const sesionById = useMemo(() => new Map(sesiones.map(s => [s.id, s])), [sesiones]);
   const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
+  const tipoClaseById = useMemo(() => new Map(tiposClase.map(t => [t.id, t])), [tiposClase]);
+  // Auditoría 2026-07-29, I-5: plazas ocupadas (CONFIRMADA/ASISTIDA) por
+  // sesión, contadas en una sola pasada. ocupacionMedia hacía un
+  // reservas.filter() POR CADA sesión de la semana — cuadrático con estudios
+  // grandes (muchas sesiones × muchas reservas).
+  const ocupadasPorSesion = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of reservas) {
+      if (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA') {
+        m.set(r.sesionId, (m.get(r.sesionId) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [reservas]);
   const sesionesHoyIds = useMemo(
     () => new Set(sesiones.filter(s => localDate(s.inicio) === hoyStr).map(s => s.id)),
     [sesiones, hoyStr],
@@ -525,13 +555,17 @@ export default function Dashboard() {
       // A-16: plazas ocupadas = CONFIRMADA/ASISTIDA. Antes contaba toda reserva
       // no cancelada (incluía LISTA_ESPERA y NO_ASISTIO), inflando la ocupación
       // por encima del 100% y discrepando de Informes.
-      const ocupadas = reservas.filter(
-        r => r.sesionId === s.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')
-      ).length;
+      const ocupadas = ocupadasPorSesion.get(s.id) ?? 0;
       return sum + ocupadas / s.aforoMaximo;
     }, 0);
     return Math.round((total / sessSemana.length) * 100);
-  }, [sesiones, reservas, now]);
+  }, [sesiones, ocupadasPorSesion, now]);
+
+  // Auditoría 2026-07-29, M-3: `.find` lineal dentro de un `.map`/`.filter`
+  // pese a que ya existen índices por Map — aquí se repetía 3 veces solo en
+  // este bloque (planesTarifa.find) más socios.find, cuando socioById ya
+  // existía y planById es trivial de construir.
+  const planById = useMemo(() => new Map(planesTarifa.map(p => [p.id, p])), [planesTarifa]);
 
   // ── MRR ─────────────────────────────────────────────────────────────────────
   const { renovacionesProximas } = useMemo(() => {
@@ -540,7 +574,7 @@ export default function Dashboard() {
     // BONO/PUNTUAL (pago único) prorrateado por sesiones → MRR y ARR (mrr*12)
     // sobrestimados en cualquier estudio que venda bonos o clases sueltas.
     const mensualMrr = activas.reduce((sum, s) => {
-      const plan = planesTarifa.find(p => p.id === s.planId);
+      const plan = planById.get(s.planId);
       return plan?.tipo === 'MENSUAL' ? sum + plan.precio : sum;
     }, 0);
 
@@ -549,19 +583,19 @@ export default function Dashboard() {
       .slice(0, 10);
     const renovs = activas
       .filter(s => {
-        const plan = planesTarifa.find(p => p.id === s.planId);
+        const plan = planById.get(s.planId);
         return plan?.tipo === 'MENSUAL' && s.fechaFin && s.fechaFin >= hoyStr && s.fechaFin <= en30;
       })
       .map(s => ({
         ...s,
-        socio: socios.find(x => x.id === s.socioId),
-        plan: planesTarifa.find(p => p.id === s.planId),
+        socio: socioById.get(s.socioId),
+        plan: planById.get(s.planId),
       }))
       .filter(r => r.socio && r.plan)
       .slice(0, 6);
 
     return { mrr: mensualMrr, renovacionesProximas: renovs };
-  }, [suscripciones, planesTarifa, socios, hoyStr, now]);
+  }, [suscripciones, planById, socioById, hoyStr, now]);
 
   // ── Clases de hoy ───────────────────────────────────────────────────────────
   const clasesHoy = useMemo(
@@ -569,14 +603,19 @@ export default function Dashboard() {
       sesiones
         .filter(s => !s.cancelada && localDate(s.inicio) === hoyStr)
         .sort((a, b) => a.inicio.localeCompare(b.inicio))
-        .map(s => ({
-          ...s,
-          tipoNombre: tiposClase.find(t => t.id === s.tipoClaseId)?.nombre ?? 'Clase',
-          tipoColor: tiposClase.find(t => t.id === s.tipoClaseId)?.color ?? 'var(--muted-foreground)',
-          salaNombre: salas.find(x => x.id === s.salaId)?.nombre ?? '',
-          instructorNombre: instructores.find(i => i.id === s.instructorId)?.nombre ?? '',
-        })),
-    [sesiones, hoyStr, tiposClase, salas, instructores]
+        .map(s => {
+          // M-3: un solo lookup en tipoClaseById en vez de dos .find() lineales
+          // (nombre y color pedían cada uno el suyo sobre el mismo tipoClaseId).
+          const tipo = tipoClaseById.get(s.tipoClaseId);
+          return {
+            ...s,
+            tipoNombre: tipo?.nombre ?? 'Clase',
+            tipoColor: tipo?.color ?? 'var(--muted-foreground)',
+            salaNombre: salas.find(x => x.id === s.salaId)?.nombre ?? '',
+            instructorNombre: instructores.find(i => i.id === s.instructorId)?.nombre ?? '',
+          };
+        }),
+    [sesiones, hoyStr, tipoClaseById, salas, instructores]
   );
 
   const isNowFn = (s: { inicio: string; fin: string }) => {
@@ -616,19 +655,24 @@ export default function Dashboard() {
   // automationLogs es un log de auditoría acumulativo (motor de notificaciones);
   // estos filtros recorrían el array completo en cada render del Dashboard,
   // incluidos los disparados por estado no relacionado (toasts, confirms).
+  //
+  // M-4 (auditoría 2026-07-29): antes calculaba su propio `today` con
+  // `new Date()` pero solo dependía de `automationLogs` -- si esa lista no
+  // cambiaba, la pestaña seguía contando "hoy" como el día en que se montó,
+  // incluso pasada la medianoche. `hoyStr` viene de `now`, que ahora se
+  // actualiza cada minuto (ver arriba), así que este memo recalcula solo de
+  // verdad cuando el día cambia.
   const automationBriefing = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const todayLogs = automationLogs.filter(l => l.ejecutadoEn.startsWith(today));
+    const todayLogs = automationLogs.filter(l => l.ejecutadoEn.startsWith(hoyStr));
     const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
     const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
     // 'ESPERANDO' nunca lo escribe ningún camino de ejecución: aquí marcaba
     // siempre 0 (P2-4). 'FALLIDO' sí ocurre de verdad.
     const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
     return { pendingAdmin, ejecutadas, fallidas };
-  }, [automationLogs]);
+  }, [automationLogs, hoyStr]);
 
   // ── Radar de ocupación: clases con hueco en las próximas 48h ────────────────
-  const tipoClaseById = useMemo(() => new Map(tiposClase.map(t => [t.id, t])), [tiposClase]);
   const huecosProximos = useMemo(
     () => clasesConHuecoProximas({ sesiones, reservas, ahora: now }).slice(0, 5),
     [sesiones, reservas, now]

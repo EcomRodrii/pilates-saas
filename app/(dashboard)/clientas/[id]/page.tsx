@@ -4,10 +4,11 @@ import { use, useState, useEffect, useRef, useMemo, useId } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
+import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
 import { authHeader, enviarEmailCampana } from '@/lib/api-client';
-import { useRol, puedeVerFichaClinica, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
@@ -210,6 +211,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // nadie lo decidiera. Ahora lo dice una regla con nombre.
   const verFinanzas = puedeVerFinanzas(rol);
   const verFichaClinica = puedeVerFichaClinica(rol);
+  // El semáforo (solo el color) sí lo ve RECEPCIÓN — el detalle (pestaña
+  // Salud) no. Antes el badge entero estaba detrás de `verFichaClinica`, así
+  // que RECEPCIÓN no veía ni el aviso de riesgo.
+  const verSemaforo = puedeVerSemaforo(rol);
 
   const {
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
@@ -221,10 +226,18 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     condicionesSalud, camposPersonalizados,
   } = useStudio();
 
-  const semaforoSocio = useMemo(
+  const semaforoLocal = useMemo(
     () => semaforo(condicionesSalud.filter(c => c.socioId === id)),
     [condicionesSalud, id],
   );
+  // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
+  // leer las filas — `condicionesSalud` le llega SIEMPRE vacío, así que el
+  // cálculo local de arriba nunca produce nada para ese rol.
+  // useSemaforoRecepcion trae el nivel de TODO el estudio en una sola
+  // llamada; navegar a otra socia solo reindexa el mismo Map por otra
+  // clave (sin re-fetch y sin arrastrar el nivel de la socia anterior).
+  const semaforoRecepcion = useSemaforoRecepcion(rol);
+  const semaforoSocio = rol === 'RECEPCION' ? (semaforoRecepcion.get(id) ?? 'VERDE') : semaforoLocal;
 
   // ── Hydration fix ──────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
@@ -1167,12 +1180,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: socio.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
                 {socio.activo ? 'Activa' : 'Inactiva'}
               </span>
-              {verFichaClinica && semaforoSocio !== 'VERDE' && (
+              {verSemaforo && semaforoSocio !== 'VERDE' && (
                 <button
-                  onClick={() => setActiveTab('salud')}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full mt-2 ml-2 hover:brightness-95"
+                  onClick={verFichaClinica ? () => setActiveTab('salud') : undefined}
+                  disabled={!verFichaClinica}
+                  className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full mt-2 ml-2 ${verFichaClinica ? 'hover:brightness-95 cursor-pointer' : 'cursor-default'}`}
                   style={{ backgroundColor: `${SEMAFORO_META[semaforoSocio].color}1A`, color: SEMAFORO_META[semaforoSocio].color }}
-                  title="Ver ficha de salud"
+                  title={verFichaClinica ? 'Ver ficha de salud' : SEMAFORO_META[semaforoSocio].label}
                 >
                   <span aria-hidden>{SEMAFORO_META[semaforoSocio].emoji}</span>
                   {SEMAFORO_META[semaforoSocio].label}

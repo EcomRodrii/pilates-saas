@@ -2,9 +2,11 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
+import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
+import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { queImparten } from '@/lib/equipo';
-import { useRol, puedeVerFichaClinica, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { semaforo, alertaPreClase, SEMAFORO_META, RESPUESTAS_ORDEN, RESPUESTA_META, resumenSaludClase } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida } from '@/lib/types';
@@ -358,8 +360,19 @@ function SessionSidebar({
   onLiberarSpot: (reservaId: string) => void;
   onAsignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
 }) {
-  const { studio, condicionesSalud, respuestasSesion, registrarRespuestaSesion } = useStudio();
-  const verFichaClinica = puedeVerFichaClinica(useRol());
+  const { studio, instructores, condicionesSalud, respuestasSesion, registrarRespuestaSesion } = useStudio();
+  const { user } = useAuth();
+  const rolCalendario = useRol();
+  const verFichaClinica = puedeVerFichaClinica(rolCalendario);
+  const verSemaforo = puedeVerSemaforo(rolCalendario);
+  const gestionaClientas = puedeGestionarClientas(rolCalendario);
+  // "Solo lo suyo": una instructora gestiona (editar/cancelar/buscar sustituta)
+  // sus PROPIAS clases, no las de otra instructora — la RLS de `sesiones`
+  // (UPDATE) ya lo exige en servidor; esto es la misma barrera en la UI, igual
+  // que `gestionaClientas` para "Añadir clienta". `yo` resuelve la ficha de
+  // instructora del usuario autenticado, mismo patrón que profile-menu/sidebar.
+  const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
+  const esInstructor = rolCalendario === 'INSTRUCTOR';
   const [buscarSocia, setBuscarSocia] = useState('');
   const [showAnadir, setShowAnadir] = useState(false);
   const [showConfirm, setShowConfirm] = useState<'cancelar' | 'eliminar' | null>(null);
@@ -369,7 +382,10 @@ function SessionSidebar({
   const [prepIAError, setPrepIAError] = useState(false);
 
   // Ficha clínica: condiciones por socia + alertas antes de la clase (§4, §7).
-  // Solo PROPIETARIO/INSTRUCTOR; RECEPCIÓN no ve semáforo ni motivo (§11).
+  // Solo PROPIETARIO/INSTRUCTOR ven el motivo/detalle; RECEPCIÓN solo el
+  // semáforo (§11) — por eso `condicionesPorSocio` (detalle completo) sigue
+  // detrás de `verFichaClinica`, y el color del semáforo vive en un mapa
+  // aparte más ligero (solo nivel, sin condiciones) para RECEPCIÓN.
   const hoy = useMemo(() => new Date(), []);
   const condicionesPorSocio = useMemo(() => {
     const m = new Map<string, typeof condicionesSalud>();
@@ -381,6 +397,26 @@ function SessionSidebar({
     }
     return m;
   }, [condicionesSalud, verFichaClinica]);
+
+  const nivelSemaforoPorSocio = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof semaforo>>();
+    if (!verSemaforo) return m;
+    const grupos = new Map<string, typeof condicionesSalud>();
+    for (const c of condicionesSalud) {
+      const arr = grupos.get(c.socioId) ?? [];
+      arr.push(c);
+      grupos.set(c.socioId, arr);
+    }
+    for (const [socioId, conds] of grupos) m.set(socioId, semaforo(conds));
+    return m;
+  }, [condicionesSalud, verSemaforo]);
+
+  // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
+  // leer las filas — el mapa de arriba nunca produce nada para ese rol
+  // porque `condicionesSalud` le llega vacío. useSemaforoRecepcion pide el
+  // nivel ya calculado por RPC (sin condiciones ni motivo).
+  const semaforoRecepcion = useSemaforoRecepcion(rolCalendario);
+  const semaforoParaMostrar = rolCalendario === 'RECEPCION' ? semaforoRecepcion : nivelSemaforoPorSocio;
 
   const alertasClase = useMemo(() => {
     if (!verFichaClinica) return [] as string[];
@@ -442,6 +478,11 @@ function SessionSidebar({
   }, [reservas, socios, buscarSocia]);
 
   if (!sesion) return null;
+
+  // Ya con `sesion` no-null: es su propia clase si no es instructora (esas
+  // acciones se comprueban con `gestionaClientas`/rol más abajo) o si la
+  // ficha de instructora coincide con quien da la clase.
+  const esPropiaClase = !esInstructor || (!!yo && sesion.instructorId === yo.id);
 
   const pct = sesion.aforoMaximo > 0 ? Math.round((sesion.confirmadas / sesion.aforoMaximo) * 100) : 0;
   const barColor = colorOcupacion(ratioOcupacion(sesion.confirmadas, sesion.aforoMaximo));
@@ -519,7 +560,12 @@ function SessionSidebar({
         </div>
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons — "solo lo suyo": una instructora no edita/cancela ni
+          busca sustituta para la clase de OTRA instructora (la RLS de
+          `sesiones` ya lo exige en servidor). Eliminar es más fuerte que
+          cancelar (borra reservas), así que queda solo para quien gestiona el
+          calendario, ni siquiera en su propia clase. */}
+      {esPropiaClase && (
       <div className="px-5 py-2.5 border-b border-border flex items-center gap-2">
         <button
           onClick={onOpenEdit}
@@ -539,6 +585,7 @@ function SessionSidebar({
         >
           <X size={12} />Cancelar
         </button>
+        {!esInstructor && (
         <button
           onClick={() => setShowConfirm('eliminar')}
           aria-label="Eliminar sesión"
@@ -546,7 +593,9 @@ function SessionSidebar({
         >
           <Trash2 size={12} />
         </button>
+        )}
       </div>
+      )}
 
       {/* Confirm overlay */}
       {showConfirm && (
@@ -698,8 +747,9 @@ function SessionSidebar({
                 )}
               </div>
             )}
-            {/* Add attendee */}
-            {!showAnadir ? (
+            {/* Add attendee — no es trabajo de instructora (puedeGestionarClientas
+                ya lo excluye en servidor: RLS de insert/delete en `reservas`). */}
+            {gestionaClientas && (!showAnadir ? (
               <button
                 onClick={() => setShowAnadir(true)}
                 className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-border text-xs font-bold text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors mb-3"
@@ -749,7 +799,7 @@ function SessionSidebar({
                   Cancelar
                 </button>
               </div>
-            )}
+            ))}
 
             {/* Attendee list */}
             {reservas.length === 0 ? (
@@ -781,8 +831,7 @@ function SessionSidebar({
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate flex items-center gap-1.5">
                         {(() => {
-                          const conds = condicionesPorSocio.get(r.socioId);
-                          const nivel = conds ? semaforo(conds) : 'VERDE';
+                          const nivel = semaforoParaMostrar.get(r.socioId) ?? 'VERDE';
                           return nivel !== 'VERDE' ? (
                             <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[nivel].label} style={{ backgroundColor: SEMAFORO_META[nivel].color }} />
                           ) : null;
@@ -865,6 +914,12 @@ function SessionSidebar({
                           <RefreshCw size={11} />Deshacer
                         </button>
                       )}
+                      {/* Quitar reserva es la otra cara de "Añadir clienta": mismo
+                          permiso (gestionaClientas), no esPropiaClase — gestionar el
+                          listado de asistentes no es trabajo de instructora en NINGUNA
+                          clase, ni siquiera la suya (cancelar_reserva_plaza en servidor
+                          exige lo mismo). */}
+                      {gestionaClientas && (
                       <button
                         onClick={() => onCancelarReserva(r.id)}
                         aria-label="Quitar reserva"
@@ -872,6 +927,7 @@ function SessionSidebar({
                       >
                         <X size={12} />
                       </button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -2268,7 +2324,10 @@ export default function Calendario() {
             </button>
           </div>
 
-          {/* Nueva clase dropdown */}
+          {/* Nueva clase dropdown — crear clases no es trabajo de instructora
+              (mismo permiso que "Añadir clienta"/"Importar horario": RLS de
+              insert en `sesiones` ya lo exige en servidor). */}
+          {gestionaClientas && (
           <div className="relative">
             <div className="flex rounded-xl overflow-hidden bg-primary">
               <button
@@ -2305,6 +2364,7 @@ export default function Calendario() {
               </>
             )}
           </div>
+          )}
         </div>
         }
       />
@@ -2368,6 +2428,9 @@ export default function Calendario() {
             selectedId={sesionId}
             onSesionClick={id => setSesionId(prev => prev === id ? null : id)}
             onSlotClick={(fecha, hora) => {
+              // Clicar un hueco vacío es OTRA vía de crear una clase: mismo
+              // guard que el botón "Nueva clase".
+              if (!gestionaClientas) return;
               const base = emptyForm();
               const horaFin = finSegunDuracion(hora, base.tipoClaseId);
               const inicio = toISO(fecha, hora);

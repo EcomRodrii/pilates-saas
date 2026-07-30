@@ -90,7 +90,12 @@ export function ProfileMenu() {
         {open && (
           <div className="absolute right-0 top-full mt-2 w-64 bg-card rounded-2xl shadow-xl border border-border py-1.5 z-20">
             <div className="px-3.5 py-2.5 border-b border-muted">
-              <p className="text-[13px] font-semibold text-foreground truncate">{studio?.nombre ?? 'Tentare'}</p>
+              {/* Quien tiene ficha propia (instructora/manager/recepción) es una
+                  persona distinta del estudio: ver el nombre del negocio en vez
+                  del suyo aquí es la razón por la que este menú "no parecía
+                  suyo". La propietaria sin ficha (yo === null) sigue viendo el
+                  nombre del estudio, que es lo único que tiene. */}
+              <p className="text-[13px] font-semibold text-foreground truncate">{yo ? yo.nombre : (studio?.nombre ?? 'Tentare')}</p>
               <p className="text-[12px] text-muted-foreground truncate">{userEmail}</p>
             </div>
             {misEstudios.length > 1 && (
@@ -115,7 +120,7 @@ export function ProfileMenu() {
               </div>
             )}
             <Link
-              href="/configuracion?tab=perfil"
+              href="/mi-perfil"
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-foreground hover:bg-muted transition-colors"
             >

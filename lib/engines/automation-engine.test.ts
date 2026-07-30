@@ -301,7 +301,7 @@ test('NUEVA_SOCIA: ya asistió → sin candidatos', () => {
 test('RENOVACION_COBRADA: recibo cobrado con suscripción → confirma, y no se repite para el mismo recibo', () => {
   const r = rule({ trigger: 'RENOVACION_COBRADA', condicion: { hitoMeses: 6 } });
   const s = socio({ id: 'a', fechaAlta: diasAntes(400) }); // no cae justo en un múltiplo de 6 meses
-  const rec = recibo({ socioId: 'a', estado: 'COBRADO', suscripcionId: 'sus-1' });
+  const rec = recibo({ socioId: 'a', estado: 'COBRADO', suscripcionId: 'sus-1', fechaCobro: diasAntes(0) });
   const c1 = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], recibos: [rec] }), NOW);
   assert.equal(c1.length, 1);
   assert.equal(c1[0].accion, 'ENVIAR_EMAIL');
@@ -314,7 +314,26 @@ test('RENOVACION_COBRADA: recibo cobrado con suscripción → confirma, y no se 
 test('RENOVACION_COBRADA: recibo sin suscripcionId (venta suelta) → no genera candidato', () => {
   const r = rule({ trigger: 'RENOVACION_COBRADA', condicion: {} });
   const s = socio({ id: 'a' });
-  const rec = recibo({ socioId: 'a', estado: 'COBRADO', suscripcionId: null });
+  const rec = recibo({ socioId: 'a', estado: 'COBRADO', suscripcionId: null, fechaCobro: diasAntes(0) });
+  const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], recibos: [rec] }), NOW);
+  assert.equal(c.length, 0);
+});
+
+test('RENOVACION_COBRADA: recibo cobrado hace tiempo (fuera de la ventana de recencia) → no genera candidato', () => {
+  // I-1: sin ventana de recencia, activar la regla por primera vez mandaba
+  // "Renovación confirmada" por cada recibo cobrado de toda la historia del
+  // estudio. Un cobro de hace un año no debe generar nada hoy.
+  const r = rule({ trigger: 'RENOVACION_COBRADA', condicion: {} });
+  const s = socio({ id: 'a' });
+  const rec = recibo({ socioId: 'a', estado: 'COBRADO', suscripcionId: 'sus-1', fechaCobro: diasAntes(365) });
+  const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], recibos: [rec] }), NOW);
+  assert.equal(c.length, 0);
+});
+
+test('RENOVACION_COBRADA: recibo cobrado sin fechaCobro → no genera candidato (dato incompleto, no se asume reciente)', () => {
+  const r = rule({ trigger: 'RENOVACION_COBRADA', condicion: {} });
+  const s = socio({ id: 'a' });
+  const rec = recibo({ socioId: 'a', estado: 'COBRADO', suscripcionId: 'sus-1', fechaCobro: null });
   const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], recibos: [rec] }), NOW);
   assert.equal(c.length, 0);
 });

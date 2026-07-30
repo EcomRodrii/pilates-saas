@@ -45,6 +45,36 @@ export default function LandingPage() {
     router.replace(tieneDecisionOS ? '/centro-de-control' : '/dashboard');
   }, [session, studio, rol, router]);
 
+  // El scroll nativo del navegador a #ancla (p. ej. /#precio) pierde la
+  // carrera en esta página: con ~20 secciones, fuentes e imágenes aún
+  // asentando el layout tras la hidratación, el navegador a veces intenta el
+  // salto antes de que el elemento exista en su posición final y se queda
+  // arriba del todo (detectado auditando: cargar /#precio en frío se quedaba
+  // en la cabecera, no en Precio). Lo hacemos nosotros, con reintento por
+  // frame hasta que el elemento exista, y una corrección a los 400ms por si
+  // algo desplaza el layout justo después (p. ej. una fuente que termina de
+  // cargar). `IntroLogo` es `position: fixed`, así que hacer scroll debajo de
+  // la cortina mientras tapa la pantalla no tiene ningún efecto visible.
+  useEffect(() => {
+    if (!window.location.hash) return;
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    let intentos = 0;
+    let vivo = true;
+    const intentar = () => {
+      if (!vivo) return;
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ block: 'start' });
+        setTimeout(() => { if (vivo) el.scrollIntoView({ block: 'start' }); }, 400);
+      } else if (intentos < 20) {
+        intentos++;
+        requestAnimationFrame(intentar);
+      }
+    };
+    requestAnimationFrame(intentar);
+    return () => { vivo = false; };
+  }, []);
+
   return (
     <div className={plexMono.variable} style={{ background: BG, color: '#1A1A1A', overflowX: 'clip', position: 'relative' }}>
       {/* Va ARRIBA del todo pero se pinta solo en cliente: el HTML del servidor

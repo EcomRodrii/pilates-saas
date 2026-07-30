@@ -18,6 +18,7 @@ import {
 import { fetchExterno } from '@/lib/fetch-externo';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1';
 const PEOPLE_API = 'https://people.googleapis.com/v1';
 // El scope se construye en el cliente (conectarGmail en tab-integraciones.tsx),
@@ -96,6 +97,20 @@ async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: 
     throw new Error(data.error_description ?? data.error ?? 'No se pudo renovar el token de Gmail');
   }
   return { accessToken: data.access_token, expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString() };
+}
+
+// Al desconectar, no basta con borrar la fila local — mismo motivo que
+// lib/google-calendar.ts. Best-effort: no bloquea la desconexión local.
+export async function revocarToken(token: string): Promise<void> {
+  try {
+    await fetchExterno(REVOKE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token }),
+    });
+  } catch (e) {
+    console.error('[gmail] revocarToken:', e instanceof Error ? e.message : e);
+  }
 }
 
 // Devuelve un access token válido para el estudio, renovándolo primero si ya
