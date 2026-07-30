@@ -10,7 +10,17 @@ export function Card({ style, children, ...props }: HTMLAttributes<HTMLDivElemen
   const { t } = useModo();
   return (
     <div
-      style={{ background: t.surface, border: `1px solid ${t.line}`, borderRadius: radius.card, ...style }}
+      style={{
+        background: t.surface,
+        // --portal-card-border/-shadow los calcula lib/theme-runtime.ts según
+        // cardStyle (flat/elevated/bordered). El estilo 'flat' no declara
+        // estas vars a propósito, así que el fallback (el borde de siempre,
+        // que depende del modo claro/oscuro) es el que se aplica.
+        border: `var(--portal-card-border, 1px solid ${t.line})`,
+        boxShadow: 'var(--portal-card-shadow, none)',
+        borderRadius: radius.card,
+        ...style,
+      }}
       {...props}
     >
       {children}

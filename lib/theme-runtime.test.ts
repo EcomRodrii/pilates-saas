@@ -75,3 +75,34 @@ test('presetAThemeConfig: preset desconocido/null → deriva del preset Original
   const t = presetAThemeConfig(null);
   assert.equal(t.primary, DEFAULT_THEME.primary);
 });
+
+test('themeToCssVars: buttonStyle/cardStyle por defecto (solid/flat) no declaran las vars de tarjeta', () => {
+  const vars = themeToCssVars(DEFAULT_THEME) as Record<string, string>;
+  // solid SÍ declara sus 3 vars (reproducen --portal-brand con border:none)
+  assert.equal(vars['--portal-btn-bg'], DEFAULT_THEME.primary);
+  assert.equal(vars['--portal-btn-border'], 'none');
+  // flat NO declara nada a propósito: Card.tsx cae a su fallback (t.line)
+  assert.equal('--portal-card-border' in vars, false);
+  assert.equal('--portal-card-shadow' in vars, false);
+});
+
+test('themeToCssVars: buttonStyle outline/soft cambian fondo y borde del botón', () => {
+  const outline = themeToCssVars({ ...DEFAULT_THEME, buttonStyle: 'outline' }) as Record<string, string>;
+  assert.equal(outline['--portal-btn-bg'], 'transparent');
+  assert.equal(outline['--portal-btn-fg'], DEFAULT_THEME.primary);
+  assert.match(outline['--portal-btn-border'], /1px solid/);
+
+  const soft = themeToCssVars({ ...DEFAULT_THEME, buttonStyle: 'soft' }) as Record<string, string>;
+  assert.equal(soft['--portal-btn-border'], 'none');
+  assert.match(soft['--portal-btn-bg'], /color-mix/);
+});
+
+test('themeToCssVars: cardStyle elevated/bordered declaran borde/sombra distintos', () => {
+  const elevated = themeToCssVars({ ...DEFAULT_THEME, cardStyle: 'elevated' }) as Record<string, string>;
+  assert.equal(elevated['--portal-card-border'], 'none');
+  assert.notEqual(elevated['--portal-card-shadow'], 'none');
+
+  const bordered = themeToCssVars({ ...DEFAULT_THEME, cardStyle: 'bordered' }) as Record<string, string>;
+  assert.equal(bordered['--portal-card-shadow'], 'none');
+  assert.match(bordered['--portal-card-border'], /solid/);
+});

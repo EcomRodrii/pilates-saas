@@ -39,6 +39,48 @@ export function presetAThemeConfig(temaPortal: string | null | undefined): Theme
   };
 }
 
+// Estilo del botón principal → los 3 valores que necesita `Button` (fondo,
+// texto, borde). La rama por defecto ('solid') reproduce EXACTAMENTE lo que
+// components/portal/ui/Button.tsx pintaba antes de esta fase — un tema sin
+// buttonStyle (o con 'solid') no cambia nada.
+function varsBoton(t: ThemeConfig, marcaForeground: string): Record<string, string> {
+  if (t.buttonStyle === 'outline') {
+    return {
+      '--portal-btn-bg': 'transparent',
+      '--portal-btn-fg': t.primary,
+      '--portal-btn-border': `1px solid ${t.primary}`,
+    };
+  }
+  if (t.buttonStyle === 'soft') {
+    return {
+      '--portal-btn-bg': `color-mix(in srgb, ${t.primary} 15%, transparent)`,
+      '--portal-btn-fg': t.primary,
+      '--portal-btn-border': 'none',
+    };
+  }
+  return {
+    '--portal-btn-bg': t.primary,
+    '--portal-btn-fg': marcaForeground,
+    '--portal-btn-border': 'none',
+  };
+}
+
+// Estilo de tarjeta → borde y sombra. 'flat' NO declara ninguna de las dos
+// vars a propósito (en vez de un string vacío, que en CSS es un valor
+// inválido para `border`/`box-shadow` y rompería el `var(..., fallback)` de
+// Card.tsx): así Card.tsx sigue usando su borde de siempre (`t.line`, que
+// depende del modo claro/oscuro, algo que este módulo no conoce) vía el
+// fallback del propio var().
+function varsTarjeta(t: ThemeConfig): Record<string, string> {
+  if (t.cardStyle === 'elevated') {
+    return { '--portal-card-border': 'none', '--portal-card-shadow': '0 8px 24px -12px rgba(0,0,0,.18)' };
+  }
+  if (t.cardStyle === 'bordered') {
+    return { '--portal-card-border': `1.5px solid ${t.primary}`, '--portal-card-shadow': 'none' };
+  }
+  return {};
+}
+
 /** Mapa var→valor a partir de un tema (crudo o resuelto). Interno. */
 function themeToVarMap(raw: unknown): Record<string, string> {
   const t = resolveTheme(raw);
@@ -64,6 +106,9 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     '--radius': radius,
     '--font-sans': font,
     '--font-heading': font,
+    // Estilo de botón/tarjeta (Fase 1 del editor de temas)
+    ...varsBoton(t, marcaForeground),
+    ...varsTarjeta(t),
   };
 }
 

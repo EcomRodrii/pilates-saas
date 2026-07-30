@@ -43,9 +43,33 @@ export const RADIOS = [
 
 export type RadiusId = (typeof RADIOS)[number]['id'];
 
+/**
+ * Estilo del botón principal (CTA de marca). `solid` es el look de siempre
+ * (fondo de marca sólido) — los estudios que ya tienen tema no ven ningún
+ * cambio hasta que eligen uno distinto.
+ */
+export const ESTILOS_BOTON = [
+  { id: 'solid', label: 'Sólido' },
+  { id: 'outline', label: 'Contorno' },
+  { id: 'soft', label: 'Suave' },
+] as const;
+
+export type ButtonStyleId = (typeof ESTILOS_BOTON)[number]['id'];
+
+/** Estilo de las tarjetas. `flat` es el look de siempre (borde fino, sin sombra). */
+export const ESTILOS_TARJETA = [
+  { id: 'flat', label: 'Plana' },
+  { id: 'elevated', label: 'Elevada' },
+  { id: 'bordered', label: 'Con borde' },
+] as const;
+
+export type CardStyleId = (typeof ESTILOS_TARJETA)[number]['id'];
+
 const fontIdSchema = z.enum(FUENTES.map((f) => f.id) as [FontId, ...FontId[]]);
 const radiusSchema = z.enum(RADIOS.map((r) => r.id) as [RadiusId, ...RadiusId[]]);
 const faviconSchema = z.string().url().nullable();
+const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleId, ...ButtonStyleId[]]);
+const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
 
 /** Esquema completo de un tema válido (el que exige `publicar`). */
 export const themeConfigSchema = z
@@ -58,6 +82,10 @@ export const themeConfigSchema = z
     fontId: fontIdSchema,
     radius: radiusSchema,
     faviconUrl: faviconSchema.default(null),
+    // Opcionales con default: un tema guardado ANTES de esta fase no trae
+    // estos campos, y debe seguir viéndose exactamente igual (solid/flat).
+    buttonStyle: buttonStyleSchema.default('solid'),
+    cardStyle: cardStyleSchema.default('flat'),
   })
   .strict();
 
@@ -77,6 +105,8 @@ export const DEFAULT_THEME: ThemeConfig = {
   fontId: 'jakarta',
   radius: 'rounded',
   faviconUrl: null,
+  buttonStyle: 'solid',
+  cardStyle: 'flat',
 };
 
 /**
@@ -99,5 +129,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     fontId: pick('fontId', fontIdSchema),
     radius: pick('radius', radiusSchema),
     faviconUrl: pick('faviconUrl', faviconSchema),
+    buttonStyle: pick('buttonStyle', buttonStyleSchema),
+    cardStyle: pick('cardStyle', cardStyleSchema),
   };
 }
