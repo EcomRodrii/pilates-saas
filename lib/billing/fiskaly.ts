@@ -21,6 +21,8 @@
 // nunca se pierde por un fallo de Fiskaly.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { fetchExterno } from '../fetch-externo.ts';
+
 const ENV = (process.env.FISKALY_ENV ?? 'test').toLowerCase() === 'live' ? 'live' : 'test';
 const BASE = ENV === 'live'
   ? 'https://live.es.sign.fiskaly.com/api/v1'
@@ -48,7 +50,7 @@ function expDeJwt(jwt: string): number {
 }
 
 async function autenticar(): Promise<string> {
-  const res = await fetch(`${BASE}/auth`, {
+  const res = await fetchExterno(`${BASE}/auth`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -71,7 +73,7 @@ async function token(): Promise<string> {
 
 async function api(path: string, init: RequestInit, reintentar = true): Promise<Response> {
   const bearer = await token();
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetchExterno(`${BASE}${path}`, {
     ...init,
     headers: {
       'content-type': 'application/json',
