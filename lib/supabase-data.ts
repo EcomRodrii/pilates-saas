@@ -31,6 +31,7 @@ import type {
   RowAutomatizaciones,
   RowBackups,
   RowCampanas,
+  RowPenalizaciones,
   RowChallengeDefinitions,
   RowChallengeHistory,
   RowChallengeProgress,
@@ -747,6 +748,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     requiereAprobacion: r.requiere_aprobacion ?? null,
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? null,
     minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? null,
+    penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
   } as TipoClase;
 }
 
@@ -2201,6 +2203,11 @@ export async function dbCancelarReservaPlaza(
   // (lista_espera_plazo_aceptacion_minutos > 0), en cuyo caso NO se confirmó
   // sola, se le abrió una oferta con ese plazo.
   ofertaSocioId: string | null; ofertaExpiraEn: string | null;
+  // Fase 3 (migr 20260730225253): id de la fila en `penalizaciones` si la
+  // cancelación fue tardía y el estudio/tipo de clase exige penalización —
+  // null si no aplica. El cobro real lo recoge lib/inngest/penalizaciones.ts,
+  // no este caller (aquí solo se traza).
+  penalizacionId: string | null;
 } | { error: string }> {
   const { data, error } = await supabase.rpc('cancelar_reserva_plaza', {
     p_studio_id: studioId, p_reserva_id: reservaId, p_socio_id: null,
@@ -2219,6 +2226,7 @@ export async function dbCancelarReservaPlaza(
     devolverBono: row?.devolver_bono ?? true,
     ofertaSocioId: row?.oferta_socio_id ?? null,
     ofertaExpiraEn: row?.oferta_expira_en ?? null,
+    penalizacionId: row?.penalizacion_id ?? null,
   };
 }
 
@@ -3154,6 +3162,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     requiere_aprobacion: t.requiereAprobacion ?? null,
     lista_espera_plazo_aceptacion_minutos: t.listaEsperaPlazoAceptacionMinutos ?? null,
     minimo_asistentes_por_clase: t.minimoAsistentesPorClase ?? null,
+    penalizacion_importe_eur: t.penalizacionImporteEur ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -3175,6 +3184,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
+  if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateTipoClase]', error);
 }
@@ -3424,6 +3434,10 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
+  if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
+  if ('penalizacionAplicaCancelacionTardia' in changes) db.penalizacion_aplica_cancelacion_tardia = changes.penalizacionAplicaCancelacionTardia;
+  if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
+  if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
   // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
@@ -3646,6 +3660,10 @@ function mapStudio(r: RowStudios): Studio {
     requiereAprobacion: r.requiere_aprobacion ?? false,
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? 0,
     minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? 0,
+    penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
+    penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
+    penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
+    penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
     onboardingDescartadoEn: r.onboarding_descartado_en ?? null,
@@ -4010,6 +4028,35 @@ export async function dbUpdateAutomatizacion(id: string, studioId: string, chang
   if ('pasos' in changes) db.pasos = changes.pasos;
   const { error } = await dbEscritura().from('automatizaciones').update(db).eq('id', id).eq('studio_id', studioId);
   if (error) reportDbError('[dbUpdateAutomatizacion]', error);
+}
+
+// Fase 3: penalizaciones pendientes de aprobación manual (studios con
+// penalizacionCobroAutomatico=false) — protegido por la RLS de la propia
+// tabla (`penalizaciones_lectura`: solo PROPIETARIO/RECEPCION del estudio).
+export interface PenalizacionPendiente {
+  id: string;
+  socioId: string;
+  socioNombre: string;
+  importe: number;
+  tipo: 'CANCELACION_TARDIA' | 'NO_SHOW';
+  detectadaEn: string;
+}
+
+export async function dbListarPenalizacionesPendientes(): Promise<PenalizacionPendiente[]> {
+  const { data, error } = await supabase
+    .from('penalizaciones')
+    .select('id, socio_id, importe, tipo, detectada_en')
+    .eq('estado', 'PENDIENTE_APROBACION')
+    .order('detectada_en', { ascending: true }) as { data: RowPenalizaciones[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[dbListarPenalizacionesPendientes]', error); return []; }
+  if (!data?.length) return [];
+  const socioIds = [...new Set(data.map(p => p.socio_id))];
+  const { data: socios } = await supabase.from('socios').select('id, nombre, apellidos').in('id', socioIds);
+  const nombrePorId = new Map((socios ?? []).map(s => [s.id as string, `${s.nombre} ${s.apellidos}`.trim()]));
+  return data.map(p => ({
+    id: p.id, socioId: p.socio_id, socioNombre: nombrePorId.get(p.socio_id) ?? 'Socia',
+    importe: p.importe, tipo: p.tipo as 'CANCELACION_TARDIA' | 'NO_SHOW', detectadaEn: p.detectada_en,
+  }));
 }
 
 

@@ -26,6 +26,9 @@ export interface DatosEstudioLegal {
   codigoPostal?: string | null;
   email?: string | null;
   cancelacionVentanaHoras?: number | null;
+  // Fase 3: importe fijo en € de la penalización por cancelación tardía/no-show.
+  // NULL/0 = el estudio no tiene la regla activa, no se añade la cláusula.
+  penalizacionImporteEur?: number | null;
 }
 
 const vacio = (s?: string | null) => !s || s.trim() === '';
@@ -91,6 +94,14 @@ export function terminosServicioPorDefecto(e: DatosEstudioLegal = {}): string {
   const horas = typeof e.cancelacionVentanaHoras === 'number' && e.cancelacionVentanaHoras > 0
     ? e.cancelacionVentanaHoras
     : 12;
+  // Fase 3: solo aparece si el estudio tiene la regla activa (importe > 0) —
+  // un estudio sin ella no debe mostrar (ni pedir aceptar) una cláusula que
+  // no le aplica. Condicionar el TEXTO es también lo que hace que el guard de
+  // consentimiento (comparar versionTexto contra el actual) se dispare solo
+  // para quien de verdad necesita re-aceptar.
+  const clausulaPenalizacion = typeof e.penalizacionImporteEur === 'number' && e.penalizacionImporteEur > 0
+    ? ` Adicionalmente, las cancelaciones dentro de dicha ventana y las inasistencias sin cancelación previa ("no-show") podrán conllevar un cargo de ${e.penalizacionImporteEur.toFixed(2)} € a la tarjeta u otro método de pago guardado, siempre que exista uno asociado a la cuenta. Este cargo se notificará por correo electrónico en el momento en que se produzca.`
+    : '';
 
   return `TÉRMINOS Y CONDICIONES DE SERVICIO
 
@@ -104,7 +115,7 @@ El presente contrato regula las condiciones de acceso y uso de los servicios ofr
 El socio abona la tarifa correspondiente al plan seleccionado. Los precios incluyen IVA. El Estudio se reserva el derecho de modificar tarifas con un preaviso mínimo de 30 días.
 
 3. RESERVAS Y CANCELACIONES
-Las reservas deben realizarse con antelación a través de los canales habilitados. Las cancelaciones efectuadas con menos de ${horas} ${horas === 1 ? 'hora' : 'horas'} de antelación serán descontadas del bono.
+Las reservas deben realizarse con antelación a través de los canales habilitados. Las cancelaciones efectuadas con menos de ${horas} ${horas === 1 ? 'hora' : 'horas'} de antelación serán descontadas del bono.${clausulaPenalizacion}
 
 4. RESPONSABILIDAD
 El socio declara estar en condiciones físicas adecuadas para la práctica de la actividad. El Estudio no se responsabiliza de lesiones derivadas del incumplimiento de las indicaciones del instructor.

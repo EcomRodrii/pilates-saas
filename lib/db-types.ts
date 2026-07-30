@@ -432,6 +432,19 @@ export interface RowRecibos {
   proximo_reintento: string | null;
 }
 
+export interface RowPenalizaciones {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  reserva_id: string;
+  tipo: string;
+  importe: number;
+  estado: string;
+  recibo_id: string | null;
+  detectada_en: string;
+  procesada_en: string | null;
+}
+
 export interface RowRewardActions {
   id: string;
   studio_id: string;
@@ -653,6 +666,10 @@ export interface RowStudios {
   requiere_aprobacion: boolean | null;
   lista_espera_plazo_aceptacion_minutos: number | null;
   minimo_asistentes_por_clase: number | null;
+  penalizacion_importe_eur: number | null;
+  penalizacion_aplica_cancelacion_tardia: boolean | null;
+  penalizacion_aplica_no_show: boolean | null;
+  penalizacion_cobro_automatico: boolean | null;
   stripe_customer_id: string | null;
   subscription_id: string | null;
   subscription_status: string | null;
@@ -721,6 +738,7 @@ export interface RowTiposClase {
   requiere_aprobacion: boolean | null;
   lista_espera_plazo_aceptacion_minutos: number | null;
   minimo_asistentes_por_clase: number | null;
+  penalizacion_importe_eur: number | null;
 }
 
 export interface RowFavoritosClase {

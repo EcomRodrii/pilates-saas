@@ -308,7 +308,9 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
         // la toca (solo actúa sobre estados "en juego"); no hace falta repetir
         // el filtro, pero SÍ evitar mandar el email si no llegó a liberarse.
         const datos = await datosParaEmail(admin, studioId, p.socio_id, p.sesion_id);
-        const res = await ejecutarCancelacionReserva(admin, { studioId, reservaId: p.id, socioId: null });
+        // Fase 3: este corte es automático — nadie pulsó "cancelar", así que
+        // no debe generar penalización aunque caiga dentro de la ventana.
+        const res = await ejecutarCancelacionReserva(admin, { studioId, reservaId: p.id, socioId: null, omitirPenalizacion: true });
         if ('error' in res) return { liberada: false, datos: null };
         return { liberada: true, datos };
       });

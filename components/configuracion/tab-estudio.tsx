@@ -62,6 +62,12 @@ type PoliticaForm = {
   // Fase 2c (migr 20260731140000): nº mínimo de asistentes CONFIRMADA para
   // que la clase se mantenga. 0 = sin mínimo.
   minimoAsistentesPorClase: number;
+  // Fase 3 (migr 20260730225253): importe fijo en € por cancelación tardía o
+  // no-show. NULL/0 = regla desactivada.
+  penalizacionImporteEur: number | null;
+  penalizacionAplicaCancelacionTardia: boolean;
+  penalizacionAplicaNoShow: boolean;
+  penalizacionCobroAutomatico: boolean;
 };
 
 function studioToPolitica(s: Studio | null): PoliticaForm {
@@ -77,6 +83,10 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     requiereAprobacion: s?.requiereAprobacion ?? false,
     listaEsperaPlazoAceptacionMinutos: s?.listaEsperaPlazoAceptacionMinutos ?? 0,
     minimoAsistentesPorClase: s?.minimoAsistentesPorClase ?? 0,
+    penalizacionImporteEur: s?.penalizacionImporteEur ?? null,
+    penalizacionAplicaCancelacionTardia: s?.penalizacionAplicaCancelacionTardia ?? true,
+    penalizacionAplicaNoShow: s?.penalizacionAplicaNoShow ?? true,
+    penalizacionCobroAutomatico: s?.penalizacionCobroAutomatico ?? false,
   };
 }
 
@@ -556,6 +566,41 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
               Si a 2h del inicio no se alcanza, la clase se cancela automáticamente y se devuelve el bono a las apuntadas. Vacío o 0 = sin mínimo.
             </p>
           </div>
+          <div>
+            <p className={labelCls}>Penalización por cancelación tardía o no-show (€)</p>
+            <input
+              type="number" min={0} step="0.01" className={inputCls}
+              placeholder="Sin penalización"
+              value={pol.penalizacionImporteEur || ''}
+              onChange={e => setPol(p => ({ ...p, penalizacionImporteEur: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) }))}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Se cobra a la tarjeta guardada de la socia (si tiene una) cuando cancela dentro de la ventana de cancelación o no se presenta. Vacío o 0 = sin cargo.
+            </p>
+          </div>
+          {!!pol.penalizacionImporteEur && (
+            <>
+              <label className="flex items-center justify-between gap-4 cursor-pointer">
+                <span className="text-[13px] text-foreground">
+                  Aplicar a cancelaciones tardías
+                </span>
+                <Toggle on={pol.penalizacionAplicaCancelacionTardia} onChange={v => setPol(p => ({ ...p, penalizacionAplicaCancelacionTardia: v }))} />
+              </label>
+              <label className="flex items-center justify-between gap-4 cursor-pointer">
+                <span className="text-[13px] text-foreground">
+                  Aplicar a no-shows
+                </span>
+                <Toggle on={pol.penalizacionAplicaNoShow} onChange={v => setPol(p => ({ ...p, penalizacionAplicaNoShow: v }))} />
+              </label>
+              <label className="flex items-center justify-between gap-4 cursor-pointer">
+                <span className="text-[13px] text-foreground">
+                  Cobrar automáticamente
+                  <span className="block text-[11px] text-muted-foreground">Cuando esté desactivado, cada cargo esperará tu aprobación antes de tocar la tarjeta de la socia.</span>
+                </span>
+                <Toggle on={pol.penalizacionCobroAutomatico} onChange={v => setPol(p => ({ ...p, penalizacionCobroAutomatico: v }))} />
+              </label>
+            </>
+          )}
         </div>
         <button onClick={guardarPolitica} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
           Guardar política de reservas

@@ -298,11 +298,94 @@ tramo de devolución de bono reutiliza lógica de `bono-logic.ts` ya testeada
 aparte, no se pudo ejecutar end-to-end sin Supabase local (misma limitación
 que las fases anteriores).
 
-Con Fase 2c cerrada, las 13 reglas de reserva/cancelación pedidas
-originalmente están completas salvo **Fase 3** (penalización económica por
-cancelación tardía/no-show, dinero real con tarjeta guardada), que sigue
-esperando diseño propio con `tentare-stripe` — no es una extensión trivial
-del patrón "hereda" de las fases 1/2a/2b/2c.
+### Fase 3 — penalización económica por cancelación tardía/no-show (completa)
+
+Última pieza de las 13 reglas de reserva/cancelación pedidas originalmente.
+A diferencia de 1/2a/2b/2c, mueve **dinero real**: cargo a la tarjeta guardada
+de la socia (`stripe.paymentIntents.create` vía `cobrarReciboOffSession`,
+Connect direct-charge, la misma función que ya usan `charge-off-session` y el
+cron de dunning — cero código nuevo en webhooks/disputas, todo heredado por
+`metadata.origen`). `studios.penalizacion_importe_eur` (NULL/0 = desactivada)
++ `tipos_clase.penalizacion_importe_eur` (nullable = hereda), migr
+`20260730225253`, más `studios.penalizacion_cobro_automatico` (default
+`false` = espera aprobación manual de un rol con `puedeMoverDinero`, igual
+que `charge-off-session` hoy) para que la propietaria elija automático o
+manual — decisión de producto explícita, no un valor fijo.
+
+Detección centralizada en BD, no en TS: cancelación tardía dentro de
+`cancelar_reserva_plaza`, no-show vía trigger sobre `reservas` (cubre tanto
+el barrido por lotes como el marcado manual del panel sin duplicar lógica —
+mismo principio "la BD decide una vez" que el resto del repo). Tabla nueva
+`penalizaciones` (no una columna en `reservas`): una detección encadena
+`DETECTADA → OMITIDA_*/PENDIENTE_APROBACION → RECIBO_CREADO → COBRADA/FALLIDA`,
+y ese historial de POR QUÉ no se cobró (sin tarjeta, sin consentimiento,
+revertida) tiene que quedar auditable sin leer logs. RLS igual que
+`recibos`/`suscripciones`: solo PROPIETARIO/RECEPCION.
+
+Cron `lib/inngest/penalizaciones.ts` (cada 10 min) crea el recibo y cobra
+(automático) o lo deja `PENDIENTE_APROBACION` (manual, endpoint nuevo
+`app/api/penalizaciones/aprobar/route.ts` + card `PenalizacionesPendientes`
+en el dashboard — "una lista + un botón", no una pantalla nueva). Guard de
+consentimiento: reutiliza el mecanismo YA EXISTENTE, no uno nuevo —
+`AceptacionContrato.versionTexto` guarda el TEXTO LEGAL COMPLETO aceptado
+(`textoLegalCompleto(studioConfig)`), no un número de versión, así que basta
+comparar el texto guardado contra el texto actual: en cuanto se activa la
+regla y se añade la cláusula (`lib/legal-textos.ts`), toda socia existente
+deja de tener consentimiento vigente automáticamente (su texto guardado no la
+incluye) sin construir un esquema de versiones paralelo.
+
+⚠️ **El corte automático por riesgo de plantón NO debe penalizar, y
+`p_socio_id IS NOT NULL` era la señal equivocada para excluirlo.** La primera
+migración excluía ese caso (`confirmacion-riesgo.ts`, nadie pulsó "cancelar")
+asumiendo que solo esa llamada pasaba `p_socio_id: null` — pero el panel de
+staff (`dbCancelarReservaPlaza`) TAMBIÉN pasa `p_socio_id: null`, así que esa
+condición habría desactivado la penalización en el caso más común de verdad
+(cancelación desde mostrador). Encontrado con `execute_sql`+`ROLLBACK` antes
+de abrir PR. Arreglado con un parámetro explícito nuevo,
+`p_omitir_penalizacion boolean default false`, puesto a `true` solo por el
+caller automático — corrección en una segunda migración
+(`20260730225804`), con el consiguiente re-endurecimiento de grants (ver
+gotcha de abajo, van dos veces en esta fase por el mismo motivo que Fase 2a/2b).
+
+⚠️ **Gotcha de grants, tercera vez en el repo**: cambiar la firma de
+`cancelar_reserva_plaza` (3→4 argumentos, dos veces en esta fase) crea de
+nuevo una función con `EXECUTE` por defecto a `PUBLIC` — `REVOKE ... FROM
+PUBLIC` + `GRANT` explícito + `has_function_privilege` en cada migración que
+toque la firma, sin excepción.
+
+**Descartado a propósito, no reabrir**: anclar la aprobación manual en
+`automation_logs` (su CHECK `(rule_id IS NOT NULL) <> (automatizacion_id IS
+NOT NULL)` exige una fila real de `automation_rules`/`automatizaciones`, y
+`automatizaciones.accion` no tiene ningún valor de cobro — habría que
+falsear el origen) o en el `Recomendacion`/Decision OS existente (`COBRAR_RECIBOS`
+en `lib/decision/tipos.ts` está atado a `decisionSessionId`/`algorithmVersion`/
+el motor de especialistas, no pensado para insertarse ad-hoc desde un cron
+ajeno a esa pipeline). Se construyó un endpoint y una tabla dedicados en su
+lugar.
+
+⚠️ **Límite conocido, no resuelto por diseño**: si un no-show se marca por
+error y se revierte (`OMITIDA_REVERTIDA`), y la misma reserva se vuelve a
+marcar no-show genuinamente después, el trigger NO regenera la detección
+(`ON CONFLICT (reserva_id, tipo) DO NOTHING` ve la fila ya existente y no
+hace nada, sin importar su estado). Verificado en vivo con
+`execute_sql`+`ROLLBACK`. Caso raro (revertir y volver a marcar la MISMA
+reserva) — se documenta en vez de complicar el trigger con una máquina de
+estados completa para un caso límite sin pedir explícitamente esa cobertura.
+
+Ni `cancelarSesionPorMinimoNoAlcanzado` (Fase 2c) ni
+`dbCancelarReservasPorSesiones` (cancelación manual de serie) llaman nunca a
+`cancelar_reserva_plaza` — ambas hacen `UPDATE reservas` directo — así que
+ninguna cancelación masiva de sesión iniciada por el estudio puede disparar
+una penalización por construcción, sin necesitar ningún flag adicional ahí.
+
+No probado end-to-end con un `paymentIntent` real (sin Stripe test mode
+configurado en este entorno) — mismo tipo de limitación que fases
+anteriores, pero aquí más seria por ser dinero real: recomendado probar el
+primer cobro en un estudio de prueba antes de activar la regla para clientes
+reales.
+
+Con Fase 3 cerrada, las 13 reglas de reserva/cancelación pedidas
+originalmente están **completas**.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 

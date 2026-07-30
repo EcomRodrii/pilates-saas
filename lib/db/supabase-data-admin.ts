@@ -1340,10 +1340,18 @@ async function asignarSpotReserva(
 
 export async function ejecutarCancelacionReserva(
   admin: SupabaseClient,
-  params: { studioId: string; reservaId: string; socioId: string | null },
+  params: {
+    studioId: string; reservaId: string; socioId: string | null;
+    // Fase 3: true SOLO para el corte automático por riesgo de plantón
+    // (confirmacion-riesgo.ts) — nadie pulsó "cancelar" ahí, así que no debe
+    // generar penalización aunque la cancelación sea tardía. Portal y panel
+    // dejan esto en false (default): siguen aplicando la regla si toca.
+    omitirPenalizacion?: boolean;
+  },
 ): Promise<{ ok: true; tardia: boolean; bonoDevuelto: boolean; eraConfirmada: boolean } | { error: string }> {
   const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
+    p_omitir_penalizacion: params.omitirPenalizacion ?? false,
   });
   if (error) {
     if (error.message.includes('NO_AUTORIZADO')) return { error: 'No autorizado' as const };

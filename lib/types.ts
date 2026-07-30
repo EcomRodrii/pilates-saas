@@ -91,6 +91,17 @@ export interface Studio {
   // (el chequeo solo ocurre server-side dentro del cron, nunca en una RPC
   // invocable por `authenticated`).
   minimoAsistentesPorClase: number;
+  // Fase 3 (migr 20260730225253): importe fijo en € a cobrar por cancelación
+  // tardía o no-show. NULL/0 = regla desactivada. tipos_clase puede
+  // sobrescribirlo con NULL = hereda — resuelto en SQL directo dentro de
+  // `cancelar_reserva_plaza` (esa RPC es ejecutable directo por
+  // `authenticated` desde el cliente, mismo criterio que Fase 2b).
+  penalizacionImporteEur: number | null;
+  penalizacionAplicaCancelacionTardia: boolean;
+  penalizacionAplicaNoShow: boolean;
+  // false (default) = cada cargo espera aprobación manual antes de tocar la
+  // tarjeta guardada. true = se cobra solo, como el cron de dunning.
+  penalizacionCobroAutomatico: boolean;
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
   stripeTerminalLocationId: string | null;
@@ -466,6 +477,9 @@ export interface TipoClase {
   // Fase 2c (migr 20260731140000): mismo patrón de override, resuelto en TS
   // con heredaOverride().
   minimoAsistentesPorClase: number | null;
+  // Fase 3 (migr 20260730225253): mismo patrón de override, resuelto en SQL
+  // directo dentro de cancelar_reserva_plaza (ver comentario en Studio).
+  penalizacionImporteEur: number | null;
 }
 
 export interface FavoritoClase {
@@ -566,6 +580,28 @@ export interface Recibo {
   sepaEstado?: string | null;
   // Dunning (0041): cuándo el barrido diario debe reintentar el cobro (null = sin reintento).
   proximoReintento?: string | null;
+}
+
+// Fase 3: penalización por cancelación tardía/no-show — detección + ciclo de
+// cobro. Tabla aparte de `reservas` (no una columna) para tener histórico de
+// por qué NO se cobró (sin tarjeta, sin consentimiento, compensada) auditable
+// sin leer logs.
+export type EstadoPenalizacion =
+  | 'DETECTADA' | 'OMITIDA_SIN_TARJETA' | 'OMITIDA_SIN_CONSENTIMIENTO'
+  | 'OMITIDA_COMPENSADA' | 'OMITIDA_REVERTIDA'
+  | 'PENDIENTE_APROBACION' | 'RECIBO_CREADO' | 'COBRADA' | 'FALLIDA';
+
+export interface Penalizacion {
+  id: string;
+  studioId: string;
+  socioId: string;
+  reservaId: string;
+  tipo: 'CANCELACION_TARDIA' | 'NO_SHOW';
+  importe: number;
+  estado: EstadoPenalizacion;
+  reciboId: string | null;
+  detectadaEn: string;
+  procesadaEn: string | null;
 }
 
 export interface Factura {

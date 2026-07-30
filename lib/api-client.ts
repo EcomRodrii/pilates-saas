@@ -473,6 +473,19 @@ export async function aprobarCobroAutonomo(params: {
   return { ok: true };
 }
 
+// Fase 3: aprueba un cobro de penalización pendiente (cancelación
+// tardía/no-show) con la tarjeta ya guardada de la socia.
+export async function aprobarPenalizacion(penalizacionId: string): Promise<{ ok: true } | { error: string }> {
+  const res = await fetch('/api/penalizaciones/aprobar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ penalizacionId }),
+  });
+  const data = await res.json();
+  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  return { ok: true };
+}
+
 // Manda (o vuelve a mandar) el email de invitación a alguien que ya está en el
 // equipo. Es una acción explícita a propósito: el alta ya NO envía nada sola.
 export async function invitarAlEquipo(instructorId: string): Promise<{ ok: true; email: string } | { error: string }> {
