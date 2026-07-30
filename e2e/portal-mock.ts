@@ -139,11 +139,15 @@ export async function montarPortal(page: Page, opciones: {
   reservaRechazada?: string;
   /** Sin bono activo: la pantalla de Bonos tiene que decir qué hacer. */
   sinBono?: boolean;
+  /** El pase arranca pendiente y pasa a «dentro» tras N peticiones (simula el
+   *  escaneo de recepción SIN recargar la página). 0 = ya dentro desde el
+   *  principio; undefined = nunca. */
+  entraTrasPeticiones?: number;
   /** Id del plan que el SERVIDOR marca como «el más elegido». */
   planMasElegidoId?: string | null;
 }) {
   const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
-          sinBono = false, planMasElegidoId = null } = opciones;
+          sinBono = false, planMasElegidoId = null, entraTrasPeticiones } = opciones;
 
   if (conSesion) {
     await page.addInitScript(([sesion]) => {
@@ -177,8 +181,12 @@ export async function montarPortal(page: Page, opciones: {
     return json(route, { items, unread: items.filter(a => a.readAt == null).length });
   });
   // El pase de acceso de Marta para su clase de dentro de 3 h.
+  let pasePeticiones = 0;
   await page.route('**/api/public/pase', route => json(route, {
-    hayPase: true, vigente: true, yaAsistida: false, minutosParaActivarse: 0,
+    hayPase: true,
+    vigente: true,
+    yaAsistida: entraTrasPeticiones != null && pasePeticiones++ >= entraTrasPeticiones,
+    minutosParaActivarse: 0,
     seActivaA: new Date(Date.now() - 60_000).toISOString(),
     inicio: enHorasHoy(3, 12),
     token: 'eyJyIjoicmVzLTEiLCJzIjoic3R1ZGlvLXRlc3QifQ.firma-de-pruebas-para-el-lienzo',
