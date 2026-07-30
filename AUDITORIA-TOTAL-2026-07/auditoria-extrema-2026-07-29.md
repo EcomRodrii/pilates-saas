@@ -61,6 +61,43 @@ Perfilé la carga de `/#precio` y `/#faq` con Chrome vía CDP (`Tracing` para tr
 **Solución recomendada:** ninguna acción de código. Si se quiere reducir la latencia de la primera compilación en *desarrollo* (no afecta a usuarios), la única palanca real sería recortar el grafo de módulos de `app/page.tsx` con `next/dynamic` para las secciones bajo el pliegue — pero eso es un cambio de alcance mayor sobre un fichero con mucho radio de impacto (20 imports) para un beneficio que solo se nota en `next dev`, así que lo señalo como opción, no como algo que haya hecho.
 **Prioridad:** 🟢 Cerrada — causa nº 1 en prod y verificada; causa nº 2 medida a fondo y descartada como bug de producto (artefacto de `next dev`, sin acción de código pendiente).
 
+### 9. El enlace mágico de reserva de una clienta crea también una sesión de STAFF, sin que nadie lo pida — CONFIRMADO en código, alcance acotado, **ARREGLADO DE RAÍZ el 2026-07-30**
+**Dónde encontrado:** al retomar la auditoría en la cuenta del panel (`/equipo`), la cabecera mostraba un usuario distinto al que había usado siempre en esta sesión ("carlosromerobautista01@gm...") — ahora aparecía mi propio email (`marcosrocarodriguezbussines@gmail.com`), el que usé horas antes SOLO para probar la reserva de clienta con enlace mágico.
+
+**Verificado por JS, no por impresión:** `localStorage['sb-dwqvdycjcffqwfkzapvi-auth-token']` (la clave de sesión del PANEL de staff) contenía un JWT válido con mi email — el mismo email con el que entré como *clienta* en `/reservar/marta-pilates-studio`, nunca como personal del estudio.
+
+**Causa raíz, confirmada leyendo el código:**
+- `lib/db/supabase-portal.ts` usa a propósito una `storageKey: 'sb-portal-auth'` separada de la del panel — el propio comentario del archivo dice explícitamente: *"para que la sesión de una socia NO pise la de un miembro del staff que use el panel en el mismo navegador"*.
+- Pero `lib/db/supabase.ts` (el cliente de STAFF) se crea con `createClient(url, anon)` **sin** `detectSessionInUrl: false` — y ese ajuste, por defecto, es `true`.
+- La página pública `/reservar/[slug]/page.tsx` usa `useStudio()` (`lib/studio-context.tsx`), que importa funciones de `lib/api-client.ts`, que a su vez importa el cliente de **staff** (`lib/db/supabase.ts`). Es decir: el cliente de staff SÍ está cargado y activo en la página pública de reservas, aunque nadie lo use ahí a propósito.
+- Al volver del enlace mágico (`.../reservar/marta-pilates-studio?sesion=...#access_token=...&refresh_token=...`), **los dos clientes de Supabase presentes en esa página leen el mismo fragmento de la URL** y cada uno crea su propia sesión válida — el JWT es válido para cualquiera que lo lea, no importa qué cliente lo procese. El de portal la guarda en `sb-portal-auth` (como se pretende); el de staff, sin querer, la guarda en su propia clave.
+- No pude arreglar `detectSessionInUrl: false` a secas en `lib/db/supabase.ts`: comprobé que `lib/auth-context.tsx` SÍ necesita ese comportamiento para su propio `resetPasswordForEmail` del personal (la recuperación de contraseña del panel también vuelve por URL con tokens). Apagarlo a lo bruto rompería el «he olvidado mi contraseña» del propio equipo del estudio.
+
+**Impacto acotado (verificado, no supuesto):** entrar a `/equipo` con esta sesión contaminada no enseñó ningún dato real del estudio: `app/(dashboard)/layout.tsx` nunca resuelve `studio` (la RPC `current_studio_id()` que hay detrás de `useStudio()` devuelve `null` para un `auth.uid()` sin fila en `instructores` ni en `studios`) y la pantalla se queda en el esqueleto de carga para siempre — no llega a pintar clientas, cobros, ni nada sensible.
+
+**Acotación del alcance real, pasada #2 (2026-07-30) — confirmado por código Y por la base de datos en vivo:**
+- `verificarSesionStaff()` (`lib/auth-server.ts:19-88`), que es lo que protegen TODAS las rutas de `/api/*` que escriben o leen algo sensible del panel (`app/api/equipo/route.ts` y equivalentes), no se conforma con "hay un JWT válido": valida el `user.id` del token contra `instructores.auth_user_id` y `studios.owner_auth_user_id` y devuelve `null` (→ 401) si no encuentra fila. Una sesión de clienta contaminada, sin fila en ninguna de esas dos tablas, no resuelve `SesionStaff` nunca — no llega ni a la comprobación de rol.
+- El otro camino de escritura sensible son las RPC `SECURITY DEFINER` llamadas directamente desde el navegador con el cliente anónimo (`reservar_plaza`, `reservar_cita`, `crear_recuperacion`, `ajustar_creditos`, `congelar_suscripcion`, `otorgar_credito_disparador`, `editar_serie_desde`, `semaforo_salud_estudio`...). Las comprobé una por una contra la base de datos real (project `dwqvdycjcffqwfkzapvi`, no solo el `.sql` en git): **todas** ejecutan `validar_studio_mismatch(p_studio_id)` (helper introducido el 2026-07-30, `supabase/migrations/20260730100000_helpers_validacion_studio.sql`, ya aplicado en producción — lo comprobé con `pg_proc.prosrc`, no solo con `list_migrations`) al entrar, que lanza `STUDIO_MISMATCH` en cuanto `auth.uid() is not null and p_studio_id is distinct from current_studio_id()`. Para la sesión de staff contaminada, `current_studio_id()` es `NULL` (mismo motivo que en el layout), así que CUALQUIER `p_studio_id` que se le pase es "distinto de NULL" y la llamada se rechaza. Las que además reciben `p_socio_id` (`reservar_plaza`, `reservar_cita`, `crear_recuperacion`, `ajustar_creditos`, `otorgar_credito_disparador`) validan también `validar_socio_del_studio` — pertenencia del socio al estudio, no solo el estudio.
+- Ese patrón de `STUDIO_MISMATCH` no es nuevo de esta sesión: ya llevaba 20+ copias en el historial del repo (`0009`, `0023`, `0079`, `0086`...) antes de consolidarse en el helper — es la defensa estándar del repo contra exactamente esta clase de bug, no un parche puntual para este hallazgo.
+- Los endpoints verdaderamente públicos sin sesión (`app/api/public/baja`, `app/api/public/valorar`, etc.) no usan sesión de Supabase en absoluto — se autorizan con un token firmado propio (`verificarTokenInstructora`/`verificarTokenValoracion`), así que la contaminación de `localStorage` no les afecta ni de lejos.
+- Repasé también `app/api/interno/**` (backoffice de Tentare, no del estudio): usan su propio guardia `exigirPermiso` (`lib/interno/auth.ts`), no `verificarSesionStaff`, y tampoco confían en "hay sesión".
+- `get_advisors` (seguridad) no señala ninguna tabla de escritura sensible sin política RLS — los únicos "RLS enabled, no policy" son tablas internas de plataforma/infra (`avisos_hueco`, `rate_limits`, `webhook_events`, `plataforma_*`...), no datos de socias.
+
+**Conclusión de la acotación:** el mecanismo del bug (dos clientes de Supabase leyendo el mismo fragmento de URL y el de staff quedándose sin querer con una sesión de clienta en su `localStorage`) es real y sigue sin arreglar en el cliente. Pero el "endpoint que se fía solo de la sesión" que habría hecho esto crítico **no existe** en las rutas revisadas: tanto el guardia de servidor de `/api/*` como las RPC `SECURITY DEFINER` exigen pertenencia real (`instructores`/`studios` en un caso, `current_studio_id()`/`validar_socio_del_studio` en el otro), y una sesión de clienta sin ficha de staff no la tiene. Bajo la severidad de 🟠 Alta a 🟡 **Media**: es un bug de higiene de sesión con blast radius verificado y bajo, no una vía de fuga de datos cross-tenant. Sigue mereciendo arreglo porque (a) es frágil ante el próximo endpoint nuevo que alguien escriba sin pasar por `verificarSesionStaff` o sin copiar `validar_studio_mismatch`, y (b) ensucia el `localStorage` del navegador de cualquiera que pruebe el enlace mágico de reserva en el mismo dispositivo donde tiene abierta sesión de staff (o viceversa), lo cual es una fuente de bugs de UI confusos aunque no de fuga de datos.
+**Qué pensaría Laura (o cualquier clienta):** ni se enteraría — pasa en silencio en su propio navegador. El problema es de higiene de sesiones, no algo que ella note.
+**Arreglo de raíz aplicado (`lib/db/supabase.ts`):** ni la opción (a) ni la (b) que se habían dejado apuntadas hacía falta al final — las dos tocaban `lib/api-client.ts`, usado por todo el repo, para separar QUÉ CLIENTE carga cada página. La opción real de menor riesgo era más simple: `detectSessionInUrl` solo tiene sentido en el cliente de staff para volver de un enlace de Supabase Auth propio del staff, y esos enlaces solo redirigen a DOS rutas top-level exactas: `/login` (confirmación de alta, reenvío de confirmación) y `/clave-nueva` (recuperación de contraseña) — nunca a `/reservar/*` ni a `/portal/*`. Así que en vez de tocar qué cliente carga cada página, se cambió CUÁNDO ese único cliente presta atención a la URL:
+
+```ts
+const RUTAS_RETORNO_AUTH_STAFF = new Set(['/login', '/clave-nueva']);
+const detectSessionInUrl =
+  typeof window !== 'undefined' && RUTAS_RETORNO_AUTH_STAFF.has(window.location.pathname);
+
+export const supabase = createClient(url, anon, { auth: { detectSessionInUrl } });
+```
+
+Verificado: `npx tsc --noEmit` y `npx eslint` limpios; los 3 tests de `e2e/recuperar-contrasena.spec.ts` que tocan exactamente este flujo fallan igual CON y SIN el cambio (confirmado con `git stash`) — es el problema ya conocido de Turnstile sin dominio local en la allow-list (ver [[turnstile-en-local-y-previews]]), no una regresión; en CI (con Turnstile bien configurado) esos mismos tests pasan. Repasado en navegador: `/login`, `/clave-nueva` y `/reservar/[slug]` cargan sin errores nuevos en consola.
+**Prioridad:** 🟢 Cerrado — mecanismo de contaminación arreglado de raíz; el alcance ya estaba acotado y bajo antes del arreglo (rutas `/api/*` y RPC `SECURITY DEFINER` seguían exigiendo pertenencia real, así que nunca hubo fuga de datos, solo higiene de sesión).
+
 ---
 
 ## Lo que funciona bien (para no perder de vista el conjunto)
@@ -130,3 +167,30 @@ No completé ninguna acción con efecto real en esta pasada (no asigné la susti
 
 ## Siguiente paso recomendado
 Dado que el arranque (landing → alta → onboarding) está en buen estado, el valor real de continuar esta auditoría está en las pantallas con datos reales: calendario con clases, cobros, sustituciones, y sobre todo el portal de la clienta final — que es donde tu propio historial de auditorías (Carmen, Cloe, feedback P2) ha encontrado la mayoría de problemas reales hasta ahora. Puedo continuar con esa pasada si quieres, usando una cuenta con datos ya cargados en vez de un estudio recién creado.
+
+---
+
+## Tercera pasada — resto del panel: Integraciones, Campos de clienta, Citas
+
+Repasadas las tres pantallas que quedaban del panel de "Marta Pilates Studio". Sin hallazgos nuevos — las tres están bien resueltas:
+
+- **Integraciones** (`/configuracion?tab=integraciones`): tarjetas claras por cada integración (Stripe, Resend, Google Calendar, WhatsApp Business, Gmail, Exportar a Excel), todas "No conectado", cada una explicando en una frase qué hace y aclarando explícitamente "no necesitas pegar ninguna clave" — nada de jerga técnica (API key, OAuth, webhook) expuesta a la propietaria. No conecté nada real (habría concedido permisos OAuth de verdad).
+- **Campos de clienta**: formulario simple para campos personalizados (nombre, tipo, obligatorio u opcional) con placeholder de ejemplo ("Lesiones o limitaciones"). Sin fricción.
+- **Citas** (1:1, `/citas`): resumen con ingresos/citas/asistencia/no-shows del mes, filtro por instructora, y las acciones ("Completar"/"Cancelar") aparecen en línea en la propia fila al interactuar con ella, sin abrir un modal aparte — un patrón distinto al resto del panel pero consistente en sí mismo, no roto. No completé ni cancelé la cita real que había.
+
+**Nota metodológica de esta pasada:** el bug del hallazgo #9 (sesión de staff contaminada por el magic-link de clienta) tuvo una consecuencia práctica real — mi propia sesión de staff en el navegador quedó sobrescrita con mi email de prueba, sin acceso a ningún estudio. La recuperé cerrando sesión y volviendo a entrar (Chrome tenía guardadas las credenciales de la propietaria original vía autofill). Sirve como demostración de primera mano del propio hallazgo #9: el bug no es solo teórico.
+
+---
+
+## Cuarta pasada — Planes y tarifas, Gamificación, Sustituciones (pantalla principal), Automatizaciones IA
+
+Últimas pantallas del panel que quedaban sin repasar. Sin hallazgos nuevos:
+
+- **Planes y tarifas**: tabla clara de los 3 planes del estudio (bonos + cuota mensual), con estado activo/inactivo por fila.
+- **Gamificación**: sistema completo (créditos por acción, catálogo de recompensas, niveles, retos) con copy tranquilizador ("nunca están fijos en el código") y una regla de producto bien pensada — el nivel se calcula sobre el total histórico de créditos, así que canjear una recompensa nunca hace bajar de nivel a la clienta.
+- **Sustituciones** (pantalla principal, no solo el modal visto en la primera pasada): esta es la función estrella del producto y está a la altura. Muestra en una sola vista el caso sin cubrir (con opciones claras: volver a buscar, reprogramar, cancelar y avisar) y el caso resuelto ("Sustituta ideal encontrada" con % de compatibilidad y los factores en texto llano: "está disponible · no ha impartido antes este tipo de clase · hace semanas que no sustituye"), más un registro de avisos enviados con hora exacta. También detecta y avisa activamente cuando faltan datos necesarios (2 de 3 instructoras sin disponibilidad cargada) con una acción directa para pedirla.
+- **Automatizaciones IA**: registro de acciones del sistema autónomo, con filtros por estado y estado vacío bien resuelto.
+
+**Nota:** en esta pasada estuve a punto de reportar como bug que las sub-pestañas de Gamificación no respondían al clic — resultó ser que el viewport real (1800px) no coincidía con el que asumía por el tamaño de captura (1568px), así que mis coordenadas de clic caían fuera del botón. Confirmado con `read_page`/`find` antes de escribir nada; otro falso positivo evitado a tiempo por verificar en vez de asumir.
+
+Con esto queda cubierto prácticamente todo el panel de gestión con datos reales. Lo que falta, si se quiere seguir: Productos (módulo POS, congelado a propósito — no tocar), Informes, Cierre de año, Libreta de clientas, Traer mis datos (migración), y las demás personas (recepcionista, instructora, gerente de cadena) recorriendo el mismo producto desde su propio rol.
