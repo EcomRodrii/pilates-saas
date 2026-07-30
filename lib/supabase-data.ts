@@ -839,6 +839,15 @@ function mapInstructor(r: RowInstructores): Instructor {
   } as Instructor;
 }
 
+// Mismo shape que mapInstructor, para /reservar/[slug] y el resto del
+// catálogo público: sin email/teléfono personal ni authUserId. El comentario
+// de fetchPublicStudioData ya prometía "nada de PII" en este catálogo —
+// mapInstructor() se usaba ahí directamente y sí la llevaba (el mismo mapper
+// que alimenta el panel interno, nunca pensado para salir del estudio).
+function mapInstructorPublico(r: RowInstructores): Instructor {
+  return { ...mapInstructor(r), email: null, telefono: null, authUserId: null };
+}
+
 export function mapSesion(r: RowSesiones): Sesion {
   return {
     id: r.id,
@@ -1582,7 +1591,7 @@ export async function fetchPublicStudioData(
     return {
       tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
       salas: (salasRes.data ?? []).map(mapSala),
-      instructores: (instructoresRes.data ?? []).map(mapInstructor),
+      instructores: (instructoresRes.data ?? []).map(mapInstructorPublico),
       spots: (spotsRes.data ?? []).map(mapSpot),
       planesTarifa: planesConTiposPub,
       videosOnDemand: (videosRes.data ?? []).map(mapVideoOnDemand),
