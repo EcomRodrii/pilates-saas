@@ -106,6 +106,16 @@ export function puedeGestionarClientas(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'RECEPCION' || rol === 'MANAGER';
 }
 
+// Crear una clase nueva ASIGNADA A UNO MISMO. Distinto de `puedeGestionarClientas`
+// (que sigue siendo "puede tocar/crear la clase de cualquiera, en cualquier
+// sala, con instructora libre") — INSTRUCTOR entra aquí porque la migración
+// 20260731100000 le abrió el INSERT en `sesiones` SOLO cuando
+// `instructor_id = current_instructor_id()`. Esto es la barrera de UI; la
+// cerradura real es esa RLS.
+export function puedeCrearClasesPropias(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'RECEPCION' || rol === 'MANAGER' || rol === 'INSTRUCTOR';
+}
+
 // Dar de alta y editar al EQUIPO. Es lo que distingue a un manager de recepción,
 // y el permiso más delicado que hay: con él se pueden repartir permisos. Que un
 // manager no pueda ascender a nadie NO se defiende aquí — se defiende en la RLS

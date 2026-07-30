@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
+  puedeCrearClasesPropias,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -154,6 +155,13 @@ test('gestionar clientas: el manager sí, la instructora no', () => {
 test('gestionar equipo: ni recepción ni instructoras', () => {
   assert.equal(puedeGestionarEquipo('RECEPCION'), false);
   assert.equal(puedeGestionarEquipo('INSTRUCTOR'), false);
+});
+
+test('crear clases propias: todos los roles de panel, incluida la instructora (20260731100000)', () => {
+  assert.equal(puedeCrearClasesPropias('PROPIETARIO'), true);
+  assert.equal(puedeCrearClasesPropias('MANAGER'), true);
+  assert.equal(puedeCrearClasesPropias('RECEPCION'), true);
+  assert.equal(puedeCrearClasesPropias('INSTRUCTOR'), true);
 });
 
 // ── Importar: la lista blanca por prefijo abría de más ────────────────────────
