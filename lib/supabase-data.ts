@@ -11,6 +11,7 @@ import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import { idEstudioDe } from '@/lib/id-estudio';
+import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -5589,10 +5590,16 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
   let candidate = base;
   let n = 2;
   while (true) {
+    // Un estudio llamado "Admin", "Reservar" o "Login" generaba ese slug tal
+    // cual: nadie lo comprobaba contra las rutas propias de la app en el alta
+    // (solo el renombrado posterior, en /api/estudio/direccion, llamaba a
+    // motivoSlugInvalido). Mismo trato que una colisión de verdad: se salta al
+    // siguiente sufijo en vez de dejarlo pasar.
+    const reservado = SLUGS_RESERVADOS.has(candidate);
     // P-2: vía RPC SECURITY DEFINER. Leer `studios` directamente exigía una
     // política que dejaba ver TODAS las filas (y con ellas nif, stripe_account_id
     // y kiosk_token de cualquier estudio). Esto devuelve solo un booleano.
-    const { data } = await supabase.rpc('slug_estudio_disponible', { p_slug: candidate });
+    const { data } = reservado ? { data: false } : await supabase.rpc('slug_estudio_disponible', { p_slug: candidate });
     if (data === true) return candidate;
     candidate = `${base}-${n}`;
     n++;
