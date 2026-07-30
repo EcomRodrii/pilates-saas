@@ -9,7 +9,14 @@
 // No es un hash criptográfico ni le hace falta: solo tiene que ser estable y no
 // chocar entre propietarias distintas, y el uuid de auth ya aporta la entropía.
 export function idEstudioDe(ownerAuthUserId: string, nombre: string): string {
-  const semilla = `${ownerAuthUserId}|${nombre.trim().toLowerCase()}`;
+  // trim()+toLowerCase() no basta: "Cloe Pilates" y "Cloe  Pilates" (doble
+  // espacio) o dos formas Unicode distintas del mismo acento (NFC vs NFD) son
+  // visualmente el mismo nombre pero hasheaban distinto — un reintento con esa
+  // variación (autocompletar, doble clic con un espacio de más) volvía a
+  // colarse como fila nueva en vez de chocar por PK, justo lo que este módulo
+  // existe para evitar.
+  const nombreNormalizado = nombre.trim().replace(/\s+/g, ' ').normalize('NFC').toLowerCase();
+  const semilla = `${ownerAuthUserId}|${nombreNormalizado}`;
   let h1 = 0x811c9dc5, h2 = 0x01000193;
   for (let i = 0; i < semilla.length; i++) {
     const c = semilla.charCodeAt(i);
