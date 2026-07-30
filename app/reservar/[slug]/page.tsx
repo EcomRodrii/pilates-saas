@@ -8,7 +8,10 @@ import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type EstadoReserva, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
-import { contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
+import {
+  contarReservasActivasFuturas, esCancelacionTardia,
+  heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
+} from '@/lib/booking-logic';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { CitasPublica } from '@/components/reserva/citas-publica';
 import { PublicSheet } from '@/components/ui/public-sheet';
@@ -425,11 +428,26 @@ export default function ReservarPage() {
 
   // Gate de derechos (C-4): mismo criterio que el servidor, para avisar antes de
   // intentar la reserva. El servidor es la autoridad; esto es solo UX.
-  function evaluarGate(socioId?: string, tipoClaseId?: string | null): string | null {
+  function evaluarGate(socioId?: string, tipoClaseId?: string | null, inicioISO?: string): string | null {
     if (!studio) return null;
+    // Fase 1 de reglas por tipo de clase: cada regla puede sobrescribirse en el
+    // tipo de clase (NULL = hereda el default del estudio). Mismo criterio que
+    // el servidor (crearReservaPublica), aquí solo para avisar antes del click.
+    const tipo = tipoClaseId ? tiposClase.find(t => t.id === tipoClaseId) : undefined;
+    if (inicioISO) {
+      const ventanaMinima = heredaOverride(tipo?.reservaVentanaMinimaMinutos, studio.reservaVentanaMinimaMinutos);
+      if (!puedeReservarPorVentanaMinima(inicioISO, now, ventanaMinima)) {
+        return 'Ya no se puede reservar esta clase: hace falta reservar con más antelación.';
+      }
+      const antelacionMaxima = heredaOverride(tipo?.reservaAntelacionMaximaDias, studio.reservaAntelacionMaximaDias);
+      if (!puedeReservarPorAntelacionMaxima(inicioISO, now, antelacionMaxima)) {
+        return 'Todavía no se puede reservar esta clase.';
+      }
+    }
+    const exigirPlan = heredaOverride(tipo?.reservaExigirPlan, studio.reservaExigirPlan);
     // Mismo criterio que el servidor: exigir plan cuando no hay ninguno a la
     // venta solo bloquea (ver `hayAlgoQueContratar`).
-    if (studio.reservaExigirPlan && hayAlgoQueContratar(planesTarifa)) {
+    if (exigirPlan && hayAlgoQueContratar(planesTarifa)) {
       const ok = socioId
         ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, localDate(now), tipoClaseId)
         : false;
@@ -520,7 +538,7 @@ export default function ReservarPage() {
 
     // Gate de derechos (C-4) antes de crear nada: si no cumple, avisa y no da de
     // alta a la walk-in ni reserva. El servidor lo revalida igualmente.
-    const gate = evaluarGate(socia?.socioId, sesion.tipoClaseId);
+    const gate = evaluarGate(socia?.socioId, sesion.tipoClaseId, sesion.inicio);
     if (gate) { setGateError(gate); return; }
 
     setGateError('');
@@ -594,7 +612,7 @@ export default function ReservarPage() {
     const found = socios.find(s => s.id === socia.socioId);
     const needsContract = !found?.aceptacionContrato;
     const sesionDelSlot = sesiones.find(x => x.id === slot.id);
-    if (needsContract || evaluarGate(socia.socioId, sesionDelSlot?.tipoClaseId)) {
+    if (needsContract || evaluarGate(socia.socioId, sesionDelSlot?.tipoClaseId, sesionDelSlot?.inicio)) {
       openBooking(slot.id);
       if (spotId) setSelectedSpot(spotId);
       return;

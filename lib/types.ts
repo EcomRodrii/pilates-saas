@@ -64,6 +64,12 @@ export interface Studio {
    *  la ficha se crea con el email verificado por Stripe. */
   compraPublicaModo: 'EXIGIR_REGISTRO' | 'CREAR_FICHA';
   reservaMaxSimultaneas: number | null;
+  // Fase 1 de reglas por tipo de clase (migr 20260730152516): estos son los
+  // DEFAULTS de estudio; tipos_clase puede sobrescribirlos con NULL = hereda,
+  // mismo patrón que cancelacionVentanaHoras/TipoClase.ventanaCancelacionHoras.
+  reservaVentanaMinimaMinutos: number;
+  reservaAntelacionMaximaDias: number | null;
+  permiteListaEspera: boolean;
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
   stripeTerminalLocationId: string | null;
@@ -423,6 +429,14 @@ export interface TipoClase {
   // Horas de antelación para cancelar sin perder la sesión, propias de este
   // tipo de clase. null = hereda la del estudio (Studio.cancelacionVentanaHoras).
   ventanaCancelacionHoras: number | null;
+  // Fase 1 de reglas por tipo de clase (migr 20260730152516): mismo patrón de
+  // override que ventanaCancelacionHoras — null = hereda el default del
+  // estudio (Studio.reservaExigirPlan/reservaVentanaMinimaMinutos/
+  // reservaAntelacionMaximaDias/permiteListaEspera).
+  reservaExigirPlan: boolean | null;
+  reservaVentanaMinimaMinutos: number | null;
+  reservaAntelacionMaximaDias: number | null;
+  permiteListaEspera: boolean | null;
 }
 
 export interface Instructor {

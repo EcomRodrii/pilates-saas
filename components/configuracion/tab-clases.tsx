@@ -9,6 +9,13 @@ import type { TipoClase } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 
+// "Hereda" = usa el ajuste general del estudio (Configuración → Estudio →
+// Reservas y cancelaciones). Un checkbox no puede representar tres estados
+// (hereda/sí/no), así que estas reglas van en un <select> de 3 opciones.
+type TriEstado = 'hereda' | 'si' | 'no';
+const triABool = (v: TriEstado): boolean | null => (v === 'hereda' ? null : v === 'si');
+const boolATri = (v: boolean | null | undefined): TriEstado => (v == null ? 'hereda' : v ? 'si' : 'no');
+
 type ClaseForm = {
   nombre: string;
   color: string;
@@ -17,6 +24,12 @@ type ClaseForm = {
   descripcion: string;
   // Vacío = hereda la ventana del estudio (comportamiento de siempre).
   ventanaCancelacionHoras: string;
+  // Fase 1 de reglas por tipo de clase (migr 20260730152516): mismo patrón de
+  // override que ventanaCancelacionHoras.
+  reservaExigirPlan: TriEstado;
+  reservaVentanaMinimaMinutos: string;
+  reservaAntelacionMaximaDias: string;
+  permiteListaEspera: TriEstado;
 };
 
 const emptyClaseForm = (): ClaseForm => ({
@@ -26,6 +39,10 @@ const emptyClaseForm = (): ClaseForm => ({
   nivel: 'TODOS',
   descripcion: '',
   ventanaCancelacionHoras: '',
+  reservaExigirPlan: 'hereda',
+  reservaVentanaMinimaMinutos: '',
+  reservaAntelacionMaximaDias: '',
+  permiteListaEspera: 'hereda',
 });
 
 function claseToForm(t: TipoClase): ClaseForm {
@@ -36,6 +53,10 @@ function claseToForm(t: TipoClase): ClaseForm {
     nivel: t.nivel,
     descripcion: t.descripcion ?? '',
     ventanaCancelacionHoras: t.ventanaCancelacionHoras != null ? String(t.ventanaCancelacionHoras) : '',
+    reservaExigirPlan: boolATri(t.reservaExigirPlan),
+    reservaVentanaMinimaMinutos: t.reservaVentanaMinimaMinutos != null ? String(t.reservaVentanaMinimaMinutos) : '',
+    reservaAntelacionMaximaDias: t.reservaAntelacionMaximaDias != null ? String(t.reservaAntelacionMaximaDias) : '',
+    permiteListaEspera: boolATri(t.permiteListaEspera),
   };
 }
 
@@ -104,6 +125,10 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       nivel: form.nivel,
       descripcion: form.descripcion.trim() || null,
       ventanaCancelacionHoras: form.ventanaCancelacionHoras.trim() === '' ? null : Math.max(0, parseInt(form.ventanaCancelacionHoras, 10) || 0),
+      reservaExigirPlan: triABool(form.reservaExigirPlan),
+      reservaVentanaMinimaMinutos: form.reservaVentanaMinimaMinutos.trim() === '' ? null : Math.max(0, parseInt(form.reservaVentanaMinimaMinutos, 10) || 0),
+      reservaAntelacionMaximaDias: form.reservaAntelacionMaximaDias.trim() === '' ? null : Math.max(0, parseInt(form.reservaAntelacionMaximaDias, 10) || 0),
+      permiteListaEspera: triABool(form.permiteListaEspera),
     };
     if (modal === 'nueva') {
       // Esperamos a la base de datos antes de decir que está creado.
@@ -294,6 +319,64 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 onChange={e => setForm(f => ({ ...f, ventanaCancelacionHoras: e.target.value }))}
               />
             </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field
+                label="Antelación mínima para reservar (min)"
+                description="Vacío = usa el ajuste general del estudio."
+              >
+                <input
+                  className={inputCls}
+                  type="number"
+                  min={0}
+                  placeholder="Ajuste del estudio"
+                  value={form.reservaVentanaMinimaMinutos}
+                  onChange={e => setForm(f => ({ ...f, reservaVentanaMinimaMinutos: e.target.value }))}
+                />
+              </Field>
+              <Field
+                label="Antelación máxima para reservar (días)"
+                description="Vacío = usa el ajuste general del estudio."
+              >
+                <input
+                  className={inputCls}
+                  type="number"
+                  min={0}
+                  placeholder="Ajuste del estudio"
+                  value={form.reservaAntelacionMaximaDias}
+                  onChange={e => setForm(f => ({ ...f, reservaAntelacionMaximaDias: e.target.value }))}
+                />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field
+                label="Exigir plan/bono activo"
+                description="Vacío = usa el ajuste general del estudio."
+              >
+                <select
+                  className={inputCls}
+                  value={form.reservaExigirPlan}
+                  onChange={e => setForm(f => ({ ...f, reservaExigirPlan: e.target.value as TriEstado }))}
+                >
+                  <option value="hereda">Usar el ajuste del estudio</option>
+                  <option value="si">Sí, exigir</option>
+                  <option value="no">No exigir</option>
+                </select>
+              </Field>
+              <Field
+                label="Permitir lista de espera"
+                description="Vacío = usa el ajuste general del estudio."
+              >
+                <select
+                  className={inputCls}
+                  value={form.permiteListaEspera}
+                  onChange={e => setForm(f => ({ ...f, permiteListaEspera: e.target.value as TriEstado }))}
+                >
+                  <option value="hereda">Usar el ajuste del estudio</option>
+                  <option value="si">Sí, permitir</option>
+                  <option value="no">No permitir</option>
+                </select>
+              </Field>
+            </div>
             <Field
               label="Color"
               description="Sirve para distinguir este tipo de clase de un vistazo en la agenda."

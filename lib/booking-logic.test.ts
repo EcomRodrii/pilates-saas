@@ -15,6 +15,9 @@ import {
   contarReservasActivasFuturas,
   clasesConHuecoProximas,
   candidatasParaHueco,
+  heredaOverride,
+  puedeReservarPorAntelacionMaxima,
+  puedeReservarPorVentanaMinima,
 } from './booking-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -211,6 +214,50 @@ test('debeDevolverBono: tardía y política no devuelve → NO devuelve', () => 
 test('debeDevolverBono: tardía pero política sí devuelve → devuelve', () => {
   const ahora = new Date('2026-07-13T02:00:00.000Z');
   assert.equal(debeDevolverBono(INICIO, ahora, 12, true), true);
+});
+
+// ── Fase 1: reglas de reserva por tipo de clase (migr 20260730152516) ─────────
+
+test('heredaOverride: sin override (null/undefined) → usa el valor del estudio', () => {
+  assert.equal(heredaOverride(null, true), true);
+  assert.equal(heredaOverride(undefined, false), false);
+  assert.equal(heredaOverride(null, 5), 5);
+});
+
+test('heredaOverride: con override → gana el override, incluso si es false/0', () => {
+  assert.equal(heredaOverride(false, true), false);
+  assert.equal(heredaOverride(0, 12), 0);
+  assert.equal(heredaOverride(true, false), true);
+});
+
+test('puedeReservarPorVentanaMinima: fuera de la ventana → se puede reservar', () => {
+  const ahora = new Date('2026-07-13T07:00:00.000Z'); // 1h antes, ventana de 10 min
+  assert.equal(puedeReservarPorVentanaMinima(INICIO, ahora, 10), true);
+});
+
+test('puedeReservarPorVentanaMinima: dentro de la ventana → ya no se puede reservar', () => {
+  const ahora = new Date('2026-07-13T07:55:00.000Z'); // 5 min antes, ventana de 10 min
+  assert.equal(puedeReservarPorVentanaMinima(INICIO, ahora, 10), false);
+});
+
+test('puedeReservarPorVentanaMinima: ventana 0 desactiva el límite', () => {
+  const ahora = new Date('2026-07-13T07:59:59.000Z'); // 1s antes
+  assert.equal(puedeReservarPorVentanaMinima(INICIO, ahora, 0), true);
+});
+
+test('puedeReservarPorAntelacionMaxima: null desactiva el límite (siempre se puede)', () => {
+  const ahora = new Date('2020-01-01T00:00:00.000Z'); // muchísimo antes
+  assert.equal(puedeReservarPorAntelacionMaxima(INICIO, ahora, null), true);
+});
+
+test('puedeReservarPorAntelacionMaxima: demasiado pronto → todavía no se puede reservar', () => {
+  const ahora = new Date('2026-06-01T00:00:00.000Z'); // más de 30 días antes
+  assert.equal(puedeReservarPorAntelacionMaxima(INICIO, ahora, 30), false);
+});
+
+test('puedeReservarPorAntelacionMaxima: dentro de la ventana permitida → se puede reservar', () => {
+  const ahora = new Date('2026-07-01T00:00:00.000Z'); // menos de 30 días antes
+  assert.equal(puedeReservarPorAntelacionMaxima(INICIO, ahora, 30), true);
 });
 
 // ── contarReservasActivasFuturas (C-4) ────────────────────────────────────────
