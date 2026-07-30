@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 
 // Ausencias de instructoras (vacaciones / baja médica / otro). Al crearlas se
 // materializan los bloqueos día a día en instructora_disponibilidad_excepciones
@@ -14,6 +15,22 @@ export const dynamic = 'force-dynamic';
 
 const TIPOS = ['VACACIONES', 'BAJA_MEDICA', 'OTRO'];
 const MAX_DIAS = 366; // tope defensivo: una ausencia no materializa años de bloqueos
+
+// Instante UTC del inicio (o fin) del día natural de Madrid para una fecha
+// YYYY-MM-DD, con el offset correcto para esa fecha concreta (CET +1 / CEST
+// +2). Se calcula a mediodía UTC de esa fecha para no caer justo en el
+// instante de un cambio de hora.
+function limiteDiaMadrid(fecha: string, finDelDia: boolean): string {
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Madrid', timeZoneName: 'shortOffset',
+  }).formatToParts(new Date(`${fecha}T12:00:00Z`));
+  const offset = partes.find(p => p.type === 'timeZoneName')?.value ?? 'GMT+1';
+  const horas = parseInt(offset.replace('GMT', '') || '+1', 10);
+  const signo = horas >= 0 ? '+' : '-';
+  const abs = String(Math.abs(horas)).padStart(2, '0');
+  const hora = finDelDia ? '23:59:59.999' : '00:00:00';
+  return `${fecha}T${hora}${signo}${abs}:00`;
+}
 
 function dias(desde: string, hasta: string): string[] {
   const out: string[] = [];
@@ -51,6 +68,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const staff = await verificarSesionStaff(req);
   if (!staff) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  if (!puedeGestionarEquipo(staff.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para gestionar ausencias del equipo' }, { status: 403 });
+  }
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
@@ -96,10 +116,18 @@ export async function POST(req: NextRequest) {
 
   // Clases YA programadas de esa instructora dentro del periodo: es lo accionable
   // (hay que cubrirlas). Se cuentan para devolverlo y para el aviso.
+  //
+  // `sesiones.inicio` se guarda en UTC absoluto, y el rango de la ausencia es
+  // por DÍA NATURAL DE MADRID (0084/0105 ya fijaron este mismo patrón para
+  // reservas). Comparar contra el literal sin zona horaria lo interpreta en
+  // UTC: una clase de madrugada (p. ej. 07:00 en Madrid = 05:00 UTC en
+  // verano) en el borde del periodo podía quedar fuera del recuento, o una
+  // del día siguiente aún no entrado en Madrid podía colarse — dejando
+  // "0 clases afectadas" cuando sí había una clase sin cubrir.
   const { data: choques } = await admin.from('sesiones')
     .select('id').eq('studio_id', staff.studioId).eq('instructor_id', b.instructorId)
     .eq('cancelada', false)
-    .gte('inicio', `${b.desde}T00:00:00`).lte('inicio', `${b.hasta}T23:59:59`);
+    .gte('inicio', limiteDiaMadrid(b.desde!, false)).lte('inicio', limiteDiaMadrid(b.hasta!, true));
   const clasesAfectadas = choques?.length ?? 0;
 
   // Notification Engine: la dueña ve la ausencia y, sobre todo, cuántas clases
@@ -117,6 +145,9 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const staff = await verificarSesionStaff(req);
   if (!staff) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  if (!puedeGestionarEquipo(staff.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para gestionar ausencias del equipo' }, { status: 403 });
+  }
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
