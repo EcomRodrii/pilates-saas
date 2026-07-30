@@ -1,0 +1,153 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { Sidebar } from '@/components/layout/sidebar';
+import { Topbar } from '@/components/layout/topbar';
+import { AvisoCambioDeSede } from '@/components/layout/sede-activa';
+import { useAuth } from '@/lib/auth-context';
+import { useStudio } from '@/lib/studio-context';
+import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
+import { PanelThemeProvider } from '@/lib/panel-theme';
+import { PanelPrivacyProvider } from '@/lib/panel-privacy';
+import { PanelSkeleton } from '@/components/ui/panel-skeleton';
+import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
+import { estadoBilling } from '@/lib/api-client';
+import { navSections } from '@/lib/nav-config';
+
+// Antes vivía todo esto directo en app/(dashboard)/layout.tsx, pero ese
+// archivo necesita exportar `metadata` (manifest del panel instalable) y eso
+// solo lo puede hacer un Server Component — 'use client' bloquea cualquier
+// export de metadata. Se extrajo el cuerpo tal cual a este componente cliente;
+// el layout ahora es un wrapper fino que solo pone la metadata y renderiza esto.
+export function DashboardShell({ children }: { children: React.ReactNode }) {
+  const { session, loading } = useAuth();
+  const { studio } = useStudio();
+  const { rol, puedeVer } = usePermisos();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!loading && !session) router.replace('/login');
+  }, [loading, session, router]);
+
+  // El rol solo está resuelto cuando el ESTUDIO del usuario ya cargó (ver el
+  // comentario largo más abajo, junto a `rolResuelto`). Se calcula aquí arriba
+  // porque el título de pestaña lo necesita antes que el resto.
+  const rolResuelto = studio !== null;
+
+  // Título de la pestaña por sección. Por defecto heredaba el de la web comercial
+  // (app/layout) en TODAS las pantallas del panel → con varias pestañas abiertas
+  // ninguna se distinguía (P4). Lo derivamos del propio menú.
+  //
+  // Mientras el rol no está resuelto, `useRol()` cae al mínimo (INSTRUCTOR,
+  // fail-closed de A-2) — con el rebranding por rol eso se veía como un
+  // parpadeo real ("Tentare Core" un instante, luego "Tentare Manager" al
+  // cargar el estudio de una propietaria). Con "Tentare" a secas mientras
+  // carga no se afirma un rol que aún no se conoce.
+  useEffect(() => {
+    const item = navSections
+      .flatMap(s => s.items)
+      .filter(i => pathname === i.href || pathname.startsWith(i.href + '/'))
+      .sort((a, b) => b.href.length - a.href.length)[0];
+    const marca = rolResuelto ? nombreAppPorRol(rol) : 'Tentare';
+    document.title = item ? `${marca} · ${item.label}` : marca;
+  }, [pathname, rol, rolResuelto]);
+
+  // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
+  // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción
+  // activa. Con la enforcement apagada (por defecto) nunca redirige.
+  // `null` = todavía no resuelto: mientras tanto NO se pinta el dashboard real
+  // (antes se veía un flash del contenido del panel antes del redirect a
+  // /suscripcion en estudios bloqueados).
+  const [billingBloqueado, setBillingBloqueado] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (loading || !session) return;
+    let vivo = true;
+    estadoBilling().then((e) => {
+      if (!vivo) return;
+      setBillingBloqueado(!!e?.bloqueado);
+      if (e?.bloqueado) router.replace('/suscripcion');
+    });
+    return () => { vivo = false; };
+  }, [loading, session, router]);
+
+  // `rolResuelto` (arriba, junto al título de pestaña): no vale `dataLoaded`,
+  // porque el provider hace un primer fetch con la sesión aún sin resolver
+  // (authUserId nulo) que deja `studio` a null pero `dataLoaded` a true;
+  // decidir ahí vería el rol mínimo (fail-closed de A-2) y rebotaría a
+  // /dashboard al REFRESCAR una página solo-PROPIETARIO. Con `studio !== null`
+  // esperamos a que useRol tenga el dato del dueño. El servidor ya protege cada
+  // endpoint, así que renderizar el marco mientras carga no expone datos.
+  const autorizado = puedeVer(pathname);
+  // I3: mientras el estudio (y con él todos los slices de datos, que se setean a la
+  // vez que `studio` al terminar fetchCriticalStudioData) aún no ha cargado,
+  // mostramos un skeleton en lugar de las páginas —que si no pintarían estados
+  // vacíos falsos ("Sin recibos", "No hay resultados") en cada carga en frío.
+  // `studio !== null` es la señal fiable (no `dataLoaded`, que se pone true antes
+  // con el fetch temprano de sesión sin resolver, como explica el bloque de rol).
+  // I3: el login redirige las altas sin estudio a /crear-estudio, así que quien
+  // llega aquí tiene estudio y `studio` acaba cargando; por eso gatear sobre
+  // `studio === null` no deja a nadie en un skeleton perpetuo.
+  const cargandoDatos = !!session && (studio === null || billingBloqueado !== false);
+  useEffect(() => {
+    if (!loading && session && rolResuelto && !autorizado) router.replace('/dashboard');
+  }, [loading, session, rolResuelto, autorizado, router]);
+
+  // Antes era `return null`: pantalla en BLANCO mientras se resuelve la sesión.
+  // Sumado a que el panel son ~2,3 MB de JS que hay que descargar y ejecutar
+  // antes de llegar aquí, en carga fría eso son muchos segundos de nada — y una
+  // pantalla vacía no se lee como "cargando", se lee como "se ha roto". El marco
+  // + skeleton ya existen para el caso de datos; se reutilizan también aquí.
+  if (loading) {
+    return (
+      <PanelPrivacyProvider>
+        <PanelThemeProvider className="min-h-screen bg-background">
+          <main className="lg:pl-[var(--sidebar-w)] min-h-screen">
+            <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+              <PanelSkeleton />
+            </div>
+          </main>
+        </PanelThemeProvider>
+      </PanelPrivacyProvider>
+    );
+  }
+
+  if (rolResuelto && !autorizado) {
+    return (
+      <PanelPrivacyProvider>
+        <PanelThemeProvider className="min-h-screen bg-background">
+          <Sidebar />
+          <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200" />
+        </PanelThemeProvider>
+      </PanelPrivacyProvider>
+    );
+  }
+
+  // Pantalla de bienvenida a pantalla completa tras crear el estudio (una sola
+  // vez): se evalúa aquí, con el estudio ya cargado y el billing ya resuelto,
+  // y ANTES de montar Sidebar/Topbar — no es un overlay, sustituye el layout
+  // entero mientras esté activa. "Salir" de ella no navega a ningún sitio:
+  // updateStudio actualiza el estado local de forma optimista, así que el
+  // siguiente render de este mismo layout deja de cumplir la condición.
+  if (studio && !cargandoDatos && !studio.bienvenidaVistaEn) {
+    return <PantallaBienvenida studio={studio} />;
+  }
+
+  return (
+    <PanelPrivacyProvider>
+      <PanelThemeProvider className="min-h-screen bg-background">
+        <Sidebar />
+        {/* Cambiar de sede recarga el panel entero y aterrizas en un dashboard
+            idéntico salvo por los datos: esto es lo único que confirma el salto. */}
+        <AvisoCambioDeSede />
+        <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200">
+          <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+            <Topbar />
+            {cargandoDatos ? <PanelSkeleton /> : children}
+          </div>
+        </main>
+      </PanelThemeProvider>
+    </PanelPrivacyProvider>
+  );
+}
