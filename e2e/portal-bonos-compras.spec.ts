@@ -42,6 +42,11 @@ test.describe('Portal — Bonos', () => {
   test('«Renovar bono» lleva a Compras', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/bonos`);
+    // Esperar a que el saldo esté pintado no es adorno: ese texto solo aparece
+    // cuando los datos ya llegaron, y por tanto cuando React ya enganchó el
+    // onClick. Sin esto, con la máquina cargada el clic se pierde en silencio
+    // y el test falla en grupo aunque pase suelto — ya pasó en Avisos.
+    await expect(page.getByText('de 10 sesiones disponibles')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Renovar bono' }).click();
     await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/compras$`));
   });

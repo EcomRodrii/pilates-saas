@@ -227,6 +227,11 @@ export default function Socios() {
   // igualmente y la clienta salía en la lista sin existir de verdad.
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  // Aviso de las acciones de FILA (activar/desactivar). Aparte de `errorGuardar`
+  // a propósito: aquel se pinta dentro del modal de alta/edición, así que
+  // usarlo desde la lista dejaría el fallo escrito donde nadie lo ve — que es
+  // justo el bug que hubo que arreglar en /reservar (#505).
+  const [errorFila, setErrorFila] = useState<string | null>(null);
   const contratoRef = useRef<HTMLDivElement>(null);
 
   // Reset selection when filters change
@@ -572,6 +577,12 @@ export default function Socios() {
 
   return (
     <div className="space-y-5 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+      {errorFila && (
+        <p role="alert" className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-700">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <span>{errorFila}</span>
+        </p>
+      )}
       <PageHeader
         title="Clientas"
         description="Gestiona y haz seguimiento de todas tus clientas"
@@ -903,7 +914,12 @@ export default function Socios() {
                           <Pencil size={13} className="text-muted-foreground" />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); updateSocio(s.id, { activo: !s.activo }); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void updateSocio(s.id, { activo: !s.activo }).then(res => {
+                              if (!res.ok) setErrorFila(res.error);
+                            });
+                          }}
                           className="p-1.5 rounded-md hover:bg-muted transition-colors"
                           title={s.activo ? 'Desactivar' : 'Activar'}
                         >
