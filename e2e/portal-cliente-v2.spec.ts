@@ -87,7 +87,9 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
     await expect(menu).toBeVisible({ timeout: 30_000 });
 
     const etiquetas = await menu.getByRole('link').allInnerTexts();
-    expect(etiquetas).toEqual(['Inicio', 'Agenda', 'Mi plan', 'Perfil']);
+    // «Mi plan» pasó a ser «Bonos» al partir esa ruta en /bonos + /compras:
+    // la pestaña lleva a mirar el saldo, no a pasar por caja.
+    expect(etiquetas).toEqual(['Inicio', 'Agenda', 'Bonos', 'Perfil']);
     // La pestaña activa se anuncia, no solo se pinta.
     await expect(menu.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
   });

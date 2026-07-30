@@ -69,6 +69,9 @@ export const EVENTOS = {
   BONO_AGOTADO: 'bono.agotado',
   CLASE_CASI_LLENA: 'clase.casi_llena',
   SOCIA_INACTIVA: 'socia.inactiva',
+  // Autoservicio de instructora (migración 20260731100000): se ha creado a sí
+  // misma una clase nueva. Informativo, no accionable — sin push/email.
+  CLASE_CREADA_POR_INSTRUCTOR: 'clase.creada_por_instructor',
   // Operativos de la dueña (antes escribían a la tabla legacy `notificaciones`)
   SALUD_REVISION: 'salud.revision_pendiente',
   RIESGO_DEPENDENCIA: 'riesgo.dependencia',
@@ -116,6 +119,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.BONO_POR_CADUCAR]:      { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.BONO_AGOTADO]:          { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.CLASE_CASI_LLENA]:      { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
+  [EVENTOS.CLASE_CREADA_POR_INSTRUCTOR]: { category: 'clases', priority: 'BAJA', canales: [],   audiencia: 'propietaria' },
   [EVENTOS.SOCIA_INACTIVA]:        { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
   [EVENTOS.SALUD_REVISION]:        { category: 'sistema',  priority: 'MEDIA', canales: [],       audiencia: 'propietaria' },
   [EVENTOS.RIESGO_DEPENDENCIA]:    { category: 'sistema',  priority: 'MEDIA', canales: [],       audiencia: 'propietaria' },
@@ -265,7 +269,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_FALLIDO}#SOCIA`]: {
     title: 'Problema con tu pago',
     body: 'No hemos podido cobrar {concepto} ({importe} €). Revisa tu método de pago.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/mi-plan`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
   },
   [`${EVENTOS.PAGO_REALIZADO}#SOCIA`]: {
     title: 'Pago recibido',
@@ -299,12 +303,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.BONO_POR_CADUCAR}#SOCIA`]: {
     title: 'Tu bono está por caducar',
     body: 'Te quedan {sesiones} sesiones y tu bono caduca el {fecha}. Renueva para no perderlas.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/mi-plan`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
   },
   [`${EVENTOS.BONO_AGOTADO}#SOCIA`]: {
     title: 'Se te ha agotado el bono',
     body: 'Has usado la última sesión de tu bono de {plan}. Renueva para seguir reservando.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/mi-plan`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
   },
   [`${EVENTOS.CLASE_CASI_LLENA}#PROPIETARIO`]: {
     title: 'Clase casi llena',
@@ -315,6 +319,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Clienta inactiva',
     body: '{socia} lleva {dias} días sin venir. Quizá un mensaje la recupere.',
     deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
+  },
+  [`${EVENTOS.CLASE_CREADA_POR_INSTRUCTOR}#PROPIETARIO`]: {
+    title: 'Clase nueva creada por una instructora',
+    body: '{instructora} ha creado {clase} el {cuando}.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
   },
   // Operativos de la dueña (migrados de la tabla legacy)
   [`${EVENTOS.SALUD_REVISION}#PROPIETARIO`]: {

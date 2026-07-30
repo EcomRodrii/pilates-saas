@@ -10,8 +10,29 @@ import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 // bloqueos en cascada (FK ON DELETE CASCADE).
 //
 // Todo acotado al estudio de la sesión de staff: nunca se fía del cliente.
+//
+// Autoservicio de instructora (quinto tramo): puede registrar/borrar SU
+// PROPIA ausencia, resuelta siempre en servidor (nunca el `instructorId` que
+// venga en el body/query) — mismo patrón ya usado en app/api/sustituciones
+// (POST) para "no puedo asistir". No hace falta un endpoint separado (a
+// diferencia de disponibilidad): aquí no hay dos mecanismos de auth distintos
+// que mezclar, todo pasa por `verificarSesionStaff`.
 
 export const dynamic = 'force-dynamic';
+
+async function resolverPropioInstructorId(
+  admin: ReturnType<typeof getSupabaseAdmin> & {},
+  userId: string, studioId: string,
+): Promise<string | null> {
+  // limit(1) en vez de maybeSingle(): no hay UNIQUE(auth_user_id, studio_id)
+  // en `instructores` — una ficha duplicada rompería maybeSingle() y dejaría
+  // a una instructora legítima sin poder gestionar su ausencia.
+  const { data } = await admin
+    .from('instructores').select('id')
+    .eq('auth_user_id', userId).eq('studio_id', studioId)
+    .neq('activo', false).order('id', { ascending: true }).limit(1);
+  return (data?.[0]?.id as string | undefined) ?? null;
+}
 
 const TIPOS = ['VACACIONES', 'BAJA_MEDICA', 'OTRO'];
 const MAX_DIAS = 366; // tope defensivo: una ausencia no materializa años de bloqueos
@@ -49,7 +70,13 @@ export async function GET(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ items: [] });
 
-  const instructorId = req.nextUrl.searchParams.get('instructorId');
+  // Una instructora solo ve las SUYAS — ignora cualquier `instructorId` del
+  // query string, no vaya a pedir el de una compañera cambiando el parámetro.
+  let instructorId = req.nextUrl.searchParams.get('instructorId');
+  if (staff.rol === 'INSTRUCTOR') {
+    instructorId = await resolverPropioInstructorId(admin, staff.userId, staff.studioId);
+    if (!instructorId) return NextResponse.json({ items: [] });
+  }
   let q = admin.from('instructora_ausencias')
     .select('id, instructor_id, tipo, desde, hasta, motivo')
     .eq('studio_id', staff.studioId)
@@ -68,7 +95,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const staff = await verificarSesionStaff(req);
   if (!staff) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!puedeGestionarEquipo(staff.rol)) {
+  const esInstructoraPropia = staff.rol === 'INSTRUCTOR';
+  if (!puedeGestionarEquipo(staff.rol) && !esInstructoraPropia) {
     return NextResponse.json({ error: 'No tienes permiso para gestionar ausencias del equipo' }, { status: 403 });
   }
   const admin = getSupabaseAdmin();
@@ -77,8 +105,17 @@ export async function POST(req: NextRequest) {
   const b = (await req.json().catch(() => null)) as
     | { instructorId?: string; tipo?: string; desde?: string; hasta?: string; motivo?: string }
     | null;
+
+  // Si es la propia instructora, el destino se resuelve en SERVIDOR — nunca
+  // el `instructorId` que venga en el body, aunque lo mande.
+  let instructorId = b?.instructorId;
+  if (esInstructoraPropia) {
+    instructorId = (await resolverPropioInstructorId(admin, staff.userId, staff.studioId)) ?? undefined;
+    if (!instructorId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
   const RE_FECHA = /^\d{4}-\d{2}-\d{2}$/;
-  if (!b?.instructorId || !b?.tipo || !TIPOS.includes(b.tipo)) {
+  if (!instructorId || !b?.tipo || !TIPOS.includes(b.tipo)) {
     return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
   }
   if (!RE_FECHA.test(b.desde ?? '') || !RE_FECHA.test(b.hasta ?? '') || b.hasta! < b.desde!) {
@@ -87,7 +124,7 @@ export async function POST(req: NextRequest) {
 
   // La instructora debe ser de SU estudio.
   const { data: instr } = await admin.from('instructores')
-    .select('id, nombre').eq('id', b.instructorId).eq('studio_id', staff.studioId).maybeSingle();
+    .select('id, nombre').eq('id', instructorId).eq('studio_id', staff.studioId).maybeSingle();
   if (!instr) return NextResponse.json({ error: 'Instructora no encontrada' }, { status: 404 });
 
   const fechas = dias(b.desde!, b.hasta!);
@@ -97,7 +134,7 @@ export async function POST(req: NextRequest) {
 
   const id = `aus-${crypto.randomUUID()}`;
   const { error } = await admin.from('instructora_ausencias').insert({
-    id, studio_id: staff.studioId, instructor_id: b.instructorId, tipo: b.tipo,
+    id, studio_id: staff.studioId, instructor_id: instructorId, tipo: b.tipo,
     desde: b.desde, hasta: b.hasta, motivo: b.motivo?.trim().slice(0, 300) || null,
   });
   if (error) {
@@ -108,7 +145,7 @@ export async function POST(req: NextRequest) {
   // Materializa un bloqueo de TODO EL DÍA por fecha (hora_inicio/fin NULL).
   const bloqueos = fechas.map(f => ({
     id: `exc-${crypto.randomUUID()}`,
-    studio_id: staff.studioId, instructor_id: b.instructorId,
+    studio_id: staff.studioId, instructor_id: instructorId,
     fecha: f, hora_inicio: null, hora_fin: null, tipo: 'bloqueo', ausencia_id: id,
   }));
   const { error: errExc } = await admin.from('instructora_disponibilidad_excepciones').insert(bloqueos);
@@ -125,7 +162,7 @@ export async function POST(req: NextRequest) {
   // del día siguiente aún no entrado en Madrid podía colarse — dejando
   // "0 clases afectadas" cuando sí había una clase sin cubrir.
   const { data: choques } = await admin.from('sesiones')
-    .select('id').eq('studio_id', staff.studioId).eq('instructor_id', b.instructorId)
+    .select('id').eq('studio_id', staff.studioId).eq('instructor_id', instructorId)
     .eq('cancelada', false)
     .gte('inicio', limiteDiaMadrid(b.desde!, false)).lte('inicio', limiteDiaMadrid(b.hasta!, true));
   const clasesAfectadas = choques?.length ?? 0;
@@ -145,7 +182,8 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const staff = await verificarSesionStaff(req);
   if (!staff) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!puedeGestionarEquipo(staff.rol)) {
+  const esInstructoraPropia = staff.rol === 'INSTRUCTOR';
+  if (!puedeGestionarEquipo(staff.rol) && !esInstructoraPropia) {
     return NextResponse.json({ error: 'No tienes permiso para gestionar ausencias del equipo' }, { status: 403 });
   }
   const admin = getSupabaseAdmin();
@@ -154,9 +192,19 @@ export async function DELETE(req: NextRequest) {
   const b = (await req.json().catch(() => null)) as { id?: string } | null;
   if (!b?.id) return NextResponse.json({ error: 'Falta id' }, { status: 400 });
 
-  // Los bloqueos se borran solos (FK ON DELETE CASCADE).
-  const { error } = await admin.from('instructora_ausencias')
+  let q = admin.from('instructora_ausencias')
     .delete().eq('id', b.id).eq('studio_id', staff.studioId);
+  // Solo puede borrar la SUYA — nunca la de una compañera, aunque adivine el id.
+  if (esInstructoraPropia) {
+    const instructorId = await resolverPropioInstructorId(admin, staff.userId, staff.studioId);
+    if (!instructorId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    q = q.eq('instructor_id', instructorId);
+  }
+
+  // .select('id') para saber si de verdad borró algo: sin esto, una
+  // instructora borrando el id de otra recibía "ok:true" sin haber tocado nada.
+  const { data, error } = await q.select('id');
   if (error) return NextResponse.json({ error: 'No se ha podido borrar' }, { status: 500 });
+  if (!data || data.length === 0) return NextResponse.json({ error: 'Ausencia no encontrada' }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

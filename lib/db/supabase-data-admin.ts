@@ -406,7 +406,7 @@ export async function fetchPublicStudioData(
   if (!socioRow || !emailOk) return { ...base, socia: null };
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes] =
+  const [susRes, resRes, recRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes] =
     await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
@@ -419,6 +419,10 @@ export async function fetchPublicStudioData(
       admin.from('challenge_progress').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('credit_transactions').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('citas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      // Su plaza fija (F2). Solo se cargaba en el panel, así que la tarjeta
+      // «PLAZA FIJA» del portal no se habría pintado nunca — ni con la plaza
+      // contratada y pagada.
+      admin.from('plazas_fijas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
     ]);
 
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
@@ -454,6 +458,7 @@ export async function fetchPublicStudioData(
       challengeProgress: (chalProgRes.data ?? []).map(mapChallengeProgress),
       creditTransactions: (txRes.data ?? []).map(mapCreditTransaction),
       citas: (citasRes.data ?? []).map(mapCita),
+      plazasFijas: (plazasRes.data ?? []).map(mapPlazaFija),
     },
   };
 }

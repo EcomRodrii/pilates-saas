@@ -93,7 +93,7 @@ test.describe('La dirección del portal', () => {
     await page.getByRole('button', { name: 'Cambiar' }).click();
     await expect(page.getByText(/seguirá funcionando/i)).toBeVisible();
 
-    const campo = page.getByRole('textbox', { name: 'Dirección de tu portal' });
+    const campo = page.getByRole('textbox', { name: 'Dirección de tu página de reservas' });
     await campo.fill('estudio Núñez');
     // Se enseña cómo va a quedar antes de guardar: nadie sabe qué es un slug.
     await expect(page.getByText('/reservar/estudio-nunez')).toBeVisible();
@@ -110,7 +110,7 @@ test.describe('La dirección del portal', () => {
     await abrirEstudio(page);
 
     await page.getByRole('button', { name: 'Cambiar' }).click();
-    const campo = page.getByRole('textbox', { name: 'Dirección de tu portal' });
+    const campo = page.getByRole('textbox', { name: 'Dirección de tu página de reservas' });
     const boton = page.getByRole('button', { name: 'Cambiar dirección' });
     // `role="alert"` lo usa también el anunciador de rutas de Next, que está
     // siempre presente y vacío: hay que acotar al aviso propio.
@@ -137,11 +137,11 @@ test.describe('La dirección del portal', () => {
     await abrirEstudio(page);
 
     await page.getByRole('button', { name: 'Cambiar' }).click();
-    await page.getByRole('textbox', { name: 'Dirección de tu portal' }).fill('pilates-centro');
+    await page.getByRole('textbox', { name: 'Dirección de tu página de reservas' }).fill('pilates-centro');
     await page.getByRole('button', { name: 'Cambiar dirección' }).click();
 
     await expect(page.getByRole('alert').filter({ hasText: /./ })).toContainText('ya está en uso');
-    await expect(page.getByRole('textbox', { name: 'Dirección de tu portal' }))
+    await expect(page.getByRole('textbox', { name: 'Dirección de tu página de reservas' }))
       .toHaveValue('pilates-centro');
   });
 });

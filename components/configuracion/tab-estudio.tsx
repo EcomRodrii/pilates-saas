@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { RotateCcw, AlertTriangle, ExternalLink, Calendar as CalendarLinkIcon, Building2, Check, Loader2, Palette, ChevronRight } from 'lucide-react';
+import { RotateCcw, AlertTriangle, ExternalLink, Calendar as CalendarLinkIcon, Building2, Check, Loader2, Palette, ChevronRight, Smartphone, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
@@ -399,7 +399,7 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-1">Reservas y cancelaciones</h3>
         <p className="text-[12px] text-muted-foreground mb-4">
-          Reglas que se aplican cuando una clienta reserva o cancela desde el portal público.
+          Reglas que se aplican cuando una clienta reserva o cancela desde la página pública de reservas.
         </p>
         <div className="space-y-4">
           <div>
@@ -479,7 +479,12 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
         </button>
       </div>
 
-      {/* Enlaces públicos */}
+      {/* Enlaces públicos — dos cosas DISTINTAS que se confundían bajo el mismo
+          nombre "portal": la página de reservas (sin cuenta, para captar) y la
+          app de socias (con cuenta, instalable). Antes solo se enseñaba la
+          primera, llamándola "portal", y la segunda no se podía copiar desde
+          ningún sitio del panel — la propietaria no tenía forma de dársela a
+          sus alumnas salvo que ellas la encontraran solas navegando. */}
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-1">Enlaces públicos</h3>
         <p className="text-[12px] text-muted-foreground mb-3">
@@ -500,12 +505,17 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
           >
             <CalendarLinkIcon size={15} className="text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-foreground">Portal de reservas</p>
-              <p className="text-[11px] text-muted-foreground">Página pública para que cualquiera reserve una clase</p>
+              <p className="text-[13px] font-semibold text-foreground">Página pública de reservas</p>
+              <p className="text-[11px] text-muted-foreground">Sin cuenta: cualquiera reserva una clase suelta. El enlace para Instagram, la puerta, los folletos.</p>
             </div>
             <ExternalLink size={13} className="text-muted-foreground shrink-0" />
           </a>
           )}
+          {/* La app de socias (app/portal/[slug]) es OTRA cosa: instalable, con
+              su bono/plan, vídeos y progreso. No tiene botón de "abrir" aquí
+              porque sin sesión de socia no lleva a ningún sitio útil — lo que
+              hace falta es copiar el enlace para pasárselo. */}
+          {studio?.slug && <EnlacePortalSocias slug={studio.slug} showToast={showToast} />}
           {/* CONGELADO (feature-freeze PMF): se quitó el enlace "Modo quiosco" →
               /kiosk/[slug]. Ver lib/frozen-features.ts. */}
         </div>
@@ -591,6 +601,41 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
   );
 }
 
+// ─── Enlace a la app de socias (app/portal/[slug]) ───────────────────────────
+//
+// Antes no existía este bloque: el único enlace copiable en el panel era el de
+// la reserva pública, mal etiquetado "portal". La app de verdad para socias no
+// se podía compartir desde ningún sitio — una propietaria que quería dársela a
+// una alumnas solo podía pasarle la URL escrita a mano, si es que la conocía.
+function EnlacePortalSocias({ slug, showToast }: { slug: string; showToast: (m: string) => void }) {
+  const [copiado, setCopiado] = useState(false);
+
+  function copiar() {
+    const link = `${window.location.origin}/portal/${slug}`;
+    navigator.clipboard.writeText(link);
+    setCopiado(true);
+    showToast('Enlace copiado');
+    setTimeout(() => setCopiado(false), 2000);
+  }
+
+  return (
+    <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-border">
+      <Smartphone size={15} className="text-muted-foreground shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-semibold text-foreground">App de tus alumnas</p>
+        <p className="text-[11px] text-muted-foreground">Para clientas ya dadas de alta: reservan, ven su bono, vídeos y progreso. Se instala en el móvil.</p>
+      </div>
+      <button
+        onClick={copiar}
+        className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors"
+      >
+        {copiado ? <Check size={13} className="text-success" /> : <Copy size={13} />}
+        {copiado ? 'Copiado' : 'Copiar'}
+      </button>
+    </div>
+  );
+}
+
 // ─── Dirección pública del estudio ───────────────────────────────────────────
 //
 // Cambiarla afecta a todo lo ya compartido: la bio de Instagram, el QR de la
@@ -632,11 +677,11 @@ function DireccionPublica() {
       });
       const cuerpo = await res.json().catch(() => ({}));
       if (!res.ok) { setError(cuerpo?.error ?? 'No se ha podido cambiar la dirección.'); return; }
-      // Se recarga en vez de tocar el estado a mano: el enlace de «Portal de
-      // reservas» de justo debajo se deriva de `studio.slug`, y verlo con la
-      // dirección vieja después de cambiarla es exactamente la confusión que
-      // este cambio venía a quitar. Cambiar la dirección pública se hace una
-      // vez cada mucho; una recarga ahí no molesta a nadie.
+      // Se recarga en vez de tocar el estado a mano: el enlace de «Página
+      // pública de reservas» de justo debajo se deriva de `studio.slug`, y
+      // verlo con la dirección vieja después de cambiarla es exactamente la
+      // confusión que este cambio venía a quitar. Cambiar la dirección
+      // pública se hace una vez cada mucho; una recarga ahí no molesta a nadie.
       const anterior = encodeURIComponent(cuerpo?.anterior ?? '');
       window.location.href = `/configuracion?tab=estudio&direccion-anterior=${anterior}`;
       return;
@@ -651,7 +696,7 @@ function DireccionPublica() {
 
   return (
     <div className="mb-4 rounded-xl border border-border p-4">
-      <p className={cn(labelCls, 'mb-1')}>Dirección de tu portal</p>
+      <p className={cn(labelCls, 'mb-1')}>Dirección de tu página de reservas</p>
 
       {!editando ? (
         <div className="flex items-center gap-2 flex-wrap">
@@ -667,7 +712,7 @@ function DireccionPublica() {
           <div className="flex items-center gap-1.5">
             <span className="text-[12px] text-muted-foreground shrink-0">/reservar/</span>
             <input
-              aria-label="Dirección de tu portal"
+              aria-label="Dirección de tu página de reservas"
               className={inputCls}
               value={valor}
               onChange={e => { setValor(e.target.value); setError(null); }}
@@ -681,8 +726,8 @@ function DireccionPublica() {
           {error && <p role="alert" className="text-[11px] text-destructive">{error}</p>}
           <p className="text-[11px] leading-snug text-muted-foreground">
             Tu dirección actual <b>/reservar/{slug}</b> seguirá funcionando: quien
-            entre por ella llegará igual a tu portal. Nada de lo que ya has
-            compartido deja de servir.
+            entre por ella llegará igual a tu página de reservas. Nada de lo
+            que ya has compartido deja de servir.
           </p>
           <div className="flex gap-2 pt-1">
             <button onClick={guardar} disabled={guardando || !!motivo || !propuesto} className={cn(btnPrimary, 'disabled:opacity-60')}>

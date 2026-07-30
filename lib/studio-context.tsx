@@ -139,7 +139,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
+import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, decidirOtorgarCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
@@ -661,6 +661,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setReservas(aforo.map((r: Reserva) => miasById.get(r.id) ?? r));
       setSocios(socia ? [socia.socio] : []);
       setSuscripciones(socia?.suscripciones ?? []);
+      // Su plaza fija: la pantalla de Bonos la enseña, y en la vía pública solo
+      // llegan las suyas (el servidor las acota por socio_id).
+      setPlazasFijas(socia?.plazasFijas ?? []);
       setRecibos(socia?.recibos ?? []);
       setFacturas(socia?.facturas ?? []);
       memberPrefsStore.setPreferenciasSocio(socia?.preferenciasSocio ?? []);
@@ -1684,6 +1687,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbInsertSesion(nueva);
     if (!res.ok) return res;
     setSesiones(prev => [...prev, nueva]);
+    // Autoservicio de instructora (20260731100000): si quien crea es ella
+    // misma, la propietaria no lo sabe todavía — avisarla (best-effort, no
+    // bloquea el alta). No se detecta por rol (evitar el ciclo useRol→
+    // useStudio) sino comprobando si la clase es de SU propia ficha.
+    const yo = instructores.find(i => i.authUserId === user?.id);
+    if (yo && yo.rol === 'INSTRUCTOR' && yo.id === nueva.instructorId) void avisarClaseCreadaPorInstructor(nueva.id);
     return res;
   }
 

@@ -5,7 +5,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Comprobación PROACTIVA de si la cuenta Stripe Connect del estudio puede
 // aceptar domiciliaciones SEPA — antes de ofrecer el botón "Domiciliar" en el
-// portal (app/portal/[slug]/mi-plan/page.tsx). Sin esto, la socia solo se
+// portal (app/portal/[slug]/compras/page.tsx). Sin esto, la socia solo se
 // enteraba de que SEPA no estaba activado al volver del Checkout con un
 // error (ver el catch de setup-sepa/route.ts, que sigue ahí como red de
 // seguridad si esta comprobación falla o queda desactualizada).
