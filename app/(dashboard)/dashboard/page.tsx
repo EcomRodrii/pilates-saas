@@ -9,7 +9,7 @@ import {
   CheckCircle2, ChevronDown, ChevronUp,
   CalendarPlus, Zap, ArrowUpRight, RefreshCw,
   Users, BarChart3, Calendar, AlertTriangle,
-  Clock, Activity, Bot, MessageSquare, Mail,
+  Clock, Activity, Bot, MessageSquare, Mail, CalendarX,
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
 import { cn, inicioDeSemana, finDeSemana } from '@/lib/utils';
@@ -28,6 +28,8 @@ import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { useRol, puedeVerFinanzas, puedeVer, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { Toast, useToast } from '@/components/ui/toast';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
+import { useAuth } from '@/lib/auth-context';
+import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -234,6 +236,7 @@ function KpiCard({ label, value, sub, Icon, tint, tintBg }: {
 function ClaseHoyCard({
   sesion,
   isNow,
+  esPropia,
 }: {
   sesion: ReturnType<typeof useStudio>['sesiones'][0] & {
     tipoNombre: string;
@@ -242,9 +245,15 @@ function ClaseHoyCard({
     instructorNombre: string;
   };
   isNow: boolean;
+  // Punto de entrada mobile-first al motor de sustituciones: "no puedo
+  // asistir" solo tiene sentido sobre la PROPIA clase de la instructora — es
+  // lo mismo que ya hace app/(dashboard)/calendario, aquí desde la tarjeta que
+  // ve nada más entrar, sin tener que navegar al calendario.
+  esPropia: boolean;
 }) {
   const { reservas, socios, checkin, cancelarReserva } = useStudio();
   const [expanded, setExpanded] = useState(isNow);
+  const [showNoPuedoAsistir, setShowNoPuedoAsistir] = useState(false);
 
   // P0-27: Map por id en vez de socios.find() por cada reserva de la sesión.
   const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
@@ -374,16 +383,30 @@ function ClaseHoyCard({
               })}
             </div>
           )}
-          <div className="px-4 py-2.5 border-t border-muted">
+          <div className="px-4 py-2.5 border-t border-muted flex items-center justify-between gap-2">
             <Link
               href="/calendario"
               className="text-[11px] font-medium text-brand-medio hover:underline"
             >
               Gestionar clase →
             </Link>
+            {esPropia && (
+              <button
+                onClick={() => setShowNoPuedoAsistir(true)}
+                className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
+              >
+                <CalendarX size={11} />No puedo asistir
+              </button>
+            )}
           </div>
         </div>
       )}
+
+      <NoPuedoAsistirDialog
+        open={showNoPuedoAsistir}
+        onOpenChange={setShowNoPuedoAsistir}
+        sesion={{ id: sesion.id, inicio: sesion.inicio, tipoClase: { nombre: sesion.tipoNombre } }}
+      />
     </div>
   );
 }
@@ -631,6 +654,11 @@ export default function Dashboard() {
   // no vale para esto: es un difuminado contra miradas de reojo, se quita con un
   // clic y no es un permiso.
   const rolActual = useRol();
+  const { user } = useAuth();
+  // Ficha de instructora del usuario logueado — para saber si una clase de
+  // "Clases de hoy" es SUYA y ofrecerle ahí mismo "No puedo asistir", el mismo
+  // criterio que ya usa app/(dashboard)/calendario.
+  const yo = rolActual === 'INSTRUCTOR' ? (instructores.find(i => i.authUserId === user?.id) ?? null) : null;
   const verFinanzas = puedeVerFinanzas(rolActual);
   // Los atajos del inicio llevaban a sitios donde el rol no entra: "Nueva
   // clienta" a un alta que la RLS rechaza, "Cobrar" y "Sistema autónomo" a
@@ -972,7 +1000,7 @@ export default function Dashboard() {
               ) : (
                 <div className="p-4 space-y-2">
                   {clasesHoy.map(s => (
-                    <ClaseHoyCard key={s.id} sesion={s} isNow={isNowFn(s)} />
+                    <ClaseHoyCard key={s.id} sesion={s} isNow={isNowFn(s)} esPropia={!!yo && s.instructorId === yo.id} />
                   ))}
                 </div>
               )}
