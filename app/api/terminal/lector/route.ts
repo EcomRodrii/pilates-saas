@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { dbSetTerminalReader } from '@/lib/supabase-data';
+import { dbSetTerminalReader } from '@/lib/db/supabase-data-admin';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stripe Terminal (datáfono físico, integración SERVER-DRIVEN) — emparejar el

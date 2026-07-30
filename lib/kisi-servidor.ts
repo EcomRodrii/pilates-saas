@@ -1,4 +1,4 @@
-import { dbGetIntegracionConfig } from '@/lib/supabase-data';
+import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { abrirPuertaKisi, listarCerradurasKisi } from '@/lib/kisi';
 
 // Abrir la puerta de UN estudio, resolviendo su cerradura.

@@ -26,7 +26,7 @@ import { firmarTokenConfirmacion } from '@/lib/confirmacion-riesgo/token';
 import {
   enviarEmailPedirConfirmacion, enviarEmailRecordatorioConfirmacion, enviarEmailPlazaLiberada,
 } from '@/lib/confirmacion-riesgo/email';
-import { ejecutarCancelacionReserva } from '@/lib/supabase-data';
+import { ejecutarCancelacionReserva } from '@/lib/db/supabase-data-admin';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 function appUrl(): string {

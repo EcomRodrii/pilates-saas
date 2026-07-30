@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForTokens, getGoogleAccountEmail, isGmailConfigurado } from '@/lib/gmail';
-import { dbSetGmailEmail, dbSaveGmailCredenciales } from '@/lib/supabase-data';
+import { dbSetGmailEmail, dbSaveGmailCredenciales } from '@/lib/db/supabase-data-admin';
 import { verificarEstadoOAuth } from '@/lib/oauth-state';
 
 // Vuelta del OAuth de Gmail (botón "Conectar con Gmail" en Configuración →

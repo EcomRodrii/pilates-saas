@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
-import { barrerNoShows } from '@/lib/supabase-data';
+import { barrerNoShows } from '@/lib/db/supabase-data-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 
 export const dynamic = 'force-dynamic';

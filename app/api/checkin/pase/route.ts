@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { checkinPublico } from '@/lib/supabase-data';
+import { checkinPublico } from '@/lib/db/supabase-data-admin';
 import { abrirPuertaDelEstudio, tieneKisi } from '@/lib/kisi-servidor';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';

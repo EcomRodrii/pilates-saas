@@ -14,7 +14,7 @@ import {
   dbGetGmailCredenciales,
   dbSaveGmailCredenciales,
   type GmailCredenciales,
-} from '@/lib/supabase-data';
+} from '@/lib/db/supabase-data-admin';
 import { fetchExterno } from '@/lib/fetch-externo';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
