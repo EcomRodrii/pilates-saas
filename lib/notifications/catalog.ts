@@ -269,7 +269,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_FALLIDO}#SOCIA`]: {
     title: 'Problema con tu pago',
     body: 'No hemos podido cobrar {concepto} ({importe} €). Revisa tu método de pago.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/mi-plan`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
   },
   [`${EVENTOS.PAGO_REALIZADO}#SOCIA`]: {
     title: 'Pago recibido',
@@ -303,12 +303,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.BONO_POR_CADUCAR}#SOCIA`]: {
     title: 'Tu bono está por caducar',
     body: 'Te quedan {sesiones} sesiones y tu bono caduca el {fecha}. Renueva para no perderlas.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/mi-plan`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
   },
   [`${EVENTOS.BONO_AGOTADO}#SOCIA`]: {
     title: 'Se te ha agotado el bono',
     body: 'Has usado la última sesión de tu bono de {plan}. Renueva para seguir reservando.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/mi-plan`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
   },
   [`${EVENTOS.CLASE_CASI_LLENA}#PROPIETARIO`]: {
     title: 'Clase casi llena',

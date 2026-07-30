@@ -31,7 +31,7 @@ import { PushPrompt } from './push-prompt';
 const ALL_NAV = [
   { seg: 'home', label: 'Inicio' },
   { seg: 'clases', label: 'Agenda' },
-  { seg: 'mi-plan', label: 'Mi plan' },
+  { seg: 'bonos', label: 'Bonos' },
   { seg: 'videos', label: 'Vídeos' },
   { seg: 'perfil', label: 'Perfil' },
 ];
@@ -114,7 +114,11 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const activeIndex = NAV.findIndex(({ seg }) => pathname.startsWith(`/portal/${slug}/${seg}`));
+  // `/compras` es hija de Bonos: la píldora se queda en Bonos en vez de
+  // apagarse (o saltar a Inicio, que es lo que hacía el prototipo).
+  const segActual = pathname?.startsWith(`/portal/${slug}/compras`) ? 'bonos' : null;
+  const activeIndex = NAV.findIndex(({ seg }) =>
+    seg === segActual || pathname.startsWith(`/portal/${slug}/${seg}`));
 
   return (
     <div className="fixed inset-0" style={{ background: t.bg }}>
