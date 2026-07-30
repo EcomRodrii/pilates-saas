@@ -17,6 +17,14 @@ import type { IngresoManual } from '@/lib/types';
 const eur = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
+// Igual que lib/factura-pdf.ts (#544): esto se inyecta con document.write en
+// una ventana que hereda el origen de la app — el nombre del estudio es texto
+// libre editable en Configuración, así que un <script> ahí se ejecutaría con
+// acceso a window.opener al pulsar "Imprimir".
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 interface FormState {
   id: string | null;
   fecha: string;
@@ -150,7 +158,7 @@ export default function CierreDeAnoPage() {
     const est = studio?.nombre ?? 'Mi estudio';
     const filas = cierre.trimestres.map(t => `<tr><td>T${t.trimestre}</td><td class="r">${t.num}</td><td class="r">${eur(t.base)}</td><td class="r">${eur(t.cuota)}</td><td class="r">${eur(t.total)}</td></tr>`).join('');
     const ivas = cierre.porIva.map(v => `<tr><td>${v.tipoIva}%</td><td class="r">${eur(v.base)}</td><td class="r">${eur(v.cuota)}</td></tr>`).join('');
-    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cierre ${anio} · ${est}</title>
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cierre ${anio} · ${esc(est)}</title>
       <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;padding:40px;max-width:760px;margin:0 auto}
       h1{font-size:24px;margin:0 0 4px}.sub{color:#666;font-size:13px;margin:0 0 24px}
       table{width:100%;border-collapse:collapse;margin:10px 0 26px;font-size:13px}
@@ -159,7 +167,7 @@ export default function CierreDeAnoPage() {
       .grid{display:flex;gap:14px;margin-bottom:22px}.k{flex:1;border:1px solid #e5e2da;border-radius:10px;padding:12px}
       .k .l{font-size:11px;color:#666}.k .v{font-size:20px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
       .note{font-size:11px;color:#888;margin-top:24px;line-height:1.5}</style></head><body>
-      <h1>Cierre de año ${anio}</h1><p class="sub">${est} · resumen de ingresos y de IVA repercutido para la gestoría</p>
+      <h1>Cierre de año ${anio}</h1><p class="sub">${esc(est)} · resumen de ingresos y de IVA repercutido para la gestoría</p>
       <div class="grid">
         <div class="k"><div class="l">Base imponible</div><div class="v">${eur(cierre.totales.base)}</div></div>
         <div class="k"><div class="l">IVA repercutido</div><div class="v">${eur(cierre.totales.cuota)}</div></div>
