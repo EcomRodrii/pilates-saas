@@ -10,7 +10,7 @@ import type { Rol } from './types';
 export {
   puedeVer, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar,
-  puedeCrearClasesPropias,
+  puedeCrearClasesPropias, puedeGestionarCalendario,
   nombreAppPorRol,
 } from './permisos-reglas';
 

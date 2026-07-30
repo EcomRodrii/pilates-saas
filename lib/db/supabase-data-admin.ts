@@ -854,7 +854,7 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
 async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
   const { data } = await admin
     .from('studios')
-    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, permite_lista_espera')
+    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, permite_lista_espera, requiere_aprobacion')
     .eq('id', studioId).maybeSingle();
   return {
     ventanaHoras: (data?.cancelacion_ventana_horas ?? 12) as number,
@@ -864,6 +864,7 @@ async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
     ventanaMinimaMinutos: (data?.reserva_ventana_minima_minutos ?? 0) as number,
     antelacionMaximaDias: (data?.reserva_antelacion_maxima_dias ?? null) as number | null,
     permiteListaEspera: (data?.permite_lista_espera ?? true) as boolean,
+    requiereAprobacion: (data?.requiere_aprobacion ?? false) as boolean,
   };
 }
 
@@ -878,11 +879,12 @@ async function cargarReglasReservaTipoClase(
     ventanaMinimaMinutos: null as number | null,
     antelacionMaximaDias: null as number | null,
     permiteListaEspera: null as boolean | null,
+    requiereAprobacion: null as boolean | null,
   };
   if (!tipoClaseId) return vacio;
   const { data } = await admin
     .from('tipos_clase')
-    .select('reserva_exigir_plan, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, permite_lista_espera')
+    .select('reserva_exigir_plan, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, permite_lista_espera, requiere_aprobacion')
     .eq('id', tipoClaseId).eq('studio_id', studioId).maybeSingle();
   if (!data) return vacio;
   return {
@@ -890,6 +892,7 @@ async function cargarReglasReservaTipoClase(
     ventanaMinimaMinutos: data.reserva_ventana_minima_minutos as number | null,
     antelacionMaximaDias: data.reserva_antelacion_maxima_dias as number | null,
     permiteListaEspera: data.permite_lista_espera as boolean | null,
+    requiereAprobacion: data.requiere_aprobacion as boolean | null,
   };
 }
 
@@ -946,6 +949,11 @@ export async function crearReservaPublica(params: {
   const reglasTipo = await cargarReglasReservaTipoClase(admin, params.studioId, tipoClaseId);
   const exigirPlanResuelto = heredaOverride(reglasTipo.exigirPlan, pol.exigirPlan);
   const permiteListaEsperaResuelto = heredaOverride(reglasTipo.permiteListaEspera, pol.permiteListaEspera);
+  // Fase 2a: si se exige aprobación, la RPC salta directo a PENDIENTE_APROBACION
+  // sin comprobar aforo — el gate de plan/bono de más abajo sigue aplicando
+  // igual (no tiene sentido pedir aprobación a quien ni siquiera tiene derecho
+  // a reservar esta clase).
+  const requiereAprobacionResuelto = heredaOverride(reglasTipo.requiereAprobacion, pol.requiereAprobacion);
 
   {
     const ventanaMinima = heredaOverride(reglasTipo.ventanaMinimaMinutos, pol.ventanaMinimaMinutos);
@@ -1009,6 +1017,7 @@ export async function crearReservaPublica(params: {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: reservaId,
     p_permite_lista_espera: permiteListaEsperaResuelto,
+    p_requiere_aprobacion: requiereAprobacionResuelto,
   });
   if (error) {
     if (error.message.includes('YA_RESERVADA')) return { error: 'Ya tienes una reserva en esta clase' as const };
@@ -1043,8 +1052,95 @@ export async function crearReservaPublica(params: {
     await emitirReserva(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, estado: estado as 'CONFIRMADA' | 'LISTA_ESPERA' });
     // Aviso a la dueña si la clase se acerca al lleno (≥90%).
     if (estado === 'CONFIRMADA') await emitirClaseCasiLlena(admin, { studioId: params.studioId, sesionId: params.sesionId });
+  } else if (estado === 'PENDIENTE_APROBACION') {
+    // Fase 2a: no consume bono ni asigna spot todavía (bloque de arriba, gateado
+    // a `estado === 'CONFIRMADA'`, ya la deja fuera). Solo avisa al mostrador de
+    // que hay algo que revisar antes de que empiece la clase.
+    const { emitirReservaPendienteAprobacion } = await import('@/lib/notifications/emit');
+    await emitirReservaPendienteAprobacion(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId });
   }
   return { ok: true as const, estado, reservaId, spotAsignado };
+}
+
+// Aprobar/rechazar una reserva PENDIENTE_APROBACION desde el panel (Fase 2a).
+// La autorización real vive en `app/api/reservas/resolver-pendiente/route.ts`
+// (verificarSesionStaff + puedeGestionarCalendario): esta función corre con
+// service-role, así que el guard `auth.uid()` de la RPC no aplica aquí — el
+// mismo motivo por el que crearReservaPublica hace sus propios checks en TS
+// en vez de fiarse de la RPC cuando la llama el admin client.
+//
+// `motivoUI: 'clase_ya_empezada'`: la RPC tiene su propia guardia de inicio
+// (nadie aprueba una clase que ya empezó, pase lo que pase con el cron de
+// expiración) — si se pidió aprobar y volvió CANCELADA, es el único camino
+// posible, así que se detecta aquí sin que la RPC tenga que devolver nada
+// extra.
+export async function resolverReservaPendiente(params: {
+  studioId: string; reservaId: string; aprobar: boolean;
+}): Promise<{ ok: true; estado: string; motivoUI?: 'clase_ya_empezada' } | { error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const { data, error } = await admin.rpc('resolver_reserva_pendiente', {
+    p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_aprobar: params.aprobar,
+  });
+  if (error) {
+    if (error.message.includes('NO_ENCONTRADA_O_YA_RESUELTA')) return { error: 'Esta reserva ya no está pendiente de aprobación' };
+    return { error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  const estado: string = row?.estado ?? 'CANCELADA';
+
+  const { data: res } = await admin.from('reservas').select('sesion_id, socio_id').eq('id', params.reservaId).maybeSingle();
+  const sesionId = res?.sesion_id as string | undefined;
+  const socioId = res?.socio_id as string | undefined;
+  if (!sesionId || !socioId) return { ok: true, estado };
+
+  if (estado === 'CONFIRMADA') {
+    // Mismo criterio que una reserva normal: la clase decide de qué bono se
+    // descuenta (0111). El spot elegido al pedir la aprobación no se conserva
+    // (mismo comportamiento que ya tenía la promoción desde lista de espera:
+    // no hay spot guardado durante la espera, se asigna solo al confirmar).
+    await consumirBonoServidor(admin, params.studioId, socioId, sesionId);
+  }
+
+  if (params.aprobar && estado === 'CANCELADA') {
+    const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
+    await emitirReservaCancelada(admin, { studioId: params.studioId, sesionId, socioId, reservaId: params.reservaId, motivo: 'expirada' });
+    return { ok: true, estado, motivoUI: 'clase_ya_empezada' };
+  }
+
+  if (estado === 'CONFIRMADA' || estado === 'LISTA_ESPERA') {
+    const { emitirReserva } = await import('@/lib/notifications/emit');
+    await emitirReserva(admin, { studioId: params.studioId, sesionId, socioId, estado: estado as 'CONFIRMADA' | 'LISTA_ESPERA' });
+  } else if (estado === 'CANCELADA') {
+    const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
+    await emitirReservaCancelada(admin, { studioId: params.studioId, sesionId, socioId, reservaId: params.reservaId, motivo: 'rechazada' });
+  }
+
+  return { ok: true, estado };
+}
+
+// Expira una reserva PENDIENTE_APROBACION cuya sesión ya empezó — llamado por
+// el cron `lib/inngest/reservas-pendientes.ts`, no por un usuario. Sin sesión
+// de staff detrás: la guardia de inicio de la RPC ya obliga a CANCELADA sin
+// importar qué se pida, así que aquí basta con pedir "rechazar" tal cual.
+export async function expirarReservaPendiente(params: {
+  studioId: string; reservaId: string; sesionId: string; socioId: string;
+}): Promise<void> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.rpc('resolver_reserva_pendiente', {
+    p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_aprobar: false,
+  });
+  if (error) {
+    console.error('[expirarReservaPendiente]', error.message);
+    return;
+  }
+  const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
+  await emitirReservaCancelada(admin, {
+    studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId,
+    reservaId: params.reservaId, motivo: 'expirada',
+  });
 }
 
 // Asigna un spot a una reserva confirmada validando que el sitio pertenece a la

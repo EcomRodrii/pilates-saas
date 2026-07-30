@@ -47,6 +47,13 @@ export const EVENTOS = {
   RESERVA_LISTA_ESPERA: 'reserva.lista_espera',
   RESERVA_PLAZA_LIBERADA: 'reserva.plaza_liberada',
   RESERVA_CANCELADA: 'reserva.cancelada',
+  // Fase 2a (migr 20260730192445): aprobación manual. Único evento nuevo de
+  // toda la feature — aprobar reutiliza RESERVA_CONFIRMADA/RESERVA_LISTA_ESPERA
+  // (emitirReserva) y rechazar/expirar reutiliza RESERVA_CANCELADA
+  // (emitirReservaCancelada, con motivo). Esta es la única notificación sin
+  // equivalente ya existente: alguien tiene que enterarse de que hay algo que
+  // revisar, y RESERVA_CREADA (prioridad BAJA, sin canales) no vale para eso.
+  RESERVA_PENDIENTE_APROBACION: 'reserva.pendiente_aprobacion',
   CLASE_CANCELADA: 'clase.cancelada',
   CLASE_MODIFICADA: 'clase.modificada',
   // Cubrir NO es mover: la clase se queda donde está y solo cambia quién la da.
@@ -93,6 +100,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.RESERVA_LISTA_ESPERA]:  { category: 'reservas', priority: 'MEDIA',  canales: [],       audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_PLAZA_LIBERADA]:{ category: 'reservas', priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_CANCELADA]:     { category: 'reservas', priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
+  // ALTA + PUSH a propósito: a diferencia de RESERVA_CREADA (informativa),
+  // esta requiere una acción de la propietaria/mostrador antes de que empiece
+  // la clase.
+  [EVENTOS.RESERVA_PENDIENTE_APROBACION]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'mostrador' },
   // clase.*: SIN EMAIL a propósito. El panel ya manda su propio correo a cada
   // alumna con plaza (enviarEmailCancelacionClase / avisarAlumnas) → declararlo
   // aquí les llegaría el mismo aviso dos veces.
@@ -208,9 +219,28 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: 'Ha quedado sitio en {clase} del {cuando} y ya tienes plaza confirmada.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
   },
+  // {motivoTexto}: vacío en la cancelación normal (mismo texto de siempre);
+  // rellena cuando la cancela el rechazo/expiración de una aprobación
+  // pendiente (Fase 2a) — mismo evento, mensaje adaptado en vez de uno nuevo.
   [`${EVENTOS.RESERVA_CANCELADA}#SOCIA`]: {
     title: 'Reserva cancelada',
-    body: 'Se ha cancelado tu reserva de {clase} del {cuando}.',
+    body: 'Se ha cancelado tu reserva de {clase} del {cuando}.{motivoTexto}',
+  },
+  // Reserva pendiente de aprobar → mostrador (propietaria/manager/recepción)
+  [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#PROPIETARIO`]: {
+    title: 'Reserva pendiente de aprobar',
+    body: '{socia} quiere reservar {clase} el {cuando}. Requiere tu aprobación.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#MANAGER`]: {
+    title: 'Reserva pendiente de aprobar',
+    body: '{socia} quiere reservar {clase} el {cuando}. Requiere tu aprobación.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#RECEPCION`]: {
+    title: 'Reserva pendiente de aprobar',
+    body: '{socia} quiere reservar {clase} el {cuando}. Requiere tu aprobación.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
   },
   // Clase cancelada → cada socia apuntada
   [`${EVENTOS.CLASE_CANCELADA}#SOCIA`]: {

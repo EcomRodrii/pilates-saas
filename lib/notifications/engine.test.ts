@@ -85,9 +85,11 @@ test('clase.* no declara EMAIL: el panel ya manda su propio correo a las alumnas
 });
 
 test('canalesDisponibles: refleja lo que cada rol puede recibir por categoría', () => {
-  // La socia recibe push de sus reservas; la recepción solo ve reservas in-app.
+  // La socia recibe push de sus reservas; la recepción, desde Fase 2a, también
+  // — una reserva PENDIENTE_APROBACION necesita acción antes de que empiece
+  // la clase, así que sí se avisa por push al mostrador (RESERVA_PENDIENTE_APROBACION).
   assert.equal(canalesDisponibles('SOCIA', 'reservas').includes('PUSH'), true);
-  assert.equal(canalesDisponibles('RECEPCION', 'reservas').includes('PUSH'), false);
+  assert.equal(canalesDisponibles('RECEPCION', 'reservas').includes('PUSH'), true);
   // La instructora sí recibe push de "clases" (su clase cancelada/movida).
   assert.equal(canalesDisponibles('INSTRUCTOR', 'clases').includes('PUSH'), true);
   // Y nadie recibe canales que ninguna regla de su categoría declare.

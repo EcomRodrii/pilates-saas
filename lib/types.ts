@@ -8,7 +8,9 @@ export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO' | '
 // Pagos España (0036): método recurrente preferido de la socia y método real de cada cobro.
 export type MetodoPagoPreferido = 'TARJETA' | 'SEPA';
 export type MetodoCobro = 'TARJETA' | 'SEPA' | 'BIZUM' | 'EFECTIVO' | 'TRANSFERENCIA';
-export type EstadoReserva = 'CONFIRMADA' | 'LISTA_ESPERA' | 'ASISTIDA' | 'CANCELADA' | 'NO_ASISTIO';
+// PENDIENTE_APROBACION (Fase 2a, migr 20260730192445): no ocupa aforo ni
+// consume bono, mismo criterio que LISTA_ESPERA — se decide al aprobar.
+export type EstadoReserva = 'CONFIRMADA' | 'LISTA_ESPERA' | 'ASISTIDA' | 'CANCELADA' | 'NO_ASISTIO' | 'PENDIENTE_APROBACION';
 export type NivelClase = 'TODOS' | 'PRINCIPIANTE' | 'MEDIO' | 'AVANZADO';
 export type TipoSpot = 'REFORMER' | 'MAT' | 'OTRO';
 
@@ -70,6 +72,9 @@ export interface Studio {
   reservaVentanaMinimaMinutos: number;
   reservaAntelacionMaximaDias: number | null;
   permiteListaEspera: boolean;
+  // Fase 2a (migr 20260730192445): default de estudio, tipos_clase puede
+  // sobrescribirlo con NULL = hereda (mismo patrón que el resto de arriba).
+  requiereAprobacion: boolean;
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
   stripeTerminalLocationId: string | null;
@@ -437,6 +442,8 @@ export interface TipoClase {
   reservaVentanaMinimaMinutos: number | null;
   reservaAntelacionMaximaDias: number | null;
   permiteListaEspera: boolean | null;
+  // Fase 2a (migr 20260730192445): mismo patrón de override.
+  requiereAprobacion: boolean | null;
 }
 
 export interface Instructor {

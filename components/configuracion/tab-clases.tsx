@@ -30,6 +30,8 @@ type ClaseForm = {
   reservaVentanaMinimaMinutos: string;
   reservaAntelacionMaximaDias: string;
   permiteListaEspera: TriEstado;
+  // Fase 2a (migr 20260730192445): mismo patrón de override.
+  requiereAprobacion: TriEstado;
 };
 
 const emptyClaseForm = (): ClaseForm => ({
@@ -43,6 +45,7 @@ const emptyClaseForm = (): ClaseForm => ({
   reservaVentanaMinimaMinutos: '',
   reservaAntelacionMaximaDias: '',
   permiteListaEspera: 'hereda',
+  requiereAprobacion: 'hereda',
 });
 
 function claseToForm(t: TipoClase): ClaseForm {
@@ -57,6 +60,7 @@ function claseToForm(t: TipoClase): ClaseForm {
     reservaVentanaMinimaMinutos: t.reservaVentanaMinimaMinutos != null ? String(t.reservaVentanaMinimaMinutos) : '',
     reservaAntelacionMaximaDias: t.reservaAntelacionMaximaDias != null ? String(t.reservaAntelacionMaximaDias) : '',
     permiteListaEspera: boolATri(t.permiteListaEspera),
+    requiereAprobacion: boolATri(t.requiereAprobacion),
   };
 }
 
@@ -129,6 +133,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       reservaVentanaMinimaMinutos: form.reservaVentanaMinimaMinutos.trim() === '' ? null : Math.max(0, parseInt(form.reservaVentanaMinimaMinutos, 10) || 0),
       reservaAntelacionMaximaDias: form.reservaAntelacionMaximaDias.trim() === '' ? null : Math.max(0, parseInt(form.reservaAntelacionMaximaDias, 10) || 0),
       permiteListaEspera: triABool(form.permiteListaEspera),
+      requiereAprobacion: triABool(form.requiereAprobacion),
     };
     if (modal === 'nueva') {
       // Esperamos a la base de datos antes de decir que está creado.
@@ -377,6 +382,20 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 </select>
               </Field>
             </div>
+            <Field
+              label="Requiere aprobación manual"
+              description="La reserva no se confirma sola: queda pendiente hasta que la apruebes o la rechaces desde el calendario. Vacío = usa el ajuste general del estudio."
+            >
+              <select
+                className={inputCls}
+                value={form.requiereAprobacion}
+                onChange={e => setForm(f => ({ ...f, requiereAprobacion: e.target.value as TriEstado }))}
+              >
+                <option value="hereda">Usar el ajuste del estudio</option>
+                <option value="si">Sí, requerir aprobación</option>
+                <option value="no">No requerir</option>
+              </select>
+            </Field>
             <Field
               label="Color"
               description="Sirve para distinguir este tipo de clase de un vistazo en la agenda."

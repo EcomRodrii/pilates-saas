@@ -167,6 +167,59 @@ propósito, confirmado con el usuario — no "completar" por iniciativa propia:
   ningún patrón de "plantilla asignable a varios tipos de clase" en el repo;
   si se quiere, es una entidad nueva de verdad, no un campo más.
 
+### Fase 2a — aprobación manual de reserva (completa, 2026-07-30)
+
+Primera de las tres piezas de Fase 2, la más autocontenida. Mismo patrón
+"hereda": `studios.requiere_aprobacion` (default `false`) +
+`tipos_clase.requiere_aprobacion` (nullable), migr `20260730192445`. Una
+reserva con esta regla activa entra en estado nuevo `PENDIENTE_APROBACION`
+(ampliado el CHECK de `reservas.estado`) **sin ocupar aforo ni consumir
+bono** — mismo criterio que ya usaba `LISTA_ESPERA`. Al aprobar, la RPC
+`resolver_reserva_pendiente` (migr `20260730192445`, endurecida en
+`20260730192616`/`20260730192657` — ver nota de grants abajo) vuelve a
+comprobar el aforo en ese momento con lock (`FOR UPDATE`, mismo patrón que
+`reservar_plaza`) y decide `CONFIRMADA` o `LISTA_ESPERA` ahí, no antes.
+
+**Regla de negocio, no de reloj**: ninguna reserva puede aprobarse después de
+que su clase haya empezado — la guardia vive DENTRO de la RPC (si
+`sesiones.inicio <= now()`, fuerza `CANCELADA` pase lo que pase con
+`p_aprobar`), no en el cron. El cron `lib/inngest/reservas-pendientes.ts`
+(cada minuto, sin fan-out por estudio — es una query global) solo hace el
+aviso proactivo a la socia vía `expirarReservaPendiente()`; si el cron se
+retrasara o no corriera un tick, la regla de negocio seguiría siendo
+correcta, solo el aviso llegaría tarde.
+
+**Cero eventos de notificación nuevos salvo uno** (petición explícita del
+usuario: reusar antes que crear estado/evento nuevo). `RESERVA_APROBADA` y
+`LISTA_ESPERA` tras aprobar reusan `emitirReserva()` tal cual. El rechazo
+manual y la expiración automática son el MISMO evento
+(`emitirReservaCancelada()`) con un `motivo: 'rechazada' | 'expirada'` que
+solo cambia el texto del mensaje — no hay `RESERVA_EXPIRADA_SIN_APROBAR`. El
+único evento nuevo es `RESERVA_PENDIENTE_APROBACION` (avisa a
+mostrador/PROPIETARIO/MANAGER/RECEPCION, no a la socia).
+
+Autorización: `puedeGestionarCalendario()` (`lib/permisos-reglas.ts`) vive en
+la API route (`app/api/reservas/resolver-pendiente/route.ts`), NO en la RPC
+— porque la RPC se llama vía `getSupabaseAdmin()` (service-role), donde
+`auth.uid()` es `NULL` y cualquier guardia basada en `auth.uid()` dentro de
+la RPC quedaría bypaseada en silencio. Mismo criterio que ya usa
+`crearReservaPublica`.
+
+⚠️ **Gotcha de grants ya pisado una vez, que puede volver a pasar**: al hacer
+`CREATE OR REPLACE FUNCTION` con una firma NUEVA (`reservar_plaza` pasó de
+5 a 6 argumentos), Postgres crea un objeto función distinto con el grant por
+defecto `EXECUTE ON FUNCTION ... TO PUBLIC` — **no hereda** el `REVOKE` que
+tenía la firma anterior. `REVOKE ... FROM anon` NO basta (anon hereda de
+`PUBLIC`, no tiene el privilegio directo); hace falta `REVOKE ... FROM
+PUBLIC` + `GRANT ... TO authenticated, service_role, postgres` explícito.
+Verificar siempre con `has_function_privilege('anon', '<función>'::regproc,
+'EXECUTE')` tras cambiar la firma de cualquier RPC ya endurecida.
+
+Quedan sin tocar, a propósito: **plazo para aceptar plaza de lista de
+espera** (Fase 2b — hoy la promoción sigue siendo automática e instantánea) y
+**mínimo de asistentes para confirmar la clase** (Fase 2c); Fase 3
+(penalización económica) sigue esperando diseño con `tentare-stripe`.
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),

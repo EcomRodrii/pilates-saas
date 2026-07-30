@@ -54,6 +54,8 @@ type PoliticaForm = {
   reservaVentanaMinimaMinutos: number;
   reservaAntelacionMaximaDias: number | null;
   permiteListaEspera: boolean;
+  // Fase 2a (migr 20260730192445): mismo criterio, default de estudio.
+  requiereAprobacion: boolean;
 };
 
 function studioToPolitica(s: Studio | null): PoliticaForm {
@@ -66,6 +68,7 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     reservaVentanaMinimaMinutos: s?.reservaVentanaMinimaMinutos ?? 0,
     reservaAntelacionMaximaDias: s?.reservaAntelacionMaximaDias ?? null,
     permiteListaEspera: s?.permiteListaEspera ?? true,
+    requiereAprobacion: s?.requiereAprobacion ?? false,
   };
 }
 
@@ -513,6 +516,13 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
               <span className="block text-[11px] text-muted-foreground">Con la clase llena, ¿se puede apuntar a la lista de espera?</span>
             </span>
             <Toggle on={pol.permiteListaEspera} onChange={v => setPol(p => ({ ...p, permiteListaEspera: v }))} />
+          </label>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-[13px] text-foreground">
+              Requerir aprobación manual
+              <span className="block text-[11px] text-muted-foreground">La reserva no se confirma sola: queda pendiente hasta que la apruebes o la rechaces desde el calendario.</span>
+            </span>
+            <Toggle on={pol.requiereAprobacion} onChange={v => setPol(p => ({ ...p, requiereAprobacion: v }))} />
           </label>
         </div>
         <button onClick={guardarPolitica} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
