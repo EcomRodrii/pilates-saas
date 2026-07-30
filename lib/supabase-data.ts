@@ -1300,7 +1300,10 @@ export async function fetchCriticalStudioData(studioId?: string) {
     fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('*').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('*').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('*').eq('studio_id', sid).range(from, to)),
-    db.from('citas').select('*').eq('studio_id', sid),
+    // citas: se quedó fuera por error del arreglo de paginación de sus
+    // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
+    // 1000 filas para un estudio con muchas citas 1:1 (auditoría 2026-07-29 §2.3).
+    fetchAllRows(sid, 'citas', (from, to) => db.from('citas').select('*').eq('studio_id', sid).range(from, to)),
     db.from('productos_pos').select('*').eq('studio_id', sid),
     fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
     db.from('campanas').select('*').eq('studio_id', sid),
