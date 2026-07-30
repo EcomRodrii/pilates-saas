@@ -9,6 +9,8 @@
 // /api/mensajes/send, el motor de decisión, las automatizaciones de
 // marketing y los avisos de sustituciones — no se toca aquí.
 
+import { fetchExterno } from './fetch-externo.ts';
+
 const API_VERSION = process.env.WHATSAPP_API_VERSION ?? 'v21.0';
 
 export interface WhatsAppCredenciales {
@@ -25,7 +27,7 @@ export async function enviarWhatsAppTexto(
   const destino = to.replace(/[^\d]/g, '');
   if (!destino) return { ok: false, error: 'Número de destino inválido' };
   try {
-    const res = await fetch(`https://graph.facebook.com/${API_VERSION}/${creds.phoneId}/messages`, {
+    const res = await fetchExterno(`https://graph.facebook.com/${API_VERSION}/${creds.phoneId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messaging_product: 'whatsapp', to: destino, type: 'text', text: { body: texto } }),
@@ -41,7 +43,7 @@ export async function enviarWhatsAppTexto(
 /** Comprobación de conexión: valida credenciales consultando el número. */
 export async function probarWhatsApp(creds: WhatsAppCredenciales): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const res = await fetch(`https://graph.facebook.com/${API_VERSION}/${creds.phoneId}?fields=verified_name,display_phone_number`, {
+    const res = await fetchExterno(`https://graph.facebook.com/${API_VERSION}/${creds.phoneId}?fields=verified_name,display_phone_number`, {
       headers: { Authorization: `Bearer ${creds.token}` },
     });
     if (!res.ok) {

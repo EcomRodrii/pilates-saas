@@ -6,6 +6,8 @@
 // correcto (mismo mecanismo que Resend hoy: tabla `integraciones` por
 // estudio, ver dbUpsertIntegracion).
 
+import { fetchExterno } from './fetch-externo.ts';
+
 const BASE = 'https://api.kisi.io';
 
 export interface KisiCredenciales {
@@ -19,7 +21,7 @@ function headers(creds: KisiCredenciales): HeadersInit {
 /** Abre (desbloquea) una cerradura por su id, con la clave del estudio dueño de esa cerradura. */
 export async function abrirPuertaKisi(creds: KisiCredenciales, lockId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const res = await fetch(`${BASE}/locks/${encodeURIComponent(lockId)}/unlock`, { method: 'POST', headers: headers(creds) });
+    const res = await fetchExterno(`${BASE}/locks/${encodeURIComponent(lockId)}/unlock`, { method: 'POST', headers: headers(creds) });
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       return { ok: false, error: data?.error ?? `Kisi API ${res.status}` };
@@ -38,7 +40,7 @@ export interface KisiCerradura {
 /** Lista las cerraduras de la cuenta del estudio (para resolver cuál abrir si no configuró una). */
 export async function listarCerradurasKisi(creds: KisiCredenciales): Promise<{ ok: true; locks: KisiCerradura[] } | { ok: false; error: string }> {
   try {
-    const res = await fetch(`${BASE}/locks?limit=25`, { headers: headers(creds) });
+    const res = await fetchExterno(`${BASE}/locks?limit=25`, { headers: headers(creds) });
     if (!res.ok) return { ok: false, error: `Kisi API ${res.status}` };
     const data = (await res.json().catch(() => null)) as { id: number; name?: string }[] | null;
     if (!Array.isArray(data)) return { ok: false, error: 'Respuesta inesperada de Kisi' };
@@ -50,7 +52,7 @@ export async function listarCerradurasKisi(creds: KisiCredenciales): Promise<{ o
 
 export async function probarKisi(creds: KisiCredenciales): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const res = await fetch(`${BASE}/locks?limit=1`, { headers: headers(creds) });
+    const res = await fetchExterno(`${BASE}/locks?limit=1`, { headers: headers(creds) });
     return res.ok ? { ok: true } : { ok: false, error: `Kisi API ${res.status}` };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
