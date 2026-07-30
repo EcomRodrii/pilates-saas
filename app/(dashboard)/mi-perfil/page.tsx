@@ -11,14 +11,21 @@
 import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
 import { TabPerfil } from '@/components/configuracion/tab-perfil';
+import { TabMiDisponibilidad } from '@/components/mi-perfil/tab-mi-disponibilidad';
+import { useRol } from '@/lib/permisos';
 
 export default function MiPerfilPage() {
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  // Solo la instructora gestiona AQUÍ su propia disponibilidad — el resto de
+  // roles la gestiona (la de cualquiera) desde /equipo, que sigue vedado a
+  // INSTRUCTOR (lib/permisos-reglas.ts).
+  const esInstructor = useRol() === 'INSTRUCTOR';
 
   return (
     <div className="space-y-6">
       <PageHeader title="Mi perfil" description="Tu nombre, tu foto y cómo accedes a tu cuenta." />
       <TabPerfil showToast={showToast} />
+      {esInstructor && <TabMiDisponibilidad showToast={showToast} />}
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   );
