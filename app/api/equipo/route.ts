@@ -30,6 +30,31 @@ import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-regla
 
 const ROLES_VALIDOS = new Set(['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR']);
 
+// Nada en este archivo (ni en permisos-reglas.ts, ni en RLS) impedía que un
+// estudio se quedara sin NINGUNA propietaria activa: la propietaria puede
+// editar y borrar cualquier ficha, incluida la suya, sin restricción — es
+// justo lo que este endpoint le permite a propósito. Sin este guard, borrarse
+// a sí misma o autodegradarse deja el estudio sin nadie que pueda reasignar
+// roles ni gestionar la facturación (soporte tendría que arreglarlo a mano
+// por service-role). `idExcluido` es la ficha que se está tocando: si al
+// quitarla no queda ninguna otra propietaria ACTIVA, se bloquea.
+async function quedariaSinPropietaria(
+  admin: ReturnType<typeof getSupabaseAdmin>,
+  studioId: string,
+  idExcluido: string,
+): Promise<boolean> {
+  const { count } = await admin!
+    .from('instructores')
+    .select('id', { count: 'exact', head: true })
+    .eq('studio_id', studioId)
+    .eq('rol', 'PROPIETARIO')
+    .eq('activo', true)
+    .neq('id', idExcluido);
+  return (count ?? 0) === 0;
+}
+const MENSAJE_ULTIMA_PROPIETARIA =
+  'No puedes hacer esto: dejarías el estudio sin ninguna propietaria activa. Da de alta a otra propietaria antes.';
+
 // Campos que la dueña puede fijar en cualquier ficha del estudio.
 function saneaFieldsPropietario(src: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -167,6 +192,14 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
   }
 
+  // Solo puede dejar sin propietaria si ficha.rol YA era PROPIETARIO: cambiar
+  // el rol de una RECEPCION nunca reduce el recuento de propietarias.
+  const dejaDeSerPropietariaActiva = ficha.rol === 'PROPIETARIO'
+    && ((update.rol !== undefined && update.rol !== 'PROPIETARIO') || update.activo === false);
+  if (dejaDeSerPropietariaActiva && await quedariaSinPropietaria(admin, sesion.studioId, ficha.id)) {
+    return NextResponse.json({ error: MENSAJE_ULTIMA_PROPIETARIA }, { status: 409 });
+  }
+
   const { error } = await admin
     .from('instructores')
     .update(update)
@@ -196,12 +229,15 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'Falta el id' }, { status: 400 });
 
   // Un manager no puede borrar a la propietaria ni a otro manager.
+  const { data: victima } = await admin
+    .from('instructores').select('rol').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
   if (sesion.rol !== 'PROPIETARIO') {
-    const { data: victima } = await admin
-      .from('instructores').select('rol').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
     if (!victima || !rolesQuePuedeAsignar(sesion.rol).includes(victima.rol as never)) {
       return NextResponse.json({ error: 'No puedes dar de baja a esta persona.' }, { status: 403 });
     }
+  }
+  if (victima?.rol === 'PROPIETARIO' && await quedariaSinPropietaria(admin, sesion.studioId, id)) {
+    return NextResponse.json({ error: MENSAJE_ULTIMA_PROPIETARIA }, { status: 409 });
   }
 
   const { error } = await admin
