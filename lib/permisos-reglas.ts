@@ -19,7 +19,7 @@ import type { Rol } from './types';
 // CONGELADO (feature-freeze PMF): se quitaron '/ondemand' y '/comunidad' de esta
 // lista blanca — ya no son visibles para nadie. Reactivar = volver a añadirlos.
 const PERMITIDO_INSTRUCTOR = [
-  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria',
+  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/mi-perfil',
 ];
 
 // ⚠️ La lista blanca de arriba se compara POR PREFIJO, así que cada ruta abre
@@ -68,6 +68,15 @@ function coincide(path: string, prefijo: string) {
 // se protege también en servidor.
 export function puedeVerFichaClinica(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'INSTRUCTOR';
+}
+
+// El semáforo (verde/ámbar/rojo) SÍ lo ve RECEPCIÓN, según el comentario de
+// arriba y FICHA-CLINICA.md §11 — solo el detalle (motivo, condiciones) está
+// vedado. No existía esta función: las tres pantallas que pintan el semáforo
+// lo escondían entero detrás de `puedeVerFichaClinica`, así que RECEPCIÓN no
+// veía ni el punto de color, contradiciendo la propia especificación.
+export function puedeVerSemaforo(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'INSTRUCTOR' || rol === 'RECEPCION';
 }
 
 // Mover dinero: crear cobros, marcarlos cobrados, asignar o cancelar planes.

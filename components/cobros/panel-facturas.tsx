@@ -170,6 +170,12 @@ export function PanelFacturas() {
   const previewFactura = preview ? facturas.find(f => f.id === preview) : null;
   const previewSocio = previewFactura ? socioParaFactura(previewFactura.reciboId) : null;
 
+  // Si ya hay al menos una factura con huella de Verifactu, la integración está
+  // activa de verdad para este estudio (se activa sola en el primer sellado, no
+  // es un flag manual) — el banner de "Próximamente" no puede ser un texto fijo,
+  // o mentiría sobre una obligación fiscal en cuanto la primera factura se selle.
+  const verifactuActivo = facturas.some(f => f.verifactuHash);
+
   // ── render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -216,12 +222,14 @@ export function PanelFacturas() {
       {/* Verifactu banner */}
       <div className="flex items-center gap-3 p-4 rounded-xl bg-brand/10 border border-info/10">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-info/10">
-          <FileText size={15} className="text-brand-medio" />
+          {verifactuActivo ? <ShieldCheck size={15} className="text-brand-medio" /> : <FileText size={15} className="text-brand-medio" />}
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold text-foreground">Verifactu — Próximamente</p>
+          <p className="text-sm font-bold text-foreground">{verifactuActivo ? 'Verifactu — Activo' : 'Verifactu — Próximamente'}</p>
           <p className="text-xs font-medium mt-0.5 text-brand-medio">
-            Integración con AEAT en desarrollo. Las facturas se generan automáticamente al cobrar un recibo.
+            {verifactuActivo
+              ? 'Tus facturas se firman y se envían a la AEAT automáticamente al cobrar un recibo.'
+              : 'Integración con AEAT en desarrollo. Las facturas se generan automáticamente al cobrar un recibo.'}
           </p>
         </div>
       </div>

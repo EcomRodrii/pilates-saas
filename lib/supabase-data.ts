@@ -11,6 +11,7 @@ import { uid } from '@/lib/utils';
 import { siguienteEnEspera, contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import { idEstudioDe } from '@/lib/id-estudio';
+import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -109,11 +110,13 @@ import type {
   MemberCredits,
   MensajeEquipo,
   CanalEquipo,
+  MetodoCobro,
   CondicionSalud,
   RespuestaSesionRow,
   NotaInterna,
   NotaProgreso,
   Notificacion,
+  NivelSemaforo,
   PlanTarifa,
   PostComunidad,
   ComentarioComunidad,
@@ -1282,7 +1285,11 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('usuarios').select('*').eq('studio_id', sid),
     // A-3/A-4: las socias con baja lógica (borrado_en) no entran al panel; su
     // rastro fiscal (recibos/facturas) sí queda y se muestra como "Socia eliminada".
-    db.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null),
+    // fetchAllRows (no un .select('*') a secas): sin paginar, PostgREST corta en
+    // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
+    // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
+    // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
+    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     db.from('suscripciones').select('*').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
@@ -2916,9 +2923,14 @@ async function evaluarLogrosServidor(
   const { socio, reservas, sesiones, referidas } = ctx;
 
   const now = new Date();
-  for (const def of definiciones) {
+  // Cada logro es independiente de los demás (progreso/historial/crédito solo
+  // tocan filas propias de ese achievement_id, y reward_actions se protege con
+  // su UNIQUE) — se evalúan en paralelo en vez de un `for` con awaits
+  // secuenciales, que serializaba hasta N×4 round-trips en el hot path de
+  // cada reserva creada.
+  await Promise.all(definiciones.map(async def => {
     const existente = progresos.find(p => p.achievementId === def.id);
-    if (existente?.completado) continue; // ya conseguido, no se re-evalúa
+    if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
     const valor = calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas });
     const completadoAhora = valor >= def.umbral;
@@ -2929,9 +2941,9 @@ async function evaluarLogrosServidor(
       progreso_actual: valor, completado: completadoAhora,
       completado_en: completadoAhora ? now.toISOString() : null,
     }, { onConflict: 'socio_id,achievement_id' });
-    if (progError) { reportDbError('[evaluarLogrosServidor] progreso', progError); continue; }
+    if (progError) { reportDbError('[evaluarLogrosServidor] progreso', progError); return; }
 
-    if (!completadoAhora) continue;
+    if (!completadoAhora) return;
 
     const { error: histError } = await admin.from('achievement_history').insert({
       id: `achh-${uid()}`, studio_id: studioId, socio_id: socioId, achievement_id: def.id,
@@ -2939,7 +2951,7 @@ async function evaluarLogrosServidor(
     });
     if (histError) reportDbError('[evaluarLogrosServidor] historial', histError);
 
-    if (def.creditosRecompensa <= 0) continue;
+    if (def.creditosRecompensa <= 0) return;
     // C-11: la idempotencia real la da el UNIQUE de reward_actions. Dos
     // evaluaciones concurrentes (dos reservas a la vez) no pueden doblar el
     // saldo: la segunda choca con el UNIQUE y sale.
@@ -2947,7 +2959,7 @@ async function evaluarLogrosServidor(
       id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId,
       trigger: 'LOGRO', ref_id: `${socioId}:${def.id}`, creado_en: now.toISOString(),
     });
-    if (claimError) continue; // ya otorgado por otra evaluación
+    if (claimError) return; // ya otorgado por otra evaluación
 
     // P0-20: incremento ATÓMICO del saldo.
     await admin.rpc('ajustar_creditos', {
@@ -2959,7 +2971,7 @@ async function evaluarLogrosServidor(
       creditos: def.creditosRecompensa, descripcion: `Logro desbloqueado: ${def.nombre}`,
       ref_id: def.id, creado_en: now.toISOString(),
     });
-  }
+  }));
 }
 
 // Retos: mismo fallo y mismo arreglo que los logros. La diferencia es que un
@@ -2981,9 +2993,11 @@ async function evaluarRetosServidor(
   const progresos = (progRows ?? []).map(mapChallengeProgress);
   const { socio, reservas, sesiones, referidas } = ctx;
 
-  for (const reto of retos) {
+  // Mismo motivo que evaluarLogrosServidor: cada reto es independiente, se
+  // evalúan en paralelo en vez de serializar N×4 round-trips por reserva.
+  await Promise.all(retos.map(async reto => {
     const existente = progresos.find(p => p.challengeId === reto.id);
-    if (existente?.completado) continue; // ya conseguido, no se re-evalúa
+    if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
     const valor = calcularProgresoReto(reto, reservas, sesiones, socio, referidas, now);
     const completadoAhora = valor >= reto.objetivo;
@@ -2994,9 +3008,9 @@ async function evaluarRetosServidor(
       progreso_actual: valor, completado: completadoAhora,
       completado_en: completadoAhora ? now.toISOString() : null,
     }, { onConflict: 'socio_id,challenge_id' });
-    if (progError) { reportDbError('[evaluarRetosServidor] progreso', progError); continue; }
+    if (progError) { reportDbError('[evaluarRetosServidor] progreso', progError); return; }
 
-    if (!completadoAhora) continue;
+    if (!completadoAhora) return;
 
     const { error: histError } = await admin.from('challenge_history').insert({
       id: `chah-${uid()}`, studio_id: studioId, socio_id: socioId, challenge_id: reto.id,
@@ -3004,13 +3018,13 @@ async function evaluarRetosServidor(
     });
     if (histError) reportDbError('[evaluarRetosServidor] historial', histError);
 
-    if (reto.creditosRecompensa <= 0) continue;
+    if (reto.creditosRecompensa <= 0) return;
     // Mismo UNIQUE de reward_actions que los logros, con trigger 'RETO'.
     const { error: claimError } = await admin.from('reward_actions').insert({
       id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId,
       trigger: 'RETO', ref_id: `${socioId}:${reto.id}`, creado_en: now.toISOString(),
     });
-    if (claimError) continue; // ya otorgado por otra evaluación
+    if (claimError) return; // ya otorgado por otra evaluación
 
     await admin.rpc('ajustar_creditos', {
       p_socio_id: socioId, p_studio_id: studioId,
@@ -3021,7 +3035,7 @@ async function evaluarRetosServidor(
       creditos: reto.creditosRecompensa, descripcion: `Reto completado: ${reto.nombre}`,
       ref_id: reto.id, creado_en: now.toISOString(),
     });
-  }
+  }));
 }
 
 // Punto de entrada único: carga el contexto UNA vez y evalúa ambos sistemas.
@@ -4181,6 +4195,25 @@ export async function dbCancelarReservaPlaza(
   };
 }
 
+// Cancela (marca CANCELADA) todas las reservas activas de un lote de sesiones.
+// Cancelar una serie completa marcaba `sesiones.cancelada=true` pero dejaba las
+// reservas en CONFIRMADA/LISTA_ESPERA apuntando a una sesión cancelada — la
+// socia veía en su portal una plaza "confirmada" para una clase que ya no
+// existe. No devuelve bono (ver comentario en cancelarSerieDesde,
+// studio-context.tsx): eso es una decisión de producto pendiente, no algo que
+// se pueda improvisar aquí sin arriesgar un descuadre de saldo.
+export async function dbCancelarReservasPorSesiones(sesionIds: string[]): Promise<{ ok: true; ids: string[] } | { error: string }> {
+  if (sesionIds.length === 0) return { ok: true, ids: [] };
+  const { data, error } = await supabase
+    .from('reservas')
+    .update({ estado: 'CANCELADA', posicion_espera: null })
+    .in('sesion_id', sesionIds)
+    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA'])
+    .select('id');
+  if (error) { reportDbError('[dbCancelarReservasPorSesiones]', error); return { error: error.message }; }
+  return { ok: true, ids: (data ?? []).map(r => r.id as string) };
+}
+
 export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
   const db: Record<string, unknown> = {};
   if ('sesionId' in changes) db.sesion_id = changes.sesionId;
@@ -4194,14 +4227,43 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
 }
 
 export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
-  // También reintenta ante FK de suscripcion_id: la renovación por bono
-  // agotado (consumirSesionBono) referencia una suscripción que puede sufrir
-  // la misma carrera de visibilidad que socio_id (Sentry dbInsertRecibo 23503,
-  // recibos_suscripcion_id_fkey, visto en producción).
+  // assignPlan() encadena dbInsertSuscripcion + dbInsertRecibo con la suscripción
+  // recién creada: mismo commit-race que socio_id (Sentry NEXTJS-W), pero antes
+  // solo se reintentaba para socio_id — la FK de suscripcion_id fallaba a la primera.
+  // También lo sufre la renovación por bono agotado (consumirSesionBono), que
+  // referencia una suscripción con la misma carrera de visibilidad (Sentry
+  // dbInsertRecibo 23503, recibos_suscripcion_id_fkey, visto en producción).
   const { error } = await conReintentoFK(['recibos_socio_id_fkey', 'recibos_suscripcion_id_fkey'], () =>
     supabase.from('recibos').insert(reciboToDb(rec)),
   );
   return error ? falloEscritura('[dbInsertRecibo]', error) : ESCRITURA_OK;
+}
+
+// Marca un recibo como COBRADO de forma condicional (auditoría 2026-07-29,
+// M-2): dbUpdateRecibo hace un UPDATE incondicional, sin comprobar el estado
+// actual. El cerrojo de re-entrada en marcarCobrado (studio-context.tsx) frena
+// el doble clic en la MISMA pestaña, pero dos pestañas/dispositivos distintos
+// cobrando el mismo recibo a la vez pasarían igual las dos, sellando DOS
+// facturas fiscales para un único cobro. `WHERE estado = 'PENDIENTE'` hace que
+// solo la primera escritura tenga efecto; `.select('id')` dice si de verdad
+// tocó algo.
+export async function dbMarcarCobrado(
+  id: string,
+  changes: { fechaCobro: string; metodoCobro?: MetodoCobro },
+): Promise<ResultadoEscritura & { yaEstaba?: boolean }> {
+  const db: Record<string, unknown> = { estado: 'COBRADO', fecha_cobro: changes.fechaCobro };
+  if (changes.metodoCobro) db.metodo_cobro = changes.metodoCobro;
+  const { data, error } = await supabase
+    .from('recibos')
+    .update(db)
+    .eq('id', id)
+    .eq('estado', 'PENDIENTE')
+    .select('id');
+  if (error) return falloEscritura('[dbMarcarCobrado]', error);
+  if (!data || data.length === 0) {
+    return { ok: false, error: 'Este recibo ya no está pendiente (puede que ya se haya cobrado).', yaEstaba: true };
+  }
+  return ESCRITURA_OK;
 }
 
 export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Promise<ResultadoEscritura> {
@@ -4223,19 +4285,35 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Prom
 }
 
 // Aplica los mismos cambios a varios recibos (cobro masivo desde Pagos/ficha de
-// socia) en una sola llamada, en vez de un UPDATE por recibo. Solo para campos
-// uniformes entre todos los recibos del lote (estado + fechaCobro, que es lo
-// que necesita cobrarTodosPendientes).
-export async function dbUpdateRecibosBatch(ids: string[], changes: Partial<Recibo>): Promise<ResultadoEscritura> {
-  if (ids.length === 0) return ESCRITURA_OK;
+// socia, o marcarlos EN_CURSO tras generar una remesa SEPA) en una sola
+// llamada, en vez de un UPDATE por recibo.
+//
+// `soloSiEstadoActual` (F2 B2.10): sin él, un recibo cobrado por OTRO camino
+// (tarjeta, cobro manual) entre "preparar la remesa" y este UPDATE se pisaba
+// en silencio de vuelta a un estado anterior. Al cobrar (estado === 'COBRADO')
+// se aplica el mismo filtro por PENDIENTE aunque el llamante no lo pida
+// explícitamente (auditoría 2026-07-29, M-2): sin esto, dos cobros masivos
+// solapados (dos pestañas, o esta función y un cobro individual del mismo
+// recibo) sellarían factura dos veces para el mismo dinero.
+// `idsActualizados` es la lista real de recibos que el UPDATE SÍ tocó: el
+// resto ya estaba en otro estado (otra sesión se adelantó) y no debe generar
+// una factura duplicada en el llamante.
+export async function dbUpdateRecibosBatch(
+  ids: string[], changes: Partial<Recibo>, soloSiEstadoActual?: Recibo['estado'],
+): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
+  if (ids.length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
   if ('fechaCobro' in changes) db.fecha_cobro = changes.fechaCobro;
   if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
-  if (Object.keys(db).length === 0) return ESCRITURA_OK;
-  const { error } = await supabase.from('recibos').update(db).in('id', ids);
-  return error ? falloEscritura('[dbUpdateRecibosBatch]', error) : ESCRITURA_OK;
+  if (Object.keys(db).length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
+  let q = supabase.from('recibos').update(db).in('id', ids);
+  const filtroEstado = soloSiEstadoActual ?? (changes.estado === 'COBRADO' ? 'PENDIENTE' : undefined);
+  if (filtroEstado) q = q.eq('estado', filtroEstado);
+  const { data, error } = await q.select('id');
+  if (error) return falloEscritura('[dbUpdateRecibosBatch]', error);
+  return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string) };
 }
 
 export async function dbDeleteRecibo(id: string) {
@@ -4374,33 +4452,6 @@ export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule
   return error ? falloEscritura('[dbUpdateRewardRule]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertRewardAction(a: RewardAction) {
-  const row = {
-    id: a.id, studio_id: a.studioId ?? STUDIO_ID, socio_id: a.socioId, trigger: a.trigger,
-    ref_id: a.refId ?? null, creado_en: a.creadoEn,
-  };
-  const { error } = await supabase.from('reward_actions').insert(row);
-  if (error) reportDbError('[dbInsertRewardAction]', error);
-  return !error;
-}
-
-// C-11: cerrojo de idempotencia para concesiones de crédito que NO tienen una
-// RewardRule detrás (logros y retos). Inserta una fila-guard en reward_actions;
-// el UNIQUE(studio_id, trigger, ref_id) hace que solo la PRIMERA evaluación gane.
-// Devuelve true si ganó el claim (primera vez → otorgar crédito), false si ya
-// existía o hubo error (→ NO otorgar; el lado seguro es no doblar el saldo).
-// Usar trigger sintético ('LOGRO'/'RETO') y refId = `${socioId}:${defId}` para
-// que sea único por (socia, logro/reto) y no por logro/reto a secas.
-export async function dbClaimRecompensaUnica(
-  studioId: string, socioId: string, trigger: string, refId: string,
-): Promise<boolean> {
-  const { error } = await supabase.from('reward_actions').insert({
-    id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId, trigger, ref_id: refId,
-    creado_en: new Date().toISOString(),
-  });
-  return !error;
-}
-
 export async function dbInsertRewardHistory(h: RewardHistory) {
   const row = {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, rule_id: h.ruleId,
@@ -4419,13 +4470,44 @@ export async function dbInsertCreditTransaction(t: CreditTransaction) {
   if (error) reportDbError('[dbInsertCreditTransaction]', error);
 }
 
-export async function dbUpsertMemberCredits(m: MemberCredits) {
-  const row = {
-    socio_id: m.socioId, studio_id: m.studioId ?? STUDIO_ID, saldo: m.saldo,
-    total_ganado: m.totalGanado, total_canjeado: m.totalCanjeado, actualizado_en: new Date().toISOString(),
-  };
-  const { error } = await supabase.from('member_credits').upsert(row, { onConflict: 'socio_id' });
-  if (error) reportDbError('[dbUpsertMemberCredits]', error);
+// Gamificación — GANANCIA de créditos por un disparador (asistencia, referido,
+// racha, logro, reto...). A diferencia de dbAjustarCreditos (que sigue siendo
+// correcto para el DÉBITO de un canje), aquí el importe de créditos NUNCA lo
+// decide el cliente: la RPC lo recalcula desde la regla/logro/reto activo del
+// propio estudio, y para ASISTENCIA_CLASE/REFERIDO_AMIGO exige que la
+// condición exista de verdad en la BD (una reserva ASISTIDA real) antes de
+// conceder nada. Sin esto, cualquier cuenta de personal autenticada podía
+// otorgarse créditos arbitrarios llamando directo a ajustar_creditos/insertando
+// en reward_actions desde la consola del navegador.
+// Devuelve el saldo tras la operación y si se concedió AHORA (otorgado=true) o
+// ya se había concedido antes para este mismo refId (otorgado=false,
+// no-op idempotente) — el llamante solo debe registrar historial/transacción
+// cuando otorgado=true, si no duplicaría esas filas en un reintento.
+export async function dbOtorgarCreditoDisparador(
+  socioId: string, studioId: string, trigger: string, refId: string, configId?: string,
+): Promise<{ ok: true; saldo: number; otorgado: boolean } | { error: string }> {
+  const { data, error } = await supabase.rpc('otorgar_credito_disparador', {
+    p_socio_id: socioId, p_studio_id: studioId, p_trigger: trigger, p_ref_id: refId,
+    p_config_id: configId ?? null,
+  });
+  if (error) {
+    // CONDICION_NO_CUMPLIDA / SIN_REGLA_ACTIVA no son errores de sistema: son el
+    // resultado esperado cuando el disparador aún no se cumple de verdad.
+    if (!error.message.includes('CONDICION_NO_CUMPLIDA') && !error.message.includes('SIN_REGLA_ACTIVA')) {
+      reportDbError('[dbOtorgarCreditoDisparador]', error);
+    }
+    return { error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  // La RPC siempre devuelve una fila si no hay error, pero un `row` ausente
+  // (PostgREST devolviendo 0 filas sin error, o una futura edición del SQL)
+  // no debe reventar aquí — mismo guard que dbSemaforoSaludEstudio/
+  // dbCancelarReservasPorSesiones ya usan con `data ?? []`.
+  if (!row) {
+    reportDbError('[dbOtorgarCreditoDisparador]', { message: 'La RPC no devolvió ninguna fila' });
+    return { error: 'No se pudo confirmar el crédito' };
+  }
+  return { ok: true, saldo: row.saldo as number, otorgado: row.otorgado as boolean };
 }
 
 // P0-20: ajuste ATÓMICO del saldo por deltas (incremento en la BD, no
@@ -4926,6 +5008,21 @@ export async function dbUpdateCondicion(id: string, changes: Partial<CondicionSa
 export async function dbDeleteCondicion(id: string) {
   const { error } = await supabase.from('condiciones_salud').delete().eq('id', id);
   if (error) reportDbError('[dbDeleteCondicion]', error);
+}
+
+// RECEPCIÓN ve el semáforo de salud (solo el color) pero la RLS de
+// condiciones_salud no le deja leer las filas — `condicionesSalud` en el
+// contexto llega vacío para ese rol, así que ningún cálculo LOCAL puede
+// producir un color. Esta RPC (SECURITY DEFINER) expone el nivel ya
+// calculado en servidor, sin las condiciones ni el motivo.
+export async function dbSemaforoSaludEstudio(studioId: string): Promise<Map<string, NivelSemaforo>> {
+  const { data, error } = await supabase.rpc('semaforo_salud_estudio', { p_studio_id: studioId });
+  if (error) { reportDbError('[dbSemaforoSaludEstudio]', error); return new Map(); }
+  const m = new Map<string, NivelSemaforo>();
+  for (const row of (data ?? []) as { socio_id: string; nivel: string }[]) {
+    m.set(row.socio_id, row.nivel as NivelSemaforo);
+  }
+  return m;
 }
 
 export async function dbInsertRespuestaSesion(r: RespuestaSesionRow) {
@@ -5511,10 +5608,16 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
   let candidate = base;
   let n = 2;
   while (true) {
+    // Un estudio llamado "Admin", "Reservar" o "Login" generaba ese slug tal
+    // cual: nadie lo comprobaba contra las rutas propias de la app en el alta
+    // (solo el renombrado posterior, en /api/estudio/direccion, llamaba a
+    // motivoSlugInvalido). Mismo trato que una colisión de verdad: se salta al
+    // siguiente sufijo en vez de dejarlo pasar.
+    const reservado = SLUGS_RESERVADOS.has(candidate);
     // P-2: vía RPC SECURITY DEFINER. Leer `studios` directamente exigía una
     // política que dejaba ver TODAS las filas (y con ellas nif, stripe_account_id
     // y kiosk_token de cualquier estudio). Esto devuelve solo un booleano.
-    const { data } = await supabase.rpc('slug_estudio_disponible', { p_slug: candidate });
+    const { data } = reservado ? { data: false } : await supabase.rpc('slug_estudio_disponible', { p_slug: candidate });
     if (data === true) return candidate;
     candidate = `${base}-${n}`;
     n++;

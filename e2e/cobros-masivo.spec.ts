@@ -91,7 +91,18 @@ async function montarCobros(page: Page, suscripciones: unknown[] = SUSCRIPCIONES
       if (opts.rechazarEscritura) {
         return json(route, { message: 'new row violates row-level security policy' }, 403);
       }
-      return json(route, []);
+      // dbMarcarCobrado/dbUpdateRecibosBatch (auditoría M-2) exigen
+      // `estado = 'PENDIENTE'` en el propio UPDATE y miran las filas
+      // devueltas por `.select('id')` para saber si de verdad cobraron algo
+      // -- antes esto devolvía [] siempre porque el código nunca inspeccionaba
+      // el cuerpo de una escritura con éxito. Se simulan las filas que un
+      // UPDATE condicional real devolvería: los ids que venían en el filtro.
+      const url = new URL(req.url());
+      const idParam = url.searchParams.get('id') ?? '';
+      const ids = idParam.startsWith('in.(')
+        ? idParam.slice(4, -1).split(',').filter(Boolean)
+        : idParam.startsWith('eq.') ? [idParam.slice(3)] : [];
+      return json(route, ids.map(id => ({ id })));
     }
     return json(route, RECIBOS);
   });

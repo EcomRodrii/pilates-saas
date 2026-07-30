@@ -21,6 +21,7 @@ import {
 import { fetchExterno } from '@/lib/fetch-externo';
 
 const TOKEN_URL = 'https://zoom.us/oauth/token';
+const REVOKE_URL = 'https://zoom.us/oauth/revoke';
 const API_BASE = 'https://api.zoom.us/v2';
 
 function env() {
@@ -91,6 +92,22 @@ async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: 
     refreshToken: data.refresh_token ?? refreshToken,
     expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString(),
   };
+}
+
+// Al desconectar, no basta con borrar la fila local — mismo motivo que
+// lib/google-calendar.ts. Best-effort: no bloquea la desconexión local.
+export async function revocarToken(token: string): Promise<void> {
+  const { clientId, clientSecret } = env();
+  if (!clientId || !clientSecret) return;
+  try {
+    await fetchExterno(REVOKE_URL, {
+      method: 'POST',
+      headers: { Authorization: authHeaderBasic(clientId, clientSecret), 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token }),
+    });
+  } catch (e) {
+    console.error('[zoom] revocarToken:', e instanceof Error ? e.message : e);
+  }
 }
 
 // Devuelve un access token válido para el estudio, renovándolo primero si ya

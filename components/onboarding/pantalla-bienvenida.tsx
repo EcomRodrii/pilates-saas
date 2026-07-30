@@ -295,7 +295,10 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
       ? `Migramos tus datos de ${e.ans.software} y te avisamos al terminar.`
       : `${nombreEstudio}, tu panel ya está ordenado a tu medida.`,
     panelPie: enIntro ? 'Tu estudio, en marcha' : e.fase === 'wizard' ? `Paso ${e.paso + 1} de ${PASOS.length}` : 'Todo listo',
-    pista: enIntro ? 'Toca para acelerar' : e.fase === 'wizard' ? `Pulsa 1-${Math.max(1, opciones.length)} para responder` : '',
+    // "Elige una opción" en vez de "Pulsa 1-N": el atajo de teclado (número)
+    // sigue funcionando igual, pero la pista no puede asumir que quien
+    // responde tiene teclado — la mayoría toca con el dedo o hace clic.
+    pista: enIntro ? 'Toca para acelerar' : e.fase === 'wizard' ? 'Elige una opción' : '',
     pistaOpacity: e.fase === 'resumen' || (enIntro && e.buttonAt != null) ? '0' : '1',
     textoBoton: e.fase === 'resumen' ? 'Entrar al panel' : 'Empezar',
     btnOpacity: (enIntro || e.fase === 'resumen' ? bt : 0).toFixed(3),

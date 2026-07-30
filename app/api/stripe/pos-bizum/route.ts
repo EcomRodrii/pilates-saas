@@ -4,6 +4,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // Fase 1 · PR-5 — Bizum presencial en el POS.
 //
@@ -22,9 +23,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
   // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
-  // comprueba aquí. Las instructoras no cobran — solo dirección y recepción.
-  if (sesion.rol === 'INSTRUCTOR') {
-    return NextResponse.json({ error: 'Las instructoras no pueden registrar cobros' }, { status: 403 });
+  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
+  // mano: `rol === 'INSTRUCTOR'` dejaba pasar al MANAGER, que podía generar un
+  // cobro Bizum igual que ya se corrigió en terminal/cobrar y facturas/sellar
+  // (auditoría 2026-07-29, I-6).
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'Tu rol no puede registrar cobros' }, { status: 403 });
   }
   // Mismo gate de suscripción del SaaS que el datáfono (terminal/cobrar) y el cobro
   // off-session: un estudio con la suscripción a Tentare no activa no debe poder

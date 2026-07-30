@@ -3,6 +3,7 @@
 import { useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
+import { useRol, puedeMoverDinero } from '@/lib/permisos';
 import { Package, Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Check } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS } from '@/lib/types';
 import { PageHeader } from '@/components/ui/page-header';
@@ -294,8 +295,13 @@ export default function Productos() {
   // mantiene. El bloque de contenido POS sigue en el archivo, solo deja de ser
   // alcanzable. Reactivar = quitar '/pos' de RUTAS_CONGELADAS en lib/frozen-features.ts.
   const posCongelado = esRutaCongelada('/pos');
+  // productos_pos exige puede_mover_dinero() en RLS (mismo criterio que
+  // ventas_pos) — sin este gate, un MANAGER (que sí puede ver /productos, no
+  // está en BLOQUEADO_MANAGER) vería la pestaña POS el día que se reactive y
+  // sus altas/ediciones fallarían en silencio contra la RLS.
+  const mueveDinero = puedeMoverDinero(useRol());
   const TABS = ([['planes', 'Planes de suscripción'], ['pos', 'Productos POS']] as const)
-    .filter(([v]) => v !== 'pos' || !posCongelado);
+    .filter(([v]) => v !== 'pos' || (!posCongelado && mueveDinero));
 
   // Count active suscripciones per plan
   const susCount = (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length;

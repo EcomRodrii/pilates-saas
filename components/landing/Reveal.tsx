@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ACC, ACC_SOFT } from './theme';
 
 // ─── Scroll-reveal wrapper ───────────────────────────────────────────────────
@@ -21,9 +21,22 @@ export function Reveal({
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
-  useEffect(() => {
+  // useLayoutEffect (no useEffect): corre antes del primer pintado. Si el
+  // elemento ya está en el viewport al montar —carga inicial por encima del
+  // pliegue, o un salto directo a una sección por ancla (#precio, #faq)— lo
+  // marcamos visible ya, sin esperar al primer callback async del
+  // IntersectionObserver. Sin esto, esa sección aparecía un instante en su
+  // estado "oculto" (opacidad baja) antes de revelarse, aunque ya estuviera
+  // a la vista — se notaba como un fogonazo al entrar por ancla.
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const r = el.getBoundingClientRect();
+    const yaVisible = r.top < window.innerHeight * 0.92 && r.bottom > 0;
+    if (yaVisible) {
+      setVisible(true);
+      return;
+    }
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {

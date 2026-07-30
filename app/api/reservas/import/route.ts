@@ -8,6 +8,7 @@ import type { FilaReserva } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 import { catalogo } from '@/lib/migracion/catalogo';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -42,6 +43,9 @@ const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(RE_DIACRITI
 const OCUPA_PLAZA = ['CONFIRMADA', 'ASISTIDA'];
 
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'reservas-import', { max: 10, windowSeconds: 60 });
+  if (limited) return limited;
+
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 

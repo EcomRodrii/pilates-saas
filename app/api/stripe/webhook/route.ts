@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
-import { webhookYaProcesado, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
+import { reclamarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { registrarFalloCobro } from '@/lib/billing/dunning-server';
@@ -54,10 +54,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // M10: idempotencia por event.id — si este evento ya se procesó con éxito
-  // (Stripe reintenta / re-entrega), lo reconocemos y salimos sin reprocesar.
+  // M10: idempotencia por event.id — reclamación atómica (RPC): si este
+  // evento ya se procesó con éxito o hay otra entrega en vuelo dentro de la
+  // ventana de expiración, salimos sin reprocesar.
   const adminDedup = getSupabaseAdmin();
-  if (adminDedup && await webhookYaProcesado(adminDedup, event.id)) {
+  if (adminDedup && !await reclamarWebhookEvent(adminDedup, event.id, event.type)) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
@@ -562,8 +563,8 @@ export async function POST(req: NextRequest) {
   }
 
   // M10: marcar el evento como procesado (solo se llega aquí si todos los
-  // handlers fueron OK; los caminos de error devuelven 5xx antes y NO marcan,
-  // para que Stripe reintente).
-  if (adminDedup) await marcarWebhookProcesado(adminDedup, event.id, event.type);
+  // handlers fueron OK; los caminos de error devuelven 5xx antes y NO marcan
+  // — la reclamación expira sola y un reintento de Stripe la retoma).
+  if (adminDedup) await marcarWebhookProcesado(adminDedup, event.id);
   return NextResponse.json({ received: true });
 }
