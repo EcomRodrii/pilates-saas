@@ -1226,6 +1226,78 @@ export async function expirarOfertaListaEspera(params: {
   }
 }
 
+// Fase 2c: cancela una sesión completa porque no alcanzó el mínimo de
+// asistentes a 2h del inicio — llamado solo por el cron
+// (lib/inngest/minimo-asistentes.ts), sin sesión de staff detrás. A
+// diferencia de dbCancelarReservasPorSesiones (cancelación manual, cliente,
+// nunca devuelve bono), aquí SÍ se devuelve a cada CONFIRMADA: no es
+// decisión de la socia, es el sistema el que rompe el compromiso.
+//
+// Dos guardas de idempotencia INDEPENDIENTES (no una sola compuesta): si el
+// cron reintenta tras un fallo parcial, la sesión ya marcada cancelada=true
+// no bloquea que se sigan limpiando reservas sueltas.
+export async function cancelarSesionPorMinimoNoAlcanzado(params: {
+  studioId: string; sesionId: string;
+}): Promise<{ ok: true } | { error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const { data: ses } = await admin
+    .from('sesiones').select('tipo_clase_id, cancelada')
+    .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
+  if (!ses) return { error: 'Sesión no encontrada' };
+  const tipoClaseId = ses.tipo_clase_id as string | null;
+
+  if (!ses.cancelada) {
+    await admin.from('sesiones')
+      .update({ cancelada: true, cancelada_motivo: 'minimo_no_alcanzado' })
+      .eq('id', params.sesionId).eq('cancelada', false);
+  }
+
+  // Incluye PENDIENTE_APROBACION (Fase 2a) — cierra un gap que ya existía en
+  // dbCancelarReservasPorSesiones (solo CONFIRMADA/LISTA_ESPERA): sin esto,
+  // una reserva pendiente de aprobar quedaría huérfana en una sesión cancelada.
+  const { data: afectadas } = await admin
+    .from('reservas').select('id, socio_id, estado')
+    .eq('sesion_id', params.sesionId)
+    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
+  if (!afectadas?.length) return { ok: true };
+
+  await admin.from('reservas')
+    .update({ estado: 'CANCELADA', posicion_espera: null })
+    .eq('sesion_id', params.sesionId)
+    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
+
+  const confirmadas = afectadas.filter(r => r.estado === 'CONFIRMADA' && r.socio_id);
+  for (const r of confirmadas) {
+    await devolverBonoServidor(admin, params.studioId, r.socio_id as string, tipoClaseId);
+  }
+
+  const { emitirClaseCancelada } = await import('@/lib/notifications/emit');
+  await emitirClaseCancelada(admin, { studioId: params.studioId, sesionId: params.sesionId });
+
+  // CLASE_CANCELADA no manda email a propósito (catalog.ts) — aquí SÍ hay
+  // dinero de por medio, así que se manda explícito. CancelacionClaseEmail ya
+  // soporta `bonoDevuelto`, reutilizado tal cual vía enviarEmailTransaccional
+  // (mismo patrón que notificarPromocionEspera, arriba en este archivo).
+  const datos = await datosClaseParaEmail(admin, params.studioId, params.sesionId);
+  if (datos && confirmadas.length) {
+    const { data: socias } = await admin
+      .from('socios').select('id, nombre, email')
+      .in('id', confirmadas.map(r => r.socio_id as string));
+    for (const s of socias ?? []) {
+      if (!s.email) continue;
+      await enviarEmailTransaccional({
+        tipo: 'cancelacion', to: s.email as string, toName: (s.nombre as string) ?? 'Socia',
+        data: { ...datos, bonoDevuelto: true },
+        studioId: params.studioId,
+        idempotencyKey: `minimo-no-alcanzado-${params.sesionId}-${s.id}`,
+      });
+    }
+  }
+  return { ok: true };
+}
+
 // Asigna un spot a una reserva confirmada validando que el sitio pertenece a la
 // sala de la sesión, está activo y libre. El índice único uq_reserva_spot_activo
 // es el backstop atómico ante reservas concurrentes del mismo sitio: si dos van

@@ -84,6 +84,13 @@ export interface Studio {
   // esa migración: la RPC es ejecutable directo por `authenticated` desde el
   // cliente, sin pasar por cargarPoliticaEstudio).
   listaEsperaPlazoAceptacionMinutos: number;
+  // Fase 2c (migr 20260731140000): nº mínimo de reservas CONFIRMADA para que
+  // la clase se mantenga. Si a 2h del inicio no se alcanza, se cancela
+  // automáticamente y se devuelve el bono. 0 = sin mínimo. tipos_clase puede
+  // sobrescribirlo con NULL = hereda — resuelto con heredaOverride() en TS
+  // (el chequeo solo ocurre server-side dentro del cron, nunca en una RPC
+  // invocable por `authenticated`).
+  minimoAsistentesPorClase: number;
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
   stripeTerminalLocationId: string | null;
@@ -456,6 +463,9 @@ export interface TipoClase {
   // Fase 2b (migr 20260731130000): mismo patrón de override. Resuelto en SQL
   // directo, no con heredaOverride() — ver comentario en Studio.
   listaEsperaPlazoAceptacionMinutos: number | null;
+  // Fase 2c (migr 20260731140000): mismo patrón de override, resuelto en TS
+  // con heredaOverride().
+  minimoAsistentesPorClase: number | null;
 }
 
 export interface FavoritoClase {

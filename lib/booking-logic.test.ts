@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import type { Reserva, RewardAction, Socio, Sesion, Suscripcion, PlanTarifa } from '@/lib/types';
 import {
   plazasOcupadas,
+  confirmadasParaMinimo,
+  debeCancelarPorMinimoNoAlcanzado,
   decidirReservaNueva,
   siguienteEnEspera,
   esPrimeraAsistencia,
@@ -73,6 +75,32 @@ test('plazasOcupadas cuenta CONFIRMADA y ASISTIDA, no LISTA_ESPERA ni CANCELADA'
   assert.equal(plazasOcupadas('s1', rs), 2);
   assert.equal(plazasOcupadas('s2', rs), 1);
   assert.equal(plazasOcupadas('sX', rs), 0);
+});
+
+// ── confirmadasParaMinimo / debeCancelarPorMinimoNoAlcanzado (Fase 2c) ──────────
+test('confirmadasParaMinimo cuenta solo CONFIRMADA, no ASISTIDA/LISTA_ESPERA', () => {
+  const rs: Reserva[] = [
+    res({ sesionId: 's1', socioId: 'a', estado: 'CONFIRMADA' }),
+    res({ sesionId: 's1', socioId: 'b', estado: 'ASISTIDA' }),
+    res({ sesionId: 's1', socioId: 'c', estado: 'LISTA_ESPERA' }),
+    res({ sesionId: 's2', socioId: 'd', estado: 'CONFIRMADA' }),
+  ];
+  assert.equal(confirmadasParaMinimo('s1', rs), 1);
+  assert.equal(confirmadasParaMinimo('s2', rs), 1);
+});
+
+test('debeCancelarPorMinimoNoAlcanzado: minimo<=0 nunca cancela', () => {
+  assert.equal(debeCancelarPorMinimoNoAlcanzado(0, 0), false);
+  assert.equal(debeCancelarPorMinimoNoAlcanzado(0, -1), false);
+});
+
+test('debeCancelarPorMinimoNoAlcanzado: por debajo del mínimo cancela', () => {
+  assert.equal(debeCancelarPorMinimoNoAlcanzado(1, 3), true);
+});
+
+test('debeCancelarPorMinimoNoAlcanzado: alcanzar EXACTO el mínimo no cancela', () => {
+  assert.equal(debeCancelarPorMinimoNoAlcanzado(3, 3), false);
+  assert.equal(debeCancelarPorMinimoNoAlcanzado(4, 3), false);
 });
 
 // ── decidirReservaNueva ──────────────────────────────────────────────────────

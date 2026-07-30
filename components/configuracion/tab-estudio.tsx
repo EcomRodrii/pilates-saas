@@ -59,6 +59,9 @@ type PoliticaForm = {
   // Fase 2b (migr 20260731130000): minutos para aceptar una plaza liberada.
   // 0 = confirmación instantánea (comportamiento clásico).
   listaEsperaPlazoAceptacionMinutos: number;
+  // Fase 2c (migr 20260731140000): nº mínimo de asistentes CONFIRMADA para
+  // que la clase se mantenga. 0 = sin mínimo.
+  minimoAsistentesPorClase: number;
 };
 
 function studioToPolitica(s: Studio | null): PoliticaForm {
@@ -73,6 +76,7 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     permiteListaEspera: s?.permiteListaEspera ?? true,
     requiereAprobacion: s?.requiereAprobacion ?? false,
     listaEsperaPlazoAceptacionMinutos: s?.listaEsperaPlazoAceptacionMinutos ?? 0,
+    minimoAsistentesPorClase: s?.minimoAsistentesPorClase ?? 0,
   };
 }
 
@@ -540,6 +544,18 @@ export function TabEstudio({ showToast }: { showToast: (m: string) => void }) {
             </span>
             <Toggle on={pol.requiereAprobacion} onChange={v => setPol(p => ({ ...p, requiereAprobacion: v }))} />
           </label>
+          <div>
+            <p className={labelCls}>Mínimo de asistentes para mantener la clase</p>
+            <input
+              type="number" min={0} className={inputCls}
+              placeholder="Sin mínimo"
+              value={pol.minimoAsistentesPorClase || ''}
+              onChange={e => setPol(p => ({ ...p, minimoAsistentesPorClase: Math.max(0, Number(e.target.value) || 0) }))}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Si a 2h del inicio no se alcanza, la clase se cancela automáticamente y se devuelve el bono a las apuntadas. Vacío o 0 = sin mínimo.
+            </p>
+          </div>
         </div>
         <button onClick={guardarPolitica} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
           Guardar política de reservas

@@ -36,6 +36,8 @@ type ClaseForm = {
   // mismo patrón que reservaVentanaMinimaMinutos/reservaAntelacionMaximaDias
   // (no tri-estado, que es solo para booleanos).
   listaEsperaPlazoAceptacionMinutos: string;
+  // Fase 2c (migr 20260731140000): mismo patrón, vacío = null = hereda.
+  minimoAsistentesPorClase: string;
 };
 
 const emptyClaseForm = (): ClaseForm => ({
@@ -51,6 +53,7 @@ const emptyClaseForm = (): ClaseForm => ({
   permiteListaEspera: 'hereda',
   requiereAprobacion: 'hereda',
   listaEsperaPlazoAceptacionMinutos: '',
+  minimoAsistentesPorClase: '',
 });
 
 function claseToForm(t: TipoClase): ClaseForm {
@@ -67,6 +70,7 @@ function claseToForm(t: TipoClase): ClaseForm {
     permiteListaEspera: boolATri(t.permiteListaEspera),
     requiereAprobacion: boolATri(t.requiereAprobacion),
     listaEsperaPlazoAceptacionMinutos: t.listaEsperaPlazoAceptacionMinutos != null ? String(t.listaEsperaPlazoAceptacionMinutos) : '',
+    minimoAsistentesPorClase: t.minimoAsistentesPorClase != null ? String(t.minimoAsistentesPorClase) : '',
   };
 }
 
@@ -141,6 +145,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       permiteListaEspera: triABool(form.permiteListaEspera),
       requiereAprobacion: triABool(form.requiereAprobacion),
       listaEsperaPlazoAceptacionMinutos: form.listaEsperaPlazoAceptacionMinutos.trim() === '' ? null : Math.max(0, parseInt(form.listaEsperaPlazoAceptacionMinutos, 10) || 0),
+      minimoAsistentesPorClase: form.minimoAsistentesPorClase.trim() === '' ? null : Math.max(0, parseInt(form.minimoAsistentesPorClase, 10) || 0),
     };
     if (modal === 'nueva') {
       // Esperamos a la base de datos antes de decir que está creado.
@@ -414,6 +419,19 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 placeholder="Ajuste del estudio"
                 value={form.listaEsperaPlazoAceptacionMinutos}
                 onChange={e => setForm(f => ({ ...f, listaEsperaPlazoAceptacionMinutos: e.target.value }))}
+              />
+            </Field>
+            <Field
+              label="Mínimo de asistentes para mantener la clase"
+              description="Si a 2h del inicio no se alcanza, se cancela automáticamente y se devuelve el bono. Vacío = usa el ajuste general del estudio."
+            >
+              <input
+                className={inputCls}
+                type="number"
+                min={0}
+                placeholder="Ajuste del estudio"
+                value={form.minimoAsistentesPorClase}
+                onChange={e => setForm(f => ({ ...f, minimoAsistentesPorClase: e.target.value }))}
               />
             </Field>
             <Field

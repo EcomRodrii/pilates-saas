@@ -92,6 +92,20 @@ export function plazasOcupadas(sesionId: string, reservas: Reserva[]): number {
   ).length;
 }
 
+// Fase 2c (mínimo de asistentes): solo CONFIRMADA, no ASISTIDA — el chequeo
+// ocurre 2h ANTES de que la clase empiece, así que ASISTIDA no puede existir
+// todavía. A diferencia de plazasOcupadas, que sirve para decidir aforo en
+// cualquier momento (antes o durante la clase).
+export function confirmadasParaMinimo(sesionId: string, reservas: Reserva[]): number {
+  return reservas.filter(r => r.sesionId === sesionId && r.estado === 'CONFIRMADA').length;
+}
+
+// minimo<=0 desactiva la regla (nunca se cancela por esto). Alcanzar
+// exactamente el mínimo NO cancela — solo cancela si se queda por debajo.
+export function debeCancelarPorMinimoNoAlcanzado(confirmadas: number, minimo: number): boolean {
+  return minimo > 0 && confirmadas < minimo;
+}
+
 // Radar de ocupación: sesiones futuras (no canceladas, con aforo > 0) por
 // debajo del umbral dentro de una ventana horaria — para avisar de huecos
 // antes de que empiece la clase. Ordenadas por ratio ascendente (las más

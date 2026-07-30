@@ -556,6 +556,7 @@ export interface RowSesiones {
   google_event_id: string | null;
   serie_id: string | null;
   valoracion_pedida_en: string | null;
+  cancelada_motivo: string | null;
 }
 
 export interface RowSocios {
@@ -651,6 +652,7 @@ export interface RowStudios {
   permite_lista_espera: boolean | null;
   requiere_aprobacion: boolean | null;
   lista_espera_plazo_aceptacion_minutos: number | null;
+  minimo_asistentes_por_clase: number | null;
   stripe_customer_id: string | null;
   subscription_id: string | null;
   subscription_status: string | null;
@@ -718,6 +720,7 @@ export interface RowTiposClase {
   permite_lista_espera: boolean | null;
   requiere_aprobacion: boolean | null;
   lista_espera_plazo_aceptacion_minutos: number | null;
+  minimo_asistentes_por_clase: number | null;
 }
 
 export interface RowFavoritosClase {

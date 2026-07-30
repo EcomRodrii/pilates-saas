@@ -264,9 +264,45 @@ con alias de tabla (`reservas AS r`, `r.estado`) cualquier columna que
 coincida en nombre con una salida de `RETURNS TABLE`, migr
 `20260731132000`.
 
-Quedan sin tocar, a propósito: **mínimo de asistentes para confirmar la
-clase** (Fase 2c); Fase 3 (penalización económica) sigue esperando diseño con
-`tentare-stripe`.
+### Fase 2c — mínimo de asistentes para confirmar la clase (completa)
+
+Tercera y última pieza de "Fase 2". `studios.minimo_asistentes_por_clase`
+(default `0` = sin mínimo) + `tipos_clase.minimo_asistentes_por_clase`
+(nullable = hereda), migr `20260731140000`. Si a **2 horas fijas** del inicio
+(no configurable) no hay suficientes reservas `CONFIRMADA`, la sesión se
+cancela sola — **sin fase de aviso previo** (a diferencia de
+`confirmacion-riesgo`, que sí tiene ASK + CORTE): coherente con que la regla
+es opt-in, el estudio ya sabe lo que implica al activarla.
+
+⚠️ **Única regla de "Fase 2" cuyo override se resuelve con `heredaOverride()`
+en TS, no en SQL directo** — a diferencia de Fase 2b. Motivo: el chequeo
+ocurre solo dentro del cron server-side (`lib/inngest/minimo-asistentes.ts`,
+cada 15 min, sin fan-out — query global de sesiones en la próxima ventana de
+2h, mismo patrón de doble filtro SQL+JS que `confirmacion-riesgo`), nunca en
+una RPC invocable por `authenticated`, así que no aplica la restricción que
+forzó SQL directo en `cancelar_reserva_plaza`.
+
+⚠️ **Única cancelación de sesión completa que SÍ devuelve bono** — decisión de
+producto explícita: `dbCancelarReservasPorSesiones` (cancelación manual de la
+propietaria, cliente) sigue sin devolver, pero `cancelarSesionPorMinimoNoAlcanzado`
+(`lib/db/supabase-data-admin.ts`, server-only) sí, porque aquí no es decisión
+de la socia. Reutiliza `devolverBonoServidor`/`datosClaseParaEmail` ya
+existentes; `CancelacionClaseEmail` ya soportaba `bonoDevuelto`, no hizo falta
+plantilla nueva. Nueva columna `sesiones.cancelada_motivo` (NULL = manual,
+`'minimo_no_alcanzado'` = automática) para distinguir en el histórico.
+
+Sin RPC ni política RLS nueva — migración puramente aditiva, `get_advisors`
+sin hallazgos nuevos. Verificado en vivo con `execute_sql`+`ROLLBACK` las
+queries de cancelación (idempotencia del compare-and-set incluida); el
+tramo de devolución de bono reutiliza lógica de `bono-logic.ts` ya testeada
+aparte, no se pudo ejecutar end-to-end sin Supabase local (misma limitación
+que las fases anteriores).
+
+Con Fase 2c cerrada, las 13 reglas de reserva/cancelación pedidas
+originalmente están completas salvo **Fase 3** (penalización económica por
+cancelación tardía/no-show, dinero real con tarjeta guardada), que sigue
+esperando diseño propio con `tentare-stripe` — no es una extensión trivial
+del patrón "hereda" de las fases 1/2a/2b/2c.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
