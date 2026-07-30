@@ -16,8 +16,8 @@ import {
 import { fetchExterno } from '@/lib/fetch-externo';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
-const SCOPE = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email';
 
 function env() {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -29,24 +29,6 @@ function env() {
 export function isGoogleCalendarConfigurado(): boolean {
   const { clientId, clientSecret } = env();
   return !!clientId && !!clientSecret;
-}
-
-// URL de autorización que se pinta como enlace "Conectar con Google" en
-// Configuración → Integraciones. `state` lleva el studioId sin firmar —
-// mismo criterio (y misma limitación) que ya usa el conectar de Stripe hoy.
-export function getGoogleAuthUrl(studioId: string): string | null {
-  const { clientId, redirectUri } = env();
-  if (!clientId) return null;
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: 'code',
-    scope: SCOPE,
-    access_type: 'offline',
-    prompt: 'consent',
-    state: studioId,
-  });
-  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
 interface TokenResponse {
@@ -109,6 +91,24 @@ async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: 
     throw new Error(data.error_description ?? data.error ?? 'No se pudo renovar el token de Google');
   }
   return { accessToken: data.access_token, expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString() };
+}
+
+// Al desconectar, no basta con borrar la fila local: si el token ya se
+// hubiera filtrado por otra vía (log, backup expuesto), seguiría siendo
+// válido en Google indefinidamente. Revocar un refresh token invalida
+// también los access tokens que salieron de él. Best-effort: si Google no
+// responde, no debe bloquear la desconexión local (que es la parte que SÍ
+// depende de nosotros).
+export async function revocarToken(token: string): Promise<void> {
+  try {
+    await fetchExterno(REVOKE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token }),
+    });
+  } catch (e) {
+    console.error('[google-calendar] revocarToken:', e instanceof Error ? e.message : e);
+  }
 }
 
 // Devuelve un access token válido para el estudio, renovándolo primero si ya

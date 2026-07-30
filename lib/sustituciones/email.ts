@@ -87,6 +87,16 @@ export async function enviarEmailAlumnaClaseCancelada(params: Marca & {
 
 type EnvioResultado = { ok: true; id?: string } | { ok: false; skipped: true } | { ok: false; error: string };
 
+// Un envío colgado (Resend sin responder) no debe alargar indefinidamente un
+// PATCH de confirmar/cancelar/reprogramar sustitución — mismo motivo que el
+// AbortSignal.timeout de entregarExternos() en lib/notifications/engine.ts.
+function conTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera agotado al enviar el email')), ms)),
+  ]);
+}
+
 // `marca`: nombre de producto mostrado como remitente. 'Tentare Core' para
 // instructoras, 'Tentare Manager' para propietaria/gerencia, 'Tentare' (marca
 // paraguas) para alumnas — a ellas los nombres de producto interno no les
@@ -97,10 +107,10 @@ async function enviar(to: string, subject: string, html: string, marca: string):
   if (!to) return { ok: false, error: 'Sin destinatario' };
   try {
     const resend = new Resend(apiKey);
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await conTimeout(resend.emails.send({
       from: remitentePorMarca(marca),
       to: [to], subject, html,
-    });
+    }), 10_000);
     if (error) { console.error('[sustituciones/email]', error); return { ok: false, error: error.message }; }
     return { ok: true, id: data?.id };
   } catch (err) {

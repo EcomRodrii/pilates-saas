@@ -80,14 +80,24 @@ async function entregarExternos(notificationIds: string[]): Promise<void> {
 }
 
 // ── Acciones sobre notificaciones ya creadas (las llaman las rutas API) ──────────
-// Usan el cliente de sesión del usuario → RLS garantiza que solo toca lo suyo.
+// El comentario que había aquí decía "RLS garantiza que solo toca lo suyo" —
+// falso: `notification_update` (migración 0092) autoriza el UPDATE también con
+// `studio_id = current_studio_id()`, así que CUALQUIER staff del estudio podía
+// marcar leída/archivar la notificación de OTRA persona (p. ej. una instructora
+// archivando el aviso de pago fallido de la propietaria). Hoy no hay ninguna
+// ruta que llame a estas tres sin acotar por destinatario (el único camino real,
+// app/api/notifications/route.ts PATCH, ya filtra bien con service-role), pero
+// dejarlas así era una trampa para el próximo que las reutilizara confiando en
+// el comentario. Se exige userId y se filtra explícitamente.
 
-export async function marcarLeida(supa: SupabaseClient, notificationId: string): Promise<void> {
-  await supa.from('notification').update({ read_at: new Date().toISOString() }).eq('id', notificationId).is('read_at', null);
+export async function marcarLeida(supa: SupabaseClient, notificationId: string, userId: string): Promise<void> {
+  await supa.from('notification').update({ read_at: new Date().toISOString() })
+    .eq('id', notificationId).eq('recipient_user_id', userId).is('read_at', null);
 }
 
-export async function marcarNoLeida(supa: SupabaseClient, notificationId: string): Promise<void> {
-  await supa.from('notification').update({ read_at: null }).eq('id', notificationId);
+export async function marcarNoLeida(supa: SupabaseClient, notificationId: string, userId: string): Promise<void> {
+  await supa.from('notification').update({ read_at: null })
+    .eq('id', notificationId).eq('recipient_user_id', userId);
 }
 
 export async function marcarTodasLeidas(supa: SupabaseClient, userId: string): Promise<void> {
@@ -95,8 +105,9 @@ export async function marcarTodasLeidas(supa: SupabaseClient, userId: string): P
     .eq('recipient_user_id', userId).is('read_at', null);
 }
 
-export async function archivar(supa: SupabaseClient, notificationId: string): Promise<void> {
-  await supa.from('notification').update({ archived_at: new Date().toISOString() }).eq('id', notificationId);
+export async function archivar(supa: SupabaseClient, notificationId: string, userId: string): Promise<void> {
+  await supa.from('notification').update({ archived_at: new Date().toISOString() })
+    .eq('id', notificationId).eq('recipient_user_id', userId);
 }
 
 export const NotificationEngine = {

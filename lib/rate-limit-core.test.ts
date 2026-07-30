@@ -6,12 +6,16 @@ import {
 
 const reqWith = (headers: Record<string, string>) => new Request('http://x/api', { headers });
 
-test('clientIp: toma la PRIMERA ip de x-forwarded-for (cliente original)', () => {
-  assert.equal(clientIp(reqWith({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8, 9.9.9.9' })), '1.2.3.4');
+test('clientIp: toma la ÚLTIMA ip de x-forwarded-for (la que añadió el borde de confianza, no la que manda el cliente)', () => {
+  assert.equal(clientIp(reqWith({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8, 9.9.9.9' })), '9.9.9.9');
 });
 
 test('clientIp: recorta espacios', () => {
-  assert.equal(clientIp(reqWith({ 'x-forwarded-for': '  1.2.3.4  , 5.6.7.8' })), '1.2.3.4');
+  assert.equal(clientIp(reqWith({ 'x-forwarded-for': '  1.2.3.4  , 5.6.7.8  ' })), '5.6.7.8');
+});
+
+test('clientIp: una sola IP en x-forwarded-for se usa igual', () => {
+  assert.equal(clientIp(reqWith({ 'x-forwarded-for': '1.2.3.4' })), '1.2.3.4');
 });
 
 test('clientIp: cae a x-real-ip si no hay x-forwarded-for', () => {

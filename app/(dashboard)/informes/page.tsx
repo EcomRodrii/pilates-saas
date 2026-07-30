@@ -7,6 +7,7 @@ import { TrendingUp, Users, CreditCard, Activity, Download, FileText } from 'luc
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { inicioDeSemana } from '@/lib/utils';
+import { useRol, puedeVerFinanzas } from '@/lib/permisos';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -133,6 +134,12 @@ type ExportState = 'idle' | 'loading' | 'done';
 
 export default function Informes() {
   const { recibos, socios, sesiones, reservas, tiposClase, suscripciones, planesTarifa } = useStudio();
+  // Sin esto, una instructora o un manager veían aquí las tarjetas de
+  // ingresos/ticket medio — la RLS real (migración 0114) sí bloquea los datos
+  // (ven un 0 € falso, no el número real), pero mostrar la tarjeta igual es
+  // peor que ocultarla: miente sobre si hay o no ingresos. Mismo gate que ya
+  // tiene el Dashboard de inicio para esta misma info.
+  const verFinanzas = puedeVerFinanzas(useRol());
 
   const [period, setPeriod] = useState<Period>('month');
   const [tooltipIdx, setTooltipIdx] = useState<number | null>(null);
@@ -423,49 +430,53 @@ export default function Informes() {
 
       {/* ── Section 1: KPI cards ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Ingresos período */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-            style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))' }}
-          >
-            <TrendingUp size={17} style={{ color: 'var(--success)' }} />
-          </div>
-          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos período</p>
-          <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
-            {fmtEurFull(totalIngresos)}
-          </CifraPrivada>
-          <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>cobrados en el periodo</p>
-        </div>
+        {verFinanzas && (
+          <>
+            {/* Ingresos período */}
+            <div className="bg-card border border-border rounded-xl p-5">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))' }}
+              >
+                <TrendingUp size={17} style={{ color: 'var(--success)' }} />
+              </div>
+              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos período</p>
+              <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
+                {fmtEurFull(totalIngresos)}
+              </CifraPrivada>
+              <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>cobrados en el periodo</p>
+            </div>
 
-        {/* MRR */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center mb-3 bg-brand-secondary/10"
-          >
-            <CreditCard size={17} className="text-brand-secondary" />
-          </div>
-          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos del mes</p>
-          <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
-            {fmtEurFull(mrr)}
-          </CifraPrivada>
-          <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>ingresos mes actual</p>
-        </div>
+            {/* MRR */}
+            <div className="bg-card border border-border rounded-xl p-5">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center mb-3 bg-brand-secondary/10"
+              >
+                <CreditCard size={17} className="text-brand-secondary" />
+              </div>
+              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos del mes</p>
+              <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
+                {fmtEurFull(mrr)}
+              </CifraPrivada>
+              <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>ingresos mes actual</p>
+            </div>
 
-        {/* Ticket medio */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-            style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))' }}
-          >
-            <Activity size={17} style={{ color: 'var(--warning)' }} />
-          </div>
-          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ticket medio de quien pagó</p>
-          <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
-            {fmtEurFull(ticketMedio)}
-          </CifraPrivada>
-          <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>solo entre las clientas con algún cobro en el periodo</p>
-        </div>
+            {/* Ticket medio */}
+            <div className="bg-card border border-border rounded-xl p-5">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))' }}
+              >
+                <Activity size={17} style={{ color: 'var(--warning)' }} />
+              </div>
+              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ticket medio de quien pagó</p>
+              <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
+                {fmtEurFull(ticketMedio)}
+              </CifraPrivada>
+              <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>solo entre las clientas con algún cobro en el periodo</p>
+            </div>
+          </>
+        )}
 
         {/* Retención */}
         <div className="bg-card border border-border rounded-xl p-5">
@@ -489,6 +500,10 @@ export default function Informes() {
       </div>
 
       {/* ── Section 2: Revenue bar chart ────────────────────────────────────── */}
+      {/* Como las tarjetas KPI y el export: CifraPrivada es solo un difuminado
+          contra miradas de reojo (se quita con un clic), no un permiso — se
+          quedó sin el gate real cuando se añadió verFinanzas a esta página. */}
+      {verFinanzas && (
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-start justify-between mb-1">
           <div>
@@ -656,6 +671,7 @@ export default function Informes() {
           </svg>
         </CifraPrivada>
       </div>
+      )}
 
       {/* ── Section 3: 2-col grid ────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -865,6 +881,7 @@ export default function Informes() {
       </div>
 
       {/* ── Section 5: Export ────────────────────────────────────────────────── */}
+      {verFinanzas && (
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -909,6 +926,7 @@ export default function Informes() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

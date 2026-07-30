@@ -14,6 +14,13 @@ const ORDEN_NIVEL: Record<string, number> = { ALTO: 0, MEDIO: 1, BAJO: 2 };
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Solo lo ve PROPIETARIO en /centro-de-control (lib/permisos-reglas.ts): ni
+  // siquiera INSTRUCTOR está en su lista blanca. La ruta solo comprobaba
+  // sesión, no rol — cualquier staff autenticado podía pedir la facturación
+  // total del estudio y el gasto individual de cada socia con su propio token.
+  if (sesion.rol !== 'PROPIETARIO') {
+    return NextResponse.json({ error: 'Solo la propietaria puede ver el riesgo de dependencia por instructora' }, { status: 403 });
+  }
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Service role no configurada' }, { status: 503 });

@@ -49,6 +49,16 @@ test('una instructora sí llega a su trabajo', () => {
   }
 });
 
+test('cualquier rol llega a su propio perfil, aunque no llegue a Configuración', () => {
+  // "Mi perfil" vive en su propia ruta (no dentro de /configuracion) justo
+  // para esto: gestionar el nombre/email/contraseña propios no es
+  // "configuración del negocio", y antes una instructora no llegaba ni a
+  // intentarlo porque /configuracion entero está bloqueado para su rol.
+  for (const rol of ['PROPIETARIO', 'INSTRUCTOR', 'MANAGER', 'RECEPCION'] as const) {
+    assert.equal(puedeVer(rol, '/mi-perfil'), true, rol);
+  }
+});
+
 test('recepción hace lo operativo pero no toca el negocio', () => {
   assert.equal(puedeVer('RECEPCION', '/transacciones'), true, 'cobra en mostrador');
   assert.equal(puedeVer('RECEPCION', '/clientas'), true);

@@ -8,7 +8,7 @@ import type { Rol } from './types';
 // Las reglas viven en un módulo puro para poder probarlas (ver
 // lib/permisos-reglas.test.ts). Se reexportan para no romper ningún import.
 export {
-  puedeVer, puedeVerFichaClinica, puedeMoverDinero, puedeVerFinanzas,
+  puedeVer, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar,
   nombreAppPorRol,
 } from './permisos-reglas';

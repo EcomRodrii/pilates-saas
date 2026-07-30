@@ -13,6 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import type { AdminInterno } from './auth.ts';
+import { clientIp } from '@/lib/rate-limit-core';
 
 export interface EntradaAuditoria {
   actor: AdminInterno;
@@ -24,14 +25,6 @@ export interface EntradaAuditoria {
   resumen: string;
   antes?: unknown;
   despues?: unknown;
-}
-
-// La IP real detrás del proxy de Vercel. x-forwarded-for puede traer una cadena
-// de saltos; el cliente es el primero.
-function ipDe(req: NextRequest): string | null {
-  const cadena = req.headers.get('x-forwarded-for');
-  if (cadena) return cadena.split(',')[0]!.trim();
-  return req.headers.get('x-real-ip');
 }
 
 export async function registrar(
@@ -47,7 +40,14 @@ export async function registrar(
       resumen: entrada.resumen,
       antes: entrada.antes ?? null,
       despues: entrada.despues ?? null,
-      ip: ipDe(req),
+      // clientIp (lib/rate-limit-core.ts) toma la ÚLTIMA IP de x-forwarded-for,
+      // no la primera: es la que añade el proxy de confianza (Vercel), la
+      // única no falsificable por quien hace la petición. Antes esto tenía su
+      // propia función duplicada que leía la primera -- el mismo bug que ya se
+      // corrigió en el rate-limit (auditoría 2026-07-29, PR #527), pero vivo
+      // aquí: un atacante podía envenenar el registro de auditoría con
+      // cualquier IP de su elección.
+      ip: clientIp(req),
       user_agent: req.headers.get('user-agent'),
     });
     if (error) console.error('[auditoría] no se pudo registrar:', error.message, entrada.accion);

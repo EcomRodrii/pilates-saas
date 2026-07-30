@@ -19,7 +19,7 @@ import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 // idempotencyKey de Stripe: un reintento del step de Inngest tras un fallo de
 // red nunca duplica el cargo.
 
-export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'CUENTA_NO_LISTA' | 'FALLO_COBRO';
+export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'CUENTA_NO_LISTA' | 'FALLO_COBRO' | 'SUSCRIPCION_PAUSADA';
 
 export interface ResultadoCobro {
   ok: boolean;
@@ -72,6 +72,18 @@ export async function cobrarReciboOffSession(params: {
   // barrido automático solo reintenta los PENDIENTE.
   if (recibo.estado !== 'PENDIENTE' && recibo.estado !== 'FALLIDO') {
     return { ok: false, error: 'Este recibo ya no está pendiente', errorCode: 'NO_PENDIENTE' };
+  }
+  // Congelaciones: si la suscripción del recibo está PAUSADA (staff la congeló
+  // a propósito), no se cobra. Sin esto, un recibo PENDIENTE generado ANTES de
+  // congelar seguía cobrándose durante la pausa, y encima aplicarRenovacionServidor
+  // reactivaba la suscripción al confirmar el cargo — deshaciendo la congelación
+  // sin que nadie lo pidiera.
+  if (recibo.suscripcion_id) {
+    const { data: sus } = await admin
+      .from('suscripciones').select('estado').eq('id', recibo.suscripcion_id).eq('studio_id', params.studioId).maybeSingle();
+    if (sus?.estado === 'PAUSADA') {
+      return { ok: false, error: 'La suscripción está congelada: descongélala antes de cobrar este recibo', errorCode: 'SUSCRIPCION_PAUSADA' };
+    }
   }
   // Idempotency-Key anclada al recibo + nº de intento (ver nota al inicio).
   const idempotencyKey = `offsession-cobro-${params.reciboId}-i${recibo.intentos_reintento ?? 0}`;

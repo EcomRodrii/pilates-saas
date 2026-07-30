@@ -5,12 +5,15 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
 import { parseJsonIA } from '@/lib/ai/parse-ia';
 import { errorInterno } from '@/lib/errores-servidor';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const limited = await enforceRateLimit(req, 'ai-recomendacion', { max: 20, windowSeconds: 60 }, sesion.studioId);
+  if (limited) return limited;
   const bloqueoIA = await bloqueoPorFeature(sesion.studioId, 'ia');
   if (bloqueoIA) return bloqueoIA;
   try {

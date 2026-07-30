@@ -7,6 +7,7 @@ import { uid } from '@/lib/utils';
 import type { FilaClase } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -67,6 +68,9 @@ function sumarMinutos(hhmm: string, min: number): string {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'clases-import', { max: 10, windowSeconds: 60 });
+  if (limited) return limited;
+
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 

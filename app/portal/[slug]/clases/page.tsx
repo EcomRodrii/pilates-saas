@@ -327,7 +327,7 @@ export default function ClasesPage() {
 
       <div style={{ padding: '26px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {lista.length === 0 ? (
-          <p style={{ ...display(16, true), color: t.micro, textAlign: 'center', padding: '22px 0' }}>
+          <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0' }}>
             {vista === 'mias' ? 'Todavía no tienes ninguna clase reservada.' : 'No hay clases este día.'}
           </p>
         ) : lista.map(c => {
@@ -350,8 +350,8 @@ export default function ClasesPage() {
               }}
             >
               <div style={{ flex: '0 0 52px' }}>
-                <div style={{ ...display(26), color: completa || c.pasada ? t.micro : t.ink }}>{hora(c.sesion.inicio)}</div>
-                <div style={{ ...texto.nota, fontSize: 10, color: t.micro, marginTop: 6 }}>{minutos(c.sesion.inicio, c.sesion.fin)} min</div>
+                <div style={{ ...display(26), color: completa || c.pasada ? t.muted2 : t.ink }}>{hora(c.sesion.inicio)}</div>
+                <div style={{ ...texto.nota, fontSize: 10, color: t.muted2, marginTop: 6 }}>{minutos(c.sesion.inicio, c.sesion.fin)} min</div>
               </div>
               <div style={{ width: 1, background: t.line }} />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -365,7 +365,7 @@ export default function ClasesPage() {
                     </span>
                   </div>
                 )}
-                <div style={{ ...display(23, reservada, 1.05), color: completa || c.pasada ? t.micro : t.ink, textWrap: 'pretty' } as React.CSSProperties}>
+                <div style={{ ...display(23, reservada, 1.05), color: completa || c.pasada ? t.muted2 : t.ink, textWrap: 'pretty' } as React.CSSProperties}>
                   {c.tipo?.nombre ?? 'Clase'}
                 </div>
                 <div style={{ ...texto.nota, color: t.muted, marginTop: 6 }}>
@@ -381,7 +381,7 @@ export default function ClasesPage() {
                 )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap', color: completa || c.pasada ? t.micro : pocas ? '#A65A0A' : t.heroAccent }}>
+                <span style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap', color: completa || c.pasada ? t.muted2 : pocas ? '#A65A0A' : t.heroAccent }}>
                   {reservada ? '' : completa ? 'Completa' : `${c.libres} libres`}
                 </span>
                 {reservada ? (
@@ -434,7 +434,7 @@ export default function ClasesPage() {
             más, en vez de dejar el scroll muriendo en blanco. Solo con lista y
             solo en la vista del día. */}
         {vista === 'todas' && lista.length > 0 && (
-          <p style={{ ...display(16, true), color: t.micro, textAlign: 'center', padding: '22px 0 0' }}>
+          <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0 0' }}>
             No hay más clases este {dias[diaActivo]?.toLocaleDateString('es-ES', { weekday: 'long' })}.
           </p>
         )}
