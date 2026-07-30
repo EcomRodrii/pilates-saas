@@ -202,13 +202,17 @@ export function Sidebar() {
   // Solo hay lockup horizontal por rol (icono + wordmark en fila); el logo
   // colapsado (solo icono) y el de /login siguen siendo el genérico Tentare
   // hasta que haya un caso de uso que lo pida — el rol no se conoce antes de
-  // autenticar. Export real de diseño (mismo lienzo 1508×1043 que
-  // logo-horizontal.png, con alfa real).
+  // autenticar. Export real de diseño, recortado a su contenido real (con
+  // canal alfa): el lienzo que entrega el diseñador es 1508×1043, pero el
+  // logo en sí solo ocupa ~30% de esa altura — declarar el width/height del
+  // lienzo completo hacía que `object-contain` reservara la caja por ese
+  // aspect-ratio casi cuadrado y el logo se viera diminuto dentro. Con las
+  // dimensiones del PNG ya recortado, la caja se ajusta al logo de verdad.
   const logoHorizontal = !rolResuelto
     ? { src: '/logo-horizontal.png', width: 1508, height: 1043 }
     : rol === 'INSTRUCTOR'
-      ? { src: '/logo-horizontal-core.png', width: 1508, height: 1043 }
-      : { src: '/logo-horizontal-manager.png', width: 1508, height: 1043 };
+      ? { src: '/logo-horizontal-core.png', width: 1389, height: 358 }
+      : { src: '/logo-horizontal-manager.png', width: 1493, height: 337 };
   const router = useRouter();
   const { mode: navMode, setNavMode } = useNavMode();
 
