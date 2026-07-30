@@ -14,7 +14,7 @@ export const SLUG_MAX = 40;
 
 // Rutas propias de la app: si un estudio cogiera una de estas, su portal
 // chocaría con una página del producto y ganaría la del producto.
-const RESERVADAS = new Set([
+export const RESERVADAS = new Set([
   'api', 'app', 'admin', 'interno', 'login', 'logout', 'registro', 'reservar',
   'portal', 'kiosk', 'dashboard', 'configuracion', 'legal', 'privacidad',
   'terminos', 'cookies', 'soporte', 'ayuda', 'blog', 'precios', 'www', 'static',
