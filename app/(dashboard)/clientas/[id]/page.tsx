@@ -381,8 +381,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     setShowEdit(true);
   }
 
-  function saveEdit() {
-    updateSocio(id, {
+  async function saveEdit() {
+    const res = await updateSocio(id, {
       nombre: editForm.nombre.trim(),
       apellidos: editForm.apellidos.trim(),
       email: editForm.email.trim(),
@@ -390,6 +390,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       nif: editForm.nif || null,
       camposExtra: editForm.camposExtra,
     });
+    // El diálogo solo se cierra si de verdad se guardó: cerrarlo con el error
+    // detrás deja a la propietaria creyendo que cambió el email de una clienta.
+    if (!res.ok) { setToast(res.error); return; }
     setShowEdit(false);
     setToast('Clienta actualizada');
   }
@@ -1038,7 +1041,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       </button>
                       {pendientes.length > 0 && (
                         <button
-                          onClick={() => { cobrarTodosPendientes(id); setToast(`${pendientes.length} recibo(s) cobrados`); }}
+                          onClick={() => {
+                            const n = pendientes.length;
+                            void cobrarTodosPendientes(id).then(res => {
+                              setToast(res.ok ? `${n} recibo(s) cobrados` : res.error);
+                            });
+                          }}
                           className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg transition-colors"
                           style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
                         >
@@ -1085,7 +1093,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                 <td className="px-4 py-3 text-right">
                                   {r.estado === 'PENDIENTE' && (
                                     <button
-                                      onClick={() => { marcarCobrado(r.id); setToast('Recibo cobrado'); }}
+                                      onClick={() => {
+                                        void marcarCobrado(r.id).then(res => {
+                                          setToast(res.ok ? 'Recibo cobrado' : res.error);
+                                        });
+                                      }}
                                       className="text-xs font-bold px-2.5 py-1 rounded-lg transition-colors"
                                       style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
                                     >

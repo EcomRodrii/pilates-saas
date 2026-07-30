@@ -514,9 +514,9 @@ export default function ReservarPage() {
     setLoginStep('contrato');
   }
 
-  function handleSignContract() {
+  async function handleSignContract() {
     if (socia?.socioId) {
-      updateSocio(socia.socioId, {
+      const res = await updateSocio(socia.socioId, {
         aceptacionContrato: {
           fecha: new Date().toISOString(),
           firma: socia.nombre,
@@ -528,6 +528,9 @@ export default function ReservarPage() {
           origen: 'PORTAL',
         },
       });
+      // Sin consentimiento guardado no se sigue: avanzar dejaría al estudio
+      // creyendo que lo tiene.
+      if (!res.ok) { setGateError(res.error); return; }
     }
     setLoginStep('confirm');
   }

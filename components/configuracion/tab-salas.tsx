@@ -119,8 +119,17 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       ? await addSala(fields)
       : editId ? await updateSala(editId, fields) : { ok: true as const };
     if (res.ok && ajustarClases) {
-      for (const { sesion, confirmadas } of afectadas) {
-        updateSesion(sesion.id, { aforoMaximo: Math.max(fields.capacidad, confirmadas) });
+      const fallos = (await Promise.all(afectadas.map(({ sesion, confirmadas }) =>
+        updateSesion(sesion.id, { aforoMaximo: Math.max(fields.capacidad, confirmadas) }),
+      ))).filter(r => !r.ok);
+      if (fallos.length > 0) {
+        // La sala sí se guardó; lo que falló es propagar el aforo. Decirlo con
+        // el número exacto: si no, la sala queda con una capacidad y sus clases
+        // con otra, y nadie se entera hasta que una clienta no cabe.
+        setGuardando(false);
+        setAvisoAforo(null);
+        setErrorGuardar(`La sala se ha guardado, pero ${fallos.length} de ${afectadas.length} clases no han podido ajustar su aforo. Revísalas en el calendario.`);
+        return;
       }
     }
     setGuardando(false);

@@ -508,7 +508,11 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
   }
 
   async function cobrarYEmail(reciboId: string, metodo?: MetodoCobro) {
-    marcarCobrado(reciboId, metodo);
+    const marcado = await marcarCobrado(reciboId, metodo);
+    if (!marcado.ok) {
+      setStripeToast({ tipo: 'error', msg: marcado.error });
+      return; // sin marcar no se manda el justificante: sería un email falso
+    }
     const r = recibos.find(x => x.id === reciboId);
     const socio = r ? socios.find(s => s.id === r.socioId) : null;
     const factura = facturas.find(f => f.reciboId === reciboId);

@@ -505,8 +505,13 @@ export default function AutomatizacionesPage() {
     setApprovingId(log.id);
     const result = await aprobarCobroAutonomo({ logId: log.id, reciboId: log.reciboId, socioId: log.socioId, studioId: studio.id });
     if ('ok' in result) {
-      marcarCobrado(log.reciboId);
-      actualizarLog(log.id, { resultado: 'EJECUTADO', detalle: 'Cobro aprobado y ejecutado con la tarjeta guardada.' });
+      const marcado = await marcarCobrado(log.reciboId);
+      actualizarLog(log.id, marcado.ok
+        ? { resultado: 'EJECUTADO', detalle: 'Cobro aprobado y ejecutado con la tarjeta guardada.' }
+        // El dinero SÍ se cobró: eso no se puede deshacer ni ocultar. Lo que
+        // falló es dejarlo escrito, y hay que decirlo con esas palabras para
+        // que nadie lo vuelva a cobrar creyendo que quedó pendiente.
+        : { resultado: 'EJECUTADO', detalle: `Cobro ejecutado en Stripe, pero el recibo NO se ha podido marcar como cobrado: ${marcado.error} — compruébalo antes de volver a cobrarlo.` });
     } else {
       actualizarLog(log.id, { resultado: 'FALLIDO', detalle: result.error });
     }
