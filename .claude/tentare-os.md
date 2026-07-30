@@ -74,6 +74,52 @@ distinguir) y el de `/login` (aunque ya existen `logo-stacked-core.png`/
 rol no se conoce antes de autenticar — no es un hueco de asset, es la misma
 limitación de siempre).
 
+## Tentare Core — autoservicio de instructora (completo, 2026-07-30)
+
+El plan pedido por el fundador ("que la instructora pueda aceptar sustituciones,
+crear sus clases, poner su disponibilidad, confirmar baja, valorar a la alumna
+etc.") está **entregado en 6 PRs**, todos en `main`. Patrón repetido en los seis:
+abrir a INSTRUCTOR una vía que ya existía para el resto de roles (RLS acotada a
+`instructor_id = current_instructor_id()`, mismo criterio que #528), nunca un
+`FOR ALL` nuevo sin distinguir fila. Mobile-first: todo vive en `/mi-perfil`,
+`/calendario` o `/dashboard`, pantallas ya usadas por este rol.
+
+1. **#545 — "No puedo asistir"**: la instructora dispara el motor de
+   sustituciones YA EXISTENTE (`lib/sustituciones/baja.ts`) sobre su propia
+   clase, desde el calendario o el dashboard — sin buscar/gestionar sustituta
+   ella misma. Respeta el modo de autonomía del estudio (asistido espera visto
+   bueno de la propietaria; autónomo/vacaciones, plan de pago, contactan solas)
+   — no se fuerza autonomía para no saltarse ese gate.
+2. **#550 — Crear sus clases**: INSERT en `sesiones` abierto a INSTRUCTOR solo
+   para sí misma (migración `20260730109000...`/siguientes). Sin selector de
+   instructora, aforo fijado a la capacidad de la sala, sin recurrencia (crear
+   SERIES sigue siendo trabajo de mostrador — no reabrir).
+3. **#555 — Su disponibilidad**: `/api/mi-disponibilidad` (sesión de staff),
+   separado a propósito de `/api/public/disponibilidad` (token firmado) —
+   mecanismos de auth distintos, no se mezclan en un mismo handler aunque
+   comparten la lógica de negocio (`lib/sustituciones/disponibilidad.ts`). El
+   enlace público se queda como vía adicional (onboarding sin cuenta).
+4. **#558 — Confirmar ausencia programada** (vacaciones/baja médica/otro):
+   se amplió el endpoint YA EXISTENTE (`app/api/equipo/ausencias`), no uno
+   nuevo — aquí sí hay un solo mecanismo de auth (sesión de staff). Solo afecta
+   al ranking de candidatas futuras (`rankear_candidatas`); NO dispara ninguna
+   sustitución automática sobre sus clases ya programadas — decisión de
+   producto explícita, no reabrir sin pedirlo.
+5. **#561 — "Valorar a la alumna" → NO construido tal cual**: `tentare-producto`
+   recomendó no hacerlo — `notas_progreso` ya cubre ese propósito de negocio
+   (progreso/alertas/plan próxima sesión) y ningún competidor (Bsport/Momence/
+   Eversports/Un Respiro) expone que la instructora "valore" a la socia. En su
+   lugar se corrigió el bug real encontrado al investigarlo: la UI de esa
+   tabla (`app/(dashboard)/clientas/[id]/page.tsx`, "Nota de sesión IA") era
+   visible a CUALQUIER rol, incluida RECEPCIÓN, que no debe ver detalle
+   clínico (`FICHA-CLINICA.md §11`) — la RLS (`salud_notas_progreso`, 0095) ya
+   estaba bien, era solo un hueco de UI encima. **No reabrir "valorar alumna"
+   como feature nueva sin que se pida expresamente** — ya se evaluó y se
+   descartó por duplicar `notas_progreso`.
+
+Cada tramo pasó por diseño (`tentare-arquitecto`) y revisión de seguridad
+(`tentare-seguridad`, sin bloqueantes en ninguno) antes de mergear.
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),
