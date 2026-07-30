@@ -203,7 +203,7 @@ export default function PortalHome() {
           volanta: 'Tu bono se acaba', contador: null,
           titulo: 'Te queda una sesión',
           meta: [plan?.nombre, 'Renuévalo y sigues igual'].filter(Boolean) as string[],
-          cta: 'Renovar mi bono', href: `/portal/${slug}/mi-plan`,
+          cta: 'Renovar mi bono', href: `/portal/${slug}/compras`,
         };
       case 'RACHA_EN_RIESGO':
         return {

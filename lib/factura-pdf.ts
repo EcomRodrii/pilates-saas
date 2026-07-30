@@ -1,7 +1,7 @@
 // Generación e impresión de facturas en PDF (vía HTML + window.print), a
 // partir de datos ya cargados en cliente — no depende de sesión de staff, así
 // que lo usan tanto el panel (app/(dashboard)/facturas) como el portal de
-// socias (app/portal/[slug]/mi-plan), donde antes el badge "· Factura" era
+// socias (app/portal/[slug]/compras), donde antes el badge "· Factura" era
 // texto inerte sin forma de obtener el documento.
 import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
 import { qrSvgMarkup } from '@/lib/qr-svg';

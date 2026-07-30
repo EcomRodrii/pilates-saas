@@ -661,6 +661,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setReservas(aforo.map((r: Reserva) => miasById.get(r.id) ?? r));
       setSocios(socia ? [socia.socio] : []);
       setSuscripciones(socia?.suscripciones ?? []);
+      // Su plaza fija: la pantalla de Bonos la enseña, y en la vía pública solo
+      // llegan las suyas (el servidor las acota por socio_id).
+      setPlazasFijas(socia?.plazasFijas ?? []);
       setRecibos(socia?.recibos ?? []);
       setFacturas(socia?.facturas ?? []);
       memberPrefsStore.setPreferenciasSocio(socia?.preferenciasSocio ?? []);

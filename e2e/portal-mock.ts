@@ -82,6 +82,35 @@ const HISTORIAL_BASE = Array.from({ length: 12 }, (_, i) => {
   };
 });
 
+// Catálogo del estudio: un bono acotado a Reformer, uno libre y un mensual.
+const PLANES = [
+  { id: 'plan-b10', studioId: STUDIO_ID, nombre: 'Bono 10', descripcion: null, precio: 175, tipo: 'BONO', sesiones: 10, activo: true, validezDias: 90, limiteSemanal: null, tiposClaseIds: ['tc-1'] },
+  { id: 'plan-b5', studioId: STUDIO_ID, nombre: 'Bono 5', descripcion: null, precio: 95, tipo: 'BONO', sesiones: 5, activo: true, validezDias: 60, limiteSemanal: null },
+  { id: 'plan-mes', studioId: STUDIO_ID, nombre: 'Ilimitado', descripcion: 'Clases ilimitadas', precio: 129, tipo: 'MENSUAL', sesiones: null, activo: true },
+  { id: 'plan-suelta', studioId: STUDIO_ID, nombre: 'Clase suelta', descripcion: null, precio: 20, tipo: 'PUNTUAL', sesiones: 1, activo: true },
+];
+
+const SUSCRIPCION = {
+  id: 'sus-1', studioId: STUDIO_ID, socioId: SOCIA.socioId, planId: 'plan-b10',
+  estado: 'ACTIVA', fechaInicio: '2026-07-01', fechaFin: '2026-09-30',
+  sesionesRestantes: 8, stripeSubscriptionId: null,
+};
+
+const PLAZA_FIJA = {
+  id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIA.socioId, diaSemana: 3, horaInicio: '18:30:00',
+  salaId: 'sala-1', tipoClaseId: 'tc-1', spotId: 'sp-7', vigenciaDesde: '2026-01-01',
+  vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z',
+};
+
+// Uno cobrado con factura (enseña «PDF») y uno pendiente (enseña «Pagar»).
+const RECIBOS = [
+  { id: 'rec-1', studioId: STUDIO_ID, socioId: SOCIA.socioId, concepto: 'Bono 10', importe: 175, estado: 'COBRADO', fechaVencimiento: '2026-07-01', fechaCobro: '2026-07-01', metodoCobro: 'TARJETA' },
+  { id: 'rec-2', studioId: STUDIO_ID, socioId: SOCIA.socioId, concepto: 'Bono 10', importe: 175, estado: 'PENDIENTE', fechaVencimiento: '2026-08-01', fechaCobro: null, metodoCobro: null },
+];
+const FACTURAS = [
+  { id: 'fac-1', studioId: STUDIO_ID, reciboId: 'rec-1', numero: 'F-2026-001', fecha: '2026-07-01', baseImponible: 144.63, iva: 30.37, total: 175 },
+];
+
 const MI_RESERVA = {
   id: 'res-1', studioId: STUDIO_ID, sesionId: 'ses-1', socioId: SOCIA.socioId,
   estado: 'CONFIRMADA', spotId: null, posicionEspera: null, checkInEn: null, creadoEn: '2026-07-20T10:00:00Z',
@@ -108,8 +137,13 @@ export async function montarPortal(page: Page, opciones: {
   conSesion: boolean; fotoUrl?: string | null; sinPlazas?: boolean; sinHistorial?: boolean; sinAvisos?: boolean;
   /** Motivo con el que el servidor RECHAZA la reserva (400). Sin esto, acepta. */
   reservaRechazada?: string;
+  /** Sin bono activo: la pantalla de Bonos tiene que decir qué hacer. */
+  sinBono?: boolean;
+  /** Id del plan que el SERVIDOR marca como «el más elegido». */
+  planMasElegidoId?: string | null;
 }) {
-  const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada } = opciones;
+  const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
+          sinBono = false, planMasElegidoId = null } = opciones;
 
   if (conSesion) {
     await page.addInitScript(([sesion]) => {
@@ -161,9 +195,10 @@ export async function montarPortal(page: Page, opciones: {
     tiposClase: TIPOS,
     salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala Norte', capacidad: 12 }],
     instructores: [{ id: 'ins-1', studioId: STUDIO_ID, nombre: 'Ana Ferrer', rol: 'INSTRUCTOR', activo: true, color: '#2C352C' }],
-    spots: sinPlazas ? [] : Array.from({ length: 14 }, (_, i) => ({ id: `sp-${i + 1}`, salaId: 'sala-1', studioId: STUDIO_ID, numero: i + 1, nombre: String(i + 1), fila: Math.floor(i / 7), columna: i % 7, tipo: 'REFORMER', activo: true })), planesTarifa: [], videosOnDemand: [], rewardRules: [], rewardCatalog: [],
+    spots: sinPlazas ? [] : Array.from({ length: 14 }, (_, i) => ({ id: `sp-${i + 1}`, salaId: 'sala-1', studioId: STUDIO_ID, numero: i + 1, nombre: String(i + 1), fila: Math.floor(i / 7), columna: i % 7, tipo: 'REFORMER', activo: true })), planesTarifa: PLANES, videosOnDemand: [], rewardRules: [], rewardCatalog: [],
     levelDefinitions: [], achievementDefinitions: [], challengeDefinitions: [],
     citasServicios: [], citasDisponibilidad: [],
+    planMasElegidoId,
     // OJO: studio-context cruza `socia.reservas` con `aforoReservas` POR ID
     // (`aforo.map(r => miasById.get(r.id) ?? r)`). Una reserva que solo esté en
     // `socia.reservas` NO llega a la pantalla. Ya me pasó con la primera.
@@ -174,7 +209,9 @@ export async function montarPortal(page: Page, opciones: {
     socia: conSesion ? {
       socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
       reservas: [MI_RESERVA, ...HISTORIAL.map(h => h.res)],
-      suscripciones: [], recibos: [], facturas: [], preferenciasSocio: [],
+      suscripciones: sinBono ? [] : [SUSCRIPCION],
+      recibos: RECIBOS, facturas: FACTURAS, preferenciasSocio: [],
+      plazasFijas: [PLAZA_FIJA],
       memberCredits: [], rewardHistory: [], rewardRedemptions: [],
       achievementProgress: [], challengeProgress: [], creditTransactions: [], citas: [],
     } : null,
