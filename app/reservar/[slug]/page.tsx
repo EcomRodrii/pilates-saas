@@ -1038,7 +1038,6 @@ export default function ReservarPage() {
                     )}
                     <div>
                       <div style={{ fontFamily: serif, fontSize: 21, lineHeight: 1 }}>{i.nombre}</div>
-                      {i.email != null && <div style={{ fontSize: 10.5, color: 'var(--portal-muted)', marginTop: 6 }}>{i.email}</div>}
                     </div>
                   </div>
                 ))}
