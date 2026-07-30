@@ -746,6 +746,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     permiteListaEspera: r.permite_lista_espera ?? null,
     requiereAprobacion: r.requiere_aprobacion ?? null,
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? null,
+    minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? null,
   } as TipoClase;
 }
 
@@ -3152,6 +3153,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     permite_lista_espera: t.permiteListaEspera ?? null,
     requiere_aprobacion: t.requiereAprobacion ?? null,
     lista_espera_plazo_aceptacion_minutos: t.listaEsperaPlazoAceptacionMinutos ?? null,
+    minimo_asistentes_por_clase: t.minimoAsistentesPorClase ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -3172,6 +3174,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
   if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
+  if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdateTipoClase]', error);
 }
@@ -3420,6 +3423,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
   if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
+  if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
   // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
@@ -3641,6 +3645,7 @@ function mapStudio(r: RowStudios): Studio {
     permiteListaEspera: r.permite_lista_espera ?? true,
     requiereAprobacion: r.requiere_aprobacion ?? false,
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? 0,
+    minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? 0,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
     onboardingDescartadoEn: r.onboarding_descartado_en ?? null,
