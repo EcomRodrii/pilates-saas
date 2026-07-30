@@ -174,7 +174,7 @@ function TabBar({ active, onChange, verFinanzas, verFichaClinica }: { active: Ta
     { id: 'comunicaciones', label: 'Comunicaciones' },
   ];
   return (
-    <div className="flex border-b border-border bg-card rounded-t-xl overflow-hidden">
+    <div className="flex border-b border-border bg-card rounded-t-xl overflow-x-auto min-w-0">
       {tabs.map(t => (
         <button
           key={t.id}
@@ -523,7 +523,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       </div>
 
       {/* 2-column layout (stacked below lg, side-by-side on desktop) */}
-      <div className="px-4 sm:px-6 pb-10 flex flex-col lg:flex-row gap-6 items-start max-w-7xl">
+      <div className="px-4 sm:px-6 pb-10 flex flex-col lg:flex-row gap-6 items-stretch lg:items-start max-w-7xl">
 
         {/* ────────────── LEFT: main content ────────────── */}
         <div className="flex-1 min-w-0 space-y-0">

@@ -162,7 +162,7 @@ export default function LeerPasePage() {
             autoCapitalize="characters"
             autoCorrect="off"
             spellCheck={false}
-            className="flex-1 px-4 py-3 rounded-xl text-lg tracking-[0.2em] font-bold"
+            className="flex-1 min-w-0 px-4 py-3 rounded-xl text-lg tracking-[0.2em] font-bold"
             style={{ border: '1px solid var(--border, #E7E7E0)', background: 'var(--background, #fff)' }}
           />
           <button
