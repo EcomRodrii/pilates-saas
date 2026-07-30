@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback, useId } from 'react';
+import { useState, useMemo, useEffect, useCallback, useId, useRef } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
@@ -240,6 +240,10 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
   const [showMasivo, setShowMasivo]               = useState(false);
   const [masivoSelected, setMasivoSelected]       = useState<Set<string>>(new Set());
   const [masivoProgress, setMasivoProgress]       = useState<'idle' | 'confirmar' | 'running' | 'done'>('idle');
+  // Cerrojo síncrono anti doble-cobro: `masivoProgress` es estado async y un
+  // segundo clic rapidísimo lo lee 'confirmar' (stale) antes de que React pinte
+  // 'running', pasando el guard dos veces → lote cobrado por duplicado.
+  const masivoEnCursoRef = useRef(false);
   const [masivoCobrando, setMasivoCobrando]       = useState(0);
   const [masivoTotal, setMasivoTotal]             = useState(0);
   // Los que la BD rechazó: sin esto el resumen final daba por cobrado todo.
@@ -439,7 +443,9 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
   }, [recibos, masivoSelected]);
 
   async function ejecutarMasivo() {
-    if (masivoProgress === 'running') return; // el dinero no se cobra dos veces
+    // El dinero no se cobra dos veces: cerrojo síncrono (ref) + estado.
+    if (masivoEnCursoRef.current || masivoProgress === 'running') return;
+    masivoEnCursoRef.current = true;
     const ids = Array.from(masivoSelected);
     setMasivoTotal(ids.length);
     setMasivoCobrando(0);
@@ -455,15 +461,19 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     // facturas y sus renovaciones pintadas sobre un cobro que no existía.
     const CHUNK = 25;
     const fallidos: string[] = [];
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const lote = ids.slice(i, i + CHUNK);
-      const res = await Promise.all(lote.map(id => marcarCobrado(id)));
-      res.forEach((r, j) => { if (!r.ok) fallidos.push(lote[j]); });
-      setMasivoCobrando(Math.min(i + CHUNK, ids.length));
-      await new Promise(r => setTimeout(r, 0));
+    try {
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const lote = ids.slice(i, i + CHUNK);
+        const res = await Promise.all(lote.map(id => marcarCobrado(id)));
+        res.forEach((r, j) => { if (!r.ok) fallidos.push(lote[j]); });
+        setMasivoCobrando(Math.min(i + CHUNK, ids.length));
+        await new Promise(r => setTimeout(r, 0));
+      }
+      setMasivoFallidos(fallidos);
+      setMasivoProgress('done');
+    } finally {
+      masivoEnCursoRef.current = false;
     }
-    setMasivoFallidos(fallidos);
-    setMasivoProgress('done');
   }
 
   const masivoImporteTotal = useMemo(() => {

@@ -57,6 +57,10 @@ export async function POST(req: NextRequest) {
   if (puedeEnviar) {
     try {
       const resend = new Resend(apiKey);
+      // Escapar TODO lo que venga del formulario antes de incrustarlo en el HTML
+      // del correo interno: EMAIL_RE admite `<`/`>`/`"`, así que un email tipo
+      // `a@b.c"><img onerror=…>` inyectaba HTML en el cliente de correo del equipo.
+      const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const { error } = await resend.emails.send({
         from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
         to: ['soporte@tentare.app'],
@@ -64,7 +68,7 @@ export async function POST(req: NextRequest) {
         subject: `Migración concierge solicitada${software ? ` — viene de ${software}` : ''}`,
         html:
           `<p>Una propietaria quiere que le hagamos la migración:</p>` +
-          `<p><strong>${email}</strong>${software ? ` — software actual: <strong>${software.replace(/</g, '&lt;')}</strong>` : ''}</p>` +
+          `<p><strong>${esc(email)}</strong>${software ? ` — software actual: <strong>${esc(software)}</strong>` : ''}</p>` +
           `<p>Siguiente paso: responderle pidiendo los exports (o acceso) y montarle el estudio con /migracion en menos de 48h.</p>` +
           `<p>Está en el panel, en <a href="https://tentare.app/interno/crecimiento">Crecimiento</a>.</p>`,
       });
