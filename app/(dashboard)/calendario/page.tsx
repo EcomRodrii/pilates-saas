@@ -788,7 +788,7 @@ export default function Calendario() {
 
     const faltan = r.sinEmail > 0 ? ` · ${r.sinEmail} sin email guardado` : '';
     if (r.enviados > 0) {
-      showToast(`Avisadas ${r.enviados} clienta${r.enviados !== 1 ? 's' : ''} por email${faltan}`);
+      showToast(`Avisada${r.enviados !== 1 ? 's' : ''} ${r.enviados} clienta${r.enviados !== 1 ? 's' : ''} por email${faltan}`);
     } else if (r.enApp > 0) {
       showToast(`Aviso puesto en la app${faltan}`);
     } else {

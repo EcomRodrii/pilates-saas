@@ -320,11 +320,11 @@ test.describe('Momentos del calendario', () => {
     });
 
     // En la semana actual: 1 clase, y lo dice.
-    await expect(page.getByText('Clases esta semana')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
 
     // Al pasar a otra semana la etiqueta cambia y el número deja de ser el de hoy.
     await page.getByRole('button', { name: /Semana siguiente|Siguiente/ }).first().click();
-    await expect(page.getByText('Clases esa semana')).toBeVisible();
+    await expect(page.getByText('esa semana', { exact: true })).toBeVisible();
   });
 
   test('cambiar solo el aforo NO avisa a nadie', async ({ page }) => {
