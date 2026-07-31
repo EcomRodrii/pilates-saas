@@ -23,7 +23,7 @@ const instructor = (id: string, p: Partial<Instructor> = {}): Instructor =>
   ({ id, studioId: 'e1', nombre: `Ins${id}`, email: null, telefono: null, color: '#000', activo: true, rol: 'INSTRUCTOR', authUserId: null, ...p });
 
 function snap(p: Partial<SnapshotEstudio>): SnapshotEstudio {
-  return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], ...p };
+  return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 }, ...p };
 }
 const M = new Map() as MemoriaEstudio;
 

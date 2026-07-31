@@ -208,6 +208,29 @@ export interface DecisionFeatureFlag {
   activadoPor: string | null;
 }
 
+// Fila cruda de `sustituciones` (sin domain type propio en lib/types.ts —
+// el resto del módulo de sustituciones también trabaja con filas crudas,
+// ver lib/sustituciones/*.ts). Ventana 90d, misma que sesiones.
+export interface SustitucionSnapshot {
+  id: string;
+  studioId: string;
+  sesionId: string;
+  instructorOriginalId: string | null;
+  estado: string;
+  creadoEn: string;
+}
+
+// Contexto de "tamaño" del estudio — pensado para que los especialistas
+// puedan calibrar umbrales según estudio pequeño/grande/cadena en vez de un
+// umbral único para todos (feedback P2-5, cadena de 2 sedes/850 clientas
+// frente a un estudio recién abierto).
+export interface ContextoEstudio {
+  nSociasActivas: number;
+  antiguedadDatosDias: number; // días desde el alta del estudio en Tentare
+  cadenaId: string | null;
+  nSedesCadena: number; // 1 si no pertenece a ninguna cadena
+}
+
 // ── Snapshot del estudio (adaptador de lectura, ventanas acotadas) ─────────
 export interface SnapshotEstudio {
   studioId: string;
@@ -222,4 +245,6 @@ export interface SnapshotEstudio {
   instructores: Instructor[];
   automationLogs: AutomationLog[]; // 90d
   campanas: Campana[];
+  sustituciones: SustitucionSnapshot[]; // 90d
+  contexto: ContextoEstudio;
 }
