@@ -51,7 +51,10 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
     id: 'editorial',
     version: 1,
     label: 'Editorial',
-    description: 'Titulares en negrita, tarjetas destacadas y barra inferior con pestaña expandible.',
+    // Sin la palabra "tarjetas" a propósito: colisionaba con el encabezado
+    // de esa sección en "Personalizar" (getByText('Tarjetas') dejaba de ser
+    // único, e2e/apariencia-boton-tarjeta.spec.ts).
+    description: 'Titulares en negrita, contenido destacado y barra inferior con pestaña expandible.',
     capabilities: ['typography', 'buttons', 'cards', 'nav'],
     defaults: {
       portalHeadingFontId: 'instrumentSansBold',

@@ -38,16 +38,21 @@ export default function PortalLogin() {
   const { studio, dataLoaded, tabBarStyle } = useStudio();
   const { t, noche } = useModo();
   // Tema "Editorial": una pantalla de bienvenida a pantalla completa antes del
-  // login, una sola vez por dispositivo. `null` = todavía no se sabe (evita
-  // un flash de la pantalla equivocada mientras se resuelve el tema y el
-  // localStorage) — ni el login ni la bienvenida se pintan hasta entonces.
-  const [bienvenidaVista, setBienvenidaVista] = useState<boolean | null>(null);
+  // login, una sola vez por dispositivo. Empieza en `true` (se ve el login,
+  // el comportamiento de siempre) a propósito: bloquear la pantalla ENTERA
+  // hasta que se resuelva el tema/localStorage la dejaba a merced de la
+  // latencia real de red (rompió e2e/ayuda-no-miente.spec.ts en CI, que
+  // carga esta página sin mockear nada). Solo se pasa a `false` si de verdad
+  // hace falta la bienvenida — el pequeño flash login→bienvenida para quien
+  // vea este tema por primera vez es preferible a bloquear a todo el mundo.
+  const [bienvenidaVista, setBienvenidaVista] = useState(true);
   useEffect(() => {
-    if (!dataLoaded) return;
+    if (!dataLoaded || tabBarStyle !== 'pestanaActiva') return;
+    if (yaVioBienvenida(slug)) return;
     // localStorage no existe en el servidor: esto solo puede resolverse tras
     // montar, no hay forma de calcularlo durante el render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBienvenidaVista(tabBarStyle !== 'pestanaActiva' || yaVioBienvenida(slug));
+    setBienvenidaVista(false);
   }, [dataLoaded, tabBarStyle, slug]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -82,14 +87,7 @@ export default function PortalLogin() {
 
   const nombreEstudio = studio?.nombre?.trim() || 'Tentare';
 
-  // Todavía no se sabe si toca mostrar la bienvenida (tema/localStorage sin
-  // resolver) — no se pinta nada un instante en vez de arriesgar un flash del
-  // login para quien sí va a ver la bienvenida.
-  if (bienvenidaVista === null) {
-    return <div style={{ height: '100%', background: t.bg }} />;
-  }
-
-  if (bienvenidaVista === false) {
+  if (!bienvenidaVista) {
     return (
       <BienvenidaPortal
         nombreEstudio={nombreEstudio}
