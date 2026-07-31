@@ -61,3 +61,13 @@ test('CAPTACION: lead recién creado (2 días) aún no madura, pero sin contacto
   assert.equal(c[0]?.tipo, 'CONTACTAR_LEAD');
   assert.equal(c[0]?.confianza.nivel, 'BAJA');
 });
+
+// P2-5: leadStage vacío tras una migración desde otra plataforma (el
+// importador antiguo no lo rellenaba) — el especialista NO debe romper ni
+// tratar a estas socias como leads nuevos. El fix real vive en el
+// importador (app/api/socios/import/route.ts, rellena 'ACTIVA'); esto es el
+// test de regresión que blinda el especialista si el fix llegara a fallar.
+test('CAPTACION: leadStage indefinido (dato ya migrado sin rellenar) no dispara ni rompe', () => {
+  const c = detectar(snap([socio({ id: 'm1', nombre: 'Migrada' })]));
+  assert.equal(c.length, 0);
+});
