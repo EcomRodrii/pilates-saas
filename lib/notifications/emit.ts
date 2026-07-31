@@ -515,3 +515,20 @@ export async function emitirSustitucionAceptada(
     console.error('[notifications] emitirSustitucionAceptada:', e instanceof Error ? e.message : e);
   }
 }
+
+// El Umbral (lib/decision/umbral.ts): el único mensaje del día, si lo hay.
+// dedupKey por fecha (no por dedupeKey de la candidata) — refuerza en este
+// nivel también "como mucho un push de este tipo al día por estudio".
+export async function emitirDecisionMensajeDia(
+  admin: SupabaseClient, p: { studioId: string; fecha: string; titulo: string; motivo: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.DECISION_MENSAJE_DIA, studioId: p.studioId,
+      data: { titulo: p.titulo, motivo: p.motivo },
+      dedupKey: `decision-mensaje-dia:${p.studioId}:${p.fecha}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirDecisionMensajeDia:', e instanceof Error ? e.message : e);
+  }
+}

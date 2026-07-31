@@ -18,6 +18,10 @@ import { BandejaHoy } from '@/components/decision/bandeja-hoy';
 import { CodigosDescuento } from '@/components/decision/codigos-descuento';
 import { RiesgoPlanton } from '@/components/decision/riesgo-planton';
 import { EspecialistaCartera } from '@/components/centro-de-control/especialista-cartera';
+import { ContratoDecisionOS } from '@/components/decision/contrato-decision-os';
+import { VeredictoDelDia } from '@/components/decision/veredicto-del-dia';
+import { Seguimiento } from '@/components/decision/seguimiento';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 // Centro de Control — el Home basado en decisiones (Bible doc 4). Orden fijo,
 // nunca cambia (doc 5 §17): Resumen Ejecutivo → Prioridades → Mientras
@@ -25,11 +29,12 @@ import { EspecialistaCartera } from '@/components/centro-de-control/especialista
 // y el nombre del propietario ya incrustados) lo redacta el Director en
 // servidor — esta página solo lo presenta.
 export default function CentroDeControlPage() {
-  const { data, loading, error, aprobar, rechazar, analizarAhora, recargar } = useDecisiones();
+  const { data, loading, error, aprobar, rechazar, posponer, analizarAhora, recargar } = useDecisiones();
   const { socios, studio, dependencySnapshots } = useStudio();
   const hayCartera = dependencySnapshots.some(s => s.alumnasTotal > 0);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [analizando, setAnalizando] = useState(false);
+  const [detalleAbierto, setDetalleAbierto] = useState(false);
 
   // Enlace de WhatsApp con el mensaje ORIENTADO A LA SOCIA prerrellenado, para
   // que el propietario pueda escribirle con un clic (además del email que se
@@ -51,6 +56,12 @@ export default function CentroDeControlPage() {
   async function handleRechazar(id: string) {
     setProcesandoId(id);
     await rechazar(id);
+    setProcesandoId(null);
+  }
+
+  async function handlePosponer(id: string) {
+    setProcesandoId(id);
+    await posponer(id);
     setProcesandoId(null);
   }
 
@@ -98,6 +109,30 @@ export default function CentroDeControlPage() {
         </Button>
       </div>
 
+      <ContratoDecisionOS />
+
+      <VeredictoDelDia
+        veredicto={data.veredicto}
+        onHecho={() => data.veredicto.recomendacion && handleAprobar(data.veredicto.recomendacion.id)}
+        onYaLoSe={() => data.veredicto.recomendacion && handleRechazar(data.veredicto.recomendacion.id)}
+        onPosponer={() => data.veredicto.recomendacion && handlePosponer(data.veredicto.recomendacion.id)}
+        procesando={!!data.veredicto.recomendacion && procesandoId === data.veredicto.recomendacion.id}
+        whatsappHref={data.veredicto.recomendacion ? whatsappHref(data.veredicto.recomendacion) : null}
+      />
+
+      <Seguimiento items={data.seguimiento} />
+
+      <button
+        type="button"
+        onClick={() => setDetalleAbierto(v => !v)}
+        className="flex w-fit items-center gap-1 self-start text-[12px] font-semibold text-muted-foreground hover:text-foreground"
+      >
+        {detalleAbierto ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        {detalleAbierto ? 'Ocultar todo el detalle' : 'Ver todo el detalle'}
+      </button>
+
+      {detalleAbierto && (
+      <>
       <PilotoAutomatico />
 
       <BandejaHoy />
@@ -184,6 +219,8 @@ export default function CentroDeControlPage() {
       <ActivityList items={data.actividad} />
 
       <QuickActions />
+      </>
+      )}
     </div>
   );
 }

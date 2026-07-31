@@ -19,11 +19,13 @@ import { personalizarMensajeSocia } from '@/lib/decision/personalizacion';
 import { generarCodigoReactivacion } from '@/lib/codigos-descuento';
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import { ALGORITHM_VERSION } from '@/lib/decision/version';
+import { elegirMensajeDelDia } from '@/lib/decision/umbral';
+import { emitirDecisionMensajeDia } from '@/lib/notifications/emit';
 import {
   dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
   dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
-  dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy,
+  dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy, dbListMensajesRecientes, dbUpsertMensajeDia,
 } from '@/lib/decision/db';
 import { seleccionarAutonomas } from '@/lib/decision/autonomia';
 import type { Recomendacion } from '@/lib/decision/tipos';
@@ -174,6 +176,48 @@ export const analizarEstudio = inngest.createFunction(
         await step.sendEvent(`autonomia-ejecutar-${a.id}`, { name: EVENTS.DECISION_APPROVED, data: { recomendacionId: a.id } });
       }
     }
+
+    // ── El Umbral (0/decision_mensaje_dia) ────────────────────────────────────
+    // De todas las candidatas de hoy, como mucho UNA se convierte en el mensaje
+    // del día — el resto no se oculta, sigue viva para mañana (cooldown/
+    // expiración ya existentes). Las que el piloto automático ya va a resolver
+    // solo (`autonomas`, arriba) no compiten por el mensaje: si el sistema ya
+    // lo hace, no hace falta interrumpir para pedir permiso.
+    await step.run('umbral-mensaje-del-dia', async () => {
+      const fecha = nowISOStr.slice(0, 10);
+      const idsAutonomas = new Set(autonomas.map(a => a.id));
+      const dedupeKeysAutoResueltas = new Set(
+        recomendacionesRedactadas.filter(r => idsAutonomas.has(r.id)).map(r => r.dedupeKey)
+      );
+      const historialReciente = (await dbListMensajesRecientes(studioId, now, 5))
+        .map(m => ({ dedupeKey: m.dedupeKey, motivoMotor: m.motivoMotor }));
+
+      const veredicto = elegirMensajeDelDia(
+        resultado.candidatasFinales, snapshot.contexto, historialReciente, dedupeKeysAutoResueltas
+      );
+
+      if (veredicto.tipo === 'SILENCIO') {
+        await dbUpsertMensajeDia({
+          studioId, fecha, tipo: 'SILENCIO', recomendacionId: null, dedupeKey: null,
+          motivoMotor: null, motivoSilencio: veredicto.motivo, enviadoEn: null,
+        });
+        return;
+      }
+
+      // El mensaje usa el título/motivo YA REDACTADO (redaccionPorId) cuando lo
+      // hay — es el mismo texto pulido que ve la propietaria en la app, no el
+      // texto crudo del motor.
+      const ganadora = recomendacionesRedactadas.find(r => r.dedupeKey === veredicto.candidata.dedupeKey);
+      const titulo = ganadora?.titulo ?? veredicto.candidata.tituloMotor;
+      const motivo = ganadora?.motivo ?? veredicto.candidata.motivoMotor;
+
+      await dbUpsertMensajeDia({
+        studioId, fecha, tipo: 'MENSAJE', recomendacionId: ganadora?.id ?? null,
+        dedupeKey: veredicto.candidata.dedupeKey, motivoMotor: veredicto.candidata.motivoMotor,
+        motivoSilencio: null, enviadoEn: nowISOStr,
+      });
+      await emitirDecisionMensajeDia(requireSupabaseAdmin(), { studioId, fecha, titulo, motivo });
+    });
 
     if (resultado.nuevosHechosMemoria.length > 0) {
       await step.run('memoria-automatica', async () => {

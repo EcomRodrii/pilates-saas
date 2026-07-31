@@ -802,6 +802,7 @@ export function mapSesion(r: RowSesiones): Sesion {
     precioPuntual: r.precio_puntual ?? null,
     googleEventId: r.google_event_id ?? null,
     serieId: r.serie_id ?? null,
+    incidenciaTexto: r.incidencia_texto ?? null,
   } as Sesion;
 }
 
@@ -2131,6 +2132,7 @@ export async function dbUpdateSesion(id: string, changes: Partial<Sesion>): Prom
   if ('precioPuntual' in changes) db.precio_puntual = changes.precioPuntual;
   if ('googleEventId' in changes) db.google_event_id = changes.googleEventId;
   if ('serieId' in changes) db.serie_id = changes.serieId;
+  if ('incidenciaTexto' in changes) db.incidencia_texto = changes.incidenciaTexto;
   const { error } = await supabase.from('sesiones').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateSesion]', error) : ESCRITURA_OK;
 }
@@ -3436,6 +3438,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('reservaVentanaMinimaMinutos' in changes) db.reserva_ventana_minima_minutos = changes.reservaVentanaMinimaMinutos;
   if ('reservaAntelacionMaximaDias' in changes) db.reserva_antelacion_maxima_dias = changes.reservaAntelacionMaximaDias;
   if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
+  if ('horaApertura' in changes) db.hora_apertura = changes.horaApertura;
+  if ('horaCierre' in changes) db.hora_cierre = changes.horaCierre;
   if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
@@ -3458,6 +3462,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('onbImportarDatos' in changes) db.onb_importar_datos = changes.onbImportarDatos;
   if ('onbPrioridad' in changes) db.onb_prioridad = changes.onbPrioridad;
   if ('onbAyudaAlta' in changes) db.onb_ayuda_alta = changes.onbAyudaAlta;
+  if ('decisionContratoVistoEn' in changes) db.decision_contrato_visto_en = changes.decisionContratoVistoEn;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   if (error) reportDbError('[dbUpdateStudio]', error);
 }
@@ -3665,6 +3670,8 @@ function mapStudio(r: RowStudios): Studio {
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? true,
+    horaApertura: r.hora_apertura ?? '08:00:00',
+    horaCierre: r.hora_cierre ?? '22:00:00',
     requiereAprobacion: r.requiere_aprobacion ?? false,
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? 0,
     minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? 0,
@@ -3692,6 +3699,7 @@ function mapStudio(r: RowStudios): Studio {
     onbImportarDatos: r.onb_importar_datos ?? null,
     onbPrioridad: r.onb_prioridad ?? null,
     onbAyudaAlta: r.onb_ayuda_alta ?? null,
+    decisionContratoVistoEn: r.decision_contrato_visto_en ?? null,
   } as Studio;
 }
 

@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { dbListPendientes, dbGetResumenDiarioReciente } from '@/lib/decision/db';
+import {
+  dbListPendientes, dbGetResumenDiarioReciente, dbGetMensajeDia, dbListMensajesRecientes,
+  dbGetRecomendacion, dbListOutcomesRecientes,
+} from '@/lib/decision/db';
 import { calcularEstadoEspecialista } from '@/lib/decision/director';
 import { seleccionarPrioridadesHome } from '@/lib/decision/prioridad';
+import { fraseConfianza } from '@/lib/decision/copy';
 import type { EspecialistaId, Impacto, Recomendacion } from '@/lib/decision/tipos';
 import type { ActividadReciente } from '@/lib/types';
 
@@ -21,11 +25,34 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Tu plan no incluye el Centro de Control' }, { status: 403 });
   }
 
-  const [resumen, pendientes, actividadRes] = await Promise.all([
-    dbGetResumenDiarioReciente(sesion.studioId, new Date()),
+  const now = new Date();
+  const fechaHoy = now.toISOString().slice(0, 10);
+  const [resumen, pendientes, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes] = await Promise.all([
+    dbGetResumenDiarioReciente(sesion.studioId, now),
     dbListPendientes(sesion.studioId),
     requireSupabaseAdmin().from('actividad_reciente').select('*').eq('studio_id', sesion.studioId).order('creado_en', { ascending: false }).limit(10),
+    dbGetMensajeDia(sesion.studioId, fechaHoy),
+    dbListMensajesRecientes(sesion.studioId, now, 7),
+    dbListOutcomesRecientes(sesion.studioId, 3),
   ]);
+
+  // El Umbral (lib/decision/umbral.ts): el veredicto del día es el elemento
+  // principal de la pantalla — construido a partir de `decision_mensajes_dia`,
+  // no de la lista completa de pendientes.
+  const recomendacionGanadora = mensajeHoy?.tipo === 'MENSAJE' && mensajeHoy.recomendacionId
+    ? await dbGetRecomendacion(mensajeHoy.recomendacionId)
+    : null;
+  const semanaTranquila = mensajesRecientes.length >= 5 && mensajesRecientes.every(m => m.tipo === 'SILENCIO');
+  const veredicto = {
+    tipo: mensajeHoy?.tipo ?? ('SIN_ANALIZAR' as const),
+    recomendacion: recomendacionGanadora,
+    fraseConfianza: recomendacionGanadora ? fraseConfianza(recomendacionGanadora.confianza.nivel) : null,
+    semanaTranquila,
+  };
+  const seguimiento = outcomesRecientes.map(o => ({
+    outcome: o.outcome, tipo: o.recomendacionTipo, titulo: o.recomendacionTitulo,
+    socioId: o.socioId, medidoEn: o.medidoEn,
+  }));
 
   // Mismo score+prioridad ya persistidos por el análisis; aquí solo se
   // selecciona qué cabe en el bloque Prioridades (≤3, ≤2/especialista).
@@ -71,6 +98,8 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     resumen,
+    veredicto,
+    seguimiento,
     prioridades,
     masSituaciones,
     porEspecialista,

@@ -61,8 +61,29 @@ export interface ActividadAPI {
   actorNombre: string | null;
 }
 
+// El Umbral (lib/decision/umbral.ts): el veredicto del día — como mucho una
+// recomendación, o ninguna (silencio). 'SIN_ANALIZAR' es el único estado que
+// no viene de decision_mensajes_dia: significa que el cron de hoy aún no ha
+// corrido para este estudio.
+export interface VeredictoAPI {
+  tipo: 'MENSAJE' | 'SILENCIO' | 'SIN_ANALIZAR';
+  recomendacion: RecomendacionAPI | null;
+  fraseConfianza: string | null;
+  semanaTranquila: boolean;
+}
+
+export interface SeguimientoAPI {
+  outcome: 'POSITIVO' | 'NEGATIVO' | 'NEUTRO';
+  tipo: string;
+  titulo: string;
+  socioId: string | null;
+  medidoEn: string | null;
+}
+
 export interface DecisionesResponse {
   resumen: ResumenAPI | null;
+  veredicto: VeredictoAPI;
+  seguimiento: SeguimientoAPI[];
   prioridades: RecomendacionAPI[];
   masSituaciones: RecomendacionAPI[];
   porEspecialista: PorEspecialistaAPI[];
@@ -70,11 +91,12 @@ export interface DecisionesResponse {
 }
 
 function quitarRecomendacion(prev: DecisionesResponse, id: string): DecisionesResponse {
-  const rec = prev.prioridades.find(r => r.id === id) ?? prev.masSituaciones.find(r => r.id === id);
+  const rec = prev.prioridades.find(r => r.id === id) ?? prev.masSituaciones.find(r => r.id === id) ?? prev.veredicto.recomendacion;
   return {
     ...prev,
     prioridades: prev.prioridades.filter(r => r.id !== id),
     masSituaciones: prev.masSituaciones.filter(r => r.id !== id),
+    veredicto: prev.veredicto.recomendacion?.id === id ? { ...prev.veredicto, recomendacion: null } : prev.veredicto,
     porEspecialista: rec
       ? prev.porEspecialista.map(pe => pe.especialista === rec.especialista ? { ...pe, pendientes: Math.max(0, pe.pendientes - 1) } : pe)
       : prev.porEspecialista,
@@ -127,10 +149,19 @@ export function useDecisiones() {
     return true;
   }, [cargar]);
 
+  // "Recuérdamelo": nunca Aprobar/Rechazar — la recomendación se aplaza, no se
+  // resuelve. Optimista igual que aprobar/rechazar.
+  const posponer = useCallback(async (id: string): Promise<boolean> => {
+    setData(prev => prev ? quitarRecomendacion(prev, id) : prev);
+    const res = await fetch(`/api/decisiones/${id}/posponer`, { method: 'POST', headers: { ...(await authHeader()) } });
+    if (!res.ok) { await cargar(); return false; }
+    return true;
+  }, [cargar]);
+
   const analizarAhora = useCallback(async (): Promise<boolean> => {
     const res = await fetch('/api/decisiones/analizar', { method: 'POST', headers: { ...(await authHeader()) } });
     return res.ok;
   }, []);
 
-  return { data, loading, error, recargar: cargar, aprobar, rechazar, analizarAhora };
+  return { data, loading, error, recargar: cargar, aprobar, rechazar, posponer, analizarAhora };
 }

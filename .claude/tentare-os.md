@@ -387,6 +387,68 @@ reales.
 Con Fase 3 cerrada, las 13 reglas de reserva/cancelación pedidas
 originalmente están **completas**.
 
+## El Umbral — mensaje único diario del Decision OS (Fase 1, completa)
+
+Rediseño de producto del Decision OS (varias rondas de exploración con el
+usuario: crítica de Centro de Control, el bucle de hábito, el ejercicio del
+"mensaje único" con Contrato + 5 puertas, un prototipo navegable) llevado a
+código. La idea: en vez de una lista de recomendaciones para revisar, el
+sistema decide cada día si hay UNA sola cosa que merezca interrumpir a la
+propietaria, lo dice por push, y esa misma frase es lo primero que se ve al
+abrir Centro de Control — con la evidencia oculta hasta que se pide.
+
+**Reutiliza el pipeline existente, no lo rehace.** `lib/decision/umbral.ts`
+(`elegirMensajeDelDia`) es una fase de arbitraje NUEVA sobre
+`CandidataPriorizada[]` (ya calculado por `motor.ts`/`prioridad.ts`) — cinco
+puertas puras (decae/necesita criterio humano/novedad/acción clara/impacto
+relativo al tamaño del estudio), todas deben pasar. La puerta 2 ("necesita
+criterio humano") no reimplementa nada: el llamador (`lib/inngest/decision.ts`)
+excluye por `dedupeKey` las candidatas que el piloto automático YA seleccionó
+para auto-ejecutarse este mismo ciclo (`autonomia.ts`, preexistente) — si
+autonomía está inactiva para ese estudio, la candidata sigue siendo elegible
+para el mensaje, no se descarta en falso. El círculo de aprendizaje
+(`Seguimiento`) tampoco es motor nuevo: `recomendacion_outcomes` y
+`medirOutcomeFn` ya existían de punta a punta (Fase MVP original); esta fase
+solo construyó la UI que lo enseña, incluyendo el caso `NEGATIVO` con tono
+humilde.
+
+**Persistencia**: tabla nueva `decision_mensajes_dia` (migr `20260731123128`),
+`UNIQUE(studio_id, fecha)` — refuerza "nunca dos mensajes el mismo día"
+también en el esquema, no solo en la función pura. Columna
+`studios.decision_contrato_visto_en` (mismo patrón que
+`bienvenida_vista_en`/`onboarding_descartado_en`) para el Contrato, mostrado
+una sola vez dentro de Centro de Control (no sustituye el layout entero como
+la bienvenida — es una promesa sobre esa pantalla, no sobre el producto).
+
+**Notificación**: evento nuevo `DECISION_MENSAJE_DIA` (categoría `decisiones`,
+`canales: ['PUSH']`, audiencia `propietaria`) — deliberadamente sin
+EMAIL/WHATSAPP/SMS: un canal más diluiría la promesa de "solo interrumpo
+cuando merece la pena". `dedupKey` por `studioId:fecha`, no por `dedupeKey`
+de la candidata — refuerza el límite de un push al día también en el motor
+de notificaciones.
+
+**UI**: `VeredictoDelDia` es el nuevo elemento principal de Centro de
+Control, por encima de `PilotoAutomatico`. Nada de lo que había antes se
+borró — toda la pantalla previa (Prioridades/Más situaciones/Mi Equipo/etc.)
+sigue existiendo tal cual, detrás de un desplegable "Ver todo el detalle"
+colapsado por defecto.
+
+**Fuera de esta Fase 1, documentado a propósito**: calibración adaptativa
+real del Umbral a partir del histórico de aceptación/descarte por
+propietaria (hoy es una heurística estática de € por socia activa/sede); la
+prueba comparativa "no hice ninguna promoción y aun así crecieron los
+ingresos" (necesita lógica de comparación de métricas nueva); un resumen
+semanal enviado activamente (hoy solo se muestra al abrir la app si la
+semana fue silenciosa).
+
+⚠️ **Hallazgo aparte, sin relación con esta feature**: al verificar
+`list_migrations` contra `dwqvdycjcffqwfkzapvi` antes de numerar esta
+migración, la BD remota tenía como última aplicada `20260731011858` — hay
+~40 migraciones locales entre esa y `20260731150100`
+(`reservar_plaza_restringe_instructor` en adelante, incl. cambios de RLS de
+seguridad reales) que están en el repo pero NO aplicadas en remoto. No se
+tocó en esta sesión (fuera de alcance) — verificar y aplicar por separado.
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),
