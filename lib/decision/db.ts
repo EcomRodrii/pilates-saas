@@ -531,6 +531,48 @@ export async function dbListMensajesRecientes(studioId: string, now: Date, dias 
   return (data ?? []).map(row => mapMensajeDia(row as RowMensajeDia));
 }
 
+// Tasa de seguimiento por tipo — base del Umbral adaptativo (Fase 2, ver
+// tentare-os.md "El Umbral no es fijo"). Dos consultas en vez de un join
+// (supabase-js no hace joins arbitrarios sin una FK embed declarada, y aquí
+// cruzamos dos tablas por id crudo): primero qué recomendaciones fueron
+// alguna vez el mensaje del día, después su estado final. `total` solo cuenta
+// las YA DECIDIDAS (APROBADA/EJECUTADA/RECHAZADA/FALLIDA) — una pospuesta o
+// aún PENDIENTE no cuenta ni a favor ni en contra todavía.
+export async function dbCalcularSeguimientoPorTipo(
+  studioId: string, now: Date, dias = 90,
+): Promise<Array<{ tipo: TipoRecomendacion; total: number; seguidas: number }>> {
+  const desde = new Date(now.getTime() - dias * 86400000).toISOString().slice(0, 10);
+  const { data: mensajes, error: errMsg } = await db()
+    .from('decision_mensajes_dia')
+    .select('recomendacion_id')
+    .eq('studio_id', studioId)
+    .eq('tipo', 'MENSAJE')
+    .gte('fecha', desde)
+    .not('recomendacion_id', 'is', null);
+  if (errMsg) { reportError('[dbCalcularSeguimientoPorTipo:mensajes]', errMsg); return []; }
+
+  const ids = [...new Set((mensajes ?? []).map(m => m.recomendacion_id as string))];
+  if (ids.length === 0) return [];
+
+  const { data: recos, error: errRecos } = await db()
+    .from('recomendaciones')
+    .select('tipo, estado')
+    .in('id', ids);
+  if (errRecos) { reportError('[dbCalcularSeguimientoPorTipo:recomendaciones]', errRecos); return []; }
+
+  const DECIDIDAS = new Set(['APROBADA', 'EJECUTADA', 'RECHAZADA', 'FALLIDA']);
+  const SEGUIDAS = new Set(['APROBADA', 'EJECUTADA']);
+  const porTipo = new Map<string, { total: number; seguidas: number }>();
+  for (const r of recos ?? []) {
+    if (!DECIDIDAS.has(r.estado)) continue;
+    const acc = porTipo.get(r.tipo) ?? { total: 0, seguidas: 0 };
+    acc.total += 1;
+    if (SEGUIDAS.has(r.estado)) acc.seguidas += 1;
+    porTipo.set(r.tipo, acc);
+  }
+  return [...porTipo.entries()].map(([tipo, v]) => ({ tipo: tipo as TipoRecomendacion, ...v }));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // decision_autonomia_config (0047) — piloto automático
 // ═══════════════════════════════════════════════════════════════════════════

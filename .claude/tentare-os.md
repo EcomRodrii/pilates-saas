@@ -596,6 +596,37 @@ ingresos" (necesita lógica de comparación de métricas nueva); un resumen
 semanal enviado activamente (hoy solo se muestra al abrir la app si la
 semana fue silenciosa).
 
+### Fase 2 — el Umbral aprende por estudio (completa)
+
+Cerrado el hueco "calibración adaptativa" de arriba, pedido por el CEO tras
+recoger feedback de su co-fundador dev y 6 propietarias reales de que Fase 1
+se sentía incompleta. `calibrarUmbral()` (`lib/decision/umbral.ts`) ajusta
+las puertas 1 (urgencia) y 5 (impacto) por `tipo` con el historial DECIDIDO
+de ESE estudio (90d, mínimo 5 muestras para no calibrar con ruido): tasa de
+seguimiento ≥80% → exige un 0.10 menos de urgencia y un 40% menos de
+impacto; ≤30% → exige un 0.15 más de urgencia y el doble de impacto; entre
+medias, sin cambios (mismo comportamiento que Fase 1). Acotado en ambas
+direcciones (urgencia nunca baja de 0.30 ni sube de 0.65) para que una racha
+corta no lo desboque.
+
+Dato de origen: `dbCalcularSeguimientoPorTipo` (`lib/decision/db.ts`) cruza
+`decision_mensajes_dia` (qué fue alguna vez el mensaje del día) contra
+`recomendaciones.estado` — cuenta como "seguida" APROBADA/EJECUTADA, como
+"no seguida" RECHAZADA/FALLIDA, y **excluye PENDIENTE** (pospuesta o sin
+tocar todavía no es ni sí ni no). Dos consultas, no un join — supabase-js no
+cruza dos tablas por id crudo sin una FK-embed declarada.
+
+Wiring en el cron (`lib/inngest/decision.ts`, paso `umbral-mensaje-del-dia`):
+el `Map<TipoRecomendacion, TasaSeguimiento>` se construye DENTRO del propio
+`step.run`, nunca se devuelve como resultado del step — no aplica el gotcha
+ya documentado de Maps serializándose a `{}` en el replay de Inngest (ese
+gotcha es sobre lo que un step *devuelve*, no sobre variables locales usadas
+dentro de él).
+
+Sin UI nueva — es calibración silenciosa, coherente con "el Umbral nunca se
+explica, solo el Contrato se ve". Sin migración — toda la señal ya existía
+en tablas previas.
+
 ⚠️ **Hallazgo aparte, sin relación con esta feature — CERRADO**: al verificar
 `list_migrations` contra `dwqvdycjcffqwfkzapvi` antes de numerar esta
 migración, pareció que había ~40 migraciones locales sin aplicar en remoto
