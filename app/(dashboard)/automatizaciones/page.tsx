@@ -124,7 +124,7 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   const greeting = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-[#1A1A1A] to-[#2A2A24] text-white p-6 mb-6">
+    <div className="rounded-2xl bg-primary text-primary-foreground p-6 mb-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -622,7 +622,7 @@ export default function AutomatizacionesPage() {
         <button
           onClick={handleRunNow}
           disabled={running}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-[#2A2A24] disabled:opacity-50 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
         >
           {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
           {running ? 'Evaluando...' : 'Ejecutar ahora'}

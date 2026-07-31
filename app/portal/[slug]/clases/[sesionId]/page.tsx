@@ -8,6 +8,7 @@ import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { useModo } from '@/lib/portal-modo';
 import { ChevronLeft, Clock, Users, MapPin, BarChart2, Star, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button, BottomSheet } from '@/components/portal/ui';
+import { semantic } from '@/lib/portal-tokens';
 import { HojaReserva, type ClaseParaReservar } from '@/components/portal/hoja-reserva';
 
 // Reservar desde aquí (llegando por el carrusel de Inicio) no dejaba elegir
@@ -29,7 +30,7 @@ export default function ClaseDetallePage() {
   const { t } = useModo();
   // El servidor puede decir que no (sin bono, clase empezada, tope de reservas).
   // Sin esto, pulsar «Reservar» no hacía nada visible y la reserva no existía.
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<{ texto: string; error: boolean } | null>(null);
   // "Cancelar reserva" cancelaba directo en el onClick, sin confirmar — un
   // toque accidental con el pulgar (scrolleando en móvil) perdía la plaza sin
   // poder deshacerlo. Mismo patrón de confirmación que /reservas.
@@ -92,9 +93,11 @@ export default function ClaseDetallePage() {
     const r = await addReserva(ses.id, session.socioId, spotId);
     setReservando(false);
     setAviso(
-      !r.ok ? r.error
-        : r.estado === 'LISTA_ESPERA' ? 'Estás en la lista de espera. Te avisaremos si se libera una plaza.'
-        : 'Reservada. Te esperamos.',
+      !r.ok ? { texto: r.error, error: true }
+        : {
+          texto: r.estado === 'LISTA_ESPERA' ? 'Estás en la lista de espera. Te avisaremos si se libera una plaza.' : 'Reservada. Te esperamos.',
+          error: false,
+        },
     );
   }
 
@@ -228,8 +231,16 @@ export default function ClaseDetallePage() {
             minHeight:100%) y el botón "Reservar" quedaba tapado por el menú. */}
         <div style={{ marginTop: 20, paddingBottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
           {aviso && (
-            <p style={{ fontSize: 13, color: t.ink, background: t.surface2, borderRadius: 12, padding: '10px 12px', marginBottom: 10 }}>
-              {aviso}
+            // El error de una reserva/cancelación revertida se veía IGUAL que
+            // el aviso de éxito — mismo fondo neutro. El error usa el token
+            // semántico de "danger" (ya calibrado por contraste).
+            <p style={{
+              fontSize: 13, fontWeight: aviso.error ? 700 : 400,
+              color: aviso.error ? semantic.danger.text : t.ink,
+              background: aviso.error ? semantic.danger.soft : t.surface2,
+              borderRadius: 12, padding: '10px 12px', marginBottom: 10,
+            }}>
+              {aviso.texto}
             </p>
           )}
           {miReserva ? (
@@ -265,7 +276,7 @@ export default function ClaseDetallePage() {
             onClick={() => {
               setConfirmandoCancelar(false);
               if (!miReserva) return;
-              void cancelarReserva(miReserva.id).then(r => setAviso(r.ok ? 'Reserva cancelada.' : r.error));
+              void cancelarReserva(miReserva.id).then(r => setAviso(r.ok ? { texto: 'Reserva cancelada.', error: false } : { texto: r.error, error: true }));
             }}
             style={{ flex: 1 }}
           >

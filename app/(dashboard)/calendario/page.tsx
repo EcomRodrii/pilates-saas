@@ -2504,7 +2504,10 @@ export default function Calendario() {
       />
 
       {/* ── Stats bar ──────────────────────────────────────────────────────────── */}
-      <div className="px-6 pb-4 shrink-0">
+      {/* Oculta en móvil: son 4 tarjetas de agregado semanal, secundarias frente
+          a "qué clases tengo hoy" — en pantallas pequeñas empujaban la propia
+          rejilla de clases fuera de la primera pantalla. */}
+      <div className="hidden lg:block px-6 pb-4 shrink-0">
         <StatsBar sesiones={sesionesSemana} esSemanaActual={dias.some(d => localDate(d) === todayStr)} />
       </div>
 

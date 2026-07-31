@@ -367,6 +367,19 @@ export default function ComprasPage() {
           {comprando === 'renovar' ? 'Un momento…' : 'Renovar lo que ya tenía'}
         </button>
       </div>
+
+      {/* Preparar el checkout de Stripe es una llamada de red antes de
+          redirigir — sin esto, el único aviso era el texto del botón, y el
+          resto de la pantalla seguía tocable (podías pulsar otra tarjeta
+          mientras la primera ya estaba en vuelo). */}
+      {comprando != null && (
+        <div
+          className="fixed inset-0 flex items-center justify-center"
+          style={{ background: noche ? 'rgba(18,20,14,0.7)' : 'rgba(246,244,239,0.7)', zIndex: 50 }}
+        >
+          <div className="w-8 h-8 rounded-full animate-spin" style={{ border: `3px solid ${t.line}`, borderTopColor: t.ink }} />
+        </div>
+      )}
     </div>
   );
 }
