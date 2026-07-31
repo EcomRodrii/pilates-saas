@@ -1198,21 +1198,15 @@ export async function resumenValoraciones(): Promise<ResumenValoraciones> {
   }
 }
 
-// ── Equipo: stats combinadas (valoración + asistencia) por instructora ──────
-export type EquipoStats = {
-  valoracion: Record<string, { media: number; total: number }>;
-  asistencia: Record<string, { pct: number; base: number }>;
-};
-
-export async function equipoStats(): Promise<EquipoStats> {
-  try {
-    const res = await fetch('/api/equipo/stats', { headers: await authHeader() });
-    if (!res.ok) return { valoracion: {}, asistencia: {} };
-    const data = (await res.json()) as Partial<EquipoStats>;
-    return { valoracion: data.valoracion ?? {}, asistencia: data.asistencia ?? {} };
-  } catch {
-    return { valoracion: {}, asistencia: {} };
-  }
+// ── Equipo: rejilla de tarjetas del rediseño ────────────────────────────────
+// El servidor ya recorta cada `MiembroCompleto` al rol de quien pregunta
+// (ver app/api/equipo/tarjetas/route.ts) — este cliente no filtra nada, solo
+// transporta lo que llegó.
+export async function tarjetasEquipo(): Promise<import('./equipo-tarjetas.ts').MiembroCompleto[]> {
+  const res = await fetch('/api/equipo/tarjetas', { headers: await authHeader() });
+  if (!res.ok) return [];
+  const data = (await res.json().catch(() => null)) as { items?: import('./equipo-tarjetas.ts').MiembroCompleto[] } | null;
+  return data?.items ?? [];
 }
 
 // ── Valoraciones: detalle (cada valoración individual de una instructora) ────
