@@ -2142,6 +2142,11 @@ export async function dbUpdateSesion(id: string, changes: Partial<Sesion>): Prom
 // todo-o-nada: reconstruye la hora por sesión (fecha local + hora, en Madrid) y si
 // cualquier sesión solapa hace rollback completo y devuelve un único error (23P01,
 // que lib/errores traduce a "esa sala/instructora ya tiene clase a esa hora").
+// Devuelve además `count`: filas realmente afectadas por el UPDATE (la RPC lo
+// calcula con `get diagnostics`). Sin optimistic locking en el esquema (no hay
+// `updated_at` en `sesiones`), es la única señal barata de que la serie
+// cambió entre que el panel cargó su snapshot y este guardado — el llamante
+// la compara contra el número de sesiones que ÉL esperaba tocar.
 export async function dbUpdateSerieDesde(
   studioId: string,
   sesionOrigenId: string,
@@ -2150,8 +2155,8 @@ export async function dbUpdateSerieDesde(
     aforoMaximo: number; notas: string | null;
     horaInicio: string; horaFin: string;
   },
-): Promise<ResultadoEscritura> {
-  const { error } = await supabase.rpc('editar_serie_desde', {
+): Promise<ResultadoEscritura & { count?: number }> {
+  const { data, error } = await supabase.rpc('editar_serie_desde', {
     p_studio_id: studioId,
     p_sesion_origen_id: sesionOrigenId,
     p_tipo_clase_id: cambios.tipoClaseId,
@@ -2162,7 +2167,7 @@ export async function dbUpdateSerieDesde(
     p_hora_inicio: cambios.horaInicio,
     p_hora_fin: cambios.horaFin,
   });
-  return error ? falloEscritura('[dbUpdateSerieDesde]', error) : ESCRITURA_OK;
+  return error ? falloEscritura('[dbUpdateSerieDesde]', error) : { ...ESCRITURA_OK, count: data as number };
 }
 
 export async function dbDeleteSesion(id: string) {

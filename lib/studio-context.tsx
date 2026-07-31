@@ -296,7 +296,7 @@ interface StudioContextValue {
   deleteSesion: (id: string) => void;
   // Series de clases recurrentes (I-3)
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
-  editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura>;
+  editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
   cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura>;
 
   // Reservas
@@ -1823,7 +1823,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   async function editarSerieDesde(
     sesionId: string,
     changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string },
-  ): Promise<ResultadoEscritura> {
+  ): Promise<ResultadoEscritura & { count?: number }> {
     const objetivo = sesionesDeSerieDesde(sesionId);
     if (objetivo.length === 0) return { ok: true };
     const uniformes = {
@@ -1852,7 +1852,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setSesiones(prev => prev.map(s => antes.get(s.id) ?? s));
       return res;
     }
-    return { ok: true };
+    return { ok: true, count: res.count };
   }
 
   // Cancela "esta y las siguientes" de una serie (p. ej. "cancelar la serie del
