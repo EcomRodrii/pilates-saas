@@ -111,18 +111,46 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const email = body?.email == null || body?.email === '' ? null : String(body.email).trim();
+
+  // P2-14: alta cross-sede — si esta persona YA tiene ficha activa en otra
+  // sede de la MISMA cadena, se vincula su auth_user_id directo (ya tiene
+  // cuenta, no hace falta self-claim). La búsqueda se acota SIEMPRE a
+  // `cadena_id` — nunca abierta a toda la tabla `instructores`, sería una
+  // vía de enumeración de emails entre estudios sin relación.
+  let authUserIdVinculado: string | null = null;
+  if (email) {
+    const { data: estudio } = await admin.from('studios').select('cadena_id').eq('id', sesion.studioId).maybeSingle();
+    const cadenaId = (estudio as { cadena_id: string | null } | null)?.cadena_id ?? null;
+    if (cadenaId) {
+      const { data: existente } = await admin
+        .from('instructores')
+        .select('auth_user_id, studios!inner(cadena_id)')
+        .eq('email', email)
+        .eq('activo', true)
+        .not('auth_user_id', 'is', null)
+        .eq('studios.cadena_id', cadenaId)
+        .neq('studio_id', sesion.studioId)
+        .limit(1)
+        .maybeSingle();
+      authUserIdVinculado = (existente as { auth_user_id: string | null } | null)?.auth_user_id ?? null;
+    }
+  }
+
   const row = {
     id,
     studio_id: sesion.studioId, // autoridad: el estudio del JWT, no el del body
     nombre,
-    email: body?.email == null || body?.email === '' ? null : String(body.email).trim(),
+    email,
     telefono: body?.telefono == null || body?.telefono === '' ? null : String(body.telefono).trim(),
     color: String(body?.color ?? '#F7A6C4'),
     activo: body?.activo == null ? true : Boolean(body.activo),
     avatar: body?.avatar == null ? null : String(body.avatar),
     foto_url: body?.fotoUrl == null ? null : String(body.fotoUrl),
     rol,
-    auth_user_id: null, // el vínculo se hace vía self-claim (la persona reclama su ficha)
+    // Si ya existe en otra sede de la cadena, se vincula directo (ya tiene
+    // cuenta); si no, sigue el flujo normal de self-claim.
+    auth_user_id: authUserIdVinculado,
   };
   const { error } = await admin.from('instructores').insert(row);
   if (esEmailDuplicado(error)) {
@@ -138,7 +166,10 @@ export async function POST(req: NextRequest) {
   // por poco de escribir a sus 18 instructoras a esa hora. Dar de alta a alguien
   // en tu sistema y avisarle son dos decisiones distintas, y la segunda es suya:
   // ahora se pide explícitamente por POST /api/equipo/invitar.
-  return NextResponse.json({ ok: true });
+  //
+  // `vinculada`: true si ya tenía ficha activa en otra sede de la cadena y se
+  // conectó directo (sin self-claim) — la UI puede omitir la invitación.
+  return NextResponse.json({ ok: true, vinculada: authUserIdVinculado !== null });
 }
 
 // ── Edición (PROPIETARIO cualquier ficha; el resto solo la suya) ─────────────────

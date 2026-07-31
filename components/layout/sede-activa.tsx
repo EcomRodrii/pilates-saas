@@ -26,6 +26,13 @@ import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/l
 export const CLAVE_CAMBIO_SEDE = 'tentare:sede-cambiada';
 const CLAVE_CAMBIO = CLAVE_CAMBIO_SEDE;
 
+// P2-14: rol legible por sede — instructoras multi-sede pueden ser
+// PROPIETARIO/MANAGER en una y solo INSTRUCTOR en otra, y conviene que no
+// les sorprenda el cambio de permisos al cambiar de sede en este menú.
+const ETIQUETA_ROL: Record<string, string> = {
+  PROPIETARIO: 'Propietaria', MANAGER: 'Gerencia', RECEPCION: 'Recepción', INSTRUCTOR: 'Instructora',
+};
+
 export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 'topbar' }) {
   const { user } = useAuth();
   const { studio } = useCore();
@@ -114,7 +121,12 @@ export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 't
                 cambiando !== null && 'opacity-50',
               )}
             >
-              <span className="truncate">{s.nombre}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{s.nombre}</span>
+                {s.rol && ETIQUETA_ROL[s.rol] && (
+                  <span className="block text-[11px] text-muted-foreground truncate">{ETIQUETA_ROL[s.rol]}</span>
+                )}
+              </span>
               {cambiando === s.id
                 ? <Loader2 size={13} className="animate-spin shrink-0 text-muted-foreground" />
                 : s.id === studio?.id && <Check size={13} className="text-success shrink-0" />}
