@@ -73,9 +73,26 @@ export type CardStyleId = (typeof ESTILOS_TARJETA)[number]['id'];
 export const ESTILOS_TITULAR_PORTAL = [
   { id: 'instrumentSerif', label: 'Instrument Serif (el de siempre)' },
   { id: 'outfit', label: 'Outfit' },
+  // Reusa la sans ya cargada (--font-ui, Instrument Sans) en negrita — sin
+  // fuente nueva. Ver tema "Editorial" en theme-definitions.ts.
+  { id: 'instrumentSansBold', label: 'Instrument Sans (negrita)' },
 ] as const;
 
 export type PortalHeadingFontId = (typeof ESTILOS_TITULAR_PORTAL)[number]['id'];
+
+/**
+ * Comportamiento de la barra inferior del portal cliente
+ * (`components/portal/portal-shell.tsx`). `clasica` es el look de siempre
+ * (sin iconos, todas las pestañas muestran su nombre, pastilla deslizante) —
+ * decisión de diseño deliberada y documentada en ese archivo, que NO cambia
+ * para nadie que no elija el tema que activa `pestanaActiva`.
+ */
+export const ESTILOS_TAB_BAR = [
+  { id: 'clasica', label: 'Clásica (el de siempre)' },
+  { id: 'pestanaActiva', label: 'Pestaña activa' },
+] as const;
+
+export type TabBarStyleId = (typeof ESTILOS_TAB_BAR)[number]['id'];
 
 const fontIdSchema = z.enum(FUENTES.map((f) => f.id) as [FontId, ...FontId[]]);
 const radiusSchema = z.enum(RADIOS.map((r) => r.id) as [RadiusId, ...RadiusId[]]);
@@ -83,6 +100,7 @@ const faviconSchema = z.string().url().nullable();
 const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleId, ...ButtonStyleId[]]);
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
+const tabBarStyleSchema = z.enum(ESTILOS_TAB_BAR.map((t) => t.id) as [TabBarStyleId, ...TabBarStyleId[]]);
 const themeIdSchema = z.string();
 const themeVersionSchema = z.number().int();
 const themeCustomizedSchema = z.boolean();
@@ -104,6 +122,8 @@ export const themeConfigSchema = z
     cardStyle: cardStyleSchema.default('flat'),
     // Titular del portal cliente — ver ESTILOS_TITULAR_PORTAL arriba.
     portalHeadingFontId: portalHeadingFontSchema.default('instrumentSerif'),
+    // Barra inferior del portal cliente — ver ESTILOS_TAB_BAR arriba.
+    tabBarStyle: tabBarStyleSchema.default('clasica'),
     // Galería de temas (lib/theme-definitions.ts): de qué ThemeDefinition (y
     // qué versión) partió este tema, y si el estudio lo ha tocado a mano
     // después de elegirlo. Metadato de procedencia — no gobierna el render
@@ -134,6 +154,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   buttonStyle: 'solid',
   cardStyle: 'flat',
   portalHeadingFontId: 'instrumentSerif',
+  tabBarStyle: 'clasica',
   themeId: 'classic',
   themeVersion: 1,
   themeCustomized: false,
@@ -162,6 +183,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     buttonStyle: pick('buttonStyle', buttonStyleSchema),
     cardStyle: pick('cardStyle', cardStyleSchema),
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
+    tabBarStyle: pick('tabBarStyle', tabBarStyleSchema),
     themeId: pick('themeId', themeIdSchema),
     themeVersion: pick('themeVersion', themeVersionSchema),
     themeCustomized: pick('themeCustomized', themeCustomizedSchema),

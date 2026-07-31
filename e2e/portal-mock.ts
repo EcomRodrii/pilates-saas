@@ -156,10 +156,13 @@ export async function montarPortal(page: Page, opciones: {
    *  sobre `portalHome` (mismo criterio que resolveHomeBloques: en cuanto hay
    *  bloques guardados, dejan de mirar el legacy). */
   homeBloques?: BloqueHome[];
+  /** Comportamiento de la barra inferior del tema (galería de temas,
+   *  "Editorial"). Sin esto, `'clasica'` — el de siempre. */
+  tabBarStyle?: 'clasica' | 'pestanaActiva';
 }) {
   const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, planMasElegidoId = null, entraTrasPeticiones,
-          portalHome = { orden: [], ocultos: [] }, homeBloques } = opciones;
+          portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica' } = opciones;
   const bloquesResueltos = homeBloques ?? resolveHomeBloques(null, portalHome).publicado;
 
   if (conSesion) {
@@ -222,6 +225,7 @@ export async function montarPortal(page: Page, opciones: {
     planMasElegidoId,
     portalHome,
     homeBloques: bloquesResueltos,
+    tabBarStyle,
     // OJO: studio-context cruza `socia.reservas` con `aforoReservas` POR ID
     // (`aforo.map(r => miasById.get(r.id) ?? r)`). Una reserva que solo esté en
     // `socia.reservas` NO llega a la pantalla. Ya me pasó con la primera.

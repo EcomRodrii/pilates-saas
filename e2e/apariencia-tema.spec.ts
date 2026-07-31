@@ -79,6 +79,26 @@ test.describe('Editor de temas — galería de temas', () => {
     await expect(page.getByRole('button', { name: /Geométrico/ })).toHaveClass(/border-brand/);
   });
 
+  test('elegir "Editorial" manda tabBarStyle/buttonStyle/cardStyle/portalHeadingFontId a /api/theme', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Tema', { exact: true })).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: /Editorial/ }).click();
+
+    const [req] = await Promise.all([
+      page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
+      page.getByRole('button', { name: /Guardar borrador/ }).click(),
+    ]);
+    const body = req.postDataJSON() as Record<string, unknown>;
+    expect(body.themeId).toBe('editorial');
+    expect(body.portalHeadingFontId).toBe('instrumentSansBold');
+    expect(body.buttonStyle).toBe('solid');
+    expect(body.cardStyle).toBe('elevated');
+    expect(body.tabBarStyle).toBe('pestanaActiva');
+
+    await expect(page.getByRole('button', { name: /Editorial/ })).toHaveClass(/border-brand/);
+  });
+
   test('tocar "Personalizar" tras elegir un tema lo marca como "(personalizado)"', async ({ page }) => {
     await montar(page);
     await expect(page.getByText('Tema', { exact: true })).toBeVisible({ timeout: 30_000 });

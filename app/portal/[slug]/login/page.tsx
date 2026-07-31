@@ -17,13 +17,15 @@
 //    producto de marca blanca y quitarle su logo a quien paga por ponerlo no es
 //    una decisión que tocara tomar aquí.
 
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
+import { BienvenidaPortal } from '@/components/portal/bienvenida-portal';
+import { yaVioBienvenida, marcarBienvenidaVista } from '@/lib/portal-bienvenida';
 import {
   EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
 } from '@/lib/portal-design';
@@ -33,8 +35,20 @@ export default function PortalLogin() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const { loginConPassword } = usePortalAuth();
-  const { studio } = useStudio();
+  const { studio, dataLoaded, tabBarStyle } = useStudio();
   const { t, noche } = useModo();
+  // Tema "Editorial": una pantalla de bienvenida a pantalla completa antes del
+  // login, una sola vez por dispositivo. `null` = todavía no se sabe (evita
+  // un flash de la pantalla equivocada mientras se resuelve el tema y el
+  // localStorage) — ni el login ni la bienvenida se pintan hasta entonces.
+  const [bienvenidaVista, setBienvenidaVista] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!dataLoaded) return;
+    // localStorage no existe en el servidor: esto solo puede resolverse tras
+    // montar, no hay forma de calcularlo durante el render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBienvenidaVista(tabBarStyle !== 'pestanaActiva' || yaVioBienvenida(slug));
+  }, [dataLoaded, tabBarStyle, slug]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -67,6 +81,24 @@ export default function PortalLogin() {
   }
 
   const nombreEstudio = studio?.nombre?.trim() || 'Tentare';
+
+  // Todavía no se sabe si toca mostrar la bienvenida (tema/localStorage sin
+  // resolver) — no se pinta nada un instante en vez de arriesgar un flash del
+  // login para quien sí va a ver la bienvenida.
+  if (bienvenidaVista === null) {
+    return <div style={{ height: '100%', background: t.bg }} />;
+  }
+
+  if (bienvenidaVista === false) {
+    return (
+      <BienvenidaPortal
+        nombreEstudio={nombreEstudio}
+        fotoUrl={studio?.fotoUrl ?? null}
+        onSiguiente={() => { marcarBienvenidaVista(slug); setBienvenidaVista(true); }}
+      />
+    );
+  }
+
   // El nombre va en una sola línea a 44 px. Uno largo («Estudio Alma de
   // Marbella») desbordaría el marco de 402, así que se encoge hasta 26 px en
   // vez de partirse: partir un display serif en dos líneas rompe el bloque.

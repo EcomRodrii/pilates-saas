@@ -29,3 +29,13 @@ test('getThemeDefinition: "geometric" fija portalHeadingFontId a outfit y declar
 test('getThemeDefinition: id desconocido → undefined', () => {
   assert.equal(getThemeDefinition('no-existe'), undefined);
 });
+
+test('getThemeDefinition: "editorial" fija tipografía negrita, botón/tarjeta y barra de pestaña activa', () => {
+  const ed = getThemeDefinition('editorial');
+  assert.ok(ed);
+  assert.equal(ed!.defaults.portalHeadingFontId, 'instrumentSansBold');
+  assert.equal(ed!.defaults.buttonStyle, 'solid');
+  assert.equal(ed!.defaults.cardStyle, 'elevated');
+  assert.equal(ed!.defaults.tabBarStyle, 'pestanaActiva');
+  assert.deepEqual(ed!.capabilities.sort(), ['buttons', 'cards', 'nav', 'typography']);
+});

@@ -115,3 +115,20 @@ test('resolveTheme: portalHeadingFontId inválido cae a instrumentSerif; themeId
   assert.equal(r.themeVersion, 1);
   assert.equal(r.themeCustomized, true);
 });
+
+test('themeConfigSchema: tabBarStyle ausente → default clasica (tema guardado antes de esta fase)', () => {
+  const sinTabBar: Record<string, unknown> = { ...DEFAULT_THEME };
+  delete sinTabBar.tabBarStyle;
+  const r = themeConfigSchema.safeParse(sinTabBar);
+  assert.equal(r.success, true);
+  if (r.success) assert.equal(r.data.tabBarStyle, 'clasica');
+});
+
+test('themeConfigSchema acepta instrumentSansBold y tabBarStyle pestanaActiva (tema Editorial)', () => {
+  const r = themeConfigSchema.safeParse({ ...DEFAULT_THEME, portalHeadingFontId: 'instrumentSansBold', tabBarStyle: 'pestanaActiva' });
+  assert.equal(r.success, true);
+});
+
+test('resolveTheme: tabBarStyle inválido cae a clasica', () => {
+  assert.equal(resolveTheme({ tabBarStyle: 'flotante' }).tabBarStyle, 'clasica');
+});

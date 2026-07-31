@@ -17,7 +17,7 @@
 
 import type { ThemeConfig } from './theme-schema.ts';
 
-export type ThemeCapability = 'colors' | 'typography' | 'buttons' | 'cards';
+export type ThemeCapability = 'colors' | 'typography' | 'buttons' | 'cards' | 'nav';
 
 export interface ThemeDefinition {
   id: string;
@@ -46,6 +46,19 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
     description: 'Titulares en Outfit, una geométrica de trazo limpio. Mismos colores de marca.',
     capabilities: ['typography'],
     defaults: { portalHeadingFontId: 'outfit' },
+  },
+  {
+    id: 'editorial',
+    version: 1,
+    label: 'Editorial',
+    description: 'Titulares en negrita, tarjetas destacadas y barra inferior con pestaña expandible.',
+    capabilities: ['typography', 'buttons', 'cards', 'nav'],
+    defaults: {
+      portalHeadingFontId: 'instrumentSansBold',
+      buttonStyle: 'solid',
+      cardStyle: 'elevated',
+      tabBarStyle: 'pestanaActiva',
+    },
   },
 ];
 

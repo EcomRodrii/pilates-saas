@@ -155,6 +155,7 @@ import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
+import type { TabBarStyleId } from '@/lib/theme-schema';
 // `debeDevolverBono` ya no se importa aquí: la decisión de devolver la sesión
 // del bono al cancelar la toma la BD (migr 0129) y este contexto la obedece.
 // La función sigue viva en booking-logic para el portal público y sus tests.
@@ -237,6 +238,10 @@ interface StudioContextValue {
   // (nunca el borrador, ver lib/db/supabase-data-admin.ts). Se edita desde
   // components/theme/portal-home-editor.tsx igual que portalHome.
   homeBloques: BloqueHome[];
+  // Comportamiento de la barra inferior del portal (galería de temas,
+  // "Editorial") — único campo del tema expuesto como valor JS, no solo CSS:
+  // portal-shell.tsx decide con esto si pinta iconos/pestaña expandible.
+  tabBarStyle: TabBarStyleId;
   instructores: Instructor[];
   spots: Spot[];
   bloqueosMaquina: BloqueoMaquina[];
@@ -557,6 +562,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [bannersPortal, setBannersPortal] = useState<BannerPortal[]>([]);
   const [portalHome, setPortalHome] = useState<OrdenVisibilidad>(DEFAULT_LAYOUT.portalHome);
   const [homeBloques, setHomeBloques] = useState<BloqueHome[]>(DEFAULT_LAYOUT.homeBloques.publicado);
+  const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
@@ -691,6 +697,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setBannersPortal(pub.bannersPortal ?? []);
       setPortalHome(pub.portalHome ?? DEFAULT_LAYOUT.portalHome);
       setHomeBloques(pub.homeBloques ?? DEFAULT_LAYOUT.homeBloques.publicado);
+      setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -3384,6 +3391,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bannersPortal,
     portalHome,
     homeBloques,
+    tabBarStyle,
     favoritos,
     toggleFavorito,
     updateMensajeDestacado,
@@ -3586,7 +3594,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, favoritos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, tabBarStyle, favoritos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,

@@ -94,6 +94,14 @@ function varsTitularPortal(t: ThemeConfig): Record<string, string> {
       '--portal-heading-weight': '600',
     };
   }
+  if (t.portalHeadingFontId === 'instrumentSansBold') {
+    // Reusa --font-ui (Instrument Sans, ya cargada) en negrita — tema
+    // "Editorial", sin fuente nueva.
+    return {
+      '--portal-heading-font': "var(--font-ui), 'Instrument Sans', system-ui, sans-serif",
+      '--portal-heading-weight': '700',
+    };
+  }
   return {};
 }
 
