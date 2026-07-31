@@ -279,3 +279,16 @@ nextjs-portal { display: none !important; }
   0%   { transform: translateX(-150%) rotate(10deg); }
   100% { transform: translateX(240%) rotate(10deg); }
 }
+
+/* Rediseño del Calendario, punto 10 — respeta prefers-reduced-motion. Global
+   a propósito (no solo el módulo de calendario): ninguna otra pantalla lo
+   comprobaba todavía, y es una preferencia de accesibilidad del sistema, no
+   de una pantalla concreta. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

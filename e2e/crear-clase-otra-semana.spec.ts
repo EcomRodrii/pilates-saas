@@ -26,6 +26,20 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+// Rediseño del Calendario: las tarjetas de métricas ("Clases"/"esta semana")
+// y la rejilla pintan desde /api/calendario, no desde sesiones/reservas del
+// contexto — sin este mock la rejilla se queda en "Cargando…".
+function salaApi(r: any) {
+  return { id: r.id, studioId: r.studio_id, nombre: r.nombre, capacidad: r.capacidad, color: r.color };
+}
+function instructorApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, nombre: r.nombre, email: r.email, telefono: r.telefono,
+    color: r.color, activo: r.activo, avatar: r.avatar, fotoUrl: r.foto_url, rol: r.rol ?? 'INSTRUCTOR',
+    authUserId: r.auth_user_id,
+  };
+}
+
 async function montar(page: Page) {
   await page.clock.setFixedTime(new Date(`${HOY}T12:00:00`));
 
@@ -56,6 +70,11 @@ async function montar(page: Page) {
   await page.route('**/rest/v1/instructores**', route => json(route, INSTRUCTORES));
   await page.route('**/rest/v1/sesiones**', route =>
     route.request().method() === 'GET' ? json(route, []) : json(route, [], 201));
+  await page.route('**/api/calendario**', route => json(route, {
+    sesiones: [], reservas: [], sustituciones: [],
+    salas: SALAS.map(salaApi), instructores: INSTRUCTORES.map(instructorApi),
+    horaApertura: '08:00:00', horaCierre: '22:00:00', rol: 'PROPIETARIO',
+  }));
 
   await page.goto('/calendario');
 }
@@ -74,25 +93,25 @@ test.describe('Crear una clase en otra semana', () => {
     await montar(page);
 
     // Arranca en la semana de hoy (3–9 de agosto).
-    await expect(page.getByText(/Clases esta semana/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
 
     await crearClaseEl(page, OTRA_SEMANA);
 
     // El aviso avisa de que te ha llevado allí…
     await expect(page.getByText(/te llevo a esa semana/)).toBeVisible();
     // …y la rejilla ya NO es la semana actual: es la de la clase creada.
-    await expect(page.getByText(/Clases esa semana/)).toBeVisible();
+    await expect(page.getByText('esa semana', { exact: true })).toBeVisible();
   });
 
   test('creando en la semana que ya se está viendo, no se mueve nada', async ({ page }) => {
     await montar(page);
-    await expect(page.getByText(/Clases esta semana/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
 
     // Jueves de la MISMA semana: no tiene sentido moverla ni anunciarlo.
     await crearClaseEl(page, '2026-08-06');
 
     await expect(page.getByText('Clase creada')).toBeVisible();
     await expect(page.getByText(/te llevo a esa semana/)).toHaveCount(0);
-    await expect(page.getByText(/Clases esta semana/)).toBeVisible();
+    await expect(page.getByText('esta semana', { exact: true })).toBeVisible();
   });
 });

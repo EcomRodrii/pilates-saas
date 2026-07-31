@@ -29,6 +29,19 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+// Rediseño del Calendario: la rejilla lee /api/calendario, no sesiones/reservas
+// del contexto.
+function salaApi(r: any) {
+  return { id: r.id, studioId: r.studio_id, nombre: r.nombre, capacidad: r.capacidad, color: r.color };
+}
+function instructorApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, nombre: r.nombre, email: r.email ?? null, telefono: r.telefono ?? null,
+    color: r.color, activo: r.activo, avatar: r.avatar ?? null, fotoUrl: r.foto_url ?? null,
+    rol: r.rol ?? 'INSTRUCTOR', authUserId: r.auth_user_id ?? null,
+  };
+}
+
 async function seedSesion(page: Page) {
   await page.addInitScript(([key, id]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -64,6 +77,11 @@ async function mockBackend(page: Page, onInsertSesion?: (body: unknown) => void)
     }
     return json(route, []);
   });
+  await page.route('**/api/calendario**', route => json(route, {
+    sesiones: [], reservas: [], sustituciones: [],
+    salas: [SALA].map(salaApi), instructores: EQUIPO.map(instructorApi),
+    horaApertura: '08:00:00', horaCierre: '22:00:00', rol: 'INSTRUCTOR',
+  }));
 }
 
 test.describe('Instructora: crea su propia clase', () => {

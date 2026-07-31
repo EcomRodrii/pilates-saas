@@ -45,6 +45,29 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+// Rediseño del Calendario: la rejilla lee /api/calendario, con el mismo
+// filtrado por rol que aplicaría el servidor de verdad (lib/calendario-datos.ts,
+// filtrarSesionesPorRol) — INSTRUCTOR solo ve sus propias clases, así que
+// SESION_AJENA (de Laura) no debe aparecer en el mock de Marta.
+function sesionApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, tipoClaseId: r.tipo_clase_id, salaId: r.sala_id,
+    instructorId: r.instructor_id, inicio: r.inicio, fin: r.fin, aforoMaximo: r.aforo_maximo,
+    cancelada: r.cancelada, notas: r.notas ?? null, precioPuntual: r.precio_puntual ?? null, serieId: r.serie_id ?? null,
+    incidenciaTexto: null, sustitucionAbierta: false, motivoBaja: null, sustitucionId: null,
+  };
+}
+function salaApi(r: any) {
+  return { id: r.id, studioId: r.studio_id, nombre: r.nombre, capacidad: r.capacidad, color: r.color };
+}
+function instructorApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, nombre: r.nombre, email: r.email ?? null, telefono: r.telefono ?? null,
+    color: r.color, activo: r.activo, avatar: r.avatar ?? null, fotoUrl: r.foto_url ?? null,
+    rol: r.rol ?? 'INSTRUCTOR', authUserId: r.auth_user_id ?? null,
+  };
+}
+
 async function seedSesion(page: Page) {
   await page.addInitScript(([key, id]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -72,6 +95,12 @@ async function mockBackend(page: Page) {
   await page.route('**/rest/v1/tipos_clase**', route => json(route, [TIPO_CLASE]));
   await page.route('**/rest/v1/salas**', route => json(route, [SALA]));
   await page.route('**/rest/v1/sesiones**', route => json(route, [SESION_PROPIA, SESION_AJENA]));
+  await page.route('**/api/calendario**', route => json(route, {
+    sesiones: [SESION_PROPIA].map(sesionApi), // INSTRUCTOR: solo su propia clase, nunca la de Laura.
+    reservas: [], sustituciones: [],
+    salas: [SALA].map(salaApi), instructores: EQUIPO.map(instructorApi),
+    horaApertura: '08:00:00', horaCierre: '22:00:00', rol: 'INSTRUCTOR',
+  }));
   await page.route('**/api/sustituciones', route => {
     if (route.request().method() === 'POST') return json(route, { ok: true, yaAvisada: false });
     return json(route, { error: 'No tienes permiso para esto' }, 403);

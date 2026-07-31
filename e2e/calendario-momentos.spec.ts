@@ -32,6 +32,36 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+// Rediseño del Calendario: la rejilla ya no pinta desde `sesiones`/`reservas`
+// del contexto (over-fetch admin), sino desde /api/calendario (payload por
+// rol). Mapeo mínimo fila cruda → forma de esa respuesta, mismo shape que
+// mapSesion/mapReserva/mapSala/mapInstructor (lib/supabase-data.ts).
+function sesionApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, tipoClaseId: r.tipo_clase_id, salaId: r.sala_id,
+    instructorId: r.instructor_id, inicio: r.inicio, fin: r.fin, aforoMaximo: r.aforo_maximo,
+    cancelada: r.cancelada, notas: r.notas, precioPuntual: r.precio_puntual, serieId: r.serie_id ?? null,
+    incidenciaTexto: null, sustitucionAbierta: false, motivoBaja: null, sustitucionId: null,
+  };
+}
+function reservaApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, sesionId: r.sesion_id, socioId: r.socio_id, estado: r.estado,
+    spotId: r.spot_id ?? null, posicionEspera: r.posicion_espera ?? null, ofertaExpiraEn: null,
+    checkInEn: null, creadoEn: r.creada_en,
+  };
+}
+function salaApi(r: any) {
+  return { id: r.id, studioId: r.studio_id, nombre: r.nombre, capacidad: r.capacidad, color: r.color };
+}
+function instructorApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, nombre: r.nombre, email: r.email, telefono: r.telefono,
+    color: r.color, activo: r.activo, avatar: r.avatar, fotoUrl: r.foto_url, rol: r.rol ?? 'INSTRUCTOR',
+    authUserId: r.auth_user_id,
+  };
+}
+
 /** `avisos` recoge las llamadas al endpoint que escribe a las alumnas. */
 async function montarCalendario(page: Page, extra: {
   sesiones?: unknown[]; reservas?: unknown[]; sesionUpdateError?: boolean;
@@ -78,6 +108,16 @@ async function montarCalendario(page: Page, extra: {
   await page.route('**/rest/v1/tipos_clase**', route => json(route, TIPOS));
   await page.route('**/rest/v1/salas**', route => json(route, SALAS));
   await page.route('**/rest/v1/instructores**', route => json(route, INSTRUCTORES));
+  // Rediseño del Calendario: la rejilla pinta desde este endpoint, no desde
+  // sesiones/reservas del contexto — sin este mock no aparece ningún bloque.
+  await page.route('**/api/calendario**', route => json(route, {
+    sesiones: (extra.sesiones ?? []).map(sesionApi),
+    reservas: (extra.reservas ?? []).map(reservaApi),
+    sustituciones: [],
+    salas: SALAS.map(salaApi),
+    instructores: INSTRUCTORES.map(instructorApi),
+    horaApertura: '08:00:00', horaCierre: '22:00:00', rol: 'PROPIETARIO',
+  }));
   await page.route('**/rest/v1/sesiones**', route => {
     const m = route.request().method();
     if (m === 'GET') return json(route, extra.sesiones ?? []);
@@ -132,7 +172,7 @@ test.describe('Momentos del calendario', () => {
     // Pregunta, y nombra a quién afecta y quién da ahora la clase. (El panel de
     // detalle de la clase también es role="dialog": se filtra por el título.)
     const dialogo = page.getByRole('dialog').filter({ hasText: '¿Aviso a' });
-    await expect(dialogo).toContainText('¿Aviso a las 2 alumnas?');
+    await expect(dialogo).toContainText('¿Aviso a las 2 clientas?');
     await expect(dialogo).toContainText('Laura');
 
     // Nada se ha mandado todavía.
@@ -171,7 +211,7 @@ test.describe('Momentos del calendario', () => {
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     const dialogo = page.getByRole('dialog').filter({ hasText: '¿Aviso a' });
-    await expect(dialogo).toContainText('¿Aviso a la alumna?');
+    await expect(dialogo).toContainText('¿Aviso a la clienta?');
     await dialogo.getByRole('button', { name: 'Sí, avisar' }).click();
 
     // El endpoint recibe el sesionId; las destinatarias las resuelve él, no el
@@ -180,7 +220,7 @@ test.describe('Momentos del calendario', () => {
     expect(JSON.parse(avisosInstructora[0])).toMatchObject({ sesionId: 'ses-1' });
 
     // El toast cuenta las 3 avisadas de verdad, no la 1 que el panel veía.
-    await expect(page.getByText('Avisadas 3 alumnas por email · 1 sin email guardado')).toBeVisible();
+    await expect(page.getByText('Avisadas 3 clientas por email · 1 sin email guardado')).toBeVisible();
   });
 
   test('cambiar solo la instructora pregunta aunque el panel no vea NINGUNA apuntada', async ({ page }) => {
@@ -208,12 +248,12 @@ test.describe('Momentos del calendario', () => {
 
     // El diálogo se abre igualmente, con texto genérico (no "las 0 alumnas").
     const dialogo = page.getByRole('dialog').filter({ hasText: '¿Aviso a' });
-    await expect(dialogo).toContainText('¿Aviso a las alumnas apuntadas?');
+    await expect(dialogo).toContainText('¿Aviso a las clientas apuntadas?');
     await dialogo.getByRole('button', { name: 'Sí, avisar' }).click();
 
     // Y el aviso sale de verdad: el servidor resolvió 1 destinataria real.
     await expect.poll(() => avisosInstructora.length, { timeout: 10_000 }).toBe(1);
-    await expect(page.getByText('Avisada 1 alumna por email')).toBeVisible();
+    await expect(page.getByText('Avisada 1 clienta por email')).toBeVisible();
   });
 
   test('mover la hora avisa aunque el panel no viera la reserva (bug del aplazamiento)', async ({ page }) => {
