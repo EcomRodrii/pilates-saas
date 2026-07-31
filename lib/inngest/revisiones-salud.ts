@@ -6,7 +6,7 @@
 // recorría las condiciones activas de TODOS los estudios en una sola invocación
 // acotada a maxDuration=300. Con el fan-out cada estudio es un job aislado —
 // hallazgo M-5 de la auditoría 2026-07-29.
-import { inngest, EVENTS } from '@/lib/inngest/client';
+import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { generarRecordatoriosRevision } from '@/lib/db/supabase-data-admin';
 
@@ -27,15 +27,7 @@ export const revisionesSaludDispatcher = inngest.createFunction(
       return data ?? [];
     });
 
-    if (studios.length > 0) {
-      await step.sendEvent(
-        'fan-out-revisiones-salud',
-        studios.map((s: { id: string }) => ({
-          name: EVENTS.REVISIONES_SALUD_ESTUDIO,
-          data: { studioId: s.id, nowISO },
-        })),
-      );
-    }
+    await enviarFanOutEnLotes(step, 'fan-out-revisiones-salud', EVENTS.REVISIONES_SALUD_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
     return { estudios: studios.length, nowISO };
   },
 );

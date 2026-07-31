@@ -1,7 +1,7 @@
 // Pipeline Inngest del Decision OS (DECISION-OS-ARQUITECTURA.md §6). Clona el
 // patrón dispatcher→fan-out→steps idempotentes de lib/inngest/automatizaciones.ts.
 // El cliente se importa desde './client' (mismo orden que ese archivo, nota OTel).
-import { inngest, EVENTS } from './client';
+import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -67,12 +67,7 @@ export const decisionDispatcher = inngest.createFunction(
       return conPlan.filter(s => !desactivados.has(s.id)).map(s => ({ id: s.id }));
     });
 
-    if (estudios.length > 0) {
-      await step.sendEvent('fan-out-estudios', estudios.map((e: { id: string }) => ({
-        name: EVENTS.DECISION_ANALYZE,
-        data: { studioId: e.id, disparadoPor: 'CRON' as const, nowISO },
-      })));
-    }
+    await enviarFanOutEnLotes(step, 'fan-out-estudios', EVENTS.DECISION_ANALYZE, estudios, (e: { id: string }) => ({ studioId: e.id, disparadoPor: 'CRON' as const, nowISO }));
 
     return { estudios: estudios.length, ejecutadoEn: nowISO };
   }

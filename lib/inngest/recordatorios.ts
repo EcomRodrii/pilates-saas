@@ -8,7 +8,7 @@
 // estudio lento (p.ej. muchas socias sin email, WhatsApp caído) retrasa el aviso
 // de los demás. Con el fan-out cada estudio es un job aislado con reintentos
 // propios y concurrencia acotada — hallazgo M-5 de la auditoría 2026-07-29.
-import { inngest, EVENTS } from '@/lib/inngest/client';
+import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enviarRecordatoriosClasesProximas } from '@/lib/db/supabase-data-admin';
 
@@ -34,15 +34,7 @@ export const recordatoriosDispatcher = inngest.createFunction(
       return data ?? [];
     });
 
-    if (studios.length > 0) {
-      await step.sendEvent(
-        'fan-out-recordatorios',
-        studios.map((s: { id: string }) => ({
-          name: EVENTS.RECORDATORIOS_ESTUDIO,
-          data: { studioId: s.id, desdeISO, hastaISO },
-        })),
-      );
-    }
+    await enviarFanOutEnLotes(step, 'fan-out-recordatorios', EVENTS.RECORDATORIOS_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, desdeISO, hastaISO }));
     return { estudios: studios.length, desdeISO, hastaISO };
   },
 );

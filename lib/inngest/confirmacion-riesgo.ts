@@ -14,7 +14,7 @@
 //    perdido en la bandeja se convertía en una cancelación real de alguien que
 //    sí pensaba venir — antes de rendirse, se vuelve a avisar (mismo principio
 //    que el motor de escalado de sustituciones).
-import { inngest, EVENTS } from './client';
+import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { construirSnapshot } from '@/lib/decision/snapshot';
 import { construirIndices, riesgoNoShowDeSocio } from '@/lib/decision/senales';
@@ -79,12 +79,7 @@ export const confirmacionRiesgoAskDispatcher = inngest.createFunction(
       if (error) throw new Error(error.message);
       return data ?? [];
     });
-    if (studios.length > 0) {
-      await step.sendEvent(
-        'fan-out-confirmacion-ask',
-        studios.map((s: { id: string }) => ({ name: EVENTS.CONFIRMACION_RIESGO_ASK_ESTUDIO, data: { studioId: s.id, nowISO } })),
-      );
-    }
+    await enviarFanOutEnLotes(step, 'fan-out-confirmacion-ask', EVENTS.CONFIRMACION_RIESGO_ASK_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
     return { estudios: studios.length, ejecutadoEn: nowISO };
   },
 );
@@ -185,12 +180,7 @@ export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
       if (error) throw new Error(error.message);
       return data ?? [];
     });
-    if (studios.length > 0) {
-      await step.sendEvent(
-        'fan-out-confirmacion-corte',
-        studios.map((s: { id: string }) => ({ name: EVENTS.CONFIRMACION_RIESGO_CORTE_ESTUDIO, data: { studioId: s.id, nowISO } })),
-      );
-    }
+    await enviarFanOutEnLotes(step, 'fan-out-confirmacion-corte', EVENTS.CONFIRMACION_RIESGO_CORTE_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
     return { estudios: studios.length, ejecutadoEn: nowISO };
   },
 );

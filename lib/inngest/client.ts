@@ -1,5 +1,27 @@
 import { Inngest } from 'inngest';
 
+// Auditoría CTO: los dispatchers cron (fan-out por estudio) mandaban TODOS los
+// eventos en una sola llamada a step.sendEvent. Con pocos estudios no se nota,
+// pero a la escala que se está preparando el producto (cientos de estudios) el
+// tamaño del array de eventos crecería sin límite en una única invocación —
+// Inngest recomienda no mandar lotes sin acotar. Trocear en lotes fijos
+// mantiene el comportamiento actual (mismos eventos, mismo destino) y escala
+// sin tocar nada más el día que haya 500 estudios en vez de 11.
+const TAMANO_LOTE_FAN_OUT = 500;
+
+export async function enviarFanOutEnLotes<T>(
+  step: { sendEvent: (id: string, events: { name: string; data: Record<string, unknown> }[]) => Promise<unknown> },
+  idBase: string,
+  name: string,
+  items: T[],
+  aEvento: (item: T) => Record<string, unknown>,
+): Promise<void> {
+  for (let i = 0; i < items.length; i += TAMANO_LOTE_FAN_OUT) {
+    const lote = items.slice(i, i + TAMANO_LOTE_FAN_OUT);
+    await step.sendEvent(`${idBase}-${i / TAMANO_LOTE_FAN_OUT}`, lote.map(item => ({ name, data: aEvento(item) })));
+  }
+}
+
 // Cliente Inngest — la cola de trabajos en segundo plano (P0-4/36). Las keys
 // (INNGEST_EVENT_KEY para enviar eventos, INNGEST_SIGNING_KEY para autenticar
 // las llamadas que Inngest hace a /api/inngest) se leen solas de esas env vars;
