@@ -4,7 +4,7 @@
 // tipos.ts) → cooldowns+conflictos (por entidad física, conflictos.ts) →
 // prioridad → director. Sin I/O: entra un snapshot, sale un resultado
 // completo listo para persistir (Fase B).
-import type { Candidata, MemoriaEstudio, Recomendacion, SnapshotEstudio } from './tipos.ts';
+import type { Candidata, EspecialistaId, MemoriaEstudio, Recomendacion, SnapshotEstudio } from './tipos.ts';
 import { ESPECIALISTAS } from './especialistas/contrato.ts';
 import { aplicarMemoria, detectarHechosPorRegla, detectarHechosPorFeedback, type NuevoHechoMemoria } from './memoria.ts';
 import { coordinarColisiones, construirResumenDiario, construirMientrasDormias } from './director.ts';
@@ -50,6 +50,11 @@ export interface EntradaAnalisis {
   nombrePropietario: string;
   ventanaMientrasDormiasDesde: Date; // p.ej. 21:00 del día anterior
   now: Date;
+  // P2-5: flags por especialista (dbGetFeatureFlags) — opt-out, no opt-in.
+  // Sin fila para un especialista, o sin este mapa, corre igual que siempre
+  // (default true): un estudio existente no pierde silenciosamente ninguna
+  // recomendación por no haber flags configurados todavía.
+  flagsEspecialistas?: Map<EspecialistaId, boolean>;
 }
 
 export interface ResultadoAnalisis {
@@ -66,14 +71,16 @@ export interface ResultadoAnalisis {
 }
 
 export function ejecutarAnalisis(input: EntradaAnalisis): ResultadoAnalisis {
-  const { snapshot, memoria, pendientesActuales, resueltas90d, nombrePropietario, ventanaMientrasDormiasDesde, now } = input;
+  const { snapshot, memoria, pendientesActuales, resueltas90d, nombrePropietario, ventanaMientrasDormiasDesde, now, flagsEspecialistas } = input;
 
-  // 2 · ESPECIALISTAS — cada uno construye sus propios índices de señales.
-  // Aislados con try/catch: antes, si UNO lanzaba, se perdía el análisis
-  // entero del día para el estudio (incluidas las candidatas de los otros
-  // especialistas, que sí habían funcionado bien). Un especialista roto no
-  // debe tumbar a los que están sanos.
-  const candidatasBrutas = ESPECIALISTAS.flatMap(e => {
+  // 2 · ESPECIALISTAS — filtro por flag (opt-out) antes de correr nada, y
+  // cada uno construye sus propios índices de señales. Aislados con
+  // try/catch: antes, si UNO lanzaba, se perdía el análisis entero del día
+  // para el estudio (incluidas las candidatas de los otros especialistas,
+  // que sí habían funcionado bien). Un especialista roto no debe tumbar a
+  // los que están sanos.
+  const especialistasActivos = ESPECIALISTAS.filter(e => flagsEspecialistas?.get(e.id) !== false);
+  const candidatasBrutas = especialistasActivos.flatMap(e => {
     try {
       return e.detectar(snapshot, memoria, now);
     } catch (err) {

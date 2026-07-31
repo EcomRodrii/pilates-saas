@@ -23,10 +23,10 @@ import {
   dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
   dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
-  dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy,
+  dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy, dbListFeatureFlagRows,
 } from '@/lib/decision/db';
 import { seleccionarAutonomas } from '@/lib/decision/autonomia';
-import type { Recomendacion } from '@/lib/decision/tipos';
+import type { Recomendacion, EspecialistaId } from '@/lib/decision/tipos';
 import type { CandidataPriorizada } from '@/lib/decision/prioridad';
 
 const MS_DIA = 86400000;
@@ -92,22 +92,31 @@ export const analizarEstudio = inngest.createFunction(
       dbInsertDecisionSession({ studioId, disparadoPor, algorithmVersion: ALGORITHM_VERSION, iniciadoEn: nowISO })
     );
 
-    const [snapshot, memoriaRows, pendientesActuales, resueltas90d, { nombrePropietario, nombreEstudio }] = await Promise.all([
+    const [snapshot, memoriaRows, pendientesActuales, resueltas90d, { nombrePropietario, nombreEstudio }, flagsRows] = await Promise.all([
       step.run('snapshot', () => construirSnapshot(studioId, now)),
       step.run('memoria', () => dbListMemoriaRows(studioId)),
       step.run('pendientes', () => dbListPendientes(studioId)),
       step.run('resueltas', () => dbListResueltas90d(studioId, now)),
       step.run('propietario', () => nombrePropietarioDe(studioId)),
+      step.run('flags', () => dbListFeatureFlagRows(studioId)),
     ]);
     // Se reconstruye FUERA del step: un Map no sobrevive la serialización a
-    // JSON que Inngest hace entre steps (ver lib/decision/db.ts).
+    // JSON que Inngest hace entre steps (ver lib/decision/db.ts) — igual que
+    // memoria, flagsRows llega como array de filas tras el replay.
     const memoria = construirMapaMemoria(memoriaRows);
+    // DECISIONES es el kill-switch de estudio entero (ya filtrado antes de
+    // llegar aquí, ver decisionDispatcher) — el motor solo necesita los
+    // flags POR ESPECIALISTA.
+    const flagsEspecialistas = new Map(
+      flagsRows.filter(f => f.flag !== 'DECISIONES').map(f => [f.flag as EspecialistaId, f.activo]),
+    );
 
     // Puro y determinista: se recomputa igual en cada replay del handler.
     const resultado = ejecutarAnalisis({
       snapshot, memoria, pendientesActuales, resueltas90d, nombrePropietario,
       ventanaMientrasDormiasDesde: new Date(now.getTime() - 17 * 3600000), // ~21:00 del día anterior
       now,
+      flagsEspecialistas,
     });
 
     // Candidatas → Recomendacion con id + contexto de sesión (ID de negocio,
