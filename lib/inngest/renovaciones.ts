@@ -13,7 +13,7 @@
 //
 // A las 08:00 UTC: antes del dunning (08:30) y fuera de las horas del resto de
 // crons (07:00 automatizaciones, 06:30/14:30 Decision OS).
-import { inngest, EVENTS } from '@/lib/inngest/client';
+import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 export const renovacionesDispatcher = inngest.createFunction(
@@ -33,15 +33,7 @@ export const renovacionesDispatcher = inngest.createFunction(
       return data ?? [];
     });
 
-    if (studios.length > 0) {
-      await step.sendEvent(
-        'fan-out-renovaciones',
-        studios.map((s: { id: string }) => ({
-          name: EVENTS.RENOVACIONES_ESTUDIO,
-          data: { studioId: s.id, nowISO },
-        })),
-      );
-    }
+    await enviarFanOutEnLotes(step, 'fan-out-renovaciones', EVENTS.RENOVACIONES_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
 
     return { estudios: studios.length, ejecutadoEn: nowISO };
   },

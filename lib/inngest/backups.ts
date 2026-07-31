@@ -9,7 +9,7 @@
 // A cientos de estudios el barrido se pasaba del límite y moría a medias, y el
 // fallo o la lentitud de un estudio arrastraba a los demás. Con el fan-out cada
 // estudio es un job aislado con reintentos propios y concurrencia acotada.
-import { inngest, EVENTS } from '@/lib/inngest/client';
+import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { guardarBackup, podarBackupsAntiguos, type TipoBackup } from '@/lib/engines/backup-engine';
 
@@ -41,15 +41,7 @@ export const backupsDispatcher = inngest.createFunction(
       return data ?? [];
     });
 
-    if (studios.length > 0) {
-      await step.sendEvent(
-        'fan-out-backups',
-        studios.map((s: { id: string }) => ({
-          name: EVENTS.BACKUPS_ESTUDIO,
-          data: { studioId: s.id, tipos },
-        })),
-      );
-    }
+    await enviarFanOutEnLotes(step, 'fan-out-backups', EVENTS.BACKUPS_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, tipos }));
     return { estudios: studios.length, tipos, ejecutadoEn: nowISO };
   },
 );

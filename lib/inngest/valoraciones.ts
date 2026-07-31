@@ -3,7 +3,7 @@
 // estudio → un step.run por clase). Idempotente: `sesiones.valoracion_pedida_en`
 // se fija con compare-and-set ANTES de enviar, así una clase solo dispara una vez
 // aunque el barrido se solape o reintente.
-import { inngest, EVENTS } from '@/lib/inngest/client';
+import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { firmarTokenValoracion } from '@/lib/valoraciones/token';
 import { enviarEmailPedirValoracion } from '@/lib/valoraciones/email';
@@ -36,15 +36,7 @@ export const valoracionesDispatcher = inngest.createFunction(
       return data ?? [];
     });
 
-    if (studios.length > 0) {
-      await step.sendEvent(
-        'fan-out-valoraciones',
-        studios.map((s: { id: string }) => ({
-          name: EVENTS.VALORACIONES_ESTUDIO,
-          data: { studioId: s.id, nowISO },
-        })),
-      );
-    }
+    await enviarFanOutEnLotes(step, 'fan-out-valoraciones', EVENTS.VALORACIONES_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
     return { estudios: studios.length, ejecutadoEn: nowISO };
   },
 );

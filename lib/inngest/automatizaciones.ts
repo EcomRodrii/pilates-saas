@@ -1,4 +1,4 @@
-import { inngest, EVENTS } from './client';
+import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -340,15 +340,11 @@ export const automatizacionesDispatcher = inngest.createFunction(
       return data ?? [];
     });
 
-    if (studios.length > 0) {
-      await step.sendEvent(
-        'fan-out-estudios',
-        studios.map((s: { id: string; nombre: string; color_primario: string | null; logo_url: string | null }) => ({
-          name: EVENTS.AUTOMATIZACIONES_ESTUDIO,
-          data: { studioId: s.id, studioNombre: s.nombre, studioColor: s.color_primario, studioLogo: s.logo_url, nowISO, dry: false },
-        }))
-      );
-    }
+    await enviarFanOutEnLotes(
+      step, 'fan-out-estudios', EVENTS.AUTOMATIZACIONES_ESTUDIO, studios,
+      (s: { id: string; nombre: string; color_primario: string | null; logo_url: string | null }) =>
+        ({ studioId: s.id, studioNombre: s.nombre, studioColor: s.color_primario, studioLogo: s.logo_url, nowISO, dry: false }),
+    );
 
     return { estudios: studios.length, ejecutadoEn: nowISO };
   }

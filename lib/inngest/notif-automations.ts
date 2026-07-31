@@ -6,7 +6,7 @@
 // destinatarios/canales). La idempotencia la garantiza el `dedup_key` del motor:
 // aunque el cron re-escanee, cada hecho genera una sola notificación.
 // ─────────────────────────────────────────────────────────────────────────────
-import { inngest, EVENTS } from './client';
+import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
@@ -22,15 +22,12 @@ async function estudiosIds(): Promise<string[]> {
   const { data } = await admin.from('studios').select('id').is('suspendido_en', null);
   return (data ?? []).map((s) => s.id as string);
 }
-const fanOutPayload = (studios: string[], tipo: TipoAutomacion) =>
-  studios.map((studioId) => ({ name: EVENTS.NOTIF_AUTOMACION_ESTUDIO, data: { studioId, tipo } }));
-
 // Recordatorios (24 h y 1 h antes): cada 15 min.
 export const notifRecordatoriosDispatcher = inngest.createFunction(
   { id: 'notif-recordatorios-dispatcher', triggers: [{ cron: '*/15 * * * *' }] },
   async ({ step }) => {
     const studios = await step.run('studios', estudiosIds);
-    if (studios.length) await step.sendEvent('fan-out', fanOutPayload(studios, 'recordatorios'));
+    await enviarFanOutEnLotes(step, 'fan-out', EVENTS.NOTIF_AUTOMACION_ESTUDIO, studios, (studioId: string) => ({ studioId, tipo: 'recordatorios' as TipoAutomacion }));
     return { studios: studios.length };
   },
 );
@@ -39,7 +36,7 @@ export const notifBonosDispatcher = inngest.createFunction(
   { id: 'notif-bonos-dispatcher', triggers: [{ cron: '0 9 * * *' }] },
   async ({ step }) => {
     const studios = await step.run('studios', estudiosIds);
-    if (studios.length) await step.sendEvent('fan-out', fanOutPayload(studios, 'bonos'));
+    await enviarFanOutEnLotes(step, 'fan-out', EVENTS.NOTIF_AUTOMACION_ESTUDIO, studios, (studioId: string) => ({ studioId, tipo: 'bonos' as TipoAutomacion }));
     return { studios: studios.length };
   },
 );
@@ -48,7 +45,7 @@ export const notifInactivasDispatcher = inngest.createFunction(
   { id: 'notif-inactivas-dispatcher', triggers: [{ cron: '0 10 * * 1' }] },
   async ({ step }) => {
     const studios = await step.run('studios', estudiosIds);
-    if (studios.length) await step.sendEvent('fan-out', fanOutPayload(studios, 'inactivas'));
+    await enviarFanOutEnLotes(step, 'fan-out', EVENTS.NOTIF_AUTOMACION_ESTUDIO, studios, (studioId: string) => ({ studioId, tipo: 'inactivas' as TipoAutomacion }));
     return { studios: studios.length };
   },
 );
