@@ -123,6 +123,12 @@ export async function POST(req: NextRequest) {
       direccion,
       activo: true,
       tags,
+      // P2-5: sin esto, CAPTACION (lib/decision/especialistas/captacion.ts)
+      // no tiene forma de saber que esta alta viene con historial real —
+      // leadStage nulo la trata como si acabara de entrar por el embudo de
+      // leads. Una migración desde otra plataforma trae socias ya
+      // establecidas, no leads nuevos.
+      lead_stage: 'ACTIVA',
     });
   });
 
