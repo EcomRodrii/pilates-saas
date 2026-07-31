@@ -3560,6 +3560,9 @@ export interface SedeSeleccionable {
   nombre: string;
   slug: string | null;
   ciudad: string | null;
+  // P2-14: rol EFECTIVO en esa sede concreta — puede ser PROPIETARIO en una
+  // y MANAGER/INSTRUCTOR en otra, no es un dato global de la persona.
+  rol: string | null;
 }
 
 // Lista las sedes que el usuario autenticado puede operar (dueño o
