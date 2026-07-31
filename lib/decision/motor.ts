@@ -1,12 +1,14 @@
 // Decision Engine — orquestador puro (DECISION-OS-NUCLEO.md §0):
 // señales (dentro de cada especialista) → especialistas → memoria →
-// coordinación → confianza (ya resuelta al emitir, ver nota en tipos.ts) →
-// cooldowns+prioridad → director. Sin I/O: entra un snapshot, sale un
-// resultado completo listo para persistir (Fase B).
+// coordinación (por socia) → confianza (ya resuelta al emitir, ver nota en
+// tipos.ts) → cooldowns+conflictos (por entidad física, conflictos.ts) →
+// prioridad → director. Sin I/O: entra un snapshot, sale un resultado
+// completo listo para persistir (Fase B).
 import type { Candidata, MemoriaEstudio, Recomendacion, SnapshotEstudio } from './tipos.ts';
 import { ESPECIALISTAS } from './especialistas/contrato.ts';
 import { aplicarMemoria, detectarHechosPorRegla, detectarHechosPorFeedback, type NuevoHechoMemoria } from './memoria.ts';
 import { coordinarColisiones, construirResumenDiario, construirMientrasDormias } from './director.ts';
+import { detectarConflictos } from './conflictos.ts';
 import { priorizar, seleccionarPrioridadesHome, enCooldown, type CandidataPriorizada } from './prioridad.ts';
 import { construirIndices } from './senales.ts';
 
@@ -100,7 +102,12 @@ export function ejecutarAnalisis(input: EntradaAnalisis): ResultadoAnalisis {
   // cooldown primero, la colisión se resuelve solo entre candidatas mostrables.
   const fueraCooldown = postMemoria.filter(c => !enCooldown(c, resueltas90d, now));
   const coordinadasVisibles = coordinarColisiones(fueraCooldown);
-  const puntuadas = priorizar(coordinadasVisibles, resueltas90d, now);
+  // 6b · CONFLICTOS — dos especialistas pueden tener razón cada uno por su
+  // lado y aun así proponer acciones incompatibles sobre la misma entidad
+  // física (sala/instructora/tipo de clase). No elige por la propietaria:
+  // anota el choque, deja las dos candidatas visibles (ver conflictos.ts).
+  const sinConflictosOcultos = detectarConflictos(coordinadasVisibles);
+  const puntuadas = priorizar(sinConflictosOcultos, resueltas90d, now);
   const prioridadesHome = seleccionarPrioridadesHome(puntuadas);
 
   // 8 · DIRECTOR.

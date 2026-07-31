@@ -71,6 +71,13 @@ export interface Candidata {
   socioId?: string;
   sesionId?: string;
   reciboId?: string;
+  // Entidad física a la que apunta la recomendación, cuando aplica — permite
+  // que `detectarConflictos` (conflictos.ts) sepa que dos candidatas de
+  // especialistas distintos hablan de la MISMA sala/instructora/tipo de
+  // clase, aunque no compartan socioId (coordinarColisiones no lo detecta).
+  instructorId?: string;
+  tipoClaseId?: string;
+  salaId?: string;
   tiempoEstimadoMin: number;
   expiraEnDias: number;
   urgencia: number; // 0..1

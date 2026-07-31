@@ -51,6 +51,7 @@ export const equipo: Especialista = {
         riesgo: 'OPORTUNIDAD',
         confianza,
         accion: { tipo: 'MARCAR_GESTIONADO' },
+        instructorId: ins.id,
         tiempoEstimadoMin: 5,
         expiraEnDias: 14,
         urgencia: 0.5,
