@@ -47,8 +47,13 @@ export async function guardarDisponibilidad(
     };
   });
 
+  // P2-14: filtra también por studio_id — defensa en profundidad. Con el
+  // UNIQUE(auth_user_id, studio_id) de `instructores`, un `instructorId` ya
+  // identifica unívocamente sede+persona, pero si algún día una fila queda
+  // huérfana de sede por un bug de datos, este filtro evita que el borrado
+  // se salga de su sede y arrastre la disponibilidad de otra.
   const del = await admin
-    .from('instructora_disponibilidad').delete().eq('instructor_id', p.instructorId);
+    .from('instructora_disponibilidad').delete().eq('instructor_id', p.instructorId).eq('studio_id', p.studioId);
   if (del.error) return { ok: false, error: 'No se ha podido guardar tu disponibilidad. Vuelve a intentarlo en unos segundos.' };
 
   if (filas.length > 0) {
