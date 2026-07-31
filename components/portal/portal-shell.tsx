@@ -20,6 +20,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Home, CalendarDays, Ticket, Video, User } from 'lucide-react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { portalThemeStyle } from '@/lib/portal-theme';
@@ -29,11 +30,11 @@ import { EASE, dur, sans, texto, radio, altura, sombra, cristal, desenfoque } fr
 import { PushPrompt } from './push-prompt';
 
 const ALL_NAV = [
-  { seg: 'home', label: 'Inicio' },
-  { seg: 'clases', label: 'Clases' },
-  { seg: 'bonos', label: 'Bonos' },
-  { seg: 'videos', label: 'Vídeos' },
-  { seg: 'perfil', label: 'Perfil' },
+  { seg: 'home', label: 'Inicio', Icon: Home },
+  { seg: 'clases', label: 'Clases', Icon: CalendarDays },
+  { seg: 'bonos', label: 'Bonos', Icon: Ticket },
+  { seg: 'videos', label: 'Vídeos', Icon: Video },
+  { seg: 'perfil', label: 'Perfil', Icon: User },
 ];
 
 // VOD congelado (feature-freeze PMF, independiente del flag de marketing): sin
@@ -43,7 +44,7 @@ const NAV = PORTAL_VIDEOS_CONGELADO ? ALL_NAV.filter((n) => n.seg !== 'videos') 
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { studio, dataLoaded } = useStudio();
+  const { studio, dataLoaded, tabBarStyle } = useStudio();
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams<{ slug: string }>();
@@ -164,42 +165,76 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             display: 'flex', alignItems: 'center', padding: 6,
           }}
         >
-          {/* La pastilla. Se mueve solo con `transform` — nunca con `left`, que
-              obliga a recalcular disposición en cada frame y en Safari de iOS se
-              nota. El ancho sale del número de secciones, así que si vuelve
-              "Vídeos" no hay que tocar nada. */}
-          {activeIndex >= 0 && (
-            <span
-              aria-hidden
-              style={{
-                position: 'absolute', left: 6, top: 6, bottom: 6,
-                width: `calc((100% - 12px) / ${NAV.length})`,
-                borderRadius: radio.pastilla, background: noche ? t.surface2 : '#FFFFFF',
-                boxShadow: sombra.pastilla, pointerEvents: 'none',
-                transform: `translateX(${activeIndex * 100}%)`,
-                transition: `transform ${dur.tab}ms ${EASE}`,
-                willChange: 'transform',
-              }}
-            />
-          )}
+          {tabBarStyle === 'pestanaActiva' ? (
+            // Tema "Editorial": sin pastilla deslizante de fondo — cada
+            // pestaña lleva su propio icono siempre, y solo la activa se
+            // ensancha (flex-grow animado) y muestra su nombre junto al
+            // icono. Icono nuevo en esta barra a propósito — la decisión
+            // "sin iconos" (comentario de arriba) sigue siendo el
+            // comportamiento por defecto ('clasica'); esto es una variante
+            // dentro de un tema opt-in, no un cambio de ese default.
+            NAV.map(({ seg, label, Icon }, i) => {
+              const active = i === activeIndex;
+              return (
+                <Link
+                  key={seg}
+                  href={`/portal/${slug}/${seg}`}
+                  aria-current={active ? 'page' : undefined}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    flex: active ? '2.4 1 0%' : '1 1 0%',
+                    height: altura.tabbar - 12, borderRadius: radio.pastilla,
+                    background: active ? (noche ? t.surface2 : '#FFFFFF') : 'transparent',
+                    boxShadow: active ? sombra.pastilla : 'none',
+                    color: active ? t.ink : t.muted, textDecoration: 'none', overflow: 'hidden',
+                    transition: `flex-grow ${dur.tab}ms ${EASE}, background ${dur.tab}ms ${EASE}, color 350ms ease`,
+                  }}
+                >
+                  <Icon size={18} strokeWidth={active ? 2.25 : 2} style={{ flexShrink: 0 }} />
+                  {active && <span style={{ ...texto.tab, whiteSpace: 'nowrap' }}>{label}</span>}
+                </Link>
+              );
+            })
+          ) : (
+            <>
+              {/* La pastilla. Se mueve solo con `transform` — nunca con `left`, que
+                  obliga a recalcular disposición en cada frame y en Safari de iOS se
+                  nota. El ancho sale del número de secciones, así que si vuelve
+                  "Vídeos" no hay que tocar nada. */}
+              {activeIndex >= 0 && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute', left: 6, top: 6, bottom: 6,
+                    width: `calc((100% - 12px) / ${NAV.length})`,
+                    borderRadius: radio.pastilla, background: noche ? t.surface2 : '#FFFFFF',
+                    boxShadow: sombra.pastilla, pointerEvents: 'none',
+                    transform: `translateX(${activeIndex * 100}%)`,
+                    transition: `transform ${dur.tab}ms ${EASE}`,
+                    willChange: 'transform',
+                  }}
+                />
+              )}
 
-          {NAV.map(({ seg, label }, i) => {
-            const active = i === activeIndex;
-            return (
-              <Link
-                key={seg}
-                href={`/portal/${slug}/${seg}`}
-                aria-current={active ? 'page' : undefined}
-                style={{
-                  position: 'relative', flex: 1, textAlign: 'center', ...texto.tab,
-                  color: active ? t.ink : t.muted, textDecoration: 'none',
-                  transition: 'color 350ms ease',
-                }}
-              >
-                {label}
-              </Link>
-            );
-          })}
+              {NAV.map(({ seg, label }, i) => {
+                const active = i === activeIndex;
+                return (
+                  <Link
+                    key={seg}
+                    href={`/portal/${slug}/${seg}`}
+                    aria-current={active ? 'page' : undefined}
+                    style={{
+                      position: 'relative', flex: 1, textAlign: 'center', ...texto.tab,
+                      color: active ? t.ink : t.muted, textDecoration: 'none',
+                      transition: 'color 350ms ease',
+                    }}
+                  >
+                    {label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
       </div>
     </div>
