@@ -24,6 +24,7 @@ import { esCancelacionTardia } from '@/lib/booking-logic';
 import { useModo } from '@/lib/portal-modo';
 import { HojaReserva, type ClaseParaReservar } from '@/components/portal/hoja-reserva';
 import { HojaPase } from '@/components/portal/hoja-pase';
+import { BottomSheet, Button } from '@/components/portal/ui';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
 import { EASE, dur, transicion, display, micro, texto, radio, sombra } from '@/lib/portal-design';
 import type { Reserva, Spot } from '@/lib/types';
@@ -74,6 +75,7 @@ export default function ClasesPage() {
   // con un efecto que llama a setTipoElegido) evita un render en cascada.
   const tipoEfectivo = tipoElegido === FAVORITAS && idsFavoritos.size === 0 ? null : tipoElegido;
   const [reservando, setReservando] = useState<ClaseParaReservar | null>(null);
+  const [cancelando, setCancelando] = useState<{ sesion: { inicio: string; tipoClaseId: string }; mia: Reserva | null } | null>(null);
   const [paseAbierto, setPaseAbierto] = useState<{ nombre: string; sub: string } | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
@@ -203,17 +205,20 @@ export default function ClasesPage() {
       : 'Reservada. Te esperamos.');
   }
 
+  // Antes: si la cancelación era tardía, `window.confirm()` nativo (sin marca,
+  // podía comportarse raro en un PWA instalado); si no era tardía, cancelaba
+  // DIRECTO sin preguntar nada — un toque accidental con el pulgar perdía la
+  // plaza sin poder deshacerlo. Ahora siempre confirma, con el mismo
+  // BottomSheet que el resto del portal (/reservas, detalle de clase).
   function cancelar(c: { sesion: { inicio: string; tipoClaseId: string }; mia: Reserva | null }) {
     if (!c.mia) return;
+    setCancelando(c);
+  }
+
+  function tardiaDe(c: { sesion: { inicio: string; tipoClaseId: string } }): { tardia: boolean; ventana: number } {
     const ventana = tiposClase.find(tc => tc.id === c.sesion.tipoClaseId)?.ventanaCancelacionHoras
       ?? studio?.cancelacionVentanaHoras ?? 0;
-    // Se avisa ANTES, no después: cancelar tarde puede costarle la sesión del
-    // bono, y enterarse al terminar es la peor forma de descubrirlo.
-    if (esCancelacionTardia(c.sesion.inicio, new Date(), ventana)
-        && !window.confirm(`Quedan menos de ${ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión. ¿Cancelas igualmente?`)) return;
-    void cancelarReserva(c.mia.id).then(r => {
-      setAviso(r.ok ? 'Reserva cancelada.' : r.error);
-    });
+    return { tardia: esCancelacionTardia(c.sesion.inicio, new Date(), ventana), ventana };
   }
 
   const circulo: React.CSSProperties = {
@@ -484,6 +489,37 @@ export default function ClasesPage() {
       )}
 
       <HojaReserva key={reservando?.id ?? 'ninguna'} clase={reservando} onClose={() => setReservando(null)} onConfirmar={confirmar} />
+
+      <BottomSheet open={!!cancelando} onClose={() => setCancelando(null)}>
+        {cancelando && (() => {
+          const { tardia, ventana } = tardiaDe(cancelando);
+          return (
+            <>
+              <h2 style={{ ...display(18), color: t.ink }}>¿Cancelar esta clase?</h2>
+              <p style={{ ...texto.pie, color: t.muted }}>
+                {tardia
+                  ? `Quedan menos de ${ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión.`
+                  : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant="secondary" onClick={() => setCancelando(null)} style={{ flex: 1 }}>Volver</Button>
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    const mia = cancelando.mia;
+                    setCancelando(null);
+                    if (!mia) return;
+                    void cancelarReserva(mia.id).then(r => setAviso(r.ok ? 'Reserva cancelada.' : r.error));
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  Sí, cancelar
+                </Button>
+              </div>
+            </>
+          );
+        })()}
+      </BottomSheet>
       <HojaPase
         abierta={paseAbierto != null}
         onClose={() => setPaseAbierto(null)}

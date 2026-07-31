@@ -2001,6 +2001,30 @@ export default function Calendario() {
     }
   }
 
+  // Mover una clase de hora o de sala se avisa SIEMPRE (no se pregunta, a
+  // diferencia del cambio de instructora) — por email, no solo push: antes
+  // `avisarClaseModificada` solo mandaba el evento in-app (canal PUSH en el
+  // catálogo), y una socia sin cuenta de portal reclamada nunca se enteraba de
+  // que su clase cambió de horario, justo el cambio más disruptivo.
+  async function avisarCambioHorarioSala(
+    sesionId: string,
+    datos: { clase: string; d: Date; sala: string; instructor: string; instructorAnterior?: string },
+    opts: { cambioHora: boolean; cambioSala: boolean },
+  ) {
+    const apuntadas = reservas
+      .filter(r => r.sesionId === sesionId && r.estado === 'CONFIRMADA')
+      .map(r => socios.find(s => s.id === r.socioId))
+      .filter(s => !!s);
+    const conEmail = apuntadas.filter(s => !!s.email);
+
+    await Promise.all(conEmail.map(s => enviarEmailCambioClase({
+      to: s.email!, toName: s.nombre,
+      claseNombre: datos.clase, fecha: fechaLargaEstudio(datos.d), hora: horaEstudio(datos.d),
+      sala: datos.sala, instructor: datos.instructor, instructorAnterior: datos.instructorAnterior,
+      cambioHora: opts.cambioHora, cambioSala: opts.cambioSala,
+    })));
+  }
+
   async function editarSesion() {
     // Guard anti doble-guardado: el botón se apoya en `guardandoSesion` pero
     // esta función nunca lo activaba → doble clic reescribía dos veces y
@@ -2063,6 +2087,15 @@ export default function Calendario() {
         });
       } else {
         void avisarClaseModificada(sesionId, datos);
+        void avisarCambioHorarioSala(
+          sesionId,
+          {
+            clase, d, sala,
+            instructor: instructores.find(x => x.id === form.instructorId)?.nombre ?? nombreInstructor(sesionActual.instructorId),
+            instructorAnterior: cambioInstructora ? nombreInstructor(sesionActual.instructorId) : undefined,
+          },
+          { cambioHora, cambioSala },
+        );
       }
     }
     setShowForm(null);

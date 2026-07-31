@@ -1149,6 +1149,7 @@ export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente
 // dice a la dueña a cuántas ha avisado de verdad.
 export async function enviarEmailCambioClase(params: DatosClaseEmailCliente & {
   to: string; toName: string; instructorAnterior?: string;
+  cambioHora?: boolean; cambioSala?: boolean;
 }): Promise<boolean> {
   try {
     const res = await fetch('/api/emails/send', {
@@ -1162,6 +1163,7 @@ export async function enviarEmailCambioClase(params: DatosClaseEmailCliente & {
           claseNombre: params.claseNombre, fecha: params.fecha, hora: params.hora,
           sala: params.sala, instructor: params.instructor,
           instructorAnterior: params.instructorAnterior,
+          cambioHora: params.cambioHora, cambioSala: params.cambioSala,
         },
       }),
     });

@@ -1,0 +1,17 @@
+-- La migración anterior (20260731150000_socios_email_unico_por_estudio)
+-- creaba `socios_studio_email_unico` SIN excluir a las socias con baja lógica
+-- (borrado_en) — y, sin que su autor lo supiera, otra migración ya en
+-- producción (20260730231442_socios_email_unico_por_estudio, de otra sesión
+-- en paralelo) había resuelto lo mismo correctamente con
+-- `uq_socios_studio_email ... WHERE email IS NOT NULL AND borrado_en IS NULL`.
+--
+-- Con las dos a la vez, dar de baja a una socia y luego apuntar a una
+-- persona NUEVA con ese mismo email (algo que ya pasa: /clientas > eliminar,
+-- luego un alta nueva o una socia que vuelve a apuntarse) fallaba con
+-- "duplicate key value violates unique constraint socios_studio_email_unico"
+-- — el índice bueno no lo habría bloqueado, este sí. Verificado en vivo con
+-- INSERT + ROLLBACK antes de aplicar este fix.
+--
+-- Se borra el índice redundante y roto; el correcto (uq_socios_studio_email)
+-- ya existe y se queda tal cual.
+drop index if exists public.socios_studio_email_unico;
