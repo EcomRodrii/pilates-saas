@@ -41,6 +41,11 @@ export interface CierreSellado { totalFacturas: number; selladas: number; }
 
 export interface CierreAnual {
   anio: number;
+  // null = año completo. Con `trimestre` en el input, todo lo demás (totales,
+  // porIva, candidatos347, sellado, lineas) queda acotado a esos 3 meses —
+  // `trimestres`/`meses` siguen mostrando los 4/12 completos como referencia,
+  // con 0 en los que quedan fuera.
+  trimestre: 1 | 2 | 3 | 4 | null;
   totales: CierreTotales;
   trimestres: CierreTrimestre[];  // siempre 4 (T1..T4)
   porIva: CierrePorIva[];         // ordenado por tipo desc
@@ -86,15 +91,24 @@ export function computeCierreAnual(input: {
   facturas: Factura[];
   ingresosManuales: IngresoManual[];
   anio: number;
+  // Modelo 303 de IVA: obligatorio TRIMESTRAL, no solo anual — una gestoría
+  // real no puede esperar al cierre de año para presentarlo. Con esto se
+  // acota el mismo motor a solo esos 3 meses, sin duplicar lógica.
+  trimestre?: 1 | 2 | 3 | 4;
 }): CierreAnual {
-  const { facturas, ingresosManuales, anio } = input;
+  const { facturas, ingresosManuales, anio, trimestre = null } = input;
   const yr = String(anio);
 
   const lineas = [
     ...facturas.map(facturaALinea),
     ...ingresosManuales.map(manualALinea),
   ]
-    .filter((l) => l.fecha.slice(0, 4) === yr)
+    .filter((l) => {
+      if (l.fecha.slice(0, 4) !== yr) return false;
+      if (trimestre == null) return true;
+      const mes = Number(l.fecha.slice(5, 7));
+      return Math.ceil(mes / 3) === trimestre;
+    })
     .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0));
 
   const totales: CierreTotales = { base: 0, cuota: 0, total: 0, numFacturas: 0, numManuales: 0 };
@@ -142,7 +156,7 @@ export function computeCierreAnual(input: {
     .map((c) => ({ ...c, total: round2(c.total) }))
     .sort((a, b) => b.total - a.total);
 
-  return { anio, totales, trimestres, porIva, meses, candidatos347, sellado, lineas };
+  return { anio, trimestre, totales, trimestres, porIva, meses, candidatos347, sellado, lineas };
 }
 
 // Mapea una fila de `facturas` a Factura. Existe aquí (además del mapper interno

@@ -28,9 +28,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Solo la propietaria puede enviar el cierre a la gestoría' }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as { anio?: unknown; email?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { anio?: unknown; email?: unknown; trimestre?: unknown } | null;
   const anio = Number(body?.anio);
   const email = typeof body?.email === 'string' ? body.email.trim() : '';
+  // Modelo 303 de IVA: obligatorio TRIMESTRAL, no solo anual — una gestoría no
+  // puede esperar al cierre de año para presentarlo. `trimestre` es opcional
+  // (ausente = año completo, como antes).
+  const trimestreNum = body?.trimestre == null ? null : Number(body.trimestre);
+  if (trimestreNum != null && ![1, 2, 3, 4].includes(trimestreNum)) {
+    return NextResponse.json({ error: 'Trimestre no válido' }, { status: 400 });
+  }
+  const trimestre = trimestreNum as 1 | 2 | 3 | 4 | null;
   if (!Number.isInteger(anio) || anio < 2000) return NextResponse.json({ error: 'Año no válido' }, { status: 400 });
   if (!EMAIL_RE.test(email)) return NextResponse.json({ error: 'Introduce un email de gestoría válido' }, { status: 400 });
 
@@ -70,10 +78,11 @@ export async function POST(req: NextRequest) {
 
   const facturas = (facRes.data ?? []).map((r) => mapFacturaRow(r as RowFacturas));
   const ingresosManuales = (manRes.data ?? []).map((r) => mapIngresoManual(r as RowIngresosManuales));
-  const cierre = computeCierreAnual({ facturas, ingresosManuales, anio });
+  const cierre = computeCierreAnual({ facturas, ingresosManuales, anio, ...(trimestre != null ? { trimestre } : {}) });
 
   if (cierre.totales.numFacturas + cierre.totales.numManuales === 0) {
-    return NextResponse.json({ error: `No hay ingresos registrados en ${anio} para enviar.` }, { status: 400 });
+    const periodo = trimestre ? `el T${trimestre} de ${anio}` : anio;
+    return NextResponse.json({ error: `No hay ingresos registrados en ${periodo} para enviar.` }, { status: 400 });
   }
 
   const studio = studioRes.data as { nombre: string | null; email: string | null; color_primario: string | null; logo_url: string | null } | null;
@@ -85,6 +94,7 @@ export async function POST(req: NextRequest) {
     logoUrl: studio?.logo_url,
     colorPrimario: studio?.color_primario,
     anio,
+    trimestre,
     cierre,
   });
 
