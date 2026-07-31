@@ -7,7 +7,7 @@ import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
 import type {
   AccionDecision, Confianza, DecisionFeatureFlag, DecisionFlag, DecisionSession, EspecialistaId,
-  EstadoRecomendacion, HechoMemoria, Impacto, ItemMientrasDormias, MemoriaEstudio, Outcome,
+  EstadoRecomendacion, HechoMemoria, Impacto, ItemMientrasDormias, MemoriaEstudio, MensajeDia, Outcome,
   Prioridad, Recomendacion, ResumenDiario, Riesgo, TipoRecomendacion,
 } from './tipos.ts';
 import type { NuevoHechoMemoria } from './memoria.ts';
@@ -183,6 +183,22 @@ export async function dbTransicionarRecomendacion(
   return { ok: true };
 }
 
+/**
+ * "Recuérdamelo": la recomendación se queda PENDIENTE (no es una transición
+ * de estado, solo se aplaza su vencimiento) — el Umbral ya no la repetirá en
+ * los próximos días por la puerta de novedad (queda en `decision_mensajes_dia`
+ * de hoy), y con `expira_en` empujada no caduca sola mientras tanto.
+ */
+export async function dbPosponerRecomendacion(id: string, studioId: string, nuevaExpiraEn: string): Promise<{ ok: boolean }> {
+  const { data, error } = await db()
+    .from('recomendaciones')
+    .update({ expira_en: nuevaExpiraEn })
+    .eq('id', id).eq('studio_id', studioId).eq('estado', 'PENDIENTE')
+    .select('id').maybeSingle();
+  if (error) { reportError('[dbPosponerRecomendacion]', error); return { ok: false }; }
+  return { ok: !!data };
+}
+
 export async function dbMarcarVista(id: string, vistaEn: string): Promise<void> {
   // Solo se rellena la primera vez — no pisa una vistaEn ya existente.
   const { error } = await db().from('recomendaciones').update({ vista_en: vistaEn }).eq('id', id).is('vista_en', null);
@@ -263,6 +279,43 @@ export async function dbActualizarOutcome(id: string, patch: { outcome: Outcome[
     outcome: patch.outcome, senal_observada: patch.senalObservada, medido_en: patch.medidoEn,
   }).eq('id', id);
   if (error) reportError('[dbActualizarOutcome]', error);
+}
+
+// Outcome con el contexto de la recomendación que lo generó — el círculo de
+// aprendizaje (`components/decision/seguimiento.tsx`) necesita el título/tipo/
+// socia para redactar "Llamaste a Marta. Sigue siendo clienta.", no solo el
+// resultado crudo.
+export interface OutcomeConRecomendacion extends Outcome {
+  recomendacionTitulo: string;
+  recomendacionTipo: TipoRecomendacion;
+  socioId: string | null;
+}
+
+interface RowOutcomeConRecomendacion extends RowOutcomes {
+  recomendaciones: { titulo: string; tipo: string; socio_id: string | null } | null;
+}
+
+// Últimos outcomes ya medidos (POSITIVO/NEGATIVO/NEUTRO, nunca PENDIENTE) —
+// alimenta el círculo de aprendizaje. Incluye NEGATIVO a propósito: el
+// Umbral admite cuando no acertó, no solo presume cuando sí.
+export async function dbListOutcomesRecientes(studioId: string, limite = 3): Promise<OutcomeConRecomendacion[]> {
+  const { data, error } = await db()
+    .from('recomendacion_outcomes')
+    .select('*, recomendaciones!inner(titulo, tipo, socio_id)')
+    .eq('studio_id', studioId)
+    .neq('outcome', 'PENDIENTE')
+    .order('medido_en', { ascending: false, nullsFirst: false })
+    .limit(limite);
+  if (error) { reportError('[dbListOutcomesRecientes]', error); return []; }
+  return (data ?? []).map((row: unknown) => {
+    const r = row as RowOutcomeConRecomendacion;
+    return {
+      ...mapOutcome(r),
+      recomendacionTitulo: r.recomendaciones?.titulo ?? '',
+      recomendacionTipo: (r.recomendaciones?.tipo ?? 'RECUPERAR_SOCIA') as TipoRecomendacion,
+      socioId: r.recomendaciones?.socio_id ?? null,
+    };
+  });
 }
 
 export async function dbGetOutcomePorRecomendacion(recomendacionId: string, evento: Outcome['evento']): Promise<Outcome | null> {
@@ -427,6 +480,55 @@ export async function dbSetFeatureFlag(studioId: string, flag: DecisionFlag, act
     id: uid(), studio_id: studioId, flag, activo, activado_en: new Date().toISOString(), activado_por: activadoPor,
   }, { onConflict: 'studio_id,flag' });
   if (error) reportError('[dbSetFeatureFlag]', error);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// decision_mensajes_dia — el Umbral (lib/decision/umbral.ts)
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface RowMensajeDia {
+  id: string; studio_id: string; fecha: string; tipo: string; recomendacion_id: string | null;
+  dedupe_key: string | null; motivo_motor: string | null; motivo_silencio: string | null;
+  enviado_en: string | null; creado_en: string;
+}
+
+function mapMensajeDia(row: RowMensajeDia): MensajeDia {
+  return {
+    id: row.id, studioId: row.studio_id, fecha: row.fecha, tipo: row.tipo as MensajeDia['tipo'],
+    recomendacionId: row.recomendacion_id, dedupeKey: row.dedupe_key, motivoMotor: row.motivo_motor,
+    motivoSilencio: row.motivo_silencio, enviadoEn: row.enviado_en, creadoEn: row.creado_en,
+  };
+}
+
+// Upsert por (studio_id, fecha) — el análisis de las 14:30 sobreescribe el de
+// las 06:30, mismo criterio que `dbUpsertResumenDiario`. Este es el punto que
+// hace cumplir "nunca dos mensajes el mismo día" también a nivel de fila viva.
+export async function dbUpsertMensajeDia(m: Omit<MensajeDia, 'id' | 'creadoEn'>): Promise<void> {
+  const { error } = await db().from('decision_mensajes_dia').upsert({
+    id: uid(), studio_id: m.studioId, fecha: m.fecha, tipo: m.tipo, recomendacion_id: m.recomendacionId,
+    dedupe_key: m.dedupeKey, motivo_motor: m.motivoMotor, motivo_silencio: m.motivoSilencio, enviado_en: m.enviadoEn,
+  }, { onConflict: 'studio_id,fecha' });
+  if (error) reportError('[dbUpsertMensajeDia]', error);
+}
+
+export async function dbGetMensajeDia(studioId: string, fecha: string): Promise<MensajeDia | null> {
+  const { data, error } = await db().from('decision_mensajes_dia').select('*').eq('studio_id', studioId).eq('fecha', fecha).maybeSingle();
+  if (error) { reportError('[dbGetMensajeDia]', error); return null; }
+  return data ? mapMensajeDia(data as RowMensajeDia) : null;
+}
+
+// Ventana reciente para la puerta 3 del Umbral (novedad) y para detectar
+// "semana tranquila" en la UI (7 SILENCIO seguidos).
+export async function dbListMensajesRecientes(studioId: string, now: Date, dias = 7): Promise<MensajeDia[]> {
+  const desde = new Date(now.getTime() - dias * 86400000).toISOString().slice(0, 10);
+  const { data, error } = await db()
+    .from('decision_mensajes_dia')
+    .select('*')
+    .eq('studio_id', studioId)
+    .gte('fecha', desde)
+    .order('fecha', { ascending: false });
+  if (error) { reportError('[dbListMensajesRecientes]', error); return []; }
+  return (data ?? []).map(row => mapMensajeDia(row as RowMensajeDia));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

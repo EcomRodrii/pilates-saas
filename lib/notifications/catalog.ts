@@ -104,6 +104,10 @@ export const EVENTOS = {
   // Sistema: cosas que rompen el negocio y exigen acción de la dueña.
   SISTEMA_STRIPE_DESCONECTADO: 'sistema.stripe_desconectado',
   SISTEMA_EMAIL_FALLIDO: 'sistema.email_fallido',
+  // El Umbral (lib/decision/umbral.ts): como mucho UN evento de este tipo al
+  // día por estudio (reforzado por el UNIQUE(studio_id,fecha) de
+  // decision_mensajes_dia) — nunca se dispara si el día es de silencio.
+  DECISION_MENSAJE_DIA: 'decision.mensaje_dia',
 } as const;
 
 // Reglas por evento. La 1ª tanda cableada de la Fase 1 cubre los 3 roles.
@@ -168,6 +172,11 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Email fallido: ALTA (no CRÍTICA) y sin EMAIL declarado a propósito — avisar
   // por correo de que el correo falla sería absurdo y podría realimentarse.
   [EVENTOS.SISTEMA_EMAIL_FALLIDO]: { category: 'sistema', priority: 'ALTA', canales: [], audiencia: 'propietaria' },
+  // ALTA + PUSH+INAPP a propósito, nada más: el Umbral solo interrumpe cuando
+  // cree que merece la pena — un canal más (EMAIL/WHATSAPP/SMS) diluiría esa
+  // misma promesa. Sin EMAIL: el mensaje es del día, no algo para revisar
+  // luego en la bandeja.
+  [EVENTOS.DECISION_MENSAJE_DIA]: { category: 'decisiones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'propietaria' },
 };
 
 // Qué roles recibe cada audiencia. Se deriva de recipients.ts, pero declarado
@@ -438,6 +447,14 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: 'Se ha disparado para {socia}.',
     deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
   },
+  // El Umbral: una sola frase, sin vocabulario de especialista/confianza
+  // cruda. {titulo}/{motivo} ya vienen redactados por el motor
+  // (tituloMotor/motivoMotor de la candidata elegida).
+  [`${EVENTOS.DECISION_MENSAJE_DIA}#PROPIETARIO`]: {
+    title: '{titulo}',
+    body: '{motivo}',
+    deepLink: () => `/centro-de-control`,
+  },
 };
 
 // Interpola {clave} desde los datos del evento.
@@ -457,11 +474,12 @@ export const CATEGORIA_ETIQUETA: Record<NotificationCategory, string> = {
   pagos: 'Pagos y bonos',
   marketing: 'Novedades y promociones',
   sistema: 'Sistema',
+  decisiones: 'Centro de Control',
 };
 
 // Categorías que cada rol puede configurar en sus preferencias.
 export const CATEGORIAS_POR_ROL: Record<NotificationRole, NotificationCategory[]> = {
-  PROPIETARIO: ['reservas', 'clases', 'sustituciones', 'pagos', 'sistema'],
+  PROPIETARIO: ['reservas', 'clases', 'sustituciones', 'pagos', 'sistema', 'decisiones'],
   INSTRUCTOR: ['clases', 'sustituciones'],
   // Recepción = mostrador: lo operativo que gestiona (reservas nuevas, cobros
   // fallidos). No configura marketing/informes/sistema (fuera de su rol).

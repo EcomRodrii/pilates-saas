@@ -204,6 +204,22 @@ export interface DecisionSession {
   estado: 'EN_CURSO' | 'COMPLETADA' | 'FALLIDA';
 }
 
+// ── Mensaje del día (Umbral, ver umbral.ts) — fila de `decision_mensajes_dia` ──
+// Un registro por estudio y fecha (UNIQUE studio_id+fecha, reforzado también
+// en BD): nunca dos mensajes el mismo día, ni en el motor ni en el esquema.
+export interface MensajeDia {
+  id: string;
+  studioId: string;
+  fecha: string; // YYYY-MM-DD
+  tipo: 'MENSAJE' | 'SILENCIO';
+  recomendacionId: string | null;
+  dedupeKey: string | null;
+  motivoMotor: string | null;
+  motivoSilencio: string | null;
+  enviadoEn: string | null;
+  creadoEn: string;
+}
+
 // ── Feature flags (DECISION-OS-MODELO-DATOS.md §2.11) ───────────────────────
 // P2-5: faltaba CAPTACION — hueco del catálogo (EspecialistaId ya la tenía),
 // no una reapertura de nada. Necesario para que el filtro por especialista

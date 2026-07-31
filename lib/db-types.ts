@@ -570,6 +570,7 @@ export interface RowSesiones {
   serie_id: string | null;
   valoracion_pedida_en: string | null;
   cancelada_motivo: string | null;
+  incidencia_texto: string | null;
 }
 
 export interface RowSocios {
@@ -670,6 +671,8 @@ export interface RowStudios {
   penalizacion_aplica_cancelacion_tardia: boolean | null;
   penalizacion_aplica_no_show: boolean | null;
   penalizacion_cobro_automatico: boolean | null;
+  hora_apertura: string;
+  hora_cierre: string;
   stripe_customer_id: string | null;
   subscription_id: string | null;
   subscription_status: string | null;
@@ -690,6 +693,7 @@ export interface RowStudios {
   sepa_iban: string | null;
   sepa_titular: string | null;
   bienvenida_vista_en: string | null;
+  decision_contrato_visto_en: string | null;
   onb_centros: string | null;
   onb_software_anterior: string | null;
   onb_alumnos_activos: string | null;

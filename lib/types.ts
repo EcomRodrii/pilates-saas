@@ -72,6 +72,10 @@ export interface Studio {
   reservaVentanaMinimaMinutos: number;
   reservaAntelacionMaximaDias: number | null;
   permiteListaEspera: boolean;
+  // Rediseño del Calendario: eje de horas de la rejilla (antes hardcodeado
+  // 08:00–22:00). 'HH:MM:SS' tal cual lo da Postgres para columnas `time`.
+  horaApertura: string;
+  horaCierre: string;
   // Fase 2a (migr 20260730192445): default de estudio, tipos_clase puede
   // sobrescribirlo con NULL = hereda (mismo patrón que el resto de arriba).
   requiereAprobacion: boolean;
@@ -123,6 +127,10 @@ export interface Studio {
   onbImportarDatos: string | null;
   onbPrioridad: string[] | null;
   onbAyudaAlta: string | null;
+  // El Contrato del Decision OS (lib/decision/umbral.ts, componente
+  // contrato-decision-os.tsx), mostrado UNA sola vez. NULL = aún no lo ha
+  // visto. Mismo patrón que bienvenidaVistaEn/onboardingDescartadoEn.
+  decisionContratoVistoEn: string | null;
 }
 
 // F2 (B2.10): mandato SEPA de domiciliación de una socia (independiente de Stripe;
@@ -545,6 +553,11 @@ export interface Sesion {
   // Serie de clases recurrentes (I-3): sesiones creadas juntas comparten id de
   // serie, para editar/cancelar "esta y las siguientes". null = clase suelta.
   serieId?: string | null;
+  // Rediseño del Calendario: texto libre, sin categorías ni histórico propio.
+  // null/undefined = sin incidencia abierta. "Resolver" la pone a null.
+  // Opcional (no obligatorio en cada fixture/factory de Sesion del repo, que
+  // son muchos): quien lo necesite lee `sesion.incidenciaTexto ?? null`.
+  incidenciaTexto?: string | null;
 }
 
 export interface Reserva {
