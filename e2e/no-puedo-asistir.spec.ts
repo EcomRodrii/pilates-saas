@@ -113,8 +113,10 @@ test.describe('Instructora: "No puedo asistir"', () => {
     await seedSesion(page);
     await page.goto('/calendario');
 
-    // Abre su propia clase.
-    await page.getByRole('button', { name: /Marta Sanz/i }).click({ timeout: 30_000 });
+    // Abre su propia clase — por el tipo de clase, no por el nombre de la
+    // instructora: en la vista de Semana (modo compacto) el bloque no
+    // muestra quién da la clase, solo hora y tipo (ver BloqueClase).
+    await page.getByRole('button', { name: /Reformer/i }).click({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: /No puedo asistir/i })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: /Buscar sustituta/i })).toHaveCount(0);
   });
@@ -132,7 +134,7 @@ test.describe('Instructora: "No puedo asistir"', () => {
     await seedSesion(page);
     await page.goto('/calendario');
 
-    await page.getByRole('button', { name: /Marta Sanz/i }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Reformer/i }).click({ timeout: 30_000 });
     await page.getByRole('button', { name: /No puedo asistir/i }).click();
     await page.getByLabel(/Motivo/i).fill('Tengo médico');
     await page.getByRole('button', { name: /Sí, no puedo dar esta clase/i }).click();

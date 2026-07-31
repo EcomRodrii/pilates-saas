@@ -1253,7 +1253,7 @@ export default function Calendario() {
           aforoMaximo: s.aforoMaximo,
         };
       });
-      return esHoyReal ? metricasDia(base, ahoraMin) : metricasSemana(base);
+      return esHoyReal ? metricasDia(base, ahoraMin) : metricasSemana(base, false);
     }
     const base = sesionesVistaFiltradas.map(s => {
       const r = reservasPorSesion.get(s.id) ?? [];
@@ -1263,8 +1263,9 @@ export default function Calendario() {
         aforoMaximo: s.aforoMaximo,
       };
     });
-    return metricasSemana(base);
-  }, [datosVista, vista, sesionesVistaFiltradas, diaSeleccionado, todayStr, now, reservasPorSesion, estadoPorSesion, tiposClase]);
+    // I-8: "esta semana" solo si la semana visible incluye hoy — mismo criterio que el StatsBar viejo.
+    return metricasSemana(base, dias.some(d => localDate(d) === todayStr));
+  }, [datosVista, vista, sesionesVistaFiltradas, diaSeleccionado, todayStr, now, reservasPorSesion, estadoPorSesion, tiposClase, dias]);
 
   // ── Franja de decisiones (puntos 3 y 4) ─────────────────────────────────────
   const [indiceDecision, setIndiceDecision] = useState(0);

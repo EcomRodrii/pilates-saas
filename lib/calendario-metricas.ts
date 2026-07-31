@@ -92,14 +92,19 @@ export interface SesionMetricaAgregada {
   aforoMaximo: number;
 }
 
-export function metricasSemana(sesiones: SesionMetricaAgregada[]): [MetricaCard, MetricaCard, MetricaCard] {
+// `esSemanaActual` distingue "esta semana" (la que se vive ahora) de "esa
+// semana" (navegando a otra) — I-8: los números hablan de lo que se mira, no
+// siempre de hoy. Por defecto `true` para las llamadas que reutilizan estas
+// tres tarjetas fuera de la vista de Semana (p.ej. un día que no es hoy).
+export function metricasSemana(sesiones: SesionMetricaAgregada[], esSemanaActual: boolean = true): [MetricaCard, MetricaCard, MetricaCard] {
   const noCancel = sesiones.filter(s => s.estado !== 'CANCELADA');
   const totalPlazas = noCancel.reduce((a, s) => a + s.aforoMaximo, 0);
   const tomadas = noCancel.reduce((a, s) => a + s.confirmadas, 0);
   const flojas = noCancel.filter(s => ratioOcupacion(s.confirmadas, s.aforoMaximo) < 0.6).length;
+  const cuando = esSemanaActual ? 'esta semana' : 'esa semana';
 
   return [
-    { titulo: 'Clases', valor: String(noCancel.length), pie: 'esta semana', barra: null },
+    { titulo: 'Clases', valor: String(noCancel.length), pie: cuando, barra: null },
     tarjetaOcupacion('Ocupación media', tomadas, totalPlazas, ''),
     {
       titulo: 'Por debajo del 60%', valor: String(flojas),

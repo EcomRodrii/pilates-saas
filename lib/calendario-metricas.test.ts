@@ -102,3 +102,13 @@ test('"Por debajo del 60%" en 0 dice que ninguna clase está floja', () => {
   assert.equal(flojas.valor, '0');
   assert.match(flojas.pie, /ninguna clase floja/);
 });
+
+test('"Clases" dice "esta semana" por defecto (semana actual)', () => {
+  const [clases] = metricasSemana([sa({ estado: 'PROGRAMADA' })]);
+  assert.equal(clases.pie, 'esta semana');
+});
+
+test('"Clases" dice "esa semana" al navegar a otra semana (I-8)', () => {
+  const [clases] = metricasSemana([sa({ estado: 'PROGRAMADA' })], false);
+  assert.equal(clases.pie, 'esa semana');
+});
