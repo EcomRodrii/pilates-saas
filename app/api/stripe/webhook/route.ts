@@ -4,9 +4,8 @@ import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
-import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
-import { registrarFalloCobro } from '@/lib/billing/dunning-server';
+import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -348,35 +347,19 @@ export async function POST(req: NextRequest) {
         });
         return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
       }
-      const { data: rec, error: updErr } = await admin.from('recibos')
-        .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: 'SEPA', sepa_estado: 'succeeded' })
-        .eq('id', reciboId).eq('studio_id', studioId).select('id').maybeSingle();
-      if (updErr) {
-        console.error('[stripe webhook] no se pudo marcar el recibo SEPA COBRADO', reciboId, updErr);
+      const confirmado = await confirmarCobroSepaExitoso({ admin, reciboId, studioId });
+      if (!confirmado.ok) {
+        // "Recibo no encontrado" es o bien el recibo ya no existe o es de otro
+        // estudio (intento de confirmar un cobro ajeno) — se registra y se
+        // rechaza; cualquier otro error de persistencia pide reintento a Stripe.
+        if (confirmado.error === 'Recibo no encontrado') {
+          Sentry.captureMessage('[stripe webhook] cobro SEPA apunta a recibo inexistente o de otro estudio', {
+            level: 'error', extra: { reciboId, studioId, eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
+        }
+        console.error('[stripe webhook] no se pudo marcar el recibo SEPA COBRADO', reciboId, confirmado.error);
         return NextResponse.json({ error: 'Fallo al confirmar el cobro SEPA' }, { status: 500 });
-      }
-      // Ninguna fila casó: el recibo no existe o es de otro estudio. Lo segundo es
-      // un intento de confirmar un cobro ajeno — se registra y se rechaza.
-      if (!rec) {
-        Sentry.captureMessage('[stripe webhook] cobro SEPA apunta a recibo inexistente o de otro estudio', {
-          level: 'error', extra: { reciboId, studioId, eventAccount: event.account },
-        });
-        return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
-      }
-      // Renovación en servidor (refill de bono / extensión del mensual) — igual
-      // que en checkout.session.completed: sin esto, el adeudo SEPA liquidado
-      // cobraba la renovación sin renovar la suscripción. Best-effort.
-      await aplicarRenovacionServidor(admin, { studioId, reciboId });
-      // Notification Engine: confirmación de pago a la socia (adeudo SEPA liquidado).
-      const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
-      await emitirPagoRealizado(admin, { studioId, reciboId });
-      try {
-        const sell = await sellarFacturaDeRecibo(admin, { studioId, reciboId, facturaId: `fac-sepa-${reciboId}` });
-        if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
-      } catch (e) {
-        Sentry.captureException(e instanceof Error ? e : new Error('Fallo al sellar la factura del cobro SEPA'), {
-          level: 'warning', tags: { area: 'facturacion', tipo: 'sepa_ciclo' }, extra: { reciboId },
-        });
       }
       capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'sepa' } });
     }

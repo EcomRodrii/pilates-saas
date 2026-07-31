@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import { planificarTrasFallo, type PlanReintento } from '@/lib/billing/dunning';
 import { enviarEmailImpago } from '@/lib/emails/impago-server';
+import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
+import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 
 // Registra un intento de cobro FALLIDO de un recibo y avanza su ciclo de dunning:
 // cuenta el intento, reprograma el siguiente reintento (+3 / +7 días) o marca el
@@ -66,6 +68,39 @@ export async function registrarFalloCobro(params: {
   }
 
   return { estado: plan.estado, intentos: plan.intentos };
+}
+
+// Confirma un cobro SEPA que Stripe ya liquidó (`payment_intent.succeeded`):
+// marca el recibo COBRADO, renueva la suscripción y sella la factura del
+// ciclo. La usan el webhook (`payment_intent.succeeded`) y el reconciliador
+// de `lib/inngest/dunning.ts` (backstop cuando el webhook nunca llegó) — misma
+// función, para que las dos vías no diverjan. `studioId` viene siempre de una
+// fuente fiable del llamante (la cuenta Connect del evento, o el propio
+// recibo ya scopeado por estudio), nunca de la metadata del PaymentIntent.
+export async function confirmarCobroSepaExitoso(params: {
+  admin: SupabaseClient;
+  reciboId: string;
+  studioId: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { admin, reciboId, studioId } = params;
+  const { data: rec, error: updErr } = await admin.from('recibos')
+    .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: 'SEPA', sepa_estado: 'succeeded' })
+    .eq('id', reciboId).eq('studio_id', studioId).select('id').maybeSingle();
+  if (updErr) return { ok: false, error: updErr.message };
+  if (!rec) return { ok: false, error: 'Recibo no encontrado' };
+
+  await aplicarRenovacionServidor(admin, { studioId, reciboId });
+  const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
+  await emitirPagoRealizado(admin, { studioId, reciboId });
+  try {
+    const sell = await sellarFacturaDeRecibo(admin, { studioId, reciboId, facturaId: `fac-sepa-${reciboId}` });
+    if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
+  } catch (e) {
+    Sentry.captureException(e instanceof Error ? e : new Error('Fallo al sellar la factura del cobro SEPA'), {
+      level: 'warning', tags: { area: 'facturacion', tipo: 'sepa_ciclo' }, extra: { reciboId },
+    });
+  }
+  return { ok: true };
 }
 
 async function notificarFalloCobro(params: {

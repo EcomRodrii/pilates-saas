@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { planDePriceId } from '@/lib/billing/billing';
 import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
+import { enviarEmailFalloPagoSaas } from '@/lib/emails/fallo-pago-saas-server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Webhook de Stripe Billing (suscripción del estudio al SaaS). Distinto del
@@ -44,6 +45,19 @@ export async function POST(req: NextRequest) {
       if (s.mode === 'subscription' && typeof s.subscription === 'string') {
         const sub = await stripe.subscriptions.retrieve(s.subscription);
         await actualizarSuscripcion(admin, sub);
+      }
+    } else if (event.type === 'invoice.payment_failed') {
+      // Primer aviso proactivo a la propietaria de que SU suscripción a Tentare
+      // no se ha podido cobrar (tarjeta caducada/sin fondos). Antes de esto, el
+      // único rastro era `subscription_status` cambiando a `past_due` en
+      // silencio — la propietaria no se enteraba hasta que el estudio se
+      // suspendía (`studios.suspendido_en`) semanas después. Best-effort: un
+      // fallo al enviar el email nunca debe hacer que Stripe reintente el
+      // webhook entero.
+      try {
+        await avisarFalloPagoSaas(admin, event.data.object as Stripe.Invoice);
+      } catch (e) {
+        console.error('[billing webhook] fallo al avisar de invoice.payment_failed', e);
       }
     }
   } catch (err) {
@@ -112,4 +126,33 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
 
   const { error: cadenasError } = await admin.from('cadenas').update(update).eq('stripe_customer_id', customerId);
   if (cadenasError) throw new Error(`update cadenas (fallback sin metadata): ${cadenasError.message}`);
+}
+
+async function avisarFalloPagoSaas(admin: SupabaseClient, invoice: Stripe.Invoice): Promise<void> {
+  const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+  if (!customerId) return;
+  const proximoIntento = invoice.next_payment_attempt
+    ? new Date(invoice.next_payment_attempt * 1000).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })
+    : undefined;
+
+  // Igual que actualizarSuscripcion: el mismo stripe_customer_id puede ser un
+  // estudio individual o una cadena — dos tablas independientes, hay que
+  // probar ambas. El destinatario es la propietaria REAL (owner_auth_user_id →
+  // auth.users), no `studios.email` (contacto público del estudio, de cara a
+  // sus socias) — mismo criterio que ya usa la ficha 360º del panel interno
+  // (app/api/interno/estudios/[id]/route.ts).
+  const { data: studio } = await admin.from('studios').select('nombre, plan, owner_auth_user_id').eq('stripe_customer_id', customerId).maybeSingle();
+  if (studio?.owner_auth_user_id) {
+    const { data: userRes } = await admin.auth.admin.getUserById(studio.owner_auth_user_id as string);
+    if (userRes?.user?.email) {
+      await enviarEmailFalloPagoSaas({ to: userRes.user.email, estudioNombre: (studio.nombre as string) ?? 'tu estudio', plan: (studio.plan as string) ?? 'actual', proximoIntento });
+    }
+    return;
+  }
+  const { data: cadena } = await admin.from('cadenas').select('nombre, plan, owner_auth_user_id').eq('stripe_customer_id', customerId).maybeSingle();
+  if (!cadena?.owner_auth_user_id) return;
+  const { data: userRes } = await admin.auth.admin.getUserById(cadena.owner_auth_user_id as string);
+  if (userRes?.user?.email) {
+    await enviarEmailFalloPagoSaas({ to: userRes.user.email, estudioNombre: (cadena.nombre as string) ?? 'tu cadena', plan: (cadena.plan as string) ?? 'actual', proximoIntento });
+  }
 }

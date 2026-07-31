@@ -1,5 +1,6 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
@@ -2179,6 +2180,20 @@ export default function Calendario() {
     // Si la BD rechazó el cambio (p.ej. solape), NO avisamos de un movimiento que
     // no ocurrió ni cerramos el formulario: se muestra el motivo.
     if (!guardado.ok) { setToast(guardado.error); return; }
+    // Sin optimistic locking en `sesiones` (no tiene updated_at): el número de
+    // filas que la RPC tocó de verdad (`guardado.count`) es la única señal de
+    // que la serie cambió mientras editábamos (otra persona editó una sesión
+    // suelta de en medio, o la serie ya no es la misma). El UPDATE ya se
+    // aplicó — no hay nada que deshacer, solo avisar para que se revise.
+    if (guardado.count != null && guardado.count !== n) {
+      Sentry.captureMessage('[calendario] editar_serie_desde: filas afectadas no coinciden con las esperadas', {
+        level: 'warning', tags: { area: 'calendario', tipo: 'conflicto_edicion' },
+        extra: { sesionId, esperadas: n, afectadas: guardado.count },
+      });
+      setToast(`Serie actualizada · ${guardado.count} de ${n} clases (alguien más tocó la serie mientras editabas — revisa el calendario)`);
+      setShowForm(null);
+      return;
+    }
     // Avisa (in-app/push) a las apuntadas de CADA sesión futura de la serie que
     // cambie de horario o sala. Cada una conserva su fecha, con la hora nueva.
     const base = sesionesEnriquecidas.find(x => x.id === sesionId);
