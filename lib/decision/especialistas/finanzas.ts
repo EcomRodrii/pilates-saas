@@ -3,17 +3,27 @@
 // quede sin sesiones (y deje de venir). Cubre el tipo PROPONER_RENOVACION_BONO,
 // que existía en el catálogo pero ningún especialista generaba.
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
+import type { Suscripcion } from '@/lib/types';
 import { construirIndices, type IndicesSenal } from '../senales.ts';
 import { confianzaRenovarBono } from '../confianza.ts';
 
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
 
-/** F1 · Bono con 1 o 0 sesiones → PROPONER_RENOVACION_BONO. */
-function reglaF1(socio: SnapshotEstudio['socios'][number], idx: IndicesSenal): Candidata | null {
-  const sus = idx.suscripcionActivaPorSocio.get(socio.id);
-  if (!sus || sus.sesionesRestantes == null || sus.sesionesRestantes > 1) return null;
+/**
+ * F1 · Bono con 1 o 0 sesiones → PROPONER_RENOVACION_BONO. Itera TODAS las
+ * suscripciones ACTIVAS, no `idx.suscripcionActivaPorSocio` (índice de UNA
+ * sola suscripción por socia, pensado para "cuánto vale al mes" — con
+ * `planes_por_tipo_de_clase` una socia puede tener un plan MENSUAL de
+ * reformer Y un bono de mat sueltos a la vez; el índice solo se queda con
+ * la primera y la segunda quedaba invisible para F1, punto ciego real del
+ * feedback P2-5).
+ */
+function reglaF1(sus: Suscripcion, idx: IndicesSenal): Candidata | null {
+  if (sus.sesionesRestantes == null || sus.sesionesRestantes > 1) return null;
   const plan = idx.planPorId.get(sus.planId);
   if (!plan || plan.tipo !== 'BONO') return null;
+  const socio = idx.socioPorId.get(sus.socioId);
+  if (!socio) return null;
 
   const confianza = confianzaRenovarBono({ bonoCasiAgotado: sus.sesionesRestantes <= 1, socioActivo: socio.activo });
   if (!confianza) return null;
@@ -48,8 +58,9 @@ export const finanzas: Especialista = {
   detectar(s: SnapshotEstudio, _m: MemoriaEstudio, _now: Date): Candidata[] {
     const idx = construirIndices(s);
     const candidatas: Candidata[] = [];
-    for (const socio of s.socios) {
-      const c = reglaF1(socio, idx);
+    for (const sus of s.suscripciones) {
+      if (sus.estado !== 'ACTIVA') continue;
+      const c = reglaF1(sus, idx);
       if (c) candidatas.push(c);
     }
     return candidatas;
