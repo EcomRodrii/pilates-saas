@@ -1,24 +1,36 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, useId } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId } from 'react';
+import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol, Sesion, TipoClase } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, CalendarOff, Copy, Star, Search, LayoutGrid, List, MoreVertical, Camera, Loader2, Clock, Download, ChevronLeft, ChevronRight, Plane, Stethoscope, AlertTriangle } from 'lucide-react';
+import {
+  Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History,
+  CalendarClock, CalendarOff, Copy, Star, Search, MoreVertical, Camera, Loader2, Clock, Download,
+  ChevronLeft, ChevronRight, Plane, Stethoscope, AlertTriangle, MessageCircle, Bell, Euro,
+} from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora, uid as generarId } from '@/lib/utils';
 import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
-import { generarEnlaceDisponibilidad, equipoStats, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia, fetchTarifasEquipo, actualizarTarifaInstructor, type EquipoStats, type ValoracionDetalle, type AusenciaInstructora } from '@/lib/api-client';
+import {
+  generarEnlaceDisponibilidad, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia,
+  fetchTarifasEquipo, actualizarTarifaInstructor, tarjetasEquipo,
+  type ValoracionDetalle, type AusenciaInstructora,
+} from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 import { useRol } from '@/lib/permisos';
 import { rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import {
+  DIAS, DIAS_LARGOS, estado as estadoTarjeta, cifras as cifrasTarjeta, accion as accionTarjeta,
+  filtrar as filtrarMiembros, ordenar as ordenarMiembros, ordenesDisponibles, situacionDe,
+  type MiembroCompleto, type FiltroEstado, type FiltroRol, type Orden, type Situacion, type AccionTipo,
+} from '@/lib/equipo-tarjetas.ts';
 
-type FiltroEstado = 'activas' | 'inactivas' | 'todas';
-type FiltroRol = 'todos' | Rol;
-type Orden = 'nombre-az' | 'nombre-za' | 'clases' | 'valoracion';
+type FiltroEstadoEquipo = FiltroEstado;
 
 // Enlaces sin login que la propietaria puede mandar a una instructora. Scopes
 // separados a propósito (mínimo privilegio): el de disponibilidad no permite
@@ -64,10 +76,41 @@ const ROL_DESC: Record<Rol, string> = {
 type Form = { tempId: string; nombre: string; email: string; telefono: string; color: string; avatar: string | null; fotoUrl: string | null; activo: boolean; rol: Rol };
 const emptyForm = (): Form => ({ tempId: `ins-${generarId()}`, nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, fotoUrl: null, activo: true, rol: 'INSTRUCTOR' });
 
+const ORDEN_LABEL: Record<Orden, string> = {
+  'nombre-az': 'Nombre A-Z', 'nombre-za': 'Nombre Z-A', 'mas-clases': 'Más clases',
+  'peor-ocupacion': 'Peor ocupación', 'mayor-coste': 'Mayor coste',
+};
+const ESTADO_LABEL: Record<FiltroEstadoEquipo, string> = { activas: 'Activas', inactivas: 'Inactivas', todas: 'Todas' };
+
+// Una franja de color por situación (I-4 del rediseño). `mostrador` y `flojo`
+// no tenían token propio en globals.css — el resto (clase/libre/direccion) sí
+// reutiliza brand/success/muted, como pide la tarea.
+const SITUACION_ESTILO: Record<Situacion, { fondo: string; tinta: string; punto: string }> = {
+  clase: { fondo: 'bg-success/10', tinta: 'text-success', punto: 'bg-success' },
+  mostrador: { fondo: 'bg-sky-500/10', tinta: 'text-sky-700 dark:text-sky-400', punto: 'bg-sky-600' },
+  flojo: { fondo: 'bg-rose-500/10', tinta: 'text-rose-700 dark:text-rose-400', punto: 'bg-rose-600' },
+  libre: { fondo: 'bg-muted', tinta: 'text-muted-foreground', punto: 'bg-muted-foreground/40' },
+  direccion: { fondo: 'bg-brand/10', tinta: 'text-brand-secondary', punto: 'bg-brand-secondary' },
+};
+
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return reduced;
+}
+
 export default function EquipoPage() {
-  // Qué niveles de acceso puede repartir quien está mirando esta pantalla.
   const miRol = useRol();
+  const gestiona = miRol !== 'INSTRUCTOR';
   const uid = useId();
+  const router = useRouter();
   const { instructores, sesiones, tiposClase, addInstructor, updateInstructor, deleteInstructor, actividadReciente } = useStudio();
 
   const [tab, setTab] = useState<'equipo' | 'actividad'>('equipo');
@@ -76,53 +119,140 @@ export default function EquipoPage() {
   const [form, setForm] = useState<Form>(emptyForm());
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [errorFoto, setErrorFoto] = useState('');
-  // El alta esperaba a nada y no confirmaba nada: el modal se cerraba igual
-  // hubiera guardado o no. Ahora espera a la respuesta, y al terminar lo dice.
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState('');
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
-  // Apagada a propósito. El alta ya no manda el correo sola: darla de alta y
-  // avisarla son dos decisiones, y la segunda es de la dueña. Quien monta el
-  // estudio un domingo por la noche no quiere escribir a 18 personas a esa hora.
   const [invitarAhora, setInvitarAhora] = useState(false);
   const [invitando, setInvitando] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmDel, setConfirmDel] = useState<Instructor | null>(null);
   const [enlace, setEnlace] = useState<
-    { instructor: Instructor; scope: EnlaceScope; url: string | null; loading: boolean; error: string | null; copiado: boolean } | null
+    { instructor: MiembroCompleto; scope: EnlaceScope; url: string | null; loading: boolean; error: string | null; copiado: boolean } | null
   >(null);
-  const [stats, setStats] = useState<EquipoStats>({ valoracion: {}, asistencia: {} });
-  const [q, setQ] = useState('');
-  const [fEstado, setFEstado] = useState<FiltroEstado>('activas');
-  const [fRol, setFRol] = useState<FiltroRol>('todos');
-  const [orden, setOrden] = useState<Orden>('nombre-az');
-  const [vista, setVista] = useState<'grid' | 'lista'>('grid');
-  const [menuId, setMenuId] = useState<string | null>(null);
-  const [verValor, setVerValor] = useState<Instructor | null>(null);
-  const [verHoras, setVerHoras] = useState<Instructor | null>(null);
-  const [verAusencias, setVerAusencias] = useState<Instructor | null>(null);
+
+  // La rejilla de tarjetas: un único fetch a un endpoint que ya recorta cada
+  // ficha al rol de quien mira (ver app/api/equipo/tarjetas/route.ts). Se
+  // repite cada vez que cambia `instructores` (tras un alta/edición/baja).
+  const [tarjetas, setTarjetas] = useState<MiembroCompleto[]>([]);
+  const [cargandoTarjetas, setCargandoTarjetas] = useState(true);
+  const recargarTarjetas = useCallback(() => {
+    tarjetasEquipo().then(items => { setTarjetas(items); setCargandoTarjetas(false); });
+  }, []);
+  useEffect(() => { recargarTarjetas(); }, [recargarTarjetas, instructores]);
+
   // Ausencias vigentes del estudio → distintivo "De vacaciones/De baja" en la lista.
   const [ausencias, setAusencias] = useState<AusenciaInstructora[]>([]);
-  // Tarifa por hora — tabla aparte de `instructores` (dato salarial), el
-  // servidor decide qué filas devuelve según el rol de quien la pide.
+  // Tarifa por hora — solo se usa para prefilling el formulario de edición
+  // (PROPIETARIO/MANAGER pueden fijarla, decisión ya cerrada); la rejilla
+  // nunca la pinta directamente, así que no es una fuga nueva.
   const [tarifas, setTarifas] = useState<Record<string, number | null>>({});
   const [tarifaHoraInput, setTarifaHoraInput] = useState('');
 
   useEffect(() => {
     let vivo = true;
-    equipoStats().then(r => { if (vivo) setStats(r); });
     listarAusencias().then(r => { if (vivo) setAusencias(r); });
-    fetchTarifasEquipo().then(r => {
-      if (!vivo) return;
-      setTarifas(Object.fromEntries(r.map(t => [t.instructorId, t.tarifaHora])));
-    });
+    if (gestiona) {
+      fetchTarifasEquipo().then(r => {
+        if (!vivo) return;
+        setTarifas(Object.fromEntries(r.map(t => [t.instructorId, t.tarifaHora])));
+      });
+    }
     return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function abrirEnlace(i: Instructor, scope: EnlaceScope = 'disponibilidad') {
-    setEnlace({ instructor: i, scope, url: null, loading: true, error: null, copiado: false });
-    const r = await generarEnlaceDisponibilidad(i.id, scope);
-    setEnlace(prev => (prev && prev.instructor.id === i.id && prev.scope === scope
+  // ── Filtros + orden ──────────────────────────────────────────────────────
+  const [busca, setBusca] = useState('');
+  const [estadoF, setEstadoF] = useState<FiltroEstadoEquipo>('activas');
+  const [filtroRol, setFiltroRol] = useState<FiltroRol>('todos');
+  const [orden, setOrden] = useState<Orden>('nombre-az');
+  const ordenesPermitidos = useMemo(() => ordenesDisponibles(miRol), [miRol]);
+
+  const filtrados = useMemo(
+    () => filtrarMiembros(tarjetas, { busca, estadoF, rol: filtroRol }),
+    [tarjetas, busca, estadoF, filtroRol],
+  );
+  const ordenados = useMemo(() => ordenarMiembros(filtrados, orden), [filtrados, orden]);
+  const hayFiltro = busca.trim() !== '' || filtroRol !== 'todos';
+
+  // ── Menú "…" de una tarjeta y detalle de día de la semana: un único oyente
+  // de documento para toda la pantalla, no uno por tarjeta. ──────────────────
+  const [menuCardId, setMenuCardId] = useState<string | null>(null);
+  const [diaSel, setDiaSel] = useState<{ id: string; i: number } | null>(null);
+  useEffect(() => {
+    function alPulsar(e: PointerEvent) {
+      if (!menuCardId) return;
+      const target = e.target as HTMLElement;
+      if (target.closest?.('[data-menu-equipo]')) return;
+      setMenuCardId(null);
+    }
+    function alTeclear(e: KeyboardEvent) {
+      if (e.key === 'Escape') { setMenuCardId(null); setDiaSel(null); }
+    }
+    document.addEventListener('pointerdown', alPulsar, true);
+    document.addEventListener('keydown', alTeclear);
+    return () => {
+      document.removeEventListener('pointerdown', alPulsar, true);
+      document.removeEventListener('keydown', alTeclear);
+    };
+  }, [menuCardId]);
+
+  // ── Reordenar sin saltos: la Web Animations API compone la transición, no
+  // recalcula layout. Solo se anima cuando el ORDEN de verdad cambia (no al
+  // teclear, no al abrir un menú) y nunca si `prefers-reduced-motion`. ───────
+  const reducedMotion = usePrefersReducedMotion();
+  const fichaRefs = useRef(new Map<string, HTMLElement>());
+  const cajasPrevias = useRef(new Map<string, DOMRect>());
+  const ordenPrevio = useRef<string | null>(null);
+  const ordenClave = ordenados.map(m => m.id).join('|');
+  useLayoutEffect(() => {
+    const cambio = ordenPrevio.current !== null && ordenPrevio.current !== ordenClave;
+    if (cambio && !reducedMotion) {
+      fichaRefs.current.forEach((el, id) => {
+        if (!el || !el.isConnected) return;
+        const antes = cajasPrevias.current.get(id);
+        if (!antes) return;
+        const ahora = el.getBoundingClientRect();
+        const dx = antes.left - ahora.left;
+        const dy = antes.top - ahora.top;
+        if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+        el.animate(
+          [{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }],
+          { duration: 420, easing: 'cubic-bezier(.2,.9,.25,1)', composite: 'add' },
+        );
+      });
+    }
+    ordenPrevio.current = ordenClave;
+    const snapshot = new Map<string, DOMRect>();
+    fichaRefs.current.forEach((el, id) => { if (el?.isConnected) snapshot.set(id, el.getBoundingClientRect()); });
+    cajasPrevias.current = snapshot;
+    // Solo depende de la CLAVE de orden, no de `ordenados` entero: escribir en
+    // el buscador no debe disparar esto salvo que el conjunto/orden cambie de
+    // verdad.
+  }, [ordenClave, reducedMotion]);
+
+  // ── "Enlace copiado ✓" + aviso con Deshacer (5 s) ───────────────────────
+  const [pedido, setPedido] = useState<Record<string, boolean>>({});
+  const [aviso, setAviso] = useState<{ texto: string; deshacer: (() => void) | null } | null>(null);
+  const avisoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lanzarAviso = useCallback((texto: string, deshacer?: () => void) => {
+    if (avisoTimer.current) clearTimeout(avisoTimer.current);
+    setAviso({ texto, deshacer: deshacer ?? null });
+    avisoTimer.current = setTimeout(() => setAviso(null), 5000);
+  }, []);
+
+  const [verValor, setVerValor] = useState<Instructor | null>(null);
+  const [verHoras, setVerHoras] = useState<Instructor | null>(null);
+  const [verAusencias, setVerAusencias] = useState<Instructor | null>(null);
+
+  function instructorDe(m: MiembroCompleto): Instructor | null {
+    return instructores.find(i => i.id === m.id) ?? null;
+  }
+
+  async function abrirEnlace(m: MiembroCompleto, scope: EnlaceScope) {
+    setEnlace({ instructor: m, scope, url: null, loading: true, error: null, copiado: false });
+    const r = await generarEnlaceDisponibilidad(m.id, scope);
+    setEnlace(prev => (prev && prev.instructor.id === m.id && prev.scope === scope
       ? { ...prev, loading: false, url: 'url' in r ? r.url : null, error: 'error' in r ? r.error : null }
       : prev));
   }
@@ -131,71 +261,44 @@ export default function EquipoPage() {
     setEnlace(prev => (prev ? { ...prev, copiado: true } : prev));
   }
 
-  // Carga semanal: sesiones futuras de los próximos 7 días por instructor
-  const ahora = new Date();
-  const en7dias = new Date(ahora.getTime() + 7 * 86400000);
-  const cargaPorInstructor = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const s of sesiones) {
-      if (s.cancelada) continue;
-      const d = new Date(s.inicio);
-      if (d >= ahora && d <= en7dias) map.set(s.instructorId, (map.get(s.instructorId) ?? 0) + 1);
-    }
-    return map;
-  }, [sesiones]);
-
-  const proximaClase = useMemo(() => {
-    const map = new Map<string, Date>();
-    for (const s of sesiones) {
-      if (s.cancelada) continue;
-      const d = new Date(s.inicio);
-      if (d < ahora) continue;
-      const actual = map.get(s.instructorId);
-      if (!actual || d < actual) map.set(s.instructorId, d);
-    }
-    return map;
-  }, [sesiones]);
-
-  const activos = instructores.filter(i => i.activo).length;
-  const totalClasesSemana = [...cargaPorInstructor.values()].reduce((a, b) => a + b, 0);
-
-  // Buscador + filtros + orden (todo en cliente; el equipo cabe de sobra en memoria).
-  const listaVisible = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    let out = instructores.filter(i => {
-      if (fEstado === 'activas' && !i.activo) return false;
-      if (fEstado === 'inactivas' && i.activo) return false;
-      if (fRol !== 'todos' && i.rol !== fRol) return false;
-      if (term && !(`${i.nombre} ${i.email ?? ''}`.toLowerCase().includes(term))) return false;
-      return true;
+  // La acción principal de la tarjeta ("Pedirle disponibilidad" → copia el
+  // enlace directamente, sin abrir diálogo — mismo criterio que pedía el
+  // rediseño). El resto de tipos de acción abren lo que ya existía.
+  async function ejecutarAccion(m: MiembroCompleto, tipo: AccionTipo) {
+    if (tipo === 'avisos') { lanzarAviso('Tus avisos están arriba, en la campana de notificaciones.'); return; }
+    if (tipo === 'mensaje') { router.push('/mensajeria'); return; }
+    if (tipo === 'hecho') { lanzarAviso('El enlace sigue en tu portapapeles.'); return; }
+    if (tipo === 'horas') { setMenuCardId(null); setVerHoras(instructorDe(m)); return; }
+    // 'pedir'
+    const r = await generarEnlaceDisponibilidad(m.id, 'disponibilidad');
+    if ('error' in r) { lanzarAviso(`No se ha podido generar el enlace: ${r.error}`); return; }
+    try { await navigator.clipboard.writeText(r.url); } catch { /* el diálogo secundario del menú permite copiar a mano */ }
+    setPedido(prev => ({ ...prev, [m.id]: true }));
+    lanzarAviso(`Enlace de disponibilidad de ${m.nombre.split(' ')[0]} copiado`, () => {
+      setPedido(prev => { const p = { ...prev }; delete p[m.id]; return p; });
+      setAviso(null);
     });
-    const val = (id: string) => stats.valoracion[id]?.media ?? -1;
-    out = [...out].sort((a, b) => {
-      if (orden === 'nombre-az') return a.nombre.localeCompare(b.nombre, 'es');
-      if (orden === 'nombre-za') return b.nombre.localeCompare(a.nombre, 'es');
-      if (orden === 'clases') return (cargaPorInstructor.get(b.id) ?? 0) - (cargaPorInstructor.get(a.id) ?? 0);
-      return val(b.id) - val(a.id); // valoración desc
-    });
-    return out;
-  }, [instructores, q, fEstado, fRol, orden, stats, cargaPorInstructor]);
-
-  function openNuevo() { setForm(emptyForm()); setEditId(null); setErrorGuardar(''); setInvitarAhora(false); setModal('nuevo'); }
-  function openEditar(i: Instructor) {
-    setForm({ tempId: i.id, nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, fotoUrl: i.fotoUrl ?? null, activo: i.activo, rol: i.rol });
-    setEditId(i.id);
-    // La tarifa vive en su propia tabla (instructor_tarifas), no en `Instructor`
-    // — se fija solo al editar, nunca en el alta.
-    const tarifaActual = tarifas[i.id];
-    setTarifaHoraInput(tarifaActual == null ? '' : String(tarifaActual));
-    setModal('editar');
   }
-  // Enviar la invitación a alguien que ya está dado de alta.
+
+  // Carga semanal para el modal de horas/ausencias (siguen operando sobre
+  // `sesiones` en crudo, como antes del rediseño).
   async function enviarInvitacion(i: Instructor) {
-    setMenuId(null);
+    setMenuCardId(null);
     setInvitando(i.id);
     const res = await invitarAlEquipo(i.id);
     setInvitando(null);
     showToast('ok' in res ? `Invitación enviada a ${res.email}` : res.error);
+  }
+
+  function openNuevo() { setForm(emptyForm()); setEditId(null); setErrorGuardar(''); setInvitarAhora(false); setModal('nuevo'); }
+  function openEditar(m: MiembroCompleto) {
+    const i = instructorDe(m);
+    if (!i) return;
+    setForm({ tempId: i.id, nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, fotoUrl: i.fotoUrl ?? null, activo: i.activo, rol: i.rol });
+    setEditId(i.id);
+    const tarifaActual = tarifas[i.id];
+    setTarifaHoraInput(tarifaActual == null ? '' : String(tarifaActual));
+    setModal('editar');
   }
 
   async function guardar() {
@@ -216,8 +319,6 @@ export default function EquipoPage() {
       const res = await addInstructor({ ...fields, authUserId: null }, form.tempId);
       setGuardando(false);
       if (!res.ok) { setErrorGuardar(res.error); return; }
-      // El toast dice exactamente qué ha pasado con el correo, incluido cuando
-      // NO se ha mandado: si no, la dueña no sabe si tiene que avisarla ella.
       if (fields.email && invitarAhora) {
         const inv = await invitarAlEquipo(form.tempId);
         showToast('ok' in inv
@@ -230,8 +331,6 @@ export default function EquipoPage() {
       }
     } else if (editId) {
       updateInstructor(editId, fields);
-      // La tarifa vive en su propia tabla — solo se toca si de verdad cambió,
-      // para no disparar un PATCH extra en cada guardado.
       const tarifaAnterior = tarifas[editId] ?? null;
       const tarifaNueva = tarifaHoraInput.trim() === '' ? null : Number(tarifaHoraInput);
       let mensaje = 'Cambios guardados';
@@ -257,8 +356,6 @@ export default function EquipoPage() {
     setSubiendoFoto(false);
     if ('error' in result) { setErrorFoto(result.error); return; }
     setForm(f => ({ ...f, fotoUrl: result.url }));
-    // Si ya existe (edición), persiste al momento — igual que el avatar
-    // predefinido más abajo. Si es alta nueva, se guarda con el resto al pulsar "Guardar".
     if (editId) updateInstructor(editId, { fotoUrl: result.url });
   }
 
@@ -271,19 +368,23 @@ export default function EquipoPage() {
     if (editId) updateInstructor(editId, { fotoUrl: null });
   }
 
+  const activos = tarjetas.filter(m => m.activo).length;
+  const clasesEstaSemana = tarjetas.reduce((a, m) => a + m.semana.reduce((x, y) => x + y, 0), 0);
+  const conAcceso = tarjetas.filter(m => m.conAcceso).length;
+  const costeDelEquipo = tarjetas.reduce((a, m) => a + (m.esYo ? 0 : (m.costeMes ?? 0)), 0);
+
   return (
     <div className="space-y-5">
       <PageHeader
         title="Equipo"
         description="Instructoras y personal del estudio"
-        actions={tab === 'equipo' && (
+        actions={tab === 'equipo' && gestiona && (
           <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
             <Plus size={16} /> Nuevo miembro
           </button>
         )}
       />
 
-      {/* Tabs */}
       <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit">
         {(['equipo', 'actividad'] as const).map(t => (
           <button
@@ -302,12 +403,13 @@ export default function EquipoPage() {
         <ActividadTab actividadReciente={actividadReciente} />
       ) : (
       <>
-      {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { label: 'Miembros', value: instructores.length, sub: `${activos} activos`, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', Icon: Users },
-          { label: 'Clases 7 días', value: totalClasesSemana, sub: 'programadas', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', Icon: Calendar },
-          { label: 'Media / persona', value: activos ? Math.round(totalClasesSemana / activos) : 0, sub: 'clases por activo', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', Icon: Calendar },
+          { label: 'Miembros', value: tarjetas.length, sub: `${activos} activos`, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', Icon: Users },
+          { label: 'Clases esta semana', value: clasesEstaSemana, sub: 'programadas', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', Icon: Calendar },
+          miRol === 'PROPIETARIO'
+            ? { label: 'Coste del mes', value: costeDelEquipo.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }), sub: 'nóminas del equipo', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', Icon: Euro }
+            : { label: 'Con acceso', value: conAcceso, sub: `de ${tarjetas.length} miembros`, color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', Icon: ShieldCheck },
         ].map(({ label, value, sub, color, bg, Icon }) => (
           <div key={label} className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
@@ -324,82 +426,81 @@ export default function EquipoPage() {
         ))}
       </div>
 
-      {/* Barra: buscador + filtros + orden + vista (como el mockup) */}
-      {instructores.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* Barra de filtros, fija al hacer scroll */}
+      {tarjetas.length > 0 && (
+        <div className="sticky top-0 z-30 -mx-1 px-1 py-2 flex items-center gap-2 flex-wrap bg-background/85 backdrop-blur-md">
           <div className="relative flex-1 min-w-[200px]">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
-              value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar instructora…"
+              value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por nombre…"
               className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition"
             />
           </div>
-          <PillSelect label="Estado" value={fEstado} onChange={v => setFEstado(v as FiltroEstado)}
-            options={[['activas', 'Activas'], ['inactivas', 'Inactivas'], ['todas', 'Todas']]} />
-          <PillSelect label="Rol" value={fRol} onChange={v => setFRol(v as FiltroRol)}
-            options={[['todos', 'Todos'], ['PROPIETARIO', 'Propietaria'], ['MANAGER', 'Responsable de sede'], ['RECEPCION', 'Recepción'], ['INSTRUCTOR', 'Instructora']]} />
+          <PillSelect label="Estado" value={estadoF} onChange={v => setEstadoF(v as FiltroEstadoEquipo)}
+            options={(['activas', 'todas', 'inactivas'] as FiltroEstadoEquipo[]).map(v => [v, ESTADO_LABEL[v]])} />
+          {gestiona && (
+            <PillSelect label="Rol" value={filtroRol} onChange={v => setFiltroRol(v as FiltroRol)}
+              options={[['todos', 'Todos'], ['PROPIETARIO', 'Propietaria'], ['MANAGER', 'Responsable de sede'], ['RECEPCION', 'Recepción'], ['INSTRUCTOR', 'Instructora']]} />
+          )}
           <div className="ml-auto flex items-center gap-2">
             <PillSelect label="Ordenar" value={orden} onChange={v => setOrden(v as Orden)}
-              options={[['nombre-az', 'Nombre A-Z'], ['nombre-za', 'Nombre Z-A'], ['clases', 'Más clases'], ['valoracion', 'Mejor valoración']]} />
-            <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card p-0.5">
-              <button onClick={() => setVista('grid')} title="Cuadrícula"
-                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${vista === 'grid' ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
-                <LayoutGrid size={16} />
+              options={ordenesPermitidos.map(o => [o, ORDEN_LABEL[o]])} />
+            {hayFiltro && (
+              <button onClick={() => { setBusca(''); setFiltroRol('todos'); }}
+                className="h-[42px] px-4 rounded-xl bg-foreground text-background text-[12.5px] font-bold whitespace-nowrap">
+                {ordenados.length} de {tarjetas.length} · quitar filtros
               </button>
-              <button onClick={() => setVista('lista')} title="Lista"
-                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${vista === 'lista' ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
-                <List size={16} />
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Contenido */}
-      {instructores.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[#E2E4EB] bg-card">
+      {cargandoTarjetas ? (
+        <p className="text-sm text-muted-foreground py-16 text-center">Cargando el equipo…</p>
+      ) : tarjetas.length === 0 ? (
+        <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-border bg-card">
           <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
             <Users size={26} className="text-brand-medio" />
           </div>
           <p className="text-[16px] font-bold text-foreground">Aún no hay nadie en el equipo</p>
-          <p className="text-[13px] text-[#94A3B8] mt-1 mb-5">Añade a tus instructoras para asignarles clases y citas</p>
-          <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold">
-            <Plus size={15} /> Nuevo miembro
+          {gestiona && (
+            <>
+              <p className="text-[13px] text-muted-foreground mt-1 mb-5">Añade a tus instructoras para asignarles clases y citas</p>
+              <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold">
+                <Plus size={15} /> Nuevo miembro
+              </button>
+            </>
+          )}
+        </div>
+      ) : ordenados.length === 0 ? (
+        <div className="flex flex-col items-center justify-center text-center py-16 rounded-2xl border border-dashed border-border bg-card">
+          <p className="text-[15px] font-bold text-foreground">Nadie con ese nombre</p>
+          <p className="text-[13px] text-muted-foreground mt-1 mb-4">Prueba con otro filtro.</p>
+          <button onClick={() => { setBusca(''); setFiltroRol('todos'); }} className="px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold">
+            Ver todo el equipo
           </button>
         </div>
-      ) : listaVisible.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-16 text-center">Nadie coincide con la búsqueda o los filtros.</p>
-      ) : vista === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {listaVisible.map(i => (
-            <InstructorCard
-              key={i.id} i={i} carga={cargaPorInstructor.get(i.id) ?? 0} tarifa={tarifas[i.id] ?? null}
-              prox={proximaClase.get(i.id) ?? null} val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
-              menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
-              onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
-              onValoraciones={() => { setMenuId(null); setVerValor(i); }}
-              onHoras={() => { setMenuId(null); setVerHoras(i); }}
-              onAusencias={() => { setMenuId(null); setVerAusencias(i); }}
-              ausente={ausenciaHoy(ausencias, i.id)}
-              invitando={invitando === i.id}
-              onInvitar={() => enviarInvitacion(i)}
-            />
-          ))}
-        </div>
       ) : (
-        <div className="bg-card border border-border rounded-2xl divide-y divide-[#F1F1F4] overflow-visible">
-          {listaVisible.map(i => (
-            <InstructorRow
-              key={i.id} i={i} carga={cargaPorInstructor.get(i.id) ?? 0} prox={proximaClase.get(i.id) ?? null}
-              val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
-              menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
-              onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
-              onValoraciones={() => { setMenuId(null); setVerValor(i); }}
-              onHoras={() => { setMenuId(null); setVerHoras(i); }}
-              onAusencias={() => { setMenuId(null); setVerAusencias(i); }}
-              ausente={ausenciaHoy(ausencias, i.id)}
-              invitando={invitando === i.id}
-              onInvitar={() => enviarInvitacion(i)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+          {ordenados.map(m => (
+            <TarjetaMiembro
+              key={m.id} m={m} rolViewer={miRol} gestiona={gestiona}
+              refCb={el => { if (el) fichaRefs.current.set(m.id, el); else fichaRefs.current.delete(m.id); }}
+              pedido={!!pedido[m.id]}
+              diaSel={diaSel && diaSel.id === m.id ? diaSel.i : null}
+              onDiaSel={i => setDiaSel(prev => (prev && prev.id === m.id && prev.i === i ? null : { id: m.id, i }))}
+              menuAbierto={menuCardId === m.id}
+              onMenu={() => setMenuCardId(prev => (prev === m.id ? null : m.id))}
+              onAccion={tipo => ejecutarAccion(m, tipo)}
+              onEditar={() => openEditar(m)}
+              onEliminar={() => { setMenuCardId(null); const i = instructorDe(m); if (i) setConfirmDel(i); }}
+              onValoraciones={() => { setMenuCardId(null); setVerValor(instructorDe(m)); }}
+              onHoras={() => { setMenuCardId(null); setVerHoras(instructorDe(m)); }}
+              onAusencias={() => { setMenuCardId(null); setVerAusencias(instructorDe(m)); }}
+              onEnlaceBaja={() => { setMenuCardId(null); abrirEnlace(m, 'reportar_baja'); }}
+              ausente={ausenciaHoy(ausencias, m.id)}
+              invitando={invitando === m.id}
+              onInvitar={() => { const i = instructorDe(m); if (i) enviarInvitacion(i); }}
             />
           ))}
         </div>
@@ -463,10 +564,6 @@ export default function EquipoPage() {
             <div>
               <span id={`${uid}-rol`} className={labelCls}>Rol y acceso al panel</span>
               <div role="group" aria-labelledby={`${uid}-rol`} className="space-y-1.5">
-                {/* Solo los roles que esta persona puede repartir. Un manager
-                    no ve «Propietaria» ni «Responsable de sede»: ofrecérselos
-                    sería enseñar un botón que el servidor rechaza (y la RLS de
-                    la 0108 también). */}
                 {rolesQuePuedeAsignar(miRol).map(r => (
                   <button
                     key={r}
@@ -506,10 +603,6 @@ export default function EquipoPage() {
               <span className="text-sm font-medium text-foreground">Miembro activo (puede recibir clases y citas)</span>
             </label>
 
-            {/* Solo al editar, nunca en el alta: es un dato que normalmente se
-                decide con calma, no en el momento de dar de alta a alguien.
-                Dato salarial — solo esta persona lo edita, la propia
-                instructora solo la ve en su perfil. */}
             {modal === 'editar' && (
               <div>
                 <label htmlFor={`${uid}-tarifa`} className={labelCls}>Tarifa por hora (opcional)</label>
@@ -524,9 +617,6 @@ export default function EquipoPage() {
               </div>
             )}
 
-            {/* Solo al dar de alta y solo si hay email. Viene apagada: guardar la
-                ficha no debe disparar un correo. Si no la marca, la invitación
-                queda pendiente y se manda cuando ella quiera desde la lista. */}
             {modal === 'nuevo' && form.email.trim() !== '' && (
               <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-border p-3">
                 <input
@@ -561,7 +651,8 @@ export default function EquipoPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Enlaces sin login para la instructora (disponibilidad / avisar de baja) */}
+      {/* Enlace secundario ("avisar de una baja") — el de disponibilidad ahora
+          se copia directo desde la acción principal de la tarjeta. */}
       <Dialog open={enlace !== null} onOpenChange={open => !open && setEnlace(null)}>
         <DialogContent>
           <DialogHeader>
@@ -592,9 +683,7 @@ export default function EquipoPage() {
                     Enviar por WhatsApp
                   </a>
                   <p className="text-[11px] text-muted-foreground">
-                    {enlace.scope === 'reportar_baja'
-                      ? 'Que lo guarde en el móvil: le sirve para cualquier clase suya. Caduca en 30 días.'
-                      : 'El enlace caduca en 30 días. Puedes generar uno nuevo cuando quieras.'}
+                    Que lo guarde en el móvil: le sirve para cualquier clase suya. Caduca en 30 días.
                   </p>
                 </>
               ) : null}
@@ -603,16 +692,10 @@ export default function EquipoPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Valoraciones de una instructora (leer cada ⭐ + comentario) */}
       <ValoracionesDialog instructor={verValor} tiposClase={tiposClase} onClose={() => setVerValor(null)} />
-
-      {/* Horas del mes de una instructora (desglose clase a clase + CSV) */}
       <HorasDialog instructor={verHoras} sesiones={sesiones} tiposClase={tiposClase} onClose={() => setVerHoras(null)} />
-
-      {/* Ausencias: vacaciones / baja médica (bloquean el ranking de sustituciones) */}
       <AusenciasDialog instructor={verAusencias} onClose={() => setVerAusencias(null)} />
 
-      {/* Delete confirm */}
       <Dialog open={confirmDel !== null} onOpenChange={open => !open && setConfirmDel(null)}>
         <DialogContent>
           <DialogHeader>
@@ -631,15 +714,26 @@ export default function EquipoPage() {
       </Dialog>
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+
+      {/* Aviso con Deshacer (5 s) de la acción principal de una tarjeta */}
+      {aviso && (
+        <div className="fixed left-1/2 bottom-6 z-50 -translate-x-1/2 flex items-center gap-3 bg-foreground text-background rounded-full pl-5 pr-2 py-2.5 shadow-lg">
+          <span className="text-[13px] font-medium whitespace-nowrap">{aviso.texto}</span>
+          {aviso.deshacer && (
+            <button
+              onClick={() => { aviso.deshacer?.(); }}
+              className="h-8 px-3.5 rounded-full bg-background/15 text-[12.5px] font-bold hover:bg-background/25 transition-colors"
+            >
+              Deshacer
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Piezas del rediseño de Equipo ────────────────────────────────────────────
-
-type Val = { media: number; total: number } | undefined;
-type Asis = { pct: number; base: number } | undefined;
-type AccProps = { menuAbierto: boolean; onMenu: () => void; onEnlace: (scope: EnlaceScope) => void; onEdit: () => void; onDelete: () => void; onValoraciones: () => void; onHoras: () => void; onAusencias: () => void };
 
 function PillSelect({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options: [string, string][];
@@ -655,281 +749,198 @@ function PillSelect({ label, value, onChange, options }: {
   );
 }
 
-function fmtProx(prox: Date | null): string {
-  return prox ? prox.toLocaleDateString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
-}
+const ACCION_ESTILO: Record<AccionTipo, { fondo: string; tinta: string; borde: string }> = {
+  avisos: { fondo: 'bg-brand', tinta: 'text-brand-foreground', borde: 'border-transparent' },
+  mensaje: { fondo: 'bg-brand', tinta: 'text-brand-foreground', borde: 'border-transparent' },
+  pedir: { fondo: 'bg-brand', tinta: 'text-brand-foreground', borde: 'border-transparent' },
+  horas: { fondo: 'bg-rose-600', tinta: 'text-white', borde: 'border-transparent' },
+  hecho: { fondo: 'bg-success/10', tinta: 'text-success', borde: 'border-border' },
+};
+const ACCION_ICONO: Record<AccionTipo, typeof Bell> = {
+  avisos: Bell, mensaje: MessageCircle, pedir: CalendarClock, horas: AlertTriangle, hecho: Check,
+};
 
-function Badges({ i, ausente }: { i: Instructor; ausente?: AusenciaInstructora | null }) {
+function TarjetaMiembro({
+  m, rolViewer, gestiona, refCb, pedido, diaSel, onDiaSel, menuAbierto, onMenu, onAccion,
+  onEditar, onEliminar, onValoraciones, onHoras, onAusencias, onEnlaceBaja, ausente, invitando, onInvitar,
+}: {
+  m: MiembroCompleto; rolViewer: Rol; gestiona: boolean; refCb: (el: HTMLElement | null) => void;
+  pedido: boolean; diaSel: number | null; onDiaSel: (i: number) => void;
+  menuAbierto: boolean; onMenu: () => void; onAccion: (tipo: AccionTipo) => void;
+  onEditar: () => void; onEliminar: () => void; onValoraciones: () => void; onHoras: () => void;
+  onAusencias: () => void; onEnlaceBaja: () => void;
+  ausente?: AusenciaInstructora | null; invitando?: boolean; onInvitar?: () => void;
+}) {
+  const situacion = situacionDe(m);
+  const est = estadoTarjeta(m, rolViewer);
+  const cif = cifrasTarjeta(m, rolViewer);
+  const acc = accionTarjeta(m, rolViewer, { pedido });
+  const estilo = SITUACION_ESTILO[situacion];
+  const accEstilo = ACCION_ESTILO[acc.tipo];
+  const AccIcono = ACCION_ICONO[acc.tipo];
+  // Mostrar "…" solo si hay algo que gestionar sobre esta ficha: ni la vista
+  // de compañeras (instructora sobre otra persona) ni "tu propia cuenta desde
+  // fuera de la gestión" tienen acciones administrativas.
+  const verMenu = gestiona;
+  const clasesSemana = m.semana.reduce((a, b) => a + b, 0);
+
   return (
-    <div className="flex items-center gap-1.5 flex-wrap mt-1">
-      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${i.activo ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${i.activo ? 'bg-success' : 'bg-muted-foreground'}`} />
-        {i.activo ? 'Activa' : 'Inactiva'}
-      </span>
-      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ROL_LABEL[i.rol]}</span>
-      {ausente && (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
-          <Plane size={10} />{AUSENCIA_ETIQUETA[ausente.tipo]}
-        </span>
-      )}
-      {i.authUserId ? (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand/10 text-brand-secondary">
-          <ShieldCheck size={10} />Con acceso
-        </span>
-      ) : i.email ? (
-        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-warning/10 text-warning">Sin cuenta aún</span>
-      ) : null}
-    </div>
-  );
-}
-
-function StatCol({ valor, sub, star, borde, onClick }: { valor: ReactNode; sub: string; star?: boolean; borde?: boolean; onClick?: () => void }) {
-  const inner = (
-    <>
-      <p className={`text-[16px] font-extrabold text-foreground leading-none tabular-nums flex items-center gap-1 ${onClick ? 'group-hover:text-brand-secondary transition-colors' : ''}`}>
-        {valor}{star && <Star size={13} fill="#F5B301" stroke="#F5B301" />}
-      </p>
-      <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>
-    </>
-  );
-  const cls = borde ? 'pl-3 border-l border-[#F1F1F4]' : '';
-  if (onClick) {
-    return (
-      <button type="button" onClick={onClick} title="Ver valoraciones" className={`${cls} text-left group cursor-pointer`}>
-        {inner}
-      </button>
-    );
-  }
-  return <div className={cls}>{inner}</div>;
-}
-
-function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoraciones, onHoras, onAusencias, tieneValoraciones }: AccProps & { tieneValoraciones: boolean }) {
-  return (
-    <div className="flex items-center gap-1 shrink-0 relative">
-      <button onClick={onEdit} title="Editar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-        <Pencil size={14} />
-      </button>
-      <button onClick={onMenu} title="Más acciones" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-        <MoreVertical size={15} />
-      </button>
-      {menuAbierto && (
-        <>
-          <button className="fixed inset-0 z-20 cursor-default" onClick={onMenu} aria-hidden tabIndex={-1} />
-          <div className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-border bg-card shadow-lg py-1">
-            {tieneValoraciones && (
-              <button onClick={onValoraciones} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
-                <Star size={14} className="text-[#F5B301]" fill="#F5B301" /> Ver valoraciones
-              </button>
-            )}
-            <button onClick={onHoras} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
-              <Clock size={14} className="text-muted-foreground" /> Horas del mes
-            </button>
-            <button onClick={onAusencias} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
-              <Plane size={14} className="text-muted-foreground" /> Vacaciones y bajas
-            </button>
-            <button onClick={() => onEnlace('disponibilidad')} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
-              <CalendarClock size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.disponibilidad.menu}
-            </button>
-            <button onClick={() => onEnlace('reportar_baja')} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
-              <CalendarOff size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.reportar_baja.menu}
-            </button>
-            <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-destructive/10 text-left">
-              <Trash2 size={14} /> Eliminar
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvitar, tarifa, ...acc }: {
-  i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
-  invitando?: boolean; onInvitar?: () => void; tarifa?: number | null;
-} & AccProps) {
-  return (
-    <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
+    <article
+      ref={refCb}
+      className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 transition-shadow hover:shadow-lg motion-reduce:transition-none"
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <ProfileAvatar avatarId={i.avatar} fotoUrl={i.fotoUrl} nombre={i.nombre} color={i.color} size="md" />
+          <ProfileAvatar avatarId={m.avatar} fotoUrl={m.fotoUrl} nombre={m.nombre} color={m.color} size="md" />
           <div className="min-w-0">
-            <p className="font-bold text-foreground text-[15px] leading-tight truncate">{i.nombre}</p>
-            <Badges i={i} ausente={ausente} />
+            <p className="font-bold text-foreground text-[15px] leading-tight truncate flex items-center gap-1.5">
+              <span className="truncate">{m.nombre}</span>
+              {m.conAcceso && (
+                <ShieldCheck size={14} className="shrink-0 text-brand-secondary" aria-label="Con acceso a la app" />
+              )}
+            </p>
+            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+              <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${m.activo ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${m.activo ? 'bg-success' : 'bg-muted-foreground'}`} />
+                {m.activo ? 'Activa' : 'Inactiva'}
+              </span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ROL_LABEL[m.rol]}</span>
+              {ausente && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
+                  <Plane size={10} />{AUSENCIA_ETIQUETA[ausente.tipo]}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <Acciones {...acc} tieneValoraciones={!!(val && val.total > 0)} />
-      </div>
-
-      <div className="space-y-1.5">
-        {i.email && <p className="flex items-center gap-2 text-[13px] text-muted-foreground truncate"><Mail size={13} className="shrink-0" />{i.email}</p>}
-        {i.telefono && <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Phone size={13} className="shrink-0" />{i.telefono}</p>}
-        {!i.email && !i.telefono && <p className="text-[12px] text-muted-foreground italic">Sin datos de contacto</p>}
-        {tarifa != null && <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Clock size={13} className="shrink-0" />{tarifa.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/h</p>}
-
-        {/* `authUserId` a null = todavía no ha reclamado su acceso. Antes esto no
-            se veía en ninguna parte: el correo salía solo al guardar y, si se
-            perdía, la dueña no tenía forma de saberlo ni de reenviarlo. */}
-        {i.email && !i.authUserId && (
-          <div className="flex items-center justify-between gap-2 pt-0.5">
-            <span className="text-[12px] text-warning font-medium">Todavía sin acceso</span>
-            {onInvitar && (
-              <button
-                onClick={onInvitar}
-                disabled={invitando}
-                className="text-[12px] font-semibold text-brand-medio hover:underline underline-offset-2 disabled:opacity-50"
-              >
-                {invitando ? 'Enviando…' : 'Enviar invitación'}
-              </button>
+        {verMenu && (
+          <div className="flex items-center gap-1 shrink-0 relative" data-menu-equipo>
+            <button onClick={onEditar} title="Editar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+              <Pencil size={14} />
+            </button>
+            <button onClick={onMenu} title="Más acciones" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+              <MoreVertical size={15} />
+            </button>
+            {menuAbierto && (
+              <div data-menu-equipo className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-border bg-card shadow-lg py-1">
+                {cif.conValoracion && (
+                  <button onClick={onValoraciones} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+                    <Star size={14} className="text-[#F5B301]" fill="#F5B301" /> Ver valoraciones
+                  </button>
+                )}
+                {m.rol === 'INSTRUCTOR' && (
+                  <>
+                    <button onClick={onHoras} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+                      <Clock size={14} className="text-muted-foreground" /> Horas del mes
+                    </button>
+                    <button onClick={onAusencias} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+                      <Plane size={14} className="text-muted-foreground" /> Vacaciones y bajas
+                    </button>
+                    <button onClick={onEnlaceBaja} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+                      <CalendarOff size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.reportar_baja.menu}
+                    </button>
+                  </>
+                )}
+                <button onClick={onEliminar} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-destructive/10 text-left">
+                  <Trash2 size={14} /> Eliminar
+                </button>
+              </div>
             )}
           </div>
         )}
       </div>
 
-      <div className="mt-auto">
-        <div className="grid grid-cols-3 pt-3 border-t border-[#F1F1F4]">
-          <StatCol valor={<>{carga}<span className="text-[11px] font-medium text-muted-foreground"> clase{carga === 1 ? '' : 's'}</span></>} sub="próx. 7 días" />
-          <StatCol valor={asis && asis.base > 0 ? `${asis.pct}%` : '—'} sub="asistencia" borde />
-          <StatCol valor={val && val.total > 0 ? val.media.toFixed(1) : '—'} star={!!(val && val.total > 0)} sub="valoración" borde onClick={val && val.total > 0 ? acc.onValoraciones : undefined} />
-        </div>
-        <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#F1F1F4]">
-          <span className="text-[12px] text-muted-foreground">Próxima clase</span>
-          <span className="text-[12px] font-semibold text-foreground capitalize">{fmtProx(prox)}</span>
-        </div>
+      {/* 1. Dónde está ahora */}
+      <div className={`rounded-xl px-4 py-3 ${estilo.fondo}`}>
+        <p className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider ${estilo.tinta}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${estilo.punto}`} />{est.etiqueta}
+        </p>
+        <p className="text-[14px] font-semibold text-foreground mt-1.5 leading-snug">{est.titulo}</p>
+        <p className="text-[12.5px] text-muted-foreground mt-0.5">{est.pie}</p>
       </div>
-    </div>
-  );
-}
 
-function InstructorRow({ i, carga, prox, val, asis, ausente, invitando, onInvitar, ...acc }: {
-  i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
-  invitando?: boolean; onInvitar?: () => void;
-} & AccProps) {
-  return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <ProfileAvatar avatarId={i.avatar} fotoUrl={i.fotoUrl} nombre={i.nombre} color={i.color} size="sm" />
-      <div className="min-w-0 flex-1">
-        <p className="font-bold text-foreground text-[14px] leading-tight truncate">{i.nombre}</p>
-        <Badges i={i} ausente={ausente} />
-        {i.email && !i.authUserId && (
-          <p className="text-[12px] text-warning font-medium mt-0.5">
-            Todavía sin acceso
-            {onInvitar && (
-              <button
-                onClick={onInvitar}
-                disabled={invitando}
-                className="ml-2 font-semibold text-brand-medio hover:underline underline-offset-2 disabled:opacity-50"
-              >
-                {invitando ? 'Enviando…' : 'Enviar invitación'}
+      {/* 2. Su semana */}
+      {cif.verBarras && (
+        <div>
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">Esta semana</span>
+            <span className="text-[12.5px] font-semibold text-foreground">{clasesSemana} clase{clasesSemana === 1 ? '' : 's'}</span>
+          </div>
+          <div className="grid grid-cols-7 gap-1.5 mt-3 items-end">
+            {m.semana.map((n, i) => (
+              <button key={i} type="button" onClick={() => onDiaSel(i)}
+                className="flex flex-col items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer">
+                <span
+                  className={`w-full rounded-[6px] transition-[height] ${n === 0 ? 'bg-muted' : diaSel === i ? 'bg-brand' : 'bg-foreground/70'}`}
+                  style={{ height: `${n === 0 ? 8 : 8 + n * 10}px` }}
+                />
+                <span className={`text-[10px] ${diaSel === i ? 'font-bold text-foreground' : 'text-muted-foreground'}`}>{DIAS[i]}</span>
               </button>
-            )}
+            ))}
+          </div>
+          <p className="text-[12.5px] text-muted-foreground mt-3 leading-snug min-h-[2.6em]">
+            {diaSel === null
+              ? (clasesSemana > 0 ? pistaDe(m) : 'Sin clases programadas esta semana.')
+              : `${DIAS_LARGOS[diaSel]}: ${m.horasDia[diaSel] ?? 'Libre'}`}
           </p>
-        )}
-      </div>
-      <div className="hidden md:flex items-center gap-6 text-right">
-        <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{carga}</p><p className="text-[10px] text-muted-foreground mt-0.5">7 días</p></div>
-        <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{asis && asis.base > 0 ? `${asis.pct}%` : '—'}</p><p className="text-[10px] text-muted-foreground mt-0.5">asistencia</p></div>
-        {val && val.total > 0 ? (
-          <button type="button" onClick={acc.onValoraciones} title="Ver valoraciones" className="text-right group cursor-pointer">
-            <p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums flex items-center gap-1 justify-end group-hover:text-brand-secondary transition-colors">{val.media.toFixed(1)}<Star size={12} fill="#F5B301" stroke="#F5B301" /></p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">valoración</p>
-          </button>
-        ) : (
-          <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">—</p><p className="text-[10px] text-muted-foreground mt-0.5">valoración</p></div>
-        )}
-        <div className="w-20"><p className="text-[10px] text-muted-foreground">Próxima</p><p className="text-[12px] font-semibold text-foreground capitalize">{fmtProx(prox)}</p></div>
-      </div>
-      <Acciones {...acc} tieneValoraciones={!!(val && val.total > 0)} />
-    </div>
+        </div>
+      )}
+
+      {/* 3. Ocupación + segunda cifra */}
+      {cif.verCifras && (
+        <div className="grid grid-cols-2 gap-3.5 pt-3 border-t border-border">
+          <div>
+            <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums">{cif.ocupacionTexto}</p>
+            <span className="block h-1 mt-2 rounded-full bg-foreground/[0.07]">
+              <span className="block h-1 rounded-full bg-brand transition-[width] duration-700" style={{ width: `${cif.ocupacionBarraPct}%` }} />
+            </span>
+            <p className="text-[12px] text-muted-foreground mt-2">{cif.ocupacionPie}</p>
+          </div>
+          <div className="pl-3.5 border-l border-border">
+            <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums">{cif.segundaValor}</p>
+            <p className="text-[12px] text-muted-foreground mt-2">{cif.segundaEtiqueta}</p>
+            {rolViewer !== 'INSTRUCTOR' || m.esYo ? (
+              <p className="flex items-center gap-1 text-[11px] text-muted-foreground/70 mt-1">
+                {cif.conValoracion && <Star size={11} fill="#F5B301" stroke="#F5B301" />}{cif.valoracionTexto}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {!m.conAcceso && m.email && gestiona && (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[12px] text-warning font-medium flex items-center gap-1.5"><AlertTriangle size={12} />Todavía sin acceso</span>
+          {onInvitar && (
+            <button onClick={onInvitar} disabled={invitando} className="text-[12px] font-semibold text-brand-medio hover:underline underline-offset-2 disabled:opacity-50">
+              {invitando ? 'Enviando…' : 'Enviar invitación'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Acción con nombre propio */}
+      <button
+        onClick={() => onAccion(acc.tipo)}
+        className={`mt-auto flex items-center justify-center gap-2 h-11 rounded-full border ${accEstilo.borde} ${accEstilo.fondo} ${accEstilo.tinta} text-[13.5px] font-semibold transition-[filter,transform] hover:brightness-105 active:scale-[.98]`}
+      >
+        <AccIcono size={14} />{acc.texto}
+      </button>
+
+      {(gestiona || m.esYo) && (m.email || m.telefono) && (
+        <p className="flex items-center gap-2 text-[11.5px] text-muted-foreground/70 truncate">
+          {m.email && <span className="flex items-center gap-1 truncate"><Mail size={11} className="shrink-0" />{m.email}</span>}
+          {m.telefono && <span className="flex items-center gap-1 shrink-0"><Phone size={11} className="shrink-0" />{m.telefono}</span>}
+        </p>
+      )}
+    </article>
   );
 }
 
-// ─── Valoraciones de una instructora (leer cada ⭐ + comentario) ───────────────
-
-function Estrellas({ n, size = 14 }: { n: number; size?: number }) {
-  return (
-    <span className="inline-flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map(s => (
-        <Star key={s} size={size} fill={s <= n ? '#F5B301' : 'none'} stroke={s <= n ? '#F5B301' : '#CBD5E1'} strokeWidth={1.6} />
-      ))}
-    </span>
-  );
-}
-
-function ValoracionesDialog({ instructor, tiposClase, onClose }: {
-  instructor: Instructor | null;
-  tiposClase: import('@/lib/types').TipoClase[];
-  onClose: () => void;
-}) {
-  const [items, setItems] = useState<ValoracionDetalle[]>([]);
-  const [cargando, setCargando] = useState(false);
-
-  useEffect(() => {
-    if (!instructor) return;
-    let vivo = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCargando(true); setItems([]);
-    listarValoraciones(instructor.id).then(r => { if (vivo) { setItems(r); setCargando(false); } });
-    return () => { vivo = false; };
-  }, [instructor]);
-
-  const total = items.length;
-  const media = total ? items.reduce((a, v) => a + v.puntuacion, 0) / total : 0;
-  const dist = [5, 4, 3, 2, 1].map(n => ({ n, c: items.filter(v => v.puntuacion === n).length }));
-  const tipoNombre = (id: string | null) => tiposClase.find(t => t.id === id)?.nombre ?? 'Clase';
-  const fechaCorta = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '');
-
-  return (
-    <Dialog open={!!instructor} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Valoraciones de {instructor?.nombre}</DialogTitle>
-        </DialogHeader>
-        {cargando ? (
-          <p className="text-sm text-muted-foreground py-10 text-center">Cargando…</p>
-        ) : total === 0 ? (
-          <div className="py-10 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-[#FEF9C3] flex items-center justify-center mx-auto mb-3"><Star size={22} className="text-[#F5B301]" fill="#F5B301" /></div>
-            <p className="text-[15px] font-bold text-foreground">Aún sin valoraciones</p>
-            <p className="text-[13px] text-muted-foreground mt-1">Cuando las alumnas valoren sus clases, aparecerán aquí.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center gap-5 rounded-2xl border border-border bg-muted/30 p-4">
-              <div className="text-center shrink-0">
-                <p className="text-[34px] font-extrabold text-foreground leading-none tabular-nums">{media.toFixed(1)}</p>
-                <div className="mt-1.5 flex justify-center"><Estrellas n={Math.round(media)} size={13} /></div>
-                <p className="text-[11px] text-muted-foreground mt-1">{total} valoración{total === 1 ? '' : 'es'}</p>
-              </div>
-              <div className="flex-1 space-y-1">
-                {dist.map(({ n, c }) => (
-                  <div key={n} className="flex items-center gap-2">
-                    <span className="text-[11px] text-muted-foreground w-2 tabular-nums">{n}</span>
-                    <Star size={10} fill="#F5B301" stroke="#F5B301" className="shrink-0" />
-                    <div className="flex-1 h-1.5 rounded-full bg-black/[0.06] overflow-hidden"><div className="h-full rounded-full bg-[#F5B301]" style={{ width: `${total ? Math.round(100 * c / total) : 0}%` }} /></div>
-                    <span className="text-[11px] text-muted-foreground w-4 text-right tabular-nums">{c}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2.5 max-h-[46vh] overflow-y-auto pr-1">
-              {items.map(v => (
-                <div key={v.id} className="rounded-xl border border-border p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <Estrellas n={v.puntuacion} size={14} />
-                    <span className="text-[11px] text-muted-foreground shrink-0">{fechaCorta(v.creado_en)}</span>
-                  </div>
-                  {v.comentario && <p className="text-[13px] text-foreground mt-2 leading-relaxed">“{v.comentario}”</p>}
-                  <p className="text-[11px] text-muted-foreground mt-2">
-                    {tipoNombre(v.tipo_clase_id)}{v.inicio ? ` · ${fechaCorta(v.inicio)}` : ''}{v.alumna ? ` · ${v.alumna}` : ''}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+function pistaDe(m: MiembroCompleto): string {
+  const libre = m.semana.findIndex(n => n === 0);
+  if (libre === -1) return 'Trabaja todos los días de la semana.';
+  return `El ${DIAS_LARGOS[libre].toLowerCase()} lo tiene libre: es a quien preguntar si falta alguien.`;
 }
 
 // ─── Tab: Actividad (auditoría — quién hizo qué) ───────────────────────────────
@@ -968,17 +979,19 @@ function ActividadTab({ actividadReciente }: { actividadReciente: import('@/lib/
 }
 
 // ─── Horas del mes por instructora ───────────────────────────────────────────
-// Derivadas de las sesiones no canceladas (misma definición que la RPC
-// instructor_horas_mes que usa el motor de sustituciones para el reparto):
-// antes ese número solo existía dentro del scoring — aquí se hace visible y
-// exportable, que es lo que promete el chip "Registro de horas" de la landing.
 
 function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
   instructor: Instructor | null; sesiones: Sesion[]; tiposClase: TipoClase[]; onClose: () => void;
 }) {
-  // 0 = mes actual; 1 = mes anterior; …
   const [mesAtras, setMesAtras] = useState(0);
-  useEffect(() => { setMesAtras(0); }, [instructor?.id]);
+  // Reinicia el mes al cambiar de instructora — ajuste de estado durante el
+  // render (patrón recomendado), no un efecto: evita el cascading render de
+  // "setState síncrono dentro de un efecto".
+  const [instructorAnteriorId, setInstructorAnteriorId] = useState(instructor?.id);
+  if (instructor?.id !== instructorAnteriorId) {
+    setInstructorAnteriorId(instructor?.id);
+    setMesAtras(0);
+  }
 
   const ref = new Date();
   const mes = new Date(ref.getFullYear(), ref.getMonth() - mesAtras, 1);
@@ -1090,9 +1103,7 @@ function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
 }
 
 // ─── Vacaciones y bajas de una instructora ───────────────────────────────────
-// Registrar una ausencia bloquea esas fechas en el motor de sustituciones: la
-// instructora deja de aparecer como candidata mientras dure (ver migración 0101,
-// que materializa un bloqueo por día en instructora_disponibilidad_excepciones).
+
 const TIPO_AUSENCIA_LABEL: Record<AusenciaInstructora['tipo'], string> = {
   VACACIONES: 'Vacaciones', BAJA_MEDICA: 'Baja médica', OTRO: 'Otra ausencia',
 };
@@ -1108,7 +1119,6 @@ function AusenciasDialog({ instructor, onClose }: { instructor: Instructor | nul
   const [error, setError] = useState('');
   const [aviso, setAviso] = useState('');
 
-  // Reinicia el formulario y carga las ausencias al abrir para otra instructora.
   const instructorId = instructor?.id;
   const cargar = useCallback(async (id: string) => {
     setCargando(true); setError(''); setAviso('');
@@ -1116,8 +1126,6 @@ function AusenciasDialog({ instructor, onClose }: { instructor: Instructor | nul
     setItems(await listarAusencias(id));
     setCargando(false);
   }, []);
-  // Falso positivo del compilador: los setState de cargar() son asíncronos
-  // (sincronización con la API), no una cascada de renders.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (instructorId) void cargar(instructorId); }, [instructorId, cargar]);
 
@@ -1156,7 +1164,6 @@ function AusenciasDialog({ instructor, onClose }: { instructor: Instructor | nul
           Mientras dure la ausencia no se le ofrecerán sustituciones ni saldrá como candidata.
         </p>
 
-        {/* Alta */}
         <div className="rounded-2xl border border-border bg-muted/30 p-3.5 space-y-2.5">
           <div className="flex gap-1.5">
             {(Object.keys(TIPO_AUSENCIA_LABEL) as AusenciaInstructora['tipo'][]).map(t => (
@@ -1191,7 +1198,6 @@ function AusenciasDialog({ instructor, onClose }: { instructor: Instructor | nul
           </button>
         </div>
 
-        {/* Lista */}
         <div className="mt-3 max-h-[38vh] overflow-y-auto">
           {cargando ? (
             <p className="text-[13px] text-muted-foreground py-4 text-center">Cargando…</p>
@@ -1217,6 +1223,95 @@ function AusenciasDialog({ instructor, onClose }: { instructor: Instructor | nul
             </div>
           ))}
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Valoraciones de una instructora (leer cada ⭐ + comentario) ───────────────
+
+function Estrellas({ n, size = 14 }: { n: number; size?: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(s => (
+        <Star key={s} size={size} fill={s <= n ? '#F5B301' : 'none'} stroke={s <= n ? '#F5B301' : '#CBD5E1'} strokeWidth={1.6} />
+      ))}
+    </span>
+  );
+}
+
+function ValoracionesDialog({ instructor, tiposClase, onClose }: {
+  instructor: Instructor | null;
+  tiposClase: import('@/lib/types').TipoClase[];
+  onClose: () => void;
+}) {
+  const [items, setItems] = useState<ValoracionDetalle[]>([]);
+  const [cargando, setCargando] = useState(false);
+
+  useEffect(() => {
+    if (!instructor) return;
+    let vivo = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCargando(true); setItems([]);
+    listarValoraciones(instructor.id).then(r => { if (vivo) { setItems(r); setCargando(false); } });
+    return () => { vivo = false; };
+  }, [instructor]);
+
+  const total = items.length;
+  const media = total ? items.reduce((a, v) => a + v.puntuacion, 0) / total : 0;
+  const dist = [5, 4, 3, 2, 1].map(n => ({ n, c: items.filter(v => v.puntuacion === n).length }));
+  const tipoNombre = (id: string | null) => tiposClase.find(t => t.id === id)?.nombre ?? 'Clase';
+  const fechaCorta = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '');
+
+  return (
+    <Dialog open={!!instructor} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Valoraciones de {instructor?.nombre}</DialogTitle>
+        </DialogHeader>
+        {cargando ? (
+          <p className="text-sm text-muted-foreground py-10 text-center">Cargando…</p>
+        ) : total === 0 ? (
+          <div className="py-10 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-[#FEF9C3] flex items-center justify-center mx-auto mb-3"><Star size={22} className="text-[#F5B301]" fill="#F5B301" /></div>
+            <p className="text-[15px] font-bold text-foreground">Aún sin valoraciones</p>
+            <p className="text-[13px] text-muted-foreground mt-1">Cuando las alumnas valoren sus clases, aparecerán aquí.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-5 rounded-2xl border border-border bg-muted/30 p-4">
+              <div className="text-center shrink-0">
+                <p className="text-[34px] font-extrabold text-foreground leading-none tabular-nums">{media.toFixed(1)}</p>
+                <div className="mt-1.5 flex justify-center"><Estrellas n={Math.round(media)} size={13} /></div>
+                <p className="text-[11px] text-muted-foreground mt-1">{total} valoración{total === 1 ? '' : 'es'}</p>
+              </div>
+              <div className="flex-1 space-y-1">
+                {dist.map(({ n, c }) => (
+                  <div key={n} className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground w-2 tabular-nums">{n}</span>
+                    <Star size={10} fill="#F5B301" stroke="#F5B301" className="shrink-0" />
+                    <div className="flex-1 h-1.5 rounded-full bg-black/[0.06] overflow-hidden"><div className="h-full rounded-full bg-[#F5B301]" style={{ width: `${total ? Math.round(100 * c / total) : 0}%` }} /></div>
+                    <span className="text-[11px] text-muted-foreground w-4 text-right tabular-nums">{c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2.5 max-h-[46vh] overflow-y-auto pr-1">
+              {items.map(v => (
+                <div key={v.id} className="rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <Estrellas n={v.puntuacion} size={14} />
+                    <span className="text-[11px] text-muted-foreground shrink-0">{fechaCorta(v.creado_en)}</span>
+                  </div>
+                  {v.comentario && <p className="text-[13px] text-foreground mt-2 leading-relaxed">“{v.comentario}”</p>}
+                  <p className="text-[11px] text-muted-foreground mt-2">
+                    {tipoNombre(v.tipo_clase_id)}{v.inicio ? ` · ${fechaCorta(v.inicio)}` : ''}{v.alumna ? ` · ${v.alumna}` : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
