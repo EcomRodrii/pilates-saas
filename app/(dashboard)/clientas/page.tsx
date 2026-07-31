@@ -55,6 +55,11 @@ const emptyForm = (): FormSocia => ({
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+const RE_DIACRITICOS = /[̀-ͯ]/g;
+function normalizaBusqueda(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '');
+}
+
 function initials(nombre: string, apellidos: string) {
   return `${nombre[0] ?? ''}${apellidos[0] ?? ''}`.toUpperCase();
 }
@@ -330,12 +335,14 @@ export default function Socios() {
 
   // ── Filtered + sorted list ─────────────────────────────────────────────────
   const lista = useMemo(() => {
-    const q = busqueda.toLowerCase();
+    // Sin normalizar acentos, buscar "maria" no encontraba a "María" (y
+    // viceversa) — el gesto más natural de escribir rápido en el buscador.
+    const q = normalizaBusqueda(busqueda);
     const filtered = socios.filter((s) => {
       // Search
       const matchB =
         !q ||
-        `${s.nombre} ${s.apellidos} ${s.email} ${s.telefono ?? ''}`.toLowerCase().includes(q);
+        normalizaBusqueda(`${s.nombre} ${s.apellidos} ${s.email} ${s.telefono ?? ''}`).includes(q);
       // Smart filter
       let matchF = true;
       if (smartFilter === 'activas') matchF = s.activo;
