@@ -205,7 +205,10 @@ export interface DecisionSession {
 }
 
 // ── Feature flags (DECISION-OS-MODELO-DATOS.md §2.11) ───────────────────────
-export type DecisionFlag = 'DECISIONES' | 'RETENCION' | 'INGRESOS' | 'FINANZAS' | 'AGENDA' | 'MARKETING' | 'EQUIPO';
+// P2-5: faltaba CAPTACION — hueco del catálogo (EspecialistaId ya la tenía),
+// no una reapertura de nada. Necesario para que el filtro por especialista
+// de motor.ts pueda apagar/encender los 7 especialistas, no solo 6.
+export type DecisionFlag = 'DECISIONES' | 'RETENCION' | 'INGRESOS' | 'FINANZAS' | 'AGENDA' | 'MARKETING' | 'EQUIPO' | 'CAPTACION';
 export interface DecisionFeatureFlag {
   id: string;
   studioId: string;

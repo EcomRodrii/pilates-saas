@@ -150,6 +150,37 @@ test('silencio: estudio sin ninguna señal → cero candidatas, estado EXCELENTE
   assert.ok(resultado.resumenDiario.saludo.includes('no necesito nada'));
 });
 
+// P2-5: DecisionFlag por especialista (dbGetFeatureFlags) existía en el
+// esquema pero motor.ts nunca lo usaba para filtrar — "nada lo activa
+// nunca" era literal. Verifica el filtro opt-out: false apaga, ausente o
+// true deja correr.
+test('flagsEspecialistas: FINANZAS=false apaga ese especialista sin tocar los demás', () => {
+  const snapshot: SnapshotEstudio = {
+    studioId: 'e1',
+    socios: [socio({ id: 's1', nombre: 'Marta' })],
+    reservas: [], sesiones: [], salas: [],
+    recibos: [],
+    suscripciones: [suscripcion({ socioId: 's1', planId: 'bono1', sesionesRestantes: 1 })],
+    planesTarifa: [plan({ id: 'bono1', tipo: 'BONO', sesiones: 8, precio: 64 })],
+    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [],
+    contexto: { nSociasActivas: 1, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+  };
+  const base = {
+    snapshot, memoria: new Map(), pendientesActuales: [], resueltas90d: [],
+    nombrePropietario: 'Marco', ventanaMientrasDormiasDesde: new Date(NOW.getTime() - 86400000), now: NOW,
+  };
+
+  const conFinanzas = ejecutarAnalisis(base);
+  assert.ok(conFinanzas.candidatasFinales.some(c => c.especialista === 'FINANZAS'));
+
+  const sinFinanzas = ejecutarAnalisis({ ...base, flagsEspecialistas: new Map([['FINANZAS', false]]) });
+  assert.equal(sinFinanzas.candidatasFinales.some(c => c.especialista === 'FINANZAS'), false);
+
+  // Un flag para OTRO especialista, o el mapa vacío, no debe apagar FINANZAS.
+  const flagIrrelevante = ejecutarAnalisis({ ...base, flagsEspecialistas: new Map([['EQUIPO', false]]) });
+  assert.ok(flagIrrelevante.candidatasFinales.some(c => c.especialista === 'FINANZAS'));
+});
+
 test('expiración: PENDIENTE vencida se marca VENCIDA; PENDIENTE resuelta sola se marca RESUELTA_SOLA', () => {
   const snapshot: SnapshotEstudio = {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],

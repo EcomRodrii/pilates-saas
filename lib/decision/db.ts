@@ -411,6 +411,17 @@ export async function dbGetFeatureFlags(studioId: string): Promise<Map<DecisionF
   return flags;
 }
 
+// P2-5: filas crudas, NO un Map — para usar dentro de un `step.run` de
+// Inngest. Un Map devuelto directo desde un step se serializa a JSON al
+// memoizarse y vuelve como `{}` en el replay (mismo motivo por el que
+// dbListMemoriaRows existe aparte de construirMapaMemoria, ver ese comentario
+// en lib/inngest/decision.ts). Reconstruir el Map SIEMPRE fuera del step.
+export async function dbListFeatureFlagRows(studioId: string): Promise<{ flag: DecisionFlag; activo: boolean }[]> {
+  const { data, error } = await db().from('decision_feature_flags').select('flag, activo').eq('studio_id', studioId);
+  if (error) { reportError('[dbListFeatureFlagRows]', error); return []; }
+  return (data ?? []).map(r => ({ flag: r.flag as DecisionFlag, activo: r.activo as boolean }));
+}
+
 export async function dbSetFeatureFlag(studioId: string, flag: DecisionFlag, activo: boolean, activadoPor: string): Promise<void> {
   const { error } = await db().from('decision_feature_flags').upsert({
     id: uid(), studio_id: studioId, flag, activo, activado_en: new Date().toISOString(), activado_por: activadoPor,
