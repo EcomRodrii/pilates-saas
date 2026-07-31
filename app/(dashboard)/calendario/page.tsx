@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
-import { enviarEmailCancelacionClase, enviarEmailCambioClase, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
+import { enviarEmailCancelacionClase, avisarCambioInstructoraServidor, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
@@ -1952,11 +1952,13 @@ export default function Calendario() {
     setShowForm(null);
   }
 
-  // Cuántas alumnas se enterarían de un cambio en esta sesión. SOLO CONFIRMADA,
-  // porque es exactamente a quien avisa el servidor (ver `sociasDeSesion` en
-  // lib/notifications/recipients.ts). Contando también las ASISTIDA —una clase
-  // que ya se dio— el panel ofrecía "¿aviso a la alumna?" y luego no se avisaba
-  // a nadie, que fue justo lo que pasó en la prueba de producción.
+  // Cuántas alumnas se enterarían de un cambio en esta sesión, SOLO CONFIRMADA
+  // (igual criterio que resuelve el servidor en `sociasDeSesion`). Es un
+  // ESTIMADO para el texto del diálogo ("¿aviso a N alumnas?") — el envío real
+  // no depende de este número, lo resuelve el servidor en el momento de avisar
+  // (ver avisarCambioInstructora). No se usa para decidir SI se abre el
+  // diálogo: ese snapshot puede no ver una reserva hecha desde el portal
+  // después de cargar, y usarlo como guardia dejaba el aviso sin dispararse.
   function cuantasApuntadas(id: string): number {
     return reservas.filter(r => r.sesionId === id && r.estado === 'CONFIRMADA').length;
   }
@@ -1973,26 +1975,16 @@ export default function Calendario() {
   // El toast cuenta lo que ha salido DE VERDAD, no lo que se pretendía enviar.
   async function avisarCambioInstructora(aviso: NonNullable<typeof avisoInstructora>) {
     setToast('Avisando…');
-    const apuntadas = reservas
-      .filter(r => r.sesionId === aviso.sesionId && r.estado === 'CONFIRMADA')
-      .map(r => socios.find(s => s.id === r.socioId))
-      .filter(s => !!s);
-    const conEmail = apuntadas.filter(s => !!s.email);
-    const sinEmail = apuntadas.length - conEmail.length;
+    const r = await avisarCambioInstructoraServidor(aviso.sesionId, {
+      clase: aviso.datos.clase, cuando: aviso.datos.cuando, sala: aviso.datos.sala, instructora: aviso.datos.instructora,
+      fecha: aviso.email.fecha, hora: aviso.email.hora, instructorAnterior: aviso.email.anterior,
+    });
+    if (!r) { setToast('No se ha podido avisar. Inténtalo otra vez.'); return; }
 
-    const enviados = (await Promise.all(conEmail.map(s => enviarEmailCambioClase({
-      to: s.email!, toName: s.nombre,
-      claseNombre: aviso.email.clase, fecha: aviso.email.fecha, hora: aviso.email.hora,
-      sala: aviso.email.sala, instructor: aviso.email.instructora,
-      instructorAnterior: aviso.email.anterior,
-    })))).filter(Boolean).length;
-
-    const enApp = await avisarClaseModificada(aviso.sesionId, aviso.datos);
-    const faltan = sinEmail > 0 ? ` · ${sinEmail} sin email guardado` : '';
-
-    if (enviados > 0) {
-      setToast(`Avisada${enviados !== 1 ? 's' : ''} ${enviados} alumna${enviados !== 1 ? 's' : ''} por email${faltan}`);
-    } else if (conEmail.length === 0 && enApp) {
+    const faltan = r.sinEmail > 0 ? ` · ${r.sinEmail} sin email guardado` : '';
+    if (r.enviados > 0) {
+      setToast(`Avisada${r.enviados !== 1 ? 's' : ''} ${r.enviados} alumna${r.enviados !== 1 ? 's' : ''} por email${faltan}`);
+    } else if (r.enApp > 0) {
       // Nadie tiene email: el aviso existe en la app, pero hay que decirle a la
       // dueña que a estas les toca llamarlas ella.
       setToast(`Aviso puesto en la app${faltan}`);
@@ -2050,10 +2042,14 @@ export default function Calendario() {
       // hay ninguna, así que el guard de cliente sobra y hacía daño.
       //
       // Cambiar solo la INSTRUCTORA es distinto: es la dueña quien decide si eso
-      // merece un mensaje ("hoy da Laura"). Se le pregunta "¿aviso a las N
-      // alumnas?" solo si el panel ve apuntadas (si no, no hay número que mostrar).
+      // merece un mensaje ("hoy da Laura"). Se le pregunta SIEMPRE, aunque el
+      // panel vea 0 apuntadas en su snapshot — mismo motivo que arriba: ese
+      // snapshot puede no ver una reserva hecha desde el portal, y usarlo como
+      // guardia dejaba el diálogo sin abrirse (y el email sin mandarse) para un
+      // cambio que sí tenía a quién avisar de verdad. `apuntadas` sigue viajando
+      // en el aviso solo como estimado para el texto del diálogo.
       if (cambioInstructora && !cambioHora && !cambioSala) {
-        if (apuntadas > 0) setAvisoInstructora({
+        setAvisoInstructora({
           sesionId, apuntadas, instructora, datos,
           email: {
             clase, sala, instructora,
@@ -2941,7 +2937,12 @@ export default function Calendario() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">
-              ¿Aviso a {avisoInstructora?.apuntadas === 1 ? 'la alumna' : `las ${avisoInstructora?.apuntadas} alumnas`}?
+              {/* `apuntadas` es un estimado del snapshot del panel: puede no ver una
+                  reserva hecha desde el portal. Con 0 no se afirma que no haya nadie
+                  (el servidor decide de verdad al enviar) — se pregunta en genérico. */}
+              ¿Aviso a {avisoInstructora?.apuntadas === 0
+                ? 'las alumnas apuntadas'
+                : avisoInstructora?.apuntadas === 1 ? 'la alumna' : `las ${avisoInstructora?.apuntadas} alumnas`}?
             </DialogTitle>
           </DialogHeader>
           <p className="text-[13px] text-muted-foreground mt-2">

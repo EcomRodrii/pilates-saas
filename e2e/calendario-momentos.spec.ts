@@ -33,8 +33,12 @@ function json(route: Route, body: unknown, status = 200) {
 }
 
 /** `avisos` recoge las llamadas al endpoint que escribe a las alumnas. */
-async function montarCalendario(page: Page, extra: { sesiones?: unknown[]; reservas?: unknown[]; sesionUpdateError?: boolean } = {}) {
+async function montarCalendario(page: Page, extra: {
+  sesiones?: unknown[]; reservas?: unknown[]; sesionUpdateError?: boolean;
+  avisoInstructoraRespuesta?: { enviados: number; sinEmail: number; enApp: number };
+} = {}) {
   const avisos: string[] = [];
+  const avisosInstructora: string[] = [];
 
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -58,6 +62,14 @@ async function montarCalendario(page: Page, extra: { sesiones?: unknown[]; reser
     avisos.push(route.request().postData() ?? '');
     return json(route, { ok: true });
   });
+  // Endpoint que resuelve email + in-app del cambio de instructora EN SERVIDOR.
+  // Se responde con números fijos (independientes de `extra.reservas`) para
+  // demostrar que el toast pinta lo que dice el servidor, no lo que el panel
+  // cree ver en su propio snapshot de `reservas`/`socios`.
+  await page.route('**/api/clases/avisar-cambio-instructora**', route => {
+    avisosInstructora.push(route.request().postData() ?? '');
+    return json(route, { ok: true, ...(extra.avisoInstructoraRespuesta ?? { enviados: 0, sinEmail: 0, enApp: 0 }) });
+  });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
@@ -76,7 +88,7 @@ async function montarCalendario(page: Page, extra: { sesiones?: unknown[]; reser
     json(route, route.request().method() === 'GET' ? (extra.reservas ?? []) : []));
 
   await page.goto('/calendario');
-  return avisos;
+  return { avisos, avisosInstructora };
 }
 
 test.describe('Momentos del calendario', () => {
@@ -97,7 +109,7 @@ test.describe('Momentos del calendario', () => {
 
   test('al cambiar solo la instructora, pregunta antes de avisar', async ({ page }) => {
     const hoy = new Date().toISOString().slice(0, 10);
-    const avisos = await montarCalendario(page, {
+    const { avisos } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
         inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
@@ -131,13 +143,85 @@ test.describe('Momentos del calendario', () => {
     expect(avisos).toHaveLength(0);
   });
 
+  test('el aviso de cambio de instructora avisa a quien reservó fuera del snapshot del panel', async ({ page }) => {
+    // El panel solo ve 1 reserva en su snapshot (lo que abre el diálogo con
+    // "¿Aviso a la alumna?"), pero para cuando la dueña confirma, el servidor
+    // resuelve 3 socias reales contra la BD — p.ej. dos reservaron desde el
+    // portal justo después de que el panel cargara su snapshot. El toast debe
+    // reflejar lo que dice el SERVIDOR (3), no lo que el panel creía ver (1):
+    // antes, el filtrado en cliente de `reservas`/`socios` habría avisado solo
+    // a 1 y dejado a las otras 2 sin email.
+    const hoy = new Date().toISOString().slice(0, 10);
+    const { avisosInstructora } = await montarCalendario(page, {
+      sesiones: [{
+        id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
+        inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
+        notas: null, serie_id: null, precio_puntual: null,
+      }],
+      reservas: [
+        { id: 'r1', studio_id: STUDIO_ID, sesion_id: 'ses-1', socio_id: 's1', estado: 'CONFIRMADA', creada_en: `${hoy}T08:00:00` },
+      ],
+      avisoInstructoraRespuesta: { enviados: 3, sinEmail: 1, enApp: 3 },
+    });
+
+    await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Editar' }).first().click();
+    await page.getByLabel('Instructora').selectOption({ label: 'Laura' });
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    const dialogo = page.getByRole('dialog').filter({ hasText: '¿Aviso a' });
+    await expect(dialogo).toContainText('¿Aviso a la alumna?');
+    await dialogo.getByRole('button', { name: 'Sí, avisar' }).click();
+
+    // El endpoint recibe el sesionId; las destinatarias las resuelve él, no el
+    // body de la petición (el panel ya no manda una lista de emails).
+    await expect.poll(() => avisosInstructora.length, { timeout: 10_000 }).toBe(1);
+    expect(JSON.parse(avisosInstructora[0])).toMatchObject({ sesionId: 'ses-1' });
+
+    // El toast cuenta las 3 avisadas de verdad, no la 1 que el panel veía.
+    await expect(page.getByText('Avisadas 3 alumnas por email · 1 sin email guardado')).toBeVisible();
+  });
+
+  test('cambiar solo la instructora pregunta aunque el panel no vea NINGUNA apuntada', async ({ page }) => {
+    // Antes, el diálogo solo se abría si `cuantasApuntadas() > 0` en el snapshot
+    // del panel. Si una socia reservaba desde el portal justo después de cargar
+    // el calendario, el panel veía 0, el diálogo ni se abría, y el email de
+    // cambio de instructora no se mandaba nunca — aunque hubiera una alumna real
+    // apuntada. El diálogo debe abrirse SIEMPRE ante un cambio de instructora;
+    // el servidor es quien decide si hay o no destinatarias al avisar.
+    const hoy = new Date().toISOString().slice(0, 10);
+    const { avisosInstructora } = await montarCalendario(page, {
+      sesiones: [{
+        id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
+        inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
+        notas: null, serie_id: null, precio_puntual: null,
+      }],
+      // reservas: [] a propósito — el snapshot del panel no ve ninguna.
+      avisoInstructoraRespuesta: { enviados: 1, sinEmail: 0, enApp: 1 },
+    });
+
+    await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Editar' }).first().click();
+    await page.getByLabel('Instructora').selectOption({ label: 'Laura' });
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    // El diálogo se abre igualmente, con texto genérico (no "las 0 alumnas").
+    const dialogo = page.getByRole('dialog').filter({ hasText: '¿Aviso a' });
+    await expect(dialogo).toContainText('¿Aviso a las alumnas apuntadas?');
+    await dialogo.getByRole('button', { name: 'Sí, avisar' }).click();
+
+    // Y el aviso sale de verdad: el servidor resolvió 1 destinataria real.
+    await expect.poll(() => avisosInstructora.length, { timeout: 10_000 }).toBe(1);
+    await expect(page.getByText('Avisada 1 alumna por email')).toBeVisible();
+  });
+
   test('mover la hora avisa aunque el panel no viera la reserva (bug del aplazamiento)', async ({ page }) => {
     const hoy = new Date().toISOString().slice(0, 10);
     // El panel NO trae la reserva en su snapshot (se hizo desde el portal después
     // de cargar). Antes, el guard de cliente `apuntadas > 0` vetaba el aviso y el
     // aplazamiento salía en silencio. Ahora se avisa siempre en cambios de hora y
     // el servidor resuelve las destinatarias desde la BD.
-    const avisos = await montarCalendario(page, {
+    const { avisos } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
         inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
@@ -162,7 +246,7 @@ test.describe('Momentos del calendario', () => {
     // La escritura de la sesión falla (23P01, solape). El aplazamiento NO debe
     // fingir éxito: sin aviso, y se enseña el motivo. Antes se avisaba y el panel
     // mostraba la hora nueva aunque la BD la hubiera rechazado.
-    const avisos = await montarCalendario(page, {
+    const { avisos } = await montarCalendario(page, {
       sesionUpdateError: true,
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
@@ -205,7 +289,7 @@ test.describe('Momentos del calendario', () => {
     // Era siempre distinto, así que cualquier edición —una nota, el aforo—
     // mandaba a todas las apuntadas un aviso de que su clase había cambiado.
     const hoy = new Date().toISOString().slice(0, 10);
-    const avisos = await montarCalendario(page, {
+    const { avisos } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
         inicio: `${hoy}T09:00:00+00:00`, fin: `${hoy}T09:55:00+00:00`, aforo_maximo: 10, cancelada: false,

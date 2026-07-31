@@ -58,7 +58,12 @@ async function instructoraPorId(admin: SupabaseClient, studioId: string, instruc
   };
 }
 
-async function sociasDeSesion(admin: SupabaseClient, studioId: string, sesionId: string): Promise<Recipient[]> {
+// Exportada: la reutiliza también el envío server-side del email de "cambio de
+// instructora" (lib/emails/enviar-cambio-instructora.ts), que necesita la misma
+// resolución (CONFIRMADA de verdad, no el snapshot de cliente) pero fuera del
+// Notification Engine porque ese canal no lo declara el catálogo (ver comentario
+// en `resolverDestinatarios` sobre 'socias-e-instructora-de-la-sesion').
+export async function sociasDeSesion(admin: SupabaseClient, studioId: string, sesionId: string): Promise<Recipient[]> {
   const { data: reservas } = await admin.from('reservas')
     .select('socio_id').eq('studio_id', studioId).eq('sesion_id', sesionId).eq('estado', 'CONFIRMADA');
   const ids = [...new Set((reservas ?? []).map(r => r.socio_id as string).filter(Boolean))];
