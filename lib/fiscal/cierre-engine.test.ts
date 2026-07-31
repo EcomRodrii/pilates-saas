@@ -114,6 +114,28 @@ test('sellado: cuenta facturas con huella; manuales no cuentan como selladas', (
   assert.equal(c.sellado.selladas, 1);
 });
 
+test('trimestre: acota totales/lineas a esos 3 meses, sin tocar el año de otras facturas', () => {
+  const c = computeCierreAnual({
+    anio: 2025,
+    trimestre: 2,
+    facturas: [
+      factura({ fechaEmision: '2025-02-01', baseImponible: 10, tipoIVA: 21, cuotaIVA: 2.1, total: 12.1 }),  // T1, fuera
+      factura({ fechaEmision: '2025-05-01', baseImponible: 20, tipoIVA: 21, cuotaIVA: 4.2, total: 24.2 }),  // T2, dentro
+      factura({ fechaEmision: '2024-05-01', baseImponible: 999, tipoIVA: 21, cuotaIVA: 209.79, total: 1208.79 }), // otro año
+    ],
+    ingresosManuales: [manual({ fecha: '2025-06-15', baseImponible: 5, tipoIVA: 21, cuotaIVA: 1.05, total: 6.05 })], // T2, dentro
+  });
+  assert.equal(c.trimestre, 2);
+  assert.equal(c.lineas.length, 2);
+  assert.equal(c.totales.total, 30.25);
+  assert.deepEqual(c.trimestres.map(t => t.total), [0, 30.25, 0, 0]);
+});
+
+test('sin trimestre, el campo queda a null (año completo, comportamiento de siempre)', () => {
+  const c = computeCierreAnual({ anio: 2025, facturas: [], ingresosManuales: [] });
+  assert.equal(c.trimestre, null);
+});
+
 test('desglosarIvaDesdeTotal reparte un total IVA-incluido', () => {
   assert.deepEqual(desglosarIvaDesdeTotal(121, 21), { base: 100, cuota: 21 });
   assert.deepEqual(desglosarIvaDesdeTotal(60, 21), { base: 49.59, cuota: 10.41 });

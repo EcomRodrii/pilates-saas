@@ -16,14 +16,18 @@ export async function enviarCierreAGestoria(params: {
   logoUrl?: string | null;
   colorPrimario?: string | null;
   anio: number;
+  // Modelo 303: obligatorio trimestral. Ausente = envío del año completo.
+  trimestre?: 1 | 2 | 3 | 4 | null;
   cierre: CierreAnual;
 }): Promise<{ ok: boolean; skipped?: boolean; error?: string; id?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
 
-  const { to, estudioNombre, estudioEmail, logoUrl, colorPrimario, anio, cierre } = params;
-  const nombreAdjunto = `cierre-${anio}-libro-facturas.csv`;
+  const { to, estudioNombre, estudioEmail, logoUrl, colorPrimario, anio, trimestre, cierre } = params;
+  const nombreAdjunto = trimestre
+    ? `cierre-${anio}-T${trimestre}-libro-facturas.csv`
+    : `cierre-${anio}-libro-facturas.csv`;
 
   try {
     const { headers, rows } = cierreLibroCsvData(cierre);
@@ -32,7 +36,7 @@ export async function enviarCierreAGestoria(params: {
 
     const html = await render(
       CierreGestoriaEmail({
-        estudioNombre, logoUrl, colorPrimario, anio, remitente: estudioNombre,
+        estudioNombre, logoUrl, colorPrimario, anio, trimestre, remitente: estudioNombre,
         totales: cierre.totales,
         trimestres: cierre.trimestres,
         nombreAdjunto,
@@ -44,7 +48,7 @@ export async function enviarCierreAGestoria(params: {
       from: remitentePorMarca('Tentare Manager'),
       to: [to],
       ...(estudioEmail ? { replyTo: estudioEmail } : {}),
-      subject: `Cierre de año ${anio} — ${estudioNombre}`,
+      subject: trimestre ? `Cierre T${trimestre} ${anio} — ${estudioNombre}` : `Cierre de año ${anio} — ${estudioNombre}`,
       html,
       attachments: [{ filename: nombreAdjunto, content: contentBase64 }],
     });
