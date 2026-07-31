@@ -43,12 +43,15 @@ export function transicion(props: string[], ms: number = dur.control): string {
 // (nombres de clase, saludos, títulos), la sans dice qué HACER con ello
 // (botones, metadatos, etiquetas). En cuanto la sans se mete a titular, el
 // diseño se cae — es la mitad de su carácter.
-export const serif = "var(--font-display), 'Instrument Serif', Georgia, serif";
+// --portal-heading-font la declara lib/theme-runtime.ts SOLO cuando el
+// estudio elige un tema de la galería con titular distinto (hoy, "Geométrico"
+// → Outfit); si no, la var no existe y gana el fallback de siempre.
+export const serif = "var(--portal-heading-font, var(--font-display)), 'Instrument Serif', Georgia, serif";
 export const sans = "var(--font-ui), 'Instrument Sans', system-ui, sans-serif";
 
 /** Display serif. `it` = cursiva, que en este diseño no es énfasis: es voz. */
 export function display(size: number, it = false, lh = 1): CSSProperties {
-  return { fontFamily: serif, fontSize: size, fontStyle: it ? 'italic' : 'normal', lineHeight: lh, fontWeight: 400 };
+  return { fontFamily: serif, fontSize: size, fontStyle: it ? 'italic' : 'normal', lineHeight: lh, fontWeight: 'var(--portal-heading-weight, 400)' };
 }
 
 // Las micro-etiquetas van en versalitas muy espaciadas. El `paddingLeft` iguala

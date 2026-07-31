@@ -25,6 +25,10 @@ const CLAVES_PERMITIDAS = new Set([
   '--portal-btn-border',
   '--portal-card-border',
   '--portal-card-shadow',
+  // Titular del portal (galería de temas) — 'instrumentSerif' no declara
+  // ninguna de las dos, mismo motivo que buttonStyle/cardStyle arriba.
+  '--portal-heading-font',
+  '--portal-heading-weight',
 ]);
 
 // Se monta en las superficies previsualizables (reservas). Cuando la página se

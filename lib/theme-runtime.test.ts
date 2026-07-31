@@ -106,3 +106,15 @@ test('themeToCssVars: cardStyle elevated/bordered declaran borde/sombra distinto
   assert.equal(bordered['--portal-card-shadow'], 'none');
   assert.match(bordered['--portal-card-border'], /solid/);
 });
+
+test('themeToCssVars: portalHeadingFontId por defecto (instrumentSerif) no declara vars de titular', () => {
+  const vars = themeToCssVars(DEFAULT_THEME) as Record<string, string>;
+  assert.equal('--portal-heading-font' in vars, false);
+  assert.equal('--portal-heading-weight' in vars, false);
+});
+
+test('themeToCssVars: portalHeadingFontId "outfit" declara fuente y peso 600', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME, portalHeadingFontId: 'outfit' }) as Record<string, string>;
+  assert.match(vars['--portal-heading-font'], /Outfit/);
+  assert.equal(vars['--portal-heading-weight'], '600');
+});

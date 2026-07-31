@@ -17,6 +17,7 @@ import {
 } from '@/lib/portal-storage';
 import { DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, type ThemeConfig } from '@/lib/theme-schema';
 import { validarContrasteTheme } from '@/lib/theme-runtime';
+import { THEME_DEFINITIONS, type ThemeDefinition } from '@/lib/theme-definitions';
 import { derivarPaleta } from '@/lib/color-utils';
 import { ThemePreview } from './theme-preview';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
@@ -103,8 +104,13 @@ export function ThemeEditor() {
 
   const contraste = validarContrasteTheme(draft);
 
+  // Cualquier edición manual ("Personalizar") marca el tema como
+  // personalizado: la tarjeta del tema elegido en "Tema" deja de decir solo
+  // "Geométrico" para decir "Geométrico (personalizado)" — es el estado de
+  // deriva que permitirá en el futuro avisar de actualizaciones sin pisar lo
+  // que el estudio ya tocó a mano.
   function setCampo<K extends keyof ThemeConfig>(key: K, value: ThemeConfig[K]) {
-    setDraft((d) => ({ ...d, [key]: value }));
+    setDraft((d) => ({ ...d, [key]: value, themeCustomized: true }));
     setAviso(null);
   }
 
@@ -112,7 +118,16 @@ export function ThemeEditor() {
   // radius y favicon actuales).
   function aplicarPaleta(primary: string) {
     const p = derivarPaleta(primary);
-    setDraft((d) => ({ ...d, primary, secondary: p.secondary, accent: p.accent, background: p.background, text: p.text }));
+    setDraft((d) => ({ ...d, primary, secondary: p.secondary, accent: p.accent, background: p.background, text: p.text, themeCustomized: true }));
+    setAviso(null);
+  }
+
+  // Elegir una tarjeta de "Tema": aplica sus defaults de golpe (no campo a
+  // campo con setCampo, que marcaría themeCustomized) y fija de qué tema/
+  // versión parte el borrador — el tema "puro", hasta que el estudio toque
+  // algo en "Personalizar".
+  function elegirTema(def: ThemeDefinition) {
+    setDraft((d) => ({ ...d, ...def.defaults, themeId: def.id, themeVersion: def.version, themeCustomized: false }));
     setAviso(null);
   }
 
@@ -192,6 +207,38 @@ export function ThemeEditor() {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
       {/* Controles */}
       <div className="space-y-6 rounded-2xl border border-border bg-card p-5">
+        {/* Tema — se elige primero, con nombre; "Personalizar" (debajo) afina */}
+        <section className="space-y-3">
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tema</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {THEME_DEFINITIONS.map((def) => {
+              const activo = draft.themeId === def.id;
+              return (
+                <button
+                  key={def.id}
+                  onClick={() => elegirTema(def)}
+                  className={`text-left p-3 rounded-xl border-2 transition-colors ${
+                    activo ? 'border-brand bg-brand/5' : 'border-border'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 text-[13px] font-bold text-foreground">
+                    {def.label}
+                    {activo && draft.themeCustomized && (
+                      <span className="text-[10.5px] font-medium text-muted-foreground">(personalizado)</span>
+                    )}
+                    {activo && <Check size={13} className="text-brand ml-auto" strokeWidth={3} />}
+                  </span>
+                  <span className="text-[11.5px] text-muted-foreground">{def.description}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest border-t border-border pt-5">
+          Personalizar
+        </p>
+
         {/* Paletas de arranque */}
         <section className="space-y-3">
           <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Empieza con una paleta</p>

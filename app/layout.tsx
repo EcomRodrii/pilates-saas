@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans } from 'next/font/google';
+import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit } from 'next/font/google';
 import { StudioProvider } from '@/lib/studio-context';
 import { AuthProvider } from '@/lib/auth-context';
 import './globals.css';
@@ -37,6 +37,17 @@ const instrumentSans = Instrument_Sans({
   display: 'swap',
 });
 
+// Titular alternativo del tema "Geométrico" (lib/theme-definitions.ts) — solo
+// se aplica cuando el estudio elige ese tema, vía --portal-heading-font
+// (lib/theme-runtime.ts). Se carga siempre (como las otras) porque next/font
+// no admite carga condicional por tenant; el coste es fijo y pequeño.
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-outfit',
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://tentare.app'),
   title: 'Tentare — Software para estudios de Pilates | Reservas, cobros y sustituciones',
@@ -61,7 +72,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} antialiased`}>
+    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} antialiased`}>
       <body className="bg-background">
         <AuthProvider>
           <StudioProvider>{children}</StudioProvider>
