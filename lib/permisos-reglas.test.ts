@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
-  puedeCrearClasesPropias,
+  puedeCrearClasesPropias, puedeGestionarPortalHome,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -256,4 +256,11 @@ test('la instructora ve Tentare Core, el resto Tentare Manager', () => {
   assert.equal(nombreAppPorRol('PROPIETARIO'), 'Tentare Manager');
   assert.equal(nombreAppPorRol('MANAGER'), 'Tentare Manager');
   assert.equal(nombreAppPorRol('RECEPCION'), 'Tentare Manager');
+});
+
+test('puedeGestionarPortalHome: propietaria y manager sí, recepción e instructora no', () => {
+  assert.equal(puedeGestionarPortalHome('PROPIETARIO'), true);
+  assert.equal(puedeGestionarPortalHome('MANAGER'), true);
+  assert.equal(puedeGestionarPortalHome('RECEPCION'), false);
+  assert.equal(puedeGestionarPortalHome('INSTRUCTOR'), false);
 });

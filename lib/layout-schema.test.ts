@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveLayout, aplicarLayout, DEFAULT_LAYOUT, type OrdenVisibilidad } from './layout-schema.ts';
+import { resolveLayout, aplicarLayout, DEFAULT_LAYOUT, layoutConfigSchema, type OrdenVisibilidad } from './layout-schema.ts';
+import { DEFAULT_HOME_BLOQUES_SHAPE } from './portal-home-bloques.ts';
 
 test('resolveLayout: null/garbage → default', () => {
   assert.deepEqual(resolveLayout(null), DEFAULT_LAYOUT);
@@ -21,7 +22,14 @@ test('resolveLayout: config válida se respeta', () => {
     orden: ['/x'], ocultos: ['/y'], menuPosition: 'superior',
     home: { orden: [], ocultos: [] },
     portalHome: { orden: [], ocultos: [] },
+    homeBloques: DEFAULT_HOME_BLOQUES_SHAPE,
   });
+});
+
+test('resolveLayout: resuelve homeBloques (Fase 3) — ver portal-home-bloques.test.ts para el detalle de resolveHomeBloques', () => {
+  const guardado = { draft: [], publicado: [{ id: 'b1', kind: 'texto', config: { titulo: 'Hola', texto: 'x' } }] };
+  const r = resolveLayout({ homeBloques: guardado });
+  assert.deepEqual(r.homeBloques.publicado, guardado.publicado);
 });
 
 test('resolveLayout: resuelve la config de la home', () => {
@@ -60,4 +68,37 @@ test('aplicarLayout: ignora hrefs de orden que ya no existen', () => {
 test('aplicarLayout: reordenar + ocultar a la vez', () => {
   const cfg: OrdenVisibilidad = { orden: ['/pos', '/socios'], ocultos: ['/dashboard'] };
   assert.deepEqual(aplicarLayout(TODOS, cfg), ['/pos', '/socios', '/calendario', '/pagos']);
+});
+
+test('layoutConfigSchema: homeBloques ausente → default (config guardada antes de esta fase)', () => {
+  const sinBloques = { ...DEFAULT_LAYOUT };
+  const objSinBloques = sinBloques as Record<string, unknown>;
+  delete objSinBloques.homeBloques;
+  const r = layoutConfigSchema.safeParse(objSinBloques);
+  assert.equal(r.success, true);
+  if (r.success) assert.deepEqual(r.data.homeBloques, DEFAULT_HOME_BLOQUES_SHAPE);
+});
+
+test('layoutConfigSchema: acepta un bloque de cada tipo del catálogo', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    homeBloques: {
+      draft: [
+        { id: 'a', kind: 'banner', config: { imagenUrl: 'https://x.com/i.png', titulo: 'T', texto: 'x', href: '/reservar' } },
+        { id: 'b', kind: 'texto', config: { titulo: 'T', texto: 'x' } },
+        { id: 'c', kind: 'cta', config: { titulo: 'T', textoBoton: 'Ir', href: '/reservar' } },
+        { id: 'd', kind: 'faq', config: { titulo: 'T', preguntas: [{ pregunta: '¿?', respuesta: '.' }] } },
+      ],
+      publicado: [],
+    },
+  });
+  assert.equal(r.success, true);
+});
+
+test('layoutConfigSchema: rechaza un bloque de kind desconocido', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    homeBloques: { draft: [{ id: 'a', kind: 'carrusel', config: {} }], publicado: [] },
+  });
+  assert.equal(r.success, false);
 });

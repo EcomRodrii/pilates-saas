@@ -403,6 +403,8 @@ export async function fetchPublicStudioData(
       contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
       bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
       portalHome: layout.portalHome,
+      // Fase 3: nunca el borrador — solo lo publicado llega al portal en vivo.
+      homeBloques: layout.homeBloques.publicado,
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
