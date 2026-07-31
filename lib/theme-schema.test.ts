@@ -87,3 +87,31 @@ test('resolveTheme: buttonStyle/cardStyle inválidos caen a solid/flat', () => {
   assert.equal(r.buttonStyle, 'solid');
   assert.equal(r.cardStyle, 'flat');
 });
+
+test('themeConfigSchema: galería de temas ausente → defaults (tema guardado antes de esta fase)', () => {
+  const sinGaleria: Record<string, unknown> = { ...DEFAULT_THEME };
+  delete sinGaleria.portalHeadingFontId;
+  delete sinGaleria.themeId;
+  delete sinGaleria.themeVersion;
+  delete sinGaleria.themeCustomized;
+  const r = themeConfigSchema.safeParse(sinGaleria);
+  assert.equal(r.success, true);
+  if (r.success) {
+    assert.equal(r.data.portalHeadingFontId, 'instrumentSerif');
+    assert.equal(r.data.themeId, 'classic');
+    assert.equal(r.data.themeVersion, 1);
+    assert.equal(r.data.themeCustomized, false);
+  }
+});
+
+test('themeConfigSchema rechaza portalHeadingFontId fuera del set curado', () => {
+  assert.equal(themeConfigSchema.safeParse({ ...DEFAULT_THEME, portalHeadingFontId: 'papyrus' }).success, false);
+});
+
+test('resolveTheme: portalHeadingFontId inválido cae a instrumentSerif; themeId/version/customized se respetan si son válidos', () => {
+  const r = resolveTheme({ portalHeadingFontId: 'papyrus', themeId: 'geometric', themeVersion: 1, themeCustomized: true });
+  assert.equal(r.portalHeadingFontId, 'instrumentSerif');
+  assert.equal(r.themeId, 'geometric');
+  assert.equal(r.themeVersion, 1);
+  assert.equal(r.themeCustomized, true);
+});

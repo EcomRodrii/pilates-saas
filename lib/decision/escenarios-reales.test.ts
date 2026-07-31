@@ -75,7 +75,7 @@ function construirSnapshot(): SnapshotEstudio {
     sesiones: [...clasesVacias, ...clasesVaciasFuturas],
     salas: [sala({ id: 's1' }), sala({ id: 's2' })],
     recibos, suscripciones, planesTarifa: planes,
-    tiposClase: [], instructores: [], automationLogs: [], campanas: [],
+    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
 }
 

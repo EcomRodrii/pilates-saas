@@ -1,5 +1,6 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
@@ -20,7 +21,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
-import { enviarEmailCancelacionClase, avisarCambioInstructoraServidor, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
+import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
@@ -1975,8 +1976,9 @@ export default function Calendario() {
   // El toast cuenta lo que ha salido DE VERDAD, no lo que se pretendía enviar.
   async function avisarCambioInstructora(aviso: NonNullable<typeof avisoInstructora>) {
     setToast('Avisando…');
-    const r = await avisarCambioInstructoraServidor(aviso.sesionId, {
-      clase: aviso.datos.clase, cuando: aviso.datos.cuando, sala: aviso.datos.sala, instructora: aviso.datos.instructora,
+    const r = await avisarCambioClaseServidor(aviso.sesionId, {
+      clase: aviso.datos.clase, cuando: aviso.datos.cuando, sala: aviso.datos.sala,
+      instructora: aviso.datos.instructora, instructorActual: aviso.datos.instructora,
       fecha: aviso.email.fecha, hora: aviso.email.hora, instructorAnterior: aviso.email.anterior,
     });
     if (!r) { setToast('No se ha podido avisar. Inténtalo otra vez.'); return; }
@@ -1991,6 +1993,33 @@ export default function Calendario() {
     } else {
       setToast('No se ha podido avisar. Inténtalo otra vez.');
     }
+  }
+
+  // Mover una clase de hora o de sala se avisa SIEMPRE (no se pregunta, a
+  // diferencia del cambio de instructora) — por email, no solo push: antes
+  // `avisarClaseModificada` solo mandaba el evento in-app (canal PUSH en el
+  // catálogo), y una socia sin cuenta de portal reclamada nunca se enteraba de
+  // que su clase cambió de horario, justo el cambio más disruptivo.
+  //
+  // Las destinatarias las resuelve el SERVIDOR contra la BD (mismo criterio
+  // que `avisarCambioInstructora`) — no el snapshot de `reservas`/`socios` del
+  // panel, que puede no ver una reserva hecha desde el portal después de
+  // cargar. Una sola llamada manda email + in-app (no hace falta además
+  // `avisarClaseModificada` aparte).
+  async function avisarCambioHorarioSala(
+    sesionId: string,
+    datos: {
+      clase: string; cuando: string; d: Date; sala: string;
+      instructora: string; instructorActual: string; instructorAnterior?: string;
+    },
+    opts: { cambioHora: boolean; cambioSala: boolean },
+  ) {
+    await avisarCambioClaseServidor(sesionId, {
+      clase: datos.clase, cuando: datos.cuando, sala: datos.sala,
+      instructora: datos.instructora, instructorActual: datos.instructorActual,
+      fecha: fechaLargaEstudio(datos.d), hora: horaEstudio(datos.d), instructorAnterior: datos.instructorAnterior ?? '',
+      cambioHora: opts.cambioHora, cambioSala: opts.cambioSala,
+    });
   }
 
   async function editarSesion() {
@@ -2058,7 +2087,19 @@ export default function Calendario() {
           },
         });
       } else {
-        void avisarClaseModificada(sesionId, datos);
+        // Una sola llamada manda email + in-app: avisarCambioClaseServidor ya
+        // resuelve destinatarias en servidor y dispara emitirClaseModificada,
+        // no hace falta además avisarClaseModificada aparte.
+        void avisarCambioHorarioSala(
+          sesionId,
+          {
+            clase, cuando, d, sala,
+            instructora, // vacía si no cambió — igual que antes, para el in-app
+            instructorActual: instructores.find(x => x.id === form.instructorId)?.nombre ?? nombreInstructor(sesionActual.instructorId),
+            instructorAnterior: cambioInstructora ? nombreInstructor(sesionActual.instructorId) : undefined,
+          },
+          { cambioHora, cambioSala },
+        );
       }
     }
     setShowForm(null);
@@ -2142,6 +2183,20 @@ export default function Calendario() {
     // Si la BD rechazó el cambio (p.ej. solape), NO avisamos de un movimiento que
     // no ocurrió ni cerramos el formulario: se muestra el motivo.
     if (!guardado.ok) { setToast(guardado.error); return; }
+    // Sin optimistic locking en `sesiones` (no tiene updated_at): el número de
+    // filas que la RPC tocó de verdad (`guardado.count`) es la única señal de
+    // que la serie cambió mientras editábamos (otra persona editó una sesión
+    // suelta de en medio, o la serie ya no es la misma). El UPDATE ya se
+    // aplicó — no hay nada que deshacer, solo avisar para que se revise.
+    if (guardado.count != null && guardado.count !== n) {
+      Sentry.captureMessage('[calendario] editar_serie_desde: filas afectadas no coinciden con las esperadas', {
+        level: 'warning', tags: { area: 'calendario', tipo: 'conflicto_edicion' },
+        extra: { sesionId, esperadas: n, afectadas: guardado.count },
+      });
+      setToast(`Serie actualizada · ${guardado.count} de ${n} clases (alguien más tocó la serie mientras editabas — revisa el calendario)`);
+      setShowForm(null);
+      return;
+    }
     // Avisa (in-app/push) a las apuntadas de CADA sesión futura de la serie que
     // cambie de horario o sala. Cada una conserva su fecha, con la hora nueva.
     const base = sesionesEnriquecidas.find(x => x.id === sesionId);

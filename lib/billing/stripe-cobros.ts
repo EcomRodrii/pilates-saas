@@ -147,7 +147,7 @@ export async function cobrarReciboOffSession(params: {
     // marca COBRADO cuando Stripe confirma 'succeeded'.
     if (esSepa && paymentIntent.status === 'processing') {
       const { error: updErr } = await admin
-        .from('recibos').update({ estado: 'EN_CURSO', metodo_cobro: 'SEPA', sepa_estado: 'processing' }).eq('id', params.reciboId);
+        .from('recibos').update({ estado: 'EN_CURSO', metodo_cobro: 'SEPA', sepa_estado: 'processing', stripe_payment_intent_id: paymentIntent.id }).eq('id', params.reciboId);
       if (updErr) {
         Sentry.captureException(new Error(`Adeudo SEPA enviado pero no se pudo marcar el recibo EN_CURSO: ${updErr.message}`), {
           level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },

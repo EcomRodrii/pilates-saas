@@ -23,7 +23,7 @@ const instructor = (id: string, p: Partial<Instructor> = {}): Instructor =>
   ({ id, studioId: 'e1', nombre: `Ins${id}`, email: null, telefono: null, color: '#000', activo: true, rol: 'INSTRUCTOR', authUserId: null, ...p });
 
 function snap(p: Partial<SnapshotEstudio>): SnapshotEstudio {
-  return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], ...p };
+  return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 }, ...p };
 }
 const M = new Map() as MemoriaEstudio;
 
@@ -38,6 +38,31 @@ test('FINANZAS: bono con 1 sesión restante → PROPONER_RENOVACION_BONO', () =>
 test('FINANZAS: bono con 5 sesiones o plan MENSUAL → no dispara', () => {
   assert.equal(finanzas.detectar(snap({ socios: [socio({ id: '1' })], planesTarifa: [plan({ id: 'b', tipo: 'BONO' })], suscripciones: [sus('1', 'b', { sesionesRestantes: 5 })] }), M, NOW).length, 0);
   assert.equal(finanzas.detectar(snap({ socios: [socio({ id: '1' })], planesTarifa: [plan({ id: 'm', tipo: 'MENSUAL', sesiones: null })], suscripciones: [sus('1', 'm', { sesionesRestantes: 0 })] }), M, NOW).length, 0);
+});
+
+// P2-5: una socia con plan MENSUAL (reformer) Y un bono de mat sueltos a la vez
+// (posible desde planes_por_tipo_de_clase) — el índice de UNA sola suscripción
+// por socia solo veía la primera y el bono agotado quedaba invisible.
+test('FINANZAS: socia con MENSUAL + BONO simultáneos → el bono casi agotado SÍ se detecta', () => {
+  const s = snap({
+    socios: [socio({ id: '1', nombre: 'Marta' })],
+    planesTarifa: [plan({ id: 'm', tipo: 'MENSUAL', sesiones: null }), plan({ id: 'b', tipo: 'BONO' })],
+    suscripciones: [sus('1', 'm', { sesionesRestantes: null }), sus('1', 'b', { sesionesRestantes: 1 })],
+  });
+  const c = finanzas.detectar(s, M, NOW);
+  assert.equal(c.length, 1);
+  assert.equal(c[0].tipo, 'PROPONER_RENOVACION_BONO');
+  assert.equal(c[0].datosUsados.nombre, 'Marta');
+});
+
+test('FINANZAS: dos socias distintas con bonos casi agotados → una candidata por socia', () => {
+  const s = snap({
+    socios: [socio({ id: '1', nombre: 'Marta' }), socio({ id: '2', nombre: 'Elena' })],
+    planesTarifa: [plan({ id: 'b', tipo: 'BONO' })],
+    suscripciones: [sus('1', 'b', { sesionesRestantes: 0 }), sus('2', 'b', { sesionesRestantes: 1 })],
+  });
+  const c = finanzas.detectar(s, M, NOW);
+  assert.equal(c.length, 2);
 });
 
 test('MARKETING: 5+ inactivas (asistieron y pararon 30d+) → PREPARAR_CAMPANA; menos → nada', () => {

@@ -8,6 +8,14 @@ import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { useModo } from '@/lib/portal-modo';
 import { ChevronLeft, Clock, Users, MapPin, BarChart2, Star, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button, BottomSheet } from '@/components/portal/ui';
+import { HojaReserva, type ClaseParaReservar } from '@/components/portal/hoja-reserva';
+
+// Reservar desde aquí (llegando por el carrusel de Inicio) no dejaba elegir
+// plaza numerada, mientras que reservar desde la Agenda (HojaReserva) sí —
+// misma clase, misma sala, dos resultados distintos según el camino que
+// tomara la socia. Se reutiliza el mismo componente/flujo de reserva, no uno
+// nuevo, para no duplicar la lógica de elegir plaza.
+const OCUPA_PLAZA = ['CONFIRMADA', 'ASISTIDA'];
 
 const NIVEL_LABEL: Record<string, string> = {
   TODOS: 'Todos los niveles', PRINCIPIANTE: 'Iniciación', MEDIO: 'Intermedio', AVANZADO: 'Avanzado',
@@ -17,7 +25,7 @@ export default function ClaseDetallePage() {
   const router = useRouter();
   const { slug, sesionId } = useParams<{ slug: string; sesionId: string }>();
   const { session } = usePortalAuth();
-  const { sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, addReserva, cancelarReserva, favoritos, toggleFavorito } = useStudio();
+  const { sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, addReserva, cancelarReserva, favoritos, toggleFavorito } = useStudio();
   const { t } = useModo();
   // El servidor puede decir que no (sin bono, clase empezada, tope de reservas).
   // Sin esto, pulsar «Reservar» no hacía nada visible y la reserva no existía.
@@ -26,6 +34,7 @@ export default function ClaseDetallePage() {
   // toque accidental con el pulgar (scrolleando en móvil) perdía la plaza sin
   // poder deshacerlo. Mismo patrón de confirmación que /reservas.
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
+  const [reservando, setReservando] = useState(false);
 
   const ses = sesiones.find(s => s.id === sesionId);
   const tipo = ses ? tiposClase.find(t2 => t2.id === ses.tipoClaseId) : undefined;
@@ -50,6 +59,44 @@ export default function ClaseDetallePage() {
     if (!ses || !session?.socioId) return null;
     return reservas.find(r => r.sesionId === ses.id && r.socioId === session.socioId && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')) ?? null;
   }, [ses, reservas, session?.socioId]);
+
+  const spotsDeLaSala = useMemo(
+    () => (ses ? spots.filter(sp => sp.activo && sp.salaId === ses.salaId) : []),
+    [spots, ses],
+  );
+  const spotsOcupados = useMemo(
+    () => (ses ? reservas.filter(r => r.sesionId === ses.id && OCUPA_PLAZA.includes(r.estado) && r.spotId).map(r => r.spotId as string) : []),
+    [reservas, ses],
+  );
+  const claseParaReservar: ClaseParaReservar | null = useMemo(() => {
+    if (!ses) return null;
+    return {
+      id: ses.id, inicio: ses.inicio, fin: ses.fin,
+      nombre: tipo?.nombre ?? 'Clase',
+      nivel: tipo?.nivel === 'TODOS' ? 'Todos los niveles' : tipo?.nivel ?? null,
+      salaNombre: sala?.nombre ?? null,
+      instructorNombre: instr?.nombre ?? null,
+      aforoMaximo: ses.aforoMaximo,
+      ocupadas: reservas.filter(r => r.sesionId === ses.id && OCUPA_PLAZA.includes(r.estado)).length,
+      spots: spotsDeLaSala,
+      spotsOcupados,
+      precio: cubierta ? null : precioClaseSuelta,
+      sesionesTrasReservar: cubierta && activeSus?.sesionesRestantes != null
+        ? Math.max(0, activeSus.sesionesRestantes - 1)
+        : null,
+    };
+  }, [ses, tipo, sala, instr, reservas, spotsDeLaSala, spotsOcupados, cubierta, precioClaseSuelta, activeSus]);
+
+  async function confirmar(spotId: string | null) {
+    if (!ses || !session?.socioId) return;
+    const r = await addReserva(ses.id, session.socioId, spotId);
+    setReservando(false);
+    setAviso(
+      !r.ok ? r.error
+        : r.estado === 'LISTA_ESPERA' ? 'Estás en la lista de espera. Te avisaremos si se libera una plaza.'
+        : 'Reservada. Te esperamos.',
+    );
+  }
 
   const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const formatDayFull = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -195,14 +242,7 @@ export default function ClaseDetallePage() {
             </Button>
           ) : (
             <Button
-              onClick={() => {
-                if (!session?.socioId) return;
-                void addReserva(ses.id, session.socioId).then(r => setAviso(
-                  !r.ok ? r.error
-                    : r.estado === 'LISTA_ESPERA' ? 'Estás en la lista de espera. Te avisaremos si se libera una plaza.'
-                    : 'Reservada. Te esperamos.',
-                ));
-              }}
+              onClick={() => { if (session?.socioId) setReservando(true); }}
               style={{ width: '100%' }}
             >
               {libres > 0
@@ -233,6 +273,12 @@ export default function ClaseDetallePage() {
           </Button>
         </div>
       </BottomSheet>
+
+      <HojaReserva
+        clase={reservando ? claseParaReservar : null}
+        onClose={() => setReservando(false)}
+        onConfirmar={confirmar}
+      />
     </div>
   );
 }

@@ -62,11 +62,12 @@ async function montarCalendario(page: Page, extra: {
     avisos.push(route.request().postData() ?? '');
     return json(route, { ok: true });
   });
-  // Endpoint que resuelve email + in-app del cambio de instructora EN SERVIDOR.
-  // Se responde con números fijos (independientes de `extra.reservas`) para
-  // demostrar que el toast pinta lo que dice el servidor, no lo que el panel
-  // cree ver en su propio snapshot de `reservas`/`socios`.
-  await page.route('**/api/clases/avisar-cambio-instructora**', route => {
+  // Endpoint que resuelve email + in-app de un cambio de instructora y/o de
+  // hora/sala EN SERVIDOR. Se responde con números fijos (independientes de
+  // `extra.reservas`) para demostrar que el toast pinta lo que dice el
+  // servidor, no lo que el panel cree ver en su propio snapshot de
+  // `reservas`/`socios`.
+  await page.route('**/api/clases/avisar-cambio-clase**', route => {
     avisosInstructora.push(route.request().postData() ?? '');
     return json(route, { ok: true, ...(extra.avisoInstructoraRespuesta ?? { enviados: 0, sinEmail: 0, enApp: 0 }) });
   });
@@ -219,9 +220,10 @@ test.describe('Momentos del calendario', () => {
     const hoy = new Date().toISOString().slice(0, 10);
     // El panel NO trae la reserva en su snapshot (se hizo desde el portal después
     // de cargar). Antes, el guard de cliente `apuntadas > 0` vetaba el aviso y el
-    // aplazamiento salía en silencio. Ahora se avisa siempre en cambios de hora y
-    // el servidor resuelve las destinatarias desde la BD.
-    const { avisos } = await montarCalendario(page, {
+    // aplazamiento salía en silencio. Ahora se avisa siempre en cambios de hora
+    // (email + in-app en una sola llamada a avisar-cambio-clase) y el servidor
+    // resuelve las destinatarias desde la BD.
+    const { avisosInstructora } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
         inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
@@ -238,7 +240,9 @@ test.describe('Momentos del calendario', () => {
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     // Se manda el aviso pese a que el panel no veía apuntadas.
-    await expect.poll(() => avisos.length, { timeout: 10_000 }).toBe(1);
+    await expect.poll(() => avisosInstructora.length, { timeout: 10_000 }).toBe(1);
+    const body = JSON.parse(avisosInstructora[0]);
+    expect(body).toMatchObject({ sesionId: 'ses-1', cambioHora: true, cambioSala: false });
   });
 
   test('un aplazamiento que la BD rechaza no avisa a nadie y muestra el motivo', async ({ page }) => {

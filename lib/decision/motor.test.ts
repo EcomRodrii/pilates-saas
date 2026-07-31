@@ -83,7 +83,7 @@ test('fixture del mockup: Laura + Marta + martes 19h + 2 pagos → Prioridades =
     studioId: 'e1',
     socios, reservas: [...reservasHistoricas, ...reservasLlenas, ...listaEspera],
     sesiones, salas, recibos, suscripciones, planesTarifa: planes,
-    tiposClase: [], instructores: [], automationLogs: [], campanas: [],
+    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const memoria: MemoriaEstudio = new Map();
 
@@ -139,7 +139,7 @@ test('fixture del mockup: Laura + Marta + martes 19h + 2 pagos → Prioridades =
 test('silencio: estudio sin ninguna señal → cero candidatas, estado EXCELENTE, saludo sin decisiones', () => {
   const snapshot: SnapshotEstudio = {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [],
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const resultado = ejecutarAnalisis({
     snapshot, memoria: new Map(), pendientesActuales: [], resueltas90d: [],
@@ -153,7 +153,7 @@ test('silencio: estudio sin ninguna señal → cero candidatas, estado EXCELENTE
 test('expiración: PENDIENTE vencida se marca VENCIDA; PENDIENTE resuelta sola se marca RESUELTA_SOLA', () => {
   const snapshot: SnapshotEstudio = {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [],
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const pendientes = [
     { id: 'p1', studioId: 'e1', decisionSessionId: 'ds', algorithmVersion: '1.0.0', especialista: 'RETENCION' as const,

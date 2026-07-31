@@ -81,6 +81,22 @@ function varsTarjeta(t: ThemeConfig): Record<string, string> {
   return {};
 }
 
+// Titular del portal cliente (galería de temas). 'instrumentSerif' (default)
+// NO declara ninguna var a propósito — mismo mecanismo que varsTarjeta 'flat'
+// — así lib/portal-design.ts sigue usando su fallback de siempre
+// (var(--font-display), Instrument Serif). El peso 600 en Outfit no es
+// arbitrario: Instrument Serif a 400 ya "pesa" por su contraste Didone, y
+// Outfit a 400 se ve fino — 600 es el que reproduce el diseño de referencia.
+function varsTitularPortal(t: ThemeConfig): Record<string, string> {
+  if (t.portalHeadingFontId === 'outfit') {
+    return {
+      '--portal-heading-font': "var(--font-outfit), 'Outfit', sans-serif",
+      '--portal-heading-weight': '600',
+    };
+  }
+  return {};
+}
+
 /** Mapa var→valor a partir de un tema (crudo o resuelto). Interno. */
 function themeToVarMap(raw: unknown): Record<string, string> {
   const t = resolveTheme(raw);
@@ -109,6 +125,8 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     // Estilo de botón/tarjeta (Fase 1 del editor de temas)
     ...varsBoton(t, marcaForeground),
     ...varsTarjeta(t),
+    // Titular del portal (galería de temas)
+    ...varsTitularPortal(t),
   };
 }
 

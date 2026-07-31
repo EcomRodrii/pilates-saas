@@ -6,10 +6,12 @@
 // progresión del ciclo (contar intento, reprogramar o marcar FALLIDO, notificar)
 // se delegan en cobrarReciboOffSession + registrarFalloCobro, que también usa el
 // webhook para las devoluciones SEPA — así tarjeta y SEPA siguen el mismo flujo.
+import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
-import { registrarFalloCobro } from '@/lib/billing/dunning-server';
+import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
 
 // Dispatcher: a las 08:30 UTC (evita las 07:00 de automatizaciones y las
 // 06:30/14:30 del Decision OS, para no competir por la concurrencia del plan free).
@@ -102,6 +104,60 @@ export const procesarDunningEstudio = inngest.createFunction(
       else omitidos++;
     }
 
-    return { studioId, candidatos: recibos.length, cobrados, enCurso, reprogramados, fallidos, omitidos };
+    // Backstop de reconciliación SEPA: un recibo EN_CURSO espera al webhook
+    // (payment_intent.succeeded/.payment_failed) para resolverse. Si esa
+    // entrega nunca llega (Stripe agota sus reintentos, o un evento se
+    // pierde), el recibo se quedaría EN_CURSO para siempre — nadie más lo
+    // vuelve a mirar. 15 días naturales de margen sobre un adeudo SEPA que
+    // normalmente falla en <14 días hábiles: no es el SLA real, es solo el
+    // umbral de "esto ya no es normal, hay que preguntarle a Stripe".
+    let sepaReconciliados = 0, sepaSiguenEnCurso = 0;
+    const atascados = await step.run('sepa-atascado-candidatos', async () => {
+      const key = process.env.STRIPE_SECRET_KEY;
+      if (!key || key.startsWith('sk_test_XXXX')) return [];
+      const admin = getSupabaseAdmin();
+      if (!admin) throw new Error('Service role no configurada');
+      const { data: studio } = await admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle();
+      const stripeAccountId = (studio as { stripe_account_id: string | null } | null)?.stripe_account_id;
+      if (!stripeAccountId) return [];
+      const umbral = new Date(new Date(nowISO).getTime() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const { data, error } = await admin
+        .from('recibos')
+        .select('id, stripe_payment_intent_id')
+        .eq('studio_id', studioId)
+        .eq('estado', 'EN_CURSO')
+        .not('stripe_payment_intent_id', 'is', null)
+        .lte('fecha_vencimiento', umbral)
+        .limit(50);
+      if (error) throw new Error(error.message);
+      return (data ?? []).map(r => ({ id: r.id as string, piId: r.stripe_payment_intent_id as string, stripeAccountId }));
+    });
+
+    for (const rec of atascados) {
+      const res = await step.run(`sepa-reconciliar-${rec.id}`, async () => {
+        const admin = getSupabaseAdmin();
+        if (!admin) throw new Error('Service role no configurada');
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-06-24.dahlia' });
+        const pi = await stripe.paymentIntents.retrieve(rec.piId, {}, { stripeAccount: rec.stripeAccountId });
+        if (pi.status === 'processing') return { tipo: 'sigue_en_curso' as const };
+
+        // El webhook no llegó a tiempo (o nunca) — misma lógica que él, para no
+        // divergir de cómo se resuelve un cobro SEPA por la vía normal.
+        Sentry.captureMessage('[dunning] reconciliación SEPA: webhook no resolvió el recibo, se actúa desde el backstop', {
+          level: 'warning', tags: { area: 'cobros', tipo: 'reconciliacion' },
+          extra: { reciboId: rec.id, studioId, paymentIntentId: pi.id, status: pi.status },
+        });
+        if (pi.status === 'succeeded') {
+          const out = await confirmarCobroSepaExitoso({ admin, reciboId: rec.id, studioId });
+          return { tipo: 'reconciliado' as const, ok: out.ok };
+        }
+        // requires_payment_method / canceled / cualquier estado terminal no exitoso.
+        await registrarFalloCobro({ admin, reciboId: rec.id, studioId, esSepa: true, ahoraISO: nowISO });
+        return { tipo: 'reconciliado' as const, ok: true };
+      });
+      if (res.tipo === 'sigue_en_curso') sepaSiguenEnCurso++; else sepaReconciliados++;
+    }
+
+    return { studioId, candidatos: recibos.length, cobrados, enCurso, reprogramados, fallidos, omitidos, sepaReconciliados, sepaSiguenEnCurso };
   },
 );

@@ -65,11 +65,27 @@ export const ESTILOS_TARJETA = [
 
 export type CardStyleId = (typeof ESTILOS_TARJETA)[number]['id'];
 
+/**
+ * Tipografía de TITULARES del portal cliente (`display()` en
+ * `lib/portal-design.ts`) — distinta de `fontId`/`FUENTES` de arriba, que solo
+ * gobierna el cuerpo/dashboard. `instrumentSerif` es el look de siempre.
+ */
+export const ESTILOS_TITULAR_PORTAL = [
+  { id: 'instrumentSerif', label: 'Instrument Serif (el de siempre)' },
+  { id: 'outfit', label: 'Outfit' },
+] as const;
+
+export type PortalHeadingFontId = (typeof ESTILOS_TITULAR_PORTAL)[number]['id'];
+
 const fontIdSchema = z.enum(FUENTES.map((f) => f.id) as [FontId, ...FontId[]]);
 const radiusSchema = z.enum(RADIOS.map((r) => r.id) as [RadiusId, ...RadiusId[]]);
 const faviconSchema = z.string().url().nullable();
 const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleId, ...ButtonStyleId[]]);
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
+const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
+const themeIdSchema = z.string();
+const themeVersionSchema = z.number().int();
+const themeCustomizedSchema = z.boolean();
 
 /** Esquema completo de un tema válido (el que exige `publicar`). */
 export const themeConfigSchema = z
@@ -86,6 +102,16 @@ export const themeConfigSchema = z
     // estos campos, y debe seguir viéndose exactamente igual (solid/flat).
     buttonStyle: buttonStyleSchema.default('solid'),
     cardStyle: cardStyleSchema.default('flat'),
+    // Titular del portal cliente — ver ESTILOS_TITULAR_PORTAL arriba.
+    portalHeadingFontId: portalHeadingFontSchema.default('instrumentSerif'),
+    // Galería de temas (lib/theme-definitions.ts): de qué ThemeDefinition (y
+    // qué versión) partió este tema, y si el estudio lo ha tocado a mano
+    // después de elegirlo. Metadato de procedencia — no gobierna el render
+    // por sí mismo, es trazabilidad para un futuro flujo de "hay una v2 de tu
+    // tema" sin migración ni romper a quien se quede en la v1.
+    themeId: themeIdSchema.default('classic'),
+    themeVersion: themeVersionSchema.default(1),
+    themeCustomized: themeCustomizedSchema.default(false),
   })
   .strict();
 
@@ -107,6 +133,10 @@ export const DEFAULT_THEME: ThemeConfig = {
   faviconUrl: null,
   buttonStyle: 'solid',
   cardStyle: 'flat',
+  portalHeadingFontId: 'instrumentSerif',
+  themeId: 'classic',
+  themeVersion: 1,
+  themeCustomized: false,
 };
 
 /**
@@ -131,5 +161,9 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     faviconUrl: pick('faviconUrl', faviconSchema),
     buttonStyle: pick('buttonStyle', buttonStyleSchema),
     cardStyle: pick('cardStyle', cardStyleSchema),
+    portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
+    themeId: pick('themeId', themeIdSchema),
+    themeVersion: pick('themeVersion', themeVersionSchema),
+    themeCustomized: pick('themeCustomized', themeCustomizedSchema),
   };
 }
