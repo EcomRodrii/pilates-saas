@@ -30,6 +30,22 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+/** Traduce una fila cruda de `instructores` (snake_case, como la ve la REST de
+ * Supabase) al `MiembroCompleto` que espera la rejilla — mismo shape que
+ * construye app/api/equipo/tarjetas/route.ts, sin ningún dato real de clases. */
+function miembroCompletoDe(i: Record<string, unknown>) {
+  return {
+    id: i.id, nombre: i.nombre, rol: i.rol, color: i.color,
+    avatar: i.avatar ?? null, fotoUrl: i.foto_url ?? null, activo: i.activo ?? true,
+    conAcceso: !!i.auth_user_id, esYo: i.auth_user_id === AUTH_UID,
+    email: i.email ?? null, telefono: i.telefono ?? null,
+    enClaseAhora: false, claseHoyLabel: null, proximaClaseIso: null,
+    semana: [0, 0, 0, 0, 0, 0, 0], horasDia: [null, null, null, null, null, null, null],
+    ocupacionPct: null, valoracion: null, horasMes: null, costeMes: null,
+    coincideContigo: null,
+  };
+}
+
 /** `invitaciones` recoge cada POST a /api/equipo/invitar: si está vacío, no ha salido ningún correo. */
 async function montarEquipo(page: Page, instructores: unknown[] = [MARTA]) {
   const invitaciones: string[] = [];
@@ -58,6 +74,11 @@ async function montarEquipo(page: Page, instructores: unknown[] = [MARTA]) {
     invitaciones.push(route.request().postData() ?? '');
     return json(route, { ok: true, email: 'nueva@example.com' });
   });
+  // La rejilla del rediseño pide su propio endpoint, ya recortado por rol en
+  // el servidor real — aquí basta con reflejar `instructores` en el shape que
+  // espera el cliente (ver app/api/equipo/tarjetas/route.ts).
+  await page.route('**/api/equipo/tarjetas**', route =>
+    json(route, { items: instructores.map(i => miembroCompletoDe(i as Record<string, unknown>)) }));
   // OJO: '**/api/equipo**' también casaría con /invitar, pero al registrarse
   // ANTES pierde contra la específica (orden inverso). El alta responde ok.
   await page.route('**/api/equipo', route => {
