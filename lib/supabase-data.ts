@@ -3969,6 +3969,45 @@ export async function fetchDeferredStudioData(studioId?: string) {
   };
 }
 
+// Fase A1 (Decision OS): sustituciones sin resolver, para que el especialista
+// EQUIPO pueda ver "instructora sin contestar". Fuera de fetchAllStudioData
+// a propósito — nadie más lo necesita hoy y no vale la pena cargarlo en cada
+// pantalla del panel. Mismo patrón service-role-cuando-existe que
+// fetchCriticalStudioData (Decision OS/crons corren sin sesión de usuario,
+// la RLS anónima devolvería cero filas).
+export interface SustitucionSnapshotRow {
+  id: string;
+  studioId: string;
+  sesionId: string;
+  instructorOriginalId: string | null;
+  estado: string;
+  creadoEn: string;
+}
+
+export async function fetchSustitucionesRecientes(studioId: string, desdeISO: string): Promise<SustitucionSnapshotRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('sustituciones')
+    .select('id, studio_id, sesion_id, instructor_original_id, estado, creado_en')
+    .eq('studio_id', studioId)
+    .gte('creado_en', desdeISO) as { data: { id: string; studio_id: string; sesion_id: string; instructor_original_id: string | null; estado: string; creado_en: string }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchSustitucionesRecientes]', error); return []; }
+  return (data ?? []).map(r => ({
+    id: r.id, studioId: r.studio_id, sesionId: r.sesion_id,
+    instructorOriginalId: r.instructor_original_id, estado: r.estado, creadoEn: r.creado_en,
+  }));
+}
+
+// Fase A1 (Decision OS): nº de sedes de la cadena a la que pertenece el
+// estudio, para calibrar umbrales de "tamaño" — una cadena de 5 sedes con
+// pocas socias en cada una no es un "estudio pequeño". 1 si no hay cadena.
+export async function contarSedesCadena(cadenaId: string): Promise<number> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { count, error } = await db.from('studios').select('id', { count: 'exact', head: true }).eq('cadena_id', cadenaId);
+  if (error) { reportDbError('[contarSedesCadena]', error); return 1; }
+  return count ?? 1;
+}
+
 // Combina ambas olas. Lo usa el cron de automatizaciones, que necesita todo.
 
 
