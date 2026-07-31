@@ -56,8 +56,12 @@ async function montarCentro(page: Page, conResumen: boolean) {
   await page.route('**/api/theme**', route =>
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
   // Los 7 especialistas llegan SIEMPRE, con o sin análisis: así los siembra la API.
+  // veredicto/seguimiento: campos del Umbral (Fase 1) — sin relación con lo
+  // que este test comprueba, así que van con el valor más neutro posible.
   await page.route('**/api/decisiones**', route => json(route, {
     resumen: conResumen ? RESUMEN : null,
+    veredicto: { tipo: 'SIN_ANALIZAR', recomendacion: null, fraseConfianza: null, semanaTranquila: false },
+    seguimiento: [],
     prioridades: [],
     masSituaciones: [],
     porEspecialista: LOS_SIETE,
@@ -75,6 +79,12 @@ test.describe('Centro de Control · los especialistas', () => {
   test('sin análisis: NO se pintan los 7 verdes junto a "aún estoy conociendo tu estudio"', async ({ page }) => {
     await montarCentro(page, false);
 
+    // El Umbral (Fase 1) oculta todo el detalle —incluido "Mi Equipo" y el
+    // aviso de modo aprendizaje— detrás de "Ver todo el detalle", colapsado
+    // por defecto. La afirmación de este test (no pueden ser verdad a la vez)
+    // sigue viva ahí dentro, solo que ya no es lo primero que se ve.
+    await page.getByRole('button', { name: 'Ver todo el detalle' }).click();
+
     // El modo aprendizaje se anuncia…
     await expect(page.getByText('Aún estoy conociendo tu estudio')).toBeVisible({ timeout: 30_000 });
 
@@ -87,6 +97,7 @@ test.describe('Centro de Control · los especialistas', () => {
 
   test('con análisis: se pintan, y dicen lo que el sistema sabe de verdad', async ({ page }) => {
     await montarCentro(page, true);
+    await page.getByRole('button', { name: 'Ver todo el detalle' }).click();
 
     await expect(page.getByText('Especialista en Retención')).toBeVisible({ timeout: 30_000 });
     // Ya no está el modo aprendizaje contradiciéndolos.
