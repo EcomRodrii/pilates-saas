@@ -50,7 +50,7 @@ async function montar(page: Page) {
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
-  await page.goto('/configuracion?tab=estudio');
+  await page.goto('/configuracion?tab=estudio&sub=reservas');
 }
 
 test.describe('Reservas y cancelaciones: solo lo que sí se decidió nace activado', () => {
