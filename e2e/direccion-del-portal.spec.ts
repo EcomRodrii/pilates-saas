@@ -67,7 +67,7 @@ async function mockBackend(page: Page, opts: { fallaCambio?: { status: number; b
 }
 
 async function abrirEstudio(page: Page) {
-  await page.goto('/configuracion?tab=estudio');
+  await page.goto('/configuracion?tab=estudio&sub=enlaces');
   await expect(page.getByText('/reservar/pilates-boutique-mar').first())
     .toBeVisible({ timeout: 30_000 });
 }

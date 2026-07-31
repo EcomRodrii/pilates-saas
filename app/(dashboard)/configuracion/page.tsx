@@ -266,6 +266,10 @@ export default function ConfiguracionPage() {
   const [gamificacionSub, setGamificacionSub] = useState<string | undefined>(undefined);
   const [clasesSalasSub, setClasesSalasSub] = useState<string | undefined>(undefined);
   const [citasSub, setCitasSub] = useState<string | undefined>(undefined);
+  // Sub-pestaña de "Estudio" (general/sedes/reservas/cobros/enlaces/legal),
+  // vía un ?sub= propio — no reescribe ningún id antiguo de ?tab=, porque
+  // "estudio" ya era su propio tab antes de tener sub-navegación.
+  const [estudioSub, setEstudioSub] = useState<string | undefined>(undefined);
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const searchParams = useSearchParams();
 
@@ -291,6 +295,10 @@ export default function ConfiguracionPage() {
       setActiveTab('citas');
     } else if (TABS.some(t => t.id === tab)) {
       setActiveTab(tab as TabId);
+    }
+    if (tab === 'estudio') {
+      const sub = searchParams.get('sub');
+      if (sub) setEstudioSub(sub);
     }
   }, [searchParams]);
 
@@ -328,7 +336,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'gamificacion' && <TabGamificacion showToast={showToast} sub={gamificacionSub} studio={studio} />}
       {activeTab === 'backups'     && <TabBackups      showToast={showToast} />}
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
-      {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} />}
+      {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} sub={estudioSub} />}
       {activeTab === 'campos'      && <TabCamposPersonalizados showToast={showToast} />}
       {activeTab === 'plantillas'  && <TabPlantillasEmail showToast={showToast} />}
       {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}

@@ -61,7 +61,7 @@ test.describe('Tus sedes (Configuración > Estudio)', () => {
   test('con dos sedes, las lista y marca cuál es la activa', async ({ page }) => {
     await mockBackend(page, DOS_SEDES);
     await seedSesionDeDuena(page);
-    await page.goto('/configuracion?tab=estudio');
+    await page.goto('/configuracion?tab=estudio&sub=sedes');
 
     await expect(page.getByRole('heading', { name: 'Tus sedes' })).toBeVisible({ timeout: 30_000 });
     // Scopeado a la tarjeta: el switcher de la barra lateral también dice
@@ -77,7 +77,7 @@ test.describe('Tus sedes (Configuración > Estudio)', () => {
   test('con una sola sede, no se pinta la lista (nada que desambiguar)', async ({ page }) => {
     await mockBackend(page, [{ id: STUDIO_ID, nombre: 'Pilates Centro' }]);
     await seedSesionDeDuena(page);
-    await page.goto('/configuracion?tab=estudio');
+    await page.goto('/configuracion?tab=estudio&sub=sedes');
 
     await expect(page.getByRole('heading', { name: 'Marca' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('heading', { name: 'Tus sedes' })).toHaveCount(0);
@@ -86,7 +86,7 @@ test.describe('Tus sedes (Configuración > Estudio)', () => {
   test('cambiarse desde la lista confirma en el destino, igual que el selector de perfil', async ({ page }) => {
     await mockBackend(page, DOS_SEDES);
     await seedSesionDeDuena(page);
-    await page.goto('/configuracion?tab=estudio');
+    await page.goto('/configuracion?tab=estudio&sub=sedes');
 
     await expect(page.getByRole('heading', { name: 'Tus sedes' })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Cambiarme' }).click();
