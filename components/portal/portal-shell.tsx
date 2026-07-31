@@ -43,7 +43,7 @@ const NAV = PORTAL_VIDEOS_CONGELADO ? ALL_NAV.filter((n) => n.seg !== 'videos') 
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { studio } = useStudio();
+  const { studio, dataLoaded } = useStudio();
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams<{ slug: string }>();
@@ -96,7 +96,13 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (isLoading) {
+  // Sin este segundo gate, las pantallas del portal (Inicio, Clases...)
+  // renderizaban de golpe con `socios`/`sesiones`/`reservas` a array vacío
+  // mientras `cargarDatosPublicos` seguía en vuelo — "Mis reservas: Ninguna"
+  // o "0 instructoras" se veían indistinguibles de un dato real vacío. Se
+  // gatea aquí (login/clave-nueva quedan fuera: esas pantallas no necesitan
+  // datos del estudio) en vez de en cada página, para no repetirlo.
+  if (isLoading || (session && !isLoginPage && !isClaveNueva && !dataLoaded)) {
     return (
       <div className="fixed inset-0 flex items-center justify-center" style={{ background: t.bg }}>
         <div className="w-8 h-8 rounded-full animate-spin" style={{ border: `3px solid ${t.line}`, borderTopColor: t.ink }} />

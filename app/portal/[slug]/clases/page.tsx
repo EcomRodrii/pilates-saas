@@ -27,6 +27,7 @@ import { HojaPase } from '@/components/portal/hoja-pase';
 import { BottomSheet, Button } from '@/components/portal/ui';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
 import { EASE, dur, transicion, display, micro, texto, radio, sombra } from '@/lib/portal-design';
+import { semantic } from '@/lib/portal-tokens';
 import type { Reserva, Spot } from '@/lib/types';
 
 type Vista = 'todas' | 'mias';
@@ -77,7 +78,7 @@ export default function ClasesPage() {
   const [reservando, setReservando] = useState<ClaseParaReservar | null>(null);
   const [cancelando, setCancelando] = useState<{ sesion: { inicio: string; tipoClaseId: string }; mia: Reserva | null } | null>(null);
   const [paseAbierto, setPaseAbierto] = useState<{ nombre: string; sub: string } | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<{ texto: string; error: boolean } | null>(null);
 
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
 
@@ -199,10 +200,13 @@ export default function ClasesPage() {
     // 0/8 y aquí ponía que estaba hecha.
     const r = await addReserva(reservando.id, socioId, spotId);
     setReservando(null);
-    if (!r.ok) { setAviso(r.error); return; }
-    setAviso(r.estado === 'LISTA_ESPERA'
-      ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
-      : 'Reservada. Te esperamos.');
+    if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
+    setAviso({
+      texto: r.estado === 'LISTA_ESPERA'
+        ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
+        : 'Reservada. Te esperamos.',
+      error: false,
+    });
   }
 
   // Antes: si la cancelación era tardía, `window.confirm()` nativo (sin marca,
@@ -485,7 +489,22 @@ export default function ClasesPage() {
       </div>
 
       {aviso && (
-        <p role="status" style={{ ...texto.pie, color: t.muted, textAlign: 'center', padding: '0 24px 16px' }}>{aviso}</p>
+        // El error de una cancelación/reserva revertida se veía IGUAL que el
+        // aviso de éxito (mismo gris apagado) — fácil de no notarlo cuando lo
+        // que de verdad importa es que la acción NO se hizo. El error usa el
+        // token semántico de "danger" (ya calibrado por contraste), en negrita.
+        <p
+          role="status"
+          style={{
+            ...texto.pie,
+            color: aviso.error ? semantic.danger.text : t.muted,
+            fontWeight: aviso.error ? 700 : texto.pie.fontWeight,
+            textAlign: 'center',
+            padding: '0 24px 16px',
+          }}
+        >
+          {aviso.texto}
+        </p>
       )}
 
       <HojaReserva key={reservando?.id ?? 'ninguna'} clase={reservando} onClose={() => setReservando(null)} onConfirmar={confirmar} />
@@ -509,7 +528,7 @@ export default function ClasesPage() {
                     const mia = cancelando.mia;
                     setCancelando(null);
                     if (!mia) return;
-                    void cancelarReserva(mia.id).then(r => setAviso(r.ok ? 'Reserva cancelada.' : r.error));
+                    void cancelarReserva(mia.id).then(r => setAviso(r.ok ? { texto: 'Reserva cancelada.', error: false } : { texto: r.error, error: true }));
                   }}
                   style={{ flex: 1 }}
                 >
