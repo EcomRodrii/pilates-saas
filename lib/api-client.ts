@@ -1143,33 +1143,44 @@ export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente
   });
 }
 
-// Email de "cambio de instructora" a una alumna con plaza. Va aparte del
-// Notification Engine (que sólo llega a quien ha reclamado su cuenta del
-// portal), igual que la cancelación. Devuelve si salió, porque el panel le
-// dice a la dueña a cuántas ha avisado de verdad.
-export async function enviarEmailCambioClase(params: DatosClaseEmailCliente & {
-  to: string; toName: string; instructorAnterior?: string;
-  cambioHora?: boolean; cambioSala?: boolean;
-}): Promise<boolean> {
+// Aviso de "cambio de clase" (instructora y/o hora/sala), email + in-app, a
+// las socias apuntadas. A diferencia del resto de `enviarEmail*`, las
+// destinatarias NO se le pasan desde el cliente: las resuelve el servidor
+// contra la BD en el momento del envío, para no depender del snapshot de
+// `reservas`/`socios` que tiene el panel (ni al preguntar "¿aviso a N
+// alumnas?" ni al mandar el email de un aplazamiento de hora/sala).
+export async function avisarCambioClaseServidor(
+  sesionId: string,
+  datos: {
+    clase: string; cuando: string; sala: string;
+    // `instructora`: solo si CAMBIÓ (condiciona el texto in-app "· con X",
+    // igual que antes). `instructorActual`: SIEMPRE el nombre de quien la da
+    // ahora — el email lo enseña en "Ahora la da" aunque solo se haya movido
+    // la hora o la sala, no la instructora.
+    instructora: string; instructorActual: string;
+    fecha: string; hora: string; instructorAnterior: string;
+    cambioHora?: boolean; cambioSala?: boolean;
+  },
+): Promise<{ enviados: number; sinEmail: number; enApp: number } | null> {
   try {
-    const res = await fetch('/api/emails/send', {
+    const res = await fetch('/api/clases/avisar-cambio-clase', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({
-        tipo: 'cambio',
-        to: params.to,
-        toName: params.toName,
-        data: {
-          claseNombre: params.claseNombre, fecha: params.fecha, hora: params.hora,
-          sala: params.sala, instructor: params.instructor,
-          instructorAnterior: params.instructorAnterior,
-          cambioHora: params.cambioHora, cambioSala: params.cambioSala,
-        },
+        sesionId,
+        clase: datos.clase, cuando: datos.cuando, sala: datos.sala,
+        instructora: datos.instructora, instructorActual: datos.instructorActual,
+        fecha: datos.fecha, hora: datos.hora, instructorAnterior: datos.instructorAnterior,
+        cambioHora: datos.cambioHora, cambioSala: datos.cambioSala,
       }),
     });
-    return res.ok;
+    if (!res.ok) return null;
+    const j = (await res.json().catch(() => null)) as
+      { enviados?: number; sinEmail?: number; enApp?: number } | null;
+    if (!j) return null;
+    return { enviados: j.enviados ?? 0, sinEmail: j.sinEmail ?? 0, enApp: j.enApp ?? 0 };
   } catch {
-    return false;
+    return null;
   }
 }
 
