@@ -103,8 +103,20 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // datos del estudio) en vez de en cada página, para no repetirlo.
   if (isLoading || (session && !isLoginPage && !isClaveNueva && !dataLoaded)) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center" style={{ background: t.bg }}>
-        <div className="w-8 h-8 rounded-full animate-spin" style={{ border: `3px solid ${t.line}`, borderTopColor: t.ink }} />
+      <div className="fixed inset-0" style={{ background: t.bg }}>
+        <div style={{ ...FRAME, padding: '28px 20px 0' }}>
+          {/* Esqueleto genérico (no sabe qué pantalla se está cargando): un
+              spinner solo, varios segundos, se lee como que la app se ha
+              colgado — esto da la sensación de que ya hay algo ahí debajo. */}
+          <div className="animate-pulse" style={{ height: 15, width: '55%', borderRadius: 7, background: t.surface2 }} />
+          <div className="animate-pulse" style={{ height: 26, width: '75%', borderRadius: 8, background: t.surface2, marginTop: 10 }} />
+          <div className="animate-pulse" style={{ height: 150, borderRadius: radio.card, background: t.surface2, marginTop: 22 }} />
+          <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: radio.card, background: t.surface2 }} />
+            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: radio.card, background: t.surface2 }} />
+            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: radio.card, background: t.surface2 }} />
+          </div>
+        </div>
       </div>
     );
   }
