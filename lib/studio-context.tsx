@@ -418,7 +418,7 @@ interface StudioContextValue {
   addRewardCatalogItem: (fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) => void;
   updateRewardCatalogItem: (id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) => void;
   deleteRewardCatalogItem: (id: string) => void;
-  canjearRecompensa: (socioId: string, catalogItemId: string) => { ok: true } | { error: string };
+  canjearRecompensa: (socioId: string, catalogItemId: string) => Promise<{ ok: true } | { error: string }>;
   updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado']) => void;
   achievementDefinitions: AchievementDefinition[];
   achievementProgress: AchievementProgress[];
@@ -3005,7 +3005,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbDeleteRewardCatalogItem(id);
   }
 
-  function canjearRecompensa(socioId: string, catalogItemId: string): { ok: true } | { error: string } {
+  async function canjearRecompensa(socioId: string, catalogItemId: string): Promise<{ ok: true } | { error: string }> {
     const item = rewardCatalog.find(c => c.id === catalogItemId);
     // Validación pura y testeada (reward-engine): disponibilidad, stock y saldo.
     const validacion = validarCanje(item, saldoCreditos(socioId));
@@ -3014,10 +3014,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     const cpub = ctxPublico();
     if (cpub) {
-      // El canje real (descuento + registro) lo hace el servidor; validamos en
-      // cliente para el feedback inmediato y recargamos.
-      postPublico('/api/public/canje', { studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, catalogItemId });
-      return { ok: true };
+      // El canje real (descuento + registro) lo hace el servidor. Antes esta
+      // llamada era fire-and-forget: devolvía `{ok:true}` sin esperar la
+      // respuesta, así que un rechazo real del servidor (recompensa agotada
+      // entre tanto, saldo insuficiente por otro canje concurrente) se veía en
+      // el portal como "¡Has canjeado tu recompensa!" — la socia creía haberla
+      // conseguido y no era cierto. Se espera y se propaga el resultado real.
+      const res = await postPublico('/api/public/canje', { studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, catalogItemId });
+      return res.ok ? { ok: true } : { error: res.error };
     }
 
     const studioId = getCurrentStudioId();

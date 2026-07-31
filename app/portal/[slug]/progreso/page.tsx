@@ -442,7 +442,7 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
   rewardRedemptions: import('@/lib/types').RewardRedemption[];
   rewardHistory: import('@/lib/types').RewardHistory[];
   saldoCreditos: (socioId: string) => number;
-  canjearRecompensa: (socioId: string, catalogItemId: string) => { ok: true } | { error: string };
+  canjearRecompensa: (socioId: string, catalogItemId: string) => Promise<{ ok: true } | { error: string }>;
 }) {
   const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
   const saldo = saldoCreditos(socioId);
@@ -462,16 +462,17 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
     return 'DISPONIBLE';
   }
 
-  function confirmarCanje() {
+  async function confirmarCanje() {
     if (!canjeando) return;
-    const result = canjearRecompensa(socioId, canjeando.id);
+    const nombre = canjeando.nombre;
+    setCanjeando(null);
+    const result = await canjearRecompensa(socioId, canjeando.id);
     if ('error' in result) {
       setError(result.error);
     } else {
-      setExito(canjeando.nombre);
+      setExito(nombre);
       setTimeout(() => setExito(null), 2500);
     }
-    setCanjeando(null);
   }
 
   const activos = rewardCatalog.filter(c => c.activo).sort((a, b) => a.costeCreditos - b.costeCreditos);

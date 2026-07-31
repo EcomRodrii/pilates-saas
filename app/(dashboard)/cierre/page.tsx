@@ -55,6 +55,12 @@ export default function CierreDeAnoPage() {
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [borrar, setBorrar] = useState<IngresoManual | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // Envío a la gestoría
   const [envOpen, setEnvOpen] = useState(false);
@@ -121,14 +127,28 @@ export default function CierreDeAnoPage() {
 
   const confirmarBorrado = async () => {
     if (!borrar) return;
-    const id = borrar.id;
-    setManuales(prev => prev.filter(x => x.id !== id));
+    const eliminado = borrar;
+    setManuales(prev => prev.filter(x => x.id !== eliminado.id));
     setBorrar(null);
-    await fetch('/api/ingresos-manuales', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ id }),
-    }).catch(() => {});
+    // Antes: fetch fire-and-forget con `.catch(() => {})` — un fallo de red o un
+    // rechazo del servidor dejaba el ingreso borrado en pantalla mientras seguía
+    // vivo en la BD, sin ningún aviso. Se comprueba el resultado real y, si
+    // falla, se deshace el borrado optimista (mismo criterio que el resto de
+    // escrituras de esta pantalla, ver `guardar`).
+    try {
+      const res = await fetch('/api/ingresos-manuales', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ id: eliminado.id }),
+      });
+      if (!res.ok) {
+        setManuales(prev => [...prev, eliminado].sort((a, b) => (a.fecha < b.fecha ? -1 : 1)));
+        setToast('No se ha podido eliminar el ingreso. Inténtalo de nuevo.');
+      }
+    } catch {
+      setManuales(prev => [...prev, eliminado].sort((a, b) => (a.fecha < b.fecha ? -1 : 1)));
+      setToast('Error de red: no se ha podido eliminar el ingreso.');
+    }
   };
 
   // Previsualización del total al escribir el importe.
@@ -573,6 +593,12 @@ export default function CierreDeAnoPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 bg-destructive text-destructive-foreground px-5 py-3 rounded-full shadow-xl text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
