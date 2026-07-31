@@ -260,6 +260,14 @@ export function confianzaCargaEquipo(c: { huecoClaro: boolean }): Confianza | nu
   return evaluarNivel(criterios, false, c.huecoClaro, false);
 }
 
+// REVISAR_CARGA_EQUIPO (Equipo E2, P2-5) — una sustitución sigue en
+// 'contactando' pasado un margen razonable: el motor automático de
+// sustituciones no ha resuelto sola, toca que alguien mire el panel.
+export function confianzaSustitucionSinResolver(c: { sinResolverTrasPlazo: boolean }): Confianza | null {
+  const criterios: Criterio[] = [{ valor: c.sinResolverTrasPlazo, etiqueta: 'sustitución sin confirmar pasado el plazo de contacto' }];
+  return evaluarNivel(criterios, false, c.sinResolverTrasPlazo, false);
+}
+
 export function confianzaAbrirSesion(c: {
   franjaLlenaConsistente: boolean;
   demandaInsatisfecha: boolean;

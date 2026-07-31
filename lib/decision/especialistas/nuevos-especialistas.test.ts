@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Socio, Suscripcion, PlanTarifa, Sesion, Instructor, Reserva } from '@/lib/types';
-import type { SnapshotEstudio, MemoriaEstudio } from '../tipos.ts';
+import type { SnapshotEstudio, MemoriaEstudio, SustitucionSnapshot } from '../tipos.ts';
 import { finanzas } from './finanzas.ts';
 import { marketing } from './marketing.ts';
 import { equipo } from './equipo.ts';
@@ -9,6 +9,7 @@ import { equipo } from './equipo.ts';
 const NOW = new Date('2026-07-13T12:00:00.000Z');
 const diasAntes = (n: number) => new Date(NOW.getTime() - n * 86400000).toISOString();
 const diasDespues = (n: number) => new Date(NOW.getTime() + n * 86400000).toISOString();
+const horasAntes = (n: number) => new Date(NOW.getTime() - n * 3600000).toISOString();
 let n = 0;
 
 const socio = (p: Partial<Socio> & Pick<Socio, 'id'>): Socio =>
@@ -21,6 +22,8 @@ const sesion = (instructorId: string, inicio: string): Sesion =>
   ({ id: `se-${++n}`, studioId: 'e1', tipoClaseId: 'tc', salaId: 's1', instructorId, inicio, fin: inicio, aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null });
 const instructor = (id: string, p: Partial<Instructor> = {}): Instructor =>
   ({ id, studioId: 'e1', nombre: `Ins${id}`, email: null, telefono: null, color: '#000', activo: true, rol: 'INSTRUCTOR', authUserId: null, ...p });
+const sustitucion = (p: Partial<SustitucionSnapshot> & Pick<SustitucionSnapshot, 'sesionId'>): SustitucionSnapshot =>
+  ({ id: `sub-${++n}`, studioId: 'e1', instructorOriginalId: null, estado: 'contactando', creadoEn: diasAntes(1), ...p });
 
 function snap(p: Partial<SnapshotEstudio>): SnapshotEstudio {
   return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 }, ...p };
@@ -93,4 +96,40 @@ test('EQUIPO: instructora con clases recientes pero ninguna futura → REVISAR_C
 test('EQUIPO: si el estudio no tiene NINGUNA clase futura, no dispara (cierre/vacaciones)', () => {
   const s = snap({ instructores: [instructor('i1')], sesiones: [sesion('i1', diasAntes(5)), sesion('i1', diasAntes(12))] });
   assert.equal(equipo.detectar(s, M, NOW).length, 0);
+});
+
+// P2-5, punto ciego original: EQUIPO nunca miraba `sustituciones`.
+test('EQUIPO: sustitución en "contactando" desde hace más de 3h → REVISAR_CARGA_EQUIPO', () => {
+  const s = snap({
+    instructores: [instructor('i1', { nombre: 'Marta' })],
+    sustituciones: [sustitucion({ sesionId: 'se1', instructorOriginalId: 'i1', creadoEn: horasAntes(4) })],
+  });
+  const c = equipo.detectar(s, M, NOW);
+  assert.equal(c.length, 1);
+  assert.equal(c[0].tipo, 'REVISAR_CARGA_EQUIPO');
+  assert.equal(c[0].instructorId, 'i1');
+  assert.ok(c[0].motivoMotor.includes('Marta'));
+});
+
+test('EQUIPO: sustitución reciente (menos de 3h) no dispara todavía', () => {
+  const s = snap({ sustituciones: [sustitucion({ sesionId: 'se1', creadoEn: horasAntes(1) })] });
+  assert.equal(equipo.detectar(s, M, NOW).length, 0);
+});
+
+test('EQUIPO: sustitución ya resuelta (confirmada) no dispara aunque sea antigua', () => {
+  const s = snap({ sustituciones: [sustitucion({ sesionId: 'se1', estado: 'confirmada', creadoEn: horasAntes(48) })] });
+  assert.equal(equipo.detectar(s, M, NOW).length, 0);
+});
+
+// Regresión: el early-return de E1 ("sin clases futuras = vacaciones") no
+// debe descartar candidatas de E2 ya detectadas — son señales independientes.
+test('EQUIPO: sustitución sin resolver dispara AUNQUE el estudio no tenga ninguna clase futura', () => {
+  const s = snap({
+    instructores: [instructor('i1')],
+    sesiones: [sesion('i1', diasAntes(5))], // sin clases futuras: el gate de E1 cortaría en `return []`
+    sustituciones: [sustitucion({ sesionId: 'se1', instructorOriginalId: 'i1', creadoEn: horasAntes(4) })],
+  });
+  const c = equipo.detectar(s, M, NOW);
+  assert.equal(c.length, 1);
+  assert.equal(c[0].datosUsados.sustitucionId, s.sustituciones[0].id);
 });
