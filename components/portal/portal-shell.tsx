@@ -23,7 +23,6 @@ import Link from 'next/link';
 import { Home, CalendarDays, Ticket, Video, User } from 'lucide-react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { portalThemeStyle } from '@/lib/portal-theme';
 import { useModo } from '@/lib/portal-modo';
 import { PORTAL_VIDEOS_CONGELADO } from '@/lib/frozen-features';
 import { EASE, dur, sans, texto, radio, altura, sombra, cristal, desenfoque } from '@/lib/portal-design';
@@ -44,12 +43,11 @@ const NAV = PORTAL_VIDEOS_CONGELADO ? ALL_NAV.filter((n) => n.seg !== 'videos') 
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { studio, dataLoaded, tabBarStyle } = useStudio();
+  const { dataLoaded, tabBarStyle } = useStudio();
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
-  const themeStyle = portalThemeStyle(studio?.temaPortal);
   const { t, noche } = useModo();
 
   const isLoginPage = pathname === `/portal/${slug}` || pathname === `/portal/${slug}/login` || pathname === `/portal/${slug}/acceso`;
@@ -92,7 +90,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   if (isClaveNueva) {
     return (
       <div className="fixed inset-0" style={{ background: t.bg }}>
-        <div style={{ ...FRAME, ...themeStyle }}>{children}</div>
+        <div style={FRAME}>{children}</div>
       </div>
     );
   }
@@ -116,7 +114,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   if (isLoginPage) {
     return (
       <div className="fixed inset-0" style={{ background: t.bg }}>
-        <div style={{ ...FRAME, ...themeStyle }}>{children}</div>
+        <div style={FRAME}>{children}</div>
       </div>
     );
   }
@@ -131,7 +129,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     <div className="fixed inset-0" style={{ background: t.bg }}>
       <div
         className="flex flex-col overflow-hidden"
-        style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)', background: t.bg, ...themeStyle }}
+        style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)', background: t.bg }}
       >
         <main className="flex-1 overflow-y-auto relative" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
           {leaving && (

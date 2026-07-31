@@ -2,9 +2,9 @@
 // componentes de components/portal/ui/*. Antes cada pantalla decidía sus
 // propios tamaños de fuente, paddings y radios; esto es el único lugar del
 // que se eligen ahora. No sustituye lib/portal-modo.tsx (colores de fondo/
-// superficie/texto por día-noche) ni lib/portal-theme.tsx (color de marca
-// por estudio) — los complementa con tipografía, espaciado, radio y color
-// de estado semántico.
+// superficie/texto por día-noche) ni el tema publicado del estudio (color de
+// marca, vía components/theme-style.tsx) — los complementa con tipografía,
+// espaciado, radio y color de estado semántico.
 import type { CSSProperties } from 'react';
 
 export const typography = {
