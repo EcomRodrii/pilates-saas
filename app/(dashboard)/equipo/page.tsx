@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol, Sesion, TipoClase } from '@/lib/types';
+import {
+  confirmadasPorSesion, estadoAhoraInstructor, ocupacionSemanalInstructor,
+  barrasOcupacionSemanal, horasSemanaInstructor, fmtHoras,
+} from '@/lib/equipo-ocupacion';
+import { colorOcupacion } from '@/lib/ocupacion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History, CalendarClock, CalendarOff, Copy, Star, Search, LayoutGrid, List, MoreVertical, Camera, Loader2, Clock, Download, ChevronLeft, ChevronRight, Plane, Stethoscope, AlertTriangle } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
@@ -14,7 +19,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 import { useRol } from '@/lib/permisos';
-import { rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { rolesQuePuedeAsignar, visibilidadCosteEquipo, type VisibilidadCosteEquipo } from '@/lib/permisos-reglas';
 
 type FiltroEstado = 'activas' | 'inactivas' | 'todas';
 type FiltroRol = 'todos' | Rol;
@@ -68,7 +73,8 @@ export default function EquipoPage() {
   // Qué niveles de acceso puede repartir quien está mirando esta pantalla.
   const miRol = useRol();
   const uid = useId();
-  const { instructores, sesiones, tiposClase, addInstructor, updateInstructor, deleteInstructor, actividadReciente } = useStudio();
+  const { instructores, sesiones, tiposClase, reservas, salas, addInstructor, updateInstructor, deleteInstructor, actividadReciente } = useStudio();
+  const visibilidad: VisibilidadCosteEquipo = visibilidadCosteEquipo(miRol);
 
   const [tab, setTab] = useState<'equipo' | 'actividad'>('equipo');
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
@@ -112,12 +118,18 @@ export default function EquipoPage() {
     let vivo = true;
     equipoStats().then(r => { if (vivo) setStats(r); });
     listarAusencias().then(r => { if (vivo) setAusencias(r); });
-    fetchTarifasEquipo().then(r => {
-      if (!vivo) return;
-      setTarifas(Object.fromEntries(r.map(t => [t.instructorId, t.tarifaHora])));
-    });
+    // `visibilidad === 'publico'` hoy es inalcanzable (esta ruta ya está vedada
+    // a quien no gestiona equipo) — pero no depender solo del 403 del servidor
+    // como red de seguridad silenciosa: si algún día se relaja esa veda, esto
+    // evita una llamada de red que revela la existencia del endpoint.
+    if (visibilidad !== 'publico') {
+      fetchTarifasEquipo().then(r => {
+        if (!vivo) return;
+        setTarifas(Object.fromEntries(r.map(t => [t.instructorId, t.tarifaHora])));
+      });
+    }
     return () => { vivo = false; };
-  }, []);
+  }, [visibilidad]);
 
   async function abrirEnlace(i: Instructor, scope: EnlaceScope = 'disponibilidad') {
     setEnlace({ instructor: i, scope, url: null, loading: true, error: null, copiado: false });
@@ -155,6 +167,29 @@ export default function EquipoPage() {
     }
     return map;
   }, [sesiones]);
+
+  // Rediseño de card (canvas "2a"): dónde está ahora, ocupación semanal (cifra
+  // + 7 barras) y horas/coste según rol. `confirmadas` es el mismo criterio
+  // A-16 (CONFIRMADA/ASISTIDA) que ya usan calendario/page.tsx y dashboard —
+  // no se reinventa aquí.
+  const confirmadas = useMemo(() => confirmadasPorSesion(reservas), [reservas]);
+  const ocupacionPorInstructor = useMemo(() => {
+    const map = new Map<string, {
+      estadoAhora: ReturnType<typeof estadoAhoraInstructor>;
+      ocupacion: number | null;
+      barras: ReturnType<typeof barrasOcupacionSemanal>;
+      horasSemana: number;
+    }>();
+    for (const i of instructores) {
+      map.set(i.id, {
+        estadoAhora: estadoAhoraInstructor(sesiones, tiposClase, salas, i.id, ahora),
+        ocupacion: ocupacionSemanalInstructor(sesiones, confirmadas, i.id, ahora),
+        barras: barrasOcupacionSemanal(sesiones, confirmadas, i.id, ahora),
+        horasSemana: horasSemanaInstructor(sesiones, tiposClase, i.id, ahora),
+      });
+    }
+    return map;
+  }, [instructores, sesiones, tiposClase, salas, confirmadas]);
 
   const activos = instructores.filter(i => i.activo).length;
   const totalClasesSemana = [...cargaPorInstructor.values()].reduce((a, b) => a + b, 0);
@@ -373,8 +408,9 @@ export default function EquipoPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {listaVisible.map(i => (
             <InstructorCard
-              key={i.id} i={i} carga={cargaPorInstructor.get(i.id) ?? 0} tarifa={tarifas[i.id] ?? null}
+              key={i.id} i={i} tarifa={tarifas[i.id] ?? null}
               prox={proximaClase.get(i.id) ?? null} val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
+              visibilidad={visibilidad} {...(ocupacionPorInstructor.get(i.id) ?? { estadoAhora: { enClase: false }, ocupacion: null, barras: [], horasSemana: 0 })}
               menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
               onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
               onValoraciones={() => { setMenuId(null); setVerValor(i); }}
@@ -390,8 +426,9 @@ export default function EquipoPage() {
         <div className="bg-card border border-border rounded-2xl divide-y divide-[#F1F1F4] overflow-visible">
           {listaVisible.map(i => (
             <InstructorRow
-              key={i.id} i={i} carga={cargaPorInstructor.get(i.id) ?? 0} prox={proximaClase.get(i.id) ?? null}
-              val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]}
+              key={i.id} i={i} prox={proximaClase.get(i.id) ?? null}
+              val={stats.valoracion[i.id]} asis={stats.asistencia[i.id]} tarifa={tarifas[i.id] ?? null}
+              visibilidad={visibilidad} {...(ocupacionPorInstructor.get(i.id) ?? { estadoAhora: { enClase: false }, ocupacion: null, barras: [], horasSemana: 0 })}
               menuAbierto={menuId === i.id} onMenu={() => setMenuId(menuId === i.id ? null : i.id)}
               onEnlace={(scope) => { setMenuId(null); abrirEnlace(i, scope); }} onEdit={() => openEditar(i)} onDelete={() => { setMenuId(null); setConfirmDel(i); }}
               onValoraciones={() => { setMenuId(null); setVerValor(i); }}
@@ -683,6 +720,60 @@ function Badges({ i, ausente }: { i: Instructor; ausente?: AusenciaInstructora |
   );
 }
 
+// Punto de color + frase de qué hace ahora mismo (canvas "2a"). Verde =
+// dando clase ahora; gris = libre. Sustituye a no tener nada.
+function EstadoAhora({ estado }: { estado: ReturnType<typeof estadoAhoraInstructor> }) {
+  return (
+    <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${estado.enClase ? 'bg-success' : 'bg-muted-foreground/40'}`} />
+      {estado.enClase ? estado.texto : 'Libre ahora'}
+    </p>
+  );
+}
+
+// La semana en 7 barras: de un vistazo, qué días tiene carga y cuáles tiene
+// huecos. Gris/plana = sin clases ese día (distinto de "0% ocupado").
+function BarrasSemana({ barras }: { barras: Array<{ fecha: Date; ratio: number | null }> }) {
+  return (
+    <div className="flex items-end gap-1 h-8">
+      {barras.map(({ fecha, ratio }, idx) => (
+        <div key={idx} data-testid="barra-ocupacion" className="flex-1 flex flex-col items-center gap-1" title={fecha.toLocaleDateString('es-ES', { weekday: 'short' })}>
+          <div
+            className="w-full rounded-sm"
+            style={{
+              height: ratio == null ? 3 : Math.max(3, Math.round(ratio * 24)),
+              background: ratio == null ? 'var(--muted)' : colorOcupacion(ratio),
+              opacity: ratio == null ? 0.5 : 1,
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Coste (PROPIETARIO) u horas (MANAGER) — nunca los dos a la vez. `publico`
+// no renderiza nada (hoy inalcanzable, ver plan: /equipo vedado a INSTRUCTOR).
+function CosteOHoras({ visibilidad, horasSemana, tarifa }: { visibilidad: VisibilidadCosteEquipo; horasSemana: number; tarifa?: number | null }) {
+  if (visibilidad === 'publico') return null;
+  if (visibilidad === 'coste' && tarifa != null) {
+    const coste = horasSemana * tarifa;
+    return (
+      <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+        <Clock size={13} className="shrink-0" />
+        {coste.toLocaleString('es-ES', { maximumFractionDigits: 0 })} € · {tarifa.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/h
+      </p>
+    );
+  }
+  if (horasSemana <= 0) return null;
+  return (
+    <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+      <Clock size={13} className="shrink-0" />
+      {fmtHoras(horasSemana)}
+    </p>
+  );
+}
+
 function StatCol({ valor, sub, star, borde, onClick }: { valor: ReactNode; sub: string; star?: boolean; borde?: boolean; onClick?: () => void }) {
   const inner = (
     <>
@@ -727,9 +818,9 @@ function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoracio
             <button onClick={onAusencias} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
               <Plane size={14} className="text-muted-foreground" /> Vacaciones y bajas
             </button>
-            <button onClick={() => onEnlace('disponibilidad')} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
-              <CalendarClock size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.disponibilidad.menu}
-            </button>
+            {/* "Enlace de disponibilidad" ya no vive aquí: es la acción
+                principal de la card (fuera del menú, con el nombre de la
+                persona) — ver botón "Pedir disponibilidad a…" más abajo. */}
             <button onClick={() => onEnlace('reportar_baja')} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
               <CalendarOff size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.reportar_baja.menu}
             </button>
@@ -743,9 +834,11 @@ function Acciones({ menuAbierto, onMenu, onEnlace, onEdit, onDelete, onValoracio
   );
 }
 
-function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvitar, tarifa, ...acc }: {
-  i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
+function InstructorCard({ i, prox, val, asis, ausente, invitando, onInvitar, tarifa, estadoAhora, ocupacion, barras, horasSemana, visibilidad, ...acc }: {
+  i: Instructor; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
   invitando?: boolean; onInvitar?: () => void; tarifa?: number | null;
+  estadoAhora: ReturnType<typeof estadoAhoraInstructor>; ocupacion: number | null;
+  barras: Array<{ fecha: Date; ratio: number | null }>; horasSemana: number; visibilidad: VisibilidadCosteEquipo;
 } & AccProps) {
   return (
     <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
@@ -755,6 +848,7 @@ function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvit
           <div className="min-w-0">
             <p className="font-bold text-foreground text-[15px] leading-tight truncate">{i.nombre}</p>
             <Badges i={i} ausente={ausente} />
+            <div className="mt-1"><EstadoAhora estado={estadoAhora} /></div>
           </div>
         </div>
         <Acciones {...acc} tieneValoraciones={!!(val && val.total > 0)} />
@@ -764,7 +858,7 @@ function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvit
         {i.email && <p className="flex items-center gap-2 text-[13px] text-muted-foreground truncate"><Mail size={13} className="shrink-0" />{i.email}</p>}
         {i.telefono && <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Phone size={13} className="shrink-0" />{i.telefono}</p>}
         {!i.email && !i.telefono && <p className="text-[12px] text-muted-foreground italic">Sin datos de contacto</p>}
-        {tarifa != null && <p className="flex items-center gap-2 text-[13px] text-muted-foreground"><Clock size={13} className="shrink-0" />{tarifa.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/h</p>}
+        <CosteOHoras visibilidad={visibilidad} horasSemana={horasSemana} tarifa={tarifa} />
 
         {/* `authUserId` a null = todavía no ha reclamado su acceso. Antes esto no
             se veía en ninguna parte: el correo salía solo al guardar y, si se
@@ -785,11 +879,21 @@ function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvit
         )}
       </div>
 
+      <button
+        onClick={() => acc.onEnlace('disponibilidad')}
+        className="flex items-center justify-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border text-foreground hover:bg-muted transition-colors"
+      >
+        <CalendarClock size={14} /> Pedir disponibilidad a {i.nombre.split(' ')[0]}
+      </button>
+
       <div className="mt-auto">
         <div className="grid grid-cols-3 pt-3 border-t border-[#F1F1F4]">
-          <StatCol valor={<>{carga}<span className="text-[11px] font-medium text-muted-foreground"> clase{carga === 1 ? '' : 's'}</span></>} sub="próx. 7 días" />
-          <StatCol valor={asis && asis.base > 0 ? `${asis.pct}%` : '—'} sub="asistencia" borde />
+          <StatCol valor={ocupacion == null ? '—' : `${ocupacion}%`} sub="ocupación" />
           <StatCol valor={val && val.total > 0 ? val.media.toFixed(1) : '—'} star={!!(val && val.total > 0)} sub="valoración" borde onClick={val && val.total > 0 ? acc.onValoraciones : undefined} />
+          <StatCol valor={asis && asis.base > 0 ? `${asis.pct}%` : '—'} sub="asistencia" borde />
+        </div>
+        <div className="pt-3 mt-3 border-t border-[#F1F1F4]">
+          <BarrasSemana barras={barras} />
         </div>
         <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#F1F1F4]">
           <span className="text-[12px] text-muted-foreground">Próxima clase</span>
@@ -800,9 +904,11 @@ function InstructorCard({ i, carga, prox, val, asis, ausente, invitando, onInvit
   );
 }
 
-function InstructorRow({ i, carga, prox, val, asis, ausente, invitando, onInvitar, ...acc }: {
-  i: Instructor; carga: number; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
-  invitando?: boolean; onInvitar?: () => void;
+function InstructorRow({ i, prox, val, asis, ausente, invitando, onInvitar, tarifa, estadoAhora, ocupacion, horasSemana, visibilidad, ...acc }: {
+  i: Instructor; prox: Date | null; val: Val; asis: Asis; ausente?: AusenciaInstructora | null;
+  invitando?: boolean; onInvitar?: () => void; tarifa?: number | null;
+  estadoAhora: ReturnType<typeof estadoAhoraInstructor>; ocupacion: number | null;
+  barras: Array<{ fecha: Date; ratio: number | null }>; horasSemana: number; visibilidad: VisibilidadCosteEquipo;
 } & AccProps) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
@@ -810,6 +916,10 @@ function InstructorRow({ i, carga, prox, val, asis, ausente, invitando, onInvita
       <div className="min-w-0 flex-1">
         <p className="font-bold text-foreground text-[14px] leading-tight truncate">{i.nombre}</p>
         <Badges i={i} ausente={ausente} />
+        <div className="mt-0.5 flex items-center gap-3">
+          <EstadoAhora estado={estadoAhora} />
+          <CosteOHoras visibilidad={visibilidad} horasSemana={horasSemana} tarifa={tarifa} />
+        </div>
         {i.email && !i.authUserId && (
           <p className="text-[12px] text-warning font-medium mt-0.5">
             Todavía sin acceso
@@ -825,8 +935,14 @@ function InstructorRow({ i, carga, prox, val, asis, ausente, invitando, onInvita
           </p>
         )}
       </div>
+      <button
+        onClick={() => acc.onEnlace('disponibilidad')}
+        className="hidden lg:flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-xl border border-border text-foreground hover:bg-muted transition-colors shrink-0"
+      >
+        <CalendarClock size={13} /> Pedir disponibilidad a {i.nombre.split(' ')[0]}
+      </button>
       <div className="hidden md:flex items-center gap-6 text-right">
-        <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{carga}</p><p className="text-[10px] text-muted-foreground mt-0.5">7 días</p></div>
+        <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{ocupacion == null ? '—' : `${ocupacion}%`}</p><p className="text-[10px] text-muted-foreground mt-0.5">ocupación</p></div>
         <div><p className="text-[15px] font-extrabold text-foreground leading-none tabular-nums">{asis && asis.base > 0 ? `${asis.pct}%` : '—'}</p><p className="text-[10px] text-muted-foreground mt-0.5">asistencia</p></div>
         {val && val.total > 0 ? (
           <button type="button" onClick={acc.onValoraciones} title="Ver valoraciones" className="text-right group cursor-pointer">

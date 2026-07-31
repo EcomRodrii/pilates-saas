@@ -142,6 +142,21 @@ export function rolesQuePuedeAsignar(rol: Rol): Rol[] {
   return [];
 }
 
+// Qué nivel de dato salarial ve la card de "Equipo" de cada instructora, según
+// quién mira (rediseño de card, canvas "2a"). Distinto de `puedeGestionarEquipo`:
+// ese sigue gobernando quién puede EDITAR/fijar la tarifa (PR #562, sin cambios
+// — un manager sigue pudiendo leerla/escribirla en el modal de editar); esto
+// es solo qué se muestra de un vistazo en la card. 'publico' hoy es
+// inalcanzable porque `/equipo` ya está vedado a INSTRUCTOR/RECEPCION
+// (RUTAS_VETADAS más abajo) — se deja preparado por si algún día se abre esa
+// ruta, no se activa aquí.
+export type VisibilidadCosteEquipo = 'coste' | 'horas' | 'publico';
+export function visibilidadCosteEquipo(rol: Rol): VisibilidadCosteEquipo {
+  if (rol === 'PROPIETARIO') return 'coste';
+  if (rol === 'MANAGER') return 'horas';
+  return 'publico';
+}
+
 // Arquitectura de marca: el panel es una sola app role-gateada, pero se
 // percibe como dos productos — Tentare Core para instructoras, Tentare
 // Manager para propietaria/manager/recepción. Fuente de verdad única del

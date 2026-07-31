@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
-  puedeCrearClasesPropias,
+  puedeCrearClasesPropias, visibilidadCosteEquipo,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -144,6 +144,13 @@ test('la propietaria reparte todo, incluido el rol nuevo', () => {
 test('quien no gestiona equipo no reparte nada', () => {
   assert.deepEqual(rolesQuePuedeAsignar('RECEPCION'), []);
   assert.deepEqual(rolesQuePuedeAsignar('INSTRUCTOR'), []);
+});
+
+test('visibilidadCosteEquipo: propietaria ve coste, manager solo horas, el resto nada', () => {
+  assert.equal(visibilidadCosteEquipo('PROPIETARIO'), 'coste');
+  assert.equal(visibilidadCosteEquipo('MANAGER'), 'horas');
+  assert.equal(visibilidadCosteEquipo('RECEPCION'), 'publico');
+  assert.equal(visibilidadCosteEquipo('INSTRUCTOR'), 'publico');
 });
 
 test('gestionar clientas: el manager sí, la instructora no', () => {
